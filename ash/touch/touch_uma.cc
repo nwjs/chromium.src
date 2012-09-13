@@ -10,7 +10,7 @@
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_property.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 
 #if defined(USE_XI2_MT)
 #include <X11/extensions/XInput2.h>
@@ -264,7 +264,11 @@ void TouchUMA::RecordGestureEvent(aura::Window* target,
   if (event.type() == ui::ET_GESTURE_END &&
       event.details().touch_points() == 2) {
     WindowTouchDetails* details = target->GetProperty(kWindowTouchDetails);
-    CHECK(details) << "Window received gesture but no touch events?";
+    if (!details) {
+      LOG(ERROR) << "Window received gesture events without receiving any touch"
+                    " events";
+      return;
+    }
     details->last_mt_time_ = event.time_stamp();
   }
 }

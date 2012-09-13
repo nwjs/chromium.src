@@ -6,10 +6,14 @@
 #include "WebLayerTreeViewImpl.h"
 
 #include "CCFontAtlas.h"
+#include "CCInputHandler.h"
 #include "CCLayerTreeHost.h"
 #include "LayerChromium.h"
 #include "WebLayerImpl.h"
+#include "WebToCCInputHandlerAdapter.h"
+#include "webcore_convert.h"
 #include <public/WebGraphicsContext3D.h>
+#include <public/WebInputHandler.h>
 #include <public/WebLayer.h>
 #include <public/WebLayerTreeView.h>
 #include <public/WebLayerTreeViewClient.h>
@@ -47,8 +51,8 @@ bool WebLayerTreeViewImpl::initialize(const WebLayerTreeView::Settings& webSetti
     settings.showPaintRects = webSettings.showPaintRects;
     settings.renderVSyncEnabled = webSettings.renderVSyncEnabled;
     settings.refreshRate = webSettings.refreshRate;
-    settings.defaultTileSize = webSettings.defaultTileSize;
-    settings.maxUntiledLayerSize = webSettings.maxUntiledLayerSize;
+    settings.defaultTileSize = convert(webSettings.defaultTileSize);
+    settings.maxUntiledLayerSize = convert(webSettings.maxUntiledLayerSize);
     m_layerTreeHost = CCLayerTreeHost::create(this, settings);
     if (!m_layerTreeHost)
         return false;
@@ -70,27 +74,22 @@ void WebLayerTreeViewImpl::clearRootLayer()
     m_layerTreeHost->setRootLayer(PassRefPtr<LayerChromium>());
 }
 
-int WebLayerTreeViewImpl::compositorIdentifier()
-{
-    return m_layerTreeHost->compositorIdentifier();
-}
-
 void WebLayerTreeViewImpl::setViewportSize(const WebSize& layoutViewportSize, const WebSize& deviceViewportSize)
 {
     if (!deviceViewportSize.isEmpty())
-        m_layerTreeHost->setViewportSize(layoutViewportSize, deviceViewportSize);
+        m_layerTreeHost->setViewportSize(convert(layoutViewportSize), convert(deviceViewportSize));
     else
-        m_layerTreeHost->setViewportSize(layoutViewportSize, layoutViewportSize);
+        m_layerTreeHost->setViewportSize(convert(layoutViewportSize), convert(layoutViewportSize));
 }
 
 WebSize WebLayerTreeViewImpl::layoutViewportSize() const
 {
-    return WebSize(m_layerTreeHost->layoutViewportSize());
+    return convert(m_layerTreeHost->layoutViewportSize());
 }
 
 WebSize WebLayerTreeViewImpl::deviceViewportSize() const
 {
-    return WebSize(m_layerTreeHost->deviceViewportSize());
+    return convert(m_layerTreeHost->deviceViewportSize());
 }
 
 void WebLayerTreeViewImpl::setDeviceScaleFactor(const float deviceScaleFactor)
@@ -158,7 +157,7 @@ void WebLayerTreeViewImpl::updateAnimations(double frameBeginTime)
 
 bool WebLayerTreeViewImpl::compositeAndReadback(void *pixels, const WebRect& rect)
 {
-    return m_layerTreeHost->compositeAndReadback(pixels, rect);
+    return m_layerTreeHost->compositeAndReadback(pixels, convert(rect));
 }
 
 void WebLayerTreeViewImpl::finishAllRendering()
@@ -182,7 +181,7 @@ void WebLayerTreeViewImpl::setFontAtlas(SkBitmap bitmap, WebRect asciiToWebRectT
 {
     IntRect asciiToRectTable[128];
     for (int i = 0; i < 128; ++i)
-        asciiToRectTable[i] = asciiToWebRectTable[i];
+        asciiToRectTable[i] = convert(asciiToWebRectTable[i]);
     OwnPtr<CCFontAtlas> fontAtlas = CCFontAtlas::create(bitmap, asciiToRectTable, fontHeight);
     m_layerTreeHost->setFontAtlas(fontAtlas.release());
 }
@@ -214,7 +213,7 @@ void WebLayerTreeViewImpl::layout()
 
 void WebLayerTreeViewImpl::applyScrollAndScale(const WebCore::IntSize& scrollDelta, float pageScale)
 {
-    m_client->applyScrollAndScale(scrollDelta, pageScale);
+    m_client->applyScrollAndScale(convert(scrollDelta), pageScale);
 }
 
 PassOwnPtr<WebCompositorOutputSurface> WebLayerTreeViewImpl::createOutputSurface()
@@ -225,6 +224,14 @@ PassOwnPtr<WebCompositorOutputSurface> WebLayerTreeViewImpl::createOutputSurface
 void WebLayerTreeViewImpl::didRecreateOutputSurface(bool success)
 {
     m_client->didRecreateOutputSurface(success);
+}
+
+PassOwnPtr<CCInputHandler> WebLayerTreeViewImpl::createInputHandler()
+{
+    OwnPtr<WebInputHandler> handler = adoptPtr(m_client->createInputHandler());
+    if (handler)
+        return WebToCCInputHandlerAdapter::create(handler.release());
+    return nullptr;
 }
 
 void WebLayerTreeViewImpl::willCommit()

@@ -9,6 +9,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/cocoa/browser_window_utils.h"
 #import "chrome/browser/ui/cocoa/chrome_event_processing_window.h"
+#include "chrome/browser/ui/cocoa/extensions/extension_keybinding_registry_cocoa.h"
 #include "chrome/browser/ui/cocoa/extensions/extension_view_mac.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/extensions/extension.h"
@@ -64,27 +65,23 @@
   [[self window] makeKeyAndOrderFront:self];
 }
 
-- (void)attachConstrainedWindow:(ConstrainedWindowMac*)window {
+- (GTMWindowSheetController*)sheetController {
   if (!sheetController_.get()) {
     sheetController_.reset([[GTMWindowSheetController alloc]
         initWithWindow:[self window]
               delegate:self]);
   }
-
-  NSView* tabContentsView =
-      [window->owner()->web_contents()->GetNativeView() superview];
-  window->delegate()->RunSheet(sheetController_, tabContentsView);
-}
-
-- (void)removeConstrainedWindow:(ConstrainedWindowMac*)window {
-}
-
-- (BOOL)canAttachConstrainedWindow {
-  return YES;
+  return sheetController_;
 }
 
 - (void)executeCommand:(int)command {
   // No-op, swallow the event.
+}
+
+- (BOOL)handledByExtensionCommand:(NSEvent*)event {
+  if (shellWindow_)
+    return shellWindow_->HandledByExtensionCommand(event);
+  return NO;
 }
 
 @end
@@ -117,6 +114,24 @@
                                    yRadius:cornerRadius] addClip];
   [[NSColor whiteColor] set];
   NSRectFill(rect);
+}
+
++ (NSRect)frameRectForContentRect:(NSRect)contentRect
+                        styleMask:(NSUInteger)mask {
+  return contentRect;
+}
+
++ (NSRect)contentRectForFrameRect:(NSRect)frameRect
+                        styleMask:(NSUInteger)mask {
+  return frameRect;
+}
+
+- (NSRect)frameRectForContentRect:(NSRect)contentRect {
+  return contentRect;
+}
+
+- (NSRect)contentRectForFrameRect:(NSRect)frameRect {
+  return frameRect;
 }
 
 @end
@@ -191,6 +206,10 @@ ShellWindowCocoa::ShellWindowCocoa(ShellWindow* shell_window,
 
   [[window_controller_ window] setDelegate:window_controller_];
   [window_controller_ setShellWindow:this];
+
+  extension_keybinding_registry_.reset(
+      new ExtensionKeybindingRegistryCocoa(shell_window_->profile(), window,
+          extensions::ExtensionKeybindingRegistry::PLATFORM_APPS_ONLY));
 }
 
 void ShellWindowCocoa::InstallView() {
@@ -377,6 +396,10 @@ void ShellWindowCocoa::SetBounds(const gfx::Rect& bounds) {
   [window() setFrame:cocoa_bounds display:YES];
 }
 
+void ShellWindowCocoa::UpdateWindowIcon() {
+  // TODO(junmin): implement.
+}
+
 void ShellWindowCocoa::UpdateWindowTitle() {
   string16 title = shell_window_->GetTitle();
   [window() setTitle:base::SysUTF16ToNSString(title)];
@@ -481,6 +504,11 @@ void ShellWindowCocoa::WindowDidResize() {
 
 void ShellWindowCocoa::WindowDidMove() {
   shell_window_->SaveWindowPosition();
+}
+
+bool ShellWindowCocoa::HandledByExtensionCommand(NSEvent* event) {
+  return extension_keybinding_registry_->ProcessKeyEvent(
+      content::NativeWebKeyboardEvent(event));
 }
 
 ShellWindowCocoa::~ShellWindowCocoa() {

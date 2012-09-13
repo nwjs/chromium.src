@@ -5,9 +5,9 @@ found in the LICENSE file.
 This file is used for making non-code changes to trigger buildbot cycles. Make
 any modification below this line.
 
-=============================================================================
+==========================================================================
 
-Let's make a story. Add one sentence for each commit:
+Let's make a story. Add one sentence for every commit:
 
 CHAPTER 1.0:
 It was a dark and stormy night; the rain fell in torrents -- except at

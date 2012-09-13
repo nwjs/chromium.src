@@ -1148,6 +1148,10 @@ gfx::Rect BrowserWindowGtk::GetInstantBounds() {
   return ui::GetWidgetScreenBounds(contents_container_->widget());
 }
 
+bool BrowserWindowGtk::IsInstantTabShowing() {
+  return contents_container_->HasPreview();
+}
+
 WindowOpenDisposition BrowserWindowGtk::GetDispositionForPopupBounds(
     const gfx::Rect& bounds) {
   return NEW_POPUP;
@@ -1818,7 +1822,8 @@ void BrowserWindowGtk::InitWidgets() {
 
   // Add the keybinding registry, now that the window has been realized.
   extension_keybinding_registry_.reset(
-      new ExtensionKeybindingRegistryGtk(browser_->profile(), window_));
+      new ExtensionKeybindingRegistryGtk(browser_->profile(), window_,
+          extensions::ExtensionKeybindingRegistry::ALL_EXTENSIONS));
 
   // We have to call this after the first window is created, but after that only
   // when the theme changes. This sets the icon that will be used for windows

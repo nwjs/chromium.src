@@ -255,7 +255,7 @@ IPC_STRUCT_TRAITS_BEGIN(ppapi::proxy::PPPDecryptor_Buffer)
   IPC_STRUCT_TRAITS_MEMBER(size)
 IPC_STRUCT_TRAITS_END()
 
-#endif  // !defined(OS_NACL)
+#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
 // These are from the browser to the plugin.
 // Loads the given plugin.
@@ -628,6 +628,7 @@ IPC_MESSAGE_ROUTED3(
     uint32 /* plugin_dispatcher_id */,
     PP_Resource /* resource */,
     int32_t /* result */)
+#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
 // PPB_TCPSocket_Private.
 IPC_MESSAGE_ROUTED5(PpapiMsg_PPBTCPSocket_ConnectACK,
@@ -670,10 +671,12 @@ IPC_MESSAGE_ROUTED4(PpapiMsg_PPBUDPSocket_SendToACK,
                     bool /* succeeded */,
                     int32_t /* bytes_written */)
 
+#if !defined(OS_NACL) && !defined(NACL_WIN64)
 // PPB_URLLoader_Trusted
 IPC_MESSAGE_ROUTED1(
     PpapiMsg_PPBURLLoader_UpdateProgress,
     ppapi::proxy::PPBURLLoader_UpdateProgress_Params /* params */)
+#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
 // PPB_TCPServerSocket_Private.
 
@@ -705,6 +708,7 @@ IPC_MESSAGE_ROUTED5(PpapiMsg_PPBHostResolver_ResolveACK,
                     std::string /* canonical_name */,
                     ppapi::NetAddressList /* net_address_list */)
 
+#if !defined(OS_NACL) && !defined(NACL_WIN64)
 // PPP_Instance_Private.
 IPC_SYNC_MESSAGE_ROUTED1_1(PpapiMsg_PPPInstancePrivate_GetInstanceObject,
                            PP_Instance /* instance */,
@@ -1025,10 +1029,6 @@ IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBInstance_LockMouse,
                     PP_Instance /* instance */)
 IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBInstance_UnlockMouse,
                     PP_Instance /* instance */)
-IPC_SYNC_MESSAGE_ROUTED1_2(PpapiHostMsg_PPBPInstance_GetDefaultPrintSettings,
-                           PP_Instance /* instance */,
-                           PP_PrintSettings_Dev /* settings */,
-                           bool /* result */)
 IPC_SYNC_MESSAGE_ROUTED2_1(PpapiHostMsg_PPBInstance_ResolveRelativeToDocument,
                            PP_Instance /* instance */,
                            ppapi::proxy::SerializedVar /* relative */,
@@ -1218,6 +1218,7 @@ IPC_MESSAGE_CONTROL1(PpapiHostMsg_PPBNetworkMonitor_Start,
                      uint32 /* plugin_dispatcher_id */)
 IPC_MESSAGE_CONTROL1(PpapiHostMsg_PPBNetworkMonitor_Stop,
                      uint32 /* plugin_dispatcher_id */)
+#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
 // PPB_HostResolver_Private.
 IPC_MESSAGE_CONTROL5(PpapiHostMsg_PPBHostResolver_Resolve,
@@ -1227,6 +1228,7 @@ IPC_MESSAGE_CONTROL5(PpapiHostMsg_PPBHostResolver_Resolve,
                      ppapi::HostPortPair /* host_port */,
                      PP_HostResolver_Private_Hint /* hint */)
 
+#if !defined(OS_NACL) && !defined(NACL_WIN64)
 // PPB_PDF
 IPC_SYNC_MESSAGE_ROUTED3_1(
     PpapiHostMsg_PPBPDF_GetFontFileWithFallback,
@@ -1246,6 +1248,7 @@ IPC_MESSAGE_ROUTED2(
     PpapiHostMsg_PPBTalk_GetPermission,
     uint32 /* plugin_dispatcher_id */,
     PP_Resource /* resource */)
+#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
 // PPB_Testing.
 IPC_SYNC_MESSAGE_ROUTED3_1(
@@ -1261,6 +1264,7 @@ IPC_MESSAGE_ROUTED2(PpapiHostMsg_PPBTesting_SimulateInputEvent,
                     PP_Instance /* instance */,
                     ppapi::InputEventData /* input_event */)
 
+#if !defined(OS_NACL) && !defined(NACL_WIN64)
 // PPB_VideoCapture_Dev.
 IPC_SYNC_MESSAGE_ROUTED1_1(PpapiHostMsg_PPBVideoCapture_Create,
                            PP_Instance /* instance */,
@@ -1415,6 +1419,7 @@ IPC_SYNC_MESSAGE_ROUTED1_1(PpapiHostMsg_PPBFlashMessageLoop_Run,
                            int32_t /* result */)
 IPC_SYNC_MESSAGE_ROUTED1_0(PpapiHostMsg_PPBFlashMessageLoop_Quit,
                            ppapi::HostResource /* flash_message_loop */)
+#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
 // PPB_TCPSocket_Private.
 IPC_SYNC_MESSAGE_CONTROL2_1(PpapiHostMsg_PPBTCPSocket_Create,
@@ -1488,6 +1493,7 @@ IPC_SYNC_MESSAGE_CONTROL1_2(PpapiHostMsg_PPBX509Certificate_ParseDER,
                             bool /* succeeded */,
                             ppapi::PPB_X509Certificate_Fields /* result */)
 
+#if !defined(OS_NACL) && !defined(NACL_WIN64)
 // PPB_Font.
 IPC_SYNC_MESSAGE_CONTROL0_1(PpapiHostMsg_PPBFont_GetFontFamilies,
                             std::string /* result */)
@@ -1545,6 +1551,17 @@ IPC_MESSAGE_CONTROL1(PpapiPluginMsg_FileChooser_ShowReply,
 
 // Gamepad.
 IPC_MESSAGE_CONTROL0(PpapiHostMsg_Gamepad_Create)
+
+// Requests that the gamepad host send the shared memory handle to the plugin
+// process.
 IPC_MESSAGE_CONTROL0(PpapiHostMsg_Gamepad_RequestMemory)
-IPC_MESSAGE_CONTROL1(PpapiPluginMsg_Gamepad_SendMemory,
-                     base::SharedMemoryHandle /* handle */)
+
+// Reply to a RequestMemory call. This supplies the shared memory handle. The
+// actual handle is passed in the ReplyParams struct.
+IPC_MESSAGE_CONTROL0(PpapiPluginMsg_Gamepad_SendMemory)
+
+// Printing.
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_Printing_Create)
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_Printing_GetDefaultPrintSettings)
+IPC_MESSAGE_CONTROL1(PpapiPluginMsg_Printing_GetDefaultPrintSettingsReply,
+                     PP_PrintSettings_Dev /* print_settings */)

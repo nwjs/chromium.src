@@ -2,27 +2,39 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <string>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/values.h"
+#include "base/memory/ref_counted.h"
+#include "base/path_service.h"
 #include "base/scoped_temp_dir.h"
 #include "base/string16.h"
+#include "base/stringprintf.h"
 #include "base/test/test_file_util.h"
 #include "base/utf_string_conversions.h"
+#include "base/values.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/autocomplete/autocomplete_controller.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/download/download_prefs.h"
+#include "chrome/browser/extensions/crx_installer.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/net/url_request_mock_util.h"
+#include "chrome/browser/plugin_prefs.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/policy/mock_configuration_policy_provider.h"
 #include "chrome/browser/policy/policy_map.h"
 #include "chrome/browser/prefs/pref_service.h"
+#include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/net/url_request_mock_util.h"
 #include "chrome/browser/search_engines/template_url.h"
@@ -39,29 +51,47 @@
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/content_settings.h"
+#include "chrome/common/extensions/extension.h"
+#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/browser_child_process_host_iterator.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/child_process_data.h"
 #include "content/public/browser/download_item.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
+#include "content/public/browser/plugin_service.h"
+#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_paths.h"
+#include "content/public/common/page_transition_types.h"
+#include "content/public/common/process_type.h"
+#include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/download_test_observer.h"
 #include "content/public/test/test_utils.h"
 #include "content/test/net/url_request_mock_http_job.h"
 #include "googleurl/src/gurl.h"
+#include "grit/generated_resources.h"
 #include "net/base/net_util.h"
+#include "net/http/http_stream_factory.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_filter.h"
 #include "policy/policy_constants.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "webkit/plugins/webplugininfo.h"
 
 #if defined(OS_CHROMEOS)
 #include "ash/accelerators/accelerator_controller.h"
@@ -81,6 +111,24 @@ const char kURL[] = "http://example.com";
 const char kCookieValue[] = "converted=true";
 // Assigned to Philip J. Fry to fix eventually.
 const char kCookieOptions[] = ";expires=Wed Jan 01 3000 00:00:00 GMT";
+
+const FilePath::CharType kTestExtensionsDir[] = FILE_PATH_LITERAL("extensions");
+const FilePath::CharType kGoodCrxName[] = FILE_PATH_LITERAL("good.crx");
+const FilePath::CharType kAdBlockCrxName[] = FILE_PATH_LITERAL("adblock.crx");
+
+const char kGoodCrxId[] = "ldnnhddmnhbkjipkidpdiheffobcpfmf";
+const char kAdBlockCrxId[] = "dojnnbeimaimaojcialkkgajdnefpgcn";
+
+const FilePath::CharType kGoodCrxManifestName[] =
+    FILE_PATH_LITERAL("good_update_manifest.xml");
+
+const char* kURLs[] = {
+  chrome::kChromeUINewTabURL,
+  chrome::kChromeUIAboutURL,
+  chrome::kChromeUICreditsURL,
+  chrome::kChromeUIPolicyURL,
+  chrome::kChromeUIVersionURL,
+};
 
 // Filters requests to the hosts in |urls| and redirects them to the test data
 // dir through URLRequestMockHTTPJobs.
@@ -167,11 +215,105 @@ int CountScreenshots() {
 }
 #endif
 
+// Checks if WebGL is enabled in the given WebContents.
+bool IsWebGLEnabled(content::WebContents* contents) {
+  bool result = false;
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
+      contents->GetRenderViewHost(),
+      std::wstring(),
+      L"var canvas = document.createElement('canvas');"
+      L"var context = canvas.getContext('experimental-webgl');"
+      L"domAutomationController.send(context != null);",
+      &result));
+  return result;
+}
+
+bool IsJavascriptEnabled(content::WebContents* contents) {
+  content::RenderViewHost* rvh = contents->GetRenderViewHost();
+  base::Value* value = rvh->ExecuteJavascriptAndGetValue(
+      string16(),
+      ASCIIToUTF16("123"));
+  int result = 0;
+  if (!value->GetAsInteger(&result))
+    EXPECT_EQ(base::Value::TYPE_NULL, value->GetType());
+  return result == 123;
+}
+
+void CopyPluginListAndQuit(std::vector<webkit::WebPluginInfo>* out,
+                           const std::vector<webkit::WebPluginInfo>& in) {
+  *out = in;
+  MessageLoop::current()->QuitWhenIdle();
+}
+
+template<typename T>
+void CopyValueAndQuit(T* out, T in) {
+  *out = in;
+  MessageLoop::current()->QuitWhenIdle();
+}
+
+void GetPluginList(std::vector<webkit::WebPluginInfo>* plugins) {
+  content::PluginService* service = content::PluginService::GetInstance();
+  service->GetPlugins(base::Bind(CopyPluginListAndQuit, plugins));
+  content::RunMessageLoop();
+}
+
+const webkit::WebPluginInfo* GetFlashPlugin(
+    const std::vector<webkit::WebPluginInfo>& plugins) {
+  const webkit::WebPluginInfo* flash = NULL;
+  for (size_t i = 0; i < plugins.size(); ++i) {
+    if (plugins[i].name == ASCIIToUTF16("Shockwave Flash")) {
+      flash = &plugins[i];
+      break;
+    }
+  }
+#if defined(OFFICIAL_BUILD)
+  // Official builds bundle Flash.
+  EXPECT_TRUE(flash);
+#else
+  if (!flash)
+    LOG(INFO) << "Test skipped because the Flash plugin couldn't be found.";
+#endif
+  return flash;
+}
+
+bool SetPluginEnabled(PluginPrefs* plugin_prefs,
+                      const webkit::WebPluginInfo* plugin,
+                      bool enabled) {
+  bool ok = false;
+  plugin_prefs->EnablePlugin(enabled, plugin->path,
+                             base::Bind(CopyValueAndQuit<bool>, &ok));
+  content::RunMessageLoop();
+  return ok;
+}
+
+int CountPluginsOnIOThread() {
+  int count = 0;
+  for (content::BrowserChildProcessHostIterator iter; !iter.Done(); ++iter) {
+    if (iter.GetData().type == content::PROCESS_TYPE_PLUGIN ||
+        iter.GetData().type == content::PROCESS_TYPE_PPAPI_PLUGIN) {
+      count++;
+    }
+  }
+  return count;
+}
+
+int CountPlugins() {
+  int count = -1;
+  BrowserThread::PostTaskAndReplyWithResult(
+      BrowserThread::IO, FROM_HERE,
+      base::Bind(CountPluginsOnIOThread),
+      base::Bind(CopyValueAndQuit<int>, &count));
+  content::RunMessageLoop();
+  EXPECT_GE(count, 0);
+  return count;
+}
+
 }  // namespace
 
 class PolicyTest : public InProcessBrowserTest {
  protected:
   PolicyTest() {}
+  virtual ~PolicyTest() {}
 
   virtual void SetUpInProcessBrowserTestFixture() OVERRIDE {
     EXPECT_CALL(provider_, IsInitializationComplete())
@@ -183,6 +325,18 @@ class PolicyTest : public InProcessBrowserTest {
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE,
         base::Bind(chrome_browser_net::SetUrlRequestMocksEnabled, true));
+  }
+
+  // Makes URLRequestMockHTTPJobs serve data from content::DIR_TEST_DATA
+  // instead of chrome::DIR_TEST_DATA.
+  void ServeContentTestData() {
+    FilePath root_http;
+    PathService::Get(content::DIR_TEST_DATA, &root_http);
+    BrowserThread::PostTaskAndReply(
+        BrowserThread::IO, FROM_HERE,
+        base::Bind(URLRequestMockHTTPJob::AddUrlHandler, root_http),
+        MessageLoop::current()->QuitWhenIdleClosure());
+    content::RunMessageLoop();
   }
 
   void SetScreenshotPolicy(bool enabled) {
@@ -256,8 +410,83 @@ class PolicyTest : public InProcessBrowserTest {
   }
 #endif
 
+  ExtensionService* extension_service() {
+    extensions::ExtensionSystem* system =
+        extensions::ExtensionSystem::Get(browser()->profile());
+    return system->extension_service();
+  }
+
+  const extensions::Extension* InstallExtension(
+      const FilePath::StringType& name) {
+    FilePath extension_path(ui_test_utils::GetTestFilePath(
+        FilePath(kTestExtensionsDir), FilePath(name)));
+    scoped_refptr<extensions::CrxInstaller> installer =
+        extensions::CrxInstaller::Create(extension_service(), NULL);
+    installer->set_allow_silent_install(true);
+    installer->set_install_cause(extension_misc::INSTALL_CAUSE_UPDATE);
+    installer->set_creation_flags(extensions::Extension::FROM_WEBSTORE);
+
+    content::WindowedNotificationObserver observer(
+        chrome::NOTIFICATION_CRX_INSTALLER_DONE,
+        content::NotificationService::AllSources());
+    installer->InstallCrx(extension_path);
+    observer.Wait();
+    content::Details<const extensions::Extension> details = observer.details();
+    return details.ptr();
+  }
+
+  void UninstallExtension(const std::string& id, bool expect_success) {
+    content::WindowedNotificationObserver observer(
+        expect_success ? chrome::NOTIFICATION_EXTENSION_UNINSTALLED
+                       : chrome::NOTIFICATION_EXTENSION_UNINSTALL_NOT_ALLOWED,
+        content::NotificationService::AllSources());
+    extension_service()->UninstallExtension(id, false, NULL);
+    observer.Wait();
+  }
+
   MockConfigurationPolicyProvider provider_;
 };
+
+#if defined(OS_WIN)
+// This policy only exists on Windows.
+
+// Sets the locale policy before the browser is started.
+class LocalePolicyTest : public PolicyTest {
+ public:
+  LocalePolicyTest() {}
+  virtual ~LocalePolicyTest() {}
+
+  virtual void SetUpInProcessBrowserTestFixture() OVERRIDE {
+    PolicyTest::SetUpInProcessBrowserTestFixture();
+    PolicyMap policies;
+    policies.Set(
+        key::kApplicationLocaleValue, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateStringValue("fr"));
+    provider_.UpdateChromePolicy(policies);
+    // The "en-US" ResourceBundle is always loaded before this step for tests,
+    // but in this test we want the browser to load the bundle as it
+    // normally would.
+    ResourceBundle::CleanupSharedInstance();
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(LocalePolicyTest, ApplicationLocaleValue) {
+  // Verifies that the default locale can be overridden with policy.
+  EXPECT_EQ("fr", g_browser_process->GetApplicationLocale());
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kChromeUINewTabURL));
+  string16 french_title = l10n_util::GetStringUTF16(IDS_NEW_TAB_TITLE);
+  string16 title;
+  EXPECT_TRUE(ui_test_utils::GetCurrentTabTitle(browser(), &title));
+  EXPECT_EQ(french_title, title);
+
+  // Make sure this is really French and differs from the English title.
+  std::string loaded =
+      ui::ResourceBundle::GetSharedInstance().ReloadLocaleResources("en-US");
+  EXPECT_EQ("en-US", loaded);
+  string16 english_title = l10n_util::GetStringUTF16(IDS_NEW_TAB_TITLE);
+  EXPECT_NE(french_title, english_title);
+}
+#endif
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, BookmarkBarEnabled) {
   // Verifies that the bookmarks bar can be forced to always or never show up.
@@ -277,7 +506,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, BookmarkBarEnabled) {
   EXPECT_EQ(BookmarkBar::SHOW, browser()->bookmark_bar_state());
 
   // The NTP has special handling of the bookmark bar.
-  ui_test_utils::NavigateToURL(browser(), GURL("chrome://newtab"));
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kChromeUINewTabURL));
   EXPECT_EQ(BookmarkBar::SHOW, browser()->bookmark_bar_state());
 
   policies.Set(key::kBookmarkBarEnabled, POLICY_LEVEL_MANDATORY,
@@ -365,7 +594,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DefaultSearchProvider) {
   EXPECT_EQ(expected, web_contents->GetURL());
 
   // Verify that searching from the omnibox can be disabled.
-  ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kAboutBlankURL));
   policies.Set(key::kDefaultSearchProviderEnabled, POLICY_LEVEL_MANDATORY,
                POLICY_SCOPE_USER, base::Value::CreateBooleanValue(false));
   EXPECT_TRUE(service->GetDefaultSearchProvider());
@@ -374,7 +603,221 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DefaultSearchProvider) {
   ui_test_utils::SendToOmniboxAndSubmit(location_bar, "should not work");
   // This means that submitting won't trigger any action.
   EXPECT_FALSE(model->CurrentMatch().destination_url.is_valid());
-  EXPECT_EQ(GURL("about:blank"), web_contents->GetURL());
+  EXPECT_EQ(GURL(chrome::kAboutBlankURL), web_contents->GetURL());
+}
+
+// The linux and win  bots can't create a GL context. http://crbug.com/103379
+#if defined(OS_MACOSX)
+IN_PROC_BROWSER_TEST_F(PolicyTest, Disable3DAPIs) {
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kAboutBlankURL));
+  // WebGL is enabled by default.
+  content::WebContents* contents = chrome::GetActiveWebContents(browser());
+  EXPECT_TRUE(IsWebGLEnabled(contents));
+  // Disable with a policy.
+  PolicyMap policies;
+  policies.Set(key::kDisable3DAPIs, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(true));
+  provider_.UpdateChromePolicy(policies);
+  // Crash and reload the tab to get a new renderer.
+  content::CrashTab(contents);
+  EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_RELOAD));
+  EXPECT_FALSE(IsWebGLEnabled(contents));
+  // Enable with a policy.
+  policies.Set(key::kDisable3DAPIs, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(false));
+  provider_.UpdateChromePolicy(policies);
+  content::CrashTab(contents);
+  EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_RELOAD));
+  EXPECT_TRUE(IsWebGLEnabled(contents));
+}
+#endif
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, DisableSpdy) {
+  // Verifies that SPDY can be disable by policy.
+  EXPECT_TRUE(net::HttpStreamFactory::spdy_enabled());
+  PolicyMap policies;
+  policies.Set(key::kDisableSpdy, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(true));
+  provider_.UpdateChromePolicy(policies);
+  content::RunAllPendingInMessageLoop();
+  EXPECT_FALSE(net::HttpStreamFactory::spdy_enabled());
+  // Verify that it can be force-enabled too.
+  browser()->profile()->GetPrefs()->SetBoolean(prefs::kDisableSpdy, true);
+  policies.Set(key::kDisableSpdy, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(false));
+  provider_.UpdateChromePolicy(policies);
+  content::RunAllPendingInMessageLoop();
+  EXPECT_TRUE(net::HttpStreamFactory::spdy_enabled());
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPlugins) {
+  // Verifies that plugins can be forced to be disabled by policy.
+
+  // Verify that the Flash plugin exists and that it can be enabled and disabled
+  // by the user.
+  std::vector<webkit::WebPluginInfo> plugins;
+  GetPluginList(&plugins);
+  const webkit::WebPluginInfo* flash = GetFlashPlugin(plugins);
+  if (!flash)
+    return;
+  PluginPrefs* plugin_prefs = PluginPrefs::GetForProfile(browser()->profile());
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, false));
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, true));
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+
+  // Now disable it with a policy.
+  base::ListValue disabled_plugins;
+  disabled_plugins.Append(base::Value::CreateStringValue("*Flash*"));
+  PolicyMap policies;
+  policies.Set(key::kDisabledPlugins, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, disabled_plugins.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  // The user shouldn't be able to enable it.
+  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPluginsExceptions) {
+  // Verifies that plugins with an exception in the blacklist can be enabled.
+
+  // Verify that the Flash plugin exists and that it can be enabled and disabled
+  // by the user.
+  std::vector<webkit::WebPluginInfo> plugins;
+  GetPluginList(&plugins);
+  const webkit::WebPluginInfo* flash = GetFlashPlugin(plugins);
+  if (!flash)
+    return;
+  PluginPrefs* plugin_prefs = PluginPrefs::GetForProfile(browser()->profile());
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+
+  // Disable all plugins.
+  base::ListValue disabled_plugins;
+  disabled_plugins.Append(base::Value::CreateStringValue("*"));
+  PolicyMap policies;
+  policies.Set(key::kDisabledPlugins, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, disabled_plugins.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  // The user shouldn't be able to enable it.
+  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+
+  // Now open an exception for flash.
+  base::ListValue disabled_plugins_exceptions;
+  disabled_plugins_exceptions.Append(
+      base::Value::CreateStringValue("*Flash*"));
+  policies.Set(key::kDisabledPluginsExceptions, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, disabled_plugins_exceptions.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  // It should revert to the user's preference automatically.
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+  // And the user should be able to disable and enable again.
+  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, false));
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, true));
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, EnabledPlugins) {
+  // Verifies that a plugin can be force-installed with a policy.
+  std::vector<webkit::WebPluginInfo> plugins;
+  GetPluginList(&plugins);
+  const webkit::WebPluginInfo* flash = GetFlashPlugin(plugins);
+  if (!flash)
+    return;
+  PluginPrefs* plugin_prefs = PluginPrefs::GetForProfile(browser()->profile());
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+
+  // The user disables it and then a policy forces it to be enabled.
+  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, false));
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  base::ListValue plugin_list;
+  plugin_list.Append(base::Value::CreateStringValue("Shockwave Flash"));
+  PolicyMap policies;
+  policies.Set(key::kEnabledPlugins, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, plugin_list.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+  // The user can't disable it anymore.
+  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, false));
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+
+  // When a plugin is both enabled and disabled, the whitelist takes precedence.
+  policies.Set(key::kDisabledPlugins, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, plugin_list.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, AlwaysAuthorizePlugins) {
+  // Verifies that dangerous plugins can be always authorized to run with
+  // a policy.
+
+  // Verify that the test page exists. It is only present in checkouts with
+  // src-internal.
+  if (!file_util::PathExists(ui_test_utils::GetTestFilePath(
+      FilePath(FILE_PATH_LITERAL("plugin")),
+      FilePath(FILE_PATH_LITERAL("quicktime.html"))))) {
+    LOG(INFO) <<
+        "Test skipped because plugin/quicktime.html test file wasn't found.";
+    return;
+  }
+
+  ServeContentTestData();
+  // No plugins at startup.
+  EXPECT_EQ(0, CountPlugins());
+
+  content::WebContents* contents = chrome::GetActiveWebContents(browser());
+  ASSERT_TRUE(contents);
+  TabContents* tab_contents = TabContents::FromWebContents(contents);
+  ASSERT_TRUE(tab_contents);
+  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
+  ASSERT_TRUE(infobar_helper);
+  EXPECT_EQ(0u, infobar_helper->GetInfoBarCount());
+
+  FilePath path(FILE_PATH_LITERAL("plugin/quicktime.html"));
+  GURL url(URLRequestMockHTTPJob::GetMockUrl(path));
+  ui_test_utils::NavigateToURL(browser(), url);
+  // This should have triggered the dangerous plugin infobar.
+  ASSERT_EQ(1u, infobar_helper->GetInfoBarCount());
+  InfoBarDelegate* infobar_delegate = infobar_helper->GetInfoBarDelegateAt(0);
+  EXPECT_TRUE(infobar_delegate->AsConfirmInfoBarDelegate());
+  // And the plugin isn't running.
+  EXPECT_EQ(0, CountPlugins());
+
+  // Now set a policy to always authorize this.
+  PolicyMap policies;
+  policies.Set(key::kAlwaysAuthorizePlugins, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(true));
+  provider_.UpdateChromePolicy(policies);
+  // Reloading the page shouldn't trigger the infobar this time.
+  ui_test_utils::NavigateToURL(browser(), url);
+  EXPECT_EQ(0u, infobar_helper->GetInfoBarCount());
+  // And the plugin started automatically.
+  EXPECT_EQ(1, CountPlugins());
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, DeveloperToolsDisabled) {
+  // Verifies that access to the developer tools can be disabled.
+
+  // Open devtools.
+  EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_DEV_TOOLS));
+  content::WebContents* contents = chrome::GetActiveWebContents(browser());
+  EXPECT_TRUE(DevToolsWindow::GetDevToolsContents(contents));
+
+  // Disable devtools via policy.
+  PolicyMap policies;
+  policies.Set(key::kDeveloperToolsDisabled, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(true));
+  provider_.UpdateChromePolicy(policies);
+  // The existing devtools window should have closed.
+  EXPECT_FALSE(DevToolsWindow::GetDevToolsContents(contents));
+  // And it's not possible to open it again.
+  EXPECT_FALSE(chrome::ExecuteCommand(browser(), IDC_DEV_TOOLS));
+  EXPECT_FALSE(DevToolsWindow::GetDevToolsContents(contents));
 }
 
 // This policy isn't available on Chrome OS.
@@ -410,6 +853,134 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DownloadDirectory) {
 }
 #endif
 
+IN_PROC_BROWSER_TEST_F(PolicyTest, ExtensionInstallBlacklist) {
+  // Verifies that blacklisted extensions can't be installed.
+  ExtensionService* service = extension_service();
+  ASSERT_FALSE(service->GetExtensionById(kGoodCrxId, true));
+  ASSERT_FALSE(service->GetExtensionById(kAdBlockCrxId, true));
+  base::ListValue blacklist;
+  blacklist.Append(base::Value::CreateStringValue(kGoodCrxId));
+  PolicyMap policies;
+  policies.Set(key::kExtensionInstallBlacklist, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, blacklist.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+
+  // "good.crx" is blacklisted.
+  EXPECT_FALSE(InstallExtension(kGoodCrxName));
+  EXPECT_FALSE(service->GetExtensionById(kGoodCrxId, true));
+
+  // "adblock.crx" is not.
+  const extensions::Extension* adblock = InstallExtension(kAdBlockCrxName);
+  ASSERT_TRUE(adblock);
+  EXPECT_EQ(kAdBlockCrxId, adblock->id());
+  EXPECT_EQ(adblock,
+            service->GetExtensionById(kAdBlockCrxId, true));
+
+  // Now blacklist all extensions.
+  blacklist.Clear();
+  blacklist.Append(base::Value::CreateStringValue("*"));
+  policies.Set(key::kExtensionInstallBlacklist, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, blacklist.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  // AdBlock was automatically removed.
+  ASSERT_FALSE(service->GetExtensionById(kAdBlockCrxId, true));
+  // And can't be installed again, nor can good.crx.
+  EXPECT_FALSE(InstallExtension(kAdBlockCrxName));
+  EXPECT_FALSE(service->GetExtensionById(kAdBlockCrxId, true));
+  EXPECT_FALSE(InstallExtension(kGoodCrxName));
+  EXPECT_FALSE(service->GetExtensionById(kGoodCrxId, true));
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, ExtensionInstallWhitelist) {
+  // Verifies that the whitelist can open exceptions to the blacklist.
+  ExtensionService* service = extension_service();
+  ASSERT_FALSE(service->GetExtensionById(kGoodCrxId, true));
+  ASSERT_FALSE(service->GetExtensionById(kAdBlockCrxId, true));
+  base::ListValue blacklist;
+  blacklist.Append(base::Value::CreateStringValue("*"));
+  base::ListValue whitelist;
+  whitelist.Append(base::Value::CreateStringValue(kGoodCrxId));
+  PolicyMap policies;
+  policies.Set(key::kExtensionInstallBlacklist, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, blacklist.DeepCopy());
+  policies.Set(key::kExtensionInstallWhitelist, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, whitelist.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  // "adblock.crx" is blacklisted.
+  EXPECT_FALSE(InstallExtension(kAdBlockCrxName));
+  EXPECT_FALSE(service->GetExtensionById(kAdBlockCrxId, true));
+  // "good.crx" has a whitelist exception.
+  const extensions::Extension* good = InstallExtension(kGoodCrxName);
+  ASSERT_TRUE(good);
+  EXPECT_EQ(kGoodCrxId, good->id());
+  EXPECT_EQ(good, service->GetExtensionById(kGoodCrxId, true));
+  // The user can also remove this extension.
+  UninstallExtension(kGoodCrxId, true);
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, ExtensionInstallForcelist) {
+  // Verifies that extensions that are force-installed by policies are
+  // installed and can't be uninstalled.
+  ExtensionService* service = extension_service();
+  ASSERT_FALSE(service->GetExtensionById(kGoodCrxId, true));
+
+  // Extensions that are force-installed come from an update URL, which defaults
+  // to the webstore. Use a mock URL for this test with an update manifest
+  // that includes "good.crx".
+  FilePath path = FilePath(kTestExtensionsDir).Append(kGoodCrxManifestName);
+  GURL url(URLRequestMockHTTPJob::GetMockUrl(path));
+
+  // Setting the forcelist extension should install "good.crx".
+  base::ListValue forcelist;
+  forcelist.Append(base::Value::CreateStringValue(StringPrintf(
+      "%s;%s", kGoodCrxId, url.spec().c_str())));
+  PolicyMap policies;
+  policies.Set(key::kExtensionInstallForcelist, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, forcelist.DeepCopy());
+  content::WindowedNotificationObserver observer(
+      chrome::NOTIFICATION_EXTENSION_INSTALLED,
+      content::NotificationService::AllSources());
+  provider_.UpdateChromePolicy(policies);
+  observer.Wait();
+  content::Details<const extensions::Extension> details = observer.details();
+  EXPECT_EQ(kGoodCrxId, details->id());
+  EXPECT_EQ(details.ptr(), service->GetExtensionById(kGoodCrxId, true));
+  // The user is not allowed to uninstall force-installed extensions.
+  UninstallExtension(kGoodCrxId, false);
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, HomepageLocation) {
+  // Verifies that the homepage can be configured with policies.
+  // Set a default, and check that the home button navigates there.
+  browser()->profile()->GetPrefs()->SetString(
+      prefs::kHomePage, chrome::kChromeUIPolicyURL);
+  browser()->profile()->GetPrefs()->SetBoolean(
+      prefs::kHomePageIsNewTabPage, false);
+  EXPECT_EQ(GURL(chrome::kChromeUIPolicyURL),
+            browser()->profile()->GetHomePage());
+  content::WebContents* contents = chrome::GetActiveWebContents(browser());
+  EXPECT_EQ(GURL(chrome::kAboutBlankURL), contents->GetURL());
+  EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_HOME));
+  EXPECT_EQ(GURL(chrome::kChromeUIPolicyURL), contents->GetURL());
+
+  // Now override with policy.
+  PolicyMap policies;
+  policies.Set(key::kHomepageLocation, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               base::Value::CreateStringValue(chrome::kChromeUIBookmarksURL));
+  provider_.UpdateChromePolicy(policies);
+  EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_HOME));
+  content::WaitForLoadStop(contents);
+  EXPECT_EQ(GURL(chrome::kChromeUIBookmarksURL), contents->GetURL());
+
+  policies.Set(key::kHomepageIsNewTabPage, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(true));
+  provider_.UpdateChromePolicy(policies);
+  EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_HOME));
+  content::WaitForLoadStop(contents);
+  EXPECT_EQ(GURL(chrome::kChromeUINewTabURL), contents->GetURL());
+}
+
 IN_PROC_BROWSER_TEST_F(PolicyTest, IncognitoEnabled) {
   // Verifies that incognito windows can't be opened when disabled by policy.
 
@@ -432,6 +1003,39 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, IncognitoEnabled) {
   EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_NEW_INCOGNITO_WINDOW));
   EXPECT_EQ(2u, BrowserList::size());
   EXPECT_TRUE(BrowserList::IsOffTheRecordSessionActive());
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, Javascript) {
+  // Verifies that Javascript can be disabled.
+  content::WebContents* contents = chrome::GetActiveWebContents(browser());
+  EXPECT_TRUE(IsJavascriptEnabled(contents));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_DEV_TOOLS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_DEV_TOOLS_CONSOLE));
+
+  // Disable Javascript via policy.
+  PolicyMap policies;
+  policies.Set(key::kJavascriptEnabled, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(false));
+  provider_.UpdateChromePolicy(policies);
+  // Reload the page.
+  ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
+  EXPECT_FALSE(IsJavascriptEnabled(contents));
+  // Developer tools still work when javascript is disabled.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_DEV_TOOLS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_DEV_TOOLS_CONSOLE));
+  // Javascript is always enabled for the internal pages.
+  ui_test_utils::NavigateToURL(browser(), GURL("chrome://settings"));
+  EXPECT_TRUE(IsJavascriptEnabled(contents));
+
+  // The javascript content setting policy overrides the javascript policy.
+  ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
+  EXPECT_FALSE(IsJavascriptEnabled(contents));
+  policies.Set(key::kDefaultJavaScriptSetting, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               base::Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
+  provider_.UpdateChromePolicy(policies);
+  ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
+  EXPECT_TRUE(IsJavascriptEnabled(contents));
 }
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, SavingBrowserHistoryDisabled) {
@@ -489,7 +1093,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, TranslateEnabled) {
   ui_test_utils::NavigateToURL(browser(), url);
   language_observer1.Wait();
   // Verify that the translate infobar showed up.
-  EXPECT_EQ(1u, infobar_helper->GetInfoBarCount());
+  ASSERT_EQ(1u, infobar_helper->GetInfoBarCount());
   InfoBarDelegate* infobar_delegate = infobar_helper->GetInfoBarDelegateAt(0);
   TranslateInfoBarDelegate* delegate =
       infobar_delegate->AsTranslateInfoBarDelegate();
@@ -584,5 +1188,151 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DisableScreenshotsFile) {
   ASSERT_EQ(CountScreenshots(), screenshot_count + 1);
 }
 #endif
+
+namespace {
+
+bool IsNonSwitchArgument(const CommandLine::StringType& s) {
+  return s.empty() || s[0] != '-';
+}
+
+}  // namespace
+
+// Similar to PolicyTest but allows setting policies before the browser is
+// created. Each test parameter is a method that sets up the early policies
+// and stores the expected startup URLs in |expected_urls_|.
+class RestoreOnStartupPolicyTest
+    : public PolicyTest,
+      public testing::WithParamInterface<
+          void (RestoreOnStartupPolicyTest::*)(void)> {
+ public:
+  RestoreOnStartupPolicyTest() {}
+  virtual ~RestoreOnStartupPolicyTest() {}
+
+  virtual void SetUpInProcessBrowserTestFixture() OVERRIDE {
+    PolicyTest::SetUpInProcessBrowserTestFixture();
+    // Set early policies now, before the browser is created.
+    (this->*(GetParam()))();
+
+    // Remove the non-switch arguments, so that session restore kicks in for
+    // these tests.
+    CommandLine* command_line = CommandLine::ForCurrentProcess();
+    CommandLine::StringVector argv = command_line->argv();
+    argv.erase(std::remove_if(++argv.begin(), argv.end(), IsNonSwitchArgument),
+               argv.end());
+    command_line->InitFromArgv(argv);
+    ASSERT_TRUE(std::equal(argv.begin(), argv.end(),
+                           command_line->argv().begin()));
+  }
+
+  void HomepageIsNotNTP() {
+    // Verifies that policy can set the startup pages to the homepage, when
+    // the homepage is not the NTP.
+    PolicyMap policies;
+    policies.Set(
+        key::kRestoreOnStartup, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateIntegerValue(
+            SessionStartupPref::kPrefValueHomePage));
+    policies.Set(
+        key::kHomepageIsNewTabPage, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateBooleanValue(false));
+    policies.Set(
+        key::kHomepageLocation, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateStringValue(kURLs[1]));
+    provider_.UpdateChromePolicy(policies);
+
+    expected_urls_.push_back(GURL(kURLs[1]));
+  }
+
+  void HomepageIsNTP() {
+    // Verifies that policy can set the startup pages to the homepage, when
+    // the homepage is the NTP.
+    PolicyMap policies;
+    policies.Set(
+        key::kRestoreOnStartup, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateIntegerValue(
+            SessionStartupPref::kPrefValueHomePage));
+    policies.Set(
+        key::kHomepageIsNewTabPage, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateBooleanValue(true));
+    provider_.UpdateChromePolicy(policies);
+
+    expected_urls_.push_back(GURL(kURLs[0]));
+  }
+
+  void ListOfURLs() {
+    // Verifies that policy can set the startup pages to a list of URLs.
+    base::ListValue urls;
+    for (size_t i = 0; i < arraysize(kURLs); ++i) {
+      urls.Append(base::Value::CreateStringValue(kURLs[i]));
+      expected_urls_.push_back(GURL(kURLs[i]));
+    }
+    PolicyMap policies;
+    policies.Set(
+        key::kRestoreOnStartup, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateIntegerValue(SessionStartupPref::kPrefValueURLs));
+    policies.Set(
+        key::kRestoreOnStartupURLs, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        urls.DeepCopy());
+    provider_.UpdateChromePolicy(policies);
+  }
+
+  void NTP() {
+    // Verifies that policy can set the startup page to the NTP.
+    PolicyMap policies;
+    policies.Set(
+        key::kRestoreOnStartup, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateIntegerValue(SessionStartupPref::kPrefValueNewTab));
+    provider_.UpdateChromePolicy(policies);
+    expected_urls_.push_back(GURL(kURLs[0]));
+  }
+
+  void Last() {
+    // Verifies that policy can set the startup pages to the last session.
+    PolicyMap policies;
+    policies.Set(
+        key::kRestoreOnStartup, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateIntegerValue(SessionStartupPref::kPrefValueLast));
+    provider_.UpdateChromePolicy(policies);
+    // This should restore the tabs opened at PRE_RunTest below.
+    for (size_t i = 0; i < arraysize(kURLs); ++i)
+      expected_urls_.push_back(GURL(kURLs[i]));
+  }
+
+  std::vector<GURL> expected_urls_;
+};
+
+IN_PROC_BROWSER_TEST_P(RestoreOnStartupPolicyTest, PRE_RunTest) {
+  // Open some tabs to verify if they are restored after the browser restarts.
+  // Most policy settings override this, except kPrefValueLast which enforces
+  // a restore.
+  ui_test_utils::NavigateToURL(browser(), GURL(kURLs[0]));
+  for (size_t i = 1; i < arraysize(kURLs); ++i) {
+    content::WindowedNotificationObserver observer(
+        content::NOTIFICATION_LOAD_STOP,
+        content::NotificationService::AllSources());
+    chrome::AddSelectedTabWithURL(browser(), GURL(kURLs[i]),
+                                  content::PAGE_TRANSITION_LINK);
+    observer.Wait();
+  }
+}
+
+IN_PROC_BROWSER_TEST_P(RestoreOnStartupPolicyTest, RunTest) {
+  TabStripModel* model = browser()->tab_strip_model();
+  int size = static_cast<int>(expected_urls_.size());
+  EXPECT_EQ(size, model->count());
+  for (int i = 0; i < size && i < model->count(); ++i) {
+    EXPECT_EQ(expected_urls_[i],
+              model->GetTabContentsAt(i)->web_contents()->GetURL());
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(
+    RestoreOnStartupPolicyTestInstance,
+    RestoreOnStartupPolicyTest,
+    testing::Values(&RestoreOnStartupPolicyTest::HomepageIsNotNTP,
+                    &RestoreOnStartupPolicyTest::HomepageIsNTP,
+                    &RestoreOnStartupPolicyTest::ListOfURLs,
+                    &RestoreOnStartupPolicyTest::NTP,
+                    &RestoreOnStartupPolicyTest::Last));
 
 }  // namespace policy

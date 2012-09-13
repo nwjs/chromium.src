@@ -210,9 +210,6 @@ void ProfileImpl::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterBooleanPref(prefs::kSavingBrowserHistoryDisabled,
                              false,
                              PrefService::UNSYNCABLE_PREF);
-  prefs->RegisterBooleanPref(prefs::kProfileShortcutCreated,
-                             false,
-                             PrefService::UNSYNCABLE_PREF);
   prefs->RegisterIntegerPref(prefs::kProfileAvatarIndex,
                              -1,
                              PrefService::SYNCABLE_PREF);
@@ -349,7 +346,7 @@ void ProfileImpl::DoFinalInit(bool is_new_profile) {
 
   PrefService* local_state = g_browser_process->local_state();
   ssl_config_service_manager_.reset(
-      SSLConfigServiceManager::CreateDefaultManager(local_state));
+      SSLConfigServiceManager::CreateDefaultManager(local_state, prefs));
 
   // Initialize the BackgroundModeManager - this has to be done here before
   // InitExtensions() is called because it relies on receiving notifications
@@ -387,6 +384,10 @@ void ProfileImpl::DoFinalInit(bool is_new_profile) {
 
   FilePath app_path = GetPath().Append(content::kStoragePartitionDirname);
 
+  FilePath infinite_cache_path = GetPath();
+  infinite_cache_path =
+      infinite_cache_path.Append(FILE_PATH_LITERAL("Infinite Cache"));
+
 #if defined(OS_ANDROID)
   SessionStartupPref::Type startup_pref_type =
       SessionStartupPref::GetDefaultStartupType();
@@ -406,7 +407,8 @@ void ProfileImpl::DoFinalInit(bool is_new_profile) {
 
   io_data_.Init(cookie_path, server_bound_cert_path, cache_path,
                 cache_max_size, media_cache_path, media_cache_max_size,
-                extensions_cookie_path, app_path, predictor_,
+                extensions_cookie_path, app_path, infinite_cache_path,
+                predictor_,
                 g_browser_process->local_state(),
                 g_browser_process->io_thread(),
                 restore_old_session_cookies,

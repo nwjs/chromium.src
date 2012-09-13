@@ -35,13 +35,6 @@
 
 class InstantTest : public InProcessBrowserTest {
  protected:
-  virtual void SetUpCommandLine(CommandLine* command_line) {
-    // Do not prelaunch the GPU process because it will show up in the task
-    // manager, but whether it appears before or after the Instant tab is not
-    // well defined. This affects the TaskManagerPrefix test below.
-    command_line->AppendSwitch(switches::kDisableGpuProcessPrelaunch);
-  }
-
   void SetupInstant(const std::string& page) {
     ASSERT_TRUE(test_server()->Start());
 
@@ -145,7 +138,13 @@ class InstantTest : public InProcessBrowserTest {
 };
 
 // Test that Instant is preloaded when the omnibox is focused.
-IN_PROC_BROWSER_TEST_F(InstantTest, OmniboxFocusLoadsInstant) {
+#if defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
+#define MAYBE_OmniboxFocusLoadsInstant DISABLED_OmniboxFocusLoadsInstant
+#else
+#define MAYBE_OmniboxFocusLoadsInstant OmniboxFocusLoadsInstant
+#endif
+IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_OmniboxFocusLoadsInstant) {
   // The omnibox gets focus before the test begins. At this time, there's no
   // InstantController (which is only created in SetupInstant() below), so no
   // preloading has happened yet.
@@ -191,8 +190,14 @@ IN_PROC_BROWSER_TEST_F(InstantTest, OmniboxFocusLoadsInstant) {
   EXPECT_EQ(preview_tab, instant()->GetPreviewContents());
 }
 
+#if defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
+#define MAYBE_OnChangeEvent DISABLED_OnChangeEvent
+#else
+#define MAYBE_OnChangeEvent OnChangeEvent
+#endif
 // Test that the onchange event is dispatched upon typing in the omnibox.
-IN_PROC_BROWSER_TEST_F(InstantTest, OnChangeEvent) {
+IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_OnChangeEvent) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
 
   // Typing "query" into the omnibox causes the first onchange event.
@@ -213,8 +218,14 @@ IN_PROC_BROWSER_TEST_F(InstantTest, OnChangeEvent) {
   EXPECT_EQ(3, onchangecalls_);
 }
 
+#if defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
+#define MAYBE_OnSubmitEvent DISABLED_OnSubmitEvent
+#else
+#define MAYBE_OnSubmitEvent OnSubmitEvent
+#endif
 // Test that the onsubmit event is dispatched upon pressing Enter.
-IN_PROC_BROWSER_TEST_F(InstantTest, OnSubmitEvent) {
+IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_OnSubmitEvent) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
   SetOmniboxText("search");
   WaitFor(chrome::NOTIFICATION_INSTANT_CONTROLLER_SHOWN);
@@ -276,6 +287,9 @@ IN_PROC_BROWSER_TEST_F(InstantTest, OnSubmitEvent) {
 // Test that the oncancel event is dispatched upon clicking on the preview.
 #if defined(OS_WIN)
 // Fails frequently on the win_rel tryserver.  crbug.com/145754
+#define MAYBE_OnCancelEvent DISABLED_OnCancelEvent
+#elif defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
 #define MAYBE_OnCancelEvent DISABLED_OnCancelEvent
 #else
 #define MAYBE_OnCancelEvent OnCancelEvent
@@ -364,8 +378,14 @@ IN_PROC_BROWSER_TEST_F(InstantTest, OnResizeEvent) {
   EXPECT_LT(0, height_);
 }
 
+#if defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
+#define MAYBE_SuggestionIsCompletedNow DISABLED_SuggestionIsCompletedNow
+#else
+#define MAYBE_SuggestionIsCompletedNow SuggestionIsCompletedNow
+#endif
 // Test that the INSTANT_COMPLETE_NOW behavior works as expected.
-IN_PROC_BROWSER_TEST_F(InstantTest, SuggestionIsCompletedNow) {
+IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_SuggestionIsCompletedNow) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
   instant()->OnAutocompleteGotFocus();
   WaitFor(chrome::NOTIFICATION_INSTANT_SUPPORT_DETERMINED);
@@ -466,8 +486,14 @@ IN_PROC_BROWSER_TEST_F(InstantTest, SuggestionIsValidObject) {
   EXPECT_EQ(ASCIIToUTF16("query completion"), omnibox()->GetText());
 }
 
+#if defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
+#define MAYBE_SuggestionIsInvalidObject DISABLED_SuggestionIsInvalidObject
+#else
+#define MAYBE_SuggestionIsInvalidObject SuggestionIsInvalidObject
+#endif
 // Test that an invalid suggestion is rejected.
-IN_PROC_BROWSER_TEST_F(InstantTest, SuggestionIsInvalidObject) {
+IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_SuggestionIsInvalidObject) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
   instant()->OnAutocompleteGotFocus();
   WaitFor(chrome::NOTIFICATION_INSTANT_SUPPORT_DETERMINED);
@@ -596,8 +622,14 @@ IN_PROC_BROWSER_TEST_F(InstantTest, TransitionsBetweenSearchAndURL) {
   EXPECT_EQ(2, onchangecalls_);
 }
 
+#if defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
+#define MAYBE_DoesNotCommitURLs DISABLED_DoesNotCommitURLs
+#else
+#define MAYBE_DoesNotCommitURLs DoesNotCommitURLs
+#endif
 // Test that Instant can't be fooled into committing a URL.
-IN_PROC_BROWSER_TEST_F(InstantTest, DoesNotCommitURLs) {
+IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_DoesNotCommitURLs) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
   EXPECT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
 
@@ -656,8 +688,14 @@ IN_PROC_BROWSER_TEST_F(InstantTest, DoesNotCommitURLs) {
   EXPECT_FALSE(instant()->is_showing());
 }
 
+#if defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
+#define MAYBE_NonInstantSearchProvider DISABLED_NonInstantSearchProvider
+#else
+#define MAYBE_NonInstantSearchProvider NonInstantSearchProvider
+#endif
 // Test that a non-Instant search provider shows no previews.
-IN_PROC_BROWSER_TEST_F(InstantTest, NonInstantSearchProvider) {
+IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_NonInstantSearchProvider) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("empty.html"));
 
   // Type a query. Instant will load the search provider.
@@ -722,14 +760,14 @@ IN_PROC_BROWSER_TEST_F(InstantTest, TaskManagerPrefix) {
   // rows initially, one for the browser process and one for tab's renderer.
   TaskManagerModel* task_manager = TaskManager::GetInstance()->model();
   task_manager->StartUpdating();
-  TaskManagerBrowserTestUtil::WaitForResourceChange(2);
+  TaskManagerBrowserTestUtil::WaitForWebResourceChange(1);
 
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
   instant()->OnAutocompleteGotFocus();
   WaitFor(chrome::NOTIFICATION_INSTANT_SUPPORT_DETERMINED);
 
   // Now there should be three rows, the third being the Instant preview.
-  TaskManagerBrowserTestUtil::WaitForResourceChange(3);
+  TaskManagerBrowserTestUtil::WaitForWebResourceChange(2);
   string16 prefix = l10n_util::GetStringFUTF16(
       IDS_TASK_MANAGER_INSTANT_PREVIEW_PREFIX, string16());
   string16 title = task_manager->GetResourceTitle(2);
@@ -755,8 +793,14 @@ void KeywordQueryDone(base::RunLoop* run_loop,
   run_loop->Quit();
 }
 
+#if defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
+#define MAYBE_History DISABLED_History
+#else
+#define MAYBE_History History
+#endif
 // Test that the Instant page load is not added to history.
-IN_PROC_BROWSER_TEST_F(InstantTest, History) {
+IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_History) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
   instant()->OnAutocompleteGotFocus();
   WaitFor(chrome::NOTIFICATION_INSTANT_SUPPORT_DETERMINED);
@@ -816,8 +860,15 @@ IN_PROC_BROWSER_TEST_F(InstantTest, History) {
 // in a hidden state when the Instant preview is showing, and somebody's trying
 // to get its backing store?
 #if !defined(OS_WIN)
+
+#if defined(OS_LINUX) && defined(NDEBUG)
+// Flakily fails in Release builds - http://crbug.com/146419
+#define MAYBE_NewWindowDismissesInstant DISABLED_NewWindowDismissesInstant
+#else
+#define MAYBE_NewWindowDismissesInstant NewWindowDismissesInstant
+#endif
 // Test that creating a new window hides any currently showing Instant preview.
-IN_PROC_BROWSER_TEST_F(InstantTest, NewWindowDismissesInstant) {
+IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_NewWindowDismissesInstant) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
   instant()->OnAutocompleteGotFocus();
   WaitFor(chrome::NOTIFICATION_INSTANT_SUPPORT_DETERMINED);

@@ -57,10 +57,10 @@ class ChromotingHelperMac(ChromotingHelper):
     os.seteuid(0)
     key_chain = '/Library/Keychains/ChromotingTest'
     password = '1111'
-    key = os.path.join(current_dir, 'chrome', 'test',
-                       'pyautolib', 'chromoting_key.p12')
-    cert = os.path.join(current_dir, 'chrome', 'test',
-                        'pyautolib', 'chromoting_cert.p12')
+    key = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       'chromoting_key.p12')
+    cert = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        'chromoting_cert.p12')
     subprocess.call(['security', 'delete-keychain', key_chain])
     subprocess.call(['security', 'create-keychain', '-p',
                      password, key_chain])
@@ -93,14 +93,14 @@ class ChromotingHelperMac(ChromotingHelper):
     # Install host
     os.seteuid(0)
     mpkg = os.path.join('/Volumes', 'Chromoting Host ' + version,
-                        'Chromoting Host.mpkg')
+                        'Chromoting Host.pkg')
     subprocess.call(['/usr/sbin/installer', '-pkg',
                      mpkg, '-target', '/'])
     os.seteuid(login_uid)
 
     # Unmount after installation
     mounted = os.path.join('/Volumes', 'Chromoting Host ' + version)
-    subprocess.call('hdiutil unmount "' + mounted + '"', shell=True)
+    subprocess.call('hdiutil detach "' + mounted + '"', shell=True)
 
     # Clean up remoting-me2me-host-mac dir
     shutil.rmtree(host_dir, True)
@@ -112,8 +112,10 @@ class ChromotingHelperMac(ChromotingHelper):
     """Uninstalls host on Mac."""
     assert os.geteuid() == 0, 'Need superuser privileges'
     uninstall_app = os.path.join('/', 'Applications',
-                                 'Chromoting Host Uninstaller.app')
-    subprocess.call(['open', '-a', uninstall_app])
+                                 'Chromoting Host Uninstaller.app',
+                                 'Contents', 'MacOS',
+                                 'remoting_host_uninstaller')
+    subprocess.call([uninstall_app, '--no-ui'])
 
   def ReplacePrefPaneMac(self, operation):
     """Constructs mock pref pane to replace the actual pref pane on Mac."""
@@ -122,12 +124,20 @@ class ChromotingHelperMac(ChromotingHelper):
     pref_pane_dir = os.path.join('/Library', 'PreferencePanes')
 
     mock_pref_pane = os.path.join(pref_pane_dir, 'mock_pref_pane')
-    pref_pane = os.path.join(pref_pane_dir, 'org.chromium.chromoting.prefPane')
-    mock_pref_pane_python = os.path.join(os.getcwd(), 'chrome', 'test',
-                                         'functional', 'chromoting',
-                                         'mock_pref_pane.py')
+    pref_pane = os.path.join(pref_pane_dir,
+                             'org.chromium.chromoting.prefPane')
+    mock_pref_pane_python = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        'mock_pref_pane.py')
 
-    shutil.rmtree(mock_pref_pane, True)
+    # When the symlink from real pref pane to mock pref pane exists,
+    # mock pref pane will be modified to be a dir when the host is installed.
+    # After the host is installed and mock pref pane is modified to be a file,
+    # it will be a file until next host installation.
+    if os.path.isdir(mock_pref_pane):
+      shutil.rmtree(mock_pref_pane, True)
+    elif os.path.isfile(mock_pref_pane):
+      os.remove(mock_pref_pane)
 
     mock_pref_pane_file = open(mock_pref_pane, 'w')
     mock_pref_pane_file.write('#!/bin/bash\n')
@@ -137,7 +147,15 @@ class ChromotingHelperMac(ChromotingHelper):
     mock_pref_pane_file.close()
 
     subprocess.call(['chmod', 'a+x', mock_pref_pane])
-    shutil.rmtree(pref_pane, True)
+
+    # The real pref pane is a dir if the host is installed on a clean machine.
+    # Once the test is run on the machine, real pref pane will be replaced to
+    # a symlink.
+    if os.path.isdir(pref_pane):
+      shutil.rmtree(pref_pane, True)
+    elif os.path.isfile(pref_pane):
+      os.remove(pref_pane)
+
     subprocess.call(['ln', '-s', mock_pref_pane, pref_pane])
 
 
@@ -146,12 +164,12 @@ class ChromotingHelperWindows(ChromotingHelper):
 
   def InstallHost(self, bin_dir):
     """Installs host on Windows."""
-    host_msi = os.path.join(bin_dir, 'remoting-host.msi')
+    host_msi = os.path.join(bin_dir, 'chromoting.msi')
     subprocess.Popen(['msiexec', '/i', host_msi, '/passive']).wait()
 
   def UninstallHost(self, bin_dir):
     """Uninstalls host on Windows."""
-    host_msi = os.path.join(bin_dir, 'remoting-host.msi')
+    host_msi = os.path.join(bin_dir, 'chromoting.msi')
     subprocess.Popen(['msiexec', '/x', host_msi, '/passive']).wait()
 
 

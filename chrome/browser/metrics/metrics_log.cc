@@ -121,6 +121,8 @@ OmniboxEventProto::Suggestion::ResultType AsOmniboxEventResultType(
       return OmniboxEventProto::Suggestion::SEARCH_OTHER_ENGINE;
     case AutocompleteMatch::EXTENSION_APP:
       return OmniboxEventProto::Suggestion::EXTENSION_APP;
+    case AutocompleteMatch::CONTACT:
+      return OmniboxEventProto::Suggestion::CONTACT;
     default:
       NOTREACHED();
       return OmniboxEventProto::Suggestion::UNKNOWN_RESULT_TYPE;
@@ -933,7 +935,7 @@ void MetricsLog::RecordOmniboxOpenedURL(const AutocompleteLog& log) {
          i != log.result.end(); ++i) {
       OPEN_ELEMENT_FOR_SCOPE("autocompleteitem");
       if (i->provider)
-        WriteAttribute("provider", i->provider->name());
+        WriteAttribute("provider", i->provider->GetName());
       const std::string result_type(AutocompleteMatch::TypeToString(i->type));
       if (!result_type.empty())
         WriteAttribute("resulttype", result_type);

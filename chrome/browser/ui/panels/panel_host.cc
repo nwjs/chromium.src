@@ -11,7 +11,6 @@
 #include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/panels/panel.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
@@ -113,7 +112,8 @@ void PanelHost::AddNewContents(content::WebContents* source,
                                content::WebContents* new_contents,
                                WindowOpenDisposition disposition,
                                const gfx::Rect& initial_pos,
-                               bool user_gesture) {
+                               bool user_gesture,
+                               bool* was_blocked) {
   chrome::NavigateParams navigate_params(profile_, new_contents->GetURL(),
                                          content::PAGE_TRANSITION_LINK);
   // Create a TabContents because the NavigateParams takes a TabContents,

@@ -32,8 +32,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "v8/include/v8.h"
-#include "webkit/glue/user_agent.h"
 #include "webkit/glue/webkit_glue.h"
+#include "webkit/user_agent/user_agent_util.h"
 
 #if defined(OS_CHROMEOS)
 #include "base/file_util_proxy.h"
@@ -150,6 +150,7 @@ void HelpHandler::GetLocalizedValues(DictionaryValue* localized_strings) {
     { "stable", IDS_ABOUT_PAGE_CHANNEL_STABLE },
     { "beta", IDS_ABOUT_PAGE_CHANNEL_BETA },
     { "dev", IDS_ABOUT_PAGE_CHANNEL_DEVELOPMENT },
+    { "channel-changed", IDS_ABOUT_PAGE_CHANNEL_CHANGED },
     { "webkit", IDS_WEBKIT },
     { "userAgent", IDS_ABOUT_VERSION_USER_AGENT },
     { "commandLine", IDS_ABOUT_VERSION_COMMAND_LINE },
@@ -326,6 +327,9 @@ void HelpHandler::SetReleaseTrack(const ListValue* args) {
   if (chromeos::UserManager::Get()->IsCurrentUserOwner()) {
     chromeos::CrosSettings::Get()->SetString(chromeos::kReleaseChannel,
                                              channel);
+    // Check for update after switching release channel.
+    version_updater_->CheckForUpdate(base::Bind(&HelpHandler::SetUpdateStatus,
+                                                base::Unretained(this)));
   }
 }
 

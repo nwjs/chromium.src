@@ -157,7 +157,6 @@ TEST_F(CustomFrameViewAshTest, ResizeButtonDrag) {
   CustomFrameViewAsh::TestApi test(frame);
   views::View* view = test.maximize_button();
   gfx::Point center = view->GetBoundsInScreen().CenterPoint();
-  const int kGridSize = ash::Shell::GetInstance()->GetGridSize();
 
   aura::test::EventGenerator generator(window->GetRootWindow(), center);
 
@@ -173,7 +172,7 @@ TEST_F(CustomFrameViewAshTest, ResizeButtonDrag) {
     EXPECT_FALSE(ash::wm::IsWindowMaximized(window));
     EXPECT_FALSE(ash::wm::IsWindowMinimized(window));
     internal::SnapSizer sizer(window, center,
-        internal::SnapSizer::RIGHT_EDGE, kGridSize);
+        internal::SnapSizer::RIGHT_EDGE);
     EXPECT_EQ(sizer.target_bounds().ToString(), window->bounds().ToString());
   }
 
@@ -189,7 +188,7 @@ TEST_F(CustomFrameViewAshTest, ResizeButtonDrag) {
     EXPECT_FALSE(ash::wm::IsWindowMaximized(window));
     EXPECT_FALSE(ash::wm::IsWindowMinimized(window));
     internal::SnapSizer sizer(window, center,
-        internal::SnapSizer::LEFT_EDGE, kGridSize);
+        internal::SnapSizer::LEFT_EDGE);
     EXPECT_EQ(sizer.target_bounds().ToString(), window->bounds().ToString());
   }
 
@@ -222,7 +221,7 @@ TEST_F(CustomFrameViewAshTest, ResizeButtonDrag) {
     EXPECT_FALSE(ash::wm::IsWindowMaximized(window));
     EXPECT_FALSE(ash::wm::IsWindowMinimized(window));
     internal::SnapSizer sizer(window, center,
-        internal::SnapSizer::RIGHT_EDGE, kGridSize);
+        internal::SnapSizer::RIGHT_EDGE);
     EXPECT_EQ(sizer.target_bounds().ToString(), window->bounds().ToString());
   }
 
@@ -239,7 +238,7 @@ TEST_F(CustomFrameViewAshTest, ResizeButtonDrag) {
     EXPECT_FALSE(ash::wm::IsWindowMaximized(window));
     EXPECT_FALSE(ash::wm::IsWindowMinimized(window));
     internal::SnapSizer sizer(window, center,
-        internal::SnapSizer::LEFT_EDGE, kGridSize);
+        internal::SnapSizer::LEFT_EDGE);
     EXPECT_EQ(sizer.target_bounds().ToString(), window->bounds().ToString());
   }
 
@@ -339,7 +338,6 @@ TEST_F(CustomFrameViewAshTest, MaximizeLeftButtonDragOut) {
 // Test that clicking a button in the maximizer bubble (in this case the
 // maximize left button) will do the requested action.
 TEST_F(CustomFrameViewAshTest, MaximizeLeftByButton) {
-  const int kGridSize = ash::Shell::GetInstance()->GetGridSize();
   views::Widget* widget = CreateWidget();
   aura::Window* window = widget->GetNativeWindow();
   CustomFrameViewAsh* frame = custom_frame_view_ash(widget);
@@ -371,7 +369,8 @@ TEST_F(CustomFrameViewAshTest, MaximizeLeftByButton) {
   EXPECT_FALSE(ash::wm::IsWindowMaximized(window));
   EXPECT_FALSE(ash::wm::IsWindowMinimized(window));
   internal::SnapSizer sizer(window, button_pos,
-      internal::SnapSizer::LEFT_EDGE, kGridSize);
+                            internal::SnapSizer::LEFT_EDGE);
+  sizer.SelectDefaultSizeAndDisableResize();
   EXPECT_EQ(sizer.target_bounds().ToString(), window->bounds().ToString());
 }
 
@@ -607,6 +606,33 @@ TEST_F(CustomFrameViewAshTest, MaximizeLeftMaximizeRestore) {
   EXPECT_EQ(new_bounds.height(), initial_bounds.height());
   // Make sure that there is no restore rectangle left.
   EXPECT_EQ(NULL, window->GetProperty(aura::client::kRestoreBoundsKey));
+}
+
+// Test that minimizing the window per keyboard closes the maximize bubble.
+TEST_F(CustomFrameViewAshTest, MinimizePerKeyClosesBubble) {
+  views::Widget* widget = CreateWidget();
+  aura::Window* window = widget->GetNativeWindow();
+  widget->SetBounds(gfx::Rect(10, 10, 100, 100));
+  CustomFrameViewAsh* frame = custom_frame_view_ash(widget);
+  CustomFrameViewAsh::TestApi test(frame);
+  ash::FrameMaximizeButton* maximize_button = test.maximize_button();
+
+  gfx::Point button_pos = maximize_button->GetBoundsInScreen().CenterPoint();
+  gfx::Point off_pos(button_pos.x() + 100, button_pos.y() + 100);
+
+  aura::test::EventGenerator generator(window->GetRootWindow(), off_pos);
+  generator.MoveMouseTo(off_pos);
+  EXPECT_FALSE(maximize_button->maximizer());
+
+  // Move the mouse cursor over the maximize button.
+  generator.MoveMouseTo(button_pos);
+  EXPECT_TRUE(maximize_button->maximizer());
+
+  // We simulate the keystroke by calling minimizeWindow directly.
+  wm::MinimizeWindow(window);
+
+  EXPECT_TRUE(ash::wm::IsWindowMinimized(window));
+  EXPECT_FALSE(maximize_button->maximizer());
 }
 
 }  // namespace internal

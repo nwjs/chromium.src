@@ -34,7 +34,7 @@
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/base/ime/text_input_type.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -206,6 +206,23 @@ const int kAutocompleteVerticalMarginInPopup = 2;
 int GetEditFontPixelSize(bool popup_window_mode) {
   return popup_window_mode ? kAutocompleteEditFontPixelSizeInPopup :
                              kAutocompleteEditFontPixelSize;
+}
+
+// Copies |selected_text| as text to the primary clipboard. If |write_url| is
+// true, this will also write |url| and |text| to the clipboard as a well-formed
+// URL.
+void DoCopy(const string16& selected_text,
+            bool write_url,
+            const GURL& url,
+            const string16& text) {
+  ui::Clipboard* cb = ui::Clipboard::GetForCurrentThread();
+  ui::ScopedClipboardWriter scw(cb, ui::Clipboard::BUFFER_STANDARD);
+  scw.WriteText(selected_text);
+  if (write_url) {
+    BookmarkNodeData data;
+    data.ReadFromTuple(url, text);
+    data.WriteToClipboard(NULL);
+  }
 }
 
 }  // namespace
@@ -760,7 +777,7 @@ void OmniboxViewViews::OnAfterUserAction(views::Textfield* sender) {
 void OmniboxViewViews::OnAfterCutOrCopy() {
   ui::Range selection_range;
   textfield_->GetSelectedRange(&selection_range);
-  ui::Clipboard* cb = views::ViewsDelegate::views_delegate->GetClipboard();
+  ui::Clipboard* cb = ui::Clipboard::GetForCurrentThread();
   string16 selected_text;
   cb->ReadText(ui::Clipboard::BUFFER_STANDARD, &selected_text);
   const string16 text = textfield_->text();
@@ -768,13 +785,7 @@ void OmniboxViewViews::OnAfterCutOrCopy() {
   bool write_url;
   model()->AdjustTextForCopy(selection_range.GetMin(), selected_text == text,
       &selected_text, &url, &write_url);
-  ui::ScopedClipboardWriter scw(cb, ui::Clipboard::BUFFER_STANDARD);
-  scw.WriteText(selected_text);
-  if (write_url) {
-    BookmarkNodeData data;
-    data.ReadFromTuple(url, text);
-    data.WriteToClipboard(NULL);
-  }
+  DoCopy(selected_text, write_url, url, text);
 }
 
 void OmniboxViewViews::OnWriteDragData(ui::OSExchangeData* data) {
@@ -798,16 +809,28 @@ void OmniboxViewViews::UpdateContextMenu(ui::SimpleMenuModel* menu_contents) {
   menu_contents->AddItemWithStringId(IDC_EDIT_SEARCH_ENGINES,
       IDS_EDIT_SEARCH_ENGINES);
 
-  int paste_position = menu_contents->GetIndexOfCommandId(IDS_APP_PASTE);
-  if (paste_position >= 0)
+  if (chrome::search::IsInstantExtendedAPIEnabled(
+          location_bar_view_->profile())) {
+    int copy_position = menu_contents->GetIndexOfCommandId(IDS_APP_COPY);
+    DCHECK(copy_position >= 0);
     menu_contents->InsertItemWithStringIdAt(
-        paste_position + 1, IDS_PASTE_AND_GO, IDS_PASTE_AND_GO);
+        copy_position + 1, IDC_COPY_URL, IDS_COPY_URL);
+  }
+
+  int paste_position = menu_contents->GetIndexOfCommandId(IDS_APP_PASTE);
+  DCHECK(paste_position >= 0);
+  menu_contents->InsertItemWithStringIdAt(
+      paste_position + 1, IDS_PASTE_AND_GO, IDS_PASTE_AND_GO);
 }
 
 bool OmniboxViewViews::IsCommandIdEnabled(int command_id) const {
-  return (command_id == IDS_PASTE_AND_GO) ?
-      model()->CanPasteAndGo(GetClipboardText()) :
-      command_updater()->IsCommandEnabled(command_id);
+  if (command_id == IDS_PASTE_AND_GO)
+    return model()->CanPasteAndGo(GetClipboardText());
+  if (command_id == IDS_COPY_URL) {
+    return toolbar_model()->WouldReplaceSearchURLWithSearchTerms() &&
+      !model()->user_input_in_progress();
+  }
+  return command_updater()->IsCommandEnabled(command_id);
 }
 
 bool OmniboxViewViews::IsItemForCommandIdDynamic(int command_id) const {
@@ -825,12 +848,12 @@ string16 OmniboxViewViews::GetLabelForCommandId(int command_id) const {
 }
 
 void OmniboxViewViews::ExecuteCommand(int command_id) {
-  if (command_id == IDS_PASTE_AND_GO) {
+  if (command_id == IDS_PASTE_AND_GO)
     model()->PasteAndGo(GetClipboardText());
-    return;
-  }
-
-  command_updater()->ExecuteCommand(command_id);
+  else if (command_id == IDS_COPY_URL)
+    CopyURL();
+  else
+    command_updater()->ExecuteCommand(command_id);
 }
 
 #if defined(OS_CHROMEOS)
@@ -904,4 +927,9 @@ void OmniboxViewViews::SetTextAndSelectedRange(const string16& text,
 string16 OmniboxViewViews::GetSelectedText() const {
   // TODO(oshima): Support instant, IME.
   return textfield_->GetSelectedText();
+}
+
+void OmniboxViewViews::CopyURL() {
+  const string16& text = toolbar_model()->GetText(false);
+  DoCopy(text, true, toolbar_model()->GetURL(), text);
 }

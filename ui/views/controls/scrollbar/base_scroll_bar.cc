@@ -13,7 +13,7 @@
 #include "base/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "grit/ui_strings.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/canvas.h"
@@ -167,7 +167,7 @@ bool BaseScrollBar::OnKeyPressed(const ui::KeyEvent& event) {
   return false;
 }
 
-ui::GestureStatus BaseScrollBar::OnGestureEvent(const ui::GestureEvent& event) {
+ui::EventResult BaseScrollBar::OnGestureEvent(const ui::GestureEvent& event) {
   // If a fling is in progress, then stop the fling for any incoming gesture
   // event (except for the GESTURE_END event that is generated at the end of the
   // fling).
@@ -179,13 +179,13 @@ ui::GestureStatus BaseScrollBar::OnGestureEvent(const ui::GestureEvent& event) {
 
   if (event.type() == ui::ET_GESTURE_TAP_DOWN) {
     ProcessPressEvent(event);
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   }
 
   if (event.type() == ui::ET_GESTURE_LONG_PRESS) {
     // For a long-press, the repeater started in tap-down should continue. So
     // return early.
-    return ui::GESTURE_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   }
 
   ResetState();
@@ -193,17 +193,17 @@ ui::GestureStatus BaseScrollBar::OnGestureEvent(const ui::GestureEvent& event) {
   if (event.type() == ui::ET_GESTURE_TAP) {
     // TAP_DOWN would have already scrolled some amount. So scrolling again on
     // TAP is not necessary.
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   }
 
   if (event.type() == ui::ET_GESTURE_SCROLL_BEGIN ||
       event.type() == ui::ET_GESTURE_SCROLL_END)
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
 
   if (event.type() == ui::ET_GESTURE_SCROLL_UPDATE) {
     ScrollByContentsOffset(IsHorizontal() ? event.details().scroll_x() :
                                             event.details().scroll_y());
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   }
 
   if (event.type() == ui::ET_SCROLL_FLING_START) {
@@ -211,10 +211,10 @@ ui::GestureStatus BaseScrollBar::OnGestureEvent(const ui::GestureEvent& event) {
       scroll_animator_.reset(new ScrollAnimator(this));
     scroll_animator_->Start(IsHorizontal() ? event.details().velocity_x() : 0.f,
         IsHorizontal() ? 0.f : event.details().velocity_y());
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   }
 
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 bool BaseScrollBar::OnMouseWheel(const ui::MouseWheelEvent& event) {

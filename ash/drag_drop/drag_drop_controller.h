@@ -11,7 +11,7 @@
 #include "ui/aura/event_filter.h"
 #include "ui/aura/window_observer.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/gfx/point.h"
 
@@ -59,7 +59,6 @@ class ASH_EXPORT DragDropController
                     const ui::LocatedEvent& event) OVERRIDE;
   virtual void DragCancel() OVERRIDE;
   virtual bool IsDragDropInProgress() OVERRIDE;
-  virtual gfx::NativeCursor GetDragCursor() OVERRIDE;
 
   // Overridden from aura::EventFilter:
   virtual bool PreHandleKeyEvent(aura::Window* target,
@@ -69,7 +68,7 @@ class ASH_EXPORT DragDropController
   virtual ui::TouchStatus PreHandleTouchEvent(
       aura::Window* target,
       ui::TouchEvent* event) OVERRIDE;
-  virtual ui::GestureStatus PreHandleGestureEvent(
+  virtual ui::EventResult PreHandleGestureEvent(
       aura::Window* target,
       ui::GestureEvent* event) OVERRIDE;
 
@@ -92,7 +91,6 @@ class ASH_EXPORT DragDropController
   gfx::Point drag_image_offset_;
   const ui::OSExchangeData* drag_data_;
   int drag_operation_;
-  gfx::NativeCursor drag_cursor_;
 
   // Window that is currently under the drag cursor.
   aura::Window* drag_window_;

@@ -34,6 +34,8 @@ class ContentViewCoreImpl : public ContentViewCore,
  public:
   ContentViewCoreImpl(JNIEnv* env,
                       jobject obj,
+                      bool hardware_accelerated,
+                      bool take_ownership_of_web_contents,
                       WebContents* web_contents);
 
   // ContentViewCore overrides
@@ -101,6 +103,9 @@ class ContentViewCoreImpl : public ContentViewCore,
                jint x,
                jint y,
                jfloat delta);
+  virtual void SelectBetweenCoordinates(JNIEnv* env, jobject obj,
+                                        jint x1, jint y1,
+                                        jint x2, jint y2) OVERRIDE;
   jboolean CanGoBack(JNIEnv* env, jobject obj);
   jboolean CanGoForward(JNIEnv* env, jobject obj);
   jboolean CanGoToOffset(JNIEnv* env, jobject obj, jint offset);
@@ -187,11 +192,10 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   RenderWidgetHostViewAndroid* GetRenderWidgetHostViewAndroid();
 
-  void SendGestureEvent(WebKit::WebInputEvent::Type type, long time_ms,
-                        int x, int y,
-                        float dx, float dy, bool disambiguation_popup_tap);
+  int GetTouchPadding();
 
-  void PostLoadUrl(const GURL& url);
+  void SendGestureEvent(WebKit::WebInputEvent::Type type, long time_ms,
+                        int x, int y);
 
   struct JavaObject;
   JavaObject* java_object_;
@@ -204,6 +208,7 @@ class ContentViewCoreImpl : public ContentViewCore,
   // Reference to the current WebContents used to determine how and what to
   // display in the ContentViewCore.
   WebContentsImpl* web_contents_;
+  bool owns_web_contents_;
 
   // We only set this to be the delegate of the web_contents if we own it.
   scoped_ptr<ContentViewClient> content_view_client_;

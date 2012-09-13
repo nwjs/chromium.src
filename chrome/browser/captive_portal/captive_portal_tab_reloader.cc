@@ -9,6 +9,7 @@
 #include "base/message_loop.h"
 #include "chrome/browser/captive_portal/captive_portal_service.h"
 #include "chrome/browser/captive_portal/captive_portal_service_factory.h"
+#include "content/public/browser/interstitial_page.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
@@ -21,6 +22,22 @@ namespace {
 // The time to wait for a slow loading SSL page before triggering a captive
 // portal check.
 const int kDefaultSlowSSLTimeSeconds = 30;
+
+// Returns true if an SSL request resulting in |error| may indicate a captive
+// portal.
+bool SslNetErrorMayImplyCaptivePortal(int error) {
+  // May be returned when a captive portal silently blocks an SSL request.
+  if (error == net::ERR_CONNECTION_TIMED_OUT)
+    return true;
+
+  // May be returned when a captive portal lets SSL requests connect, but
+  // disconnects Chrome after Chrome starts SSL negotiation, or sends an
+  // HTTP response.
+  if (error == net::ERR_SSL_PROTOCOL_ERROR)
+    return true;
+
+  return false;
+}
 
 }  // namespace
 
@@ -63,8 +80,9 @@ void CaptivePortalTabReloader::OnLoadCommitted(int net_error) {
   if (state_ == STATE_NONE)
     return;
 
-  // If there's no timeout error, reset the state.
-  if (net_error != net::ERR_CONNECTION_TIMED_OUT) {
+  // If |net_error| is not an error code that could indicate there's a captive
+  // portal, reset the state.
+  if (!SslNetErrorMayImplyCaptivePortal(net_error)) {
     // TODO(mmenke):  If the new URL is the same as the old broken URL, and the
     //                request succeeds, should probably trigger another
     //                captive portal check.
@@ -72,10 +90,8 @@ void CaptivePortalTabReloader::OnLoadCommitted(int net_error) {
     return;
   }
 
-  // The page timed out before the timer triggered.  This is not terribly
-  // likely, but if it does happen, the tab may have been broken by a captive
-  // portal.  Go ahead and try to detect a portal now, rather than waiting for
-  // the timer.
+  // The page returned an error out before the timer triggered.  Go ahead and
+  // try to detect a portal now, rather than waiting for the timer.
   if (state_ == STATE_TIMER_RUNNING) {
     OnSlowSSLConnect();
     return;
@@ -127,9 +143,9 @@ void CaptivePortalTabReloader::OnCaptivePortalResults(
       // If the previous result was BEHIND_CAPTIVE_PORTAL, and the state is
       // either STATE_MAYBE_BROKEN_BY_PORTAL or STATE_TIMER_RUNNING, reload the
       // tab.  In the latter case, the tab has yet to commit, but is an SSL
-      // page, so if the page ends up at a timeout error, it will be reloaded.
-      // If not, the state will just be reset.  The helps in the case that a
-      // user tries to reload a tab, and then quickly logs in.
+      // page, so if the page ends up at an error caused by a captive portal, it
+      // will be reloaded.  If not, the state will just be reset.  The helps in
+      // the case that a user tries to reload a tab, and then quickly logs in.
       if (previous_result == RESULT_BEHIND_CAPTIVE_PORTAL) {
         SetState(STATE_NEEDS_RELOAD);
         return;
@@ -138,8 +154,9 @@ void CaptivePortalTabReloader::OnCaptivePortalResults(
       return;
 
     case STATE_BROKEN_BY_PORTAL:
-      // Either reload the tab now, if a connection timed out error page has
-      // already been committed, or reload it if and when a timeout commits.
+      // Either reload the tab now, if an error page has already been committed
+      // or an interstitial is being displayed, or reload it if and when a
+      // timeout commits.
       SetState(STATE_NEEDS_RELOAD);
       return;
 
@@ -153,6 +170,15 @@ void CaptivePortalTabReloader::OnCaptivePortalResults(
     default:
       NOTREACHED();
   }
+}
+
+void CaptivePortalTabReloader::OnSSLCertError(const net::SSLInfo& ssl_info) {
+  // TODO(mmenke):  Figure out if any cert errors should be ignored.  The
+  // most common errors when behind captive portals are likely
+  // ERR_CERT_COMMON_NAME_INVALID and ERR_CERT_AUTHORITY_INVALID.  It's unclear
+  // if captive portals cause any others.
+  if (state_ == STATE_TIMER_RUNNING)
+    SetState(STATE_MAYBE_BROKEN_BY_PORTAL);
 }
 
 void CaptivePortalTabReloader::OnSlowSSLConnect() {
@@ -221,10 +247,18 @@ void CaptivePortalTabReloader::SetState(State new_state) {
 }
 
 void CaptivePortalTabReloader::ReloadTabIfNeeded() {
-  // If there's still a provisional load going, or the page no longer needs
-  // to be reloaded, due to a new navigation, do nothing.
-  if (state_ != STATE_NEEDS_RELOAD || provisional_main_frame_load_)
+  // If the page no longer needs to be reloaded, do nothing.
+  if (state_ != STATE_NEEDS_RELOAD)
     return;
+
+  // If there's still a provisional load going, do nothing unless there's an
+  // interstitial page.  Reloading when displaying an interstitial page will
+  // reload the underlying page, even if it hasn't yet committed.
+  if (provisional_main_frame_load_ &&
+      !content::InterstitialPage::GetInterstitialPage(web_contents_)) {
+    return;
+  }
+
   SetState(STATE_NONE);
   ReloadTab();
 }

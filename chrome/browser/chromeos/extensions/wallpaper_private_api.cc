@@ -12,6 +12,7 @@
 #include "base/path_service.h"
 #include "base/synchronization/cancellation_flag.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chromeos/login/user_image.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/login/wallpaper_manager.h"
 #include "chrome/browser/extensions/event_router.h"
@@ -46,6 +47,10 @@ bool WallpaperStringsFunction::RunImpl() {
   SET_STRING("downloadingLabel", IDS_WALLPAPER_MANAGER_DOWNLOADING_LABEL);
   SET_STRING("setWallpaperDaily", IDS_OPTIONS_SET_WALLPAPER_DAILY);
   SET_STRING("searchTextLabel", IDS_WALLPAPER_MANAGER_SEARCH_TEXT_LABEL);
+  SET_STRING("centerCroppedLayout",
+             IDS_OPTIONS_WALLPAPER_CENTER_CROPPED_LAYOUT);
+  SET_STRING("centerLayout", IDS_OPTIONS_WALLPAPER_CENTER_LAYOUT);
+  SET_STRING("stretchLayout", IDS_OPTIONS_WALLPAPER_STRETCH_LAYOUT);
 #undef SET_STRING
 
   ChromeURLDataManager::DataSource::SetFontAndTextDirection(dict);
@@ -53,11 +58,9 @@ bool WallpaperStringsFunction::RunImpl() {
   return true;
 }
 
-class WallpaperSetWallpaperFunction::WallpaperDecoder
-    : public ImageDecoder::Delegate {
+class WallpaperFunctionBase::WallpaperDecoder : public ImageDecoder::Delegate {
  public:
-  explicit WallpaperDecoder(
-      scoped_refptr<WallpaperSetWallpaperFunction> function)
+  explicit WallpaperDecoder(scoped_refptr<WallpaperFunctionBase> function)
       : function_(function) {
   }
 
@@ -88,21 +91,27 @@ class WallpaperSetWallpaperFunction::WallpaperDecoder
       delete this;
       return;
     }
-    function_->OnFail();
+    function_->OnFailure();
     // TODO(bshe): Dispatches an encoding error event.
     delete this;
   }
 
  private:
-  scoped_refptr<WallpaperSetWallpaperFunction> function_;
+  scoped_refptr<WallpaperFunctionBase> function_;
   scoped_refptr<ImageDecoder> image_decoder_;
   base::CancellationFlag cancel_flag_;
 
   DISALLOW_COPY_AND_ASSIGN(WallpaperDecoder);
 };
 
-WallpaperSetWallpaperFunction::WallpaperDecoder*
-    WallpaperSetWallpaperFunction::wallpaper_decoder_;
+WallpaperFunctionBase::WallpaperDecoder*
+    WallpaperFunctionBase::wallpaper_decoder_;
+
+WallpaperFunctionBase::WallpaperFunctionBase() {
+}
+
+WallpaperFunctionBase::~WallpaperFunctionBase() {
+}
 
 WallpaperSetWallpaperFunction::WallpaperSetWallpaperFunction() {
 }
@@ -120,11 +129,8 @@ bool WallpaperSetWallpaperFunction::RunImpl() {
     return false;
   }
   layout_ = ash::GetLayoutEnum(layout_string);
-  std::string url;
-  if (!args_->GetString(2, &url) || url.empty()) {
+  if (!args_->GetString(2, &url_) || url_.empty())
     return false;
-  }
-  file_name_ = GURL(url).ExtractFileName();
 
   // Gets email address while at UI thread.
   email_ = chromeos::UserManager::Get()->GetLoggedInUser().email();
@@ -147,7 +153,7 @@ void WallpaperSetWallpaperFunction::OnWallpaperDecoded(
                  this));
 }
 
-void WallpaperSetWallpaperFunction::OnFail() {
+void WallpaperSetWallpaperFunction::OnFailure() {
   wallpaper_decoder_ = NULL;
   SendResponse(false);
 }
@@ -160,11 +166,12 @@ void WallpaperSetWallpaperFunction::SaveToFile() {
       !file_util::CreateDirectory(wallpaper_dir)) {
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
-        base::Bind(&WallpaperSetWallpaperFunction::OnFail,
+        base::Bind(&WallpaperSetWallpaperFunction::OnFailure,
                    this));
     return;
   }
-  FilePath file_path = wallpaper_dir.Append(file_name_);
+  std::string file_name = GURL(url_).ExtractFileName();
+  FilePath file_path = wallpaper_dir.Append(file_name);
   if (file_util::PathExists(file_path) ||
       file_util::WriteFile(file_path, image_data_.c_str(),
                            image_data_.size()) != -1 ) {
@@ -175,7 +182,7 @@ void WallpaperSetWallpaperFunction::SaveToFile() {
   } else {
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
-        base::Bind(&WallpaperSetWallpaperFunction::OnFail,
+        base::Bind(&WallpaperSetWallpaperFunction::OnFailure,
                    this));
   }
 }
@@ -187,7 +194,7 @@ void WallpaperSetWallpaperFunction::SetDecodedWallpaper() {
   bool is_persistent =
       !chromeos::UserManager::Get()->IsCurrentUserEphemeral();
   chromeos::WallpaperInfo info = {
-      file_name_,
+      url_,
       layout_,
       chromeos::User::ONLINE,
       base::Time::Now().LocalMidnight()
@@ -195,4 +202,52 @@ void WallpaperSetWallpaperFunction::SetDecodedWallpaper() {
   wallpaper_manager->SetUserWallpaperInfo(email_, info, is_persistent);
   wallpaper_decoder_ = NULL;
   SendResponse(true);
+}
+
+WallpaperSetCustomWallpaperFunction::WallpaperSetCustomWallpaperFunction() {
+}
+
+WallpaperSetCustomWallpaperFunction::~WallpaperSetCustomWallpaperFunction() {
+}
+
+bool WallpaperSetCustomWallpaperFunction::RunImpl() {
+  BinaryValue* input = NULL;
+  if (args_ == NULL || !args_->GetBinary(0, &input)) {
+    return false;
+  }
+  std::string layout_string;
+  if (!args_->GetString(1, &layout_string) || layout_string.empty()) {
+    return false;
+  }
+  layout_ = ash::GetLayoutEnum(layout_string);
+
+  // Gets email address while at UI thread.
+  email_ = chromeos::UserManager::Get()->GetLoggedInUser().email();
+
+  image_data_.assign(input->GetBuffer(), input->GetSize());
+  if (wallpaper_decoder_)
+    wallpaper_decoder_->Cancel();
+  wallpaper_decoder_ = new WallpaperDecoder(this);
+  wallpaper_decoder_->Start(image_data_);
+
+  return true;
+}
+
+void WallpaperSetCustomWallpaperFunction::OnWallpaperDecoded(
+    const gfx::ImageSkia& wallpaper) {
+  chromeos::UserImage::RawImage raw_image(image_data_.begin(),
+                                          image_data_.end());
+  chromeos::UserImage image(wallpaper, raw_image);
+  // In the new wallpaper picker UI, we do not depend on WallpaperDelegate
+  // to refresh thumbnail. Uses a null delegate here.
+  chromeos::WallpaperManager::Get()->SetCustomWallpaper(
+      email_, layout_, chromeos::User::CUSTOMIZED,
+      base::WeakPtr<chromeos::WallpaperDelegate>(), image);
+  wallpaper_decoder_ = NULL;
+  SendResponse(true);
+}
+
+void WallpaperSetCustomWallpaperFunction::OnFailure() {
+  wallpaper_decoder_ = NULL;
+  SendResponse(false);
 }

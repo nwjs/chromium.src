@@ -70,10 +70,19 @@ class CONTENT_EXPORT IndexedDBDispatcher
       const string16& origin,
       WebKit::WebFrame* web_frame);
 
+  // TODO(jsbell): Remove this overload once WK90411 rolls.
   void RequestIDBFactoryOpen(
       const string16& name,
       int64 version,
       WebKit::WebIDBCallbacks* callbacks,
+       const string16& origin,
+      WebKit::WebFrame* web_frame);
+
+  void RequestIDBFactoryOpen(
+      const string16& name,
+      int64 version,
+      WebKit::WebIDBCallbacks* callbacks,
+      WebKit::WebIDBDatabaseCallbacks* database_callbacks,
       const string16& origin,
       WebKit::WebFrame* web_frame);
 
@@ -261,6 +270,7 @@ class CONTENT_EXPORT IndexedDBDispatcher
                        int64 old_version);
   void OnAbort(int32 thread_id, int32 transaction_id);
   void OnComplete(int32 thread_id, int32 transaction_id);
+  void OnForcedClose(int32 thread_id, int32 database_id);
   void OnVersionChange(int32 thread_id,
                        int32 database_id,
                        const string16& newVersion);

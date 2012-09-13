@@ -21,6 +21,14 @@
 #include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
 
+#if defined(OS_MACOSX)
+#include "base/mac/mac_util.h"
+#endif
+
+#if defined(OS_WIN)
+#include "base/win/windows_version.h"
+#endif
+
 namespace captive_portal {
 
 namespace {
@@ -93,9 +101,22 @@ void RecordRepeatHistograms(Result result,
   result_duration_histogram->AddTime(result_duration);
 }
 
+bool HasNativeCaptivePortalDetection() {
+  // Lion and Windows 8 have their own captive portal detection that will open
+  // a browser window as needed.
+#if defined(OS_MACOSX)
+  return base::mac::IsOSLionOrLater();
+#elif defined(OS_WIN)
+  return base::win::GetVersion() >= base::win::VERSION_WIN8;
+#else
+  return false;
+#endif
+}
+
 }  // namespace
 
-bool CaptivePortalService::is_disabled_for_testing_ = false;
+CaptivePortalService::TestingState CaptivePortalService::testing_state_ =
+    NOT_TESTING;
 
 class CaptivePortalService::RecheckBackoffEntry : public net::BackoffEntry {
  public:
@@ -332,8 +353,14 @@ void CaptivePortalService::ResetBackoffEntry(Result result) {
 
 void CaptivePortalService::UpdateEnabledState() {
   bool enabled_before = enabled_;
-  enabled_ = !is_disabled_for_testing_ &&
+  enabled_ = testing_state_ != DISABLED_FOR_TESTING &&
              resolve_errors_with_web_service_.GetValue();
+
+  if (testing_state_ != SKIP_OS_CHECK_FOR_TESTING &&
+      HasNativeCaptivePortalDetection()) {
+    enabled_ = false;
+  }
+
   if (enabled_before == enabled_)
     return;
 
@@ -397,7 +424,13 @@ Result CaptivePortalService::GetCaptivePortalResultFromResponse(
     return RESULT_NO_RESPONSE;
   }
 
-  // Non-2xx/3xx HTTP responses may also indicate server errors.
+  // A 511 response (Network Authentication Required) means that the user needs
+  // to login to whatever server issued the response.
+  // See:  http://tools.ietf.org/html/rfc6585
+  if (response_code == 511)
+    return RESULT_BEHIND_CAPTIVE_PORTAL;
+
+  // Other non-2xx/3xx HTTP responses may indicate server errors.
   if (response_code >= 400 || response_code < 200)
     return RESULT_NO_RESPONSE;
 

@@ -89,9 +89,6 @@ class ShellIntegration {
     gfx::Image favicon;
     FilePath profile_path;
 
-    // Shortcuts to platform apps are created differently. They start up with
-    // their own user data directory and load the app from |extension_path|.
-    bool is_platform_app;
     bool create_on_desktop;
     bool create_in_applications_menu;
 
@@ -115,12 +112,10 @@ class ShellIntegration {
   // The new command line reuses the current process's user data directory (and
   // login profile, for ChromeOS).
   // If |extension_app_id| is non-empty, the arguments use kAppId=<id>.
-  // Otherwise, kApp=<url> is used. If |is_platform_app| is true the flag
-  // --enable-platform-apps is added to the command line.
+  // Otherwise, kApp=<url> is used.
   static CommandLine CommandLineArgsForLauncher(
       const GURL& url,
       const std::string& extension_app_id,
-      bool is_platform_app,
       const FilePath& profile_path);
 
 #if defined(OS_WIN)
@@ -145,11 +140,6 @@ class ShellIntegration {
   // Migrates existing chrome shortcuts by tagging them with correct app id.
   // see http://crbug.com/28104
   static void MigrateChromiumShortcuts();
-
-  // Activates Chrome in metro-mode on Windows 8.  Returns false if called on
-  // earlier versions of Windows, if called from within metro-mode, if Chrome
-  // is not the default browser, or if an actual error occurs.
-  static bool ActivateMetroChrome();
 
   // Returns the path to the Start Menu shortcut for the given Chrome.
   static FilePath GetStartMenuShortcut(const FilePath& chrome_exe);

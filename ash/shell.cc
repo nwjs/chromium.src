@@ -56,7 +56,6 @@
 #include "ash/wm/status_area_layout_manager.h"
 #include "ash/wm/system_gesture_event_filter.h"
 #include "ash/wm/system_modal_container_layout_manager.h"
-#include "ash/wm/toplevel_window_event_filter.h"
 #include "ash/wm/user_activity_detector.h"
 #include "ash/wm/video_detector.h"
 #include "ash/wm/visibility_controller.h"
@@ -64,7 +63,6 @@
 #include "ash/wm/window_modality_controller.h"
 #include "ash/wm/window_properties.h"
 #include "ash/wm/window_util.h"
-#include "ash/wm/workspace/workspace_event_filter.h"
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/bind.h"
@@ -198,6 +196,8 @@ Shell::Shell(ShellDelegate* delegate)
   output_configurator_->AddObserver(output_configurator_animation_.get());
   base::MessagePumpAuraX11::Current()->AddDispatcherForRootWindow(
       output_configurator());
+  static_cast<internal::MultiDisplayManager*>(
+      aura::Env::GetInstance()->display_manager())->InitInternalDisplayInfo();
 #endif  // defined(OS_CHROMEOS)
 }
 
@@ -372,6 +372,9 @@ void Shell::Init() {
   aura::RootWindow* root_window = display_controller_->GetPrimaryRootWindow();
   active_root_window_ = root_window;
 
+  cursor_manager_.SetDeviceScaleFactor(
+      root_window->AsRootWindowHostDelegate()->GetDeviceScaleFactor());
+
 #if !defined(OS_MACOSX)
   nested_dispatcher_controller_.reset(new NestedDispatcherController);
   accelerator_controller_.reset(new AcceleratorController);
@@ -481,14 +484,16 @@ void Shell::Init() {
   // Force Layout
   root_window_controller->root_window_layout()->OnWindowResized();
 
+  display_controller_->InitSecondaryDisplays();
+
   // It needs to be created after OnWindowResized has been called, otherwise the
-  // widget will not paint when restoring after a browser crash.
+  // widget will not paint when restoring after a browser crash.  Also it needs
+  // to be created after InitSecondaryDisplays() to initialize the wallpapers in
+  // the correct size.
   user_wallpaper_delegate_->InitializeWallpaper();
 
   power_button_controller_.reset(new PowerButtonController);
   AddShellObserver(power_button_controller_.get());
-
-  display_controller_->InitSecondaryDisplays();
 
   if (initially_hide_cursor_)
     cursor_manager_.ShowCursor(false);
@@ -656,11 +661,6 @@ SystemTray* Shell::system_tray() {
   return status_area_widget_->system_tray();
 }
 
-int Shell::GetGridSize() const {
-  return
-      GetPrimaryRootWindowController()->workspace_controller()->GetGridSize();
-}
-
 void Shell::InitRootWindowForSecondaryDisplay(aura::RootWindow* root) {
   root->set_focus_manager(focus_manager_.get());
   internal::RootWindowController* controller =
@@ -751,14 +751,6 @@ void Shell::InitLayoutManagersForPrimaryDisplay(
       new internal::PanelWindowEventFilter(
           panel_container, panel_layout_manager_));
   panel_container->SetLayoutManager(panel_layout_manager_);
-}
-
-// TODO: this is only used in tests, move with test.
-void Shell::DisableWorkspaceGridLayout() {
-  RootWindowControllerList controllers = GetAllRootWindowControllers();
-  for (RootWindowControllerList::iterator iter = controllers.begin();
-       iter != controllers.end(); ++iter)
-    (*iter)->workspace_controller()->SetGridSize(0);
 }
 
 void Shell::SetCursor(gfx::NativeCursor cursor) {

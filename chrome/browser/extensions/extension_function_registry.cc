@@ -29,6 +29,7 @@
 #include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
 #include "chrome/browser/extensions/api/page_capture/page_capture_api.h"
 #include "chrome/browser/extensions/api/permissions/permissions_api.h"
+#include "chrome/browser/extensions/api/processes/processes_api.h"
 #include "chrome/browser/extensions/api/record/record_api.h"
 #include "chrome/browser/extensions/api/runtime/runtime_api.h"
 #include "chrome/browser/extensions/api/serial/serial_api.h"
@@ -42,7 +43,6 @@
 #include "chrome/browser/extensions/api/webstore_private/webstore_private_api.h"
 #include "chrome/browser/extensions/extension_module.h"
 #include "chrome/browser/extensions/extension_preference_api.h"
-#include "chrome/browser/extensions/extension_processes_api.h"
 #include "chrome/browser/extensions/settings/settings_api.h"
 #include "chrome/browser/extensions/system/system_api.h"
 #include "chrome/browser/history/history_extension_api.h"
@@ -97,21 +97,22 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<RemoveWindowFunction>();
 
   // Tabs
-  RegisterFunction<GetTabFunction>();
+  RegisterFunction<CaptureVisibleTabFunction>();
+  RegisterFunction<CreateTabFunction>();
+  RegisterFunction<DetectTabLanguageFunction>();
+  RegisterFunction<DuplicateTabFunction>();
+  RegisterFunction<GetAllTabsInWindowFunction>();
   RegisterFunction<GetCurrentTabFunction>();
   RegisterFunction<GetSelectedTabFunction>();
-  RegisterFunction<GetAllTabsInWindowFunction>();
-  RegisterFunction<QueryTabsFunction>();
+  RegisterFunction<GetTabFunction>();
   RegisterFunction<HighlightTabsFunction>();
-  RegisterFunction<CreateTabFunction>();
-  RegisterFunction<UpdateTabFunction>();
   RegisterFunction<MoveTabsFunction>();
+  RegisterFunction<QueryTabsFunction>();
   RegisterFunction<ReloadTabFunction>();
   RegisterFunction<RemoveTabsFunction>();
-  RegisterFunction<DetectTabLanguageFunction>();
-  RegisterFunction<CaptureVisibleTabFunction>();
   RegisterFunction<TabsExecuteScriptFunction>();
   RegisterFunction<TabsInsertCSSFunction>();
+  RegisterFunction<UpdateTabFunction>();
 
   // Page Actions.
   RegisterFunction<EnablePageActionsFunction>();
@@ -204,9 +205,9 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<GetAcceptLanguagesFunction>();
 
   // Processes.
-  RegisterFunction<GetProcessIdForTabFunction>();
-  RegisterFunction<TerminateFunction>();
-  RegisterFunction<GetProcessInfoFunction>();
+  RegisterFunction<extensions::GetProcessIdForTabFunction>();
+  RegisterFunction<extensions::TerminateFunction>();
+  RegisterFunction<extensions::GetProcessInfoFunction>();
 
   // Metrics.
   RegisterFunction<extensions::MetricsRecordUserActionFunction>();
@@ -365,15 +366,15 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<ViewFilesFunction>();
   RegisterFunction<ToggleFullscreenFunction>();
   RegisterFunction<IsFullscreenFunction>();
-  RegisterFunction<GetGDataFilePropertiesFunction>();
-  RegisterFunction<PinGDataFileFunction>();
+  RegisterFunction<GetDriveFilePropertiesFunction>();
+  RegisterFunction<PinDriveFileFunction>();
   RegisterFunction<GetFileLocationsFunction>();
-  RegisterFunction<GetGDataFilesFunction>();
+  RegisterFunction<GetDriveFilesFunction>();
   RegisterFunction<GetFileTransfersFunction>();
   RegisterFunction<CancelFileTransfersFunction>();
   RegisterFunction<TransferFileFunction>();
-  RegisterFunction<GetGDataPreferencesFunction>();
-  RegisterFunction<SetGDataPreferencesFunction>();
+  RegisterFunction<GetDrivePreferencesFunction>();
+  RegisterFunction<SetDrivePreferencesFunction>();
   RegisterFunction<SearchDriveFunction>();
   RegisterFunction<ClearDriveCacheFunction>();
   RegisterFunction<GetNetworkConnectionStateFunction>();
@@ -391,6 +392,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   // WallpaperManagerPrivate functions.
   RegisterFunction<WallpaperStringsFunction>();
   RegisterFunction<WallpaperSetWallpaperFunction>();
+  RegisterFunction<WallpaperSetCustomWallpaperFunction>();
 
   // InputMethod
   RegisterFunction<GetInputMethodFunction>();

@@ -4,23 +4,15 @@
 
 {
   'dependencies': [
-    'browser/debugger/devtools_resources.gyp:devtools_resources',
     'browser/speech/proto/speech_proto.gyp:speech_proto',
     '../base/base.gyp:base_static',
     '../crypto/crypto.gyp:crypto',
-    '../net/net.gyp:http_server',
+    '../google_apis/google_apis.gyp:google_apis',
     '../net/net.gyp:net',
-    '../ppapi/ppapi_internal.gyp:ppapi_ipc',
     '../skia/skia.gyp:skia',
-    '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
-    '../third_party/smhasher/smhasher.gyp:pmurhash',
     '../third_party/zlib/zlib.gyp:zlib',
-    '../ui/surface/surface.gyp:surface',
     '../ui/ui.gyp:ui',
     '../ui/ui.gyp:ui_resources',
-    '../webkit/support/webkit_support.gyp:dom_storage',
-    '../webkit/support/webkit_support.gyp:webkit_resources',
-    '../webkit/support/webkit_support.gyp:webkit_strings',
   ],
   'include_dirs': [
     '..',
@@ -31,10 +23,10 @@
     'port/browser/render_widget_host_view_port.h',
     'port/browser/smooth_scroll_gesture.h',
     'public/browser/access_token_store.h',
+    'public/browser/android/compositor.h',
     'public/browser/android/content_view_core.h',
     'public/browser/android/devtools_auth.h',
     'public/browser/android/draw_delegate.h',
-    'public/browser/android/graphics_context.h',
     'public/browser/browser_accessibility_state.h',
     'public/browser/browser_child_process_host.h',
     'public/browser/browser_child_process_host_delegate.cc',
@@ -116,6 +108,7 @@
     'public/browser/page_navigator.cc',
     'public/browser/page_navigator.h',
     'public/browser/pepper_flash_settings_helper.h',
+    'public/browser/pepper_helper.h',
     'public/browser/plugin_data_remover.h',
     'public/browser/plugin_service_filter.h',
     'public/browser/plugin_service.h',
@@ -215,6 +208,7 @@
     'browser/android/devtools_auth.cc',
     'browser/android/draw_delegate_impl.h',
     'browser/android/draw_delegate_impl.cc',
+    'browser/android/graphics_context.h',
     'browser/android/graphics_context.cc',
     'browser/android/load_url_params.cc',
     'browser/android/load_url_params.h',
@@ -364,7 +358,14 @@
     'browser/fileapi/fileapi_message_filter.cc',
     'browser/fileapi/fileapi_message_filter.h',
     'browser/font_list_async.cc',
-    'browser/gamepad/data_fetcher.h',
+    'browser/gamepad/gamepad_data_fetcher.h',
+    'browser/gamepad/gamepad_platform_data_fetcher.h',
+    'browser/gamepad/gamepad_platform_data_fetcher_linux.cc',
+    'browser/gamepad/gamepad_platform_data_fetcher_linux.h',
+    'browser/gamepad/gamepad_platform_data_fetcher_mac.h',
+    'browser/gamepad/gamepad_platform_data_fetcher_mac.mm',
+    'browser/gamepad/gamepad_platform_data_fetcher_win.cc',
+    'browser/gamepad/gamepad_platform_data_fetcher_win.h',
     'browser/gamepad/gamepad_provider.cc',
     'browser/gamepad/gamepad_provider.h',
     'browser/gamepad/gamepad_service.cc',
@@ -372,13 +373,6 @@
     'browser/gamepad/gamepad_standard_mappings.h',
     'browser/gamepad/gamepad_standard_mappings_linux.cc',
     'browser/gamepad/gamepad_standard_mappings_mac.mm',
-    'browser/gamepad/platform_data_fetcher.h',
-    'browser/gamepad/platform_data_fetcher_linux.cc',
-    'browser/gamepad/platform_data_fetcher_linux.h',
-    'browser/gamepad/platform_data_fetcher_mac.h',
-    'browser/gamepad/platform_data_fetcher_mac.mm',
-    'browser/gamepad/platform_data_fetcher_win.cc',
-    'browser/gamepad/platform_data_fetcher_win.h',
     'browser/geolocation/arbitrator_dependency_factory.cc',
     'browser/geolocation/arbitrator_dependency_factory.h',
     'browser/geolocation/core_location_data_provider_mac.h',
@@ -429,6 +423,8 @@
     'browser/geolocation/win7_location_provider_win.h',
     'browser/gpu/browser_gpu_channel_host_factory.cc',
     'browser/gpu/browser_gpu_channel_host_factory.h',
+    'browser/gpu/gpu_blacklist.cc',
+    'browser/gpu/gpu_blacklist.h',
     'browser/gpu/gpu_data_manager_impl.cc',
     'browser/gpu/gpu_data_manager_impl.h',
     'browser/gpu/gpu_process_host.cc',
@@ -437,6 +433,8 @@
     'browser/gpu/gpu_process_host_ui_shim.h',
     'browser/gpu/gpu_surface_tracker.cc',
     'browser/gpu/gpu_surface_tracker.h',
+    'browser/gpu/gpu_util.cc',
+    'browser/gpu/gpu_util.h',
     'browser/histogram_controller.cc',
     'browser/histogram_controller.h',
     'browser/histogram_internals_request_job.cc',
@@ -486,6 +484,7 @@
     'browser/notification_service_impl.h',
     'browser/pepper_flash_settings_helper_impl.cc',
     'browser/pepper_flash_settings_helper_impl.h',
+    'browser/pepper_helper.cc',
     'browser/plugin_data_remover_impl.cc',
     'browser/plugin_data_remover_impl.h',
     'browser/plugin_loader_posix.cc',
@@ -531,6 +530,8 @@
     'browser/renderer_host/clipboard_message_filter.cc',
     'browser/renderer_host/clipboard_message_filter.h',
     'browser/renderer_host/clipboard_message_filter_mac.mm',
+    'browser/renderer_host/compositor_impl_android.h',
+    'browser/renderer_host/compositor_impl_android.cc',
     'browser/renderer_host/compositing_iosurface_mac.h',
     'browser/renderer_host/compositing_iosurface_mac.mm',
     'browser/renderer_host/cross_site_resource_handler.cc',
@@ -823,6 +824,8 @@
     'browser/worker_host/worker_process_host.h',
     'browser/worker_host/worker_service_impl.cc',
     'browser/worker_host/worker_service_impl.h',
+    'browser/worker_host/worker_storage_partition.cc',
+    'browser/worker_host/worker_storage_partition.h',
     'browser/zygote_host/zygote_host_impl_linux.cc',
     'browser/zygote_host/zygote_host_impl_linux.h',
     'zygote/zygote_linux.cc',
@@ -835,8 +838,40 @@
   'conditions': [
     ['OS!="win" and OS!="mac" and OS!="linux"', {
       'sources': [
-        'browser/gamepad/platform_data_fetcher.cc',
+        'browser/gamepad/gamepad_platform_data_fetcher.cc',
       ]
+    }],
+    ['OS=="ios"', {
+      'sources/': [
+        # iOS only needs a small portion of content; exclude all the
+        # implementation, and re-include what is used.
+        ['exclude', '\\.cc$'],
+        ['exclude', '\\.mm$'],
+        ['include', '_ios\\.(cc|mm)$'],
+        ['include', '^public/browser/notification_registrar\\.cc$'],
+        ['include', '^public/browser/speech_recognition_'],
+        ['include', '^browser/notification_service_impl\\.cc$'],
+        # Pull in all but one file from speech.
+        ['include', '^browser/speech/'],
+        ['exclude', '^browser/speech/input_tag_speech_dispatcher_host\\.cc$$'],
+      ],
+    }, {  # OS!="ios"
+      'dependencies': [
+        'browser/debugger/devtools_resources.gyp:devtools_resources',
+        '../net/net.gyp:http_server',
+        '../ppapi/ppapi_internal.gyp:ppapi_ipc',
+        '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
+        '../third_party/smhasher/smhasher.gyp:pmurhash',
+        '../ui/surface/surface.gyp:surface',
+        '../webkit/support/webkit_support.gyp:dom_storage',
+        '../webkit/support/webkit_support.gyp:webkit_resources',
+        '../webkit/support/webkit_support.gyp:webkit_strings',
+      ],
+    }],
+    ['OS!="mac" and OS!="ios"', {
+      'dependencies': [
+        '../sandbox/sandbox.gyp:sandbox',
+      ],
     }],
     ['enable_webrtc==1', {
       'sources': [
@@ -951,10 +986,6 @@
       'dependencies': [
         '../third_party/sudden_motion_sensor/sudden_motion_sensor.gyp:sudden_motion_sensor',
       ],
-    }, { # OS!="mac"
-      'dependencies': [
-        '../sandbox/sandbox.gyp:sandbox',
-      ],
     }],
     ['chromeos==1', {
       'dependencies': [
@@ -967,7 +998,7 @@
     }],
     ['os_bsd==1', {
       'sources/': [
-        ['exclude', '^browser/gamepad/platform_data_fetcher_linux\\.cc$'],
+        ['exclude', '^browser/gamepad/gamepad_platform_data_fetcher_linux\\.cc$'],
         ['exclude', '^browser/geolocation/wifi_data_provider_linux\\.cc$'],
       ],
     }],

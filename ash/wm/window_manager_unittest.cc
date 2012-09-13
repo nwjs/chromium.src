@@ -22,7 +22,7 @@
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/test/test_windows.h"
 #include "ui/base/cursor/cursor.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/hit_test.h"
 #include "ui/gfx/screen.h"
 
@@ -150,11 +150,10 @@ TEST_F(WindowManagerTest, Focus) {
   EXPECT_EQ(w12.get(), w12->GetFocusManager()->GetFocusedWindow());
 
   // Set the focus to w123, but make the w1 not activatable.
-  test::TestActivationDelegate* activation_delegate = new
-      test::TestActivationDelegate(false);
+  test::TestActivationDelegate activation_delegate(false);
   w123->Focus();
   EXPECT_EQ(w123.get(), w12->GetFocusManager()->GetFocusedWindow());
-  aura::client::SetActivationDelegate(w1.get(), activation_delegate);
+  aura::client::SetActivationDelegate(w1.get(), &activation_delegate);
 
   // Hiding the focused window will set the focus to NULL because
   // parent window is not focusable.
@@ -168,7 +167,7 @@ TEST_F(WindowManagerTest, Focus) {
   w123->Show();
   w123->Focus();
   EXPECT_EQ(w123.get(), w12->GetFocusManager()->GetFocusedWindow());
-  aura::client::SetActivationDelegate(w1.get(), activation_delegate);
+  aura::client::SetActivationDelegate(w1.get(), &activation_delegate);
 
   // Removing the focused window will set the focus to NULL because
   // parent window is not focusable.
@@ -366,9 +365,6 @@ TEST_F(WindowManagerTest, ActivateOnTouch) {
 
 TEST_F(WindowManagerTest, MouseEventCursors) {
   aura::RootWindow* root_window = Shell::GetPrimaryRootWindow();
-  // Disable ash grid so that test can place a window at
-  // specific location.
-  ash::Shell::GetInstance()->DisableWorkspaceGridLayout();
 
   // Create a window.
   const int kWindowLeft = 123;
@@ -466,10 +462,6 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
 #define MAYBE_TransformActivate TransformActivate
 #endif
 TEST_F(WindowManagerTest, MAYBE_TransformActivate) {
-  // Disable ash grid so that test can place a window at
-  // specific location.
-  ash::Shell::GetInstance()->DisableWorkspaceGridLayout();
-
   aura::RootWindow* root_window = Shell::GetPrimaryRootWindow();
   gfx::Size size = root_window->bounds().size();
   EXPECT_EQ(
@@ -555,8 +547,8 @@ TEST_F(WindowManagerTest, AdditionalFilters) {
   f2->ResetCounts();
 
   // Makes f1 consume events.
-  f1->set_consumes_key_events(true);
-  f1->set_consumes_mouse_events(true);
+  f1->set_key_event_handling_result(ui::ER_CONSUMED);
+  f1->set_mouse_event_handling_result(ui::ER_CONSUMED);
 
   // Dispatches events.
   root_window->AsRootWindowHostDelegate()->OnHostKeyEvent(&key_event);

@@ -102,6 +102,8 @@
         'shell/shell_url_request_context_getter.h',
         'shell/shell_web_contents_view_delegate_creator.h',
         'shell/shell_web_contents_view_delegate_gtk.cc',
+        'shell/shell_web_contents_view_delegate_mac.mm',
+        'shell/shell_web_contents_view_delegate_win.cc',
         'shell/shell_web_contents_view_delegate.h',
         'shell/webkit_test_runner.cc',
         'shell/webkit_test_runner.h',
@@ -575,8 +577,6 @@
             '<(SHARED_INTERMEDIATE_DIR)/content/shell',
           ],
           'sources': [
-            'shell/android/draw_context.cc',
-            'shell/android/draw_context.h',
             'shell/android/shell_library_loader.cc',
             'shell/android/shell_library_loader.h',
             'shell/android/shell_manager.cc',
@@ -597,31 +597,13 @@
         {
           'target_name': 'content_shell_apk',
           'type': 'none',
+          'dependencies': [
+            'content_java',
+            '../base/base.gyp:base_java',
+            '../media/media.gyp:media_java',
+            '../net/net.gyp:net_java',
+          ],
           'actions': [
-            {
-              'action_name': 'copy_base_jar',
-              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_base.jar'],
-              'outputs': ['<(PRODUCT_DIR)/content_shell/java/libs/chromium_base.jar'],
-              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
-            },
-            {
-              'action_name': 'copy_net_jar',
-              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_net.jar'],
-              'outputs': ['<(PRODUCT_DIR)/content_shell/java/libs/chromium_net.jar'],
-              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
-            },
-            {
-              'action_name': 'copy_media_jar',
-              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_media.jar'],
-              'outputs': ['<(PRODUCT_DIR)/content_shell/java/libs/chromium_media.jar'],
-              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
-            },
-            {
-              'action_name': 'copy_content_jar',
-              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_content.jar'],
-              'outputs': ['<(PRODUCT_DIR)/content_shell/java/libs/chromium_content.jar'],
-              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
-            },
             {
               'action_name': 'copy_and_strip_so',
               'inputs': ['<(SHARED_LIB_DIR)/libcontent_shell_content_view.so'],
@@ -639,12 +621,11 @@
               'inputs': [
                 'shell/android/java/content_shell_apk.xml',
                 'shell/android/java/AndroidManifest.xml',
+                '../build/android/ant/common.xml',
+                '../build/android/ant/sdk-targets.xml',
                 '<!@(find shell/android/java -name "*.java")',
                 '<!@(find shell/android/res -name "*")',
-                '<(PRODUCT_DIR)/content_shell/java/libs/chromium_base.jar',
-                '<(PRODUCT_DIR)/content_shell/java/libs/chromium_net.jar',
-                '<(PRODUCT_DIR)/content_shell/java/libs/chromium_media.jar',
-                '<(PRODUCT_DIR)/content_shell/java/libs/chromium_content.jar',
+                '>@(input_jars_paths)',
                 '<(PRODUCT_DIR)/content_shell/assets/content_shell.pak',
                 '<(PRODUCT_DIR)/content_shell/libs/<(android_app_abi)/libcontent_shell_content_view.so',
               ],
@@ -659,7 +640,6 @@
                 # Pass the build type to ant. Currently it only assumes
                 # debug mode in java. Release mode will break the current
                 # workflow.
-                'shell/content_shell_ant_helper.sh',
                 'ant',
                 '-DPRODUCT_DIR=<(ant_build_out)',
                 '-DAPP_ABI=<(android_app_abi)',
@@ -667,14 +647,11 @@
                 '-DANDROID_SDK_ROOT=<(android_sdk_root)',
                 '-DANDROID_SDK_TOOLS=<(android_sdk_tools)',
                 '-DANDROID_SDK_VERSION=<(android_sdk_version)',
-                '-DANDROID_TOOLCHAIN=<(android_toolchain)',
                 '-DANDROID_GDBSERVER=<(android_gdbserver)',
+                '-DCONFIGURATION_NAME=<(CONFIGURATION_NAME)',
+                '-DINPUT_JARS_PATHS=>(input_jars_paths)',
                 '-buildfile',
                 'shell/android/java/content_shell_apk.xml',
-                '<(CONFIGURATION_NAME)',
-              ],
-              'dependencies': [
-                'content_java',
               ],
             }
           ],

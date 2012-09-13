@@ -81,6 +81,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "crypto/ec_private_key.h"
+#include "crypto/nss_util.h"
 #include "crypto/nss_util_internal.h"
 #include "crypto/rsa_private_key.h"
 #include "crypto/scoped_nss_types.h"
@@ -117,7 +118,12 @@
 #include <dlfcn.h>
 #endif
 
-static const int kRecvBufferSize = 4096;
+// SSL plaintext fragments are shorter than 16KB. Although the record layer
+// overhead is allowed to be 2K + 5 bytes, in practice the overhead is much
+// smaller than 1KB. So a 17KB buffer should be large enough to hold an
+// entire SSL record.
+static const int kRecvBufferSize = 17 * 1024;
+static const int kSendBufferSize = 17 * 1024;
 
 #if defined(OS_WIN)
 // CERT_OCSP_RESPONSE_PROP_ID is only implemented on Vista+, but it can be
@@ -1074,14 +1080,16 @@ bool SSLClientSocketNSS::Core::Init(PRFileDesc* socket,
   }
 
   if (ssl_config_.channel_id_enabled) {
-    if (crypto::ECPrivateKey::IsSupported()) {
+    if (!crypto::ECPrivateKey::IsSupported()) {
+      DVLOG(1) << "Elliptic Curve not supported, not enabling channel ID.";
+    } else if (!server_bound_cert_service_->IsSystemTimeValid()) {
+      DVLOG(1) << "System time is weird, not enabling channel ID.";
+    } else {
       rv = SSL_SetClientChannelIDCallback(
           nss_fd_, SSLClientSocketNSS::Core::ClientChannelIDHandler, this);
       if (rv != SECSuccess)
         LogFailedNSSFunction(*weak_net_log_, "SSL_SetClientChannelIDCallback",
                              "");
-    } else {
-      DVLOG(1) << "Elliptic Curve not supported, not enabling channel ID.";
     }
   }
 
@@ -2513,13 +2521,20 @@ void SSLClientSocketNSS::Core::RecordChannelIDSupport() const {
     DISABLED = 0,
     CLIENT_ONLY = 1,
     CLIENT_AND_SERVER = 2,
+    CLIENT_NO_ECC = 3,
+    CLIENT_BAD_SYSTEM_TIME = 4,
     DOMAIN_BOUND_CERT_USAGE_MAX
   } supported = DISABLED;
-  if (channel_id_xtn_negotiated_)
+  if (channel_id_xtn_negotiated_) {
     supported = CLIENT_AND_SERVER;
-  else if (ssl_config_.channel_id_enabled &&
-           crypto::ECPrivateKey::IsSupported())
-    supported = CLIENT_ONLY;
+  } else if (ssl_config_.channel_id_enabled) {
+    if (!crypto::ECPrivateKey::IsSupported())
+      supported = CLIENT_NO_ECC;
+    else if (!server_bound_cert_service_->IsSystemTimeValid())
+      supported = CLIENT_BAD_SYSTEM_TIME;
+    else
+      supported = CLIENT_ONLY;
+  }
   UMA_HISTOGRAM_ENUMERATION("DomainBoundCerts.Support", supported,
                             DOMAIN_BOUND_CERT_USAGE_MAX);
 }
@@ -2763,9 +2778,8 @@ bool SSLClientSocketNSS::GetSSLInfo(SSLInfo* ssl_info) {
   ssl_info->connection_status =
       core_->state().ssl_connection_status;
   ssl_info->public_key_hashes = server_cert_verify_result_.public_key_hashes;
-  for (std::vector<SHA1Fingerprint>::const_iterator
-       i = side_pinned_public_keys_.begin();
-       i != side_pinned_public_keys_.end(); i++) {
+  for (HashValueVector::const_iterator i = side_pinned_public_keys_.begin();
+       i != side_pinned_public_keys_.end(); ++i) {
     ssl_info->public_key_hashes.push_back(*i);
   }
   ssl_info->is_issued_by_known_root =
@@ -3058,8 +3072,7 @@ void SSLClientSocketNSS::InitCore() {
 
 int SSLClientSocketNSS::InitializeSSLOptions() {
   // Transport connected, now hook it up to nss
-  // TODO(port): specify rx and tx buffer sizes separately
-  nss_fd_ = memio_CreateIOLayer(kRecvBufferSize);
+  nss_fd_ = memio_CreateIOLayer(kRecvBufferSize, kSendBufferSize);
   if (nss_fd_ == NULL) {
     return ERR_OUT_OF_MEMORY;  // TODO(port): map NSPR error code.
   }

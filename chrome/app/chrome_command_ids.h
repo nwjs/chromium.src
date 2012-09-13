@@ -66,6 +66,8 @@
 #define IDC_PRESENTATION_MODE           34039
 #define IDC_METRO_SNAP_ENABLE           34040
 #define IDC_METRO_SNAP_DISABLE          34041
+#define IDC_WIN8_DESKTOP_RESTART        34042
+#define IDC_WIN8_METRO_RESTART          34043
 
 // Page-related commands
 #define IDC_BOOKMARK_PAGE               35000
@@ -125,6 +127,7 @@
 // Clipboard commands
 #define IDC_CUT                         36000
 #define IDC_COPY                        36001
+#define IDC_COPY_URL                    36002
 #define IDC_PASTE                       36003
 #define IDC_EDIT_MENU                   36004
 
@@ -187,6 +190,7 @@
 #define IDC_SHOW_AVATAR_MENU            40134
 #define IDC_EXTENSION_DISABLED_FIRST    40135
 #define IDC_EXTENSION_DISABLED_LAST     40235
+#define IDC_TOGGLE_REQUEST_TABLET_SITE  40236
 
 // Spell-check
 // Insert any additional suggestions before _LAST; these have to be consecutive.

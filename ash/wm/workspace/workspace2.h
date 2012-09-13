@@ -9,6 +9,7 @@
 
 #include "ash/ash_export.h"
 #include "base/basictypes.h"
+#include "base/memory/scoped_ptr.h"
 
 namespace aura {
 class Window;
@@ -21,7 +22,7 @@ class Rect;
 namespace ash {
 namespace internal {
 
-class WorkspaceEventFilter;
+class WorkspaceEventHandler;
 class WorkspaceManager2;
 
 // Workspace is used to maintain either a single maximized windows (including
@@ -43,8 +44,6 @@ class ASH_EXPORT Workspace2 {
 
   WorkspaceManager2* workspace_manager() { return workspace_manager_; }
 
-  void SetGridSize(int grid_size);
-
   // Returns true if the Workspace should be moved to pending. This is true
   // if there are no visible maximized windows.
   bool ShouldMoveToPending() const;
@@ -62,8 +61,7 @@ class ASH_EXPORT Workspace2 {
   // Our Window, owned by |parent| passed to the constructor.
   aura::Window* window_;
 
-  // Owned by |window_|.
-  WorkspaceEventFilter* event_filter_;
+  scoped_ptr<WorkspaceEventHandler> event_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(Workspace2);
 };

@@ -37,16 +37,6 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     public static final int PAGE_TRANSITION_AUTO_BOOKMARK = 2;
     public static final int PAGE_TRANSITION_START_PAGE = 6;
 
-    /** Translate the find selection into a normal selection. */
-    public static final int FIND_SELECTION_ACTION_KEEP_SELECTION =
-            ContentViewCore.FIND_SELECTION_ACTION_KEEP_SELECTION;
-    /** Clear the find selection. */
-    public static final int FIND_SELECTION_ACTION_CLEAR_SELECTION =
-            ContentViewCore.FIND_SELECTION_ACTION_CLEAR_SELECTION;
-    /** Focus and click the selected node (for links). */
-    public static final int FIND_SELECTION_ACTION_ACTIVATE_SELECTION =
-            ContentViewCore.FIND_SELECTION_ACTION_ACTIVATE_SELECTION;
-
     // Used when ContentView implements a standalone View.
     public static final int PERSONALITY_VIEW = ContentViewCore.PERSONALITY_VIEW;
     // Used for Chrome.
@@ -157,7 +147,8 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
             int personality) {
         super(context, attrs, defStyle);
 
-        mContentViewCore = new ContentViewCore(context, this, this, nativeWebContents, personality);
+        mContentViewCore = new ContentViewCore(context, personality);
+        mContentViewCore.initialize(this, this, true, nativeWebContents, false);
     }
 
     /**
@@ -413,6 +404,12 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     public boolean onTouchEvent(MotionEvent event) {
         return mContentViewCore.onTouchEvent(event);
     }
+
+    @Override
+    protected void onConfigurationChanged(Configuration newConfig) {
+        mContentViewCore.onConfigurationChanged(newConfig);
+    }
+
     // End FrameLayout overrides.
 
     @Override
@@ -589,7 +586,7 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
 
     @Override
     public void super_onConfigurationChanged(Configuration newConfig) {
-        mContentViewCore.onConfigurationChanged(newConfig);
+        super.onConfigurationChanged(newConfig);
     }
 
     @Override

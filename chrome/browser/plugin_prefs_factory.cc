@@ -59,6 +59,9 @@ void PluginPrefsFactory::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterBooleanPref(prefs::kPluginsEnabledNaCl,
                              false,
                              PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterBooleanPref(prefs::kPluginsMigratedToPepperFlash,
+                             false,
+                             PrefService::UNSYNCABLE_PREF);
   prefs->RegisterListPref(prefs::kPluginsPluginsList,
                           PrefService::UNSYNCABLE_PREF);
   prefs->RegisterListPref(prefs::kPluginsDisabledPlugins,
@@ -69,14 +72,14 @@ void PluginPrefsFactory::RegisterUserPrefs(PrefService* prefs) {
                           PrefService::UNSYNCABLE_PREF);
 }
 
-bool PluginPrefsFactory::ServiceRedirectedInIncognito() {
+bool PluginPrefsFactory::ServiceRedirectedInIncognito() const {
   return true;
 }
 
-bool PluginPrefsFactory::ServiceIsNULLWhileTesting() {
+bool PluginPrefsFactory::ServiceIsNULLWhileTesting() const {
   return true;
 }
 
-bool PluginPrefsFactory::ServiceIsCreatedWithProfile() {
+bool PluginPrefsFactory::ServiceIsCreatedWithProfile() const {
   return true;
 }

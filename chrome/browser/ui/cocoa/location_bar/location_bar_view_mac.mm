@@ -45,10 +45,12 @@
 #import "chrome/browser/ui/cocoa/location_bar/plus_decoration.h"
 #import "chrome/browser/ui/cocoa/location_bar/selected_keyword_decoration.h"
 #import "chrome/browser/ui/cocoa/location_bar/star_decoration.h"
+#import "chrome/browser/ui/cocoa/location_bar/web_intents_button_decoration.h"
 #import "chrome/browser/ui/cocoa/location_bar/zoom_decoration.h"
 #import "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
+#include "chrome/browser/ui/intents/web_intent_picker_controller.h"
 #include "chrome/browser/ui/omnibox/location_bar_util.h"
 #import "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -104,6 +106,8 @@ LocationBarViewMac::LocationBarViewMac(
       zoom_decoration_(new ZoomDecoration(toolbar_model)),
       keyword_hint_decoration_(
           new KeywordHintDecoration(OmniboxViewMac::GetFieldFont())),
+      web_intents_button_decoration_(
+          new WebIntentsButtonDecoration(this, OmniboxViewMac::GetFieldFont())),
       profile_(profile),
       browser_(browser),
       toolbar_model_(toolbar_model),
@@ -111,7 +115,7 @@ LocationBarViewMac::LocationBarViewMac(
           content::PAGE_TRANSITION_TYPED |
           content::PAGE_TRANSITION_FROM_ADDRESS_BAR)),
       weak_ptr_factory_(this) {
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableActionBox)) {
+  if (extensions::switch_utils::IsActionBoxEnabled()) {
     plus_decoration_.reset(new PlusDecoration(this, browser_));
   }
 
@@ -228,7 +232,7 @@ void LocationBarViewMac::InvalidatePageActions() {
 }
 
 void LocationBarViewMac::UpdateWebIntentsButton() {
-  // TODO(gbillock): Implement web intents tool for mac
+  RefreshWebIntentsButtonDecoration();
 }
 
 void LocationBarViewMac::SaveStateToContents(WebContents* contents) {
@@ -240,10 +244,12 @@ void LocationBarViewMac::Update(const WebContents* contents,
                                 bool should_restore_state) {
   command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, IsStarEnabled());
   UpdateStarDecorationVisibility();
+  UpdatePlusDecorationVisibility();
   UpdateChromeToMobileEnabled();
   UpdateZoomDecoration();
   RefreshPageActionDecorations();
   RefreshContentSettingsDecorations();
+  RefreshWebIntentsButtonDecoration();
   // OmniboxView restores state if the tab is non-NULL.
   omnibox_view_->Update(should_restore_state ? contents : NULL);
   OnChanged();
@@ -466,6 +472,7 @@ void LocationBarViewMac::TestPageActionPressed(size_t index) {
 void LocationBarViewMac::SetEditable(bool editable) {
   [field_ setEditable:editable ? YES : NO];
   UpdateStarDecorationVisibility();
+  UpdatePlusDecorationVisibility();
   UpdateChromeToMobileEnabled();
   UpdateZoomDecoration();
   UpdatePageActions();
@@ -560,8 +567,8 @@ void LocationBarViewMac::Observe(int type,
 
     case chrome::NOTIFICATION_EXTENSION_LOCATION_BAR_UPDATED: {
       // Only update if the updated action box was for the active tab contents.
-      TabContents* target_tab = content::Details<TabContents>(details).ptr();
-      if (target_tab == GetTabContents())
+      WebContents* target_tab = content::Details<WebContents>(details).ptr();
+      if (target_tab == GetTabContents()->web_contents())
         UpdatePageActions();
       break;
     }
@@ -617,8 +624,8 @@ void LocationBarViewMac::RefreshPageActionDecorations() {
   }
 
   std::vector<ExtensionAction*> new_page_actions =
-      tab_contents->extension_tab_helper()->location_bar_controller()->
-          GetCurrentActions();
+      extensions::TabHelper::FromWebContents(tab_contents->web_contents())->
+          location_bar_controller()->GetCurrentActions();
 
   if (new_page_actions != page_actions_) {
     page_actions_.swap(new_page_actions);
@@ -636,6 +643,16 @@ void LocationBarViewMac::RefreshPageActionDecorations() {
             NULL : tab_contents->web_contents(),
         url);
   }
+}
+
+void LocationBarViewMac::RefreshWebIntentsButtonDecoration() {
+  TabContents* tab_contents = GetTabContents();
+  if (!tab_contents) {
+    web_intents_button_decoration_->SetVisible(false);
+    return;
+  }
+
+  web_intents_button_decoration_->Update(tab_contents);
 }
 
 // TODO(shess): This function should over time grow to closely match
@@ -665,6 +682,8 @@ void LocationBarViewMac::Layout() {
   }
 
   [cell addRightDecoration:keyword_hint_decoration_.get()];
+
+  [cell addRightDecoration:web_intents_button_decoration_.get()];
 
   // By default only the location icon is visible.
   location_icon_decoration_->SetVisible(true);
@@ -741,11 +760,17 @@ void LocationBarViewMac::UpdateZoomDecoration() {
 }
 
 void LocationBarViewMac::UpdateStarDecorationVisibility() {
-  bool action_box_enabled =
-      CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableActionBox);
   // If the action box is enabled, only show the star if it's lit.
   bool visible = IsStarEnabled();
-  if (!star_decoration_->starred() && action_box_enabled)
+  if (!star_decoration_->starred() &&
+      extensions::switch_utils::IsActionBoxEnabled())
     visible = false;
   star_decoration_->SetVisible(visible);
+}
+
+void LocationBarViewMac::UpdatePlusDecorationVisibility() {
+  if (extensions::switch_utils::IsActionBoxEnabled()) {
+    // If the action box is enabled, hide it when input is in progress.
+    plus_decoration_->SetVisible(!toolbar_model_->input_in_progress());
+  }
 }

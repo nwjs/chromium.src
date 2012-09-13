@@ -14,8 +14,10 @@ chromeHidden.registerCustomHook('app.window', function(bindingsAPI) {
   var apiFunctions = bindingsAPI.apiFunctions;
   apiFunctions.setCustomCallback('create', function(name, request, viewId) {
     var view = null;
-    if (viewId)
-      view = GetView(viewId);
+    if (viewId) {
+      var shouldShowFrame = !request.args[1] || request.args[1].frame != 'none';
+      view = GetView(viewId, !!shouldShowFrame);
+    }
     if (request.callback) {
       request.callback(view.chrome.app.window.current());
       delete request.callback;
@@ -28,6 +30,9 @@ chromeHidden.registerCustomHook('app.window', function(bindingsAPI) {
   });
   AppWindow.prototype.moveTo = window.moveTo.bind(window);
   AppWindow.prototype.resizeTo = window.resizeTo.bind(window);
+  AppWindow.prototype.contentWindow = window;
+  // So as not to break apps that use .dom. http://crbug.com/147668
+  // TODO(jeremya): remove this once M23 has branched.
   AppWindow.prototype.dom = window;
   apiFunctions.setHandleRequest('current', function() {
     return new AppWindow;

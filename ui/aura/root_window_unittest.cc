@@ -16,7 +16,7 @@
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/test/test_windows.h"
 #include "ui/aura/window_tracker.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/gestures/gesture_configuration.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/keycodes/keyboard_codes.h"
@@ -56,11 +56,11 @@ class NonClientDelegate : public test::TestWindowDelegate {
     self->non_client_location_ = location;
     return HTTOPLEFT;
   }
-  virtual bool OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
     mouse_event_count_++;
     mouse_event_location_ = event->location();
     mouse_event_flags_ = event->flags();
-    return true;
+    return ui::ER_HANDLED;
   }
 
  private:
@@ -108,9 +108,9 @@ class EventCountFilter : public EventFilter {
     num_touch_events_++;
     return ui::TOUCH_STATUS_UNKNOWN;
   }
-  virtual ui::GestureStatus PreHandleGestureEvent(
+  virtual ui::EventResult PreHandleGestureEvent(
       Window* target, ui::GestureEvent* event) OVERRIDE {
-    return ui::GESTURE_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   }
 
  private:
@@ -126,8 +126,9 @@ class EventCountFilter : public EventFilter {
 };
 
 Window* CreateWindow(int id, Window* parent, WindowDelegate* delegate) {
-  Window* window =
-      new Window(delegate ? delegate : new test::TestWindowDelegate);
+  Window* window = new Window(
+      delegate ? delegate :
+      test::TestWindowDelegate::CreateSelfDestroyingDelegate());
   window->set_id(id);
   window->Init(ui::LAYER_TEXTURED);
   window->SetParent(parent);
@@ -460,11 +461,11 @@ class EventFilterRecorder : public EventFilter {
     events_.push_back(event->type());
     return ui::TOUCH_STATUS_UNKNOWN;
   }
-  virtual ui::GestureStatus PreHandleGestureEvent(
+  virtual ui::EventResult PreHandleGestureEvent(
       Window* target,
       ui::GestureEvent* event) OVERRIDE {
     events_.push_back(event->type());
-    return ui::GESTURE_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   }
 
  private:
@@ -680,18 +681,18 @@ class DeletingWindowDelegate : public test::TestWindowDelegate {
 
  private:
   // Overridden from WindowDelegate:
-  virtual bool OnKeyEvent(ui::KeyEvent* event) OVERRIDE {
+  virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE {
     if (delete_during_handle_)
       delete window_;
     got_event_ = true;
-    return false;
+    return ui::ER_UNHANDLED;
   }
 
-  virtual bool OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
     if (delete_during_handle_)
       delete window_;
     got_event_ = true;
-    return false;
+    return ui::ER_UNHANDLED;
   }
 
   Window* window_;
@@ -706,8 +707,8 @@ TEST_F(RootWindowTest, DeleteWindowDuringDispatch) {
   // Deleting the window should not cause a crash, only prevent further
   // processing from occurring.
   scoped_ptr<Window> w1(CreateWindow(1, root_window(), NULL));
-  DeletingWindowDelegate* d11 = new DeletingWindowDelegate;
-  Window* w11 = CreateWindow(11, w1.get(), d11);
+  DeletingWindowDelegate d11;
+  Window* w11 = CreateWindow(11, w1.get(), &d11);
   WindowTracker tracker;
   DeletingEventFilter* w1_filter = new DeletingEventFilter;
   w1->SetEventFilter(w1_filter);
@@ -717,28 +718,66 @@ TEST_F(RootWindowTest, DeleteWindowDuringDispatch) {
 
   // First up, no one deletes anything.
   tracker.Add(w11);
-  d11->Reset(w11, false);
+  d11.Reset(w11, false);
 
   generator.PressLeftButton();
   EXPECT_TRUE(tracker.Contains(w11));
-  EXPECT_TRUE(d11->got_event());
+  EXPECT_TRUE(d11.got_event());
   generator.ReleaseLeftButton();
 
   // Delegate deletes w11. This will prevent the post-handle step from applying.
   w1_filter->Reset(false);
-  d11->Reset(w11, true);
+  d11.Reset(w11, true);
   generator.PressKey(ui::VKEY_A, 0);
   EXPECT_FALSE(tracker.Contains(w11));
-  EXPECT_TRUE(d11->got_event());
+  EXPECT_TRUE(d11.got_event());
 
   // Pre-handle step deletes w11. This will prevent the delegate and the post-
   // handle steps from applying.
-  w11 = CreateWindow(11, w1.get(), d11);
+  w11 = CreateWindow(11, w1.get(), &d11);
   w1_filter->Reset(true);
-  d11->Reset(w11, false);
+  d11.Reset(w11, false);
   generator.PressLeftButton();
   EXPECT_FALSE(tracker.Contains(w11));
-  EXPECT_FALSE(d11->got_event());
+  EXPECT_FALSE(d11.got_event());
+}
+
+namespace {
+
+// A window delegate that detaches the parent of the target's parent window when
+// it receives a tap event.
+class DetachesParentOnTapDelegate : public test::TestWindowDelegate {
+ public:
+  DetachesParentOnTapDelegate() {}
+  virtual ~DetachesParentOnTapDelegate() {}
+
+ private:
+  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
+    if (event->type() == ui::ET_GESTURE_TAP_DOWN)
+      return ui::ER_HANDLED;
+
+    if (event->type() == ui::ET_GESTURE_TAP) {
+      Window* parent = static_cast<Window*>(event->target())->parent();
+      parent->parent()->RemoveChild(parent);
+      return ui::ER_HANDLED;
+    }
+    return ui::ER_UNHANDLED;
+  }
+
+  DISALLOW_COPY_AND_ASSIGN(DetachesParentOnTapDelegate);
+};
+
+}  // namespace
+
+// Tests that the gesture recognizer is reset for all child windows when a
+// window hides. No expectations, just checks that the test does not crash.
+TEST_F(RootWindowTest, GestureRecognizerResetsTargetWhenParentHides) {
+  scoped_ptr<Window> w1(CreateWindow(1, root_window(), NULL));
+  DetachesParentOnTapDelegate delegate;
+  scoped_ptr<Window> parent(CreateWindow(22, w1.get(), NULL));
+  Window* child = CreateWindow(11, parent.get(), &delegate);
+  test::EventGenerator generator(root_window(), child);
+  generator.GestureTapAt(gfx::Point(40, 40));
 }
 
 }  // namespace aura

@@ -50,7 +50,8 @@ class RemoveMatchPredicate {
 
 ShortcutsProvider::ShortcutsProvider(AutocompleteProviderListener* listener,
                                      Profile* profile)
-    : AutocompleteProvider(listener, profile, "Shortcuts"),
+    : AutocompleteProvider(listener, profile,
+          AutocompleteProvider::TYPE_SHORTCUTS),
       languages_(profile_->GetPrefs()->GetString(prefs::kAcceptLanguages)),
       initialized_(false) {
   scoped_refptr<history::ShortcutsBackend> backend =
@@ -294,25 +295,7 @@ ACMatchClassifications ShortcutsProvider::ClassifyAllMatchesInString(
     last_position = std::max(last_position, next_character);
   }
 
-  // Merge match-marking data with original classifications.
-  if ((match_class.size() == 1) &&
-      (match_class.back().style == ACMatchClassification::NONE))
-    return original_class;
-  ACMatchClassifications output;
-  for (ACMatchClassifications::const_iterator i = original_class.begin(),
-       j = match_class.begin(); i != original_class.end();) {
-    AutocompleteMatch::AddLastClassificationIfNecessary(&output,
-        std::max(i->offset, j->offset), i->style | j->style);
-    const size_t next_i_offset = (i + 1) == original_class.end() ?
-        static_cast<size_t>(-1) : (i + 1)->offset;
-    const size_t next_j_offset = (j + 1) == match_class.end() ?
-        static_cast<size_t>(-1) : (j + 1)->offset;
-    if (next_i_offset >= next_j_offset)
-      ++j;
-    if (next_j_offset >= next_i_offset)
-      ++i;
-  }
-  return output;
+  return AutocompleteMatch::MergeClassifications(original_class, match_class);
 }
 
 history::ShortcutsBackend::ShortcutMap::const_iterator

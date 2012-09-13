@@ -17,7 +17,7 @@
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/views/controls/button/checkbox.h"
@@ -700,7 +700,7 @@ bool WifiConfigView::Login() {
   } else {
     WifiNetwork* wifi = cros->FindWifiNetworkByPath(service_path_);
     if (!wifi) {
-      // Flimflam no longer knows about this wifi network (edge case).
+      // Shill no longer knows about this wifi network (edge case).
       // TODO(stevenjb): Add a notification (chromium-os13225).
       LOG(WARNING) << "Wifi network: " << service_path_ << " no longer exists.";
       return true;

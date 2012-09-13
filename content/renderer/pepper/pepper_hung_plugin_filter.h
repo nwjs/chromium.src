@@ -59,6 +59,9 @@ class PepperHungPluginFilter
   // notifies the browser if so.
   void MayHaveBecomeUnhung();
 
+  // Calculate the point at which the plugin could next be considered hung.
+  base::TimeTicks GetHungTime() const;
+
   // Checks if the plugin is considered hung based on whether it has been
   // blocked for long enough.
   bool IsHung() const;

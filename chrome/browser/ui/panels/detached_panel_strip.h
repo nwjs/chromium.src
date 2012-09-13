@@ -12,7 +12,6 @@
 #include "ui/gfx/point.h"
 #include "ui/gfx/rect.h"
 
-class Browser;
 class PanelManager;
 
 // This class manages a group of free-floating panels.
@@ -65,7 +64,15 @@ class DetachedPanelStrip : public PanelStrip {
   int num_panels() const { return panels_.size(); }
   const Panels& panels() const { return panels_; }
 
+  // Returns default top-left to use for a detached panel whose position is
+  // not specified during panel creation.
+  gfx::Point GetDefaultPanelOrigin();
+
  private:
+  // Offset the default panel top-left position by kPanelTilePixels. Wrap
+  // around to initial position if position goes beyond display area.
+  void ComputeNextDefaultPanelOrigin();
+
   struct PanelPlacement {
     Panel* panel;
     gfx::Point position;
@@ -83,6 +90,10 @@ class DetachedPanelStrip : public PanelStrip {
 
   // Used to save the placement information for a panel.
   PanelPlacement saved_panel_placement_;
+
+  // Default top-left position to use for next detached panel if position is
+  // unspecified by panel creator.
+  gfx::Point default_panel_origin_;
 
   DISALLOW_COPY_AND_ASSIGN(DetachedPanelStrip);
 };

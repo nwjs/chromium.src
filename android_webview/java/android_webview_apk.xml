@@ -9,7 +9,7 @@
     Building AndroidWebView.apk
   </description>
   <import file="../../build/android/ant/common.xml"/>
-  <import file="../../build/android/ant/sdk-targets.xml"/>
+
   <property-value name="target.abi" value="${APP_ABI}"/>
   <property-location name="out.dir" location="${PRODUCT_DIR}/android_webview"
       check-exists="false"/>
@@ -21,6 +21,7 @@
 
   <path id="out.dex.jar.input.ref">
     <fileset file="${out.dir}/java/libs/chromium_base.jar"/>
+    <fileset file="${out.dir}/java/libs/chromium_chrome.jar"/>
     <fileset file="${out.dir}/java/libs/chromium_content.jar"/>
     <fileset file="${out.dir}/java/libs/chromium_media.jar"/>
     <fileset file="${out.dir}/java/libs/chromium_net.jar"/>
@@ -41,5 +42,6 @@
   <path id="javac.custom.classpath">
     <path refid="out.dex.jar.input.ref"/>
   </path>
+  <import file="../../build/android/ant/sdk-targets.xml"/>
   <import file="${sdk.dir}/tools/ant/build.xml"/>
 </project>

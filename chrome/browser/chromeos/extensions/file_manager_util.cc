@@ -16,14 +16,14 @@
 #include "chrome/browser/chromeos/extensions/file_handler_util.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/drive_file_system.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/chromeos/gdata/drive_files.h"
 #include "chrome/browser/chromeos/gdata/drive_system_service.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
-#include "chrome/browser/chromeos/gdata/operation_registry.h"
 #include "chrome/browser/chromeos/media/media_player.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/google_apis/operation_registry.h"
 #include "chrome/browser/plugin_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -228,9 +228,9 @@ void ShowWarningMessageBox(Profile* profile, const FilePath& path) {
       chrome::MESSAGE_BOX_TYPE_WARNING);
 }
 
-// Called when a file on GData was found. Opens the file found at |file_path|
+// Called when a file on Drive was found. Opens the file found at |file_path|
 // in a new tab with a URL computed based on the |file_type|
-void OnGDataFileFound(Profile* profile,
+void OnDriveFileFound(Profile* profile,
                       const FilePath& file_path,
                       gdata::DriveFileType file_type,
                       gdata::DriveFileError error,
@@ -257,7 +257,7 @@ void OnGDataFileFound(Profile* profile,
   }
 }
 
-// Called when a crx file on GData was downloaded.
+// Called when a crx file on Drive was downloaded.
 void OnCRXDownloadCallback(Browser* browser,
                            gdata::DriveFileError error,
                            const FilePath& file,
@@ -530,12 +530,18 @@ bool ExecuteDefaultHandler(Profile* profile, const FilePath& path) {
     return false;
 
   const FileBrowserHandler* handler;
-  if (!file_handler_util::GetDefaultTask(profile, url, &handler))
+  if (!file_handler_util::GetTaskForURL(profile, url, &handler))
     return false;
 
   std::string extension_id = handler->extension_id();
   std::string action_id = handler->id();
   Browser* browser = browser::FindLastActiveWithProfile(profile);
+
+  // If there is no browsers for the profile, bail out. Return true so warning
+  // about file type not being supported is not displayed.
+  if (!browser)
+    return true;
+
   if (extension_id == kFileBrowserDomain) {
     // Only two of the built-in File Browser tasks require opening the File
     // Browser tab.
@@ -643,8 +649,8 @@ bool ExecuteBuiltinHandler(Browser* browser, const FilePath& path,
 
       // Open the file once the file is found.
       system_service->file_system()->GetEntryInfoByPath(
-          gdata::util::ExtractGDataPath(path),
-          base::Bind(&OnGDataFileFound, profile, path, gdata::REGULAR_FILE));
+          gdata::util::ExtractDrivePath(path),
+          base::Bind(&OnDriveFileFound, profile, path, gdata::REGULAR_FILE));
       return true;
     }
     OpenNewTab(page_url, NULL);
@@ -653,15 +659,15 @@ bool ExecuteBuiltinHandler(Browser* browser, const FilePath& path,
 
   if (IsSupportedGDocsExtension(file_extension.data())) {
     if (gdata::util::GetSpecialRemoteRootPath().IsParent(path)) {
-      // The file is on Google Docs. Get the Docs from the GData service.
+      // The file is on Google Docs. Get the Docs from the Drive service.
       gdata::DriveSystemService* system_service =
           gdata::DriveSystemServiceFactory::GetForProfile(profile);
       if (!system_service)
         return false;
 
       system_service->file_system()->GetEntryInfoByPath(
-          gdata::util::ExtractGDataPath(path),
-          base::Bind(&OnGDataFileFound, profile, path,
+          gdata::util::ExtractDrivePath(path),
+          base::Bind(&OnDriveFileFound, profile, path,
                      gdata::HOSTED_DOCUMENT));
     } else {
       // The file is local (downloaded from an attachment or otherwise copied).
@@ -706,13 +712,13 @@ bool ExecuteBuiltinHandler(Browser* browser, const FilePath& path,
   }
 
   if (IsCRXFile(file_extension.data())) {
-    if (gdata::util::IsUnderGDataMountPoint(path)) {
+    if (gdata::util::IsUnderDriveMountPoint(path)) {
       gdata::DriveSystemService* system_service =
           gdata::DriveSystemServiceFactory::GetForProfile(profile);
       if (!system_service)
         return false;
       system_service->file_system()->GetFileByPath(
-          gdata::util::ExtractGDataPath(path),
+          gdata::util::ExtractDrivePath(path),
           base::Bind(&OnCRXDownloadCallback, browser),
           gdata::GetContentCallback());
     } else {
@@ -739,6 +745,7 @@ void InstallCRX(Browser* browser, const FilePath& path) {
       extensions::CrxInstaller::Create(
           service,
           chrome::CreateExtensionInstallPromptWithBrowser(browser)));
+  installer->set_error_on_unsupported_requirements(true);
   installer->set_is_gallery_install(false);
   installer->set_allow_silent_install(false);
   installer->InstallCrx(path);

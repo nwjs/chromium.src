@@ -18,7 +18,7 @@
     "extension_types": ["platform_app"]
   },
   "app.window": {
-    "channel": "dev",
+    "channel": "stable",
     "extension_types": ["platform_app"]
   },
   "appNotifications": {
@@ -129,11 +129,11 @@
     "location": "component"
   },
   "fileSystem": {
-    "channel": "dev",
+    "channel": "stable",
     "extension_types": ["platform_app"]
   },
   "fileSystemWrite": {
-    "channel": "dev",
+    "channel": "stable",
     "extension_types": ["platform_app"]
   },
   "fontSettings": {
@@ -183,13 +183,14 @@
     "channel": "stable",
     "extension_types": [ "platform_app" ]
   },
-  "mediaGalleriesAllGalleries": {
+  // TODO(thestig) Remove this after M23.
+  "mediaGalleriesPrivate": {
     "channel": "stable",
-    "extension_types": [ "platform_app" ]
-  },
-  "mediaGalleriesRead": {
-    "channel": "stable",
-    "extension_types": [ "platform_app" ]
+    "extension_types": [ "platform_app" ],
+    "whitelist": [
+      "ebpbnabdhheoknfklmpddcdijjkmklkp",
+      "ejegoaikibpmikoejfephaneibodccma"
+    ]
   },
   "mediaPlayerPrivate": {
     "channel": "stable",
@@ -231,6 +232,16 @@
   "pushMessaging": {
     "channel": "dev",
     "extension_types": ["platform_app"]
+  },
+  "rtcPrivate": {
+    "channel": "stable",
+    "extension_types": ["extension", "packaged_app"],
+    "whitelist": [
+      "nckgahadagoaajjgafhacjanaoiihapd",  // Google Talk prod
+      "eggnbpckecmjlblplehfpjjdhhidfdoj",  // Google Talk beta
+      "ppleadejekpmccmnpjdimmlfljlkdfej",  // Google Talk alpha
+      "ljclpkphhpbpinifbeabbhlfddcpfdde"   // Google Talk debug
+    ]
   },
   // Note: runtime is not actually a permission, but some systems check these
   // values to verify restrictions.

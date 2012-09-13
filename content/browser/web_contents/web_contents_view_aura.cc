@@ -24,7 +24,7 @@
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_aura.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/hit_test.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/screen.h"
@@ -405,9 +405,10 @@ gfx::Rect WebContentsViewAura::GetViewBounds() const {
 // WebContentsViewAura, RenderViewHostDelegateView implementation:
 
 void WebContentsViewAura::ShowContextMenu(
-    const content::ContextMenuParams& params) {
+    const content::ContextMenuParams& params,
+    const content::ContextMenuSourceType& type) {
   if (delegate_.get())
-    delegate_->ShowContextMenu(params);
+    delegate_->ShowContextMenu(params, type);
 }
 
 void WebContentsViewAura::ShowPopupMenu(const gfx::Rect& bounds,
@@ -496,10 +497,6 @@ void WebContentsViewAura::OnFocus(aura::Window* old_focused_window) {
 void WebContentsViewAura::OnBlur() {
 }
 
-bool WebContentsViewAura::OnKeyEvent(ui::KeyEvent* event) {
-  return false;
-}
-
 gfx::NativeCursor WebContentsViewAura::GetCursor(const gfx::Point& point) {
   return gfx::kNullCursor;
 }
@@ -512,33 +509,6 @@ bool WebContentsViewAura::ShouldDescendIntoChildForEventHandling(
     aura::Window* child,
     const gfx::Point& location) {
   return true;
-}
-
-bool WebContentsViewAura::OnMouseEvent(ui::MouseEvent* event) {
-  if (!web_contents_->GetDelegate())
-    return false;
-
-  switch (event->type()) {
-    case ui::ET_MOUSE_PRESSED:
-      web_contents_->GetDelegate()->ActivateContents(web_contents_);
-      break;
-    case ui::ET_MOUSE_MOVED:
-      web_contents_->GetDelegate()->ContentsMouseEvent(
-          web_contents_, gfx::Screen::GetCursorScreenPoint(), true);
-      break;
-    default:
-      break;
-  }
-  return false;
-}
-
-ui::TouchStatus WebContentsViewAura::OnTouchEvent(ui::TouchEvent* event) {
-  return ui::TOUCH_STATUS_UNKNOWN;
-}
-
-ui::GestureStatus WebContentsViewAura::OnGestureEvent(
-    ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
 }
 
 bool WebContentsViewAura::CanFocus() {
@@ -575,6 +545,40 @@ bool WebContentsViewAura::HasHitTestMask() const {
 }
 
 void WebContentsViewAura::GetHitTestMask(gfx::Path* mask) const {
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// WebContentsViewAura, ui::EventHandler implementation:
+
+ui::EventResult WebContentsViewAura::OnKeyEvent(ui::KeyEvent* event) {
+  return ui::ER_UNHANDLED;
+}
+
+ui::EventResult WebContentsViewAura::OnMouseEvent(ui::MouseEvent* event) {
+  if (!web_contents_->GetDelegate())
+    return ui::ER_UNHANDLED;
+
+  switch (event->type()) {
+    case ui::ET_MOUSE_PRESSED:
+      web_contents_->GetDelegate()->ActivateContents(web_contents_);
+      break;
+    case ui::ET_MOUSE_MOVED:
+      web_contents_->GetDelegate()->ContentsMouseEvent(
+          web_contents_, gfx::Screen::GetCursorScreenPoint(), true);
+      break;
+    default:
+      break;
+  }
+  return ui::ER_UNHANDLED;
+}
+
+ui::TouchStatus WebContentsViewAura::OnTouchEvent(ui::TouchEvent* event) {
+  return ui::TOUCH_STATUS_UNKNOWN;
+}
+
+ui::EventResult WebContentsViewAura::OnGestureEvent(
+    ui::GestureEvent* event) {
+  return ui::ER_UNHANDLED;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

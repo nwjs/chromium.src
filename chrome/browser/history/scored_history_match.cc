@@ -17,6 +17,7 @@
 #include "base/metrics/histogram.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/api/bookmarks/bookmark_service.h"
 #include "chrome/browser/autocomplete/autocomplete_field_trial.h"
 #include "chrome/browser/autocomplete/url_prefix.h"
 #include "chrome/common/chrome_switches.h"
@@ -53,7 +54,8 @@ ScoredHistoryMatch::ScoredHistoryMatch(const URLRow& row,
                                        const string16& lower_string,
                                        const String16Vector& terms,
                                        const RowWordStarts& word_starts,
-                                       const base::Time now)
+                                       const base::Time now,
+                                       BookmarkService* bookmark_service)
     : HistoryMatch(row, 0, false, false),
       raw_score(0),
       can_inline(false) {
@@ -95,19 +97,22 @@ ScoredHistoryMatch::ScoredHistoryMatch(const URLRow& row,
 
   // We can inline autocomplete a result if:
   //  1) there is only one search term
-  //  2) AND EITHER:
-  //    2a) the first match starts at the beginning of the candidate URL, OR
-  //    2b) the candidate URL starts with one of the standard URL prefixes with
-  //        the URL match immediately following that prefix.
+  //  2) AND the match begins immediately after one of the prefixes in
+  //     URLPrefix such as http://www and https:// (note that one of these
+  //     is the empty prefix, for cases where the user has typed the scheme)
   //  3) AND the search string does not end in whitespace (making it look to
   //     the IMUI as though there is a single search term when actually there
   //     is a second, empty term).
-  can_inline = !url_matches.empty() &&
-      terms.size() == 1 &&
-      (url_matches[0].offset == 0 ||
-       URLPrefix::IsURLPrefix(url.substr(0, url_matches[0].offset))) &&
-      !IsWhitespace(*(lower_string.rbegin()));
-  match_in_scheme = can_inline && url_matches[0].offset == 0;
+  // |best_prefix| stores the inlineable prefix computed in clause (2) or
+  // NULL if no such prefix exists.  (The URL is not inlineable.)
+  const URLPrefix* best_prefix = (!url_matches.empty() && (terms.size() == 1)) ?
+      URLPrefix::BestURLPrefix(UTF8ToUTF16(gurl.spec()), terms[0]) : NULL;
+  can_inline = (best_prefix != NULL) && !IsWhitespace(*(lower_string.rbegin()));
+  match_in_scheme = can_inline && best_prefix->prefix.empty();
+
+  // Determine if the associated URLs is referenced by any bookmarks.
+  float bookmark_boost =
+      (bookmark_service && bookmark_service->IsBookmarked(gurl)) ? 10.0 : 0.0;
 
   if (use_new_scoring) {
     const float topicality_score = GetTopicalityScore(
@@ -115,7 +120,7 @@ ScoredHistoryMatch::ScoredHistoryMatch(const URLRow& row,
     const float recency_score = GetRecencyScore(
         (now - row.last_visit()).InDays());
     const float popularity_score = GetPopularityScore(
-        row.typed_count(), row.visit_count());
+        row.typed_count() + bookmark_boost, row.visit_count());
 
     // Combine recency, popularity, and topicality scores into one.
     // Example of how this functions: Suppose the omnibox has one
@@ -150,7 +155,8 @@ ScoredHistoryMatch::ScoredHistoryMatch(const URLRow& row,
     const int kVisitCountLevel[] = { 50, 30, 10, 5 };
     int visit_count_value = ScoreForValue(row.visit_count(), kVisitCountLevel);
     const int kTypedCountLevel[] = { 50, 30, 10, 5 };
-    int typed_count_value = ScoreForValue(row.typed_count(), kTypedCountLevel);
+    int typed_count_value = ScoreForValue(row.typed_count() + bookmark_boost,
+                                          kTypedCountLevel);
 
     // The final raw score is calculated by:
     //   - multiplying each factor by a 'relevance'

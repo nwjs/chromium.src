@@ -131,8 +131,6 @@ namespace chrome {
 void RegisterLocalState(PrefService* local_state) {
   // Prefs in Local State
   local_state->RegisterIntegerPref(prefs::kMultipleProfilePrefMigration, 0);
-  local_state->RegisterListPref(prefs::kSessionRestoreFilesCycled,
-                                PrefService::UNSYNCABLE_PREF);
 
   browser_shutdown::RegisterPrefs(local_state);
   ExternalProtocolHandler::RegisterPrefs(local_state);
@@ -205,6 +203,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   chrome_browser_net::HttpServerPropertiesManager::RegisterPrefs(user_prefs);
   chrome_browser_net::Predictor::RegisterUserPrefs(user_prefs);
   DownloadPrefs::RegisterUserPrefs(user_prefs);
+  extensions::ComponentLoader::RegisterUserPrefs(user_prefs);
   extensions::ExtensionPrefs::RegisterUserPrefs(user_prefs);
   ExtensionWebUI::RegisterUserPrefs(user_prefs);
   GAIAInfoUpdateService::RegisterUserPrefs(user_prefs);
@@ -219,6 +218,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   ProfileImpl::RegisterUserPrefs(user_prefs);
   PromoResourceService::RegisterUserPrefs(user_prefs);
   ProtocolHandlerRegistry::RegisterPrefs(user_prefs);
+  RegisterBrowserUserPrefs(user_prefs);
   SessionStartupPref::RegisterUserPrefs(user_prefs);
   TemplateURLPrepopulateData::RegisterUserPrefs(user_prefs);
   TranslatePrefs::RegisterUserPrefs(user_prefs);
@@ -250,9 +250,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   CaptureVisibleTabFunction::RegisterUserPrefs(user_prefs);
   ChromeToMobileService::RegisterUserPrefs(user_prefs);
   extensions::CommandService::RegisterUserPrefs(user_prefs);
-  extensions::ComponentLoader::RegisterUserPrefs(user_prefs);
   ExtensionSettingsHandler::RegisterUserPrefs(user_prefs);
-  RegisterBrowserUserPrefs(user_prefs);
   RegisterAutolaunchPrefs(user_prefs);
   DevToolsWindow::RegisterUserPrefs(user_prefs);
   PepperFlashSettingsManager::RegisterUserPrefs(user_prefs);

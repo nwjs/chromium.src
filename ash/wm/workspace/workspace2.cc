@@ -8,7 +8,7 @@
 #include "ash/wm/property_util.h"
 #include "ash/wm/window_properties.h"
 #include "ash/wm/window_util.h"
-#include "ash/wm/workspace/workspace_event_filter.h"
+#include "ash/wm/workspace/workspace_event_handler.h"
 #include "ash/wm/workspace/workspace_manager2.h"
 #include "ui/aura/window.h"
 
@@ -21,15 +21,16 @@ Workspace2::Workspace2(WorkspaceManager2* manager,
     : is_maximized_(is_maximized),
       workspace_manager_(manager),
       window_(new aura::Window(NULL)),
-      event_filter_(new WorkspaceEventFilter(window_)) {
+      event_handler_(new WorkspaceEventHandler(window_)) {
   window_->SetProperty(internal::kChildWindowVisibilityChangesAnimatedKey,
                        true);
   window_->set_id(kShellWindowId_WorkspaceContainer);
   window_->SetName("WorkspaceContainer");
   window_->Init(ui::LAYER_NOT_DRAWN);
+  // Do this so when animating out windows don't extend beyond the bounds.
+  window_->layer()->SetMasksToBounds(true);
   window_->Hide();
   window_->SetParent(parent);
-  window_->SetEventFilter(event_filter_);
   window_->SetProperty(internal::kUsesScreenCoordinatesKey, true);
 }
 
@@ -45,12 +46,7 @@ aura::Window* Workspace2::ReleaseWindow() {
   window_->SetEventFilter(NULL);
   aura::Window* window = window_;
   window_ = NULL;
-  event_filter_ = NULL;
   return window;
-}
-
-void Workspace2::SetGridSize(int grid_size) {
-  event_filter_->set_grid_size(grid_size);
 }
 
 bool Workspace2::ShouldMoveToPending() const {

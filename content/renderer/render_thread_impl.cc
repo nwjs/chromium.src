@@ -65,6 +65,7 @@
 #include "content/renderer/media/media_stream_center.h"
 #include "content/renderer/media/video_capture_impl_manager.h"
 #include "content/renderer/media/video_capture_message_filter.h"
+#include "content/renderer/p2p/socket_dispatcher.h"
 #include "content/renderer/plugin_channel_host.h"
 #include "content/renderer/render_process_impl.h"
 #include "content/renderer/render_view_impl.h"
@@ -76,8 +77,13 @@
 #include "media/base/media.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
+<<<<<<< HEAD
 #include "third_party/node/src/node.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositor.h"
+=======
+#include "third_party/WebKit/Source/Platform/chromium/public/Platform.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorSupport.h"
+>>>>>>> 69bfc514fb662ef58d1b0b0d87f515ff90cb69f5
 #include "third_party/WebKit/Source/Platform/chromium/public/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebColorName.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDatabase.h"
@@ -307,6 +313,11 @@ void RenderThreadImpl::Init() {
   db_message_filter_ = new DBMessageFilter();
   AddFilter(db_message_filter_.get());
 
+#if defined(ENABLE_WEBRTC)
+  p2p_socket_dispatcher_ = new content::P2PSocketDispatcher(
+      GetIOMessageLoopProxy());
+  AddFilter(p2p_socket_dispatcher_);
+#endif  // defined(ENABLE_WEBRTC)
   vc_manager_ = new VideoCaptureImplManager();
   AddFilter(vc_manager_->video_capture_message_filter());
 
@@ -316,9 +327,6 @@ void RenderThreadImpl::Init() {
   audio_message_filter_ = new AudioMessageFilter();
   AddFilter(audio_message_filter_.get());
 
-  devtools_agent_message_filter_ = new DevToolsAgentFilter();
-  AddFilter(devtools_agent_message_filter_.get());
-
   AddFilter(new IndexedDBMessageFilter);
 
   content::GetContentClient()->renderer()->RenderThreadStarted();
@@ -326,13 +334,6 @@ void RenderThreadImpl::Init() {
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   if (command_line.HasSwitch(switches::kEnableGpuBenchmarking))
       RegisterExtension(content::GpuBenchmarkingExtension::Get());
-
-  WebKit::WebCompositor::setAcceleratedAnimationEnabled(
-      !command_line.HasSwitch(switches::kDisableThreadedAnimation));
-  WebKit::WebCompositor::setPerTilePaintingEnabled(
-      command_line.HasSwitch(switches::kEnablePerTilePainting));
-  WebKit::WebCompositor::setPartialSwapEnabled(
-      command_line.HasSwitch(switches::kEnablePartialSwap));
 
   context_lost_cb_.reset(new GpuVDAContextLostCallback());
 
@@ -355,8 +356,10 @@ RenderThreadImpl::~RenderThreadImpl() {
     web_database_observer_impl_->WaitForAllDatabasesToClose();
 
   // Shutdown in reverse of the initialization order.
-  RemoveFilter(devtools_agent_message_filter_.get());
-  devtools_agent_message_filter_ = NULL;
+  if (devtools_agent_message_filter_.get()) {
+    RemoveFilter(devtools_agent_message_filter_.get());
+    devtools_agent_message_filter_ = NULL;
+  }
 
   RemoveFilter(audio_input_message_filter_.get());
   audio_input_message_filter_ = NULL;
@@ -379,7 +382,7 @@ RenderThreadImpl::~RenderThreadImpl() {
   }
 
   if (compositor_initialized_) {
-    WebKit::WebCompositor::shutdown();
+    WebKit::Platform::current()->compositorSupport()->shutdown();
     compositor_initialized_ = false;
   }
   if (compositor_thread_.get()) {
@@ -571,6 +574,16 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   webkit_platform_support_.reset(new RendererWebKitPlatformSupportImpl);
   WebKit::initialize(webkit_platform_support_.get());
 
+  WebKit::WebCompositorSupport* compositor_support =
+      WebKit::Platform::current()->compositorSupport();
+  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  compositor_support->setAcceleratedAnimationEnabled(
+      !command_line.HasSwitch(switches::kDisableThreadedAnimation));
+  compositor_support->setPerTilePaintingEnabled(
+      command_line.HasSwitch(switches::kEnablePerTilePainting));
+  compositor_support->setPartialSwapEnabled(
+      command_line.HasSwitch(switches::kEnablePartialSwap));
+
   // TODO(fsamuel): Guests don't currently support threaded compositing.
   // This should go away with the new design of the browser plugin.
   // The new design can be tracked at: http://crbug.com/134492.
@@ -580,9 +593,9 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   if (enable) {
     compositor_thread_.reset(new CompositorThread(this));
     AddFilter(compositor_thread_->GetMessageFilter());
-    WebKit::WebCompositor::initialize(compositor_thread_->GetWebThread());
+    compositor_support->initialize(compositor_thread_->GetWebThread());
   } else {
-    WebKit::WebCompositor::initialize(NULL);
+    compositor_support->initialize(NULL);
   }
   compositor_initialized_ = true;
 
@@ -597,8 +610,6 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   WebScriptController::enableV8SingleThreadMode();
 
   RenderThreadImpl::RegisterSchemes();
-
-  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
 
   webkit_glue::EnableWebCoreLogChannels(
       command_line.GetSwitchValueASCII(switches::kWebCoreLogChannels));
@@ -641,7 +652,7 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
       !command_line.HasSwitch(switches::kDisableGeolocation));
 
   WebKit::WebRuntimeFeatures::enableMediaSource(
-      command_line.HasSwitch(switches::kEnableMediaSource));
+      !command_line.HasSwitch(switches::kDisableMediaSource));
 
   WebRuntimeFeatures::enableMediaPlayer(
       media::IsMediaLibraryInitialized());
@@ -655,9 +666,6 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   WebKit::WebRuntimeFeatures::enablePointerLock(
       !command_line.HasSwitch(switches::kDisablePointerLock));
 
-  WebKit::WebRuntimeFeatures::enableVideoTrack(
-      command_line.HasSwitch(switches::kEnableVideoTrack));
-
   WebKit::WebRuntimeFeatures::enableEncryptedMedia(
       command_line.HasSwitch(switches::kEnableEncryptedMedia));
 
@@ -670,8 +678,6 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
       !command_line.HasSwitch(switches::kDisableWebAudio) &&
       media::IsMediaLibraryInitialized());
 #endif
-
-  WebRuntimeFeatures::enablePushState(true);
 
   WebRuntimeFeatures::enableTouch(
       command_line.HasSwitch(switches::kEnableTouchEvents));
@@ -708,6 +714,9 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
       command_line.HasSwitch(switches::kEnableCssExclusions));
 
   FOR_EACH_OBSERVER(RenderProcessObserver, observers_, WebKitInitialized());
+
+  devtools_agent_message_filter_ = new DevToolsAgentFilter();
+  AddFilter(devtools_agent_message_filter_.get());
 
   if (content::GetContentClient()->renderer()->
          RunIdleHandlerWhenWidgetsHidden()) {
@@ -883,11 +892,11 @@ void RenderThreadImpl::ReleaseCachedFonts() {
 
 bool RenderThreadImpl::IsWebFrameValid(WebKit::WebFrame* web_frame) {
   if (!web_frame)
-    return false; // We must be shutting down.
+    return false;  // We must be shutting down.
 
   RenderViewImpl* render_view = RenderViewImpl::FromWebView(web_frame->view());
   if (!render_view)
-    return false; // We must be shutting down.
+    return false;  // We must be shutting down.
 
   return true;
 }

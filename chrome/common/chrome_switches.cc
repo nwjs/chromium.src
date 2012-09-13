@@ -153,9 +153,6 @@ const char kCipherSuiteBlacklist[]          = "cipher-suite-blacklist";
 // expiration of credentials during testing.
 const char kClearTokenService[]             = "clear-token-service";
 
-// Supplies custom client login to OAuth2 URL for testing purposes.
-const char kClientLoginToOAuth2Url[]        = "client-login-to-oauth2-url";
-
 // Used with kCloudPrintFile. Tells Chrome to delete the file when finished
 // displaying the print dialog.
 const char kCloudPrintDeleteFile[]          = "cloud-print-delete-file";
@@ -632,6 +629,9 @@ const char kEnableSdch[]                    = "enable-sdch";
 // Enable SPDY/3. This is a temporary testing flag.
 const char kEnableSpdy3[]                   = "enable-spdy3";
 
+// Enable SPDY CREDENTIAL frame support.  This is a temporary testing flag.
+const char kEnableSpdyCredentialFrames[]    = "enable-spdy-credential-frames";
+
 // Enables the stacked tabstrip.
 const char kEnableStackedTabStrip[]         = "enable-stacked-tab-strip";
 
@@ -643,10 +643,6 @@ const char kDisableSyncTabs[]               = "disable-sync-tabs";
 
 // Enables context menu for selecting groups of tabs.
 const char kEnableTabGroupsContextMenu[]    = "enable-tab-groups-context-menu";
-
-// Enable Text Service Framework(TSF) for text inputting instead of IMM32. This
-// flag is ignored on Metro environment.
-const char kEnableTextServiceFramework[] = "enable-text-service-framework";
 
 // Spawns threads to watch for excessive delays in specified message loops.
 // User should set breakpoints on Alarm() to examine problematic thread.
@@ -669,6 +665,11 @@ const char kEnableWebSocketOverSpdy[]       = "enable-websocket-over-spdy";
 // TODO(sidchat): Implement the above features to work under this flag.
 const char kExperimentalSpellcheckerFeatures[] =
     "experimental-spellchecker-features";
+
+// If nonempty, fetch experimental zero-suggest suggestions by appending to
+// this prefix of a URL.
+const char kExperimentalZeroSuggestURLPrefix[] =
+    "experimental-zero-suggest-url-prefix";
 
 // Explicitly allows additional ports using a comma-separated list of port
 // numbers.
@@ -708,26 +709,6 @@ const char kFileDescriptorLimit[]           = "file-descriptor-limit";
 // Displays the First Run experience when the browser is started, regardless of
 // whether or not it's actually the first run.
 const char kFirstRun[]                      = "first-run";
-
-// Specifies the backend server used for gaia authentications, like sync or
-// policies for example. The https:// prefix and the trailing slash should be
-// omitted. The default value is "www.google.com".
-const char kGaiaHost[]                      = "gaia-host";
-
-// Specifies the backend server used for OAuth authentication requests.
-// The https:// prefix and the trailing slash should be
-// omitted. The default value is "www.google.com".
-const char kGaiaOAuthHost[]                 = "gaia-oauth-host";
-
-// Specifies the path prefix for GAIA OAuth URLs. It should be used
-// for testing in cases where authentication path prefix differs from the one
-// used in production.
-const char kGaiaOAuthUrlPath[]              = "gaia-oauth-url-path";
-
-// Specifies the path prefix for GAIA authentication URL. It should be used
-// for testing in cases where authentication path prefix differs from the one
-// used in production.
-const char kGaiaUrlPath[]                   = "gaia-url-path";
 
 // Enables using GAIA information to populate profile name and icon.
 const char kGaiaProfileInfo[]               = "gaia-profile-info";
@@ -945,26 +926,6 @@ const char kNotifyCloudPrintTokenExpired[]  = "notify-cp-token-expired";
 // Autoconfig (PAC) script.
 const char kNumPacThreads[]                 = "num-pac-threads";
 
-// Specifies custom OAuth1 login scope for testing purposes.
-const char kOAuth1LoginScope[]              = "oauth1-login-scope";
-
-// Specifies custom OAuth2 client id for testing purposes.
-const char kOAuth2ClientId[]                = "oauth2-client-id";
-
-// Specifies custom OAuth2 client secret for testing purposes.
-const char kOAuth2ClientSecret[]            = "oauth2-client-secret";
-
-// Specifies custom OAuth2 issue token URL for testing purposes.
-const char kOAuth2IssueTokenUrl[]           = "oauth2-issue-token-url";
-
-// Specifies custom OAuth2 token URL for testing purposes.
-const char kOAuth2TokenUrl[]                = "oauth2-token-url";
-
-// Refactored (browserless) Panels are on by default in dev/canary/trunk.
-// Use this flag to revert to using the old-style (pre-refactor) Panels.
-// Flag will be removed after refactor is complete.
-const char kOldPanels[] = "old-panels";
-
 // Controls whether to use the fancy new scoring (takes into account
 // word breaks, does better balancing of topicality, recency, etc.) for
 // HistoryQuickProvider.
@@ -1022,6 +983,14 @@ const char kPackExtensionKey[]              = "pack-extension-key";
 // Specifies the path to the user data folder for the parent profile.
 const char kParentProfile[]                 = "parent-profile";
 
+// Launches PerformanceMonitor at startup, which will gather statistics about
+// Chrome's CPU and memory usage, page load times, startup times, and network
+// usage, and will also store information about events which may be of interest,
+// such as extension-related occurrences and crashes. Optionally, this may be
+// run with an integer value representing the interval between the timed
+// metric gatherings (if invalid or not provided, the default interval is used).
+const char kPerformanceMonitorGathering[]  = "performance-monitor-gathering";
+
 // Read previously recorded data from the cache. Only cached data is read.
 // See kRecordMode.
 const char kPlaybackMode[]                  = "playback-mode";
@@ -1077,9 +1046,6 @@ const char kPrerenderModeSwitchValuePrefetchOnly[] = "prefetch_only";
 
 // Enable conversion from vector to raster for any page.
 const char kPrintRaster[]              = "print-raster";
-
-// Disable saving the printer and settings between sessions.
-const char kPrintSettingsReset[]       = "print-settings-reset";
 
 // Outputs the product version information and quit. Used as an internal api to
 // detect the installed version of Chrome on Linux.
@@ -1174,12 +1140,6 @@ const char kResetVariationState[]           = "reset-variation-state";
 // sent to the ui_test.
 const char kRestoreLastSession[]            = "restore-last-session";
 
-// Launches PerformanceMonitor at startup, which will gather statistics about
-// Chrome's CPU and memory usage, page load times, startup times, and network
-// usage, and will also store information about events which may be of interest,
-// such as extension-related occurrences and crashes.
-const char kRunPerformanceMonitor[]         = "run-performance-monitor";
-
 // Disable saving pages as HTML-only, disable saving pages as HTML Complete
 // (with a directory of sub-resources). Enable only saving pages as MHTML.
 // See http://crbug.com/120416 for how to remove this switch.
@@ -1211,6 +1171,9 @@ const char kServiceAccountLsid[]            = "service-account-lsid";
 
 // Sets a token in the token service, for testing.
 const char kSetToken[]                      = "set-token";
+
+// If true the app list will be shown.
+const char kShowAppList[]                   = "show-app-list";
 
 // Annotates forms with Autofill field type predictions.
 const char kShowAutofillTypePredictions[]   = "show-autofill-type-predictions";
@@ -1406,8 +1369,15 @@ const char kDisableLoginAnimations[]        = "disable-login-animations";
 // Disables new OOBE/sign in design.
 const char kDisableNewOobe[]                = "disable-new-oobe";
 
+// Disables the new wallpaper picker UI.
+const char kDisableNewWallpaperUI[]         = "disable-new-wallpaper-picker-ui";
+
 // Avoid doing animations upon oobe.
 const char kDisableOobeAnimation[]          = "disable-oobe-animation";
+
+// Enables component extension that initializes background pages of
+// certain hosted applications.
+const char kEnableBackgroundLoader[]        = "enable-background-loader";
 
 // Enables touchpad three-finger-click as middle button.
 const char kEnableTouchpadThreeFingerClick[]
@@ -1429,8 +1399,8 @@ const char kEnableGView[]                   = "enable-gview";
 // Enable Kiosk mode for ChromeOS
 const char kEnableKioskMode[]               = "enable-kiosk-mode";
 
-// Enables the new wallpaper picker UI.
-const char kEnableNewWallpaperUI[]          = "enable-new-wallpaper-ui";
+// Enables request of tablet site (via user agent override).
+const char kEnableRequestTabletSite[]       = "enable-request-tablet-site";
 
 // Enables static ip configuration. This flag should be removed when it's on by
 // default.
@@ -1558,12 +1528,16 @@ const char kEnableSyncCredentialCaching[]    = "enable-sync-credential-caching";
 // Windows 8 and higher.  Used when relaunching metro Chrome.
 const char kForceImmersive[]                 = "force-immersive";
 
+// For the DelegateExecute verb handler to launch Chrome in desktop mode on
+// Windows 8 and higher.  Used when relaunching metro Chrome.
+const char kForceDesktop[]                   = "force-desktop";
+
 // Relaunches metro Chrome on Windows 8 and higher using a given shortcut.
 const char kRelaunchShortcut[]               = "relaunch-shortcut";
 
 // Waits for the given handle to be signaled before relaunching metro Chrome on
 // Windows 8 and higher.
-const char kWaitForHandle[]                  = "wait-for-handle";
+const char kWaitForMutex[]                  = "wait-for-mutex";
 #endif
 
 #if defined(USE_AURA)

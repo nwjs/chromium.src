@@ -8,6 +8,7 @@
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "content/public/browser/browser_thread.h"
+#include "net/dns/dns_config_service_posix.h"
 
 using content::BrowserThread;
 
@@ -26,11 +27,31 @@ bool IsOnline(chromeos::ConnectionState state) {
 
 namespace chromeos {
 
+class NetworkChangeNotifierChromeos::DnsConfigServiceChromeos
+    : public net::internal::DnsConfigServicePosix {
+ public:
+  DnsConfigServiceChromeos() {}
+
+  virtual ~DnsConfigServiceChromeos() {}
+
+  // net::DnsConfigServicePosix:
+  virtual bool StartWatching() OVERRIDE {
+    // Notifications from NetworkLibrary are sent to
+    // NetworkChangeNotifierChromeos.
+    return true;
+  }
+
+  void OnNetworkChange() {
+    InvalidateConfig();
+    InvalidateHosts();
+    ReadNow();
+  }
+};
+
 NetworkChangeNotifierChromeos::NetworkChangeNotifierChromeos()
     : has_active_network_(false),
       connection_state_(chromeos::STATE_UNKNOWN),
       connection_type_(CONNECTION_NONE),
-      is_online_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
   BrowserThread::PostDelayedTask(
          BrowserThread::UI, FROM_HERE,
@@ -49,11 +70,17 @@ void NetworkChangeNotifierChromeos::Init() {
 
   DBusThreadManager::Get()->GetPowerManagerClient()->AddObserver(this);
 
+  dns_config_service_.reset(new DnsConfigServiceChromeos());
+  dns_config_service_->WatchConfig(
+      base::Bind(NetworkChangeNotifier::SetDnsConfig));
+
   UpdateNetworkState(network_library);
 }
 
 void NetworkChangeNotifierChromeos::Shutdown() {
   weak_factory_.InvalidateWeakPtrs();
+
+  dns_config_service_.reset();
 
   if (!chromeos::CrosLibrary::Get())
     return;
@@ -128,6 +155,8 @@ void NetworkChangeNotifierChromeos::UpdateNetworkState(
       service_path_ = network->service_path();
       ip_address_ = network->ip_address();
     }
+    // TODO(szym): detect user DNS changes. http://crbug.com/148394
+    dns_config_service_->OnNetworkChange();
     UpdateConnectivityState(network);
     // If there is an active network, add observer to track its changes.
     if (network)
@@ -152,10 +181,7 @@ void NetworkChangeNotifierChromeos::UpdateConnectivityState(
   }
 
   // We don't care about all transitions of ConnectionState.  OnlineStateChange
-  // notification should trigger if
-  //   a) we were online and went offline
-  //   b) we were offline and went online
-  //   c) switched to/from captive portal
+  // notification should trigger if ConnectionType is changed.
   chromeos::ConnectionState new_connection_state =
       network ? network->connection_state() : chromeos::STATE_UNKNOWN;
 
@@ -174,33 +200,29 @@ void NetworkChangeNotifierChromeos::UpdateConnectivityState(
           << ", was_portal = " << was_portal;
   connection_state_ = new_connection_state;
   connection_type_ = new_connection_type;
-  if (is_online != was_online || is_portal != was_portal ||
-      new_connection_type != prev_connection_type) {
-    ReportConnectionChange(IsOnline(connection_state_));
+  if (new_connection_type != prev_connection_type) {
+    VLOG(1) << "UpdateConnectivityState3: "
+            << "prev_connection_type = " << prev_connection_type
+            << ", new_connection_type = " << new_connection_type;
+    ReportConnectionChange();
   }
-  VLOG(2) << " UpdateConnectivityState3: "
+  VLOG(2) << " UpdateConnectivityState4: "
           << "new_cs = " << new_connection_state
           << ", end_cs_ = " << connection_state_
           << "prev_type = " << prev_connection_type
           << ", new_type_ = " << new_connection_type;
 }
 
-void NetworkChangeNotifierChromeos::ReportConnectionChange(bool is_online) {
-  VLOG(1) << "ReportConnectionChange: " << (is_online ? "online" : "offline");
+void NetworkChangeNotifierChromeos::ReportConnectionChange() {
   if (weak_factory_.HasWeakPtrs()) {
+    // If we have a pending task, cancel it.
     DVLOG(1) << "ReportConnectionChange: has pending task";
-    // If we are trying to report the same state, just continue as planned.
-    // If the online state had changed since we queued the reporting task,
-    // then cancel it. This should help us avoid transient edge reporting
-    // while switching between connection types (i.e. wifi->ethernet).
-    if (is_online != is_online_) {
-      weak_factory_.InvalidateWeakPtrs();
-      DVLOG(1) << "ReportConnectionChange: canceled pending task";
-    }
-    return;
+    weak_factory_.InvalidateWeakPtrs();
+    DVLOG(1) << "ReportConnectionChange: canceled pending task";
   }
-
-  is_online_ = is_online;
+  // Posting task with delay allows us to cancel it when connection type is
+  // changed frequently. This should help us avoid transient edge reporting
+  // while switching between connection types (e.g. ethernet->wifi).
   BrowserThread::PostDelayedTask(
       BrowserThread::UI, FROM_HERE,
       base::Bind(

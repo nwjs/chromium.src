@@ -57,14 +57,35 @@
 <pre>script-src 'self'; object-src 'self'</pre>
 
 <p>
-  This policy adds security by limiting extensions and applications in two ways:
+  This policy adds security by limiting extensions and applications in three 
+  ways:
 </p>
+
+<h3 id="JSEval">Eval and related functions are disabled</h3>
+
+<p>Code like the following does not work:</p>
+
+<pre>
+alert(eval("foo.bar.baz"));
+window.setTimeout("alert('hi')", 10);
+window.setInteral("alert('hi')", 10);
+new Function("return foo.bar.baz");
+</pre>
+
+<p>Evaluating strings of JavaScript like this is a common XSS attack vector.
+Instead, you should write code like:
+
+<pre>
+alert(foo && foo.bar && foo.bar.baz);
+window.setTimeout(function() { alert('hi'); }, 10);
+window.setInterval(function() { alert('hi'); }, 10);
+function() { return foo && foo.bar && foo.bar.baz };
+</pre>
 
 <h3 id="JSExecution">Inline JavaScript will not be executed</h3>
 
 <p>
-  Inline JavaScript, as well as dangerous string-to-JavaScript methods like
- <code>eval</code>, will not be executed. This restriction bans both inline
+  Inline JavaScript will not be executed. This restriction bans both inline
  <code>&lt;script&gt;</code> blocks <strong>and</strong> inline event handlers
  (e.g. <code>&lt;button onclick="..."&gt;</code>).
 </p>
@@ -230,17 +251,18 @@ function main() {
 
 <h2 id="relaxing">Relaxing the default policy</h2>
 
+<h3 id="relaxing-inline-script">Inline Script</h3>
+
 <p>
   There is no mechanism for relaxing the restriction against executing inline
   JavaScript. In particular, setting a script policy that includes
-  <code>unsafe-inline</code> will have no effect. Likewise, there is no
-  mechanism for enabling <code>eval</code>-like constructs. Setting a script
-  policy that includes <code>unsafe-eval</code> will have no effect. This is
-  intentional.
+  <code>'unsafe-inline'</code> will have no effect.
 </p>
 
+<h3 id="relaxing-remote-script">Remote Script</h3>
+
 <p>
-  If, on the other hand, you have a need for some external JavaScript or object
+  If you have a need for some external JavaScript or object
   resources, you can relax the policy to a limited extent by whitelisting
   secure origins from which scripts should be accepted. We want to ensure that
   executable resources loaded with an extension's elevated permissions are
@@ -273,11 +295,7 @@ function main() {
   <code>example.com</code> over HTTPS might look like:
 </p>
 
-<pre>{
-  ...,
-  "content_security_policy": "script-src 'self' https://example.com; object-src 'self'",
-  ...
-}</pre>
+<pre>"content_security_policy": "script-src 'self' https://example.com; object-src 'self'"</pre>
 
 <p class="note">
   Note that both <code>script-src</code> and <code>object-src</code> are defined
@@ -291,6 +309,22 @@ function main() {
   boilerplate of sorts in the <a href="samples.html#analytics">Event Tracking
   with Google Analytics</a> sample extension, and a
 <a href="tut_analytics.html">brief tutorial</a> that goes into more detail.
+</p>
+
+<h3 id="relaxing-eval">Evaluated JavaScript</h3>
+
+<p>
+  The policy against <code>eval()</code> and its relatives like
+  <code>setTimeout(String)</code>, <code>setInterval(String)</code>, and
+  <code>new Function(String)</code> can be relaxed by adding
+  <code>'unsafe-eval'</code> to your policy:
+</p>
+
+<pre>"content_security_policy": "script-src 'self' 'unsafe-eval'"</pre>
+
+<p>
+  However, we strongly recommend against doing this. These functions are
+  notorious XSS attack vectors.
 </p>
 
 <h2 id="tightening">Tightening the default policy</h2>

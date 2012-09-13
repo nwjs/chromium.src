@@ -148,14 +148,6 @@ bool WorkspaceManager::IsInMaximizedMode() const {
       active_workspace_->type() == Workspace::TYPE_MAXIMIZED;
 }
 
-void WorkspaceManager::SetGridSize(int size) {
-  grid_size_ = size;
-}
-
-int WorkspaceManager::GetGridSize() const {
-  return grid_size_;
-}
-
 WorkspaceWindowState WorkspaceManager::GetWindowState() const {
   if (!shelf_ || !active_workspace_)
     return WORKSPACE_WINDOW_STATE_DEFAULT;
@@ -167,6 +159,9 @@ WorkspaceWindowState WorkspaceManager::GetWindowState() const {
   bool has_maximized_window = false;
   for (aura::Window::Windows::const_iterator i = windows.begin();
        i != windows.end(); ++i) {
+    gfx::Rect b = (*i)->bounds();
+    if (GetIgnoredByShelf(*i))
+      continue;
     ui::Layer* layer = (*i)->layer();
     if (!layer->GetTargetVisibility() || layer->GetTargetOpacity() == 0.0f)
       continue;

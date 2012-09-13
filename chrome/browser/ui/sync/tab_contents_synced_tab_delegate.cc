@@ -21,11 +21,13 @@ TabContentsSyncedTabDelegate::TabContentsSyncedTabDelegate(
 TabContentsSyncedTabDelegate::~TabContentsSyncedTabDelegate() {}
 
 SessionID::id_type TabContentsSyncedTabDelegate::GetWindowId() const {
-  return tab_contents_->session_tab_helper()->window_id().id();
+  return SessionTabHelper::FromWebContents(tab_contents_->web_contents())->
+      window_id().id();
 }
 
 SessionID::id_type TabContentsSyncedTabDelegate::GetSessionId() const {
-  return tab_contents_->session_tab_helper()->session_id().id();
+  return SessionTabHelper::FromWebContents(tab_contents_->web_contents())->
+      session_id().id();
 }
 
 bool TabContentsSyncedTabDelegate::IsBeingDestroyed() const {
@@ -37,14 +39,15 @@ Profile* TabContentsSyncedTabDelegate::profile() const {
 }
 
 bool TabContentsSyncedTabDelegate::HasExtensionAppId() const {
-  return (tab_contents_->extension_tab_helper() &&
-      tab_contents_->extension_tab_helper()->extension_app());
+  return !!(extensions::TabHelper::FromWebContents(
+      tab_contents_->web_contents())->extension_app());
 }
 
 const std::string& TabContentsSyncedTabDelegate::GetExtensionAppId()
     const {
   DCHECK(HasExtensionAppId());
-  return tab_contents_->extension_tab_helper()->extension_app()->id();
+  return extensions::TabHelper::FromWebContents(tab_contents_->web_contents())->
+      extension_app()->id();
 }
 
 int TabContentsSyncedTabDelegate::GetCurrentEntryIndex() const {

@@ -15,7 +15,7 @@
 #include "ui/aura/root_window.h"
 #include "ui/aura/test/aura_test_helper.h"
 #include "ui/aura/window.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/widget/root_view.h"
@@ -216,11 +216,11 @@ class GestureTrackingView : public views::View {
   }
 
   // View overrides:
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE {
     got_gesture_event_ = true;
-    return consume_gesture_event_ ? ui::GESTURE_STATUS_CONSUMED :
-        ui::GESTURE_STATUS_UNKNOWN;
+    return consume_gesture_event_ ? ui::ER_CONSUMED :
+        ui::ER_UNHANDLED;
   }
 
  private:

@@ -30,6 +30,26 @@
       ],
     },
     {
+      'target_name': 'ppapi_gles2_lib',
+      'type': 'none',
+      'variables': {
+        'nlib_target': 'libppapi_gles2.a',
+        'build_glibc': 1,
+        'build_newlib': 1,
+        'include_dirs': [
+          'lib/gl/include',
+        ],
+        'sources': [
+          'lib/gl/gles2/gl2ext_ppapi.c',
+          'lib/gl/gles2/gl2ext_ppapi.h',
+          'lib/gl/gles2/gles2.c',
+        ],
+      },
+      'dependencies': [
+        '<(DEPTH)/native_client/tools.gyp:prep_toolchain',
+      ],
+    },
+    {
       'target_name': 'ppapi_nacl_tests',
       'type': 'none',
       'dependencies': [
@@ -54,9 +74,7 @@
         'link_flags': [
           '-lppapi_cpp',
           '-lppapi',
-          '-lplatform',
           '-lpthread',
-          '-lgio',
         ],
         # TODO(bradchen): get rid of extra_deps64 and extra_deps32
         # once native_client/build/untrusted.gypi no longer needs them.

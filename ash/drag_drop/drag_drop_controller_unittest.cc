@@ -14,7 +14,7 @@
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/views/test/test_views_delegate.h"
 #include "ui/views/view.h"
 #include "ui/views/views_delegate.h"
@@ -503,7 +503,7 @@ TEST_F(DragDropControllerTest, ViewRemovedWhileInDragDropTest) {
 }
 
 TEST_F(DragDropControllerTest, DragLeavesClipboardAloneTest) {
-  ui::Clipboard* cb = views::ViewsDelegate::views_delegate->GetClipboard();
+  ui::Clipboard* cb = ui::Clipboard::GetForCurrentThread();
   std::string clip_str("I am on the clipboard");
   {
     // We first copy some text to the clipboard.

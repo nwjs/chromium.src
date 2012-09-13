@@ -9,17 +9,12 @@
     'webkit_compositor_bindings_sources': [
       'CCThreadImpl.cpp',
       'CCThreadImpl.h',
-      'PlatformGestureCurve.h',
-      'PlatformGestureCurveTarget.h',
-      'TouchpadFlingPlatformGestureCurve.h',
       'WebAnimationCurveCommon.cpp',
       'WebAnimationCurveCommon.h',
       'WebAnimationImpl.cpp',
       'WebAnimationImpl.h',
       'WebCompositorImpl.cpp',
       'WebCompositorImpl.h',
-      'WebCompositorInputHandlerImpl.cpp',
-      'WebCompositorInputHandlerImpl.h',
       'WebContentLayerImpl.cpp',
       'WebContentLayerImpl.h',
       'WebExternalTextureLayerImpl.cpp',
@@ -32,19 +27,60 @@
       'WebImageLayerImpl.h',
       'WebLayerImpl.cpp',
       'WebLayerImpl.h',
+      'WebToCCInputHandlerAdapter.cpp',
+      'WebToCCInputHandlerAdapter.h',
       'WebLayerTreeViewImpl.cpp',
       'WebLayerTreeViewImpl.h',
       'WebScrollbarLayerImpl.cpp',
       'WebScrollbarLayerImpl.h',
       'WebSolidColorLayerImpl.cpp',
       'WebSolidColorLayerImpl.h',
-      'WebTransformAnimationCurveImpl.cpp',
-      'WebTransformAnimationCurveImpl.h',
       'WebVideoLayerImpl.cpp',
       'WebVideoLayerImpl.h',
-      'WheelFlingPlatformGestureCurve.h',
+      'WebTransformAnimationCurveImpl.cpp',
+      'WebTransformAnimationCurveImpl.h',
+    ],
+    'conditions': [
+      ['inside_chromium_build==0', {
+        'webkit_src_dir': '../../../../..',
+      },{
+        'webkit_src_dir': '../../third_party/WebKit',
+      }],
     ],
   },
+  'targets': [
+    {
+      'target_name': 'webkit_compositor_support',
+      'type': 'static_library',
+      'dependencies': [
+        '../../skia/skia.gyp:skia',
+      ],
+      'sources': [
+        'web_compositor_support_impl.cc',
+        'web_compositor_support_impl.h',
+      ],
+      'include_dirs': [
+        '../..',
+        '<(SHARED_INTERMEDIATE_DIR)/webkit',
+        '<(webkit_src_dir)/Source/Platform/chromium',
+      ],
+      'conditions': [
+        ['use_libcc_for_compositor==1', {
+          'include_dirs': [
+            '../../cc',
+            '../../cc/stubs',
+          ],
+          'dependencies': [
+            'webkit_compositor_bindings',
+            '<(webkit_src_dir)/Source/WTF/WTF.gyp/WTF.gyp:wtf',
+          ],
+          'defines': [
+            'USE_LIBCC_FOR_COMPOSITOR',
+          ],
+        }],
+      ],
+    },
+  ],
   'conditions': [
     ['use_libcc_for_compositor==1', {
       'targets': [
@@ -55,25 +91,23 @@
             '../../base/base.gyp:base',
             '../../cc/cc.gyp:cc',
             '../../skia/skia.gyp:skia',
-            '../../third_party/WebKit/Source/Platform/Platform.gyp/Platform.gyp:webkit_platform',
             # We have to depend on WTF directly to pick up the correct defines for WTF headers - for instance USE_SYSTEM_MALLOC.
-            '../../third_party/WebKit/Source/WTF/WTF.gyp/WTF.gyp:wtf',
-          ],
-          'defines': [
-            'WEBKIT_IMPLEMENTATION=1',
+            '<(webkit_src_dir)/Source/WTF/WTF.gyp/WTF.gyp:wtf',
           ],
           'include_dirs': [
             '../../cc',
             '../../cc/stubs',
-            'stubs',
-            '../../third_party/WebKit/Source/WebKit/chromium/public',
+            '<(webkit_src_dir)/Source/Platform/chromium',
           ],
           'sources': [
             '<@(webkit_compositor_bindings_sources)',
-            'stubs/AnimationIdVendor.h',
-            'stubs/public/WebTransformationMatrix',
+            'webcore_convert.cc',
+            'webcore_convert.h',
           ],
-        }
+          'defines': [
+            'USE_LIBCC_FOR_COMPOSITOR',
+          ],
+        },
       ],
     }],
   ],

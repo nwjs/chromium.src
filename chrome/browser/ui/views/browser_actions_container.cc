@@ -69,7 +69,8 @@ BrowserActionsContainer::BrowserActionsContainer(Browser* browser,
       chevron_(NULL),
       overflow_menu_(NULL),
       extension_keybinding_registry_(browser->profile(),
-                                     owner_view->GetFocusManager()),
+          owner_view->GetFocusManager(),
+          extensions::ExtensionKeybindingRegistry::ALL_EXTENSIONS),
       suppress_chevron_(false),
       resize_amount_(0),
       animation_target_size_(0),
@@ -455,18 +456,22 @@ void BrowserActionsContainer::OnWidgetClosing(views::Widget* widget) {
   }
 }
 
+void BrowserActionsContainer::InspectPopup(ExtensionAction* action) {
+  BrowserActionView* view = GetBrowserActionView(action);
+  ShowPopup(view->button(), ExtensionPopup::SHOW_AND_INSPECT);
+}
+
 int BrowserActionsContainer::GetCurrentTabId() const {
-  TabContents* tab = chrome::GetActiveTabContents(browser_);
-  return tab ? tab->session_tab_helper()->session_id().id() : -1;
+  content::WebContents* active_tab = chrome::GetActiveWebContents(browser_);
+  if (!active_tab)
+    return -1;
+
+  return SessionTabHelper::FromWebContents(active_tab)->session_id().id();
 }
 
 void BrowserActionsContainer::OnBrowserActionExecuted(
     BrowserActionButton* button) {
-  const Extension* extension = button->extension();
-  GURL popup_url;
-  if (model_->ExecuteBrowserAction(extension, browser_, &popup_url) ==
-      ExtensionToolbarModel::ACTION_SHOW_POPUP)
-    ShowPopup(button, popup_url);
+  ShowPopup(button, ExtensionPopup::SHOW);
 }
 
 void BrowserActionsContainer::OnBrowserActionVisibilityChanged() {
@@ -792,8 +797,16 @@ bool BrowserActionsContainer::ShouldDisplayBrowserAction(
        profile_->GetExtensionService()->IsIncognitoEnabled(extension->id()));
 }
 
-void BrowserActionsContainer::ShowPopup(BrowserActionButton* button,
-                                        const GURL& popup_url) {
+void BrowserActionsContainer::ShowPopup(
+    BrowserActionButton* button,
+    ExtensionPopup::ShowAction show_action) {
+  const Extension* extension = button->extension();
+  GURL popup_url;
+  if (model_->ExecuteBrowserAction(extension, browser_, &popup_url) !=
+      ExtensionToolbarModel::ACTION_SHOW_POPUP) {
+    return;
+  }
+
   // If we're showing the same popup, just hide it and return.
   bool same_showing = popup_ && button == popup_button_;
 
@@ -813,7 +826,8 @@ void BrowserActionsContainer::ShowPopup(BrowserActionButton* button,
   popup_ = ExtensionPopup::ShowPopup(popup_url,
                                      browser_,
                                      reference_view,
-                                     arrow_location);
+                                     arrow_location,
+                                     show_action);
   popup_->GetWidget()->AddObserver(this);
   popup_button_ = button;
   popup_button_->SetButtonPushed();

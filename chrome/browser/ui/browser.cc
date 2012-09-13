@@ -123,8 +123,6 @@
 #include "chrome/browser/ui/intents/web_intent_picker_controller.h"
 #include "chrome/browser/ui/media_stream_infobar_delegate.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
-#include "chrome/browser/ui/panels/panel.h"
-#include "chrome/browser/ui/panels/panel_manager.h"
 #include "chrome/browser/ui/search/search.h"
 #include "chrome/browser/ui/search/search_delegate.h"
 #include "chrome/browser/ui/search/search_model.h"
@@ -205,7 +203,7 @@
 #endif  // OS_WIN
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #endif
 
 #if defined(USE_ASH)
@@ -240,16 +238,7 @@ const char kPrivacyDashboardUrl[] = "https://www.google.com/dashboard";
 // How long we wait before updating the browser chrome while loading a page.
 const int kUIUpdateCoalescingTimeMS = 200;
 
-bool AllowPanels(const std::string& app_name) {
-  return PanelManager::ShouldUsePanels(
-      web_app::GetExtensionIdFromApplicationName(app_name));
-}
-
 BrowserWindow* CreateBrowserWindow(Browser* browser) {
-#if !defined(USE_ASH)
-  if (browser->is_type_panel())
-    return PanelManager::GetInstance()->CreatePanel(browser)->browser_window();
-#endif
   return BrowserWindow::CreateBrowserWindow(browser);
 }
 
@@ -316,9 +305,6 @@ Browser::CreateParams Browser::CreateParams::CreateForApp(
     Profile* profile) {
   DCHECK(type != TYPE_TABBED);
   DCHECK(!app_name.empty());
-
-  if (type == TYPE_PANEL && !AllowPanels(app_name))
-    type = TYPE_POPUP;
 
   CreateParams params(type, profile);
   params.app_name = app_name;
@@ -418,12 +404,8 @@ Browser::Browser(const CreateParams& params)
                              profile_->GetPrefs(), NULL);
 
   instant_controller_.reset(new chrome::BrowserInstantController(this));
-
-#if 0
-  // Disabled for M22. See http://crbug.com/144326.
   device_attached_intent_source_.reset(
       new DeviceAttachedIntentSource(this, (this)));
-#endif
 
   UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_INIT);
 
@@ -1023,7 +1005,9 @@ void Browser::TabInsertedAt(TabContents* contents,
                             int index,
                             bool foreground) {
   SetAsDelegate(contents->web_contents(), this);
-  contents->session_tab_helper()->SetWindowID(session_id());
+  SessionTabHelper* session_tab_helper =
+      SessionTabHelper::FromWebContents(contents->web_contents());
+  session_tab_helper->SetWindowID(session_id());
 
   SyncHistoryWithTabs(index);
 
@@ -1179,10 +1163,11 @@ void Browser::TabPinnedStateChanged(TabContents* contents, int index) {
   SessionService* session_service =
       SessionServiceFactory::GetForProfileIfExisting(profile());
   if (session_service) {
+    SessionTabHelper* session_tab_helper =
+        SessionTabHelper::FromWebContents(contents->web_contents());
     session_service->SetPinnedState(
         session_id(),
-        chrome::GetTabContentsAt(this, index)->session_tab_helper()->
-            session_id(),
+        session_tab_helper->session_id(),
         tab_strip_model_->IsTabPinned(index));
   }
 }
@@ -1306,9 +1291,10 @@ void Browser::AddNewContents(WebContents* source,
                              WebContents* new_contents,
                              WindowOpenDisposition disposition,
                              const gfx::Rect& initial_pos,
-                             bool user_gesture) {
+                             bool user_gesture,
+                             bool* was_blocked) {
   chrome::AddWebContents(this, source, new_contents, disposition, initial_pos,
-                         user_gesture);
+                         user_gesture, was_blocked);
 }
 
 void Browser::ActivateContents(WebContents* contents) {
@@ -1449,8 +1435,7 @@ void Browser::OnStartDownload(WebContents* source,
   // Don't show the animation for "Save file" downloads.
   // For non-theme extensions, we don't show the download animation.
   // Show animation in same window as the download shelf. Download shelf
-  // may not be in the same window that initiated the download, e.g.
-  // Panels.
+  // may not be in the same window that initiated the download.
   // Don't show the animation if the selected tab is not visible (i.e. the
   // window is minimized, we're in a unit test, etc.).
   WebContents* shelf_tab = chrome::GetActiveWebContents(shelf->browser());
@@ -1793,7 +1778,7 @@ void Browser::FileSelectedWithExtraInfo(
   GURL file_url = net::FilePathToFileURL(path);
 
 #if defined(OS_CHROMEOS)
-  gdata::util::ModifyGDataFileResourceUrl(profile_, path, &file_url);
+  gdata::util::ModifyDriveFileResourceUrl(profile_, path, &file_url);
 #endif
 
   if (file_url.is_empty())
@@ -1837,15 +1822,8 @@ void Browser::Observe(int type,
                 details)->extension;
         for (int i = tab_strip_model_->count() - 1; i >= 0; --i) {
           WebContents* tc = chrome::GetTabContentsAt(this, i)->web_contents();
-          bool close_tab_contents =
-              tc->GetURL().SchemeIs(chrome::kExtensionScheme) &&
-              tc->GetURL().host() == extension->id();
-          // We want to close all panels originated by the unloaded extension.
-          close_tab_contents = close_tab_contents ||
-              (type_ == TYPE_PANEL &&
-               (web_app::GetExtensionIdFromApplicationName(app_name_) ==
-                extension->id()));
-          if (close_tab_contents)
+          if (tc->GetURL().SchemeIs(chrome::kExtensionScheme) &&
+              tc->GetURL().host() == extension->id())
             chrome::CloseWebContents(this, tc);
         }
       }
@@ -2076,13 +2054,15 @@ void Browser::SyncHistoryWithTabs(int index) {
       SessionServiceFactory::GetForProfileIfExisting(profile());
   if (session_service) {
     for (int i = index; i < tab_count(); ++i) {
-      TabContents* tab = chrome::GetTabContentsAt(this, i);
-      if (tab) {
+      WebContents* web_contents = chrome::GetWebContentsAt(this, i);
+      if (web_contents) {
+        SessionTabHelper* session_tab_helper =
+            SessionTabHelper::FromWebContents(web_contents);
         session_service->SetTabIndexInWindow(
-            session_id(), tab->session_tab_helper()->session_id(), i);
+            session_id(), session_tab_helper->session_id(), i);
         session_service->SetPinnedState(
             session_id(),
-            tab->session_tab_helper()->session_id(),
+            session_tab_helper->session_id(),
             tab_strip_model_->IsTabPinned(i));
       }
     }

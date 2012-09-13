@@ -9,40 +9,24 @@
     'use_pulseaudio%': 0,
     # Override to dynamically link the cras (ChromeOS audio) library.
     'use_cras%': 0,
+    'conditions': [
+      ['OS == "android" or OS == "ios"', {
+        # Android and iOS don't use ffmpeg.
+        'use_ffmpeg%': 0,
+      }, {  # 'OS != "android" and OS != "ios"'
+        'use_ffmpeg%': 1,
+      }],
+    ],
   },
   'targets': [
-    {
-      # Minimal target for NaCl and other renderer side media clients which only
-      # need to send audio data across the shared memory to the browser process.
-      'target_name': 'shared_memory_support',
-      'type': '<(component)',
-      'dependencies': [
-        '../base/base.gyp:base',
-      ],
-      'defines': [
-        'MEDIA_IMPLEMENTATION',
-      ],
-      'include_dirs': [
-        '..',
-      ],
-      'includes': [
-        'shared_memory_support.gypi',
-      ],
-      'sources': [
-        '<@(shared_memory_support_sources)',
-      ],
-    },
     {
       'target_name': 'media',
       'type': '<(component)',
       'dependencies': [
         '../base/base.gyp:base',
-        '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         '../build/temp_gyp/googleurl.gyp:googleurl',
         '../crypto/crypto.gyp:crypto',
-        'shared_memory_support',
         '../ui/ui.gyp:ui',
-        'yuv_convert',
       ],
       'defines': [
         'MEDIA_IMPLEMENTATION',
@@ -95,6 +79,8 @@
         'audio/audio_output_ipc.h',
         'audio/audio_output_proxy.cc',
         'audio/audio_output_proxy.h',
+        'audio/audio_output_resampler.cc',
+        'audio/audio_output_resampler.h',
         'audio/audio_util.cc',
         'audio/audio_util.h',
         'audio/cross_process_notification.cc',
@@ -105,6 +91,8 @@
         'audio/fake_audio_input_stream.h',
         'audio/fake_audio_output_stream.cc',
         'audio/fake_audio_output_stream.h',
+        'audio/ios/audio_manager_ios.h',
+        'audio/ios/audio_manager_ios.mm',
         'audio/linux/alsa_input.cc',
         'audio/linux/alsa_input.h',
         'audio/linux/alsa_output.cc',
@@ -161,6 +149,10 @@
         'base/audio_decoder.h',
         'base/audio_decoder_config.cc',
         'base/audio_decoder_config.h',
+        'base/audio_fifo.cc',
+        'base/audio_fifo.h',
+        'base/audio_pull_fifo.cc',
+        'base/audio_pull_fifo.h',
         'base/audio_renderer.cc',
         'base/audio_renderer.h',
         'base/audio_renderer_mixer.cc',
@@ -196,7 +188,6 @@
         'base/filter_collection.cc',
         'base/filter_collection.h',
         'base/media.h',
-        'base/media_android.cc',
         'base/media_log.cc',
         'base/media_log.h',
         'base/media_log_event.h',
@@ -250,7 +241,6 @@
         'filters/audio_renderer_impl.h',
         'filters/chunk_demuxer.cc',
         'filters/chunk_demuxer.h',
-        'filters/chunk_demuxer_client.h',
         'filters/dummy_demuxer.cc',
         'filters/dummy_demuxer.h',
         'filters/ffmpeg_audio_decoder.cc',
@@ -329,14 +319,19 @@
         ],
       },
       'conditions': [
-        # Android doesn't use ffmpeg, so make the dependency conditional
-        # and exclude the sources which depend on ffmpeg.
-        ['OS != "android"', {
+        ['OS != "ios"', {
+          'dependencies': [
+            '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
+            'shared_memory_support',
+            'yuv_convert',
+          ],
+        }],
+        ['use_ffmpeg == 1', {
           'dependencies': [
             '../third_party/ffmpeg/ffmpeg.gyp:ffmpeg',
           ],
-        }],
-        ['OS == "android"', {
+        }, {  # use_ffmpeg == 0
+          # Exclude the sources that depend on ffmpeg.
           'sources!': [
             'base/media_posix.cc',
             'ffmpeg/ffmpeg_common.cc',
@@ -347,7 +342,6 @@
             'filters/audio_file_reader.h',
             'filters/chunk_demuxer.cc',
             'filters/chunk_demuxer.h',
-            'filters/chunk_demuxer_client.h',
             'filters/ffmpeg_audio_decoder.cc',
             'filters/ffmpeg_audio_decoder.h',
             'filters/ffmpeg_demuxer.cc',
@@ -366,7 +360,46 @@
             'webm/webm_stream_parser.h',
           ],
         }],
+        ['OS == "ios"', {
+          'includes': [
+            # For shared_memory_support_sources variable.
+            'shared_memory_support.gypi',
+          ],
+          'sources': [
+            'base/media_stub.cc',
+            # These sources are normally built via a dependency on the
+            # shared_memory_support target, but that target is not built on iOS.
+            # Instead, directly build only the files that are needed for iOS.
+            '<@(shared_memory_support_sources)',
+          ],
+          'sources/': [
+            # iOS support is limited to audio input only.
+            ['exclude', '.*'],
+            ['include', '^audio/audio_buffers_state\\.'],
+            ['include', '^audio/audio_input_controller\\.'],
+            ['include', '^audio/audio_io\\.h$'],
+            ['include', '^audio/audio_manager\\.'],
+            ['include', '^audio/audio_manager_base\\.'],
+            ['include', '^audio/audio_parameters\\.'],
+            ['include', '^audio/fake_audio_input_stream\\.'],
+            ['include', '^audio/fake_audio_output_stream\\.'],
+            ['include', '^audio/ios/audio_manager_ios\\.'],
+            ['include', '^base/audio_bus\\.'],
+            ['include', '^base/channel_layout\\.'],
+            ['include', '^base/media\\.h$'],
+            ['include', '^base/media_stub\\.cc$'],
+          ],
+          'link_settings': {
+            'libraries': [
+              '$(SDKROOT)/System/Library/Frameworks/AudioToolbox.framework',
+              '$(SDKROOT)/System/Library/Frameworks/CoreAudio.framework',
+            ],
+          },
+        }],
         ['OS == "android"', {
+          'sources': [
+            'base/media_stub.cc',
+          ],
           'link_settings': {
             'libraries': [
               '-lOpenSLES',
@@ -512,165 +545,14 @@
           ],
         }],
       ],
-    },
-    {
-      'target_name': 'yuv_convert',
-      'type': 'static_library',
-      'include_dirs': [
-        '..',
-      ],
-      'conditions': [
-        ['order_profiling != 0', {
-          'target_conditions' : [
-            ['_toolset=="target"', {
-              'cflags!': [ '-finstrument-functions' ],
-            }],
+      'target_conditions': [
+        ['OS == "ios"', {
+          'sources/': [
+            # Pull in specific Mac files for iOS (which have been filtered out
+            # by file name rules).
+            ['include', '^audio/mac/audio_input_mac\\.'],
           ],
         }],
-        [ 'target_arch == "ia32" or target_arch == "x64"', {
-          'dependencies': [
-            'yuv_convert_simd_x86',
-          ],
-        }],
-        [ 'target_arch == "arm"', {
-          'dependencies': [
-            'yuv_convert_simd_arm',
-          ],
-        }],
-      ],
-      'sources': [
-        'base/yuv_convert.cc',
-        'base/yuv_convert.h',
-      ],
-    },
-    {
-      'target_name': 'yuv_convert_simd_x86',
-      'type': 'static_library',
-      'include_dirs': [
-        '..',
-      ],
-      'sources': [
-        'base/simd/convert_rgb_to_yuv_c.cc',
-        'base/simd/convert_rgb_to_yuv_sse2.cc',
-        'base/simd/convert_rgb_to_yuv_ssse3.asm',
-        'base/simd/convert_rgb_to_yuv_ssse3.cc',
-        'base/simd/convert_rgb_to_yuv_ssse3.inc',
-        'base/simd/convert_yuv_to_rgb_c.cc',
-        'base/simd/convert_yuv_to_rgb_mmx.asm',
-        'base/simd/convert_yuv_to_rgb_mmx.inc',
-        'base/simd/convert_yuv_to_rgb_sse.asm',
-        'base/simd/convert_yuv_to_rgb_x86.cc',
-        'base/simd/filter_yuv.h',
-        'base/simd/filter_yuv_c.cc',
-        'base/simd/filter_yuv_mmx.cc',
-        'base/simd/filter_yuv_sse2.cc',
-        'base/simd/linear_scale_yuv_to_rgb_mmx.asm',
-        'base/simd/linear_scale_yuv_to_rgb_mmx.inc',
-        'base/simd/linear_scale_yuv_to_rgb_sse.asm',
-        'base/simd/scale_yuv_to_rgb_mmx.asm',
-        'base/simd/scale_yuv_to_rgb_mmx.inc',
-        'base/simd/scale_yuv_to_rgb_sse.asm',
-        'base/simd/yuv_to_rgb_table.cc',
-        'base/simd/yuv_to_rgb_table.h',
-      ],
-      'conditions': [
-        ['order_profiling != 0', {
-          'target_conditions' : [
-            ['_toolset=="target"', {
-              'cflags!': [ '-finstrument-functions' ],
-            }],
-          ],
-        }],
-        [ 'target_arch == "x64"', {
-          # Source files optimized for X64 systems.
-          'sources': [
-            'base/simd/linear_scale_yuv_to_rgb_mmx_x64.asm',
-            'base/simd/scale_yuv_to_rgb_sse2_x64.asm',
-          ],
-        }],
-        [ 'os_posix == 1 and OS != "mac" and OS != "android"', {
-          'cflags': [
-            '-msse2',
-          ],
-        }],
-        [ 'OS == "mac"', {
-          'configurations': {
-            'Debug': {
-              'xcode_settings': {
-                # gcc on the mac builds horribly unoptimized sse code in debug
-                # mode. Since this is rarely going to be debugged, run with full
-                # optimizations in Debug as well as Release.
-                'GCC_OPTIMIZATION_LEVEL': '3',  # -O3
-               },
-             },
-          },
-        }],
-        [ 'OS=="win"', {
-          'variables': {
-            'yasm_flags': [
-              '-DWIN32',
-              '-DMSVC',
-              '-DCHROMIUM',
-              '-Isimd',
-            ],
-          },
-        }],
-        [ 'OS=="mac"', {
-          'variables': {
-            'yasm_flags': [
-              '-DPREFIX',
-              '-DMACHO',
-              '-DCHROMIUM',
-              '-Isimd',
-            ],
-          },
-        }],
-        [ 'os_posix==1 and OS!="mac"', {
-          'variables': {
-            'conditions': [
-              [ 'target_arch=="ia32"', {
-                'yasm_flags': [
-                  '-DX86_32',
-                  '-DELF',
-                  '-DCHROMIUM',
-                  '-Isimd',
-                ],
-              }, {
-                'yasm_flags': [
-                  '-DARCH_X86_64',
-                  '-DELF',
-                  '-DPIC',
-                  '-DCHROMIUM',
-                  '-Isimd',
-                ],
-              }],
-            ],
-          },
-        }],
-      ],
-      'variables': {
-        'yasm_output_path': '<(SHARED_INTERMEDIATE_DIR)/media',
-      },
-      'msvs_2010_disable_uldi_when_referenced': 1,
-      'includes': [
-        '../third_party/yasm/yasm_compile.gypi',
-      ],
-    },
-    {
-      'target_name': 'yuv_convert_simd_arm',
-      'type': 'static_library',
-      'include_dirs': [
-        '..',
-      ],
-      'sources': [
-        'base/simd/convert_rgb_to_yuv.h',
-        'base/simd/convert_rgb_to_yuv_c.cc',
-        'base/simd/convert_yuv_to_rgb.h',
-        'base/simd/convert_yuv_to_rgb_c.cc',
-        'base/simd/filter_yuv.h',
-        'base/simd/filter_yuv_c.cc',
-        'base/simd/yuv_to_rgb_table.cc',
-        'base/simd/yuv_to_rgb_table.h',
       ],
     },
     {
@@ -679,8 +561,6 @@
       'dependencies': [
         'media',
         'media_test_support',
-        'shared_memory_support',
-        'yuv_convert',
         '../base/base.gyp:base',
         '../base/base.gyp:base_i18n',
         '../base/base.gyp:test_support_base',
@@ -701,6 +581,7 @@
         'audio/audio_parameters_unittest.cc',
         'audio/audio_util_unittest.cc',
         'audio/cross_process_notification_unittest.cc',
+        'audio/ios/audio_manager_ios_unittest.cc',
         'audio/linux/alsa_output_unittest.cc',
         'audio/mac/audio_low_latency_input_mac_unittest.cc',
         'audio/mac/audio_output_mac_unittest.cc',
@@ -709,6 +590,8 @@
         'audio/win/audio_low_latency_output_win_unittest.cc',
         'audio/win/audio_output_win_unittest.cc',
         'base/audio_bus_unittest.cc',
+        'base/audio_fifo_unittest.cc',
+        'base/audio_pull_fifo_unittest.cc',
         'base/audio_renderer_mixer_input_unittest.cc',
         'base/audio_renderer_mixer_unittest.cc',
         'base/bit_reader_unittest.cc',
@@ -757,13 +640,35 @@
         'webm/webm_parser_unittest.cc',
       ],
       'conditions': [
-        ['os_posix==1 and OS!="mac"', {
+        ['OS != "ios"', {
+          'dependencies': [
+            'shared_memory_support',
+            'yuv_convert',
+          ],
+        }],
+        ['use_ffmpeg == 1', {
+          'dependencies': [
+            '../third_party/ffmpeg/ffmpeg.gyp:ffmpeg',
+          ],
+        }],
+        ['os_posix==1 and OS!="mac" and OS!="ios"', {
           'conditions': [
             ['linux_use_tcmalloc==1', {
               'dependencies': [
                 '../base/allocator/allocator.gyp:allocator',
               ],
             }],
+          ],
+        }],
+        ['OS == "ios"', {
+          'sources/': [
+            ['exclude', '.*'],
+            ['include', '^audio/audio_input_controller_unittest\\.cc$'],
+            ['include', '^audio/audio_input_unittest\\.cc$'],
+            ['include', '^audio/audio_parameters_unittest\\.cc$'],
+            ['include', '^audio/ios/audio_manager_ios_unittest\\.cc$'],
+            ['include', '^base/mock_reader\\.h$'],
+            ['include', '^base/run_all_unittests\\.cc$'],
           ],
         }],
         ['OS=="android"', {
@@ -789,10 +694,6 @@
                 '../testing/android/native_test.gyp:native_test_native_code',
               ],
             }],
-          ],
-        }, {  # OS!=android
-          'dependencies': [
-            '../third_party/ffmpeg/ffmpeg.gyp:ffmpeg',
           ],
         }],
         ['OS == "linux"', {
@@ -854,40 +755,226 @@
         'base/mock_filters.h',
       ],
     },
-    {
-      'target_name': 'scaler_bench',
-      'type': 'executable',
-      'dependencies': [
-        'media',
-        'yuv_convert',
-        '../base/base.gyp:base',
-        '../skia/skia.gyp:skia',
-        '../ui/ui.gyp:ui',
-      ],
-      'sources': [
-        'tools/scaler_bench/scaler_bench.cc',
-      ],
-    },
-    {
-      'target_name': 'qt_faststart',
-      'type': 'executable',
-      'sources': [
-        'tools/qt_faststart/qt_faststart.c'
-      ],
-    },
-    {
-      'target_name': 'seek_tester',
-      'type': 'executable',
-      'dependencies': [
-        'media',
-        '../base/base.gyp:base',
-      ],
-      'sources': [
-        'tools/seek_tester/seek_tester.cc',
-      ],
-    },
   ],
   'conditions': [
+    ['OS != "ios"', {
+      'targets': [
+        {
+          # Minimal target for NaCl and other renderer side media clients which
+          # only need to send audio data across the shared memory to the browser
+          # process.
+          'target_name': 'shared_memory_support',
+          'type': '<(component)',
+          'dependencies': [
+            '../base/base.gyp:base',
+          ],
+          'defines': [
+            'MEDIA_IMPLEMENTATION',
+          ],
+          'include_dirs': [
+            '..',
+          ],
+          'includes': [
+            'shared_memory_support.gypi',
+          ],
+          'sources': [
+            '<@(shared_memory_support_sources)',
+          ],
+        },
+        {
+          'target_name': 'yuv_convert',
+          'type': 'static_library',
+          'include_dirs': [
+            '..',
+          ],
+          'conditions': [
+            ['order_profiling != 0', {
+              'target_conditions' : [
+                ['_toolset=="target"', {
+                  'cflags!': [ '-finstrument-functions' ],
+                }],
+              ],
+            }],
+            [ 'target_arch == "ia32" or target_arch == "x64"', {
+              'dependencies': [
+                'yuv_convert_simd_x86',
+              ],
+            }],
+            [ 'target_arch == "arm"', {
+              'dependencies': [
+                'yuv_convert_simd_arm',
+              ],
+            }],
+          ],
+          'sources': [
+            'base/yuv_convert.cc',
+            'base/yuv_convert.h',
+          ],
+        },
+        {
+          'target_name': 'yuv_convert_simd_x86',
+          'type': 'static_library',
+          'include_dirs': [
+            '..',
+          ],
+          'sources': [
+            'base/simd/convert_rgb_to_yuv_c.cc',
+            'base/simd/convert_rgb_to_yuv_sse2.cc',
+            'base/simd/convert_rgb_to_yuv_ssse3.asm',
+            'base/simd/convert_rgb_to_yuv_ssse3.cc',
+            'base/simd/convert_rgb_to_yuv_ssse3.inc',
+            'base/simd/convert_yuv_to_rgb_c.cc',
+            'base/simd/convert_yuv_to_rgb_mmx.asm',
+            'base/simd/convert_yuv_to_rgb_mmx.inc',
+            'base/simd/convert_yuv_to_rgb_sse.asm',
+            'base/simd/convert_yuv_to_rgb_x86.cc',
+            'base/simd/filter_yuv.h',
+            'base/simd/filter_yuv_c.cc',
+            'base/simd/filter_yuv_mmx.cc',
+            'base/simd/filter_yuv_sse2.cc',
+            'base/simd/linear_scale_yuv_to_rgb_mmx.asm',
+            'base/simd/linear_scale_yuv_to_rgb_mmx.inc',
+            'base/simd/linear_scale_yuv_to_rgb_sse.asm',
+            'base/simd/scale_yuv_to_rgb_mmx.asm',
+            'base/simd/scale_yuv_to_rgb_mmx.inc',
+            'base/simd/scale_yuv_to_rgb_sse.asm',
+            'base/simd/yuv_to_rgb_table.cc',
+            'base/simd/yuv_to_rgb_table.h',
+          ],
+          'conditions': [
+            ['order_profiling != 0', {
+              'target_conditions' : [
+                ['_toolset=="target"', {
+                  'cflags!': [ '-finstrument-functions' ],
+                }],
+              ],
+            }],
+            [ 'target_arch == "x64"', {
+              # Source files optimized for X64 systems.
+              'sources': [
+                'base/simd/linear_scale_yuv_to_rgb_mmx_x64.asm',
+                'base/simd/scale_yuv_to_rgb_sse2_x64.asm',
+              ],
+            }],
+            [ 'os_posix == 1 and OS != "mac" and OS != "android"', {
+              'cflags': [
+                '-msse2',
+              ],
+            }],
+            [ 'OS == "mac"', {
+              'configurations': {
+                'Debug': {
+                  'xcode_settings': {
+                    # gcc on the mac builds horribly unoptimized sse code in
+                    # debug mode. Since this is rarely going to be debugged,
+                    # run with full optimizations in Debug as well as Release.
+                    'GCC_OPTIMIZATION_LEVEL': '3',  # -O3
+                   },
+                 },
+              },
+            }],
+            [ 'OS=="win"', {
+              'variables': {
+                'yasm_flags': [
+                  '-DWIN32',
+                  '-DMSVC',
+                  '-DCHROMIUM',
+                  '-Isimd',
+                ],
+              },
+            }],
+            [ 'OS=="mac"', {
+              'variables': {
+                'yasm_flags': [
+                  '-DPREFIX',
+                  '-DMACHO',
+                  '-DCHROMIUM',
+                  '-Isimd',
+                ],
+              },
+            }],
+            [ 'os_posix==1 and OS!="mac"', {
+              'variables': {
+                'conditions': [
+                  [ 'target_arch=="ia32"', {
+                    'yasm_flags': [
+                      '-DX86_32',
+                      '-DELF',
+                      '-DCHROMIUM',
+                      '-Isimd',
+                    ],
+                  }, {
+                    'yasm_flags': [
+                      '-DARCH_X86_64',
+                      '-DELF',
+                      '-DPIC',
+                      '-DCHROMIUM',
+                      '-Isimd',
+                    ],
+                  }],
+                ],
+              },
+            }],
+          ],
+          'variables': {
+            'yasm_output_path': '<(SHARED_INTERMEDIATE_DIR)/media',
+          },
+          'msvs_2010_disable_uldi_when_referenced': 1,
+          'includes': [
+            '../third_party/yasm/yasm_compile.gypi',
+          ],
+        },
+        {
+          'target_name': 'yuv_convert_simd_arm',
+          'type': 'static_library',
+          'include_dirs': [
+            '..',
+          ],
+          'sources': [
+            'base/simd/convert_rgb_to_yuv.h',
+            'base/simd/convert_rgb_to_yuv_c.cc',
+            'base/simd/convert_yuv_to_rgb.h',
+            'base/simd/convert_yuv_to_rgb_c.cc',
+            'base/simd/filter_yuv.h',
+            'base/simd/filter_yuv_c.cc',
+            'base/simd/yuv_to_rgb_table.cc',
+            'base/simd/yuv_to_rgb_table.h',
+          ],
+        },
+        {
+          'target_name': 'scaler_bench',
+          'type': 'executable',
+          'dependencies': [
+            'media',
+            'yuv_convert',
+            '../base/base.gyp:base',
+            '../skia/skia.gyp:skia',
+            '../ui/ui.gyp:ui',
+          ],
+          'sources': [
+            'tools/scaler_bench/scaler_bench.cc',
+          ],
+        },
+        {
+          'target_name': 'qt_faststart',
+          'type': 'executable',
+          'sources': [
+            'tools/qt_faststart/qt_faststart.c'
+          ],
+        },
+        {
+          'target_name': 'seek_tester',
+          'type': 'executable',
+          'dependencies': [
+            'media',
+            '../base/base.gyp:base',
+          ],
+          'sources': [
+            'tools/seek_tester/seek_tester.cc',
+          ],
+        },
+      ],
+    }],
     ['OS=="win"', {
       'targets': [
         {
@@ -992,7 +1079,7 @@
         },
       ],
     }],
-    ['os_posix == 1 and OS != "mac" and OS != "android"', {
+    ['os_posix == 1 and OS != "mac" and OS != "ios" and OS != "android"', {
       'targets': [
         {
           'target_name': 'player_x11',
@@ -1075,10 +1162,10 @@
           'target_name': 'media_java',
           'type': 'none',
           'dependencies': [
-            '../base/base.gyp:base_java',
+            '../base/base.gyp:base',
           ],
           'export_dependent_settings': [
-            '../base/base.gyp:base_java',
+            '../base/base.gyp:base',
           ],
           'variables': {
             'package_name': 'media',
@@ -1088,8 +1175,10 @@
         },
 
       ],
-    }, { # OS != "android"'
-      # Android does not use ffmpeg, so disable the targets which require it.
+    }],
+    ['OS != "android" and OS != "ios"', {
+      # Android and iOS do not use ffmpeg, so disable the targets which require
+      # it.
       'targets': [
         {
           'target_name': 'ffmpeg_unittests',

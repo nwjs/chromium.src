@@ -12,8 +12,8 @@
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/drive_cache.h"
 #include "chrome/browser/chromeos/gdata/drive_file_system.h"
-#include "chrome/browser/chromeos/gdata/gdata_test_util.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
+#include "chrome/browser/chromeos/gdata/drive_test_util.h"
 #include "chrome/browser/chromeos/gdata/mock_drive_cache_observer.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_profile.h"
@@ -173,7 +173,7 @@ class DriveCacheTest : public testing::Test {
 
   void PrepareForInitCacheTest() {
     DVLOG(1) << "PrepareForInitCacheTest start";
-    // Create gdata cache sub directories.
+    // Create drive cache sub directories.
     ASSERT_TRUE(file_util::CreateDirectory(
         cache_->GetCacheDirectoryPath(DriveCache::CACHE_TYPE_PERSISTENT)));
     ASSERT_TRUE(file_util::CreateDirectory(
@@ -190,7 +190,7 @@ class DriveCacheTest : public testing::Test {
     // Copy files from data dir to cache dir to act as cached files.
     for (size_t i = 0; i < ARRAYSIZE_UNSAFE(initial_cache_resources); ++i) {
       const struct InitialCacheResource& resource = initial_cache_resources[i];
-      // Determine gdata cache file absolute path according to cache state.
+      // Determine drive cache file absolute path according to cache state.
       FilePath dest_path = cache_->GetCacheFilePath(
           resource.resource_id,
           resource.md5,
@@ -277,9 +277,12 @@ class DriveCacheTest : public testing::Test {
     expected_file_extension_ = expected_file_extension;
 
     cache_->GetFileOnUIThread(
-        resource_id, md5,
+        resource_id,
+        md5,
         base::Bind(&DriveCacheTest::VerifyGetFromCache,
-                   base::Unretained(this)));
+                   base::Unretained(this),
+                   resource_id,
+                   md5));
 
     test_util::RunBlockingPoolTask();
   }
@@ -304,9 +307,9 @@ class DriveCacheTest : public testing::Test {
     test_util::RunBlockingPoolTask();
   }
 
-  void VerifyGetFromCache(DriveFileError error,
-                          const std::string& resource_id,
+  void VerifyGetFromCache(const std::string& resource_id,
                           const std::string& md5,
+                          DriveFileError error,
                           const FilePath& cache_file_path) {
     ++num_callback_invocations_;
 
@@ -481,16 +484,19 @@ class DriveCacheTest : public testing::Test {
     expect_outgoing_symlink_ = false;
 
     cache_->MarkDirtyOnUIThread(
-        resource_id, md5,
+        resource_id,
+        md5,
         base::Bind(&DriveCacheTest::VerifyMarkDirty,
-                   base::Unretained(this)));
+                   base::Unretained(this),
+                   resource_id,
+                   md5));
 
     test_util::RunBlockingPoolTask();
   }
 
-  void VerifyMarkDirty(DriveFileError error,
-                       const std::string& resource_id,
+  void VerifyMarkDirty(const std::string& resource_id,
                        const std::string& md5,
+                       DriveFileError error,
                        const FilePath& cache_file_path) {
     VerifyCacheFileState(error, resource_id, md5);
 

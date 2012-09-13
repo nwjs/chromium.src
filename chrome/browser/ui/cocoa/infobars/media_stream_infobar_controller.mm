@@ -67,15 +67,7 @@ InfoBar* MediaStreamInfoBarDelegate::CreateInfoBar(InfoBarService* owner) {
 
 // Called when "Allow" button is pressed.
 - (void)ok:(id)sender {
-  std::string audioId, videoId;
-  deviceMenuModel_->GetSelectedDeviceId(
-      content::MEDIA_STREAM_DEVICE_TYPE_AUDIO_CAPTURE, &audioId);
-  deviceMenuModel_->GetSelectedDeviceId(
-      content::MEDIA_STREAM_DEVICE_TYPE_VIDEO_CAPTURE, &videoId);
-  bool alwaysAllow = deviceMenuModel_->always_allow();
-
-  static_cast<MediaStreamInfoBarDelegate*>([self delegate])->Accept(
-      audioId, videoId, alwaysAllow);
+  static_cast<MediaStreamInfoBarDelegate*>([self delegate])->Accept();
 
   // Remove the infobar, we're done.
   [super removeSelf];
@@ -138,7 +130,7 @@ InfoBar* MediaStreamInfoBarDelegate::CreateInfoBar(InfoBarService* owner) {
   else if (!delegate->HasVideo())
     messageId = IDS_MEDIA_CAPTURE_AUDIO_ONLY;
 
-  string16 securityOrigin = UTF8ToUTF16(delegate->GetSecurityOrigin().spec());
+  string16 securityOrigin = UTF8ToUTF16(delegate->GetSecurityOriginSpec());
   NSString* text = l10n_util::GetNSStringF(messageId, securityOrigin);
   [label1_ setStringValue:text];
 

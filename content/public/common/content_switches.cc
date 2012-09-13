@@ -116,6 +116,9 @@ const char kDisableFlashStage3d[]           = "disable-flash-stage3d";
 // Suppresses support for the Geolocation javascript API.
 const char kDisableGeolocation[]            = "disable-geolocation";
 
+// Disable Gesture Tap Highlight
+const char kDisableGestureTapHighlight[]    = "disable-gesture-tap-highlight";
+
 // Disable GL multisampling.
 const char kDisableGLMultisampling[]        = "disable-gl-multisampling";
 
@@ -205,10 +208,6 @@ const char kDisableSpeechInput[]            = "disable-speech-input";
 // Enables scripted speech api.
 const char kEnableScriptedSpeech[]          = "enable-scripted-speech";
 
-// TODO(primiano): Remove the two switches below when the URL becomes public.
-// Specifies the webservice URL for continuous speech recognition.
-const char kSpeechRecognitionWebserviceURL[] = "speech-service";
-
 // Specifies the request key for the continuous speech recognition webservice.
 const char kSpeechRecognitionWebserviceKey[] = "speech-service-key";
 
@@ -291,6 +290,10 @@ const char kDisableFullScreen[]             = "disable-fullscreen";
 // Enable the JavaScript Pointer Lock API.
 const char kEnablePointerLock[]             = "enable-pointer-lock";
 
+// Enable Text Service Framework(TSF) for text inputting instead of IMM32. This
+// flag is ignored on Metro environment.
+const char kEnableTextServiceFramework[] = "enable-text-service-framework";
+
 // Enables the GPU benchmarking extension
 const char kEnableGpuBenchmarking[]         = "enable-gpu-benchmarking";
 
@@ -298,8 +301,8 @@ const char kEnableGpuBenchmarking[]         = "enable-gpu-benchmarking";
 // builds.
 const char kEnableLogging[]                 = "enable-logging";
 
-// Enables Media Source API on <audio>/<video> elements.
-const char kEnableMediaSource[]             = "enable-media-source";
+// Disable Media Source API on <audio>/<video> elements.
+const char kDisableMediaSource[]             = "disable-media-source";
 
 // On Windows, converts the page to the currently-installed monitor profile.
 // This does NOT enable color management for images. The source is still
@@ -376,10 +379,6 @@ const char kEnableTcpFastOpen[]             = "enable-tcp-fastopen";
 // Disables hardware acceleration of video decode, where available.
 const char kDisableAcceleratedVideoDecode[] =
     "disable-accelerated-video-decode";
-
-// Enables support for video tracks. Current implementation is
-// incomplete and this flag is used for development and testing.
-const char kEnableVideoTrack[]              = "enable-video-track";
 
 // Enables the use of the viewport meta tag, which allows
 // pages to control aspects of their own layout. This also turns on touch-screen

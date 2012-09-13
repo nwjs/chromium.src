@@ -100,6 +100,7 @@ HostContentSettingsMap::HostContentSettingsMap(
   }
 }
 
+#if defined(ENABLE_EXTENSIONS)
 void HostContentSettingsMap::RegisterExtensionService(
     ExtensionService* extension_service) {
   DCHECK(extension_service);
@@ -125,6 +126,7 @@ void HostContentSettingsMap::RegisterExtensionService(
                           CONTENT_SETTINGS_TYPE_DEFAULT,
                           "");
 }
+#endif
 
 // static
 void HostContentSettingsMap::RegisterUserPrefs(PrefService* prefs) {
@@ -360,6 +362,7 @@ bool HostContentSettingsMap::IsSettingAllowedForType(
     case CONTENT_SETTINGS_TYPE_INTENTS:
     case CONTENT_SETTINGS_TYPE_MOUSELOCK:
     case CONTENT_SETTINGS_TYPE_MEDIASTREAM:
+    case CONTENT_SETTINGS_TYPE_PPAPI_BROKER:
       return setting == CONTENT_SETTING_ASK;
     default:
       return false;

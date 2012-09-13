@@ -18,32 +18,33 @@ class Bus;
 
 namespace chromeos {
 
-class  MockBluetoothAdapterClient;
-class  MockBluetoothDeviceClient;
-class  MockBluetoothInputClient;
-class  MockBluetoothManagerClient;
-class  MockBluetoothNodeClient;
-class  MockBluetoothOutOfBandClient;
-class  MockCashewClient;
-class  MockCrosDisksClient;
-class  MockCryptohomeClient;
-class  MockDebugDaemonClient;
-class  MockFlimflamDeviceClient;
-class  MockFlimflamIPConfigClient;
-class  MockFlimflamManagerClient;
-class  MockFlimflamNetworkClient;
-class  MockFlimflamProfileClient;
-class  MockFlimflamServiceClient;
-class  MockGsmSMSClient;
-class  MockImageBurnerClient;
-class  MockIntrospectableClient;
-class  MockMediaTransferProtocolDaemonClient;
-class  MockModemMessagingClient;
-class  MockPowerManagerClient;
-class  MockSessionManagerClient;
-class  MockSMSClient;
-class  MockSpeechSynthesizerClient;
-class  MockUpdateEngineClient;
+class MockBluetoothAdapterClient;
+class MockBluetoothDeviceClient;
+class MockBluetoothInputClient;
+class MockBluetoothManagerClient;
+class MockBluetoothNodeClient;
+class MockBluetoothOutOfBandClient;
+class MockCashewClient;
+class MockCrosDisksClient;
+class MockCryptohomeClient;
+class MockDebugDaemonClient;
+class MockShillDeviceClient;
+class MockShillIPConfigClient;
+class MockShillManagerClient;
+class MockShillNetworkClient;
+class MockShillProfileClient;
+class MockShillServiceClient;
+class MockGsmSMSClient;
+class MockImageBurnerClient;
+class MockIntrospectableClient;
+class MockMediaTransferProtocolDaemonClient;
+class MockModemMessagingClient;
+class MockPermissionBrokerClient;
+class MockPowerManagerClient;
+class MockSessionManagerClient;
+class MockSMSClient;
+class MockSpeechSynthesizerClient;
+class MockUpdateEngineClient;
 
 // This class provides a mock DBusThreadManager with mock clients
 // installed. You can customize the behaviors of mock clients with
@@ -66,18 +67,19 @@ class MockDBusThreadManager : public DBusThreadManager {
   MOCK_METHOD0(GetCrosDisksClient, CrosDisksClient*(void));
   MOCK_METHOD0(GetCryptohomeClient, CryptohomeClient*(void));
   MOCK_METHOD0(GetDebugDaemonClient, DebugDaemonClient*(void));
-  MOCK_METHOD0(GetFlimflamDeviceClient, FlimflamDeviceClient*(void));
-  MOCK_METHOD0(GetFlimflamIPConfigClient, FlimflamIPConfigClient*(void));
-  MOCK_METHOD0(GetFlimflamManagerClient, FlimflamManagerClient*(void));
-  MOCK_METHOD0(GetFlimflamNetworkClient, FlimflamNetworkClient*(void));
-  MOCK_METHOD0(GetFlimflamProfileClient, FlimflamProfileClient*(void));
-  MOCK_METHOD0(GetFlimflamServiceClient, FlimflamServiceClient*(void));
+  MOCK_METHOD0(GetShillDeviceClient, ShillDeviceClient*(void));
+  MOCK_METHOD0(GetShillIPConfigClient, ShillIPConfigClient*(void));
+  MOCK_METHOD0(GetShillManagerClient, ShillManagerClient*(void));
+  MOCK_METHOD0(GetShillNetworkClient, ShillNetworkClient*(void));
+  MOCK_METHOD0(GetShillProfileClient, ShillProfileClient*(void));
+  MOCK_METHOD0(GetShillServiceClient, ShillServiceClient*(void));
   MOCK_METHOD0(GetGsmSMSClient, GsmSMSClient*(void));
   MOCK_METHOD0(GetImageBurnerClient, ImageBurnerClient*(void));
   MOCK_METHOD0(GetIntrospectableClient, IntrospectableClient*(void));
   MOCK_METHOD0(GetMediaTransferProtocolDaemonClient,
                MediaTransferProtocolDaemonClient*(void));
   MOCK_METHOD0(GetModemMessagingClient, ModemMessagingClient*(void));
+  MOCK_METHOD0(GetPermissionBrokerClient, PermissionBrokerClient*(void));
   MOCK_METHOD0(GetPowerManagerClient, PowerManagerClient*(void));
   MOCK_METHOD0(GetSessionManagerClient, SessionManagerClient*(void));
   MOCK_METHOD0(GetSMSClient, SMSClient*(void));
@@ -121,23 +123,23 @@ class MockDBusThreadManager : public DBusThreadManager {
   MockDebugDaemonClient* mock_debugdaemon_client() {
     return mock_debugdaemon_client_.get();
   }
-  MockFlimflamDeviceClient* mock_flimflam_device_client() {
-    return mock_flimflam_device_client_.get();
+  MockShillDeviceClient* mock_shill_device_client() {
+    return mock_shill_device_client_.get();
   }
-  MockFlimflamIPConfigClient* mock_flimflam_ipconfig_client() {
-    return mock_flimflam_ipconfig_client_.get();
+  MockShillIPConfigClient* mock_shill_ipconfig_client() {
+    return mock_shill_ipconfig_client_.get();
   }
-  MockFlimflamManagerClient* mock_flimflam_manager_client() {
-    return mock_flimflam_manager_client_.get();
+  MockShillManagerClient* mock_shill_manager_client() {
+    return mock_shill_manager_client_.get();
   }
-  MockFlimflamNetworkClient* mock_flimflam_network_client() {
-    return mock_flimflam_network_client_.get();
+  MockShillNetworkClient* mock_shill_network_client() {
+    return mock_shill_network_client_.get();
   }
-  MockFlimflamProfileClient* mock_flimflam_profile_client() {
-    return mock_flimflam_profile_client_.get();
+  MockShillProfileClient* mock_shill_profile_client() {
+    return mock_shill_profile_client_.get();
   }
-  MockFlimflamServiceClient* mock_flimflam_service_client() {
-    return mock_flimflam_service_client_.get();
+  MockShillServiceClient* mock_shill_service_client() {
+    return mock_shill_service_client_.get();
   }
   MockGsmSMSClient* mock_gsm_sms_client() {
     return mock_gsm_sms_client_.get();
@@ -154,6 +156,9 @@ class MockDBusThreadManager : public DBusThreadManager {
   }
   MockModemMessagingClient* mock_modem_messaging_client() {
     return mock_modem_messaging_client_.get();
+  }
+  MockPermissionBrokerClient* mock_permission_broker_client() {
+    return mock_permission_broker_client_.get();
   }
   MockPowerManagerClient* mock_power_manager_client() {
     return mock_power_manager_client_.get();
@@ -182,18 +187,19 @@ class MockDBusThreadManager : public DBusThreadManager {
   scoped_ptr<MockCrosDisksClient> mock_cros_disks_client_;
   scoped_ptr<MockCryptohomeClient> mock_cryptohome_client_;
   scoped_ptr<MockDebugDaemonClient> mock_debugdaemon_client_;
-  scoped_ptr<MockFlimflamDeviceClient> mock_flimflam_device_client_;
-  scoped_ptr<MockFlimflamIPConfigClient> mock_flimflam_ipconfig_client_;
-  scoped_ptr<MockFlimflamManagerClient> mock_flimflam_manager_client_;
-  scoped_ptr<MockFlimflamNetworkClient> mock_flimflam_network_client_;
-  scoped_ptr<MockFlimflamProfileClient> mock_flimflam_profile_client_;
-  scoped_ptr<MockFlimflamServiceClient> mock_flimflam_service_client_;
+  scoped_ptr<MockShillDeviceClient> mock_shill_device_client_;
+  scoped_ptr<MockShillIPConfigClient> mock_shill_ipconfig_client_;
+  scoped_ptr<MockShillManagerClient> mock_shill_manager_client_;
+  scoped_ptr<MockShillNetworkClient> mock_shill_network_client_;
+  scoped_ptr<MockShillProfileClient> mock_shill_profile_client_;
+  scoped_ptr<MockShillServiceClient> mock_shill_service_client_;
   scoped_ptr<MockGsmSMSClient> mock_gsm_sms_client_;
   scoped_ptr<MockImageBurnerClient> mock_image_burner_client_;
   scoped_ptr<MockIntrospectableClient> mock_introspectable_client_;
   scoped_ptr<MockMediaTransferProtocolDaemonClient>
       mock_media_transfer_protocol_daemon_client_;
   scoped_ptr<MockModemMessagingClient> mock_modem_messaging_client_;
+  scoped_ptr<MockPermissionBrokerClient> mock_permission_broker_client_;
   scoped_ptr<MockPowerManagerClient> mock_power_manager_client_;
   scoped_ptr<MockSessionManagerClient> mock_session_manager_client_;
   scoped_ptr<MockSMSClient> mock_sms_client_;

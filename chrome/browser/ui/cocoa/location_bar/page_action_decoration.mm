@@ -54,7 +54,7 @@ PageActionDecoration::PageActionDecoration(
       preview_enabled_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(scoped_icon_animation_observer_(
           page_action->GetIconAnimation(
-              SessionID::IdForTab(owner->GetTabContents())),
+              SessionID::IdForTab(owner->GetTabContents()->web_contents())),
           this)) {
   const Extension* extension = browser->profile()->GetExtensionService()->
       GetExtensionById(page_action->extension_id(), false);
@@ -113,7 +113,8 @@ bool PageActionDecoration::ActivatePageAction(NSRect frame) {
   }
 
   LocationBarController* controller =
-      tab_contents->extension_tab_helper()->location_bar_controller();
+      extensions::TabHelper::FromWebContents(tab_contents->web_contents())->
+          location_bar_controller();
 
   // 1 is left click.
   switch (controller->OnClicked(page_action_->extension_id(), 1)) {
@@ -256,8 +257,7 @@ void PageActionDecoration::ShowPopup(const NSRect& frame,
                             devMode:NO];
 }
 
-void PageActionDecoration::OnIconChanged(
-    const ExtensionAction::IconAnimation& animation) {
+void PageActionDecoration::OnIconChanged() {
   UpdateVisibility(owner_->GetWebContents(), current_url_);
   owner_->RedrawDecoration(this);
 }

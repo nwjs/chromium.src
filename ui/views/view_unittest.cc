@@ -11,7 +11,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/clipboard/clipboard.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
@@ -232,7 +232,7 @@ class TestView : public View {
   virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
   virtual ui::TouchStatus OnTouchEvent(const ui::TouchEvent& event) OVERRIDE;
   // Ignores GestureEvent by default.
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE;
   virtual void Paint(gfx::Canvas* canvas) OVERRIDE;
   virtual void SchedulePaintInRect(const gfx::Rect& rect) OVERRIDE;
@@ -285,11 +285,11 @@ class TestViewConsumeGesture : public TestView {
   virtual ~TestViewConsumeGesture() {}
 
  protected:
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE {
     last_gesture_event_type_ = event.type();
     location_.SetPoint(event.x(), event.y());
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   }
 
  private:
@@ -303,9 +303,9 @@ class TestViewIgnoreGesture: public TestView {
   virtual ~TestViewIgnoreGesture() {}
 
  private:
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE {
-    return ui::GESTURE_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   }
 
   DISALLOW_COPY_AND_ASSIGN(TestViewIgnoreGesture);
@@ -319,10 +319,10 @@ class TestViewIgnoreScrollGestures : public TestViewConsumeGesture {
   virtual ~TestViewIgnoreScrollGestures() {}
 
  private:
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE {
     if (event.IsScrollGestureEvent())
-      return ui::GESTURE_STATUS_UNKNOWN;
+      return ui::ER_UNHANDLED;
     return TestViewConsumeGesture::OnGestureEvent(event);
   }
 
@@ -589,8 +589,8 @@ TEST_F(ViewTest, TouchEvent) {
   widget->CloseNow();
 }
 
-ui::GestureStatus TestView::OnGestureEvent(const ui::GestureEvent& event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
+ui::EventResult TestView::OnGestureEvent(const ui::GestureEvent& event) {
+  return ui::ER_UNHANDLED;
 }
 
 TEST_F(ViewTest, GestureEvent) {
@@ -1168,8 +1168,6 @@ TEST_F(ViewTest, Textfield) {
   const string16 kExtraText = ASCIIToUTF16("Pretty deep, Philip!");
   const string16 kEmptyString;
 
-  ui::Clipboard clipboard;
-
   Widget* widget = new Widget;
   Widget::InitParams params(Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(0, 0, 100, 100);
@@ -1206,7 +1204,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   const string16 kReadOnlyText = ASCIIToUTF16("Read only");
   const string16 kPasswordText = ASCIIToUTF16("Password! ** Secret stuff **");
 
-  ui::Clipboard clipboard;
+  ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
 
   Widget* widget = new Widget;
   Widget::InitParams params(Widget::InitParams::TYPE_POPUP);
@@ -1235,7 +1233,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   ::SendMessage(normal->GetTestingHandle(), WM_CUT, 0, 0);
 
   string16 result;
-  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   EXPECT_EQ(kNormalText, result);
   normal->SetText(kNormalText);  // Let's revert to the original content.
 
@@ -1243,7 +1241,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   read_only->SelectAll(false);
   ::SendMessage(read_only->GetTestingHandle(), WM_CUT, 0, 0);
   result.clear();
-  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   // Cut should have failed, so the clipboard content should not have changed.
   EXPECT_EQ(kNormalText, result);
 
@@ -1251,7 +1249,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   password->SelectAll(false);
   ::SendMessage(password->GetTestingHandle(), WM_CUT, 0, 0);
   result.clear();
-  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   // Cut should have failed, so the clipboard content should not have changed.
   EXPECT_EQ(kNormalText, result);
 
@@ -1264,19 +1262,19 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   read_only->SelectAll(false);
   ::SendMessage(read_only->GetTestingHandle(), WM_COPY, 0, 0);
   result.clear();
-  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   EXPECT_EQ(kReadOnlyText, result);
 
   normal->SelectAll(false);
   ::SendMessage(normal->GetTestingHandle(), WM_COPY, 0, 0);
   result.clear();
-  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   EXPECT_EQ(kNormalText, result);
 
   password->SelectAll(false);
   ::SendMessage(password->GetTestingHandle(), WM_COPY, 0, 0);
   result.clear();
-  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   // We don't let you copy from an obscured field, clipboard should not have
   // changed.
   EXPECT_EQ(kNormalText, result);
@@ -2874,6 +2872,9 @@ class TestLayerAnimator : public ui::LayerAnimator {
 
   // LayerAnimator.
   virtual void SetBounds(const gfx::Rect& bounds) OVERRIDE;
+
+ protected:
+  ~TestLayerAnimator() { }
 
  private:
   gfx::Rect last_bounds_;

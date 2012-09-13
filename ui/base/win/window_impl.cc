@@ -16,7 +16,7 @@ namespace ui {
 
 static const DWORD kWindowDefaultChildStyle =
     WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
-static const DWORD kWindowDefaultStyle = WS_OVERLAPPEDWINDOW;
+static const DWORD kWindowDefaultStyle = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
 static const DWORD kWindowDefaultExStyle = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -137,8 +137,7 @@ WindowImpl::WindowImpl()
 WindowImpl::~WindowImpl() {
   if (destroyed_)
     *destroyed_ = true;
-  if (::IsWindow(hwnd_))
-    ui::SetWindowUserData(hwnd_, NULL);
+  ClearUserData();
 }
 
 void WindowImpl::Init(HWND parent, const gfx::Rect& bounds) {
@@ -212,6 +211,11 @@ LRESULT WindowImpl::OnWndProc(UINT message, WPARAM w_param, LPARAM l_param) {
     result = DefWindowProc(hwnd_, message, w_param, l_param);
 
   return result;
+}
+
+void WindowImpl::ClearUserData() {
+  if (::IsWindow(hwnd_))
+    ui::SetWindowUserData(hwnd_, NULL);
 }
 
 // static

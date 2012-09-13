@@ -32,6 +32,7 @@
 .gdbinit
 .metadata
 .project
+.pydevproject
 # Settings directory for eclipse
 /.settings
 tags
@@ -102,6 +103,7 @@ v8.log
 /data
 /delegate_execute
 /googleurl
+/google_apis/internal
 /gpu/gles2_conform_test
 /gyp-mac-tool
 /llvm
@@ -136,6 +138,7 @@ v8.log
 /seccompsandbox
 /testing/gmock
 /testing/gtest
+/testing/iossim/third_party/
 /testserver.log
 /third_party/GTM
 /third_party/WebKit
@@ -143,6 +146,7 @@ v8.log
 /third_party/adobe/flash/symbols
 /third_party/amd/
 /third_party/angle
+/third_party/android_tools/
 /third_party/aosp
 /third_party/asan
 /third_party/bidichecker
@@ -201,6 +205,7 @@ v8.log
 /third_party/psyco_win32
 /third_party/pthreads-win32
 /third_party/pyftpdlib/src
+/third_party/pywebsocket/src
 /third_party/pylib
 /third_party/pymox/src
 /third_party/python_24

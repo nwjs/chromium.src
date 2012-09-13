@@ -6,21 +6,42 @@ import websocket
 import socket
 import time
 
+import tab_console
+import tab_page
 import tab_runtime
 import util
 
+DEFAULT_TAB_TIMEOUT=60
+
 class Tab(object):
-  def __init__(self, inspector_backend):
+  """Represents a tab in the browser
+
+  The important parts of the Tab object are in the runtime and page objects.
+  E.g.:
+      # Navigates the tab to a given url.
+      tab.page.Navigate("http://www.google.com/")
+
+      # Evaluates 1+1 in the tab's javascript context.
+      tab.runtime.Evaluate("1+1")
+  """
+  def __init__(self, browser, inspector_backend):
+    self._browser = browser
     self._inspector_backend = inspector_backend
-    self.runtime = tab_runtime.TabRuntime(self._inspector_backend)
+    self._page = tab_page.TabPage(self._inspector_backend)
+    self._runtime = tab_runtime.TabRuntime(self._inspector_backend)
+    self._console = tab_console.TabConsole(self._inspector_backend)
 
   def __del__(self):
     self.Close()
 
   def Close(self):
+    self._console = None
+    self._runtime = None
+    self._page = None
     if self._inspector_backend:
       self._inspector_backend.Close()
       self._inspector_backend = None
+    self._browser = None
 
   def __enter__(self):
     return self
@@ -28,31 +49,33 @@ class Tab(object):
   def __exit__(self, *args):
     self.Close()
 
-  def BeginToLoadUrl(self, url):
-    # In order to tell when the document has actually changed,
-    # we go to about:blank first and wait. When that has happened, we
-    # to go the new URL and detect the document being non-about:blank as
-    # indication that the new document is loading.
-    self.runtime.Evaluate('document.location = "about:blank";')
-    util.WaitFor(lambda:
-        self.runtime.Evaluate('document.location.href') == 'about:blank')
+  @property
+  def browser(self):
+    """The browser in which this tab resides."""
+    return self._browser
 
-    self.runtime.Evaluate('document.location = "%s";' % url)
-    util.WaitFor(lambda:
-        self.runtime.Evaluate('document.location.href') != 'about:blank')
+  @property
+  def page(self):
+    """Methods for interacting with the current page."""
+    return self._page
 
-  def LoadUrl(self, url):
-    self.BeginToLoadUrl(url)
-    # TODO(dtu): Detect HTTP redirects.
-    time.sleep(2)  # Wait for unpredictable redirects.
-    self.WaitForDocumentReadyStateToBeInteractiveOrBetter()
+  @property
+  def runtime(self):
+    """Methods for interacting with the page's javascript runtime."""
+    return self._runtime
 
-  def WaitForDocumentReadyStateToBeComplete(self):
+  @property
+  def console(self):
+    """Methods for interacting with the page's console objec."""
+    return self._console
+
+  def WaitForDocumentReadyStateToBeComplete(self, timeout=60):
     util.WaitFor(
-        lambda: self.runtime.Evaluate('document.readyState') == 'complete')
+        lambda: self._runtime.Evaluate('document.readyState') == 'complete',
+        timeout)
 
-  def WaitForDocumentReadyStateToBeInteractiveOrBetter(self):
+  def WaitForDocumentReadyStateToBeInteractiveOrBetter(self, timeout=60):
     def IsReadyStateInteractiveOrBetter():
-      rs = self.runtime.Evaluate('document.readyState')
+      rs = self._runtime.Evaluate('document.readyState')
       return rs == 'complete' or rs == 'interactive'
-    util.WaitFor(IsReadyStateInteractiveOrBetter)
+    util.WaitFor(IsReadyStateInteractiveOrBetter, timeout)

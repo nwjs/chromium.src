@@ -8,7 +8,9 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/md5.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/platform_app_launcher.h"
@@ -89,7 +91,8 @@ string16 GetIntentActionString(const std::string& action) {
   else if (!action.compare(web_intents::kActionView))
     return l10n_util::GetStringUTF16(IDS_WEB_INTENTS_ACTION_VIEW);
   else if (!action.compare(web_intents::kActionPick))
-    return l10n_util::GetStringUTF16(IDS_WEB_INTENTS_ACTION_PICK);
+    // Using generic string per UX suggestions.
+    return l10n_util::GetStringUTF16(IDS_INTENT_PICKER_CHOOSE_SERVICE);
   else if (!action.compare(web_intents::kActionSubscribe))
     return l10n_util::GetStringUTF16(IDS_WEB_INTENTS_ACTION_SUBSCRIBE);
   else if (!action.compare(web_intents::kActionSave))
@@ -194,59 +197,67 @@ void WebIntentPickerController::SetIntentsDispatcher(
 // TODO(smckay): rename this "StartActivity".
 void WebIntentPickerController::ShowDialog(const string16& action,
                                            const string16& type) {
+  ShowDialog(false);
+}
+
+void WebIntentPickerController::ReshowDialog() {
+  ShowDialog(true);
+}
+
+void WebIntentPickerController::ShowDialog(bool suppress_defaults) {
   web_intents::RecordIntentDispatched(uma_bucket_);
+
+  DCHECK(intents_dispatcher_);
 
   // Only show a picker once.
   // TODO(gbillock): There's a hole potentially admitting multiple
   // in-flight dispatches since we don't create the picker
   // in this method, but only after calling the registry.
   if (picker_shown_) {
-    if (intents_dispatcher_) {
-      intents_dispatcher_->SendReplyMessage(
-          webkit_glue::WEB_INTENT_REPLY_FAILURE,
-          ASCIIToUTF16("Simultaneous intent invocation."));
-    }
+    intents_dispatcher_->SendReplyMessage(
+        webkit_glue::WEB_INTENT_REPLY_FAILURE,
+        ASCIIToUTF16("Simultaneous intent invocation."));
     return;
   }
 
   // TODO(binji): Figure out what to do when intents are invoked from incognito
   // mode.
   if (tab_contents_->profile()->IsOffTheRecord()) {
-    if (intents_dispatcher_) {
-      intents_dispatcher_->SendReplyMessage(
-          webkit_glue::WEB_INTENT_REPLY_FAILURE, string16());
-    }
+    intents_dispatcher_->SendReplyMessage(
+        webkit_glue::WEB_INTENT_REPLY_FAILURE, string16());
     return;
   }
 
   picker_model_->Clear();
-  picker_model_->set_action(action);
-  picker_model_->set_type(type);
+  picker_model_->set_action(intents_dispatcher_->GetIntent().action);
+  picker_model_->set_type(intents_dispatcher_->GetIntent().type);
 
   // If the intent is explicit, skip showing the picker.
-  if (intents_dispatcher_) {
-    const GURL& service = intents_dispatcher_->GetIntent().service;
-    if (service.is_valid()) {
-      // TODO(gbillock): When we can parse pages for the intent tag,
-      // take out this requirement that explicit intents dispatch to
-      // extension urls.
-      if (!service.SchemeIs(chrome::kExtensionScheme)) {
-        intents_dispatcher_->SendReplyMessage(
-            webkit_glue::WEB_INTENT_REPLY_FAILURE, ASCIIToUTF16(
-                "Only extension urls are supported for explicit invocation"));
-        return;
-      }
-
-      // Get services from the registry to verify a registered extension
-      // page for this action/type if it is permitted to be dispatched. (Also
-      // required to find disposition set by service.)
-      pending_async_count_++;
-      GetWebIntentsRegistry(tab_contents_)->GetIntentServices(
-          action, type, base::Bind(
-              &WebIntentPickerController::WebIntentServicesForExplicitIntent,
-              weak_ptr_factory_.GetWeakPtr()));
+  const GURL& service = intents_dispatcher_->GetIntent().service;
+  // TODO(gbillock): Decide whether to honor the default suppression flag
+  // here or suppress the control for explicit intents.
+  if (service.is_valid() && !suppress_defaults) {
+    // TODO(gbillock): When we can parse pages for the intent tag,
+    // take out this requirement that explicit intents dispatch to
+    // extension urls.
+    if (!service.SchemeIs(chrome::kExtensionScheme)) {
+      intents_dispatcher_->SendReplyMessage(
+          webkit_glue::WEB_INTENT_REPLY_FAILURE, ASCIIToUTF16(
+              "Only extension urls are supported for explicit invocation"));
       return;
     }
+
+    // Get services from the registry to verify a registered extension
+    // page for this action/type if it is permitted to be dispatched. (Also
+    // required to find disposition set by service.)
+    pending_async_count_++;
+    GetWebIntentsRegistry(tab_contents_)->GetIntentServices(
+        picker_model_->action(), picker_model_->type(),
+        base::Bind(
+            &WebIntentPickerController::
+            OnWebIntentServicesAvailableForExplicitIntent,
+            weak_ptr_factory_.GetWeakPtr()));
+    return;
   }
 
   // As soon as the dialog is requested, block all input events
@@ -257,16 +268,16 @@ void WebIntentPickerController::ShowDialog(const string16& action,
   pending_async_count_++;
   pending_registry_calls_count_++;
   GetWebIntentsRegistry(tab_contents_)->GetIntentServices(
-      action, type,
+      picker_model_->action(), picker_model_->type(),
           base::Bind(&WebIntentPickerController::OnWebIntentServicesAvailable,
               weak_ptr_factory_.GetWeakPtr()));
 
   GURL invoking_url = tab_contents_->web_contents()->GetURL();
-  if (invoking_url.is_valid()) {
+  if (invoking_url.is_valid() && !suppress_defaults) {
     pending_async_count_++;
     pending_registry_calls_count_++;
     GetWebIntentsRegistry(tab_contents_)->GetDefaultIntentService(
-        action, type, invoking_url,
+        picker_model_->action(), picker_model_->type(), invoking_url,
         base::Bind(&WebIntentPickerController::OnWebIntentDefaultsAvailable,
                    weak_ptr_factory_.GetWeakPtr()));
   }
@@ -294,6 +305,12 @@ void WebIntentPickerController::OnServiceChosen(
   web_intents::RecordServiceInvoke(uma_bucket_);
   ExtensionService* service = tab_contents_->profile()->GetExtensionService();
   DCHECK(service);
+
+  // Set the default here. Activating the intent resets the picker model.
+  // TODO(gbillock): we should perhaps couple the model to the dispatcher so
+  // we can re-activate the model on use-another-service.
+  SetDefaultServiceForSelection(url);
+
   const extensions::Extension* extension = service->GetInstalledApp(url);
 
   // TODO(smckay): this basically smells like another disposition.
@@ -331,9 +348,10 @@ void WebIntentPickerController::OnServiceChosen(
       // Since we're passing in a target_contents, it assumes that we will
       // navigate the page ourselves, though.
       chrome::NavigateParams params(tab_contents_->profile(), url,
-                                    content::PAGE_TRANSITION_AUTO_BOOKMARK);
+                                    content::PAGE_TRANSITION_LINK);
       params.target_contents = contents;
       params.disposition = NEW_FOREGROUND_TAB;
+      params.tabstrip_add_types = TabStripModel::ADD_INHERIT_GROUP;
       chrome::Navigate(&params);
 
       service_tab_->GetController().LoadURL(
@@ -348,6 +366,53 @@ void WebIntentPickerController::OnServiceChosen(
       NOTREACHED();
       break;
   }
+}
+
+// Take the MD5 digest of the origins of picker options
+// and record it as the default context string.
+int64 WebIntentPickerController::DigestServices() {
+  // The context in which the default is registered is all
+  // the installed services represented in the picker (represented
+  // by their site origins).
+  std::vector<std::string> context_urls;
+  for (size_t i = 0; i < picker_model_->GetInstalledServiceCount(); ++i) {
+    const GURL& url = picker_model_->GetInstalledServiceAt(i).url;
+    if (url.SchemeIs(chrome::kExtensionScheme))
+      context_urls.push_back(url.host());  // this is the extension ID
+    else
+      context_urls.push_back(url.GetOrigin().spec());
+  }
+  std::sort(context_urls.begin(), context_urls.end());
+
+  base::MD5Context md5_context;
+  base::MD5Init(&md5_context);
+  for (size_t i = 0; i < context_urls.size(); ++i)
+    base::MD5Update(&md5_context, context_urls[i]);
+  base::MD5Digest digest;
+  base::MD5Final(&digest, &md5_context);
+  int64 hash = 0;
+  COMPILE_ASSERT(sizeof(base::MD5Digest) > sizeof(int64),
+                 int64_size_greater_than_md5_buffer);
+  memcpy(&hash, &digest, sizeof(int64));
+
+  return hash;
+}
+
+void WebIntentPickerController::SetDefaultServiceForSelection(const GURL& url) {
+  int64 service_hash = DigestServices();
+  DCHECK(picker_model_.get());
+  if (url == picker_model_->default_service_url() &&
+      service_hash == picker_model_->default_service_hash()) {
+    return;
+  }
+
+  DefaultWebIntentService record;
+  record.action = picker_model_->action();
+  record.type = picker_model_->type();
+  record.service_url = url.spec();
+  record.suppression = service_hash;
+  record.user_date = static_cast<int>(floor(base::Time::Now().ToDoubleT()));
+  GetWebIntentsRegistry(tab_contents_)->RegisterDefaultIntentService(record);
 }
 
 void WebIntentPickerController::OnInlineDispositionWebContentsCreated(
@@ -371,23 +436,28 @@ void WebIntentPickerController::OnExtensionInstallRequested(
   installer->Start();
 }
 
-void WebIntentPickerController::OnExtensionLinkClicked(const std::string& id) {
+void WebIntentPickerController::OnExtensionLinkClicked(
+    const std::string& id,
+    WindowOpenDisposition disposition) {
   // Navigate from source tab.
   GURL extension_url(extension_urls::GetWebstoreItemDetailURLPrefix() + id);
   chrome::NavigateParams params(tab_contents_->profile(), extension_url,
-                                content::PAGE_TRANSITION_AUTO_BOOKMARK);
-  params.disposition = NEW_FOREGROUND_TAB;
+                                content::PAGE_TRANSITION_LINK);
+  params.disposition =
+      (disposition == CURRENT_TAB) ? NEW_FOREGROUND_TAB : disposition;
   chrome::Navigate(&params);
 }
 
-void WebIntentPickerController::OnSuggestionsLinkClicked() {
+void WebIntentPickerController::OnSuggestionsLinkClicked(
+    WindowOpenDisposition disposition) {
   // Navigate from source tab.
   GURL query_url = extension_urls::GetWebstoreIntentQueryURL(
       UTF16ToUTF8(picker_model_->action()),
       UTF16ToUTF8(picker_model_->type()));
   chrome::NavigateParams params(tab_contents_->profile(), query_url,
-                                content::PAGE_TRANSITION_AUTO_BOOKMARK);
-  params.disposition = NEW_FOREGROUND_TAB;
+                                content::PAGE_TRANSITION_LINK);
+  params.disposition =
+      (disposition == CURRENT_TAB) ? NEW_FOREGROUND_TAB : disposition;
   chrome::Navigate(&params);
 }
 
@@ -433,6 +503,7 @@ void WebIntentPickerController::OnExtensionInstallSuccess(
 
 void WebIntentPickerController::DispatchToInstalledExtension(
     const std::string& extension_id) {
+  web_intents::RecordCWSExtensionInstalled(uma_bucket_);
   picker_->OnExtensionInstallSuccess(extension_id);
   WebIntentsRegistry::IntentServiceList services;
   GetWebIntentsRegistry(tab_contents_)->GetIntentServicesForExtensionFilter(
@@ -500,11 +571,12 @@ void WebIntentPickerController::AddServiceToModel(
 
   pending_async_count_++;
   FaviconService::Handle handle = favicon_service->GetFaviconImageForURL(
-      tab_contents_->profile(),
-      service.service_url,
-      history::FAVICON,
-      gfx::kFaviconSize,
-      &favicon_consumer_,
+      FaviconService::FaviconForURLParams(
+          tab_contents_->profile(),
+          service.service_url,
+          history::FAVICON,
+          gfx::kFaviconSize,
+          &favicon_consumer_),
       base::Bind(
           &WebIntentPickerController::OnFaviconDataAvailable,
           weak_ptr_factory_.GetWeakPtr()));
@@ -521,7 +593,7 @@ void WebIntentPickerController::OnWebIntentServicesAvailable(
   AsyncOperationFinished();
 }
 
-void WebIntentPickerController::WebIntentServicesForExplicitIntent(
+void WebIntentPickerController::OnWebIntentServicesAvailableForExplicitIntent(
     const std::vector<webkit_glue::WebIntentServiceData>& services) {
   DCHECK(intents_dispatcher_);
   DCHECK(intents_dispatcher_->GetIntent().service.is_valid());
@@ -531,6 +603,7 @@ void WebIntentPickerController::WebIntentServicesForExplicitIntent(
 
     AddServiceToModel(services[i]);
 
+    // BUG? This should a) not use (i)
     InvokeService(picker_model_->GetInstalledServiceAt(i));
     AsyncOperationFinished();
     return;
@@ -547,8 +620,8 @@ void WebIntentPickerController::WebIntentServicesForExplicitIntent(
 void WebIntentPickerController::OnWebIntentDefaultsAvailable(
     const DefaultWebIntentService& default_service) {
   if (!default_service.service_url.empty()) {
-    DCHECK(default_service.suppression == 0);
     picker_model_->set_default_service_url(GURL(default_service.service_url));
+    picker_model_->set_default_service_hash(default_service.suppression);
   }
 
   RegistryCallsCompleted();
@@ -559,13 +632,13 @@ void WebIntentPickerController::RegistryCallsCompleted() {
   pending_registry_calls_count_--;
   if (pending_registry_calls_count_ != 0) return;
 
-  if (picker_model_->default_service_url().is_valid()) {
+  if (picker_model_->default_service_url().is_valid() &&
+      picker_model_->default_service_hash() == DigestServices()) {
     // If there's a default service, dispatch to it immediately
     // without showing the picker.
     const WebIntentPickerModel::InstalledService* default_service =
         picker_model_->GetInstalledServiceWithURL(
             GURL(picker_model_->default_service_url()));
-
     if (default_service != NULL) {
       InvokeService(*default_service);
       return;
@@ -805,7 +878,8 @@ void WebIntentPickerController::OnPickerEvent(WebIntentPickerEvent event) {
 
     case kPickerEventAsyncDataComplete:
       DCHECK(dialog_state_ == kPickerSetup ||
-              dialog_state_ == kPickerWaiting);
+             dialog_state_ == kPickerWaiting ||
+             dialog_state_ == kPickerWaitLong);
 
       // In setup state, transition to main dialog. In waiting state, let
       // timer expire.
@@ -842,9 +916,9 @@ void WebIntentPickerController::LocationBarPickerToolClicked() {
     // Re-open the other tab and activate the picker.
     client_browser->window()->Activate();
     client_browser->tab_strip_model()->ActivateTabAt(client_index, true);
-    // TODO(gbillock): better call? we want to re-activate the picker, which was
-    // potentially just open.
-    client_tab->web_intent_picker_controller()->CreatePicker();
+    // The picker has been Reset() when the new tab is created; need to fully
+    // reload.
+    client_tab->web_intent_picker_controller()->ReshowDialog();
   }
   // TODO(gbillock): figure out what we ought to do in this case. Probably
   // nothing? Refresh the location bar?
@@ -929,7 +1003,8 @@ void WebIntentPickerController::CreatePicker() {
     picker_ = WebIntentPicker::Create(tab_contents_, this, picker_model_.get());
   picker_->SetActionString(GetIntentActionString(
       UTF16ToUTF8(picker_model_->action())));
-  web_intents::RecordPickerShow(uma_bucket_);
+  web_intents::RecordPickerShow(
+      uma_bucket_, picker_model_->GetInstalledServiceCount());
   picker_shown_ = true;
 }
 

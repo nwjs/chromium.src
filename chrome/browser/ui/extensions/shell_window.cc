@@ -39,6 +39,7 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_intents_dispatcher.h"
+#include "content/public/common/media_stream_request.h"
 #include "content/public/common/renderer_preferences.h"
 
 using content::BrowserThread;
@@ -64,7 +65,7 @@ void SuspendRenderViewHost(RenderViewHost* rvh) {
 }  // namespace
 
 ShellWindow::CreateParams::CreateParams()
-  : frame(ShellWindow::CreateParams::FRAME_CHROME),
+  : frame(ShellWindow::CreateParams::FRAME_NONE),
     bounds(-1, -1, kDefaultWidth, kDefaultHeight),
     restore_position(true), restore_size(true) {
 }
@@ -171,6 +172,8 @@ void ShellWindow::Init(const GURL& url,
 
   // Prevent the browser process from shutting down while this window is open.
   browser::StartKeepAlive();
+
+  UpdateExtensionAppIcon();
 }
 
 ShellWindow::~ShellWindow() {
@@ -188,19 +191,26 @@ void ShellWindow::RequestMediaAccessPermission(
     const content::MediaResponseCallback& callback) {
   content::MediaStreamDevices devices;
 
-  content::MediaStreamDeviceMap::const_iterator iter =
-      request->devices.find(content::MEDIA_STREAM_DEVICE_TYPE_AUDIO_CAPTURE);
-  if (iter != request->devices.end() &&
-      extension()->HasAPIPermission(APIPermission::kAudioCapture) &&
-      !iter->second.empty()) {
-    devices.push_back(iter->second[0]);
-  }
-
-  iter = request->devices.find(content::MEDIA_STREAM_DEVICE_TYPE_VIDEO_CAPTURE);
-  if (iter != request->devices.end() &&
-      extension()->HasAPIPermission(APIPermission::kVideoCapture) &&
-      !iter->second.empty()) {
-    devices.push_back(iter->second[0]);
+  // Auto-accept the first audio device and the first video device from the
+  // request when the appropriate API permissions exist.
+  bool accepted_an_audio_device = false;
+  bool accepted_a_video_device = false;
+  for (content::MediaStreamDeviceMap::const_iterator it =
+           request->devices.begin();
+       it != request->devices.end(); ++it) {
+    if (!accepted_an_audio_device &&
+        content::IsAudioMediaType(it->first) &&
+        extension()->HasAPIPermission(APIPermission::kAudioCapture) &&
+        !it->second.empty()) {
+      devices.push_back(it->second.front());
+      accepted_an_audio_device = true;
+    } else if (!accepted_a_video_device &&
+               content::IsVideoMediaType(it->first) &&
+               extension()->HasAPIPermission(APIPermission::kVideoCapture) &&
+               !it->second.empty()) {
+      devices.push_back(it->second.front());
+      accepted_a_video_device = true;
+    }
   }
 
   callback.Run(devices);
@@ -255,7 +265,8 @@ void ShellWindow::AddNewContents(WebContents* source,
                                  WebContents* new_contents,
                                  WindowOpenDisposition disposition,
                                  const gfx::Rect& initial_pos,
-                                 bool user_gesture) {
+                                 bool user_gesture,
+                                 bool* was_blocked) {
   DCHECK(source == web_contents_);
   DCHECK(Profile::FromBrowserContext(new_contents->GetBrowserContext()) ==
       profile_);
@@ -265,7 +276,7 @@ void ShellWindow::AddNewContents(WebContents* source,
   disposition =
       disposition == NEW_BACKGROUND_TAB ? disposition : NEW_FOREGROUND_TAB;
   chrome::AddWebContents(browser, NULL, new_contents, disposition, initial_pos,
-                         user_gesture);
+                         user_gesture, was_blocked);
 }
 
 void ShellWindow::HandleKeyboardEvent(
@@ -312,6 +323,27 @@ void ShellWindow::UpdateDraggableRegions(
   native_window_->UpdateDraggableRegions(regions);
 }
 
+void ShellWindow::OnImageLoaded(const gfx::Image& image,
+                                const std::string& extension_id,
+                                int index) {
+  if (!image.IsEmpty()) {
+    app_icon_ = image;
+    native_window_->UpdateWindowIcon();
+  }
+  app_icon_loader_.reset();
+}
+
+void ShellWindow::UpdateExtensionAppIcon() {
+  app_icon_loader_.reset(new ImageLoadingTracker(this));
+  app_icon_loader_->LoadImage(
+      extension(),
+      extension()->GetIconResource(extension_misc::EXTENSION_ICON_SMALLISH,
+                                   ExtensionIconSet::MATCH_BIGGER),
+      gfx::Size(extension_misc::EXTENSION_ICON_SMALLISH,
+                extension_misc::EXTENSION_ICON_SMALLISH),
+      ImageLoadingTracker::CACHE);
+}
+
 void ShellWindow::CloseContents(WebContents* contents) {
   DCHECK(contents == web_contents_);
   native_window_->Close();
@@ -354,6 +386,8 @@ void ShellWindow::NavigationStateChanged(
   DCHECK(source == web_contents_);
   if (changed_flags & content::INVALIDATE_TYPE_TITLE)
     native_window_->UpdateWindowTitle();
+  else if (changed_flags & content::INVALIDATE_TYPE_TAB)
+    native_window_->UpdateWindowIcon();
 }
 
 void ShellWindow::ToggleFullscreenModeForTab(content::WebContents* source,
@@ -427,4 +461,3 @@ void ShellWindow::SaveWindowPosition()
   gfx::Rect bounds = native_window_->GetBounds();
   cache->SaveGeometry(extension()->id(), window_key_, bounds);
 }
-

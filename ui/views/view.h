@@ -16,9 +16,9 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "build/build_config.h"
-#include "ui/base/event.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
+#include "ui/base/events/event.h"
 #include "ui/compositor/layer_delegate.h"
 #include "ui/compositor/layer_owner.h"
 #include "ui/gfx/native_widget_types.h"
@@ -579,7 +579,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // This method is invoked for each GestureEvent created by GestureRecognizer.
   // Default implementation does nothing. Override as needed.
-  // If a View returns ui::GESTURE_STATUS_CONSUMED from OnGestureEvent, then
+  // If a View returns ui::ER_CONSUMED from OnGestureEvent, then
   // subsequent gestures will be dispatched to the same View, until the gesture
   // ends (i.e. all touch-points are released).
   // Scroll gesture events are handled slightly differently: if a View starts
@@ -590,7 +590,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // scroll-gesture events will be sent to this View. However all the other
   // gesture-events (e.g. ET_GESTURE_END, ET_GESTURE_PINCH_BEGIN etc.) will
   // continue to be dispatched to the first View.
-  virtual ui::GestureStatus OnGestureEvent(const ui::GestureEvent& event);
+  virtual ui::EventResult OnGestureEvent(const ui::GestureEvent& event);
 
   // Set the MouseHandler for a drag session.
   //
@@ -1286,7 +1286,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // RootView will invoke this with incoming GestureEvents. This will invoke
   // OnGestureEvent and return the result.
-  ui::GestureStatus ProcessGestureEvent(const ui::GestureEvent& event);
+  ui::EventResult ProcessGestureEvent(const ui::GestureEvent& event);
 
   // Accelerators --------------------------------------------------------------
 

@@ -12,7 +12,7 @@
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/base/animation/throb_animation.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -258,7 +258,7 @@ void LauncherButton::OnMouseExited(const ui::MouseEvent& event) {
   host_->MouseExitedButton(this);
 }
 
-ui::GestureStatus LauncherButton::OnGestureEvent(
+ui::EventResult LauncherButton::OnGestureEvent(
     const ui::GestureEvent& event) {
   switch (event.type()) {
     case ui::ET_GESTURE_TAP_DOWN:
@@ -269,13 +269,13 @@ ui::GestureStatus LauncherButton::OnGestureEvent(
       return CustomButton::OnGestureEvent(event);
     case ui::ET_GESTURE_SCROLL_BEGIN:
       host_->PointerPressedOnButton(this, LauncherButtonHost::TOUCH, event);
-      return ui::GESTURE_STATUS_CONSUMED;
+      return ui::ER_CONSUMED;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       host_->PointerDraggedOnButton(this, LauncherButtonHost::TOUCH, event);
-      return ui::GESTURE_STATUS_CONSUMED;
+      return ui::ER_CONSUMED;
     case ui::ET_GESTURE_SCROLL_END:
       host_->PointerReleasedOnButton(this, LauncherButtonHost::TOUCH, false);
-      return ui::GESTURE_STATUS_CONSUMED;
+      return ui::ER_CONSUMED;
     default:
       return CustomButton::OnGestureEvent(event);
   }
@@ -288,33 +288,35 @@ void LauncherButton::GetAccessibleState(ui::AccessibleViewState* state) {
 
 void LauncherButton::Layout() {
   gfx::Rect rect(GetContentsBounds());
-  int image_x, image_y;
+  const gfx::Size& icon_size(icon_view_->GetPreferredSize());
+  gfx::Rect icon_bounds = rect.Center(icon_size);
 
+  int x_offset = 0, y_offset = 0;
   if (IsShelfHorizontal()) {
-    image_x = rect.x() + (rect.width() - icon_view_->width()) / 2;
-    image_y = rect.bottom() - (icon_view_->height() + kBarSize + kBarSpacing);
+    y_offset += kBarSize / 2;
     if (ShouldHop(state_))
-      image_y -= kHopSpacing;
+      y_offset += kHopSpacing;
   } else {
-    image_y = rect.y() + (rect.height() - icon_view_->height()) / 2;
-    if (host_->GetShelfAlignment() == SHELF_ALIGNMENT_LEFT) {
-      image_x = rect.x() + kBarSize + kBarSpacing;
-      if (ShouldHop(state_))
-        image_x += kHopSpacing;
-    } else {
-      image_x = rect.right() - (icon_view_->width() + kBarSize + kBarSpacing);
-      if (ShouldHop(state_))
-        image_x -= kHopSpacing;
-    }
+    x_offset += kBarSize / 2;
+    if (ShouldHop(state_))
+      x_offset += kHopSpacing;
+    if (host_->GetShelfAlignment() == SHELF_ALIGNMENT_LEFT)
+      x_offset = -x_offset;
   }
 
   // Offset to compensate for shadows.
-  gfx::Insets icon_shadow_padding = -gfx::ShadowValue::GetMargin(icon_shadows_);
-  image_x -= icon_shadow_padding.left() - icon_shadow_padding.right();
-  image_y -= icon_shadow_padding.top() - icon_shadow_padding.bottom();
+  gfx::Insets icon_shadow_padding = gfx::ShadowValue::GetMargin(icon_shadows_);
 
-  icon_view_->SetPosition(gfx::Point(image_x, image_y));
+  x_offset -= (icon_shadow_padding.left() - icon_shadow_padding.right()) / 2;
+  y_offset -= (icon_shadow_padding.top() - icon_shadow_padding.bottom()) / 2;
+  icon_bounds.Offset(-x_offset, -y_offset);
+
+  icon_view_->SetBoundsRect(icon_bounds);
   bar_->SetBoundsRect(rect);
+}
+
+void LauncherButton::ChildPreferredSizeChanged(views::View* child) {
+  Layout();
 }
 
 void LauncherButton::OnFocus() {
@@ -330,17 +332,9 @@ void LauncherButton::OnBlur() {
 void LauncherButton::Init() {
   icon_view_ = CreateIconView();
 
-  gfx::Insets icon_shadow_padding = -gfx::ShadowValue::GetMargin(icon_shadows_);
-  const int horiz_padding = std::max(icon_shadow_padding.left(),
-                                     icon_shadow_padding.right());
-  const int vert_padding = std::max(icon_shadow_padding.top(),
-                                    icon_shadow_padding.bottom());
-
   // TODO: refactor the layers so each button doesn't require 2.
   icon_view_->SetPaintToLayer(true);
   icon_view_->SetFillsBoundsOpaquely(false);
-  icon_view_->SetSize(gfx::Size(kIconSize + horiz_padding,
-                                kIconSize + vert_padding));
   icon_view_->SetHorizontalAlignment(views::ImageView::CENTER);
   icon_view_->SetVerticalAlignment(views::ImageView::CENTER);
 

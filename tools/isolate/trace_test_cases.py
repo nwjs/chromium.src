@@ -11,12 +11,11 @@ with ./trace_inputs.py read -l /path/to/executable.logs
 
 import logging
 import multiprocessing
-import optparse
 import os
 import sys
 import time
 
-import isolate_common
+import isolate  # TODO(maruel): Remove references to isolate.
 import run_test_cases
 import trace_inputs
 
@@ -96,7 +95,7 @@ def trace_test_cases(
   print ''
   print '%.1fs Done post-processing logs. Parsing logs.' % (
       time.time() - progress.start)
-  results = api.parse_log(logname, isolate_common.default_blacklist)
+  results = api.parse_log(logname, isolate.default_blacklist)
   print '%.1fs Done parsing logs.' % (
       time.time() - progress.start)
 
@@ -122,7 +121,7 @@ def trace_test_cases(
         tracename = test_case.replace('/', '-')
         flattened[test_case] = results_processed[tracename].copy()
         item_results = flattened[test_case]['results']
-        tracked, touched = isolate_common.split_touched(item_results.existent)
+        tracked, touched = isolate.split_touched(item_results.existent)
         flattened[test_case].update({
             'processes': len(list(item_results.process.all)),
             'results': item_results.flatten(),
@@ -130,7 +129,7 @@ def trace_test_cases(
             'returncode': item['returncode'],
             'valid': item['valid'],
             'variables':
-              isolate_common.generate_simplified(
+              isolate.generate_simplified(
                   tracked,
                   [],
                   touched,
@@ -155,8 +154,8 @@ def trace_test_cases(
     files.update((f.full_path, f) for f in item['results'].existent)
   # Convert back to a list, discard the keys.
   files = files.values()
-  tracked, touched = isolate_common.split_touched(files)
-  value = isolate_common.generate_isolate(
+  tracked, touched = isolate.split_touched(files)
+  value = isolate.generate_isolate(
       tracked,
       [],
       touched,
@@ -164,23 +163,18 @@ def trace_test_cases(
       variables,
       cwd_dir)
   with open('%s.isolate' % output_file, 'wb') as f:
-    isolate_common.pretty_print(value, f)
+    isolate.pretty_print(value, f)
   return 0
 
 
 def main():
   """CLI frontend to validate arguments."""
-  def as_digit(variable, default):
-    if variable.isdigit():
-      return int(variable)
-    return default
-
-  default_variables = [('OS', isolate_common.get_flavor())]
+  default_variables = [('OS', isolate.get_flavor())]
   if sys.platform in ('win32', 'cygwin'):
     default_variables.append(('EXECUTABLE_SUFFIX', '.exe'))
   else:
     default_variables.append(('EXECUTABLE_SUFFIX', ''))
-  parser = optparse.OptionParser(
+  parser = run_test_cases.OptionParserWithTestShardingAndFiltering(
       usage='%prog <options> [gtest]',
       description=sys.modules['__main__'].__doc__)
   parser.format_description = lambda *_: parser.description
@@ -220,34 +214,6 @@ def main():
       action='count',
       default=0,
       help='Use multiple times to increase verbosity')
-
-  group = optparse.OptionGroup(parser, 'Which test cases to run')
-  group.add_option(
-      '-w', '--whitelist',
-      default=[],
-      action='append',
-      help='filter to apply to test cases to run, wildcard-style, defaults to '
-           'all test')
-  group.add_option(
-      '-b', '--blacklist',
-      default=[],
-      action='append',
-      help='filter to apply to test cases to skip, wildcard-style, defaults to '
-           'no test')
-  group.add_option(
-      '-i', '--index',
-      type='int',
-      default=as_digit(os.environ.get('GTEST_SHARD_INDEX', ''), None),
-      help='Shard index to run')
-  group.add_option(
-      '-s', '--shards',
-      type='int',
-      default=as_digit(os.environ.get('GTEST_TOTAL_SHARDS', ''), None),
-      help='Total number of shards to calculate from the --index to run')
-  group.add_option(
-      '-T', '--test-case-file',
-      help='File containing the exact list of test cases to run')
-  parser.add_option_group(group)
   options, args = parser.parse_args()
 
   levels = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
@@ -260,9 +226,6 @@ def main():
         'Please provide the executable line to run, if you need fancy things '
         'like xvfb, start this script from *inside* xvfb, it\'ll be much faster'
         '.')
-
-  if bool(options.shards) != bool(options.index is not None):
-    parser.error('Use both --index X --shards Y or none of them')
 
   options.root_dir = os.path.abspath(options.root_dir)
   if not os.path.isdir(options.root_dir):

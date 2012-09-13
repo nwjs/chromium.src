@@ -29,6 +29,7 @@
 #include "chrome/browser/extensions/api/downloads/downloads_api.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/intents/web_intents_util.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
@@ -47,6 +48,7 @@
 #include "net/base/net_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "webkit/glue/web_intent_data.h"
+#include "webkit/glue/web_intent_reply_data.h"
 
 #if !defined(OS_ANDROID)
 #include "chrome/browser/ui/browser.h"
@@ -54,8 +56,8 @@
 #endif
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/gdata_download_observer.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/gdata/drive_download_observer.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/download/download_file_picker_chromeos.h"
 #include "chrome/browser/download/save_package_file_picker_chromeos.h"
 #endif
@@ -73,6 +75,11 @@ namespace {
 // String pointer used for identifying safebrowing data associated with
 // a download item.
 static const char safe_browsing_id[] = "Safe Browsing ID";
+
+// String pointer used to set the local file extension to be used when a
+// download is going to be dispatched with web intents.
+static const FilePath::CharType kWebIntentsFileExtension[] =
+    FILE_PATH_LITERAL(".webintents");
 
 // The state of a safebrowsing check.
 class SafeBrowsingState : public DownloadCompletionBlocker {
@@ -116,6 +123,20 @@ void GenerateFileNameFromRequest(const DownloadItem& download_item,
                                           download_item.GetSuggestedFilename(),
                                           download_item.GetMimeType(),
                                           default_file_name);
+}
+
+// Needed to give PostTask a void closure in OnWebIntentDispatchCompleted.
+void DeleteFile(const FilePath& file_path) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+  file_util::Delete(file_path, false);
+}
+
+// Called when the web intents dispatch has completed. Deletes the |file_path|.
+void OnWebIntentDispatchCompleted(
+    const FilePath& file_path,
+    webkit_glue::WebIntentReplyType intent_reply) {
+  BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
+                          base::Bind(&DeleteFile, file_path));
 }
 
 }  // namespace
@@ -300,9 +321,9 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
 #endif
 
 #if defined(OS_CHROMEOS)
-  // If there's a GData upload associated with this download, we wait until that
+  // If there's a Drive upload associated with this download, we wait until that
   // is complete before allowing the download item to complete.
-  if (!gdata::GDataDownloadObserver::IsReadyToComplete(
+  if (!gdata::DriveDownloadObserver::IsReadyToComplete(
         item, internal_complete_callback))
     return false;
 #endif
@@ -369,7 +390,16 @@ bool ChromeDownloadManagerDelegate::ShouldOpenDownload(DownloadItem* item) {
 
 bool ChromeDownloadManagerDelegate::ShouldOpenWithWebIntents(
     const DownloadItem* item) {
-  if (!item->GetWebContents() || !item->GetWebContents()->GetDelegate())
+  if (!web_intents::IsWebIntentsEnabledForProfile(profile_))
+    return false;
+
+  if ((item->GetWebContents() && !item->GetWebContents()->GetDelegate()) &&
+      !web_intents::GetBrowserForBackgroundWebIntentDelivery(profile_)) {
+    return false;
+  }
+  if (!item->GetForcedFilePath().empty())
+    return false;
+  if (item->GetTargetDisposition() == DownloadItem::TARGET_DISPOSITION_PROMPT)
     return false;
 
   std::string mime_type = item->GetMimeType();
@@ -436,10 +466,19 @@ void ChromeDownloadManagerDelegate::OpenWithWebIntent(
 
   content::WebIntentsDispatcher* dispatcher =
       content::WebIntentsDispatcher::Create(intent_data);
-  // TODO(gbillock): try to get this to be able to delegate to the Browser
-  // object directly, passing a NULL WebContents?
-  item->GetWebContents()->GetDelegate()->WebIntentDispatch(
-      item->GetWebContents(), dispatcher);
+  dispatcher->RegisterReplyNotification(
+      base::Bind(&OnWebIntentDispatchCompleted, item->GetFullPath()));
+
+  content::WebContentsDelegate* delegate = NULL;
+#if !defined(OS_ANDROID)
+  if (item->GetWebContents() && item->GetWebContents()->GetDelegate()) {
+    delegate = item->GetWebContents()->GetDelegate();
+  } else {
+    delegate = web_intents::GetBrowserForBackgroundWebIntentDelivery(profile_);
+  }
+#endif  // !defined(OS_ANDROID)
+  DCHECK(delegate);
+  delegate->WebIntentDispatch(NULL, dispatcher);
 }
 
 bool ChromeDownloadManagerDelegate::GenerateFileHash() {
@@ -514,7 +553,7 @@ void ChromeDownloadManagerDelegate::GetSaveDir(WebContents* web_contents,
 
   *skip_dir_check = false;
 #if defined(OS_CHROMEOS)
-  *skip_dir_check = gdata::util::IsUnderGDataMountPoint(*website_save_dir);
+  *skip_dir_check = gdata::util::IsUnderDriveMountPoint(*website_save_dir);
 #endif
 }
 
@@ -724,6 +763,14 @@ void ChromeDownloadManagerDelegate::CheckVisitedReferrerBeforeDone(
     suggested_path = download->GetForcedFilePath();
   }
 
+  // If we will open the file with a web intents dispatch,
+  // give it a name that will not allow the OS to open it using usual
+  // associated apps.
+  if (ShouldOpenWithWebIntents(download)) {
+    download->SetDisplayName(suggested_path.BaseName());
+    suggested_path = suggested_path.AddExtension(kWebIntentsFileExtension);
+  }
+
   // If the download hasn't already been marked dangerous (could be
   // DANGEROUS_URL), check if it is a dangerous file.
   if (danger_type == content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS) {
@@ -754,10 +801,10 @@ void ChromeDownloadManagerDelegate::CheckVisitedReferrerBeforeDone(
   }
 
 #if defined (OS_CHROMEOS)
-  gdata::GDataDownloadObserver::SubstituteGDataDownloadPath(
+  gdata::DriveDownloadObserver::SubstituteDriveDownloadPath(
       profile_, suggested_path, download,
       base::Bind(
-          &ChromeDownloadManagerDelegate::SubstituteGDataDownloadPathCallback,
+          &ChromeDownloadManagerDelegate::SubstituteDriveDownloadPathCallback,
           this, download->GetId(), callback, should_prompt, is_forced_path,
           danger_type));
 #else
@@ -772,7 +819,7 @@ void ChromeDownloadManagerDelegate::CheckVisitedReferrerBeforeDone(
 
 #if defined (OS_CHROMEOS)
 // TODO(asanka): Merge this logic with the logic in DownloadFilePickerChromeOS.
-void ChromeDownloadManagerDelegate::SubstituteGDataDownloadPathCallback(
+void ChromeDownloadManagerDelegate::SubstituteDriveDownloadPathCallback(
     int32 download_id,
     const content::DownloadTargetCallback& callback,
     bool should_prompt,
@@ -842,7 +889,7 @@ void ChromeDownloadManagerDelegate::OnTargetPathDetermined(
     // Retain the last directory. Exclude temporary downloads since the path
     // likely points at the location of a temporary file.
     // TODO(asanka): This logic is a hack. DownloadFilePicker should give us a
-    //               directory to persist. Or perhaps, if the GData path
+    //               directory to persist. Or perhaps, if the Drive path
     //               substitution logic is moved here, then we would have a
     //               persistable path after the DownloadFilePicker is done.
     if (disposition == DownloadItem::TARGET_DISPOSITION_PROMPT &&

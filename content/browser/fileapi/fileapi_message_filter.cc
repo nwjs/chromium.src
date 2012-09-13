@@ -26,22 +26,24 @@
 #include "webkit/blob/blob_data.h"
 #include "webkit/blob/blob_storage_controller.h"
 #include "webkit/blob/shareable_file_reference.h"
-#include "webkit/fileapi/isolated_context.h"
+#include "webkit/fileapi/file_observers.h"
 #include "webkit/fileapi/file_system_context.h"
-#include "webkit/fileapi/file_system_quota_util.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/file_system_util.h"
+#include "webkit/fileapi/isolated_context.h"
 #include "webkit/fileapi/local_file_system_operation.h"
 #include "webkit/fileapi/sandbox_mount_point_provider.h"
 
 using content::BrowserMessageFilter;
 using content::BrowserThread;
 using content::UserMetricsAction;
-using fileapi::FileSystemURL;
 using fileapi::FileSystemFileUtil;
 using fileapi::FileSystemMountPointProvider;
 using fileapi::FileSystemOperation;
+using fileapi::FileSystemURL;
+using fileapi::FileUpdateObserver;
 using fileapi::LocalFileSystemOperation;
+using fileapi::UpdateObserverList;
 using webkit_blob::BlobData;
 using webkit_blob::BlobStorageController;
 
@@ -136,8 +138,10 @@ void FileAPIMessageFilter::OnChannelClosing() {
        open_filesystem_urls_.begin();
        iter != open_filesystem_urls_.end(); ++iter) {
     FileSystemURL url(*iter);
-    FileSystemOperation* operation = context_->CreateFileSystemOperation(url);
-    operation->NotifyCloseFile(url);
+    FileSystemOperation* operation = context_->CreateFileSystemOperation(
+        url, NULL);
+    if (operation)
+      operation->NotifyCloseFile(url);
   }
 }
 
@@ -234,7 +238,10 @@ void FileAPIMessageFilter::OnMove(
     return;
   }
 
-  GetNewOperation(src_url, request_id)->Move(
+  FileSystemOperation* operation = GetNewOperation(src_url, request_id);
+  if (!operation)
+    return;
+  operation->Move(
       src_url, dest_url,
       base::Bind(&FileAPIMessageFilter::DidFinish, this, request_id));
 }
@@ -251,7 +258,10 @@ void FileAPIMessageFilter::OnCopy(
     return;
   }
 
-  GetNewOperation(src_url, request_id)->Copy(
+  FileSystemOperation* operation = GetNewOperation(src_url, request_id);
+  if (!operation)
+    return
+  operation->Copy(
       src_url, dest_url,
       base::Bind(&FileAPIMessageFilter::DidFinish, this, request_id));
 }
@@ -266,7 +276,10 @@ void FileAPIMessageFilter::OnRemove(
     return;
   }
 
-  GetNewOperation(url, request_id)->Remove(
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
+  operation->Remove(
       url, recursive,
       base::Bind(&FileAPIMessageFilter::DidFinish, this, request_id));
 }
@@ -281,7 +294,10 @@ void FileAPIMessageFilter::OnReadMetadata(
     return;
   }
 
-  GetNewOperation(url, request_id)->GetMetadata(
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
+  operation->GetMetadata(
       url,
       base::Bind(&FileAPIMessageFilter::DidGetMetadata, this, request_id));
 }
@@ -297,12 +313,15 @@ void FileAPIMessageFilter::OnCreate(
     return;
   }
 
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
   if (is_directory) {
-    GetNewOperation(url, request_id)->CreateDirectory(
+    operation->CreateDirectory(
         url, exclusive, recursive,
         base::Bind(&FileAPIMessageFilter::DidFinish, this, request_id));
   } else {
-    GetNewOperation(url, request_id)->CreateFile(
+    operation->CreateFile(
         url, exclusive,
         base::Bind(&FileAPIMessageFilter::DidFinish, this, request_id));
   }
@@ -318,12 +337,15 @@ void FileAPIMessageFilter::OnExists(
     return;
   }
 
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
   if (is_directory) {
-    GetNewOperation(url, request_id)->DirectoryExists(
+    operation->DirectoryExists(
         url,
         base::Bind(&FileAPIMessageFilter::DidFinish, this, request_id));
   } else {
-    GetNewOperation(url, request_id)->FileExists(
+    operation->FileExists(
         url,
         base::Bind(&FileAPIMessageFilter::DidFinish, this, request_id));
   }
@@ -339,7 +361,10 @@ void FileAPIMessageFilter::OnReadDirectory(
     return;
   }
 
-  GetNewOperation(url, request_id)->ReadDirectory(
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
+  operation->ReadDirectory(
       url, base::Bind(&FileAPIMessageFilter::DidReadDirectory,
                        this, request_id));
 }
@@ -363,7 +388,10 @@ void FileAPIMessageFilter::OnWrite(
     return;
   }
 
-  GetNewOperation(url, request_id)->Write(
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
+  operation->Write(
       request_context_, url, blob_url, offset,
       base::Bind(&FileAPIMessageFilter::DidWrite, this, request_id));
 }
@@ -379,7 +407,10 @@ void FileAPIMessageFilter::OnTruncate(
     return;
   }
 
-  GetNewOperation(url, request_id)->Truncate(
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
+  operation->Truncate(
       url, length,
       base::Bind(&FileAPIMessageFilter::DidFinish, this, request_id));
 }
@@ -397,7 +428,10 @@ void FileAPIMessageFilter::OnTouchFile(
     return;
   }
 
-  GetNewOperation(url, request_id)->TouchFile(
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
+  operation->TouchFile(
       url, last_access_time, last_modified_time,
       base::Bind(&FileAPIMessageFilter::DidFinish, this, request_id));
 }
@@ -431,7 +465,10 @@ void FileAPIMessageFilter::OnOpenFile(
     return;
   }
 
-  GetNewOperation(url, request_id)->OpenFile(
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
+  operation->OpenFile(
       url, file_flags, peer_handle(),
       base::Bind(&FileAPIMessageFilter::DidOpenFile, this, request_id, path));
 }
@@ -449,7 +486,8 @@ void FileAPIMessageFilter::OnNotifyCloseFile(const GURL& path) {
 
   // Do not use GetNewOperation() here, because NotifyCloseFile is a one-way
   // operation that does not have request_id by which we respond back.
-  FileSystemOperation* operation = context_->CreateFileSystemOperation(url);
+  FileSystemOperation* operation = context_->CreateFileSystemOperation(
+      url, NULL);
   if (operation)
     operation->NotifyCloseFile(url);
 }
@@ -459,10 +497,11 @@ void FileAPIMessageFilter::OnWillUpdate(const GURL& path) {
   FileSystemURL url(path);
   if (!url.is_valid())
     return;
-  fileapi::FileSystemQuotaUtil* quota_util = context_->GetQuotaUtil(url.type());
-  if (!quota_util)
+  const UpdateObserverList* observers =
+      context_->GetUpdateObservers(url.type());
+  if (!observers)
     return;
-  quota_util->proxy()->StartUpdateOrigin(url.origin(), url.type());
+  observers->Notify(&FileUpdateObserver::OnStartUpdate, MakeTuple(url));
 }
 
 void FileAPIMessageFilter::OnDidUpdate(const GURL& path, int64 delta) {
@@ -470,12 +509,12 @@ void FileAPIMessageFilter::OnDidUpdate(const GURL& path, int64 delta) {
   FileSystemURL url(path);
   if (!url.is_valid())
     return;
-  fileapi::FileSystemQuotaUtil* quota_util = context_->GetQuotaUtil(url.type());
-  if (!quota_util)
+  const UpdateObserverList* observers =
+      context_->GetUpdateObservers(url.type());
+  if (!observers)
     return;
-  quota_util->proxy()->UpdateOriginUsage(
-      context_->quota_manager_proxy(), url.origin(), url.type(), delta);
-  quota_util->proxy()->EndUpdateOrigin(url.origin(), url.type());
+  observers->Notify(&FileUpdateObserver::OnUpdate, MakeTuple(url, delta));
+  observers->Notify(&FileUpdateObserver::OnEndUpdate, MakeTuple(url));
 }
 
 void FileAPIMessageFilter::OnSyncGetPlatformPath(
@@ -493,9 +532,11 @@ void FileAPIMessageFilter::OnSyncGetPlatformPath(
   // TODO(kinuko): this hack should go away once appropriate upload-stream
   // handling based on element types is supported.
   LocalFileSystemOperation* operation =
-      context_->CreateFileSystemOperation(url)->AsLocalFileSystemOperation();
+      context_->CreateFileSystemOperation(
+          url, NULL)->AsLocalFileSystemOperation();
   DCHECK(operation);
-  operation->SyncGetPlatformPath(url, platform_path);
+  if (operation)
+    operation->SyncGetPlatformPath(url, platform_path);
 }
 
 void FileAPIMessageFilter::OnCreateSnapshotFile(
@@ -505,7 +546,11 @@ void FileAPIMessageFilter::OnCreateSnapshotFile(
   base::Callback<void(const FilePath&)> register_file_callback =
       base::Bind(&FileAPIMessageFilter::RegisterFileAsBlob,
                  this, blob_url, url.path());
-  GetNewOperation(url, request_id)->CreateSnapshotFile(
+
+  FileSystemOperation* operation = GetNewOperation(url, request_id);
+  if (!operation)
+    return;
+  operation->CreateSnapshotFile(
       url,
       base::Bind(&FileAPIMessageFilter::DidCreateSnapshot,
                  this, request_id, register_file_callback));
@@ -792,8 +837,14 @@ bool FileAPIMessageFilter::HasPermissionsForFile(
 FileSystemOperation* FileAPIMessageFilter::GetNewOperation(
     const FileSystemURL& target_url,
     int request_id) {
+  base::PlatformFileError error_code;
   FileSystemOperation* operation =
-      context_->CreateFileSystemOperation(target_url);
+      context_->CreateFileSystemOperation(target_url, &error_code);
+  if (error_code != base::PLATFORM_FILE_OK) {
+    Send(new FileSystemMsg_DidFail(request_id, error_code));
+    return NULL;
+  }
+
   DCHECK(operation);
   operations_.AddWithID(operation, request_id);
   return operation;

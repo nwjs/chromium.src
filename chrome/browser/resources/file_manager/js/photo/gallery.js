@@ -3,8 +3,16 @@
 // found in the LICENSE file.
 
 document.addEventListener('DOMContentLoaded', function() {
-  if (document.location.hash)  // File path passed after the #.
-    Gallery.openStandalone(decodeURI(document.location.hash.substr(1)));
+  if (!location.hash)
+    return;
+
+  var pageState;
+  if (location.search) {
+    try {
+      pageState = JSON.parse(location.search.substr(1));
+    } catch (ignore) {}
+  }
+  Gallery.openStandalone(decodeURI(location.hash.substr(1)), pageState);
 });
 
 /**
@@ -46,25 +54,25 @@ function Gallery(context) {
  * Create and initialize a Gallery object based on a context.
  *
  * @param {Object} context Gallery context.
- * @param {Array.<string>} urls Array of image urls.
- * @param {string} selectedUrl Selected url.
- * @param {boolean} opt_grid True if open in the grid view.
+ * @param {Array.<string>} urls Array of urls.
+ * @param {Array.<string>} selectedUrls Array of selected urls.
  */
-Gallery.open = function(context, urls, selectedUrl, opt_grid) {
+Gallery.open = function(context, urls, selectedUrls) {
   Gallery.instance = new Gallery(context);
-  Gallery.instance.load(urls, selectedUrl, opt_grid);
+  Gallery.instance.load(urls, selectedUrls);
 };
 
 /**
  * Create a Gallery object in a tab.
  * @param {string} path File system path to a selected file.
+ * @param {object} pageState Page state object.
  */
-Gallery.openStandalone = function(path) {
+Gallery.openStandalone = function(path, pageState) {
   ImageUtil.metrics = metrics;
 
   var currentDir;
   var urls = [];
-  var selectedUrl;
+  var selectedUrls = [];
 
   Gallery.getFileBrowserPrivate().requestLocalFileSystem(function(filesystem) {
     // If the path points to the directory scan it.
@@ -88,21 +96,13 @@ Gallery.openStandalone = function(path) {
         var url = entry.toURL();
         urls.push(url);
         if (entry.fullPath == path)
-          selectedUrl = url;
+          selectedUrls = [url];
       }
     });
   }
 
-  function onNameChange(name) {
-    window.top.document.title = name || currentDir.name;
-
-    var newPath = currentDir.fullPath + '/' + name;
-    var location = document.location.origin + document.location.pathname +
-                   '#' + encodeURI(newPath);
-    history.replaceState(undefined, newPath, location);
-  }
-
   function onClose() {
+    // Exiting to the Files app seems arbitrary. Consider closing the tab.
     document.location = 'main.html?' +
         JSON.stringify({defaultPath: document.location.hash.substr(1)});
   }
@@ -113,13 +113,14 @@ Gallery.openStandalone = function(path) {
       loadTimeData.data = strings;
       var context = {
         readonlyDirName: null,
+        curDirEntry: currentDir,
         saveDirEntry: currentDir,
         metadataCache: MetadataCache.createFull(),
-        onNameChange: onNameChange,
+        pageState: pageState,
         onClose: onClose,
         displayStringFunction: strf
       };
-      Gallery.open(context, urls, selectedUrl, !selectedUrl);
+      Gallery.open(context, urls, selectedUrls);
     });
   }
 };
@@ -149,7 +150,8 @@ Gallery.METADATA_TYPE = 'thumbnail|filesystem|media|streaming';
 Gallery.prototype.initListeners_ = function() {
   this.document_.oncontextmenu = function(e) { e.preventDefault(); };
 
-  this.document_.body.addEventListener('keydown', this.onKeyDown_.bind(this));
+  this.keyDownBound_ = this.onKeyDown_.bind(this);
+  this.document_.body.addEventListener('keydown', this.keyDownBound_);
 
   this.inactivityWatcher_ = new MouseInactivityWatcher(
       this.container_, Gallery.FADE_TIMEOUT, this.hasActiveTool.bind(this));
@@ -202,14 +204,14 @@ Gallery.prototype.initDom_ = function() {
   this.modeButton_ = util.createChild(this.toolbar_, 'button mode');
   this.modeButton_.addEventListener('click', this.toggleMode_.bind(this, null));
 
-  this.gridMode_ = new GridMode(this.container_, content,
+  this.mosaicMode_ = new MosaicMode(content,
       this.dataModel_, this.selectionModel_, this.metadataCache_,
       this.toggleMode_.bind(this, null));
 
   this.slideMode_ = new SlideMode(this.container_, content,
       this.toolbar_, this.prompt_,
       this.dataModel_, this.selectionModel_,
-      this.context_, this.displayStringFunction_);
+      this.context_, this.toggleMode_.bind(this), this.displayStringFunction_);
 
   var deleteButton = this.document_.createElement('div');
   deleteButton.className = 'button delete';
@@ -230,38 +232,56 @@ Gallery.prototype.initDom_ = function() {
     this.originalFullscreen_ = fullscreen;
   }.bind(this));
 
-  this.slideMode_.addEventListener('useraction', this.onUserAction_.bind(this));
-  this.slideMode_.addEventListener('content', this.onContentChange_.bind(this));
-  this.slideMode_.addEventListener('namechange', this.onSelection_.bind(this));
+  this.dataModel_.addEventListener('splice', this.onSplice_.bind(this));
+  this.dataModel_.addEventListener('content', this.onContentChange_.bind(this));
+
   this.selectionModel_.addEventListener('change', this.onSelection_.bind(this));
+
+  this.slideMode_.addEventListener('useraction', this.onUserAction_.bind(this));
 };
 
 /**
  * Load the content.
  *
  * @param {Array.<string>} urls Array of urls.
- * @param {string} selectedUrl Selected url.
- * @param {boolean} opt_grid True if open in the grid view.
+ * @param {Array.<string>} selectedUrls Array of selected urls.
  */
-Gallery.prototype.load = function(urls, selectedUrl, opt_grid) {
+Gallery.prototype.load = function(urls, selectedUrls) {
   var items = [];
   for (var index = 0; index < urls.length; ++index) {
     items.push(new Gallery.Item(urls[index]));
   }
   this.dataModel_.push.apply(this.dataModel_, items);
 
-  var selectedIndex = urls.indexOf(selectedUrl);
-  if (selectedIndex >= 0)
-    this.selectionModel_.setIndexSelected(selectedIndex, true);
-  else
+  this.selectionModel_.adjustLength(this.dataModel_.length);
+
+  for (var i = 0; i != selectedUrls.length; i++) {
+    var selectedIndex = urls.indexOf(selectedUrls[i]);
+    if (selectedIndex >= 0)
+      this.selectionModel_.setIndexSelected(selectedIndex, true);
+    else
+      console.error('Cannot select ' + selectedUrls[i]);
+  }
+
+  if (this.selectionModel_.selectedIndexes.length == 0)
     this.onSelection_();
 
-  this.currentMode_ = opt_grid ? this.gridMode_ : this.slideMode_;
-  this.currentMode_.enter(function() {
+  if (selectedUrls.length != 1 ||
+      (this.context_.pageState &&
+          this.context_.pageState.gallery == 'mosaic')) {
+    this.setCurrentMode_(this.mosaicMode_);
+    this.mosaicMode_.init();
+  } else {
+    this.setCurrentMode_(this.slideMode_);
+    /* TODO: consider nice blow-up animation for the first image */
+    this.slideMode_.enter(null, function() {
       // Flash the toolbar briefly to show it is there.
       this.inactivityWatcher_.startActivity();
       this.inactivityWatcher_.stopActivity(Gallery.FIRST_FADE_TIMEOUT);
+      // Load mosaic tiles in background so that the transition is smooth.
+      this.mosaicMode_.init();
     }.bind(this));
+  }
 };
 
 /**
@@ -273,7 +293,7 @@ Gallery.prototype.close_ = function() {
     if (this.originalFullscreen_ != fullscreen) {
       Gallery.toggleFullscreen();
     }
-    this.context_.onClose();
+    this.context_.onClose(this.getSelectedUrls());
   }.bind(this));
 };
 
@@ -290,10 +310,7 @@ Gallery.prototype.onClose_ = function() {
  * @param {function} callback Function to execute.
  */
 Gallery.prototype.executeWhenReady = function(callback) {
-  if (this.currentMode_ == this.slideMode_)
-    this.slideMode_.editor_.executeWhenReady(callback);
-  else
-    callback();
+  this.currentMode_.executeWhenReady(callback);
 };
 
 /**
@@ -335,26 +352,58 @@ Gallery.prototype.checkActivity_ = function() {
 */
 Gallery.prototype.onUserAction_ = function() {
   this.closeShareMenu_();
-  this.checkActivity_();
+  this.inactivityWatcher_.startActivity();
+};
+
+/**
+ * Set the current mode, update the UI.
+ * @param {object} mode Current mode.
+ * @private
+ */
+Gallery.prototype.setCurrentMode_ = function(mode) {
+  if (mode != this.slideMode_ && mode != this.mosaicMode_)
+    console.error('Invalid Gallery mode');
+
+  this.currentMode_ = mode;
+  var oppositeMode =
+      mode == this.slideMode_ ? this.mosaicMode_ : this.slideMode_;
+  this.modeButton_.title = this.displayStringFunction_(oppositeMode.getName());
+  this.container_.setAttribute('mode', this.currentMode_.getName());
+  this.updateSelectionAndState_();
 };
 
 /**
  * Mode toggle event handler.
  * @param {function} opt_callback Callback.
+ * @param {Event} opt_event Event that caused this call.
  * @private
  */
-Gallery.prototype.toggleMode_ = function(opt_callback) {
-  this.currentMode_.leave(function() {
-    if (this.currentMode_ == this.gridMode_) {
-      this.currentMode_ = this.slideMode_;
-      this.modeButton_.title = this.displayStringFunction_('mosaic');
-    } else {
-      this.currentMode_ = this.gridMode_;
-      this.modeButton_.title = this.displayStringFunction_('slide');
-    }
-    this.currentMode_.enter(opt_callback);
-    this.updateFilename_();
-  }.bind(this));
+Gallery.prototype.toggleMode_ = function(opt_callback, opt_event) {
+  if (this.changingMode_) // Do not re-enter while changing the mode.
+    return;
+
+  if (opt_event)
+    this.onUserAction_();
+
+  this.changingMode_ = true;
+
+  var onModeChanged = function() {
+    this.changingMode_ = false;
+    if (opt_callback) opt_callback();
+  }.bind(this);
+
+  if (this.currentMode_ == this.slideMode_) {
+    this.mosaicMode_.enter();  // This may change the viewport.
+    this.slideMode_.leave(this.mosaicMode_.getSelectedTileRect(),
+        function() {
+          this.setCurrentMode_(this.mosaicMode_);
+          onModeChanged();
+        }.bind(this));
+  } else {
+    this.slideMode_.enter(this.mosaicMode_.getSelectedTileRect(),
+        this.setCurrentMode_.bind(this, this.slideMode_),
+        onModeChanged);
+  }
 };
 
 /**
@@ -362,11 +411,58 @@ Gallery.prototype.toggleMode_ = function(opt_callback) {
  * @private
  */
 Gallery.prototype.onDelete_ = function() {
-  var indexes = this.selectionModel_.selectedIndexes;
-  for (var i = 0; i != indexes.length; i++)
-    this.dataModel_.splice(indexes[i], 1);
+  this.onUserAction_();
 
-  // TODO: delete actual files.
+  // Clone the sorted selected indexes array.
+  var indexesToRemove = this.selectionModel_.selectedIndexes.slice();
+  if (!indexesToRemove.length)
+    return;
+
+  /* TODO(dgozman): Implement Undo delete, Remove the confirmation dialog. */
+
+  var itemsToRemove = this.getSelectedItems();
+  var plural = itemsToRemove.length > 1;
+  var param = plural ? itemsToRemove.length : itemsToRemove[0].getFileName();
+
+  function deleteNext() {
+    if (!itemsToRemove.length)
+      return;  // All deleted.
+
+    var url = itemsToRemove.pop().getUrl();
+    webkitResolveLocalFileSystemURL(url,
+        function(entry) {
+          entry.remove(deleteNext,
+              util.flog('Error deleting ' + url, deleteNext));
+        },
+        util.flog('Error resolving ' + url, deleteNext));
+  }
+
+  // Prevent the Gallery from handling Esc and Enter.
+  this.document_.body.removeEventListener('keydown', this.keyDownBound_);
+  var restoreListener = function() {
+    this.document_.body.addEventListener('keydown', this.keyDownBound_);
+  }.bind(this);
+
+  cr.ui.dialogs.BaseDialog.OK_LABEL = this.displayStringFunction_('OK_LABEL');
+  cr.ui.dialogs.BaseDialog.CANCEL_LABEL =
+      this.displayStringFunction_('CANCEL_LABEL');
+  var confirm = new cr.ui.dialogs.ConfirmDialog(this.container_);
+  confirm.show(this.displayStringFunction_(
+      plural ? 'CONFIRM_DELETE_SOME' : 'CONFIRM_DELETE_ONE', param),
+      function() {
+        restoreListener();
+        this.selectionModel_.unselectAll();
+        this.selectionModel_.leadIndex = -1;
+        // Remove items from the data model, starting from the highest index.
+        while (indexesToRemove.length)
+          this.dataModel_.splice(indexesToRemove.pop(), 1);
+        // Delete actual files.
+        deleteNext();
+      }.bind(this),
+      function() {
+        // Restore the listener after a timeout so that ESC is processed.
+        setTimeout(restoreListener, 0);
+      });
 };
 
 /**
@@ -375,6 +471,15 @@ Gallery.prototype.onDelete_ = function() {
 Gallery.prototype.getSelectedItems = function() {
   return this.selectionModel_.selectedIndexes.map(
       this.dataModel_.item.bind(this.dataModel_));
+};
+
+/**
+ * @return {Array.<string>} Array of currently selected urls.
+ */
+Gallery.prototype.getSelectedUrls = function() {
+  return this.selectionModel_.selectedIndexes.map(function(index) {
+    return this.dataModel_.item(index).getUrl();
+  }.bind(this));
 };
 
 /**
@@ -388,25 +493,37 @@ Gallery.prototype.getSingleSelectedItem = function() {
 };
 
 /**
-* Selection change event handler.
-* @private
-*/
+  * Selection change event handler.
+  * @private
+  */
 Gallery.prototype.onSelection_ = function() {
-  this.updateFilename_();
+  this.updateSelectionAndState_();
   this.updateShareMenu_();
 };
 
 /**
-* Content change event handler.
-* @private
+  * Data model splice event handler.
+  * @private
+  */
+Gallery.prototype.onSplice_ = function() {
+  this.selectionModel_.adjustLength(this.dataModel_.length);
+};
+
+/**
+ * Content change event handler.
+ * @param {Event} event Event.
+ * @private
 */
-Gallery.prototype.onContentChange_ = function() {
-  this.updateFilename_();
-  this.gridMode_.updateThumbnail(this.getSingleSelectedItem());
+Gallery.prototype.onContentChange_ = function(event) {
+  var index = this.dataModel_.indexOf(event.item);
+  if (index != this.selectionModel_.selectedIndex)
+    console.error('Content changed for unselected item');
+  this.updateSelectionAndState_();
 };
 
 /**
  * Keydown handler.
+ *
  * @param {Event} event Event.
  * @private
  */
@@ -428,17 +545,32 @@ Gallery.prototype.onKeyDown_ = function(event) {
       if (!wasSharing)
         this.onClose_();
       break;
+
+    case 'U+004D':  // 'm' switches between Slide and Mosaic mode.
+      this.toggleMode_(null, event);
+      break;
+
+
+    case 'U+0056':  // 'v'
+      this.slideMode_.toggleSlideshow(
+          SlideMode.SLIDESHOW_INTERVAL_FIRST, event);
+      return;
+
+    case 'U+007F':  // Delete
+    case 'Shift-U+0033':  // Shift+'3' (Delete key might be missing).
+      this.onDelete_();
+      break;
   }
 };
 
 // Name box and rename support.
 
 /**
- * Update the displayed current item file name.
+ * Update the UI related to the selected item and the persistent state.
  *
  * @private
  */
-Gallery.prototype.updateFilename_ = function() {
+Gallery.prototype.updateSelectionAndState_ = function() {
   var displayName = '';
   var fullName = '';
 
@@ -451,8 +583,11 @@ Gallery.prototype.updateFilename_ = function() {
         this.displayStringFunction_('ITEMS_SELECTED', selectedItems.length);
   }
 
-  this.context_.onNameChange(
-      this.currentMode_ == this.slideMode_ ? fullName : '');
+  window.top.document.title = fullName || this.context_.curDirEntry.name;
+
+  util.updateLocation(true /*replace*/,
+      this.context_.curDirEntry.fullPath + '/' + fullName,
+      {gallery: (this.currentMode_ == this.mosaicMode_ ? 'mosaic' : 'slide')});
 
   this.filenameEdit_.value = displayName;
   this.filenameText_.textContent = displayName;
@@ -472,6 +607,7 @@ Gallery.prototype.onFilenameClick_ = function() {
     return;
 
   ImageUtil.setAttribute(this.filenameSpacer_, 'renaming', true);
+  this.filenameEdit_.originalValue = this.filenameEdit_.value;
   setTimeout(this.filenameEdit_.select.bind(this.filenameEdit_), 0);
   this.inactivityWatcher_.startActivity();
 };
@@ -497,8 +633,11 @@ Gallery.prototype.onFilenameEditBlur_ = function() {
   }.bind(this);
 
   var onSuccess = function() {
-    this.slideMode_.updateSelectedUrl_(oldUrl, item.getUrl());
-    this.updateFilename_();
+    var e = new cr.Event('content');
+    e.item = item;
+    e.oldUrl = oldUrl;
+    e.metadata = null;  // Metadata unchanged.
+    this.dataModel_.dispatchEvent(e);
   }.bind(this);
 
   if (this.filenameEdit_.value) {
@@ -517,7 +656,7 @@ Gallery.prototype.onFilenameEditBlur_ = function() {
 Gallery.prototype.onFilenameEditKeydown_ = function() {
   switch (event.keyCode) {
     case 27:  // Escape
-      this.updateFilename_();
+      this.filenameEdit_.value = this.filenameEdit_.originalValue;
       this.filenameEdit_.blur();
       break;
 
@@ -579,8 +718,7 @@ Gallery.prototype.toggleShare_ = function() {
  * @private.
  */
 Gallery.prototype.updateShareMenu_ = function() {
-  var urls =
-      this.getSelectedItems().map(function(item) { return item.getUrl() });
+  var urls = this.getSelectedUrls();
 
   var internalId = util.getExtensionId();
   function isShareAction(task) {
@@ -615,137 +753,4 @@ Gallery.prototype.updateShareMenu_ = function() {
     ImageUtil.setAttribute(this.shareButton_, 'disabled', empty);
     this.shareMenu_.hidden = wasHidden || empty;
   }.bind(this));
-};
-
-/**
- * @param {Element} container Main container.
- * @param {Element} content Content container.
- * @param {cr.ui.ArrayDataModel} dataModel Data model.
- * @param {cr.ui.ListSelectionModel} selectionModel Selection model.
- * @param {MetadataCache} metadataCache Metadata cache.
- * @param {function} openSelectedItem Function to open the selected item in the
- *   slide mode.
- * @constructor
- */
-function GridMode(container, content, dataModel, selectionModel,
-                  metadataCache, openSelectedItem) {
-  this.container_ = container;
-  this.metadataCache_ = metadataCache;
-  this.grid_ = util.createChild(content, 'thumbnail-grid', 'grid');
-  cr.ui.Grid.decorate(this.grid_);
-
-  this.grid_.dataModel = dataModel;
-  this.grid_.selectionModel = selectionModel;
-  this.grid_.itemConstructor =
-      GridMode.Item.bind(null, container.ownerDocument, metadataCache);
-
-  this.container_.ownerDocument.defaultView.addEventListener(
-      'resize', this.redraw_.bind(this));
-
-  this.openSelectedItem_ = openSelectedItem;
-  this.grid_.addEventListener('dblclick', this.openSelectedItem_);
-}
-
-/**
- * Enter the mode.
- * @param {function} opt_callback Callback.
- */
-GridMode.prototype.enter = function(opt_callback) {
-  this.container_.setAttribute('mode', 'grid');
-  this.redraw_();
-  if (opt_callback) opt_callback();
-};
-
-/**
- * Leave the mode.
- * @param {function} opt_callback Callback.
- */
-GridMode.prototype.leave = function(opt_callback) {
-  if (opt_callback) opt_callback();
-};
-
-/**
- * Redraw the grid.
- * @private
- */
-GridMode.prototype.redraw_ = function() {
-  this.grid_.startBatchUpdates();
-  setTimeout(function() {
-    this.grid_.columns = 0;
-    this.grid_.redraw();
-    this.grid_.endBatchUpdates();
-  }.bind(this), 0);
-};
-
-/**
- * @param {Gallery.Item} item The updated item.
- */
-GridMode.prototype.updateThumbnail = function(item) {
-  var listItems = this.grid_.querySelectorAll('li');
-  for (var i = 0; i != listItems.length; i++) {
-    GridMode.Item.updateThumbnail(listItems[i], this.metadataCache_, item);
-  }
-};
-
-/**
- * @param {Event} event Event.
- * @return {boolean} True if handled.
- */
-GridMode.prototype.onKeyDown = function(event) {
-  switch (util.getKeyModifiers(event) + event.keyIdentifier) {
-    case 'Enter':
-      this.openSelectedItem_();
-      return true;
-  }
-
-  return false;
-};
-
-/**
- * @return {boolean} Always true (no tools fading in the Grid mode).
- */
-GridMode.prototype.hasActiveTool = function() {
-  return true;
-};
-
-/**
- * @param {Document} document Document.
- * @param {MetadataCache} metadataCache Metadata cache.
- * @param {Gallery.Item} item Item.
- * @return {Element} Newly created grid item.
- * @constructor
- */
-GridMode.Item = function(document, metadataCache, item) {
-  var li = document.createElement('li');
-  li.__proto__ = GridMode.Item.prototype;
-  li.className = 'thumbnail-item';
-  li.item = item;
-
-  var box = util.createChild(li, 'img-container');
-
-  GridMode.Item.updateThumbnail(li, metadataCache, item);
-  return li;
-};
-
-/**
- * @param {Element} li Grid item.
- * @param {MetadataCache} metadataCache Metadata cache.
- * @param {Gallery.Item} item Gallery item.
- */
-GridMode.Item.updateThumbnail = function(li, metadataCache, item) {
-  if (item != li.item)
-    return;
-
-  var box = li.querySelector('.img-container');
-  var url = item.getUrl();
-  metadataCache.get(url, Gallery.METADATA_TYPE,
-      function(metadata) {
-        new ThumbnailLoader(url, metadata).load(box, false /* fit */);
-      });
-};
-
-GridMode.Item.prototype = {
-  __proto__: cr.ui.ListItem.prototype,
-  get label() {},
-  set label(value) {}
 };

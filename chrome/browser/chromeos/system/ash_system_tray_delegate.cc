@@ -38,7 +38,6 @@
 #include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/drive_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
-#include "chrome/browser/chromeos/gdata/operation_registry.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
 #include "chrome/browser/chromeos/input_method/xkeyboard.h"
@@ -54,6 +53,7 @@
 #include "chrome/browser/chromeos/status/network_menu_icon.h"
 #include "chrome/browser/chromeos/system/timezone_settings.h"
 #include "chrome/browser/chromeos/system_key_event_listener.h"
+#include "chrome/browser/google_apis/operation_registry.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -208,6 +208,9 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     registrar_.Add(this,
                    chrome::NOTIFICATION_PROFILE_CREATED,
                    content::NotificationService::AllSources());
+    registrar_.Add(this,
+                   chrome::NOTIFICATION_LOGIN_USER_PROFILE_PREPARED,
+                   content::NotificationService::AllSources());
 
     accessibility_enabled_.Init(prefs::kSpokenFeedbackEnabled,
                                 g_browser_process->local_state(), this);
@@ -237,14 +240,10 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     bluetooth_adapter_->RemoveObserver(this);
 
     // Stop observing gdata operations.
-    Profile* profile = ProfileManager::GetDefaultProfile();
-    if (gdata::util::IsGDataAvailable(profile)) {
-      DriveSystemService* system_service =
-          DriveSystemServiceFactory::FindForProfile(profile);
-      if (system_service) {
-        system_service->drive_service()->operation_registry()->
-            RemoveObserver(this);
-      }
+    DriveSystemService* system_service = FindDriveSystemService();
+    if (system_service) {
+      system_service->drive_service()->operation_registry()->
+          RemoveObserver(this);
     }
   }
 
@@ -320,6 +319,11 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
 
   virtual void ShowBluetoothSettings() OVERRIDE {
     // TODO(sad): Make this work.
+  }
+
+  virtual void ShowDisplaySettings() OVERRIDE {
+    content::RecordAction(content::UserMetricsAction("ShowDisplayOptions"));
+    chrome::ShowSettingsSubPage(GetAppropriateBrowser(), "display");
   }
 
   virtual void ShowDriveSettings() OVERRIDE {
@@ -441,12 +445,7 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
   }
 
   virtual void CancelDriveOperation(const FilePath& file_path) OVERRIDE {
-    Profile* profile = ProfileManager::GetDefaultProfile();
-    if (!gdata::util::IsGDataAvailable(profile))
-      return;
-
-    DriveSystemService* system_service =
-          DriveSystemServiceFactory::FindForProfile(profile);
+    DriveSystemService* system_service = FindDriveSystemService();
     if (!system_service)
       return;
 
@@ -456,12 +455,7 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
 
   virtual void GetDriveOperationStatusList(
       ash::DriveOperationStatusList* list) OVERRIDE {
-    Profile* profile = ProfileManager::GetDefaultProfile();
-    if (!gdata::util::IsGDataAvailable(profile))
-      return;
-
-    DriveSystemService* system_service =
-          DriveSystemServiceFactory::FindForProfile(profile);
+    DriveSystemService* system_service = FindDriveSystemService();
     if (!system_service)
       return;
 
@@ -724,15 +718,14 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     UpdateClockType(profile->GetPrefs());
     search_key_mapped_to_ =
         profile->GetPrefs()->GetInteger(prefs::kLanguageXkbRemapSearchKeyTo);
+  }
 
-    if (gdata::util::IsGDataAvailable(profile)) {
-      DriveSystemService* system_service =
-          DriveSystemServiceFactory::FindForProfile(profile);
-      if (!system_service)
-        return;
+  void ObserveGDataUpdates() {
+    DriveSystemService* system_service = FindDriveSystemService();
+    if (!system_service)
+      return;
 
-      system_service->drive_service()->operation_registry()->AddObserver(this);
-    }
+    system_service->drive_service()->operation_registry()->AddObserver(this);
   }
 
   void UpdateClockType(PrefService* service) {
@@ -1012,9 +1005,31 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
                        const content::NotificationDetails& details) OVERRIDE {
     switch (type) {
       case chrome::NOTIFICATION_UPGRADE_RECOMMENDED: {
+        UpgradeDetector* detector =
+            content::Source<UpgradeDetector>(source).ptr();
+        ash::UpdateObserver::UpdateSeverity severity =
+            ash::UpdateObserver::UPDATE_NORMAL;
+        switch (detector->upgrade_notification_stage()) {
+          case UpgradeDetector::UPGRADE_ANNOYANCE_SEVERE:
+            severity = ash::UpdateObserver::UPDATE_SEVERE_RED;
+            break;
+
+          case UpgradeDetector::UPGRADE_ANNOYANCE_HIGH:
+            severity = ash::UpdateObserver::UPDATE_HIGH_ORANGE;
+            break;
+
+          case UpgradeDetector::UPGRADE_ANNOYANCE_ELEVATED:
+            severity = ash::UpdateObserver::UPDATE_LOW_GREEN;
+            break;
+
+          case UpgradeDetector::UPGRADE_ANNOYANCE_LOW:
+          default:
+            severity = ash::UpdateObserver::UPDATE_NORMAL;
+            break;
+        }
         ash::UpdateObserver* observer = tray_->update_observer();
         if (observer)
-          observer->OnUpdateRecommended();
+          observer->OnUpdateRecommended(severity);
         break;
       }
       case chrome::NOTIFICATION_LOGIN_USER_IMAGE_CHANGED: {
@@ -1025,6 +1040,11 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
           if (observer)
             observer->OnUserUpdate();
         }
+        break;
+      }
+      case chrome::NOTIFICATION_LOGIN_USER_PROFILE_PREPARED: {
+        // GData system service exists by the time if enabled.
+        ObserveGDataUpdates();
         break;
       }
       case chrome::NOTIFICATION_PREF_CHANGED: {
@@ -1118,17 +1138,19 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
   // status in UI in cases when there are no new changes coming (i.e. when the
   // last set of transfer operations completed).
   void RecheckGDataOperations() {
-    Profile* profile = ProfileManager::GetDefaultProfile();
-    if (!gdata::util::IsGDataAvailable(profile))
-      return;
-
-    DriveSystemService* system_service =
-          DriveSystemServiceFactory::FindForProfile(profile);
+    DriveSystemService* system_service = FindDriveSystemService();
     if (!system_service)
       return;
 
     OnProgressUpdate(system_service->drive_service()->operation_registry()->
         GetProgressStatusList());
+  }
+
+  DriveSystemService* FindDriveSystemService() {
+    Profile* profile = ProfileManager::GetDefaultProfile();
+    if (!gdata::util::IsGDataAvailable(profile))
+      return NULL;
+    return DriveSystemServiceFactory::FindForProfile(profile);
   }
 
   // Overridden from system::TimezoneSettings::Observer.

@@ -31,7 +31,6 @@
 <link rel="stylesheet" href="../shared/css/expandable_bubble.css">
 <link rel="stylesheet" href="../shared/css/menu.css">
 <link rel="stylesheet" href="../shared/css/menu_button.css">
-<link rel="stylesheet" href="../shared/css/trash.css">
 <link rel="stylesheet" href="../shared/css/widgets.css">
 
 <link rel="stylesheet" href="../ntp4/apps_page.css">
@@ -39,7 +38,6 @@
 <link rel="stylesheet" href="nav_dot.css">
 <link rel="stylesheet" href="../ntp4/new_tab.css">
 <link rel="stylesheet" href="new_tab.css">
-<link rel="stylesheet" href="../ntp4/suggestions_page.css">
 <link rel="stylesheet" href="thumbnail_page.css">
 <link rel="stylesheet" href="tile_page.css">
 
@@ -74,17 +72,13 @@
 <script src="tile_page.js"></script>
 <script src="thumbnail_page.js"></script>
 <script src="most_visited_page.js"></script>
-<script src="../ntp4/trash.js"></script>
-<script src="page_list_view.js"></script>
-<script src="../ntp4/page_switcher.js"></script>
 <script src="nav_dot.js"></script>
 <script src="new_tab.js"></script>
 <script src="recently_closed_page.js"></script>
-<script src="../ntp4/other_sessions.js"></script>
+<script src="other_sessions_page.js"></script>
 </head>
 
-<body id="ntp5"
-      i18n-values=".style.fontFamily:fontfamily;.style.fontSize:fontsize">
+<body id="ntp5" i18n-values=".style.fontSize:fontsize">
   <button id="login-container" class="custom-appearance" hidden>
     <div id="login-status-header-container" class="login-status-row">
       <div id="login-status-header"></div>
@@ -105,46 +99,13 @@
     <div id="page-list-menu">
       <ul id="dot-list"></ul>
     </div>
-    <button id="page-switcher-start" class="page-switcher custom-appearance"
-        tabindex="2" hidden>‹
-    </button>
     <div id="page-list"></div>
-    <button id="page-switcher-end" class="page-switcher custom-appearance"
-        tabindex="2" hidden>›
-    </button>
     <div id="attribution">
       <span i18n-content="attributionintro"></span>
       <img id="attribution-img">
     </div>
   </div>
 
-  <div id="footer">
-    <div id="footer-border"></div>
-    <div id="footer-content">
-      <img id="logo-img" src="chrome://theme/IDR_PRODUCT_LOGO">
-
-      <div class="menu-container">
-        <button id="other-sessions-menu-button"
-            class="footer-menu-button custom-appearance invisible">
-          <span i18n-content="otherSessions"></span>
-          <div class="disclosure-triangle"></div>
-        </button>
-
-        <div id="vertical-separator"></div>
-      </div>
-
-      <a id="chrome-web-store-link">
-        <span id="chrome-web-store-title" i18n-content="webStoreTitleShort">
-        </span>
-      </a>
-
-      <div id="trash" class="trash">
-        <span class="lid"></span>
-        <span class="can"></span>
-        <span class="trash-text" i18n-content="appuninstall"></span>
-      </div>
-    </div>
-  </div>
 </body>
 
 <!-- A div to hold all the templates, and in the darkness bind them. -->
@@ -189,16 +150,6 @@
     </div>
   </div>
   <span class="title"></span>
-</div>
-
-<!-- Message shown in the other sessions menu when the user is signed in but
-     there is no session data (e.g. they have tab sync turned off). -->
-<div id="other-sessions-promo-template" class="other-sessions-promo-message">
-  <span i18n-content="otherSessionsEmpty"></span>
-  <p>
-    <a i18n-values="href:otherSessionsLearnMoreUrl" i18n-content="learnMore">
-    </a>
-  </p>
 </div>
 
 </div>

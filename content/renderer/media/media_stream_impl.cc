@@ -20,7 +20,6 @@
 #include "content/renderer/media/media_stream_dispatcher.h"
 #include "content/renderer/media/peer_connection_handler_jsep.h"
 #include "content/renderer/media/video_capture_impl_manager.h"
-#include "content/renderer/media/video_capture_module_impl.h"
 #include "content/renderer/media/webrtc_audio_device_impl.h"
 #include "content/renderer/p2p/ipc_network_manager.h"
 #include "content/renderer/p2p/ipc_socket_factory.h"
@@ -56,6 +55,26 @@ static void UpdateWebRTCMethodCount(JavaScriptAPIName api_name) {
 
 static int g_next_request_id  = 0;
 
+// MediaStreamSourceExtraData contains data stored in the
+// WebKit::WebMediaStreamSource extra data field.
+class MediaStreamSourceExtraData
+    : public WebKit::WebMediaStreamSource::ExtraData {
+ public:
+  explicit MediaStreamSourceExtraData(
+      const media_stream::StreamDeviceInfo& device_info)
+      : device_info_(device_info) {
+  }
+  // Return device information about the camera or microphone.
+  const media_stream::StreamDeviceInfo& device_info() const {
+    return device_info_;
+  }
+
+ private:
+  media_stream::StreamDeviceInfo device_info_;
+};
+
+// Creates a WebKit representation of a stream sources based on
+// |devices| from the MediaStreamDispatcher.
 static void CreateWebKitSourceVector(
     const std::string& label,
     const media_stream::StreamDeviceInfoArray& devices,
@@ -69,6 +88,8 @@ static void CreateWebKitSourceVector(
           UTF8ToUTF16(source_id),
           type,
           UTF8ToUTF16(devices[i].name));
+    webkit_sources[i].setExtraData(
+        new MediaStreamSourceExtraData(devices[i]));
   }
 }
 
@@ -128,9 +149,11 @@ void MediaStreamImpl::CreateMediaStream(
     WebKit::WebFrame* frame,
     WebKit::WebMediaStreamDescriptor* stream) {
   DVLOG(1) << "MediaStreamImpl::CreateMediaStream";
-  // TODO(perkj): Need to find the source from all existing local and
-  // remote MediaStreams.
-  NOTIMPLEMENTED();
+
+  if (!CreateNativeLocalMediaStream(stream)) {
+    DVLOG(1) << "Failed to create native stream in CreateMediaStream.";
+    return;
+  }
 }
 
 void MediaStreamImpl::requestUserMedia(
@@ -250,22 +273,19 @@ void MediaStreamImpl::OnStreamGenerated(
     return;
   }
 
-  LocalNativeStreamPtr native_stream(CreateNativeLocalMediaStream(
-      label, it->second.frame_, audio_source_vector, video_source_vector));
-  if (!native_stream.get()) {
+  WebKit::WebString webkit_label = UTF8ToUTF16(label);
+  WebKit::WebMediaStreamDescriptor description;
+  description.initialize(webkit_label, audio_source_vector,
+                         video_source_vector);
+
+  if (!CreateNativeLocalMediaStream(&description)) {
     DVLOG(1) << "Failed to create native stream in OnStreamGenerated.";
     media_stream_dispatcher_->StopStream(label);
     it->second.request_.requestFailed();
     user_media_requests_.erase(it);
     return;
   }
-
-  WebKit::WebString webkit_label = UTF8ToUTF16(label);
-  WebKit::WebMediaStreamDescriptor description;
-  description.initialize(webkit_label, audio_source_vector,
-                         video_source_vector);
-  description.setExtraData(new MediaStreamExtraData(native_stream));
-
+  local_media_streams_[label] = it->second.frame_;
   CompleteGetUserMediaRequest(description, &it->second.request_);
   user_media_requests_.erase(it);
 }
@@ -364,10 +384,6 @@ void MediaStreamImpl::FrameWillClose(WebKit::WebFrame* frame) {
   }
 }
 
-void MediaStreamImpl::OnSocketDispatcherDestroyed() {
-  CleanupPeerConnectionFactory();
-}
-
 void MediaStreamImpl::InitializeWorkerThread(talk_base::Thread** thread,
                                              base::WaitableEvent* event) {
   jingle_glue::JingleThreadWrapper::EnsureForCurrentMessageLoop();
@@ -422,7 +438,6 @@ bool MediaStreamImpl::EnsurePeerConnectionFactory() {
           base::Unretained(this),
           &event));
     event.Wait();
-    p2p_socket_dispatcher_->AddDestructionObserver(this);
   }
 
   if (!socket_factory_.get()) {
@@ -462,7 +477,6 @@ void MediaStreamImpl::CleanupPeerConnectionFactory() {
     } else {
       NOTREACHED() << "Worker thread not running.";
     }
-    p2p_socket_dispatcher_->RemoveDestructionObserver(this);
   }
 }
 
@@ -487,7 +501,7 @@ scoped_refptr<media::VideoDecoder> MediaStreamImpl::CreateLocalVideoDecoder(
 
   return new CaptureVideoDecoder(
       message_loop_factory->GetMessageLoop(
-          media::MessageLoopFactory::kVideoDecoder),
+          media::MessageLoopFactory::kDecoder),
       video_session_id,
       vc_manager_.get(),
       capability);
@@ -503,53 +517,75 @@ scoped_refptr<media::VideoDecoder> MediaStreamImpl::CreateRemoteVideoDecoder(
            << stream->label();
 
   return new RTCVideoDecoder(
-      message_loop_factory->GetMessageLoop(
-          media::MessageLoopFactory::kVideoDecoder),
+      message_loop_factory->GetMessageLoop(media::MessageLoopFactory::kDecoder),
       base::MessageLoopProxy::current(),
       stream->video_tracks()->at(0));
 }
 
-talk_base::scoped_refptr<webrtc::LocalMediaStreamInterface>
-MediaStreamImpl::CreateNativeLocalMediaStream(
-    const std::string& label,
-    WebKit::WebFrame* frame,
-    const WebKit::WebVector<WebKit::WebMediaStreamSource>& audio_sources,
-    const WebKit::WebVector<WebKit::WebMediaStreamSource>& video_sources) {
+bool MediaStreamImpl::CreateNativeLocalMediaStream(
+    WebKit::WebMediaStreamDescriptor* description) {
   // Creating the peer connection factory can fail if for example the audio
   // (input or output) or video device cannot be opened. Handling such cases
   // better is a higher level design discussion which involves the media
   // manager, webrtc and libjingle. We cannot create any native
   // track objects however, so we'll just have to skip that. Furthermore,
   // creating a peer connection later on will fail if we don't have a factory.
-  if (!EnsurePeerConnectionFactory()) {
-    return NULL;
-  }
+  if (!EnsurePeerConnectionFactory())
+    return false;
 
+  std::string label = UTF16ToUTF8(description->label());
   LocalNativeStreamPtr native_stream =
       dependency_factory_->CreateLocalMediaStream(label);
 
   // Add audio tracks.
-  for (size_t i = 0; i < audio_sources.size(); ++i) {
+  WebKit::WebVector<WebKit::WebMediaStreamComponent> audio_components;
+  description->audioSources(audio_components);
+  for (size_t i = 0; i < audio_components.size(); ++i) {
+    const WebKit::WebMediaStreamSource& source = audio_components[i].source();
+    MediaStreamSourceExtraData* source_data =
+        static_cast<MediaStreamSourceExtraData*>(source.extraData());
+    if (!source_data) {
+      // TODO(perkj): Implement support for sources from remote MediaStreams.
+      NOTIMPLEMENTED();
+      continue;
+    }
+    // TODO(perkj): Refactor the creation of audio tracks to use a proper
+    // interface for receiving audio input data. Currently NULL is passed since
+    // the |audio_device| is the wrong class and is unused.
     talk_base::scoped_refptr<webrtc::LocalAudioTrackInterface> audio_track(
         dependency_factory_->CreateLocalAudioTrack(
-            UTF16ToUTF8(audio_sources[i].id()), NULL));
+            UTF16ToUTF8(source.id()), NULL));
     native_stream->AddTrack(audio_track);
+    audio_track->set_enabled(audio_components[i].isEnabled());
+    // TODO(xians): This set the source of all audio tracks to the same
+    // microphone. Implement support for setting the source per audio track
+    // instead.
+    dependency_factory_->SetAudioDeviceSessionId(
+        source_data->device_info().session_id);
   }
 
   // Add video tracks.
-  for (size_t i = 0; i < video_sources.size(); ++i) {
-    if (!media_stream_dispatcher_->IsStream(label)) {
+  WebKit::WebVector<WebKit::WebMediaStreamComponent> video_components;
+  description->videoSources(video_components);
+  for (size_t i = 0; i < video_components.size(); ++i) {
+    const WebKit::WebMediaStreamSource& source = video_components[i].source();
+    MediaStreamSourceExtraData* source_data =
+        static_cast<MediaStreamSourceExtraData*>(source.extraData());
+    if (!source_data) {
+      // TODO(perkj): Implement support for sources from remote MediaStreams.
+      NOTIMPLEMENTED();
       continue;
     }
-    int video_session_id =
-        media_stream_dispatcher_->video_session_id(label, 0);
     talk_base::scoped_refptr<webrtc::LocalVideoTrackInterface> video_track(
         dependency_factory_->CreateLocalVideoTrack(
-            UTF16ToUTF8(video_sources[i].id()), video_session_id));
+            UTF16ToUTF8(source.id()), source_data->device_info().session_id));
     native_stream->AddTrack(video_track);
+    video_track->set_enabled(video_components[i].isEnabled());
   }
-  local_media_streams_[label] = frame;
-  return native_stream;
+
+  description->setExtraData(new MediaStreamExtraData(native_stream));
+
+  return true;
 }
 
 MediaStreamExtraData::MediaStreamExtraData(

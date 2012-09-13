@@ -10,6 +10,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/ui/search/search_model_observer.h"
 #include "ui/compositor/layer_animation_observer.h"
+#include "ui/gfx/rect.h"
 
 class ContentsContainer;
 class LocationBarContainer;
@@ -78,6 +79,12 @@ class SearchViewController
   // chrome::search::SearchModelObserver overrides:
   virtual void ModeChanged(const chrome::search::Mode& old_mode,
                            const chrome::search::Mode& new_mode) OVERRIDE;
+
+  // Get the bounds of the omnibox, relative to |destination| when in NTP mode.
+  // Returns empty bounds if not in NTP mode.  Coordinates are converted from
+  // |ntp_container_| relative to |destination| relative.
+  gfx::Rect GetNTPOmniboxBounds(views::View* destination);
+
  protected:
   // ui::ImplicitAnimationObserver overrides:
   virtual void OnImplicitAnimationsCompleted() OVERRIDE;
@@ -86,6 +93,9 @@ class SearchViewController
   enum State {
     // Search/ntp is not visible.
     STATE_NOT_VISIBLE,
+
+    // Layout for the new tab page prior to web contents section being rendered.
+    STATE_NTP_LOADING,
 
     // Layout for the new tab page.
     STATE_NTP,
@@ -96,6 +106,9 @@ class SearchViewController
     // Search layout. This is only used when the suggestions UI is visible.
     STATE_SUGGESTIONS,
   };
+
+  // Either NTP is loading or NTP is loaded.
+  static bool is_ntp_state(State state);
 
   // Invokes SetState() based on the search model and omnibox.
   void UpdateState();
@@ -111,6 +124,9 @@ class SearchViewController
   // Starts the animation.
   void StartAnimation();
 
+  // Stops the animation.
+  void StopAnimation();
+
   // Create the various views and installs them as an overlay on
   // |contents_container_|.  |state| is used to determine visual style
   // of the created views.
@@ -124,6 +140,9 @@ class SearchViewController
 
   // Invoked when the visibility of the omnibox popup changes.
   void PopupVisibilityChanged();
+
+  // Hide the overlay, when suggestions are showing and Instant is enabled.
+  void MaybeHideOverlay();
 
   // Access active search model.
   chrome::search::SearchModel* search_model();
@@ -196,7 +215,7 @@ class SearchViewController
   scoped_ptr<views::Label> default_provider_name_;
 
   // An alias to |contents_container_->active()|, but reparented within
-  // |ntp_view_| when in the NTP state.
+  // |ntp_container_| when in the NTP state.
   views::WebView* content_view_;
 
   // Container provided to clients to host the omnibox popup view.

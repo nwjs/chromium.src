@@ -16,6 +16,7 @@
 #include "base/timer.h"
 #include "chromeos/dbus/power_state_control.pb.h"
 #include "chromeos/dbus/power_supply_properties.pb.h"
+#include "chromeos/dbus/video_activity_update.pb.h"
 #include "dbus/bus.h"
 #include "dbus/message.h"
 #include "dbus/object_path.h"
@@ -225,12 +226,18 @@ class PowerManagerClientImpl : public PowerManagerClient {
   }
 
   virtual void NotifyVideoActivity(
-      const base::TimeTicks& last_activity_time) OVERRIDE {
+      const base::TimeTicks& last_activity_time,
+      bool is_fullscreen) OVERRIDE {
     dbus::MethodCall method_call(
         power_manager::kPowerManagerInterface,
         power_manager::kHandleVideoActivityMethod);
     dbus::MessageWriter writer(&method_call);
-    writer.AppendInt64(last_activity_time.ToInternalValue());
+
+    VideoActivityUpdate protobuf;
+    protobuf.set_last_activity_time(last_activity_time.ToInternalValue());
+    protobuf.set_is_fullscreen(is_fullscreen);
+
+    writer.AppendProtoAsArrayOfBytes(protobuf);
     power_manager_proxy_->CallMethod(
         &method_call,
         dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
@@ -272,14 +279,6 @@ class PowerManagerClientImpl : public PowerManagerClient {
         &method_call,
         dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
         dbus::ObjectProxy::EmptyResponseCallback());
-  }
-
-  virtual void NotifyScreenLockCompleted() OVERRIDE {
-    SimpleMethodCallToPowerManager(power_manager::kScreenIsLockedMethod);
-  }
-
-  virtual void NotifyScreenUnlockCompleted() OVERRIDE {
-    SimpleMethodCallToPowerManager(power_manager::kScreenIsUnlockedMethod);
   }
 
  private:
@@ -500,6 +499,9 @@ class PowerManagerClientImpl : public PowerManagerClient {
   dbus::ObjectProxy* power_manager_proxy_;
   dbus::ObjectProxy* session_manager_proxy_;
   ObserverList<Observer> observers_;
+
+  // Note: This should remain the last member so it'll be destroyed and
+  // invalidate its weak pointers before any other members are destroyed.
   base::WeakPtrFactory<PowerManagerClientImpl> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(PowerManagerClientImpl);
@@ -590,16 +592,14 @@ class PowerManagerClientStubImpl : public PowerManagerClient {
   virtual void NotifyUserActivity(
       const base::TimeTicks& last_activity_time) OVERRIDE {}
   virtual void NotifyVideoActivity(
-      const base::TimeTicks& last_activity_time) OVERRIDE {}
+      const base::TimeTicks& last_activity_time,
+      bool is_fullscreen) OVERRIDE {}
   virtual void RequestPowerStateOverrides(
       uint32 request_id,
       uint32 duration,
       int overrides,
       const PowerStateRequestIdCallback& callback) OVERRIDE {}
   virtual void SetIsProjecting(bool is_projecting) OVERRIDE {}
-
-  virtual void NotifyScreenLockCompleted() OVERRIDE {}
-  virtual void NotifyScreenUnlockCompleted() OVERRIDE {}
 
  private:
   void Update() {

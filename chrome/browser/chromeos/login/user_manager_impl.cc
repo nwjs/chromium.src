@@ -45,12 +45,12 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/net/gaia/google_service_auth_error.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/cryptohome/async_method_caller.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/url_constants.h"
+#include "google_apis/gaia/google_service_auth_error.h"
 #include "skia/ext/image_operations.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/png_codec.h"
@@ -1303,9 +1303,9 @@ void UserManagerImpl::RemoveUserFromListInternal(const std::string& email) {
                                                kUserWallpapersProperties);
   prefs_wallpapers_update->RemoveWithoutPathExpansion(email, NULL);
 
-  bool new_wallpaper_ui_enabled = CommandLine::ForCurrentProcess()->
-      HasSwitch(switches::kEnableNewWallpaperUI);
-  if (new_wallpaper_ui_enabled) {
+  bool new_wallpaper_ui_disabled = CommandLine::ForCurrentProcess()->
+      HasSwitch(switches::kDisableNewWallpaperUI);
+  if (!new_wallpaper_ui_disabled) {
     DictionaryPrefUpdate prefs_wallpapers_info_update(prefs,
         prefs::kUsersWallpaperInfo);
     prefs_wallpapers_info_update->RemoveWithoutPathExpansion(email, NULL);

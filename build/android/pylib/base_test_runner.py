@@ -22,8 +22,7 @@ from valgrind_tools import CreateTool
 
 # A file on device to store ports of net test server. The format of the file is
 # test-spawner-server-port:test-server-port
-NET_TEST_SERVER_PORT_INFO_FILE = \
-  constants.TEST_DATA_DIR + '/net-test-server-ports'
+NET_TEST_SERVER_PORT_INFO_FILE = 'net-test-server-ports'
 
 
 class BaseTestRunner(object):
@@ -43,11 +42,6 @@ class BaseTestRunner(object):
     self.device = device
     self.adb = android_commands.AndroidCommands(device=device)
     self.tool = CreateTool(tool, self.adb)
-    # Synchronize date/time between host and device. Otherwise same file on
-    # host and device may have different timestamp which may cause
-    # AndroidCommands.PushIfNeeded failed, or a test which may compare timestamp
-    # got from http head and local time could be failed.
-    self.adb.SynchronizeDateTime()
     self._http_server = None
     self._forwarder = None
     self._forwarder_device_port = 8000
@@ -67,7 +61,8 @@ class BaseTestRunner(object):
 
   def _PushTestServerPortInfoToDevice(self):
     """Pushes the latest port information to device."""
-    self.adb.SetFileContents(NET_TEST_SERVER_PORT_INFO_FILE,
+    self.adb.SetFileContents(self.adb.GetExternalStorage() + '/' +
+                             NET_TEST_SERVER_PORT_INFO_FILE,
                              '%d:%d' % (self.test_server_spawner_port,
                                         self.test_server_port))
 
@@ -114,29 +109,6 @@ class BaseTestRunner(object):
       self.adb.PushIfNeeded(
           os.path.join(constants.CHROME_DIR, p),
           os.path.join(dest_dir, p))
-
-  def LinkSdCardPathsToTempDir(self, paths):
-    """Link |paths| which are under sdcard to constants.TEST_DATA_DIR.
-
-    For example, the test data '/sdcard/my_data' will be linked to
-    'TEST_DATA_DIR/my_data'.
-
-    Args:
-      paths: A list of files and directories relative to /sdcard.
-    """
-    links = set()
-    for path in paths:
-      link_name = os.path.dirname(path)
-      assert link_name, 'Linked paths must be in a subdir of /sdcard/.'
-      link_name = link_name.split('/')[0]
-      if link_name not in links:
-        mapped_device_path = constants.TEST_DATA_DIR + '/' + link_name
-        # Unlink the mapped_device_path at first in case it was mapped to
-        # a wrong path. Add option '-r' becuase the old path could be a dir.
-        self.adb.RunShellCommand('rm -r %s' %  mapped_device_path)
-        self.adb.RunShellCommand(
-            'ln -s /sdcard/%s %s' % (link_name, mapped_device_path))
-        links.add(link_name)
 
   def LaunchTestHttpServer(self, document_root, port=None,
                            extra_config_contents=None):

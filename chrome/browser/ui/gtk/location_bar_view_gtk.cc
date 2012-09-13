@@ -390,6 +390,7 @@ LocationBarViewGtk::LocationBarViewGtk(Browser* browser)
     : zoom_image_(NULL),
       star_image_(NULL),
       starred_(false),
+      star_sized_(false),
       site_type_alignment_(NULL),
       site_type_event_box_(NULL),
       location_icon_image_(NULL),
@@ -542,7 +543,7 @@ void LocationBarViewGtk::Init(bool popup_window_mode) {
   // doesn't work, someone is probably calling show_all on our parent box.
   gtk_box_pack_end(GTK_BOX(entry_box_), tab_to_search_hint_, FALSE, FALSE, 0);
 
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableActionBox)) {
+  if (extensions::switch_utils::IsActionBoxEnabled()) {
     // TODO(mpcomplete): should we hide this if ShouldOnlyShowLocation()==true?
     action_box_button_.reset(new ActionBoxButtonGtk(browser_));
 
@@ -557,7 +558,9 @@ void LocationBarViewGtk::Init(bool popup_window_mode) {
 
     gtk_box_pack_end(GTK_BOX(hbox_.get()), alignment,
                      FALSE, FALSE, 0);
-  } else if (browser_defaults::bookmarks_enabled && !ShouldOnlyShowLocation()) {
+  }
+
+  if (browser_defaults::bookmarks_enabled && !ShouldOnlyShowLocation()) {
     // Hide the star icon in popups, app windows, etc.
     CreateStarButton();
     gtk_box_pack_end(GTK_BOX(hbox_.get()), star_.get(), FALSE, FALSE, 0);
@@ -722,6 +725,7 @@ GtkWidget* LocationBarViewGtk::GetPageActionWidget(
 void LocationBarViewGtk::Update(const WebContents* contents) {
   UpdateZoomIcon();
   UpdateStarIcon();
+  UpdateChromeToMobileState();
   UpdateSiteTypeArea();
   UpdateContentSettingsIcons();
   UpdatePageActions();
@@ -842,6 +846,10 @@ void LocationBarViewGtk::CreateStarButton() {
                              VIEW_ID_STAR_BUTTON,
                              IDS_TOOLTIP_STAR,
                              OnStarButtonPressThunk));
+  // We need to track when the star button is resized to show any bubble
+  // attached to it at this time.
+  g_signal_connect(star_image_, "size-allocate",
+                   G_CALLBACK(&OnStarButtonSizeAllocateThunk), this);
 }
 
 void LocationBarViewGtk::OnInputInProgress(bool in_progress) {
@@ -948,10 +956,11 @@ void LocationBarViewGtk::UpdateContentSettingsIcons() {
 void LocationBarViewGtk::UpdatePageActions() {
   std::vector<ExtensionAction*> new_page_actions;
 
-  TabContents* tab_contents = GetTabContents();
-  if (tab_contents) {
+  WebContents* contents = GetWebContents();
+  if (contents) {
     LocationBarController* location_bar_controller =
-        tab_contents->extension_tab_helper()->location_bar_controller();
+        extensions::TabHelper::FromWebContents(contents)->
+            location_bar_controller();
     new_page_actions = location_bar_controller->GetCurrentActions();
   }
 
@@ -973,7 +982,6 @@ void LocationBarViewGtk::UpdatePageActions() {
         content::NotificationService::NoDetails());
   }
 
-  WebContents* contents = GetWebContents();
   if (!page_action_views_.empty() && contents) {
     GURL url = chrome::GetActiveWebContents(browser())->GetURL();
 
@@ -1074,9 +1082,8 @@ void LocationBarViewGtk::Observe(int type,
   switch (type) {
     case chrome::NOTIFICATION_EXTENSION_LOCATION_BAR_UPDATED: {
       // Only update if the updated action box was for the active tab contents.
-      TabContents* target_tab =
-          content::Details<TabContents>(details).ptr();
-      if (target_tab == GetTabContents())
+      WebContents* target_tab = content::Details<WebContents>(details).ptr();
+      if (target_tab == GetTabContents()->web_contents())
         UpdatePageActions();
       break;
     }
@@ -1459,6 +1466,15 @@ gboolean LocationBarViewGtk::OnZoomButtonPress(GtkWidget* widget,
   return FALSE;
 }
 
+void LocationBarViewGtk::OnStarButtonSizeAllocate(GtkWidget* sender,
+                                                  GtkAllocation* allocation) {
+  if (!on_star_sized_.is_null()) {
+    on_star_sized_.Run();
+    on_star_sized_.Reset();
+  }
+  star_sized_ = true;
+}
+
 gboolean LocationBarViewGtk::OnStarButtonPress(GtkWidget* widget,
                                                GdkEventButton* event) {
   if (event->button == 1) {
@@ -1480,14 +1496,18 @@ void LocationBarViewGtk::ShowStarBubble(const GURL& url,
   if (!star_.get())
     return;
 
-  BookmarkBubbleGtk::Show(star_.get(), browser_->profile(), url,
-                          newly_bookmarked);
+  if (star_sized_) {
+    BookmarkBubbleGtk::Show(star_.get(), browser_->profile(), url,
+                            newly_bookmarked);
+  } else {
+    on_star_sized_ = base::Bind(&BookmarkBubbleGtk::Show,
+                                star_.get(), browser_->profile(),
+                                url, newly_bookmarked);
+  }
 }
 
 void LocationBarViewGtk::ShowChromeToMobileBubble() {
-  // TODO(msw): Chrome to Mobile is currently disabled on GTK.
-  // ChromeToMobileBubbleGtk::Show(GTK_WIDGET(action_box_button_->widget()),
-  //                               browser_);
+  ChromeToMobileBubbleGtk::Show(action_box_button_->widget(), browser_);
 }
 
 void LocationBarViewGtk::SetStarred(bool starred) {
@@ -1532,18 +1552,30 @@ void LocationBarViewGtk::UpdateZoomIcon() {
 void LocationBarViewGtk::UpdateStarIcon() {
   if (!star_.get())
     return;
+  // Indicate the star icon is not correctly sized. It will be marked as sized
+  // when the next size-allocate signal is received by the star widget.
+  star_sized_ = false;
   bool star_enabled = !toolbar_model_->input_in_progress() &&
                       edit_bookmarks_enabled_.GetValue();
   command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, star_enabled);
+  if (extensions::switch_utils::IsActionBoxEnabled() && !starred_) {
+    star_enabled = false;
+  }
   if (star_enabled) {
     gtk_widget_show_all(star_.get());
     int id = starred_ ? IDR_STAR_LIT : IDR_STAR;
-    gtk_image_set_from_pixbuf(
-        GTK_IMAGE(star_image_),
-        theme_service_->GetImageNamed(id)->ToGdkPixbuf());
+    gtk_image_set_from_pixbuf(GTK_IMAGE(star_image_),
+                              theme_service_->GetImageNamed(id)->ToGdkPixbuf());
   } else {
     gtk_widget_hide_all(star_.get());
   }
+}
+
+void LocationBarViewGtk::UpdateChromeToMobileState() {
+  ChromeToMobileService* service =
+      ChromeToMobileServiceFactory::GetForProfile(browser()->profile());
+  command_updater_->UpdateCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE,
+      !toolbar_model_->input_in_progress() && service && service->HasMobiles());
 }
 
 bool LocationBarViewGtk::ShouldOnlyShowLocation() {
@@ -1761,7 +1793,7 @@ LocationBarViewGtk::PageActionViewGtk::PageActionViewGtk(
       preview_enabled_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(scoped_icon_animation_observer_(
           page_action->GetIconAnimation(
-              SessionID::IdForTab(owner->GetTabContents())),
+              SessionID::IdForTab(owner->GetTabContents()->web_contents())),
           this)) {
   event_box_.Own(gtk_event_box_new());
   gtk_widget_set_size_request(event_box_.get(),
@@ -1958,8 +1990,7 @@ void LocationBarViewGtk::PageActionViewGtk::ConnectPageActionAccelerator() {
   }
 }
 
-void LocationBarViewGtk::PageActionViewGtk::OnIconChanged(
-    const ExtensionAction::IconAnimation& animation) {
+void LocationBarViewGtk::PageActionViewGtk::OnIconChanged() {
   UpdateVisibility(owner_->GetWebContents(), current_url_);
 }
 
@@ -2005,7 +2036,8 @@ gboolean LocationBarViewGtk::PageActionViewGtk::OnButtonPressed(
     return TRUE;
 
   LocationBarController* controller =
-      tab_contents->extension_tab_helper()->location_bar_controller();
+      extensions::TabHelper::FromWebContents(tab_contents->web_contents())->
+          location_bar_controller();
 
   switch (controller->OnClicked(extension->id(), event->button)) {
     case LocationBarController::ACTION_NONE:

@@ -26,7 +26,6 @@ PassOwnPtr<CCProxy> CCSingleThreadProxy::create(CCLayerTreeHost* layerTreeHost)
 CCSingleThreadProxy::CCSingleThreadProxy(CCLayerTreeHost* layerTreeHost)
     : m_layerTreeHost(layerTreeHost)
     , m_contextLost(false)
-    , m_compositorIdentifier(-1)
     , m_rendererInitialized(false)
     , m_nextFrameIsNewlyCommittedFrame(false)
 {
@@ -135,6 +134,7 @@ bool CCSingleThreadProxy::recreateContext()
 
     bool initialized;
     {
+        DebugScopedSetMainThreadBlocked mainThreadBlocked;
         DebugScopedSetImplThread impl;
         if (!m_layerTreeHostImpl->contentsTexturesPurged())
             m_layerTreeHost->deleteContentsTexturesOnImplThread(m_layerTreeHostImpl->resourceProvider());
@@ -277,12 +277,14 @@ bool CCSingleThreadProxy::commitAndComposite()
 {
     ASSERT(CCProxy::isMainThread());
 
-
     if (!m_layerTreeHost->initializeRendererIfNeeded())
         return false;
 
-    if (m_layerTreeHostImpl->contentsTexturesPurged())
-        m_layerTreeHost->evictAllContentTextures();
+    if (m_layerTreeHostImpl->contentsTexturesPurged()) {
+        m_layerTreeHost->unlinkAllContentTextures();
+        DebugScopedSetImplThreadAndMainThreadBlocked implAndMainBlocked;
+        m_layerTreeHost->deleteUnlinkedTextures();
+    }
 
     CCTextureUpdateQueue queue;
     m_layerTreeHost->updateLayers(queue, m_layerTreeHostImpl->memoryAllocationLimitBytes());

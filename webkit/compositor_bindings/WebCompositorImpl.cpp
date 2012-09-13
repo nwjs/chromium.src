@@ -13,6 +13,14 @@
 #include <public/Platform.h>
 #include <wtf/ThreadingPrimitives.h>
 
+#if defined(USE_LIBCC_FOR_COMPOSITOR)
+#ifdef LOG
+#undef LOG
+#endif
+#include "base/message_loop_proxy.h"
+#include "webkit/glue/webthread_impl.h"
+#endif
+
 using namespace WebCore;
 
 namespace WebKit {
@@ -26,9 +34,9 @@ void WebCompositor::initialize(WebThread* implThread)
     WebCompositorImpl::initialize(implThread);
 }
 
-bool WebCompositor::threadingEnabled()
+bool WebCompositor::isThreadingEnabled()
 {
-    return WebCompositorImpl::threadingEnabled();
+    return WebCompositorImpl::isThreadingEnabled();
 }
 
 void WebCompositor::shutdown()
@@ -60,16 +68,16 @@ void WebCompositorImpl::initialize(WebThread* implThread)
     ASSERT(!s_initialized);
     s_initialized = true;
 
-    s_mainThread = CCThreadImpl::create(WebKit::Platform::current()->currentThread()).leakPtr();
+    s_mainThread = CCThreadImpl::createForCurrentThread().leakPtr();
     CCProxy::setMainThread(s_mainThread);
     if (implThread) {
-        s_implThread = CCThreadImpl::create(implThread).leakPtr();
+        s_implThread = CCThreadImpl::createForDifferentThread(implThread).leakPtr();
         CCProxy::setImplThread(s_implThread);
     } else
         CCProxy::setImplThread(0);
 }
 
-bool WebCompositorImpl::threadingEnabled()
+bool WebCompositorImpl::isThreadingEnabled()
 {
     return s_implThread;
 }

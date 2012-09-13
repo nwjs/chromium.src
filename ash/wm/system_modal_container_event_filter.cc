@@ -5,7 +5,7 @@
 #include "ash/wm/system_modal_container_event_filter.h"
 
 #include "ash/wm/system_modal_container_event_filter_delegate.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 
 namespace ash {
 namespace internal {
@@ -37,11 +37,11 @@ ui::TouchStatus SystemModalContainerEventFilter::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus SystemModalContainerEventFilter::PreHandleGestureEvent(
+ui::EventResult SystemModalContainerEventFilter::PreHandleGestureEvent(
     aura::Window* target,
     ui::GestureEvent* event) {
   // TODO(sad):
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 }  // namespace internal

@@ -12,7 +12,7 @@
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/ui_base_types.h"
 
 namespace ash {
@@ -91,11 +91,11 @@ ui::TouchStatus WindowModalityController::PreHandleTouchEvent(
                                               ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus WindowModalityController::PreHandleGestureEvent(
+ui::EventResult WindowModalityController::PreHandleGestureEvent(
     aura::Window* target,
     ui::GestureEvent* event) {
   // TODO: make gestures work with modals.
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 void WindowModalityController::OnWindowInitialized(aura::Window* window) {

@@ -118,13 +118,10 @@ class WorkspaceManager2Test : public test::AshTestBase {
 
   // Overridden from AshTestBase:
   virtual void SetUp() OVERRIDE {
-    CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kAshEnableWorkspace2);
     test::AshTestBase::SetUp();
     WorkspaceControllerTestHelper workspace_helper(
         Shell::TestApi(Shell::GetInstance()).workspace_controller());
     manager_ = workspace_helper.workspace_manager2();
-    manager_->SetGridSize(0);
   }
 
   virtual void TearDown() OVERRIDE {
@@ -315,8 +312,6 @@ TEST_F(WorkspaceManager2Test, ChangeBoundsOfNormalWindow) {
 
 // Verifies the bounds is not altered when showing and grid is enabled.
 TEST_F(WorkspaceManager2Test, SnapToGrid) {
-  manager_->SetGridSize(8);
-
   scoped_ptr<Window> w1(CreateTestWindowUnparented());
   w1->SetBounds(gfx::Rect(1, 6, 25, 30));
   w1->SetParent(NULL);
@@ -468,6 +463,13 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
   w1->SetBounds(touches_shelf_bounds);
   EXPECT_FALSE(GetWindowOverlapsShelf());
 
+  // A visible ignored window should not trigger the overlap.
+  scoped_ptr<Window> w_ignored(CreateTestWindow());
+  w_ignored->SetBounds(touches_shelf_bounds);
+  SetIgnoredByShelf(&(*w_ignored), true);
+  w_ignored->Show();
+  EXPECT_FALSE(GetWindowOverlapsShelf());
+
   // Make it visible, since visible shelf overlaps should be true.
   w1->Show();
   EXPECT_TRUE(GetWindowOverlapsShelf());
@@ -515,6 +517,15 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
   // Minimize.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MINIMIZED);
   EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+
+  // Since the restore from minimize will restore to the pre-minimize
+  // state (tested elsewhere), we abandon the current size and restore
+  // rect and set them to the window.
+  gfx::Rect restore = *GetRestoreBoundsInScreen(w1.get());
+  EXPECT_EQ("0,0 800x598", w1->bounds().ToString());
+  EXPECT_EQ("0,1 101x102", restore.ToString());
+  ClearRestoreBounds(w1.get());
+  w1->SetBounds(restore);
 
   // Restore.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
@@ -888,5 +899,26 @@ TEST_F(WorkspaceManager2Test, DontMoveOnSwitch) {
   wm::ActivateWindow(w1.get());
   EXPECT_EQ(touches_shelf_bounds.ToString(), w1->bounds().ToString());
 }
+
+// Verifies Focus() works in a window that isn't in the active workspace.
+TEST_F(WorkspaceManager2Test, FocusOnFullscreenInSeparateWorkspace) {
+  scoped_ptr<Window> w1(CreateTestWindow());
+  w1->SetBounds(gfx::Rect(10, 11, 250, 251));
+  w1->Show();
+  wm::ActivateWindow(w1.get());
+
+  scoped_ptr<Window> w2(CreateTestWindow());
+  w2->SetBounds(gfx::Rect(10, 11, 250, 251));
+  w2->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_FULLSCREEN);
+  w2->Show();
+  EXPECT_FALSE(w2->IsVisible());
+  EXPECT_FALSE(wm::IsActiveWindow(w2.get()));
+
+  w2->Focus();
+  EXPECT_TRUE(w2->IsVisible());
+  EXPECT_TRUE(wm::IsActiveWindow(w2.get()));
+  EXPECT_FALSE(w1->IsVisible());
+}
+
 }  // namespace internal
 }  // namespace ash

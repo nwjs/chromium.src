@@ -82,7 +82,7 @@ static bool Contains(const std::vector<string16>& warnings,
   return IndexOf(warnings, warning) != warnings.size();
 }
 
-} // namespace
+}  // namespace
 
 namespace extensions {
 
@@ -697,7 +697,6 @@ TEST(PermissionsTest, PermissionMessages) {
   // These permissions require explicit user action (configuration dialog)
   // so we don't prompt for them at install time.
   skip.insert(APIPermission::kMediaGalleries);
-  skip.insert(APIPermission::kMediaGalleriesRead);
 
   // If you've turned on the experimental command-line flag, we don't need
   // to warn you further.
@@ -711,8 +710,10 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermission::kFileBrowserPrivate);
   skip.insert(APIPermission::kInputMethodPrivate);
   skip.insert(APIPermission::kManagedModePrivate);
+  skip.insert(APIPermission::kMediaGalleriesPrivate);
   skip.insert(APIPermission::kMediaPlayerPrivate);
   skip.insert(APIPermission::kMetricsPrivate);
+  skip.insert(APIPermission::kRtcPrivate);
   skip.insert(APIPermission::kSystemPrivate);
   skip.insert(APIPermission::kTerminalPrivate);
   skip.insert(APIPermission::kWallpaperPrivate);
@@ -764,20 +765,22 @@ TEST(PermissionsTest, DefaultFunctionAccess) {
     { "bookmarks",      false },
     { "cookies",        false },
     { "history",        false },
-    { "tabs.onUpdated", false },
     // Make sure we find the module name after stripping '.' and '/'.
     { "browserAction/abcd/onClick",  true },
     { "browserAction.abcd.onClick",  true },
     // Test Tabs functions.
     { "tabs.create",      true},
+    { "tabs.duplicate",   true},
     { "tabs.update",      true},
-    { "tabs.getSelected", false},
+    { "tabs.getSelected", true},
+    { "tabs.onUpdated",   true },
   };
 
   scoped_refptr<PermissionSet> empty = new PermissionSet();
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(kTests); ++i) {
     EXPECT_EQ(kTests[i].expect_success,
-              empty->HasAccessToFunction(kTests[i].permission_name));
+              empty->HasAccessToFunction(kTests[i].permission_name))
+                  << "Permission being tested: " << kTests[i].permission_name;
   }
 }
 
@@ -1186,8 +1189,8 @@ TEST(PermissionsTest, HasLessHostPrivilegesThan) {
       URLPattern(URLPattern::SCHEME_HTTP, "http://*.google.com.hk/*"));
   set2 = new PermissionSet(empty_perms, elist2, slist2);
   EXPECT_TRUE(set1->HasLessHostPrivilegesThan(set2.get()));
-  //TODO(jstritar): Does not match subdomains properly. http://crbug.com/65337
-  //EXPECT_FALSE(set2->HasLessHostPrivilegesThan(set1.get()));
+  // TODO(jstritar): Does not match subdomains properly. http://crbug.com/65337
+  // EXPECT_FALSE(set2->HasLessHostPrivilegesThan(set1.get()));
 
   // Test that different domains count as different hosts.
   elist2.ClearPatterns();

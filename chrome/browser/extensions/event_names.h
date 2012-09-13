@@ -69,12 +69,18 @@ extern const char kOnOffscreenTabUpdated[];
 // Bluetooth.
 extern const char kBluetoothOnAvailabilityChanged[];
 extern const char kBluetoothOnDeviceDiscovered[];
+extern const char kBluetoothOnDeviceSearchResult[];
 extern const char kBluetoothOnDiscoveringChanged[];
 extern const char kBluetoothOnPowerChanged[];
 #endif
 
 // Push messaging.
 extern const char kOnPushMessage[];
+
+// SystemInfo storage
+extern const char kOnStorageAvailableCapacityChanged[];
+extern const char kOnStorageAdded[];
+extern const char kOnStorageRemoved[];
 
 }  // namespace event_names
 

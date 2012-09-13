@@ -45,9 +45,6 @@ class WebIntentPickerSheetControllerTest : public CocoaTest {
   void CheckWindow(size_t row_count) {
     NSArray* flip_views = [[window_ contentView] subviews];
 
-    // Check for proper firstResponder.
-    ASSERT_EQ(controller_, [window_ firstResponder]);
-
     // Expect 1 subview - the flip view.
     ASSERT_EQ(1U, [flip_views count]);
 
@@ -142,7 +139,7 @@ TEST_F(WebIntentPickerSheetControllerTest, IntentRows) {
       webkit_glue::WebIntentServiceData::DISPOSITION_WINDOW);
   model.AddInstalledService(string16(), GURL("http://example.com/intent.html"),
       webkit_glue::WebIntentServiceData::DISPOSITION_WINDOW);
-
+  model.SetWaitingForSuggestions(false);
   [controller_ performLayoutWithModel:&model];
 
   CheckWindow(/*row_count=*/2);
@@ -169,6 +166,8 @@ TEST_F(WebIntentPickerSheetControllerTest, SuggestionRow) {
   suggestions.push_back(WebIntentPickerModel::SuggestedExtension(
       string16(), string16(), 2.5));
   model.AddSuggestedExtensions(suggestions);
+  model.SetWaitingForSuggestions(false);
+
   [controller_ performLayoutWithModel:&model];
 
   CheckWindow(/*row_count=*/1);
@@ -200,6 +199,7 @@ TEST_F(WebIntentPickerSheetControllerTest, MixedIntentView) {
       webkit_glue::WebIntentServiceData::DISPOSITION_WINDOW);
   model.AddInstalledService(string16(), GURL("http://example.com/intent.html"),
       webkit_glue::WebIntentServiceData::DISPOSITION_WINDOW);
+  model.SetWaitingForSuggestions(false);
 
   [controller_ performLayoutWithModel:&model];
 

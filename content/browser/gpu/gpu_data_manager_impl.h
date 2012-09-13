@@ -16,6 +16,7 @@
 #include "base/observer_list_threadsafe.h"
 #include "base/synchronization/lock.h"
 #include "base/values.h"
+#include "content/browser/gpu/gpu_blacklist.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/common/gpu_info.h"
 #include "content/public/common/gpu_memory_stats.h"
@@ -29,10 +30,17 @@ class CONTENT_EXPORT GpuDataManagerImpl
   static GpuDataManagerImpl* GetInstance();
 
   // GpuDataManager implementation.
-  virtual void InitializeGpuInfo() OVERRIDE;
+  virtual void Initialize(
+      const std::string& browser_version_string,
+      const std::string& gpu_blacklist_json) OVERRIDE;
+  virtual void Initialize(
+      const std::string& browser_version_string,
+      const std::string& gpu_blacklist_json,
+      const content::GPUInfo& gpu_info) OVERRIDE;
   virtual content::GpuFeatureType GetBlacklistedFeatures() const OVERRIDE;
-  virtual void SetPreliminaryBlacklistedFeatures(
-      content::GpuFeatureType features) OVERRIDE;
+  virtual content::GpuSwitchingOption GetGpuSwitchingOption() const OVERRIDE;
+  virtual base::ListValue* GetBlacklistReasons() const OVERRIDE;
+  virtual std::string GetBlacklistVersion() const OVERRIDE;
   virtual content::GPUInfo GetGPUInfo() const OVERRIDE;
   virtual bool GpuAccessAllowed() const OVERRIDE;
   virtual void RequestCompleteGpuInfoIfNeeded() OVERRIDE;
@@ -47,7 +55,8 @@ class CONTENT_EXPORT GpuDataManagerImpl
   virtual void RemoveObserver(
       content::GpuDataManagerObserver* observer) OVERRIDE;
 
-  // Only update if the current GPUInfo is not finalized.
+  // Only update if the current GPUInfo is not finalized.  If blacklist is
+  // loaded, run through blacklist and update blacklisted features.
   void UpdateGpuInfo(const content::GPUInfo& gpu_info);
 
   void UpdateVideoMemoryUsageStats(
@@ -83,6 +92,7 @@ class CONTENT_EXPORT GpuDataManagerImpl
   friend struct DefaultSingletonTraits<GpuDataManagerImpl>;
 
   FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, GpuSideBlacklisting);
+  FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, GpuSideExceptions);
   FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, BlacklistCard);
   FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, GpuInfoUpdate);
   FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest,
@@ -91,9 +101,11 @@ class CONTENT_EXPORT GpuDataManagerImpl
   GpuDataManagerImpl();
   virtual ~GpuDataManagerImpl();
 
-  // If flags hasn't been set and GPUInfo is available, run through blacklist
-  // and compute the flags.
   void UpdateBlacklistedFeatures(content::GpuFeatureType features);
+
+  // This should only be called once at initialization time, when preliminary
+  // gpu info is collected.
+  void UpdatePreliminaryBlacklistedFeatures();
 
   // Notify all observers whenever there is a GPU info update.
   void NotifyGpuInfoUpdate();
@@ -101,13 +113,20 @@ class CONTENT_EXPORT GpuDataManagerImpl
   // Try to switch to software rendering, if possible and necessary.
   void EnableSoftwareRenderingIfNecessary();
 
+  // Send UMA histograms about the disabled/enabled features.
+  void UpdateStats();
+
   bool complete_gpu_info_already_requested_;
 
   content::GpuFeatureType gpu_feature_type_;
   content::GpuFeatureType preliminary_gpu_feature_type_;
 
+  content::GpuSwitchingOption gpu_switching_;
+
   content::GPUInfo gpu_info_;
   mutable base::Lock gpu_info_lock_;
+
+  scoped_ptr<GpuBlacklist> gpu_blacklist_;
 
   const scoped_refptr<GpuDataManagerObserverList> observer_list_;
 
@@ -121,6 +140,10 @@ class CONTENT_EXPORT GpuDataManagerImpl
   // Current card force-blacklisted due to GPU crashes, or disabled through
   // the --disable-gpu commandline switch.
   bool card_blacklisted_;
+
+  // We disable histogram stuff in testing, especially in unit tests because
+  // they cause random failures.
+  bool update_histograms_;
 
   DISALLOW_COPY_AND_ASSIGN(GpuDataManagerImpl);
 };

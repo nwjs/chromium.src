@@ -5,17 +5,15 @@
 #ifndef CHROME_BROWSER_CHROMEOS_GDATA_DRIVE_CACHE_H_
 #define CHROME_BROWSER_CHROMEOS_GDATA_DRIVE_CACHE_H_
 
-#include <map>
 #include <string>
 #include <vector>
 
-#include "base/callback.h"
+#include "base/callback_forward.h"
 #include "base/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
-#include "base/platform_file.h"
-#include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
+#include "chrome/browser/google_apis/gdata_errorcode.h"
 
 class Profile;
 
@@ -42,8 +40,6 @@ typedef base::Callback<void(DriveFileError error,
 
 // Callback for GetFileFromCache.
 typedef base::Callback<void(DriveFileError error,
-                            const std::string& resource_id,
-                            const std::string& md5,
                             const FilePath& cache_file_path)>
     GetFileFromCacheCallback;
 
@@ -125,7 +121,7 @@ class DriveCache {
     virtual ~Observer() {}
   };
 
-  // Returns the sub-directory under gdata cache directory for the given sub
+  // Returns the sub-directory under drive cache directory for the given sub
   // directory type. Example:  <user_profile_dir>/GCache/v1/tmp
   //
   // Can be called on any thread.
@@ -139,7 +135,7 @@ class DriveCache {
                             CacheSubDirectoryType sub_dir_type,
                             CachedFileOrigin file_orign) const;
 
-  // Returns true if the given path is under gdata cache directory, i.e.
+  // Returns true if the given path is under drive cache directory, i.e.
   // <user_profile_dir>/GCache/v1
   //
   // Can be called on any thread.

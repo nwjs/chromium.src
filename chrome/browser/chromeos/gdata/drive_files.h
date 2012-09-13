@@ -10,10 +10,11 @@
 #include <string>
 #include <vector>
 
-#include "base/callback.h"
+#include "base/callback_forward.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/platform_file.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
 
 namespace gdata {
@@ -70,13 +71,6 @@ class DriveEntry {
   // Used to obtain full metadata of a file or a directory as
   // DriveEntryProto.
   void ToProtoFull(DriveEntryProto* proto) const;
-
-  // Escapes forward slashes from file names with magic unicode character
-  // \u2215 pretty much looks the same in UI.
-  static std::string EscapeUtf8FileName(const std::string& input);
-
-  // Unescapes what was escaped in EScapeUtf8FileName.
-  static std::string UnescapeUtf8FileName(const std::string& input);
 
   // Return the parent of this entry. NULL for root.
   DriveDirectory* parent() const { return parent_; }
@@ -177,7 +171,7 @@ class DriveFile : public DriveEntry {
   void FromProto(const DriveEntryProto& proto);
   void ToProto(DriveEntryProto* proto) const;
 
-  DocumentEntry::EntryKind kind() const { return kind_; }
+  DriveEntryKind kind() const { return kind_; }
   const GURL& thumbnail_url() const { return thumbnail_url_; }
   const GURL& alternate_url() const { return alternate_url_; }
   const std::string& content_mime_type() const { return content_mime_type_; }
@@ -201,7 +195,7 @@ class DriveFile : public DriveEntry {
 
   virtual DriveFile* AsDriveFile() OVERRIDE;
 
-  DocumentEntry::EntryKind kind_;  // Not saved in proto.
+  DriveEntryKind kind_;  // Not saved in proto.
   GURL thumbnail_url_;
   GURL alternate_url_;
   std::string content_mime_type_;
@@ -228,6 +222,7 @@ class DriveDirectory : public DriveEntry {
  private:
   // TODO(satorux): Remove the friend statements. crbug.com/139649
   friend class DriveResourceMetadata;
+  friend class DriveResourceMetadataTest;
   friend class GDataWapiFeedProcessor;
 
   explicit DriveDirectory(DriveResourceMetadata* resource_metadata);

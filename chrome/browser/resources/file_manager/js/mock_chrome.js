@@ -50,18 +50,21 @@ function cloneShallow(object) {
  * Mock out the chrome.fileBrowserPrivate API for use in the harness.
  */
 chrome.fileBrowserPrivate = {
+  /**
+   * Change to window.TEMPORARY if you do not insist on persistence.
+   */
+  FS_TYPE: window.PERSISTENT,
 
   /**
    * Return a normal HTML5 filesystem api, rather than the real local
    * filesystem.
    *
-   * You must start chrome with --allow-file-access-from-files and
-   * --unlimited-quota-for-files in order for this to work.
+   * If the test harness is on file: schema you must start chrome with
+   * --allow-file-access-from-files in order for this to work.
    */
   requestLocalFileSystem: function(callback) {
-    window.webkitRequestFileSystem(window.PERSISTENT, 16 * 1024 * 1024,
-                                   callback,
-                                   util.ferr('Error requesting filesystem'));
+    window.webkitRequestFileSystem(this.FS_TYPE,
+        16 * 1024 * 1024, callback, util.ferr('Error requesting filesystem'));
   },
 
   /**
@@ -532,8 +535,15 @@ chrome.fileBrowserPrivate = {
       GALLERY_NO_IMAGES: 'No images in this directory.',
       GALLERY_MOSAIC: 'Mosaic view',
       GALLERY_SLIDE: 'Slide view',
-      GALLERY_SLIDESHOW: 'Slide show',
+      GALLERY_SLIDESHOW: 'Slideshow',
+      GALLERY_SLIDESHOW_PAUSED:
+          'Paused. Press "Esc" to exit, any other key to resume.',
       GALLERY_DELETE: 'Delete',
+
+      GALLERY_OK_LABEL: 'OK',
+      GALLERY_CANCEL_LABEL: 'Cancel',
+      GALLERY_CONFIRM_DELETE_ONE: 'Are you sure you want to delete "$1"?',
+      GALLERY_CONFIRM_DELETE_SOME: 'Are you sure you want to delete $1 items?',
 
       AUDIO_ERROR: 'This file could not be played',
 
@@ -647,8 +657,8 @@ chrome.fileBrowserPrivate = {
       MANY_DIRECTORIES_SELECTED: '$1 folders selected',
       MANY_ENTRIES_SELECTED: '$1 items selected, $2',
 
-      CONFIRM_DELETE_ONE: 'Are you sure you want to delete "$1"?',
-      CONFIRM_DELETE_SOME: 'Are you sure you want to delete $1 items?',
+      DELETED_MESSAGE: 'Deleted $1',
+      DELETED_MESSAGE_PLURAL: 'Deleted $1 items',
 
       UNKNOWN_FILESYSTEM_WARNING: 'This device cannot be opened because its' +
           ' filesystem was not recognized.',
@@ -802,6 +812,12 @@ chrome.metricsPrivate = {
 chrome.mediaPlayerPrivate = {
 
   onPlaylistChanged: new MockEventSource(),
+
+  onTogglePlayState: new MockEventSource(),
+
+  onNextTrack: new MockEventSource(),
+
+  onPrevTrack: new MockEventSource(),
 
   play: function(urls, position) {
     this.playlist_ = { items: urls, position: position };

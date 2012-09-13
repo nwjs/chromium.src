@@ -19,6 +19,7 @@ using extensions::Extension;
 
 namespace {
 
+// TODO(benwells): Get the list of special apps from the controller.
 const char* kSpecialApps[] = {
   extension_misc::kChromeAppId,
   extension_misc::kWebStoreAppId,
@@ -140,6 +141,26 @@ void AppsModelBuilder::GetExtensionApps(Apps* apps) {
       apps->push_back(new ExtensionAppItem(profile_, *app, controller_));
     }
   }
+
+#if defined(OS_CHROMEOS)
+  // Explicitly add Talk extension if it's installed and enabled.
+  // Add it here instead of in CreateSpecialApps() so it sorts naturally.
+  // Prefer debug > alpha > beta > production version.
+  const char* kTalkIds[] = {
+      extension_misc::kTalkDebugExtensionId,
+      extension_misc::kTalkAlphaExtensionId,
+      extension_misc::kTalkBetaExtensionId,
+      extension_misc::kTalkExtensionId,
+  };
+  for (size_t i = 0; i < arraysize(kTalkIds); ++i) {
+    const Extension* talk = service->GetExtensionById(
+        kTalkIds[i], false /*include_disabled*/);
+    if (talk) {
+      apps->push_back(new ExtensionAppItem(profile_, talk, controller_));
+      break;
+    }
+  }
+#endif  // OS_CHROMEOS
 }
 
 void AppsModelBuilder::CreateSpecialApps() {
@@ -154,7 +175,8 @@ void AppsModelBuilder::CreateSpecialApps() {
       continue;
 
     const Extension* extension = service->GetInstalledExtension(extension_id);
-    DCHECK(extension);
+    if (!extension)
+      continue;
 
     model_->Add(new ExtensionAppItem(profile_, extension, controller_));
   }

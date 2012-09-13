@@ -4,6 +4,8 @@
 
 #include "ash/wm/shelf_layout_manager.h"
 
+#include "ash/accelerators/accelerator_controller.h"
+#include "ash/accelerators/accelerator_table.h"
 #include "ash/focus_cycler.h"
 #include "ash/launcher/launcher.h"
 #include "ash/screen_ash.h"
@@ -44,6 +46,27 @@ ShelfLayoutManager* GetShelfLayoutManager() {
       internal::kShellWindowId_LauncherContainer);
   return static_cast<ShelfLayoutManager*>(window->layout_manager());
 }
+
+class ShelfLayoutObserverTest : public ShelfLayoutManager::Observer {
+ public:
+  ShelfLayoutObserverTest()
+      : changed_auto_hide_state_(false) {
+  }
+
+  virtual ~ShelfLayoutObserverTest() {}
+
+  bool changed_auto_hide_state() const { return changed_auto_hide_state_; }
+
+ private:
+  virtual void OnAutoHideStateChanged(
+      ShelfLayoutManager::AutoHideState new_state) OVERRIDE {
+    changed_auto_hide_state_ = true;
+  }
+
+  bool changed_auto_hide_state_;
+
+  DISALLOW_COPY_AND_ASSIGN(ShelfLayoutObserverTest);
+};
 
 }  // namespace
 
@@ -546,6 +569,166 @@ TEST_F(ShelfLayoutManagerTest, SetAlignment) {
   EXPECT_EQ(display.work_area().right(), launcher_bounds.x());
   EXPECT_EQ(display.bounds().y(), launcher_bounds.y());
   EXPECT_EQ(display.bounds().height(), launcher_bounds.height());
+}
+
+TEST_F(ShelfLayoutManagerTest, GestureDrag) {
+  ShelfLayoutManager* shelf = GetShelfLayoutManager();
+  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
+  shelf->LayoutShelf();
+
+  views::Widget* widget = new views::Widget;
+  views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
+  params.bounds = gfx::Rect(0, 0, 200, 200);
+  widget->Init(params);
+  widget->Show();
+  widget->Maximize();
+
+  aura::Window* window = widget->GetNativeWindow();
+
+  gfx::Rect shelf_shown = shelf->launcher_widget()->GetWindowBoundsInScreen();
+  gfx::Rect bounds_shelf = window->bounds();
+  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+
+  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+
+  // Swipe up on the shelf. This should not change any state.
+  gfx::Point start =
+      shelf->launcher_widget()->GetWindowBoundsInScreen().CenterPoint();
+  gfx::Point end(start.x(), start.y() - 100);
+  generator.GestureScrollSequence(start, end,
+      base::TimeDelta::FromMilliseconds(10), 1);
+  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_NEVER, shelf->auto_hide_behavior());
+  EXPECT_EQ(bounds_shelf.ToString(), window->bounds().ToString());
+  EXPECT_EQ(shelf_shown.ToString(),
+            shelf->launcher_widget()->GetWindowBoundsInScreen().ToString());
+
+  // Swipe down on the shelf to hide it.
+  end.set_y(start.y() + 100);
+  generator.GestureScrollSequence(start, end,
+      base::TimeDelta::FromMilliseconds(10), 1);
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE_HIDDEN, shelf->auto_hide_state());
+  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS, shelf->auto_hide_behavior());
+  EXPECT_NE(bounds_shelf.ToString(), window->bounds().ToString());
+  EXPECT_NE(shelf_shown.ToString(),
+            shelf->launcher_widget()->GetWindowBoundsInScreen().ToString());
+
+  gfx::Rect bounds_noshelf = window->bounds();
+  gfx::Rect shelf_hidden = shelf->launcher_widget()->GetWindowBoundsInScreen();
+
+  // Swipe up to show the shelf.
+  generator.GestureScrollSequence(end, start,
+      base::TimeDelta::FromMilliseconds(10), 1);
+  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_NEVER, shelf->auto_hide_behavior());
+  EXPECT_EQ(bounds_shelf.ToString(), window->bounds().ToString());
+  EXPECT_EQ(shelf_shown.ToString(),
+            shelf->launcher_widget()->GetWindowBoundsInScreen().ToString());
+
+  // Swipe up again. This should not change any state.
+  end.set_y(start.y() - 100);
+  generator.GestureScrollSequence(start, end,
+      base::TimeDelta::FromMilliseconds(10), 1);
+  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_NEVER, shelf->auto_hide_behavior());
+  EXPECT_EQ(bounds_shelf.ToString(), window->bounds().ToString());
+  EXPECT_EQ(shelf_shown.ToString(),
+            shelf->launcher_widget()->GetWindowBoundsInScreen().ToString());
+
+  // Swipe down very little. It shouldn't change any state.
+  end.set_y(start.y() + shelf_shown.height() * 3 / 10);
+  generator.GestureScrollSequence(start, end,
+      base::TimeDelta::FromMilliseconds(100), 1);
+  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_NEVER, shelf->auto_hide_behavior());
+  EXPECT_EQ(bounds_shelf.ToString(), window->bounds().ToString());
+  EXPECT_EQ(shelf_shown.ToString(),
+            shelf->launcher_widget()->GetWindowBoundsInScreen().ToString());
+
+  // Swipe down again to hide.
+  end.set_y(start.y() + 100);
+  generator.GestureScrollSequence(start, end,
+      base::TimeDelta::FromMilliseconds(10), 1);
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE_HIDDEN, shelf->auto_hide_state());
+  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS, shelf->auto_hide_behavior());
+  EXPECT_EQ(bounds_noshelf.ToString(), window->bounds().ToString());
+  EXPECT_EQ(shelf_hidden.ToString(),
+            shelf->launcher_widget()->GetWindowBoundsInScreen().ToString());
+}
+
+TEST_F(ShelfLayoutManagerTest, GestureRevealsTrayBubble) {
+  ShelfLayoutManager* shelf = GetShelfLayoutManager();
+  shelf->LayoutShelf();
+
+  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  SystemTray* tray = Shell::GetInstance()->system_tray();
+
+  // First, make sure the shelf is visible.
+  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
+  EXPECT_FALSE(tray->HasSystemBubble());
+
+  // Now, drag up on the tray to show the bubble.
+  gfx::Point start = shelf->status()->GetWindowBoundsInScreen().CenterPoint();
+  gfx::Point end(start.x(), start.y() - 100);
+  generator.GestureScrollSequence(start, end,
+      base::TimeDelta::FromMilliseconds(10), 1);
+  EXPECT_TRUE(tray->HasSystemBubble());
+  tray->CloseBubbleForTest();
+  RunAllPendingInMessageLoop();
+  EXPECT_FALSE(tray->HasSystemBubble());
+
+  // Drag again, but only a small amount, and slowly. The bubble should not be
+  // visible.
+  end.set_y(start.y() - 30);
+  generator.GestureScrollSequence(start, end,
+      base::TimeDelta::FromMilliseconds(500), 100);
+  EXPECT_FALSE(tray->HasSystemBubble());
+
+  // Now, hide the shelf.
+  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
+
+  // Start a drag from the bezel, and drag up to show both the shelf and the
+  // tray bubble.
+  start.set_y(start.y() + 100);
+  end.set_y(start.y() - 400);
+  generator.GestureScrollSequence(start, end,
+      base::TimeDelta::FromMilliseconds(10), 1);
+  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_TRUE(tray->HasSystemBubble());
+}
+
+TEST_F(ShelfLayoutManagerTest, ShelfFlickerOnTrayActivation) {
+  ShelfLayoutManager* shelf = GetShelfLayoutManager();
+
+  // Turn on auto-hide for the shelf.
+  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE_HIDDEN, shelf->auto_hide_state());
+
+  // Focus the system tray. That should make the shelf visible again.
+  Shell::GetInstance()->accelerator_controller()->PerformAction(
+      FOCUS_SYSTEM_TRAY, ui::Accelerator());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE_SHOWN, shelf->auto_hide_state());
+  EXPECT_FALSE(Shell::GetInstance()->system_tray()->HasSystemBubble());
+
+  // Now activate the tray (using the keyboard, instead of using the mouse to
+  // make sure the mouse does not alter the auto-hide state in the shelf).
+  // This should not trigger any auto-hide state change in the shelf.
+  ShelfLayoutObserverTest observer;
+  shelf->AddObserver(&observer);
+
+  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  generator.PressKey(ui::VKEY_SPACE, 0);
+  generator.ReleaseKey(ui::VKEY_SPACE, 0);
+  EXPECT_TRUE(Shell::GetInstance()->system_tray()->HasSystemBubble());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE_SHOWN, shelf->auto_hide_state());
+  EXPECT_FALSE(observer.changed_auto_hide_state());
+
+  shelf->RemoveObserver(&observer);
 }
 
 }  // namespace internal

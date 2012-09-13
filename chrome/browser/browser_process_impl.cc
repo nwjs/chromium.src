@@ -78,7 +78,6 @@
 #include "content/public/common/pepper_plugin_info.h"
 #include "net/socket/client_socket_pool_manager.h"
 #include "net/url_request/url_request_context_getter.h"
-#include "ui/base/clipboard/clipboard.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if !defined(ENABLE_CONFIGURATION_POLICY)
@@ -86,6 +85,7 @@
 #endif  // defined(ENABLE_CONFIGURATION_POLICY)
 
 #if defined(OS_WIN)
+#include "base/win/windows_version.h"
 #include "ui/views/focus/view_storage.h"
 #elif defined(OS_MACOSX)
 #include "chrome/browser/chrome_browser_main_mac.h"
@@ -141,7 +141,6 @@ BrowserProcessImpl::BrowserProcessImpl(const CommandLine& command_line)
       thumbnail_generator_(new ThumbnailGenerator),
       download_status_updater_(new DownloadStatusUpdater) {
   g_browser_process = this;
-  clipboard_.reset(new ui::Clipboard);
 
 #if defined(ENABLE_PRINTING)
   // Must be created after the NotificationService.
@@ -385,11 +384,6 @@ PrefService* BrowserProcessImpl::local_state() {
   if (!created_local_state_)
     CreateLocalState();
   return local_state_.get();
-}
-
-ui::Clipboard* BrowserProcessImpl::clipboard() {
-  DCHECK(CalledOnValidThread());
-  return clipboard_.get();
 }
 
 net::URLRequestContextGetter* BrowserProcessImpl::system_request_context() {
@@ -750,6 +744,11 @@ void BrowserProcessImpl::CreateLocalState() {
   ApplyDisabledSchemesPolicy();
 
   local_state_->RegisterBooleanPref(prefs::kAllowCrossOriginAuthPrompt, false);
+
+#if defined(OS_WIN)
+  if (base::win::GetVersion() >= base::win::VERSION_WIN8)
+    local_state_->RegisterBooleanPref(prefs::kRestartSwitchMode, false);
+#endif
 }
 
 void BrowserProcessImpl::PreCreateThreads() {
@@ -766,7 +765,7 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
   FilePath path;
   if (!CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableInternalFlash) &&
-      PathService::Get(chrome::FILE_FLASH_PLUGIN, &path)) {
+      PathService::Get(chrome::FILE_FLASH_PLUGIN_EXISTING, &path)) {
     plugin_service->AddExtraPluginPath(path);
   }
 

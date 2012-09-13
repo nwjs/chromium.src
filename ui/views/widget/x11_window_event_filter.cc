@@ -4,16 +4,16 @@
 
 #include "ui/views/widget/x11_window_event_filter.h"
 
-#include <X11/Xatom.h>
-#include <X11/Xlib.h>
 #include <X11/extensions/XInput.h>
 #include <X11/extensions/XInput2.h>
+#include <X11/Xatom.h>
+#include <X11/Xlib.h>
 
 #include "base/message_pump_aurax11.h"
 #include "ui/aura/desktop/desktop_activation_client.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window_delegate.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/hit_test.h"
 #include "ui/views/widget/native_widget_aura.h"
 
@@ -116,10 +116,10 @@ ui::TouchStatus X11WindowEventFilter::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus X11WindowEventFilter::PreHandleGestureEvent(
+ui::EventResult X11WindowEventFilter::PreHandleGestureEvent(
     aura::Window* target,
     ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 bool X11WindowEventFilter::DispatchHostWindowDragMovement(

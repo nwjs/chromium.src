@@ -479,6 +479,7 @@ gfx::NativeViewAccessible RenderWidgetHostViewMac::GetNativeViewAccessible() {
 }
 
 void RenderWidgetHostViewMac::MovePluginWindows(
+    const gfx::Point& scroll_offset,
     const std::vector<webkit::npapi::WebPluginGeometry>& moves) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewMac::MovePluginWindows");
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -991,7 +992,8 @@ void RenderWidgetHostViewMac::AcceleratedSurfaceSetTransportDIB(
                                                    transport_dib);
 }
 
-bool RenderWidgetHostViewMac::CompositorSwapBuffers(uint64 surface_handle) {
+bool RenderWidgetHostViewMac::CompositorSwapBuffers(uint64 surface_handle,
+                                                    const gfx::Size& size) {
   if (is_hidden_)
     return true;
 
@@ -1001,7 +1003,7 @@ bool RenderWidgetHostViewMac::CompositorSwapBuffers(uint64 surface_handle) {
   if (!compositing_iosurface_.get())
     return true;
 
-  compositing_iosurface_->SetIOSurface(surface_handle);
+  compositing_iosurface_->SetIOSurface(surface_handle, size);
 
   GotAcceleratedFrame();
 
@@ -1191,7 +1193,7 @@ void RenderWidgetHostViewMac::AcceleratedSurfaceBuffersSwapped(
   // TODO(jbates) http://crbug.com/105344 This will be removed when there are no
   // plugin windows.
   if (params.window == gfx::kNullPluginWindow) {
-    if (CompositorSwapBuffers(params.surface_handle))
+    if (CompositorSwapBuffers(params.surface_handle, params.size))
       AckPendingSwapBuffers();
   } else {
     // Deprecated accelerated plugin code path.
@@ -1224,7 +1226,7 @@ void RenderWidgetHostViewMac::AcceleratedSurfacePostSubBuffer(
   // TODO(jbates) http://crbug.com/105344 This will be removed when there are no
   // plugin windows.
   if (params.window == gfx::kNullPluginWindow) {
-    if (CompositorSwapBuffers(params.surface_handle))
+    NOTIMPLEMENTED();
       AckPendingSwapBuffers();
   } else {
     // Deprecated accelerated plugin code path.

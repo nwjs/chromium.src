@@ -7,6 +7,7 @@
 
 #include <list>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "sync/api/string_ordinal.h"
 #include "sync/api/sync_change.h"
 #include "sync/api/syncable_service.h"
 
@@ -71,12 +73,13 @@ class Extension;
 class ExtensionActionStorageManager;
 class ExtensionCookiesEventRouter;
 class ExtensionManagedModeEventRouter;
-class FontSettingsEventRouter;
-class PushMessagingEventRouter;
 class ExtensionSyncData;
 class ExtensionSystem;
 class ExtensionUpdater;
+class FontSettingsEventRouter;
+class MediaGalleriesPrivateEventRouter;
 class PendingExtensionManager;
+class PushMessagingEventRouter;
 class SettingsFrontend;
 class WebNavigationEventRouter;
 class WindowEventRouter;
@@ -146,30 +149,30 @@ class ExtensionService
  public:
   // The name of the directory inside the profile where extensions are
   // installed to.
-  static const char* kInstallDirectoryName;
+  static const char kInstallDirectoryName[];
 
   // If auto-updates are turned on, default to running every 5 hours.
   static const int kDefaultUpdateFrequencySeconds = 60 * 60 * 5;
 
   // The name of the directory inside the profile where per-app local settings
   // are stored.
-  static const char* kLocalAppSettingsDirectoryName;
+  static const char kLocalAppSettingsDirectoryName[];
 
   // The name of the directory inside the profile where per-extension local
   // settings are stored.
-  static const char* kLocalExtensionSettingsDirectoryName;
+  static const char kLocalExtensionSettingsDirectoryName[];
 
   // The name of the directory inside the profile where per-app synced settings
   // are stored.
-  static const char* kSyncAppSettingsDirectoryName;
+  static const char kSyncAppSettingsDirectoryName[];
 
   // The name of the directory inside the profile where per-extension synced
   // settings are stored.
-  static const char* kSyncExtensionSettingsDirectoryName;
+  static const char kSyncExtensionSettingsDirectoryName[];
 
   // The name of the database inside the profile where chrome-internal
   // extension state resides.
-  static const char* kStateStoreName;
+  static const char kStateStoreName[];
 
   // Returns the Extension of hosted or packaged apps, NULL otherwise.
   const extensions::Extension* GetInstalledApp(const GURL& url) const;
@@ -405,7 +408,8 @@ class ExtensionService
   void OnExtensionInstalled(
       const extensions::Extension* extension,
       bool from_webstore,
-      const StringOrdinal& page_ordinal);
+      const syncer::StringOrdinal& page_ordinal,
+      bool has_requirement_errors);
 
   // Initializes the |extension|'s active permission set and disables the
   // extension if the privilege level has increased (e.g., due to an upgrade).
@@ -830,6 +834,9 @@ class ExtensionService
   scoped_ptr<extensions::ExtensionCookiesEventRouter> cookies_event_router_;
 
   scoped_ptr<ExtensionManagementEventRouter> management_event_router_;
+
+  scoped_ptr<extensions::MediaGalleriesPrivateEventRouter>
+      media_galleries_private_event_router_;
 
   scoped_ptr<extensions::PushMessagingEventRouter>
       push_messaging_event_router_;

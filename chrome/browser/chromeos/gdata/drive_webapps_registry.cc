@@ -5,8 +5,10 @@
 #include "chrome/browser/chromeos/gdata/drive_webapps_registry.h"
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 
+#include "base/file_path.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/gdata/drive_api_parser.h"
@@ -152,9 +154,9 @@ void DriveWebAppsRegistry::UpdateFromFeed(
       continue;
 
     InstalledApp::IconList app_icons =
-        app.GetIconsForCategory(AppIcon::APPLICATION);
+        app.GetIconsForCategory(AppIcon::ICON_APPLICATION);
     InstalledApp::IconList document_icons =
-        app.GetIconsForCategory(AppIcon::DOCUMENT);
+        app.GetIconsForCategory(AppIcon::ICON_DOCUMENT);
 
     if (VLOG_IS_ON(1)) {
       std::vector<std::string> mime_types;

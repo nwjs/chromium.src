@@ -6,7 +6,7 @@
 
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/animation/throb_animation.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/widget/widget.h"
@@ -204,7 +204,7 @@ bool CustomButton::OnKeyReleased(const ui::KeyEvent& event) {
   return true;
 }
 
-ui::GestureStatus CustomButton::OnGestureEvent(const ui::GestureEvent& event) {
+ui::EventResult CustomButton::OnGestureEvent(const ui::GestureEvent& event) {
   if (state_ == BS_DISABLED)
     return Button::OnGestureEvent(event);
 
@@ -215,13 +215,13 @@ ui::GestureStatus CustomButton::OnGestureEvent(const ui::GestureEvent& event) {
     SetState(BS_HOT);
     hover_animation_->Reset(1.0);
     NotifyClick(event);
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   } else if (event.type() == ui::ET_GESTURE_TAP_DOWN &&
              ShouldEnterPushedState(event)) {
     SetState(BS_PUSHED);
     if (request_focus_on_press_)
       RequestFocus();
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   } else {
     SetState(BS_NORMAL);
   }

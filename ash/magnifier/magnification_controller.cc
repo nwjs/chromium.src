@@ -10,13 +10,13 @@
 #include "ui/aura/shared/compound_event_filter.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_property.h"
-#include "ui/base/event.h"
-#include "ui/gfx/point3.h"
-#include "ui/gfx/screen.h"
+#include "ui/base/events/event.h"
 #include "ui/compositor/dip_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
+#include "ui/gfx/point3.h"
+#include "ui/gfx/screen.h"
 
 namespace {
 
@@ -105,7 +105,7 @@ class MagnificationControllerImpl : virtual public MagnificationController,
   virtual ui::TouchStatus PreHandleTouchEvent(
       aura::Window* target,
       ui::TouchEvent* event) OVERRIDE;
-  virtual ui::GestureStatus PreHandleGestureEvent(
+  virtual ui::EventResult PreHandleGestureEvent(
       aura::Window* target,
       ui::GestureEvent* event) OVERRIDE;
 
@@ -452,10 +452,10 @@ ui::TouchStatus MagnificationControllerImpl::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus MagnificationControllerImpl::PreHandleGestureEvent(
+ui::EventResult MagnificationControllerImpl::PreHandleGestureEvent(
     aura::Window* target,
     ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

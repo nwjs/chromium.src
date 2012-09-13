@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/process_util.h"
 #include "base/stl_util.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -44,6 +46,8 @@ const uint32 kAccessFlags = base::kProcessAccessDuplicateHandle |
                             base::kProcessAccessQueryInformation |
                             base::kProcessAccessTerminate |
                             base::kProcessAccessWaitForTermination;
+
+bool g_started_initialization = false;
 
 std::string TimeToString(base::Time time) {
   int64 time_int64 = time.ToInternalValue();
@@ -91,6 +95,13 @@ PerformanceMonitor* PerformanceMonitor::GetInstance() {
 }
 
 void PerformanceMonitor::Start() {
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  // Avoid responding to multiple calls to Start().
+  if (g_started_initialization)
+    return;
+
+  g_started_initialization = true;
   util::PostTaskToDatabaseThreadAndReply(
       FROM_HERE,
       base::Bind(&PerformanceMonitor::InitOnBackgroundThread,
@@ -122,8 +133,26 @@ void PerformanceMonitor::FinishInit() {
       base::Bind(&PerformanceMonitor::CheckForVersionUpdateOnBackgroundThread,
                  base::Unretained(this)));
 
+  int gather_interval_in_seconds = kDefaultGatherIntervalInSeconds;
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kPerformanceMonitorGathering) &&
+      !CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kPerformanceMonitorGathering).empty()) {
+    int specified_interval = 0;
+    if (!base::StringToInt(
+            CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+                switches::kPerformanceMonitorGathering),
+            &specified_interval) || specified_interval <= 0) {
+      LOG(ERROR) << "Invalid value for switch: '"
+                 << switches::kPerformanceMonitorGathering
+                 << "'; please use an integer greater than 0.";
+    } else {
+      gather_interval_in_seconds = specified_interval;
+    }
+  }
+
   timer_.Start(FROM_HERE,
-               base::TimeDelta::FromMinutes(kGatherIntervalInMinutes),
+               base::TimeDelta::FromSeconds(gather_interval_in_seconds),
                this,
                &PerformanceMonitor::DoTimedCollections);
 

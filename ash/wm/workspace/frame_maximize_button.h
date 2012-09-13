@@ -52,6 +52,9 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton,
   virtual void OnWindowBoundsChanged(aura::Window* window,
                                      const gfx::Rect& old_bounds,
                                      const gfx::Rect& new_bounds) OVERRIDE;
+  virtual void OnWindowPropertyChanged(aura::Window* window,
+                                       const void* key,
+                                       intptr_t old) OVERRIDE;
   virtual void OnWindowDestroying(aura::Window* window) OVERRIDE;
 
   // ImageButton overrides:
@@ -61,7 +64,7 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton,
   virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE;
 
   // Unit test overwrite: Change the UI delay used for the bubble show up.
@@ -101,8 +104,9 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton,
   // |update_timer_|.
   void UpdateSnapFromEventLocation();
 
-  // Updates |snap_type_| based on a mouse drag.
-  void UpdateSnap(const gfx::Point& location);
+  // Updates |snap_type_| based on a mouse drag. If |select_default| is set,
+  // the single button click default setting of the snap sizer should be used.
+  void UpdateSnap(const gfx::Point& location, bool select_default);
 
   // Returns the type of snap based on the specified location.
   SnapType SnapTypeForLocation(const gfx::Point& location) const;

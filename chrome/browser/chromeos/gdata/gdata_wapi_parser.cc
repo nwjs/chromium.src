@@ -137,24 +137,27 @@ const char kOpenWithPrefix[] = "http://schemas.google.com/docs/2007#open-with-";
 const size_t kOpenWithPrefixSize = arraysize(kOpenWithPrefix) - 1;
 
 struct EntryKindMap {
-  DocumentEntry::EntryKind kind;
+  DriveEntryKind kind;
   const char* entry;
   const char* extension;
 };
 
 const EntryKindMap kEntryKindMap[] = {
-    { DocumentEntry::ITEM,         "item",         NULL},
-    { DocumentEntry::DOCUMENT,     "document",     ".gdoc"},
-    { DocumentEntry::SPREADSHEET,  "spreadsheet",  ".gsheet"},
-    { DocumentEntry::PRESENTATION, "presentation", ".gslides" },
-    { DocumentEntry::DRAWING,      "drawing",      ".gdraw"},
-    { DocumentEntry::TABLE,        "table",        ".gtable"},
-    { DocumentEntry::EXTERNAL_APP, "externalapp",  ".glink"},
-    { DocumentEntry::SITE,         "site",         NULL},
-    { DocumentEntry::FOLDER,       "folder",       NULL},
-    { DocumentEntry::FILE,         "file",         NULL},
-    { DocumentEntry::PDF,          "pdf",          NULL},
+    { ENTRY_KIND_UNKNOWN,      "unknown",      NULL},
+    { ENTRY_KIND_ITEM,         "item",         NULL},
+    { ENTRY_KIND_DOCUMENT,     "document",     ".gdoc"},
+    { ENTRY_KIND_SPREADSHEET,  "spreadsheet",  ".gsheet"},
+    { ENTRY_KIND_PRESENTATION, "presentation", ".gslides" },
+    { ENTRY_KIND_DRAWING,      "drawing",      ".gdraw"},
+    { ENTRY_KIND_TABLE,        "table",        ".gtable"},
+    { ENTRY_KIND_EXTERNAL_APP, "externalapp",  ".glink"},
+    { ENTRY_KIND_SITE,         "site",         NULL},
+    { ENTRY_KIND_FOLDER,       "folder",       NULL},
+    { ENTRY_KIND_FILE,         "file",         NULL},
+    { ENTRY_KIND_PDF,          "pdf",          NULL},
 };
+COMPILE_ASSERT(arraysize(kEntryKindMap) == ENTRY_KIND_MAX_VALUE,
+               EntryKindMap_and_DriveEntryKind_are_not_in_sync);
 
 struct LinkTypeMap {
   Link::LinkType type;
@@ -162,43 +165,43 @@ struct LinkTypeMap {
 };
 
 const LinkTypeMap kLinkTypeMap[] = {
-    { Link::SELF,
+    { Link::LINK_SELF,
       "self" },
-    { Link::NEXT,
+    { Link::LINK_NEXT,
       "next" },
-    { Link::PARENT,
+    { Link::LINK_PARENT,
       "http://schemas.google.com/docs/2007#parent" },
-    { Link::ALTERNATE,
+    { Link::LINK_ALTERNATE,
       "alternate"},
-    { Link::EDIT,
+    { Link::LINK_EDIT,
       "edit" },
-    { Link::EDIT_MEDIA,
+    { Link::LINK_EDIT_MEDIA,
       "edit-media" },
-    { Link::ALT_EDIT_MEDIA,
+    { Link::LINK_ALT_EDIT_MEDIA,
       "http://schemas.google.com/docs/2007#alt-edit-media" },
-    { Link::ALT_POST,
+    { Link::LINK_ALT_POST,
       "http://schemas.google.com/docs/2007#alt-post" },
-    { Link::FEED,
+    { Link::LINK_FEED,
       "http://schemas.google.com/g/2005#feed"},
-    { Link::POST,
+    { Link::LINK_POST,
       "http://schemas.google.com/g/2005#post"},
-    { Link::BATCH,
+    { Link::LINK_BATCH,
       "http://schemas.google.com/g/2005#batch"},
-    { Link::THUMBNAIL,
+    { Link::LINK_THUMBNAIL,
       "http://schemas.google.com/docs/2007/thumbnail"},
-    { Link::RESUMABLE_EDIT_MEDIA,
+    { Link::LINK_RESUMABLE_EDIT_MEDIA,
       "http://schemas.google.com/g/2005#resumable-edit-media"},
-    { Link::RESUMABLE_CREATE_MEDIA,
+    { Link::LINK_RESUMABLE_CREATE_MEDIA,
       "http://schemas.google.com/g/2005#resumable-create-media"},
-    { Link::TABLES_FEED,
+    { Link::LINK_TABLES_FEED,
       "http://schemas.google.com/spreadsheets/2006#tablesfeed"},
-    { Link::WORKSHEET_FEED,
+    { Link::LINK_WORKSHEET_FEED,
       "http://schemas.google.com/spreadsheets/2006#worksheetsfeed"},
-    { Link::EMBED,
+    { Link::LINK_EMBED,
       "http://schemas.google.com/docs/2007#embed"},
-    { Link::PRODUCT,
+    { Link::LINK_PRODUCT,
       "http://schemas.google.com/docs/2007#product"},
-    { Link::ICON,
+    { Link::LINK_ICON,
       "http://schemas.google.com/docs/2007#icon"},
 };
 
@@ -208,8 +211,10 @@ struct FeedLinkTypeMap {
 };
 
 const FeedLinkTypeMap kFeedLinkTypeMap[] = {
-    { FeedLink::ACL, "http://schemas.google.com/acl/2007#accessControlList" },
-    { FeedLink::REVISIONS, "http://schemas.google.com/docs/2007/revisions" },
+    { FeedLink::FEED_LINK_ACL,
+      "http://schemas.google.com/acl/2007#accessControlList" },
+    { FeedLink::FEED_LINK_REVISIONS,
+      "http://schemas.google.com/docs/2007/revisions" },
 };
 
 struct CategoryTypeMap {
@@ -218,8 +223,8 @@ struct CategoryTypeMap {
 };
 
 const CategoryTypeMap kCategoryTypeMap[] = {
-    { Category::KIND, "http://schemas.google.com/g/2005#kind" },
-    { Category::LABEL, "http://schemas.google.com/g/2005/labels" },
+    { Category::CATEGORY_KIND, "http://schemas.google.com/g/2005#kind" },
+    { Category::CATEGORY_LABEL, "http://schemas.google.com/g/2005/labels" },
 };
 
 struct AppIconCategoryMap {
@@ -228,9 +233,9 @@ struct AppIconCategoryMap {
 };
 
 const AppIconCategoryMap kAppIconCategoryMap[] = {
-    { AppIcon::DOCUMENT, "document" },
-    { AppIcon::APPLICATION, "application" },
-    { AppIcon::SHARED_DOCUMENT, "documentShared" },
+    { AppIcon::ICON_DOCUMENT, "document" },
+    { AppIcon::ICON_APPLICATION, "application" },
+    { AppIcon::ICON_SHARED_DOCUMENT, "documentShared" },
 };
 
 // Converts |url_string| to |result|.  Always returns true to be used
@@ -297,7 +302,7 @@ Author* Author::CreateFromXml(XmlReader* xml_reader) {
 ////////////////////////////////////////////////////////////////////////////////
 // Link implementation
 
-Link::Link() : type_(Link::UNKNOWN) {
+Link::Link() : type_(Link::LINK_UNKNOWN) {
 }
 
 Link::~Link() {
@@ -337,14 +342,14 @@ bool Link::GetLinkType(const base::StringPiece& rel, Link::LinkType* type) {
   // redundant to provide a quick skip if it's obviously not an OPEN_WITH url.
   if (rel.size() >= kOpenWithPrefixSize &&
       StartsWithASCII(rel.as_string(), kOpenWithPrefix, false)) {
-    *type = OPEN_WITH;
+    *type = LINK_OPEN_WITH;
     return true;
   }
 
   // Let unknown link types through, just report it; if the link type is needed
   // in the future, add it into LinkType and kLinkTypeMap.
   DVLOG(1) << "Ignoring unknown link type for rel " << rel;
-  *type = UNKNOWN;
+  *type = LINK_UNKNOWN;
   return true;
 }
 
@@ -378,7 +383,7 @@ Link* Link::CreateFromXml(XmlReader* xml_reader) {
   std::string rel;
   if (xml_reader->NodeAttribute(kRelAttr, &rel)) {
     GetLinkType(rel, &link->type_);
-    if (link->type_ == OPEN_WITH)
+    if (link->type_ == LINK_OPEN_WITH)
       GetAppID(rel, &link->app_id_);
   }
 
@@ -388,7 +393,7 @@ Link* Link::CreateFromXml(XmlReader* xml_reader) {
 ////////////////////////////////////////////////////////////////////////////////
 // FeedLink implementation
 
-FeedLink::FeedLink() : type_(FeedLink::UNKNOWN) {
+FeedLink::FeedLink() : type_(FeedLink::FEED_LINK_UNKNOWN) {
 }
 
 // static.
@@ -433,7 +438,7 @@ FeedLink* FeedLink::CreateFromXml(XmlReader* xml_reader) {
 ////////////////////////////////////////////////////////////////////////////////
 // Category implementation
 
-Category::Category() : type_(UNKNOWN) {
+Category::Category() : type_(CATEGORY_UNKNOWN) {
 }
 
 // Converts category.scheme into CategoryType enum.
@@ -515,7 +520,7 @@ Content* Content::CreateFromXml(XmlReader* xml_reader) {
 ////////////////////////////////////////////////////////////////////////////////
 // AppIcon implementation
 
-AppIcon::AppIcon() : category_(AppIcon::UNKNOWN), icon_side_length_(0) {
+AppIcon::AppIcon() : category_(AppIcon::ICON_UNKNOWN), icon_side_length_(0) {
 }
 
 AppIcon::~AppIcon() {
@@ -536,7 +541,7 @@ void AppIcon::RegisterJSONConverter(
 
 GURL AppIcon::GetIconURL() const {
   for (size_t i = 0; i < links_.size(); ++i) {
-    if (links_[i]->type() == Link::ICON)
+    if (links_[i]->type() == Link::LINK_ICON)
       return links_[i]->href();
   }
   return GURL();
@@ -581,7 +586,7 @@ void FeedEntry::RegisterJSONConverter(
 // DocumentEntry implementation
 
 DocumentEntry::DocumentEntry()
-    : kind_(DocumentEntry::UNKNOWN),
+    : kind_(ENTRY_KIND_UNKNOWN),
       file_size_(0),
       deleted_(false),
       removed_(false) {
@@ -654,20 +659,11 @@ bool DocumentEntry::HasHostedDocumentExtension(const FilePath& file) {
 }
 
 // static
-std::vector<int> DocumentEntry::GetAllEntryKinds() {
-  std::vector<int> entry_kinds;
-  entry_kinds.push_back(UNKNOWN);
-  for (size_t i = 0; i < arraysize(kEntryKindMap); ++i)
-    entry_kinds.push_back(kEntryKindMap[i].kind);
-  return entry_kinds;
-}
-
-// static
-DocumentEntry::EntryKind DocumentEntry::GetEntryKindFromTerm(
+DriveEntryKind DocumentEntry::GetEntryKindFromTerm(
     const std::string& term) {
   if (!StartsWithASCII(term, kTermPrefix, false)) {
     DVLOG(1) << "Unexpected term prefix term " << term;
-    return DocumentEntry::UNKNOWN;
+    return ENTRY_KIND_UNKNOWN;
   }
 
   std::string type = term.substr(strlen(kTermPrefix));
@@ -676,7 +672,52 @@ DocumentEntry::EntryKind DocumentEntry::GetEntryKindFromTerm(
       return kEntryKindMap[i].kind;
   }
   DVLOG(1) << "Unknown entry type for term " << term << ", type " << type;
-  return DocumentEntry::UNKNOWN;
+  return ENTRY_KIND_UNKNOWN;
+}
+
+// static
+int DocumentEntry::ClassifyEntryKind(DriveEntryKind kind) {
+  int classes = 0;
+
+  // All DriveEntryKind members are listed here, so the compiler catches if a
+  // newly added member is missing here.
+  switch (kind) {
+    case ENTRY_KIND_UNKNOWN:
+    // Special entries.
+    case ENTRY_KIND_ITEM:
+    case ENTRY_KIND_SITE:
+      break;
+
+    // Hosted Google document.
+    case ENTRY_KIND_DOCUMENT:
+    case ENTRY_KIND_SPREADSHEET:
+    case ENTRY_KIND_PRESENTATION:
+    case ENTRY_KIND_DRAWING:
+    case ENTRY_KIND_TABLE:
+      classes = KIND_OF_GOOGLE_DOCUMENT | KIND_OF_HOSTED_DOCUMENT;
+      break;
+
+    // Hosted external application document.
+    case ENTRY_KIND_EXTERNAL_APP:
+      classes = KIND_OF_EXTERNAL_DOCUMENT | KIND_OF_HOSTED_DOCUMENT;
+      break;
+
+    // Folders, collections.
+    case ENTRY_KIND_FOLDER:
+      classes = KIND_OF_FOLDER;
+      break;
+
+    // Regular files.
+    case ENTRY_KIND_FILE:
+    case ENTRY_KIND_PDF:
+      classes = KIND_OF_FILE;
+      break;
+
+    case ENTRY_KIND_MAX_VALUE:
+      NOTREACHED();
+  }
+
+  return classes;
 }
 
 void DocumentEntry::FillRemainingFields() {
@@ -686,9 +727,9 @@ void DocumentEntry::FillRemainingFields() {
   // find the elements to set these fields as a post-process.
   for (size_t i = 0; i < categories_.size(); ++i) {
     const Category* category = categories_[i];
-    if (category->type() == Category::KIND)
+    if (category->type() == Category::CATEGORY_KIND)
       kind_ = GetEntryKindFromTerm(category->term());
-    else if (category->type() == Category::LABEL)
+    else if (category->type() == Category::CATEGORY_LABEL)
       labels_.push_back(category->label());
   }
 }
@@ -836,31 +877,31 @@ DocumentEntry* DocumentEntry::CreateFromFileResource(const FileResource& file) {
   // entry->links_.
   if (!file.parents().empty()) {
     Link* link = new Link();
-    link->type_ = Link::PARENT;
+    link->type_ = Link::LINK_PARENT;
     link->href_ = file.parents()[0]->parent_link();
     entry->links_.push_back(link);
   }
   if (!file.self_link().is_empty()) {
     Link* link = new Link();
-    link->type_ = Link::EDIT;
+    link->type_ = Link::LINK_EDIT;
     link->href_ = file.self_link();
     entry->links_.push_back(link);
   }
   if (!file.thumbnail_link().is_empty()) {
     Link* link = new Link();
-    link->type_ = Link::THUMBNAIL;
+    link->type_ = Link::LINK_THUMBNAIL;
     link->href_ = file.thumbnail_link();
     entry->links_.push_back(link);
   }
   if (!file.alternate_link().is_empty()) {
     Link* link = new Link();
-    link->type_ = Link::ALTERNATE;
+    link->type_ = Link::LINK_ALTERNATE;
     link->href_ = file.alternate_link();
     entry->links_.push_back(link);
   }
   if (!file.embed_link().is_empty()) {
     Link* link = new Link();
-    link->type_ = Link::EMBED;
+    link->type_ = Link::LINK_EMBED;
     link->href_ = file.embed_link();
     entry->links_.push_back(link);
   }
@@ -977,7 +1018,7 @@ scoped_ptr<DocumentFeed> DocumentFeed::CreateFromChangeList(
 bool DocumentFeed::GetNextFeedURL(GURL* url) {
   DCHECK(url);
   for (size_t i = 0; i < links_.size(); ++i) {
-    if (links_[i]->type() == Link::NEXT) {
+    if (links_[i]->type() == Link::LINK_NEXT) {
       *url = links_[i]->href();
       return true;
     }
@@ -1022,7 +1063,7 @@ GURL InstalledApp::GetProductUrl() const {
   for (ScopedVector<Link>::const_iterator it = links_.begin();
        it != links_.end(); ++it) {
     const Link* link = *it;
-    if (link->type() == Link::PRODUCT)
+    if (link->type() == Link::LINK_PRODUCT)
       return link->href();
   }
   return GURL();

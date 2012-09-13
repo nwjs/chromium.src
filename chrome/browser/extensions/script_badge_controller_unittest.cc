@@ -43,7 +43,7 @@ class ScriptBadgeControllerTest : public TabContentsTestHarness {
 
   virtual void SetUp() OVERRIDE {
     // Note that this sets a PageActionController into the
-    // extension_tab_helper()->location_bar_controller() field.  Do
+    // extensions::TabHelper's location_bar_controller field.  Do
     // not use that for testing.
     TabContentsTestHarness::SetUp();
 
@@ -59,7 +59,7 @@ class ScriptBadgeControllerTest : public TabContentsTestHarness {
 
     script_executor_.reset(new ScriptExecutor(web_contents()));
     script_badge_controller_.reset(new ScriptBadgeController(
-        tab_contents(), script_executor_.get()));
+        web_contents(), script_executor_.get()));
   }
 
  protected:

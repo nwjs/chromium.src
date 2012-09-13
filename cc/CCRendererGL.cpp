@@ -29,12 +29,17 @@
 #include "ThrottledTextureUploader.h"
 #include "TraceEvent.h"
 #include "UnthrottledTextureUploader.h"
+#ifdef LOG
+#undef LOG
+#endif
+#include "base/string_split.h"
 #include <public/WebGraphicsContext3D.h>
 #include <public/WebSharedGraphicsContext3D.h>
 #include <public/WebVideoFrame.h>
+#include <set>
+#include <string>
+#include <vector>
 #include <wtf/CurrentTime.h>
-#include <wtf/MainThread.h>
-#include <wtf/text/StringHash.h>
 
 using namespace std;
 using WebKit::WebGraphicsContext3D;
@@ -90,48 +95,45 @@ bool CCRendererGL::initialize()
     m_context->setContextLostCallback(this);
     m_context->pushGroupMarkerEXT("CompositorContext");
 
-    WebKit::WebString extensionsWebString = m_context->getString(GraphicsContext3D::EXTENSIONS);
-    String extensionsString(extensionsWebString.data(), extensionsWebString.length());
-    Vector<String> extensionsList;
-    extensionsString.split(' ', extensionsList);
-    HashSet<String> extensions;
-    for (size_t i = 0; i < extensionsList.size(); ++i)
-        extensions.add(extensionsList[i]);
+    std::string extensionsString = UTF16ToASCII(m_context->getString(GraphicsContext3D::EXTENSIONS));
+    std::vector<std::string> extensionsList;
+    base::SplitString(extensionsString, ' ', &extensionsList);
+    std::set<string> extensions(extensionsList.begin(), extensionsList.end());
 
-    if (settings().acceleratePainting && extensions.contains("GL_EXT_texture_format_BGRA8888")
-                                      && extensions.contains("GL_EXT_read_format_bgra"))
+    if (settings().acceleratePainting && extensions.count("GL_EXT_texture_format_BGRA8888")
+                                      && extensions.count("GL_EXT_read_format_bgra"))
         m_capabilities.usingAcceleratedPainting = true;
     else
         m_capabilities.usingAcceleratedPainting = false;
 
 
-    m_capabilities.contextHasCachedFrontBuffer = extensions.contains("GL_CHROMIUM_front_buffer_cached");
+    m_capabilities.contextHasCachedFrontBuffer = extensions.count("GL_CHROMIUM_front_buffer_cached");
 
-    m_capabilities.usingPartialSwap = CCSettings::partialSwapEnabled() && extensions.contains("GL_CHROMIUM_post_sub_buffer");
+    m_capabilities.usingPartialSwap = CCSettings::partialSwapEnabled() && extensions.count("GL_CHROMIUM_post_sub_buffer");
 
     // Use the swapBuffers callback only with the threaded proxy.
     if (CCProxy::hasImplThread())
-        m_capabilities.usingSwapCompleteCallback = extensions.contains("GL_CHROMIUM_swapbuffers_complete_callback");
+        m_capabilities.usingSwapCompleteCallback = extensions.count("GL_CHROMIUM_swapbuffers_complete_callback");
     if (m_capabilities.usingSwapCompleteCallback)
         m_context->setSwapBuffersCompleteCallbackCHROMIUM(this);
 
-    m_capabilities.usingSetVisibility = extensions.contains("GL_CHROMIUM_set_visibility");
+    m_capabilities.usingSetVisibility = extensions.count("GL_CHROMIUM_set_visibility");
 
-    if (extensions.contains("GL_CHROMIUM_iosurface"))
-        ASSERT(extensions.contains("GL_ARB_texture_rectangle"));
+    if (extensions.count("GL_CHROMIUM_iosurface"))
+        ASSERT(extensions.count("GL_ARB_texture_rectangle"));
 
-    m_capabilities.usingGpuMemoryManager = extensions.contains("GL_CHROMIUM_gpu_memory_manager");
+    m_capabilities.usingGpuMemoryManager = extensions.count("GL_CHROMIUM_gpu_memory_manager");
     if (m_capabilities.usingGpuMemoryManager)
         m_context->setMemoryAllocationChangedCallbackCHROMIUM(this);
 
-    m_capabilities.usingDiscardFramebuffer = extensions.contains("GL_CHROMIUM_discard_framebuffer");
+    m_capabilities.usingDiscardFramebuffer = extensions.count("GL_CHROMIUM_discard_framebuffer");
 
-    m_capabilities.usingEglImage = extensions.contains("GL_OES_EGL_image_external");
+    m_capabilities.usingEglImage = extensions.count("GL_OES_EGL_image_external");
 
     GLC(m_context, m_context->getIntegerv(GraphicsContext3D::MAX_TEXTURE_SIZE, &m_capabilities.maxTextureSize));
-    m_capabilities.bestTextureFormat = PlatformColor::bestTextureFormat(m_context, extensions.contains("GL_EXT_texture_format_BGRA8888"));
+    m_capabilities.bestTextureFormat = PlatformColor::bestTextureFormat(m_context, extensions.count("GL_EXT_texture_format_BGRA8888"));
 
-    m_isUsingBindUniform = extensions.contains("GL_CHROMIUM_bind_uniform_location");
+    m_isUsingBindUniform = extensions.count("GL_CHROMIUM_bind_uniform_location");
 
     if (!initializeSharedObjects())
         return false;
@@ -1134,7 +1136,7 @@ void CCRendererGL::getFramebufferPixels(void *pixels, const IntRect& rect)
         GLC(m_context, m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE));
         GLC(m_context, m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE));
         // Copy the contents of the current (IOSurface-backed) framebuffer into a temporary texture.
-        GLC(m_context, m_context->copyTexImage2D(GraphicsContext3D::TEXTURE_2D, 0, GraphicsContext3D::RGBA, 0, 0, rect.maxX(), rect.maxY(), 0));
+        GLC(m_context, m_context->copyTexImage2D(GraphicsContext3D::TEXTURE_2D, 0, GraphicsContext3D::RGBA, 0, 0, viewportSize().width(), viewportSize().height(), 0));
         temporaryFBO = m_context->createFramebuffer();
         // Attach this texture to an FBO, and perform the readback from that FBO.
         GLC(m_context, m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, temporaryFBO));
@@ -1143,8 +1145,25 @@ void CCRendererGL::getFramebufferPixels(void *pixels, const IntRect& rect)
         ASSERT(m_context->checkFramebufferStatus(GraphicsContext3D::FRAMEBUFFER) == GraphicsContext3D::FRAMEBUFFER_COMPLETE);
     }
 
-    GLC(m_context, m_context->readPixels(rect.x(), rect.y(), rect.width(), rect.height(),
-                                     GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, pixels));
+    OwnPtr<uint8_t> srcPixels = adoptPtr(new uint8_t[rect.width() * rect.height() * 4]);
+    GLC(m_context, m_context->readPixels(rect.x(), viewportSize().height() - rect.maxY(), rect.width(), rect.height(),
+                                     GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, srcPixels.get()));
+
+    uint8_t* destPixels = static_cast<uint8_t*>(pixels);
+    size_t rowBytes = rect.width() * 4;
+    int numRows = rect.height();
+    size_t totalBytes = numRows * rowBytes;
+    for (size_t destY = 0; destY < totalBytes; destY += rowBytes) {
+        // Flip Y axis.
+        size_t srcY = totalBytes - destY - rowBytes;
+        // Swizzle BGRA -> RGBA.
+        for (size_t x = 0; x < rowBytes; x += 4) {
+            destPixels[destY + (x+0)] = srcPixels.get()[srcY + (x+2)];
+            destPixels[destY + (x+1)] = srcPixels.get()[srcY + (x+1)];
+            destPixels[destY + (x+2)] = srcPixels.get()[srcY + (x+0)];
+            destPixels[destY + (x+3)] = srcPixels.get()[srcY + (x+3)];
+        }
+    }
 
     if (doWorkaround) {
         // Clean up.

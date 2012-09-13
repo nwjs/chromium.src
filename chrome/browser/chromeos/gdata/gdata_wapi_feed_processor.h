@@ -11,8 +11,9 @@
 #include <vector>
 
 #include "base/file_path.h"
-#include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
+#include "chrome/browser/chromeos/gdata/drive_file_formats.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
+#include "chrome/browser/google_apis/gdata_errorcode.h"
 
 namespace gdata {
 
@@ -28,10 +29,12 @@ struct FeedToFileResourceMapUmaStats {
   FeedToFileResourceMapUmaStats();
   ~FeedToFileResourceMapUmaStats();
 
-  typedef std::map<DocumentEntry::EntryKind, int> EntryKindToCountMap;
+  typedef std::map<DriveEntryKind, int> EntryKindToCountMap;
+  typedef std::map<DriveFileFormat, int> FileFormatToCountMap;
   int num_regular_files;
   int num_hosted_documents;
   EntryKindToCountMap num_files_with_entry_kind;
+  FileFormatToCountMap num_files_with_file_format;
 };
 
 // GDataWapiFeedProcessor is used to process feeds from WAPI (codename for
@@ -49,7 +52,7 @@ class GDataWapiFeedProcessor {
   // In the case of processing the root feeds |root_feed_changestamp| is used
   // as its initial changestamp value. The value comes from
   // AccountMetadataFeed.
-  DriveFileError ApplyFeeds(const std::vector<DocumentFeed*>& feed_list,
+  DriveFileError ApplyFeeds(const ScopedVector<DocumentFeed>& feed_list,
                             int64 start_changestamp,
                             int64 root_feed_changestamp,
                             std::set<FilePath>* changed_dirs);
@@ -57,7 +60,7 @@ class GDataWapiFeedProcessor {
   // Converts list of document feeds from collected feeds into
   // FileResourceIdMap.
   DriveFileError FeedToFileResourceMap(
-    const std::vector<DocumentFeed*>& feed_list,
+    const ScopedVector<DocumentFeed>& feed_list,
     FileResourceIdMap* file_map,
     int64* feed_changestamp,
     FeedToFileResourceMapUmaStats* uma_stats);

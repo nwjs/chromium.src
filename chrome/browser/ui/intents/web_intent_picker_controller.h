@@ -102,8 +102,11 @@ class WebIntentPickerController
   virtual void OnInlineDispositionWebContentsCreated(
       content::WebContents* web_contents) OVERRIDE;
   virtual void OnExtensionInstallRequested(const std::string& id) OVERRIDE;
-  virtual void OnExtensionLinkClicked(const std::string& id) OVERRIDE;
-  virtual void OnSuggestionsLinkClicked() OVERRIDE;
+  virtual void OnExtensionLinkClicked(
+      const std::string& id,
+      WindowOpenDisposition disposition) OVERRIDE;
+  virtual void OnSuggestionsLinkClicked(
+      WindowOpenDisposition disposition) OVERRIDE;
   virtual void OnPickerClosed() OVERRIDE;
   virtual void OnChooseAnotherService() OVERRIDE;
   virtual void OnClosing() OVERRIDE;
@@ -117,12 +120,20 @@ class WebIntentPickerController
   friend class WebIntentPickerControllerTest;
   friend class WebIntentPickerControllerBrowserTest;
   friend class WebIntentPickerControllerIncognitoBrowserTest;
+  friend class WebIntentsButtonDecorationTest;
 
   // Dispatches intent to a just-installed extension with ID |extension_id|.
   void DispatchToInstalledExtension(const std::string& extension_id);
 
   // Adds a service to the data model.
   void AddServiceToModel(const webkit_glue::WebIntentServiceData& service);
+
+  // Register the user-selected service (indicated by the passed |url|) as
+  // the default for the combination of action/type/options in the picker.
+  void SetDefaultServiceForSelection(const GURL& url);
+
+  // Calculate a digest value for the services in the picker.
+  int64 DigestServices();
 
   // Gets a notification when the return message is sent to the source tab,
   // so we can close the picker dialog or service tab.
@@ -165,7 +176,7 @@ class WebIntentPickerController
   // when dispatching explicit intents. Gets |services|
   // from the WebIntentsRegistry to check for known urls/extensions and find
   // disposition data.
-  void WebIntentServicesForExplicitIntent(
+  void OnWebIntentServicesAvailableForExplicitIntent(
       const std::vector<webkit_glue::WebIntentServiceData>& services);
 
   // Called when a favicon is returned from the FaviconService.
@@ -220,6 +231,14 @@ class WebIntentPickerController
 
   // Closes the currently active picker.
   void ClosePicker();
+
+  // Re-starts the process of showing the dialog, suppressing any default
+  // queries. Called on the user clicking Use-Another-Service.
+  void ReshowDialog();
+
+  // Delegate for ShowDialog and ReshowDialog. Starts all the data queries for
+  // loading the picker model and showing the dialog.
+  void ShowDialog(bool suppress_defaults);
 
   WebIntentPickerState dialog_state_;  // Current state of the dialog.
 

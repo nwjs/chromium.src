@@ -46,6 +46,9 @@
         'internal_api/public/base/model_type.h',
         'internal_api/public/base/model_type_state_map.cc',
         'internal_api/public/base/model_type_state_map.h',
+        'internal_api/public/base/node_ordinal.cc',
+        'internal_api/public/base/node_ordinal.h',
+        'internal_api/public/base/ordinal.h',
         'internal_api/public/engine/model_safe_worker.cc',
         'internal_api/public/engine/model_safe_worker.h',
         'internal_api/public/engine/passive_model_worker.cc',
@@ -266,18 +269,14 @@
         'notifier/invalidator.h',
         'notifier/invalidator_registrar.cc',
         'notifier/invalidator_registrar.h',
-        'notifier/notifications_disabled_reason.cc',
-        'notifier/notifications_disabled_reason.h',
+        'notifier/invalidator_state.cc',
+        'notifier/invalidator_state.h',
         'notifier/object_id_state_map.cc',
         'notifier/object_id_state_map.h',
       ],
       'conditions': [
         ['OS != "android"', {
           'sources': [
-            'notifier/chrome_invalidation_client.cc',
-            'notifier/chrome_invalidation_client.h',
-            'notifier/chrome_system_resources.cc',
-            'notifier/chrome_system_resources.h',
             'notifier/invalidation_notifier.cc',
             'notifier/invalidation_notifier.h',
             'notifier/invalidation_state_tracker.h',
@@ -290,6 +289,10 @@
             'notifier/registration_manager.cc',
             'notifier/registration_manager.h',
             'notifier/state_writer.h',
+            'notifier/sync_invalidation_listener.cc',
+            'notifier/sync_invalidation_listener.h',
+            'notifier/sync_system_resources.cc',
+            'notifier/sync_system_resources.h',
           ],
         }],
       ],
@@ -385,6 +388,7 @@
       # We avoid including header files from sync_proto in our public
       # header files so we don't need to export its settings.
       'sources': [
+        'api/string_ordinal.h',
         'api/syncable_service.cc',
         'api/syncable_service.h',
         'api/sync_data.h',
@@ -470,16 +474,17 @@
     {
       'target_name': 'test_support_sync_notifier',
       'type': 'static_library',
-      'variables': { 'enable_wexit_time_destructors': 1, },
       'include_dirs': [
         '..',
       ],
       'dependencies': [
         '../testing/gmock.gyp:gmock',
+        '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_proto_cpp',
         'sync_notifier',
       ],
       'export_dependent_settings': [
         '../testing/gmock.gyp:gmock',
+        '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_proto_cpp',
         'sync_notifier',
       ],
       'sources': [
@@ -489,6 +494,7 @@
         'notifier/fake_invalidator.h',
         'notifier/fake_invalidation_handler.cc',
         'notifier/fake_invalidation_handler.h',
+        'notifier/invalidator_test_template.cc',
         'notifier/invalidator_test_template.h',
         'notifier/object_id_state_map_test_util.cc',
         'notifier/object_id_state_map_test_util.h',
@@ -585,6 +591,8 @@
         'sources': [
           'internal_api/public/base/enum_set_unittest.cc',
           'internal_api/public/base/model_type_state_map_unittest.cc',
+          'internal_api/public/base/node_ordinal_unittest.cc',
+          'internal_api/public/base/ordinal_unittest.cc',
           'internal_api/public/engine/model_safe_worker_unittest.cc',
           'internal_api/public/util/immutable_unittest.cc',
           'engine/apply_control_data_updates_unittest.cc',
@@ -674,8 +682,6 @@
         'conditions': [
           ['OS != "android"', {
             'sources': [
-              'notifier/chrome_invalidation_client_unittest.cc',
-              'notifier/chrome_system_resources_unittest.cc',
               'notifier/fake_invalidator_unittest.cc',
               'notifier/invalidation_notifier_unittest.cc',
               'notifier/invalidator_registrar_unittest.cc',
@@ -683,6 +689,8 @@
               'notifier/p2p_invalidator_unittest.cc',
               'notifier/push_client_channel_unittest.cc',
               'notifier/registration_manager_unittest.cc',
+              'notifier/sync_invalidation_listener_unittest.cc',
+              'notifier/sync_system_resources_unittest.cc',
             ],
           }],
         ],
@@ -864,7 +872,6 @@
           'target_name': 'sync_unit_tests_apk',
           'type': 'none',
           'dependencies': [
-            '../base/base.gyp:base_java',
             'sync_unit_tests',
           ],
           'variables': {

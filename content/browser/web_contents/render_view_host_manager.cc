@@ -56,10 +56,11 @@ RenderViewHostManager::~RenderViewHostManager() {
   if (pending_render_view_host_)
     CancelPending();
 
-  // We should always have a main RenderViewHost.
+  // We should always have a main RenderViewHost except in some tests.
   RenderViewHostImpl* render_view_host = render_view_host_;
   render_view_host_ = NULL;
-  render_view_host->Shutdown();
+  if (render_view_host)
+    render_view_host->Shutdown();
 
   // Shut down any swapped out RenderViewHosts.
   for (RenderViewHostMap::iterator iter = swapped_out_hosts_.begin();
@@ -241,7 +242,11 @@ void RenderViewHostManager::DidNavigateMainFrame(
 
 void RenderViewHostManager::DidUpdateFrameTree(
     RenderViewHost* render_view_host) {
-  CHECK_EQ(render_view_host, current_host());
+  // TODO(nasko): This used to be a CHECK_EQ, but it causes more crashes than
+  // expected. Changing to if statement and the root cause will be tracked by
+  // http://crbug.com/147613.
+  if (render_view_host != current_host())
+    return;
 
   RenderViewHostImpl* render_view_host_impl = static_cast<RenderViewHostImpl*>(
       render_view_host);

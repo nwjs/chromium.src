@@ -27,6 +27,7 @@
 #include "net/socket/stream_socket.h"
 #include "net/spdy/buffered_spdy_framer.h"
 #include "net/spdy/spdy_credential_state.h"
+#include "net/spdy/spdy_header_block.h"
 #include "net/spdy/spdy_io_buffer.h"
 #include "net/spdy/spdy_protocol.h"
 #include "net/spdy/spdy_session_pool.h"
@@ -262,6 +263,9 @@ class NET_EXPORT SpdySession : public base::RefCounted<SpdySession>,
 
   // Enable sending of PING frame with each request.
   static void set_enable_ping_based_connection_checking(bool enable);
+
+  // Enable the sending of CREDENTIAL frames.
+  static void set_enable_credential_frames(bool enable);
 
   // The initial max concurrent streams per session, can be overridden by the
   // server via SETTINGS.

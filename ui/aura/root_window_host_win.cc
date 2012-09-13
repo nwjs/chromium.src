@@ -12,7 +12,7 @@
 #include "ui/aura/client/capture_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/view_prop.h"
 
 using std::max;
@@ -24,6 +24,7 @@ namespace {
 
 const char* kRootWindowHostWinKey = "__AURA_ROOT_WINDOW_HOST_WIN__";
 
+// TODO(mazda): Move the cursor code to ui/base/cursor/cursor_loader_win.{cc,h}.
 const wchar_t* GetCursorId(gfx::NativeCursor native_cursor) {
   switch (native_cursor.native_type()) {
     case ui::kCursorNull:
@@ -301,6 +302,10 @@ void RootWindowHostWin::PostNativeEvent(const base::NativeEvent& native_event) {
 
 void RootWindowHostWin::OnDeviceScaleFactorChanged(
     float device_scale_factor) {
+  NOTIMPLEMENTED();
+}
+
+void RootWindowHostWin::PrepareForShutdown() {
   NOTIMPLEMENTED();
 }
 

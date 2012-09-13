@@ -6,12 +6,13 @@
 
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/cursor_client.h"
+#include "ui/aura/client/drag_drop_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/aura/window_tracker.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/hit_test.h"
 
 namespace aura {
@@ -83,88 +84,20 @@ size_t CompoundEventFilter::GetFilterCount() const {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// CompoundEventFilter, EventFilter implementation:
-
-bool CompoundEventFilter::PreHandleKeyEvent(Window* target,
-                                            ui::KeyEvent* event) {
-  return FilterKeyEvent(target, event);
-}
-
-bool CompoundEventFilter::PreHandleMouseEvent(Window* target,
-                                              ui::MouseEvent* event) {
-  WindowTracker window_tracker;
-  window_tracker.Add(target);
-
-  // We must always update the cursor, otherwise the cursor can get stuck if an
-  // event filter registered with us consumes the event.
-  // It should also update the cursor for clicking and wheels for ChromeOS boot.
-  // When ChromeOS is booted, it hides the mouse cursor but immediate mouse
-  // operation will show the cursor.
-  if (event->type() == ui::ET_MOUSE_MOVED ||
-      event->type() == ui::ET_MOUSE_PRESSED ||
-      event->type() == ui::ET_MOUSEWHEEL) {
-    SetCursorVisibilityOnEvent(target, event, true);
-    UpdateCursor(target, event);
-  }
-
-  if (FilterMouseEvent(target, event) ||
-      !window_tracker.Contains(target) ||
-      !target->GetRootWindow()) {
-    return true;
-  }
-
-  if (event->type() == ui::ET_MOUSE_PRESSED &&
-      GetActiveWindow(target) != target) {
-    target->GetFocusManager()->SetFocusedWindow(
-        FindFocusableWindowFor(target), event);
-  }
-
-  return false;
-}
-
-ui::TouchStatus CompoundEventFilter::PreHandleTouchEvent(
-    Window* target,
-    ui::TouchEvent* event) {
-  ui::TouchStatus status = FilterTouchEvent(target, event);
-  if (status == ui::TOUCH_STATUS_UNKNOWN &&
-      event->type() == ui::ET_TOUCH_PRESSED) {
-    SetCursorVisibilityOnEvent(target, event, false);
-  }
-  return status;
-}
-
-ui::GestureStatus CompoundEventFilter::PreHandleGestureEvent(
-    Window* target,
-    ui::GestureEvent* event) {
-  ui::GestureStatus status = ui::GESTURE_STATUS_UNKNOWN;
-  if (filters_.might_have_observers()) {
-    ObserverListBase<EventFilter>::Iterator it(filters_);
-    EventFilter* filter;
-    while (status == ui::GESTURE_STATUS_UNKNOWN &&
-        (filter = it.GetNext()) != NULL) {
-      status = filter->PreHandleGestureEvent(target, event);
-    }
-  }
-
-  if (event->type() == ui::ET_GESTURE_BEGIN &&
-      event->details().touch_points() == 1 &&
-      status != ui::GESTURE_STATUS_CONSUMED &&
-      target->GetRootWindow() &&
-      GetActiveWindow(target) != target) {
-    target->GetFocusManager()->SetFocusedWindow(
-        FindFocusableWindowFor(target), event);
-  }
-
-  return status;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // CompoundEventFilter, private:
 
 void CompoundEventFilter::UpdateCursor(Window* target, ui::MouseEvent* event) {
-  client::CursorClient* client =
-      client::GetCursorClient(target->GetRootWindow());
-  if (client) {
+  // If drag and drop is in progress, let the drag drop client set the cursor
+  // instead of setting the cursor here.
+  aura::RootWindow* root_window = target->GetRootWindow();
+  client::DragDropClient* drag_drop_client =
+      client::GetDragDropClient(root_window);
+  if (drag_drop_client && drag_drop_client->IsDragDropInProgress())
+    return;
+
+  client::CursorClient* cursor_client =
+      client::GetCursorClient(root_window);
+  if (cursor_client) {
     gfx::NativeCursor cursor = target->GetCursor(event->location());
     if (event->flags() & ui::EF_IS_NON_CLIENT) {
       int window_component =
@@ -172,31 +105,32 @@ void CompoundEventFilter::UpdateCursor(Window* target, ui::MouseEvent* event) {
       cursor = CursorForWindowComponent(window_component);
     }
 
-    client->SetCursor(cursor);
+    cursor_client->SetCursor(cursor);
+    cursor_client->SetDeviceScaleFactor(
+        root_window->AsRootWindowHostDelegate()->GetDeviceScaleFactor());
   }
 }
 
-bool CompoundEventFilter::FilterKeyEvent(Window* target, ui::KeyEvent* event) {
-  bool handled = false;
+ui::EventResult CompoundEventFilter::FilterKeyEvent(ui::KeyEvent* event) {
+  int result = ui::ER_UNHANDLED;
   if (filters_.might_have_observers()) {
     ObserverListBase<EventFilter>::Iterator it(filters_);
     EventFilter* filter;
-    while (!handled && (filter = it.GetNext()) != NULL)
-      handled = filter->PreHandleKeyEvent(target, event);
+    while (!(result & ui::ER_CONSUMED) && (filter = it.GetNext()) != NULL)
+      result |= filter->OnKeyEvent(event);
   }
-  return handled;
+  return static_cast<ui::EventResult>(result);
 }
 
-bool CompoundEventFilter::FilterMouseEvent(Window* target,
-                                           ui::MouseEvent* event) {
-  bool handled = false;
+ui::EventResult CompoundEventFilter::FilterMouseEvent(ui::MouseEvent* event) {
+  int result = ui::ER_UNHANDLED;
   if (filters_.might_have_observers()) {
     ObserverListBase<EventFilter>::Iterator it(filters_);
     EventFilter* filter;
-    while (!handled && (filter = it.GetNext()) != NULL)
-      handled = filter->PreHandleMouseEvent(target, event);
+    while (!(result & ui::ER_CONSUMED) && (filter = it.GetNext()) != NULL)
+      result |= filter->OnMouseEvent(event);
   }
-  return handled;
+  return static_cast<ui::EventResult>(result);
 }
 
 ui::TouchStatus CompoundEventFilter::FilterTouchEvent(
@@ -208,7 +142,7 @@ ui::TouchStatus CompoundEventFilter::FilterTouchEvent(
     EventFilter* filter;
     while (status == ui::TOUCH_STATUS_UNKNOWN &&
         (filter = it.GetNext()) != NULL) {
-      status = filter->PreHandleTouchEvent(target, event);
+      status = filter->OnTouchEvent(event);
     }
   }
   return status;
@@ -223,6 +157,96 @@ void CompoundEventFilter::SetCursorVisibilityOnEvent(aura::Window* target,
     if (client)
       client->ShowCursor(show);
   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// CompoundEventFilter, EventFilter implementation:
+
+ui::TouchStatus CompoundEventFilter::PreHandleTouchEvent(
+    Window* target,
+    ui::TouchEvent* event) {
+  // TODO(sad): Move the implementation into OnTouchEvent once touch-events are
+  // hooked up to go through EventDispatcher.
+  ui::TouchStatus status = FilterTouchEvent(target, event);
+  if (status == ui::TOUCH_STATUS_UNKNOWN &&
+      event->type() == ui::ET_TOUCH_PRESSED) {
+    SetCursorVisibilityOnEvent(target, event, false);
+  }
+  return status;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// CompoundEventFilter, ui::EventHandler implementation:
+
+ui::EventResult CompoundEventFilter::OnKeyEvent(ui::KeyEvent* event) {
+  return FilterKeyEvent(event);
+}
+
+ui::EventResult CompoundEventFilter::OnMouseEvent(ui::MouseEvent* event) {
+  Window* window = static_cast<Window*>(event->target());
+  WindowTracker window_tracker;
+  window_tracker.Add(window);
+
+  // We must always update the cursor, otherwise the cursor can get stuck if an
+  // event filter registered with us consumes the event.
+  // It should also update the cursor for clicking and wheels for ChromeOS boot.
+  // When ChromeOS is booted, it hides the mouse cursor but immediate mouse
+  // operation will show the cursor.
+  // We also update the cursor for mouse enter in case a mouse cursor is sent to
+  // outside of the root window and moved back for some reasons (e.g. running on
+  // on Desktop for testing, or a bug in pointer barrier).
+  if (event->type() == ui::ET_MOUSE_ENTERED ||
+      event->type() == ui::ET_MOUSE_MOVED ||
+      event->type() == ui::ET_MOUSE_PRESSED ||
+      event->type() == ui::ET_MOUSEWHEEL) {
+    SetCursorVisibilityOnEvent(window, event, true);
+    UpdateCursor(window, event);
+  }
+
+  ui::EventResult result = FilterMouseEvent(event);
+  if ((result & ui::ER_CONSUMED) ||
+      !window_tracker.Contains(window) ||
+      !window->GetRootWindow()) {
+    return result;
+  }
+
+  if (event->type() == ui::ET_MOUSE_PRESSED &&
+      GetActiveWindow(window) != window) {
+    window->GetFocusManager()->SetFocusedWindow(
+        FindFocusableWindowFor(window), event);
+  }
+
+  return result;
+}
+
+ui::EventResult CompoundEventFilter::OnScrollEvent(ui::ScrollEvent* event) {
+  return ui::ER_UNHANDLED;
+}
+
+ui::TouchStatus CompoundEventFilter::OnTouchEvent(ui::TouchEvent* event) {
+  return EventFilter::OnTouchEvent(event);
+}
+
+ui::EventResult CompoundEventFilter::OnGestureEvent(ui::GestureEvent* event) {
+  int result = ui::ER_UNHANDLED;
+  if (filters_.might_have_observers()) {
+    ObserverListBase<EventFilter>::Iterator it(filters_);
+    EventFilter* filter;
+    while (!(result & ui::ER_CONSUMED) && (filter = it.GetNext()) != NULL)
+      result |= filter->OnGestureEvent(event);
+  }
+
+  Window* window = static_cast<Window*>(event->target());
+  if (event->type() == ui::ET_GESTURE_BEGIN &&
+      event->details().touch_points() == 1 &&
+      !(result & ui::ER_CONSUMED) &&
+      window->GetRootWindow() &&
+      GetActiveWindow(window) != window) {
+    window->GetFocusManager()->SetFocusedWindow(
+        FindFocusableWindowFor(window), event);
+  }
+
+  return static_cast<ui::EventResult>(result);
 }
 
 }  // namespace shared

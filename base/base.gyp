@@ -125,10 +125,11 @@
             }],
           ],
           'dependencies': [
+            'base_java',
+            'base_jni_headers',
             'symbolize',
             '../third_party/ashmem/ashmem.gyp:ashmem',
             '../third_party/icu/icu.gyp:icuuc',
-            'base_jni_headers',
           ],
           'include_dirs': [
             '<(SHARED_INTERMEDIATE_DIR)/base',
@@ -143,6 +144,9 @@
           ],
           'sources!': [
             'debug/stack_trace_posix.cc',
+          ],
+          'export_dependent_settings': [
+            'base_java',
           ],
         }],
         ['os_bsd==1', {
@@ -524,6 +528,7 @@
         'win/scoped_bstr_unittest.cc',
         'win/scoped_comptr_unittest.cc',
         'win/scoped_process_information_unittest.cc',
+        'win/shortcut_unittest.cc',
         'win/startup_information_unittest.cc',
         'win/scoped_variant_unittest.cc',
         'win/win_util_unittest.cc',
@@ -689,6 +694,17 @@
             'test/test_file_util_linux.cc',
           ],
         }],
+        ['OS=="win"', {
+          'direct_dependent_settings': {
+            'msvs_settings': {
+              'VCLinkerTool': {
+                'DelayLoadDLLs': [
+                  'propsys.dll',
+                ],
+              },
+            },
+          },
+        }],
       ],
       'sources': [
         'perftimer.cc',
@@ -721,6 +737,8 @@
         'test/test_listener_ios.mm',
         'test/test_reg_util_win.cc',
         'test/test_reg_util_win.h',
+        'test/test_shortcut_win.cc',
+        'test/test_shortcut_win.h',
         'test/test_suite.cc',
         'test/test_suite.h',
         'test/test_support_android.cc',
@@ -738,6 +756,15 @@
         'test/values_test_util.cc',
         'test/values_test_util.h',
       ],
+      'target_conditions': [
+        ['OS == "ios"', {
+          'sources/': [
+            # Pull in specific Mac files for iOS (which have been filtered out
+            # by file name rules).
+            ['include', '^test/test_file_util_mac\\.cc$'],
+          ],
+        }],
+      ],  # target_conditions
     },
     {
       'target_name': 'test_support_perf',
@@ -953,7 +980,7 @@
           ],
           'variables': {
             'package_name': 'base_javatests',
-            'java_in_dir': '../base/android/javatests',
+            'java_in_dir': 'android/javatests',
           },
           'includes': [ '../build/java.gypi' ],
         },

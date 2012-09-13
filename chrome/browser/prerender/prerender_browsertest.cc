@@ -100,9 +100,7 @@ std::string CreateServerRedirect(const std::string& dest_url) {
 // Clears the specified data using BrowsingDataRemover.
 void ClearBrowsingData(Browser* browser, int remove_mask) {
   BrowsingDataRemover* remover =
-      new BrowsingDataRemover(browser->profile(),
-                              BrowsingDataRemover::EVERYTHING,
-                              base::Time::Now());
+      BrowsingDataRemover::CreateForUnboundedRange(browser->profile());
   remover->Remove(remove_mask, BrowsingDataHelper::UNPROTECTED_WEB);
   // BrowsingDataRemover deletes itself.
 }
@@ -1577,7 +1575,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, DISABLED_PrerenderTaskManager) {
   // Show the task manager. This populates the model.
   current_browser()->window()->ShowTaskManager();
   // Wait for the model of task manager to start.
-  TaskManagerBrowserTestUtil::WaitForResourceChange(2);
+  TaskManagerBrowserTestUtil::WaitForWebResourceChange(1);
 
   // Start with two resources.
   PrerenderTestURL("files/prerender/prerender_page.html", FINAL_STATUS_USED, 1);

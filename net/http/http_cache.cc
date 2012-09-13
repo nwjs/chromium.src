@@ -19,6 +19,7 @@
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop.h"
+#include "base/metrics/field_trial.h"
 #include "base/pickle.h"
 #include "base/stl_util.h"
 #include "base/string_number_conversions.h"
@@ -37,39 +38,6 @@
 #include "net/http/http_util.h"
 
 namespace net {
-
-namespace {
-
-HttpNetworkSession* CreateNetworkSession(
-    HostResolver* host_resolver,
-    CertVerifier* cert_verifier,
-    ServerBoundCertService* server_bound_cert_service,
-    TransportSecurityState* transport_security_state,
-    ProxyService* proxy_service,
-    const std::string& ssl_session_cache_shard,
-    SSLConfigService* ssl_config_service,
-    HttpAuthHandlerFactory* http_auth_handler_factory,
-    NetworkDelegate* network_delegate,
-    HttpServerProperties* http_server_properties,
-    NetLog* net_log,
-    const std::string& trusted_spdy_proxy) {
-  HttpNetworkSession::Params params;
-  params.host_resolver = host_resolver;
-  params.cert_verifier = cert_verifier;
-  params.server_bound_cert_service = server_bound_cert_service;
-  params.transport_security_state = transport_security_state;
-  params.proxy_service = proxy_service;
-  params.ssl_session_cache_shard = ssl_session_cache_shard;
-  params.ssl_config_service = ssl_config_service;
-  params.http_auth_handler_factory = http_auth_handler_factory;
-  params.network_delegate = network_delegate;
-  params.http_server_properties = http_server_properties;
-  params.net_log = net_log;
-  params.trusted_spdy_proxy = trusted_spdy_proxy;
-  return new HttpNetworkSession(params);
-}
-
-}  // namespace
 
 HttpCache::DefaultBackend::DefaultBackend(CacheType type,
                                           const FilePath& path,
@@ -275,38 +243,13 @@ void HttpCache::MetadataWriter::OnIOComplete(int result) {
 
 //-----------------------------------------------------------------------------
 
-HttpCache::HttpCache(HostResolver* host_resolver,
-                     CertVerifier* cert_verifier,
-                     ServerBoundCertService* server_bound_cert_service,
-                     TransportSecurityState* transport_security_state,
-                     ProxyService* proxy_service,
-                     const std::string& ssl_session_cache_shard,
-                     SSLConfigService* ssl_config_service,
-                     HttpAuthHandlerFactory* http_auth_handler_factory,
-                     NetworkDelegate* network_delegate,
-                     HttpServerProperties* http_server_properties,
-                     NetLog* net_log,
-                     BackendFactory* backend_factory,
-                     const std::string& trusted_spdy_proxy)
-    : net_log_(net_log),
+HttpCache::HttpCache(const net::HttpNetworkSession::Params& params,
+                     BackendFactory* backend_factory)
+    : net_log_(params.net_log),
       backend_factory_(backend_factory),
       building_backend_(false),
       mode_(NORMAL),
-      network_layer_(
-          new HttpNetworkLayer(
-              CreateNetworkSession(
-                  host_resolver,
-                  cert_verifier,
-                  server_bound_cert_service,
-                  transport_security_state,
-                  proxy_service,
-                  ssl_session_cache_shard,
-                  ssl_config_service,
-                  http_auth_handler_factory,
-                  network_delegate,
-                  http_server_properties,
-                  net_log,
-                  trusted_spdy_proxy))) {
+      network_layer_(new HttpNetworkLayer(new HttpNetworkSession(params))) {
 }
 
 
@@ -442,6 +385,12 @@ void HttpCache::OnExternalCacheHit(const GURL& url,
   request_info.method = http_method;
   std::string key = GenerateCacheKey(&request_info);
   disk_cache_->OnExternalCacheHit(key);
+}
+
+void HttpCache::InitializeInfiniteCache(const FilePath& path) {
+  if (base::FieldTrialList::FindFullName("InfiniteCache") != "Yes")
+    return;
+  // TODO(rvargas): initialize the infinite cache
 }
 
 int HttpCache::CreateTransaction(scoped_ptr<HttpTransaction>* trans,

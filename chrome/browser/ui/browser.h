@@ -482,6 +482,7 @@ class Browser : public TabStripModelObserver,
 
  private:
   friend class BrowserTest;
+  friend class FullscreenControllerInteractiveTest;
   friend class FullscreenControllerTest;
   FRIEND_TEST_ALL_PREFIXES(AppModeTest, EnableAppModeTest);
   FRIEND_TEST_ALL_PREFIXES(BrowserTest, NoTabsInPopups);
@@ -496,7 +497,6 @@ class Browser : public TabStripModelObserver,
   FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest,
                            OpenAppShortcutWindowPref);
   FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest, OpenAppShortcutTabPref);
-  FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest, OpenAppShortcutPanel);
 
   // Used to describe why a tab is being detached. This is used by
   // TabDetachedAtImpl.
@@ -539,7 +539,8 @@ class Browser : public TabStripModelObserver,
                               content::WebContents* new_contents,
                               WindowOpenDisposition disposition,
                               const gfx::Rect& initial_pos,
-                              bool user_gesture) OVERRIDE;
+                              bool user_gesture,
+                              bool* was_blocked) OVERRIDE;
   virtual void ActivateContents(content::WebContents* contents) OVERRIDE;
   virtual void DeactivateContents(content::WebContents* contents) OVERRIDE;
   virtual void LoadingStateChanged(content::WebContents* source) OVERRIDE;
@@ -916,10 +917,7 @@ class Browser : public TabStripModelObserver,
 
   BookmarkBar::State bookmark_bar_state_;
 
-#if 0
-  // Device attach web intent is disabled for M22. See crbug.com/144326.
   scoped_ptr<DeviceAttachedIntentSource> device_attached_intent_source_;
-#endif
 
   scoped_ptr<FullscreenController> fullscreen_controller_;
 

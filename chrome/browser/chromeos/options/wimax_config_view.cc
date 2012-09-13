@@ -18,7 +18,7 @@
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/views/controls/button/checkbox.h"
@@ -136,7 +136,7 @@ bool WimaxConfigView::Login() {
   NetworkLibrary* cros = CrosLibrary::Get()->GetNetworkLibrary();
   WimaxNetwork* wimax = cros->FindWimaxNetworkByPath(service_path_);
   if (!wimax) {
-    // Flimflam no longer knows about this wimax network (edge case).
+    // Shill no longer knows about this wimax network (edge case).
     // TODO(stevenjb): Add a notification (chromium-os13225).
     LOG(WARNING) << "Wimax network: " << service_path_ << " no longer exists.";
     return true;

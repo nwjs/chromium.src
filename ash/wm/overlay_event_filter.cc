@@ -7,7 +7,7 @@
 #include "ash/wm/partial_screenshot_view.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
@@ -64,9 +64,9 @@ ui::TouchStatus OverlayEventFilter::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;  // Not handled.
 }
 
-ui::GestureStatus OverlayEventFilter::PreHandleGestureEvent(
+ui::EventResult OverlayEventFilter::PreHandleGestureEvent(
     aura::Window* target, ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;  // Not handled.
+  return ui::ER_UNHANDLED;  // Not handled.
 }
 
 void OverlayEventFilter::OnLoginStateChanged(

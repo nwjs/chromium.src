@@ -27,6 +27,7 @@
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray_accessibility.h"
 #include "ash/system/tray_caps_lock.h"
+#include "ash/system/tray_display.h"
 #include "ash/system/tray_update.h"
 #include "ash/system/user/login_status.h"
 #include "ash/system/user/tray_user.h"
@@ -35,7 +36,7 @@
 #include "base/utf_string_conversions.h"
 #include "grit/ash_strings.h"
 #include "ui/aura/root_window.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
@@ -100,6 +101,7 @@ void SystemTray::CreateItems() {
   internal::TrayLocale* tray_locale = new internal::TrayLocale;
   internal::TrayUpdate* tray_update = new internal::TrayUpdate;
   internal::TraySettings* tray_settings = new internal::TraySettings();
+  internal::TrayDisplay* tray_display = new internal::TrayDisplay;
 
   accessibility_observer_ = tray_accessibility;
   audio_observer_ = tray_volume;
@@ -125,6 +127,7 @@ void SystemTray::CreateItems() {
   AddTrayItem(tray_drive);
   AddTrayItem(tray_ime);
   AddTrayItem(tray_locale);
+  AddTrayItem(tray_display);
   AddTrayItem(tray_volume);
   AddTrayItem(tray_brightness);
   AddTrayItem(tray_update);
@@ -228,8 +231,8 @@ void SystemTray::SetHideNotifications(bool hide_notifications) {
   hide_notifications_ = hide_notifications;
 }
 
-bool SystemTray::IsSystemBubbleVisible() const {
-  return (bubble_.get() && bubble_->IsVisible());
+bool SystemTray::HasSystemBubble() const {
+  return bubble_.get() != NULL;
 }
 
 bool SystemTray::IsAnyBubbleVisible() const {
@@ -332,6 +335,11 @@ void SystemTray::ShowItems(const std::vector<SystemTrayItem*>& items,
       init_params.arrow_color = kBackgroundColor;
     }
     init_params.arrow_offset = arrow_offset;
+    // |bubble_->InitView()| shows and activates the status tray popup, which
+    // can trigger the shelf to hide (if auto-hide is turned on). So it is
+    // necessary to update the desired launcher visibility before showing the
+    // status bubble.
+    UpdateShouldShowLauncher();
     bubble_->InitView(anchor, init_params, delegate->GetUserLoginStatus());
   }
   // Save height of default view for creating detailed views directly.

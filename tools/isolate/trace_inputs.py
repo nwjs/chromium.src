@@ -429,6 +429,19 @@ def fix_python_path(cmd):
   return out
 
 
+def create_thunk():
+  handle, name = tempfile.mkstemp(prefix='trace_inputs_thunk', suffix='.py')
+  os.write(
+      handle,
+      (
+        'import subprocess\n'
+        'import sys\n'
+        'sys.exit(subprocess.call(sys.argv[2:]))\n'
+      ))
+  os.close(handle)
+  return name
+
+
 def strace_process_quoted_arguments(text):
   """Extracts quoted arguments on a string and return the arguments as a list.
 
@@ -1035,6 +1048,8 @@ class Strace(ApiBase):
       # because the process was forcibly killed so it won't open any new file.
       RE_KILLED = re.compile(
           r'^.*\+\+\+ killed by ([A-Z]+)( \(core dumped\))? \+\+\+$')
+      # The process has exited.
+      RE_PROCESS_EXITED = re.compile(r'^\+\+\+ exited with (\d+) \+\+\+')
       # A call was canceled. Ignore any prefix.
       RE_UNAVAILABLE = re.compile(r'^.*\)\s*= \? <unavailable>$')
       # Happens when strace fails to even get the function name.
@@ -1147,6 +1162,12 @@ class Strace(ApiBase):
             self.handle_exit_group(match.group(1), None)
             return
 
+          match = self.RE_PROCESS_EXITED.match(line)
+          if match:
+            # Converts a '+++ exited with 1 +++' trace into an exit_group()
+            self.handle_exit_group(match.group(1), None)
+            return
+
           match = self.RE_UNFINISHED.match(line)
           if match:
             if match.group(1) in self._pending_calls:
@@ -1239,6 +1260,9 @@ class Strace(ApiBase):
       def handle_close(self, _args, _result):
         pass
 
+      def handle_chmod(self, _args, _result):
+        pass
+
       def handle_creat(self, _args, _result):
         # Ignore files created, since they didn't need to exist.
         pass
@@ -1280,14 +1304,17 @@ class Strace(ApiBase):
           return
         self._handle_file(args[0], False)
 
-      @parse_args(r'^AT_FDCWD, \"(.*?)\", ([A-Z\_\|]+)(|, \d+)$', False)
+      @parse_args(r'^(\d+|AT_FDCWD), \"(.*?)\", ([A-Z\_\|]+)(|, \d+)$', False)
       def handle_openat(self, args, _result):
-        # TODO(maruel): Implelement relative open if necessary instead of the
-        # AT_FDCWD flag, let's hope not since this means tracking all active
-        # directory handles.
-        if 'O_DIRECTORY' in args[1]:
+        if 'O_DIRECTORY' in args[2]:
           return
-        self._handle_file(args[0], False)
+        if args[1] == 'AT_FDCWD':
+          self._handle_file(args[1], False)
+        else:
+          # TODO(maruel): Implement relative open if necessary instead of the
+          # AT_FDCWD flag, let's hope not since this means tracking all active
+          # directory handles.
+          raise Exception('Relative open via openat not implemented.')
 
       @parse_args(r'^\"(.+?)\", \".+?\"(\.\.\.)?, \d+$', False)
       def handle_readlink(self, args, _result):
@@ -1299,6 +1326,9 @@ class Strace(ApiBase):
         self._handle_file(args[1], False)
 
       def handle_rmdir(self, _args, _result):
+        pass
+
+      def handle_setxattr(self, _args, _result):
         pass
 
       @parse_args(r'\"(.+?)\", \{.+?, \.\.\.\}', True)
@@ -1517,7 +1547,7 @@ class Dtrace(ApiBase):
       logging.info(
           '%s(%d, %s)' % (self.__class__.__name__, tracer_pid, initial_cwd))
       super(Dtrace.Context, self).__init__(blacklist)
-      # Process ID of the trace_child_process.py wrapper script instance.
+      # Process ID of the temporary script created by create_thunk().
       self._tracer_pid = tracer_pid
       self._initial_cwd = initial_cwd
       self._line_number = 0
@@ -1775,8 +1805,8 @@ class Dtrace(ApiBase):
     # 0 is for untracked processes and is the default value for items not
     #   in the associative array.
     # 1 is for tracked processes.
-    # 2 is for trace_child_process.py only. It is not tracked itself but
-    #   all its decendants are.
+    # 2 is for the script created by create_thunk() only. It is not tracked
+    #   itself but all its decendants are.
     #
     # The script will kill itself only once waiting_to_die == 1 and
     # current_processes == 0, so that both getlogin() was called and that
@@ -2069,7 +2099,7 @@ class Dtrace(ApiBase):
       this needs to wait for dtrace to be "warmed up".
       """
       super(Dtrace.Tracer, self).__init__(logname)
-      self._script = os.path.join(BASE_DIR, 'trace_child_process.py')
+      self._script = create_thunk()
       # This unique dummy temp file is used to signal the dtrace script that it
       # should stop as soon as all the child processes are done. A bit hackish
       # but works fine enough.
@@ -2110,8 +2140,8 @@ class Dtrace(ApiBase):
 
       Injects the cookie in the script so it knows when to stop.
 
-      The script will detect any trace_child_process.py instance and will start
-      tracing it.
+      The script will detect any instance of the script created with
+      create_thunk() and will start tracing it.
       """
       return (
           'inline int PID = %d;\n'
@@ -2129,8 +2159,7 @@ class Dtrace(ApiBase):
 
       This dtruss is broken when it starts the process itself or when tracing
       child processes, this code starts a wrapper process
-      trace_child_process.py, which waits for dtrace to start, then
-      trace_child_process.py starts the executable to trace.
+      generated with create_thunk() which starts the executable to trace.
       """
       logging.info('trace(%s, %s, %s, %s)' % (cmd, cwd, tracename, output))
       assert os.path.isabs(cmd[0]), cmd[0]
@@ -2158,7 +2187,7 @@ class Dtrace(ApiBase):
       # that needs to be traced.
       # Yummy.
       child = subprocess.Popen(
-          child_cmd + cmd,
+          child_cmd + fix_python_path(cmd),
           stdin=subprocess.PIPE,
           stdout=stdout,
           stderr=stderr,
@@ -2213,6 +2242,7 @@ class Dtrace(ApiBase):
       finally:
         os.close(self._dummy_file_id)
         os.remove(self._dummy_file_name)
+        os.remove(self._script)
 
     def post_process_log(self):
       """Sorts the log back in order when each call occured.
@@ -2618,7 +2648,7 @@ class LogmanTrace(ApiBase):
       "logman query providers | findstr /i file"
       """
       super(LogmanTrace.Tracer, self).__init__(logname)
-      self._script = os.path.join(BASE_DIR, 'trace_child_process.py')
+      self._script = create_thunk()
       cmd_start = [
         'logman.exe',
         'start',
@@ -2670,18 +2700,19 @@ class LogmanTrace(ApiBase):
 
       # Run the child process.
       logging.debug('Running: %s' % cmd)
-      # Use trace_child_process.py so we have a clear pid owner. Since
-      # trace_inputs.py can be used as a library and could trace mulitple
-      # processes simultaneously, it makes it more complex if the executable to
-      # be traced is executed directly here. It also solves issues related to
-      # logman.exe that needs to be executed to control the kernel trace.
+      # Use the temporary script generated with create_thunk() so we have a
+      # clear pid owner. Since trace_inputs.py can be used as a library and
+      # could trace multiple processes simultaneously, it makes it more complex
+      # if the executable to be traced is executed directly here. It also solves
+      # issues related to logman.exe that needs to be executed to control the
+      # kernel trace.
       child_cmd = [
         sys.executable,
         self._script,
         tracename,
       ]
       child = subprocess.Popen(
-          child_cmd + cmd,
+          child_cmd + fix_python_path(cmd),
           cwd=cwd,
           stdin=subprocess.PIPE,
           stdout=stdout,
@@ -2712,6 +2743,7 @@ class LogmanTrace(ApiBase):
           raise TracingFailure(
               'Called Tracer.close() on an unitialized object',
               None, None, None)
+        os.remove(self._script)
         # Save metadata, add 'format' key..
         data = {
           'format': 'csv',

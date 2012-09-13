@@ -17,14 +17,15 @@
 #include "chrome/browser/extensions/sandboxed_unpacker.h"
 #include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/string_ordinal.h"
 #include "chrome/common/web_apps.h"
+#include "sync/api/string_ordinal.h"
 
 class ExtensionService;
 class SkBitmap;
 
 namespace extensions {
 class ExtensionUpdaterTest;
+class RequirementsChecker;
 
 // This class installs a crx file into a profile.
 //
@@ -161,8 +162,12 @@ class CrxInstaller
     off_store_install_allow_reason_ = reason;
   }
 
-  void set_page_ordinal(const StringOrdinal& page_ordinal) {
+  void set_page_ordinal(const syncer::StringOrdinal& page_ordinal) {
     page_ordinal_ = page_ordinal;
+  }
+
+  void set_error_on_unsupported_requirements(bool val) {
+    error_on_unsupported_requirements_ = val;
   }
 
   bool did_handle_successfully() const { return did_handle_successfully_; }
@@ -198,6 +203,12 @@ class CrxInstaller
   // Returns true if we can skip confirmation because the install was
   // whitelisted.
   bool CanSkipConfirmation();
+
+  // Called on the UI thread to start the requirements check on the extension.
+  void CheckRequirements();
+
+  // Runs on the UI thread. Callback from RequirementsChecker.
+  void OnRequirementsChecked(std::vector<std::string> requirement_errors);
 
   // Runs on the UI thread. Confirms with the user (via ExtensionInstallPrompt)
   // that it is OK to install this extension.
@@ -270,7 +281,7 @@ class CrxInstaller
   scoped_refptr<const Extension> extension_;
 
   // The ordinal of the NTP apps page |extension_| will be shown on.
-  StringOrdinal page_ordinal_;
+  syncer::StringOrdinal page_ordinal_;
 
   // A parsed copy of the unmodified original manifest, before any
   // transformations like localization have taken place.
@@ -338,6 +349,15 @@ class CrxInstaller
 
   // Whether we should record an oauth2 grant upon successful install.
   bool record_oauth2_grant_;
+
+  // Whether we should produce an error if the manifest declares requirements
+  // that are not met. If false and there is an unmet requirement, the install
+  // will continue but the extension will be distabled.
+  bool error_on_unsupported_requirements_;
+
+  scoped_ptr<RequirementsChecker> requirements_checker_;
+
+  bool has_requirement_errors_;
 
   DISALLOW_COPY_AND_ASSIGN(CrxInstaller);
 };

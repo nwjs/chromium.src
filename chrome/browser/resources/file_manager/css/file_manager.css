@@ -615,7 +615,7 @@ button#detail-view:not([disabled]) {
   -webkit-box-align: center;
   -webkit-box-orient: horizontal;
   -webkit-transition: height 70ms linear;
-  background-image: url('../images/files/ui/clouds.png');
+  background-image: url(chrome://resources/images/clouds.png);
   background-repeat: repeat-x;
   background-size: 150px 44px;
   border-top: 1px solid rgba(0, 0, 0, 0.1);
@@ -1363,14 +1363,22 @@ div.shade[fadein] {
 .plain-link {
   color: rgb(17, 85, 204);
   cursor: pointer;
+  text-decoration: none;
 }
 
 body[ash] .dialog-title,
-body[type='full-page'] [invisibleif='full-page'],
-body:not([type='full-page']) [visibleif='full-page'],
-body:not([type='saveas-file']) [visibleif='saveas-file'],
-body:not([type='saveas-file']):not([type='full-page'])
-    [visibleif='saveas-file full-page'] {
+
+body[type='folder'] [invisibleif~='folder'],
+body[type='saveas-file'] [invisibleif~='saveas-file'],
+body[type='open-file'] [invisibleif~='open-file'],
+body[type='open-multi-file'] [invisibleif~='open-multi-file'],
+body[type='full-page'] [invisibleif~='full-page'],
+
+body[type='folder'] [visibleif]:not([visibleif~='folder']),
+body[type='saveas-file'] [visibleif]:not([visibleif~='saveas-file']),
+body[type='open-file'] [visibleif]:not([visibleif~='open-file']),
+body[type='open-multi-file'] [visibleif]:not([visibleif~='open-multi-file']),
+body[type='full-page'] [visibleif]:not([visibleif~='full-page']) {
   display: none;
 }
 

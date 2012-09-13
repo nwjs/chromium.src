@@ -8,10 +8,13 @@
 #include "chrome/browser/ui/base_window.h"
 #include "chrome/browser/ui/extensions/native_shell_window.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
+#include "chrome/browser/ui/views/unhandled_keyboard_event_handler.h"
 #include "third_party/skia/include/core/SkRegion.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/rect.h"
 #include "ui/views/widget/widget_delegate.h"
 
+class ExtensionKeybindingRegistryViews;
 class Profile;
 
 namespace content {
@@ -70,6 +73,8 @@ class ShellWindowViews : public NativeShellWindow,
   virtual bool ShouldDescendIntoChildForEventHandling(
       gfx::NativeView child,
       const gfx::Point& location) OVERRIDE;
+  virtual gfx::ImageSkia GetWindowAppIcon() OVERRIDE;
+  virtual gfx::ImageSkia GetWindowIcon() OVERRIDE;
 
  protected:
   // views::View implementation.
@@ -88,15 +93,20 @@ class ShellWindowViews : public NativeShellWindow,
     return shell_window_->extension();
   }
 
+  // views::WidgetDelegate implementation.
+  virtual void SaveWindowPlacement(const gfx::Rect& bounds,
+                                   ui::WindowShowState show_state) OVERRIDE;
+
  private:
   friend class ShellWindowFrameView;
 
   virtual ~ShellWindowViews();
 
   // NativeShellWindow implementation.
-  virtual void UpdateWindowTitle() OVERRIDE;
   virtual void SetFullscreen(bool fullscreen) OVERRIDE;
   virtual bool IsFullscreenOrPending() const OVERRIDE;
+  virtual void UpdateWindowIcon() OVERRIDE;
+  virtual void UpdateWindowTitle() OVERRIDE;
   virtual void UpdateDraggableRegions(
       const std::vector<extensions::DraggableRegion>& regions) OVERRIDE;
   virtual void HandleKeyboardEvent(
@@ -115,6 +125,11 @@ class ShellWindowViews : public NativeShellWindow,
   bool frameless_;
   gfx::Size minimum_size_;
   gfx::Size maximum_size_;
+
+  // The class that registers for keyboard shortcuts for extension commands.
+  scoped_ptr<ExtensionKeybindingRegistryViews> extension_keybinding_registry_;
+
+  UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(ShellWindowViews);
 };

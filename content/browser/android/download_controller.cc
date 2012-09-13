@@ -204,11 +204,13 @@ void DownloadController::StartAndroidDownload(
       ConvertUTF8ToJavaString(env, info.original_mime_type);
   ScopedJavaLocalRef<jstring> jcookie =
       ConvertUTF8ToJavaString(env, info.cookie);
+  ScopedJavaLocalRef<jstring> jreferer =
+      ConvertUTF8ToJavaString(env, info.referer);
 
   Java_DownloadController_newHttpGetDownload(
       env, GetJavaObject()->Controller(env).obj(), view.obj(), jurl.obj(),
       juser_agent.obj(), jcontent_disposition.obj(), jmime_type.obj(),
-      jcookie.obj(), info.total_bytes);
+      jcookie.obj(), jreferer.obj(), info.total_bytes);
 }
 
 void DownloadController::OnPostDownloadStarted(
@@ -315,12 +317,16 @@ DownloadController::DownloadInfoAndroid::DownloadInfoAndroid(
   request->GetResponseHeaderByName("content-disposition", &content_disposition);
   request->GetResponseHeaderByName("mime-type", &original_mime_type);
   request->extra_request_headers().GetHeader(
-      net::HttpRequestHeaders::kUserAgent,
-      &user_agent);
+      net::HttpRequestHeaders::kUserAgent, &user_agent);
+  GURL referer_url(request->GetSanitizedReferrer());
+  if (referer_url.is_valid())
+    referer = referer_url.spec();
   if (!request->url_chain().empty()) {
     original_url = request->url_chain().front();
     url = request->url_chain().back();
   }
 }
+
+DownloadController::DownloadInfoAndroid::~DownloadInfoAndroid() {}
 
 }  // namespace content

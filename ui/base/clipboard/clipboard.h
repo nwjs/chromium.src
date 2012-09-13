@@ -15,6 +15,7 @@
 #include "base/shared_memory.h"
 #include "base/string16.h"
 #include "base/threading/thread_checker.h"
+#include "base/threading/platform_thread.h"
 #include "ui/base/ui_export.h"
 
 #if defined(TOOLKIT_GTK)
@@ -26,6 +27,10 @@
 
 #include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
+#endif
+
+#if defined(USE_AURA) && defined(USE_X11)
+#include "base/memory/scoped_ptr.h"
 #endif
 
 namespace gfx {
@@ -46,6 +51,7 @@ class NSString;
 #endif
 
 namespace ui {
+class ClipboardTest;
 
 class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
  public:
@@ -91,7 +97,9 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
     NSString* data_;
 #elif defined(USE_AURA)
     explicit FormatType(const std::string& native_format);
+   public:
     const std::string& ToString() const { return data_; }
+   private:
     std::string data_;
 #elif defined(TOOLKIT_GTK)
     explicit FormatType(const std::string& native_format);
@@ -182,8 +190,22 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
     return static_cast<Buffer>(buffer);
   }
 
-  Clipboard();
-  ~Clipboard();
+  // Sets the list of threads that are allowed to access the clipboard.
+  static void SetAllowedThreads(
+      const std::vector<base::PlatformThreadId>& allowed_threads);
+
+  // Returns the clipboard object for the current thread.
+  //
+  // Most implementations will have at most one clipboard which will live on
+  // the main UI thread, but Windows has tricky semantics where there have to
+  // be two clipboards: one that lives on the UI thread and one that lives on
+  // the IO thread.
+  static Clipboard* GetForCurrentThread();
+
+  // Destroys the clipboard for the current thread. Usually, this will clean up
+  // all clipboards, except on Windows. (Previous code leaks the IO thread
+  // clipboard, so it shouldn't be a problem.)
+  static void DestroyClipboardForCurrentThread();
 
   // Write a bunch of objects to the system clipboard. Copies are made of the
   // contents of |objects|. On Windows they are copied to the system clipboard.
@@ -193,10 +215,11 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
 
   // On Linux/BSD, we need to know when the clipboard is set to a URL.  Most
   // platforms don't care.
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(USE_AURA) \
+#if defined(OS_WIN) || defined(OS_MACOSX)             \
+    || (defined(USE_AURA) && defined(OS_CHROMEOS))    \
     || defined(OS_ANDROID)
   void DidWriteURL(const std::string& utf8_text) {}
-#else  // !defined(OS_WIN) && !defined(OS_MACOSX)
+#else
   void DidWriteURL(const std::string& utf8_text);
 #endif
 
@@ -284,6 +307,10 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
  private:
   FRIEND_TEST_ALL_PREFIXES(ClipboardTest, SharedBitmapTest);
   FRIEND_TEST_ALL_PREFIXES(ClipboardTest, EmptyHTMLTest);
+  friend class ClipboardTest;
+
+  Clipboard();
+  ~Clipboard();
 
   void DispatchObject(ObjectType type, const ObjectMapParams& params);
 
@@ -355,6 +382,12 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
   TargetMap* clipboard_data_;
   GtkClipboard* clipboard_;
   GtkClipboard* primary_selection_;
+#elif defined(USE_AURA) && defined(USE_X11) && !defined(OS_CHROMEOS)
+ private:
+  // We keep our implementation details private because otherwise we bring in
+  // the X11 headers and break chrome compile.
+  class AuraX11Details;
+  scoped_ptr<AuraX11Details> aurax11_details_;
 #endif
 
   DISALLOW_COPY_AND_ASSIGN(Clipboard);

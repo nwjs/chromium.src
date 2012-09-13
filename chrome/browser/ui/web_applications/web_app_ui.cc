@@ -10,7 +10,6 @@
 #include "base/path_service.h"
 #include "base/string16.h"
 #include "base/utf_string_conversions.h"
-#include "base/win/windows_version.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
@@ -26,6 +25,11 @@
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
 #include "base/environment.h"
+#endif
+
+#if defined(OS_WIN)
+#include "base/win/shortcut.h"
+#include "base/win/windows_version.h"
 #endif
 
 using content::BrowserThread;
@@ -98,8 +102,10 @@ class UpdateShortcutWorker : public content::NotificationObserver {
 UpdateShortcutWorker::UpdateShortcutWorker(TabContents* tab_contents)
     : tab_contents_(tab_contents),
       profile_path_(tab_contents->profile()->GetPath()) {
+  extensions::TabHelper* extensions_tab_helper =
+      extensions::TabHelper::FromWebContents(tab_contents->web_contents());
   web_app::GetShortcutInfoForTab(tab_contents_, &shortcut_info_);
-  web_app::GetIconsInfo(tab_contents_->extension_tab_helper()->web_app_info(),
+  web_app::GetIconsInfo(extensions_tab_helper->web_app_info(),
                         &unprocessed_icons_);
   file_name_ = web_app::internals::GetSanitizedFileName(shortcut_info_.title);
 
@@ -164,7 +170,9 @@ void UpdateShortcutWorker::OnIconDownloaded(int download_id,
   if (!errored && !image.isNull()) {
     // Update icon with download image and update shortcut.
     shortcut_info_.favicon = gfx::Image(image);
-    tab_contents_->extension_tab_helper()->SetAppIcon(image);
+    extensions::TabHelper* extensions_tab_helper =
+        extensions::TabHelper::FromWebContents(tab_contents_->web_contents());
+    extensions_tab_helper->SetAppIcon(image);
     UpdateShortcuts();
   } else {
     // Try the next icon otherwise.
@@ -258,16 +266,14 @@ void UpdateShortcutWorker::UpdateShortcutsOnFileThread() {
       shortcut_info_.description.resize(MAX_PATH - 1);
 
     for (size_t i = 0; i < shortcut_files_.size(); ++i) {
-      file_util::CreateOrUpdateShortcutLink(
-          NULL,
-          shortcut_files_[i].value().c_str(),
-          NULL,
-          NULL,
-          shortcut_info_.description.c_str(),
-          icon_file.value().c_str(),
-          0,
-          app_id.c_str(),
-          file_util::SHORTCUT_NO_OPTIONS);
+      base::win::ShortcutProperties shortcut_properties;
+      shortcut_properties.set_target(shortcut_files_[i]);
+      shortcut_properties.set_description(shortcut_info_.description);
+      shortcut_properties.set_icon(icon_file, 0);
+      shortcut_properties.set_app_id(app_id);
+      base::win::CreateOrUpdateShortcutLink(
+          shortcut_files_[i], shortcut_properties,
+          base::win::SHORTCUT_UPDATE_EXISTING);
     }
   }
 
@@ -303,8 +309,9 @@ void GetShortcutInfoForTab(TabContents* tab_contents,
   DCHECK(info);  // Must provide a valid info.
   const WebContents* web_contents = tab_contents->web_contents();
 
-  const WebApplicationInfo& app_info =
-      tab_contents->extension_tab_helper()->web_app_info();
+  const extensions::TabHelper* extensions_tab_helper =
+      extensions::TabHelper::FromWebContents(web_contents);
+  const WebApplicationInfo& app_info = extensions_tab_helper->web_app_info();
 
   info->url = app_info.app_url.is_empty() ? web_contents->GetURL() :
                                             app_info.app_url;

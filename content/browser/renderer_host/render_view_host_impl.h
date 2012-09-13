@@ -220,6 +220,13 @@ class CONTENT_EXPORT RenderViewHostImpl
   virtual void UpdateWebkitPreferences(
       const webkit_glue::WebPreferences& prefs) OVERRIDE;
 
+#if defined(OS_ANDROID)
+  virtual void ActivateNearestFindResult(int request_id,
+                                         float x,
+                                         float y) OVERRIDE;
+  virtual void RequestFindMatchRects(int current_version) OVERRIDE;
+#endif
+
   void set_delegate(RenderViewHostDelegate* d) {
     CHECK(d);  // http://crbug.com/82827
     delegate_ = d;
@@ -365,6 +372,11 @@ class CONTENT_EXPORT RenderViewHostImpl
   virtual void ForwardKeyboardEvent(
       const NativeWebKeyboardEvent& key_event) OVERRIDE;
   virtual gfx::Rect GetRootWindowResizerRect() const OVERRIDE;
+
+#if defined(OS_ANDROID)
+  virtual void AttachLayer(WebKit::WebLayer* layer) OVERRIDE;
+  virtual void RemoveLayer(WebKit::WebLayer* layer) OVERRIDE;
+#endif
 
   // Creates a new RenderView with the given route id.
   void CreateNewWindow(

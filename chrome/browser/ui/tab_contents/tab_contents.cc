@@ -10,7 +10,6 @@
 #include "chrome/browser/autofill/autofill_external_delegate.h"
 #include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/automation/automation_tab_helper.h"
-#include "chrome/browser/captive_portal/captive_portal_tab_helper.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/extensions/api/web_navigation/web_navigation_api.h"
 #include "chrome/browser/extensions/tab_helper.h"
@@ -22,6 +21,7 @@
 #include "chrome/browser/omnibox_search_hint.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/password_manager/password_manager_delegate_impl.h"
+#include "chrome/browser/pepper_broker_observer.h"
 #include "chrome/browser/plugin_observer.h"
 #include "chrome/browser/prerender/prerender_tab_helper.h"
 #include "chrome/browser/printing/print_preview_message_handler.h"
@@ -58,6 +58,10 @@
 #include "chrome/common/thumbnail_support.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
+
+#if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
+#include "chrome/browser/captive_portal/captive_portal_tab_helper.h"
+#endif
 
 using content::WebContents;
 
@@ -105,9 +109,10 @@ TabContents::TabContents(WebContents* contents)
                         new TabContentsUserData(this));
 
   // Create the tab helpers.
-  // session_tab_helper because it sets up the tab ID, and other helpers may
-  // rely on that.
-  session_tab_helper_.reset(new SessionTabHelper(contents));
+
+  // SessionTabHelper comes first because it sets up the tab ID, and other
+  // helpers may rely on that.
+  SessionTabHelper::CreateForWebContents(contents);
 
   autocomplete_history_manager_.reset(new AutocompleteHistoryManager(contents));
   autofill_delegate_.reset(new TabAutofillManagerDelegate(this));
@@ -133,13 +138,13 @@ TabContents::TabContents(WebContents* contents)
 #endif
   constrained_window_tab_helper_.reset(new ConstrainedWindowTabHelper(this));
   core_tab_helper_.reset(new CoreTabHelper(contents));
-  extension_tab_helper_.reset(new extensions::TabHelper(this));
+  extensions::TabHelper::CreateForWebContents(contents);
   favicon_tab_helper_.reset(new FaviconTabHelper(contents));
   find_tab_helper_.reset(new FindTabHelper(contents));
   history_tab_helper_.reset(new HistoryTabHelper(contents));
   hung_plugin_tab_helper_.reset(new HungPluginTabHelper(contents));
   infobar_tab_helper_.reset(new InfoBarTabHelper(contents));
-  metro_pin_tab_helper_.reset(new MetroPinTabHelper(contents));
+  MetroPinTabHelper::CreateForWebContents(contents);
   password_manager_delegate_.reset(new PasswordManagerDelegateImpl(this));
   password_manager_.reset(
       new PasswordManager(contents, password_manager_delegate_.get()));
@@ -165,15 +170,15 @@ TabContents::TabContents(WebContents* contents)
   // Create the per-tab observers.
   alternate_error_page_tab_observer_.reset(
       new AlternateErrorPageTabObserver(contents, profile()));
-  webnavigation_observer_.reset(
-      new extensions::WebNavigationTabObserver(contents));
   external_protocol_observer_.reset(new ExternalProtocolObserver(contents));
   navigation_metrics_recorder_.reset(new NavigationMetricsRecorder(contents));
   pdf_tab_observer_.reset(new PDFTabObserver(this));
+  pepper_broker_observer_.reset(new PepperBrokerObserver(contents));
+  plugin_observer_.reset(new PluginObserver(this));
   safe_browsing_tab_observer_.reset(
       new safe_browsing::SafeBrowsingTabObserver(this));
-
-  plugin_observer_.reset(new PluginObserver(this));
+    webnavigation_observer_.reset(
+        new extensions::WebNavigationTabObserver(contents));
 
 #if !defined(OS_ANDROID)
   if (OmniboxSearchHint::IsEnabled(profile()))
@@ -217,13 +222,7 @@ TabContents::~TabContents() {
 
 TabContents* TabContents::Clone() {
   WebContents* new_web_contents = web_contents()->Clone();
-  TabContents* new_tab_contents = new TabContents(new_web_contents);
-
-  // TODO(avi): Can we generalize this so that knowledge of the functionings of
-  // the tab helpers isn't required here?
-  new_tab_contents->extension_tab_helper()->CopyStateFrom(
-      *extension_tab_helper_.get());
-  return new_tab_contents;
+  return new TabContents(new_web_contents);
 }
 
 // static

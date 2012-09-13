@@ -38,8 +38,9 @@ PepperHungPluginFilter::PepperHungPluginFilter(const FilePath& plugin_path,
 
 void PepperHungPluginFilter::BeginBlockOnSyncMessage() {
   base::AutoLock lock(lock_);
+  last_message_received_ = base::TimeTicks::Now();
   if (pending_sync_message_count_ == 0)
-    began_blocking_time_ = base::TimeTicks::Now();
+    began_blocking_time_ = last_message_received_;
   pending_sync_message_count_++;
 
   EnsureTimerScheduled();
@@ -88,11 +89,30 @@ void PepperHungPluginFilter::EnsureTimerScheduled() {
 }
 
 void PepperHungPluginFilter::MayHaveBecomeUnhung() {
+  lock_.AssertAcquired();
   if (!hung_plugin_showing_ || IsHung())
     return;
 
   SendHungMessage(false);
   hung_plugin_showing_ = false;
+}
+
+base::TimeTicks PepperHungPluginFilter::GetHungTime() const {
+  lock_.AssertAcquired();
+
+  DCHECK(pending_sync_message_count_);
+  DCHECK(!began_blocking_time_.is_null());
+  DCHECK(!last_message_received_.is_null());
+
+  // Always considered hung at the hard threshold.
+  base::TimeTicks hard_time = began_blocking_time_ +
+      base::TimeDelta::FromSeconds(kBlockedHardThresholdSec);
+
+  // Hung after a soft threshold from last message of any sort.
+  base::TimeTicks soft_time = last_message_received_ +
+        base::TimeDelta::FromSeconds(kHungThresholdSec);
+
+  return std::min(soft_time, hard_time);
 }
 
 bool PepperHungPluginFilter::IsHung() const {
@@ -101,42 +121,26 @@ bool PepperHungPluginFilter::IsHung() const {
   if (!pending_sync_message_count_)
     return false;  // Not blocked on a sync message.
 
-  base::TimeTicks now = base::TimeTicks::Now();
-
-  DCHECK(!began_blocking_time_.is_null());
-  if (now - began_blocking_time_ >=
-      base::TimeDelta::FromSeconds(kBlockedHardThresholdSec))
-    return true;  // Been blocked too long regardless of what the plugin is
-                  // sending us.
-
-  base::TimeDelta hung_threshold =
-      base::TimeDelta::FromSeconds(kHungThresholdSec);
-  if (now - began_blocking_time_ >= hung_threshold &&
-      (last_message_received_.is_null() ||
-       now - last_message_received_ >= hung_threshold))
-    return true;  // Blocked and haven't received a message in too long.
-
-  return false;
+  return base::TimeTicks::Now() > GetHungTime();
 }
 
 void PepperHungPluginFilter::OnHangTimer() {
   base::AutoLock lock(lock_);
   timer_task_pending_ = false;
 
-  if (!IsHung()) {
-    if (pending_sync_message_count_ > 0) {
-      // Got a timer message while we're waiting on a sync message. We need
-      // to schedule another timer message because the latest sync message
-      // would not have scheduled one (we only have one out-standing timer at
-      // a time).
-      DCHECK(!began_blocking_time_.is_null());
-      base::TimeDelta delay =
-          base::TimeDelta::FromSeconds(kHungThresholdSec) -
-          (base::TimeTicks::Now() - began_blocking_time_);
-      io_loop_->PostDelayedTask(FROM_HERE,
-          base::Bind(&PepperHungPluginFilter::OnHangTimer, this),
-          delay);
-    }
+  if (!pending_sync_message_count_)
+    return;  // Not blocked any longer.
+
+  base::TimeDelta delay = GetHungTime() - base::TimeTicks::Now();
+  if (delay > base::TimeDelta()) {
+    // Got a timer message while we're waiting on a sync message. We need
+    // to schedule another timer message because the latest sync message
+    // would not have scheduled one (we only have one out-standing timer at
+    // a time).
+    timer_task_pending_ = true;
+    io_loop_->PostDelayedTask(FROM_HERE,
+        base::Bind(&PepperHungPluginFilter::OnHangTimer, this),
+        delay);
     return;
   }
 

@@ -28,9 +28,9 @@
 #include "crypto/scoped_nss_types.h"
 #include "crypto/symmetric_key.h"
 #include "grit/generated_resources.h"
-#include "net/base/cert_database.h"
 #include "net/base/crypto_module.h"
 #include "net/base/net_errors.h"
+#include "net/base/nss_cert_database.h"
 #include "net/base/pem_tokenizer.h"
 #include "net/base/x509_certificate.h"
 #include "net/proxy/proxy_bypass_rules.h"
@@ -282,6 +282,7 @@ OncNetworkParser::OncNetworkParser(const std::string& onc_blob,
                                    NetworkUIData::ONCSource onc_source)
     : NetworkParser(get_onc_mapper()),
       onc_source_(onc_source),
+      allow_web_trust_from_policy_(false),
       network_configs_(NULL),
       certificates_(NULL) {
   VLOG(2) << __func__ << ": OncNetworkParser called on " << onc_blob;
@@ -525,7 +526,6 @@ scoped_refptr<net::X509Certificate> OncNetworkParser::ParseCertificate(
   if (!certificate->GetBoolean("Remove", &remove))
     remove = false;
 
-  net::CertDatabase cert_database;
   if (remove) {
     if (!DeleteCertAndKeyByNickname(guid)) {
       parse_error_ = l10n_util::GetStringUTF8(
@@ -580,7 +580,7 @@ Network* OncNetworkParser::CreateNetworkFromInfo(
     return NULL;
   }
 
-  // Update the UI data property in flimflam.
+  // Update the UI data property in shill.
   std::string ui_data_json;
   base::DictionaryValue ui_data_dict;
   network->ui_data().FillDictionary(&ui_data_dict);
@@ -790,7 +790,7 @@ bool OncNetworkParser::ParseNetworkConfigurationValue(
       // Fall back to generic parser.
       return parser->ParseValue(index, value, network);
     case PROPERTY_INDEX_NAME:
-      // flimflam doesn't allow setting name for non-VPN networks.
+      // shill doesn't allow setting name for non-VPN networks.
       if (network->type() != TYPE_VPN) {
         network->UpdatePropertyMap(PROPERTY_INDEX_NAME, NULL);
         return true;
@@ -822,7 +822,13 @@ OncNetworkParser::ParseServerOrCaCertificate(
     const std::string& cert_type,
     const std::string& guid,
     base::DictionaryValue* certificate) {
-  net::CertDatabase cert_database;
+  // Device policy can't import certificates.
+  if (onc_source_ == NetworkUIData::ONC_SOURCE_DEVICE_POLICY) {
+    LOG(WARNING) << "Refusing to import certificate from device policy";
+    // This isn't a parsing error, so just return NULL here.
+    return NULL;
+  }
+
   bool web_trust = false;
   base::ListValue* trust_list = NULL;
   if (certificate->GetList("Trust", &trust_list)) {
@@ -848,6 +854,14 @@ OncNetworkParser::ParseServerOrCaCertificate(
         return NULL;
       }
     }
+  }
+
+  // Web trust is only granted to certificates imported for a managed user
+  // on a managed device.
+  if (onc_source_ == NetworkUIData::ONC_SOURCE_USER_POLICY &&
+      web_trust && !allow_web_trust_from_policy_) {
+    LOG(WARNING) << "Web trust not granted for certificate: " << guid;
+    web_trust = false;
   }
 
   std::string x509_data;
@@ -915,8 +929,9 @@ OncNetworkParser::ParseServerOrCaCertificate(
   // TODO(mnissler, gspencer): We should probably switch to a mode where we
   // keep our own database for mapping GUIDs to certs in order to enable several
   // GUIDs to map to the same cert. See http://crosbug.com/26073.
+  net::NSSCertDatabase* cert_database = net::NSSCertDatabase::GetInstance();
   if (x509_cert->os_cert_handle()->isperm) {
-    if (!cert_database.DeleteCertAndKey(x509_cert.get())) {
+    if (!cert_database->DeleteCertAndKey(x509_cert.get())) {
       parse_error_ = l10n_util::GetStringUTF8(
           IDS_NETWORK_CONFIG_ERROR_CERT_DELETE);
       return NULL;
@@ -951,15 +966,15 @@ OncNetworkParser::ParseServerOrCaCertificate(
 
   net::CertificateList cert_list;
   cert_list.push_back(x509_cert);
-  net::CertDatabase::ImportCertFailureList failures;
+  net::NSSCertDatabase::ImportCertFailureList failures;
   bool success = false;
-  net::CertDatabase::TrustBits trust = web_trust ?
-                                       net::CertDatabase::TRUSTED_SSL :
-                                       net::CertDatabase::TRUST_DEFAULT;
+  net::NSSCertDatabase::TrustBits trust = web_trust ?
+                                          net::NSSCertDatabase::TRUSTED_SSL :
+                                          net::NSSCertDatabase::TRUST_DEFAULT;
   if (cert_type == "Server") {
-    success = cert_database.ImportServerCert(cert_list, trust, &failures);
+    success = cert_database->ImportServerCert(cert_list, trust, &failures);
   } else {  // Authority cert
-    success = cert_database.ImportCACerts(cert_list, trust, &failures);
+    success = cert_database->ImportCACerts(cert_list, trust, &failures);
   }
   if (!failures.empty()) {
     LOG(WARNING) << "ONC File: Error ("
@@ -987,7 +1002,6 @@ scoped_refptr<net::X509Certificate> OncNetworkParser::ParseClientCertificate(
     int cert_index,
     const std::string& guid,
     base::DictionaryValue* certificate) {
-  net::CertDatabase cert_database;
   std::string pkcs12_data;
   if (!certificate->GetString("PKCS12", &pkcs12_data) ||
       pkcs12_data.empty()) {
@@ -1008,10 +1022,11 @@ scoped_refptr<net::X509Certificate> OncNetworkParser::ParseClientCertificate(
   }
 
   // Since this has a private key, always use the private module.
-  scoped_refptr<net::CryptoModule> module(cert_database.GetPrivateModule());
+  net::NSSCertDatabase* cert_database = net::NSSCertDatabase::GetInstance();
+  scoped_refptr<net::CryptoModule> module(cert_database->GetPrivateModule());
   net::CertificateList imported_certs;
 
-  int result = cert_database.ImportFromPKCS12(
+  int result = cert_database->ImportFromPKCS12(
       module.get(), decoded_pkcs12, string16(), false, &imported_certs);
   if (result != net::OK) {
     LOG(WARNING) << "ONC File: Unable to import Client certificate at index "
@@ -1072,8 +1087,7 @@ ClientCertType OncNetworkParser::ParseClientCertType(
 void OncNetworkParser::ListCertsWithNickname(const std::string& label,
                                              net::CertificateList* result) {
   net::CertificateList all_certs;
-  net::CertDatabase cert_db;
-  cert_db.ListCerts(&all_certs);
+  net::NSSCertDatabase::GetInstance()->ListCerts(&all_certs);
   result->clear();
   for (net::CertificateList::iterator iter = all_certs.begin();
        iter != all_certs.end(); ++iter) {
@@ -1111,7 +1125,6 @@ void OncNetworkParser::ListCertsWithNickname(const std::string& label,
 bool OncNetworkParser::DeleteCertAndKeyByNickname(const std::string& label) {
   net::CertificateList cert_list;
   ListCertsWithNickname(label, &cert_list);
-  net::CertDatabase cert_db;
   bool result = true;
   for (net::CertificateList::iterator iter = cert_list.begin();
        iter != cert_list.end(); ++iter) {
@@ -1122,7 +1135,7 @@ bool OncNetworkParser::DeleteCertAndKeyByNickname(const std::string& label) {
     // label, and the cert not being found is one of the few reasons the
     // delete could fail, but still...  The other choice is to return
     // failure immediately, but that doesn't seem to do what is intended.
-    if (!cert_db.DeleteCertAndKey(iter->get()))
+    if (!net::NSSCertDatabase::GetInstance()->DeleteCertAndKey(iter->get()))
       result = false;
   }
   return result;
@@ -1214,13 +1227,13 @@ bool OncNetworkParser::ProcessProxySettings(OncNetworkParser* parser,
   std::string proxy_dict_str = ConvertValueToString(*proxy_dict.get());
 
   // Add ProxyConfig property to property map so that it will be updated in
-  // flimflam in NetworkLibraryImplCros::CallConfigureService after all parsing
+  // shill in NetworkLibraryImplCros::CallConfigureService after all parsing
   // has completed.
   base::StringValue val(proxy_dict_str);
   network->UpdatePropertyMap(PROPERTY_INDEX_PROXY_CONFIG, &val);
 
   // If |network| is currently being connected to or it exists in memory,
-  // flimflam will fire PropertyChanged notification in ConfigureService,
+  // shill will fire PropertyChanged notification in ConfigureService,
   // chromeos::ProxyConfigServiceImpl will get OnNetworkChanged notification
   // and, if necessary, activate |proxy_dict_str| on network stack and reflect
   // it in UI via "Change proxy settings" button.
@@ -1721,7 +1734,7 @@ bool OncVirtualNetworkParser::ParseVPNValue(OncNetworkParser* parser,
     case PROPERTY_INDEX_PROVIDER_HOST: {
       base::StringValue empty_value("");
       virtual_network->set_server_hostname(GetStringValue(value));
-      // Flimflam requires a domain property which is unused.
+      // Shill requires a domain property which is unused.
       network->UpdatePropertyMap(PROPERTY_INDEX_VPN_DOMAIN, &empty_value);
       return true;
     }
@@ -1752,7 +1765,7 @@ bool OncVirtualNetworkParser::ParseVPNValue(OncNetworkParser* parser,
         VLOG(1) << "OpenVPN field not allowed with this VPN type";
         return false;
       }
-      // The following are needed by flimflam to set up the OpenVPN
+      // The following are needed by shill to set up the OpenVPN
       // management channel which every ONC OpenVPN configuration will
       // use.
       base::StringValue empty_value("");
@@ -1833,7 +1846,7 @@ bool OncVirtualNetworkParser::ParseIPsecValue(OncNetworkParser* parser,
     }
     case PROPERTY_INDEX_IPSEC_IKEVERSION: {
       if (!value.IsType(TYPE_STRING)) {
-        // Flimflam wants all provider properties to be strings.
+        // Shill wants all provider properties to be strings.
         base::StringValue string_value(ConvertValueToString(value));
         virtual_network->UpdatePropertyMap(index, &string_value);
       }
@@ -1937,7 +1950,7 @@ bool OncVirtualNetworkParser::ParseOpenVPNValue(OncNetworkParser* parser,
       virtual_network->set_ca_cert_nss(GetStringValue(value));
       return true;
     case PROPERTY_INDEX_OPEN_VPN_REMOTECERTKU: {
-      // ONC supports a list of these, but we flimflam supports only one
+      // ONC supports a list of these, but we shill supports only one
       // today.  So extract the first.
       const base::ListValue* value_list = NULL;
       value.GetAsList(&value_list);
@@ -1971,7 +1984,7 @@ bool OncVirtualNetworkParser::ParseOpenVPNValue(OncNetworkParser* parser,
     case PROPERTY_INDEX_OPEN_VPN_TLSAUTHCONTENTS:
     case PROPERTY_INDEX_OPEN_VPN_TLSREMOTE: {
       if (!value.IsType(TYPE_STRING)) {
-        // Flimflam wants all provider properties to be strings.
+        // Shill wants all provider properties to be strings.
         base::StringValue string_value(ConvertValueToString(value));
         virtual_network->UpdatePropertyMap(index, &string_value);
       }

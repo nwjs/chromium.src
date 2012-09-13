@@ -307,7 +307,7 @@
                   '|content/public/.*speech'
     },
     'sync': {
-      'filepath': 'chrome/browser/sync/',
+      'filepath': 'chrome/browser/sync/|sync/',
     },
     'tab_contents': {
       'filepath': 'chrome/browser/tab_contents/|'\
@@ -496,7 +496,8 @@
     'panels': ['dimich@chromium.org', 'jennb@chromium.org',
                'dcheng@chromium.org', 'jianli@chromium.org'],
     'pepper_api': ['piman+watch@chromium.org', 'darin-cc@chromium.org',
-                   'ihf+watch@chromium.org', 'yzshen+watch@chromium.org'],
+                   'ihf+watch@chromium.org', 'yzshen+watch@chromium.org',
+                   'yusukes+watch@chromium.org'],
     'plugin': ['darin-cc@chromium.org', 'jam@chromium.org',
                'stuartmorgan+watch@chromium.org'],
     'prerender': ['cbentzel+watch@chromium.org', 'tburkard+watch@chromium.org',
@@ -523,8 +524,10 @@
     'shell_window': ['jeremya+watch@chromium.org'],
     'site_instance': ['creis+watch@chromium.org', 'ajwong+watch@chromium.org'],
     'speech': ['satish@chromium.org'],
-    'sync': ['tim@chromium.org', 'nick@chromium.org',
-             'akalin@chromium.org', 'rsimha@chromium.org'],
+    'sync': ['akalin@chromium.org',
+             'haitaol@chromium.org',
+             'rsimha@chromium.org',
+             'tim@chromium.org'],
     'tab_contents': ['avi@chromium.org',
                      'creis+watch@chromium.org', 'ajwong+watch@chromium.org'],
     'task_manager': ['yoshiki+watch@chromium.org'],
@@ -545,7 +548,8 @@
     'webintents': [
                    'gbillock+watch@chromium.org',
                    'smckay+watch@chromium.org',
-                   'groby+watch@chromium.org'],
+                   'groby+watch@chromium.org',
+                   'rouslan+watch@chromium.org'],
     'website_settings': ['markusheintz@chromium.org'],
     'webkit': ['darin-cc@chromium.org'],
     'worker': ['jam@chromium.org'],

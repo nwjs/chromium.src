@@ -34,6 +34,7 @@
 #include "chrome/browser/browser_process_impl.h"
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
+#include "chrome/browser/chrome_gpu_util.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/extension_protocols.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -41,7 +42,6 @@
 #include "chrome/browser/first_run/upgrade_util.h"
 #include "chrome/browser/google/google_search_counter.h"
 #include "chrome/browser/google/google_util.h"
-#include "chrome/browser/gpu_blacklist.h"
 #include "chrome/browser/jankometer.h"
 #include "chrome/browser/language_usage_metrics.h"
 #include "chrome/browser/managed_mode.h"
@@ -208,18 +208,14 @@ void InitializeNetworkOptions(const CommandLine& parsed_command_line) {
     net::CookieMonster::EnableFileScheme();
   }
 
-  if (parsed_command_line.HasSwitch(switches::kIgnoreCertificateErrors))
-    net::HttpStreamFactory::set_ignore_certificate_errors(true);
-
-  if (parsed_command_line.HasSwitch(switches::kHostRules))
-    net::HttpStreamFactory::SetHostMappingRules(
-        parsed_command_line.GetSwitchValueASCII(switches::kHostRules));
-
   if (parsed_command_line.HasSwitch(switches::kEnableIPPooling))
     net::SpdySessionPool::enable_ip_pooling(true);
 
   if (parsed_command_line.HasSwitch(switches::kDisableIPPooling))
     net::SpdySessionPool::enable_ip_pooling(false);
+
+  if (parsed_command_line.HasSwitch(switches::kEnableSpdyCredentialFrames))
+    net::SpdySession::set_enable_credential_frames(true);
 
   if (parsed_command_line.HasSwitch(switches::kMaxSpdySessionsPerDomain)) {
     int value;
@@ -233,27 +229,6 @@ void InitializeNetworkOptions(const CommandLine& parsed_command_line) {
   if (parsed_command_line.HasSwitch(switches::kEnableWebSocketOverSpdy)) {
     // Enable WebSocket over SPDY.
     net::WebSocketJob::set_websocket_over_spdy_enabled(true);
-  }
-
-  if (parsed_command_line.HasSwitch(switches::kEnableHttpPipelining))
-    net::HttpStreamFactory::set_http_pipelining_enabled(true);
-
-  if (parsed_command_line.HasSwitch(switches::kTestingFixedHttpPort)) {
-    int value;
-    base::StringToInt(
-        parsed_command_line.GetSwitchValueASCII(
-            switches::kTestingFixedHttpPort),
-        &value);
-    net::HttpStreamFactory::set_testing_fixed_http_port(value);
-  }
-
-  if (parsed_command_line.HasSwitch(switches::kTestingFixedHttpsPort)) {
-    int value;
-    base::StringToInt(
-        parsed_command_line.GetSwitchValueASCII(
-            switches::kTestingFixedHttpsPort),
-        &value);
-    net::HttpStreamFactory::set_testing_fixed_https_port(value);
   }
 
   bool used_spdy_switch = false;
@@ -419,25 +394,6 @@ Profile* CreateProfile(const content::MainFunctionParams& parameters,
 #endif
 
   return NULL;
-}
-
-// Load GPU Blacklist, collect preliminary gpu info, and compute preliminary
-// gpu feature flags.
-void InitializeGpuDataManager(const CommandLine& parsed_command_line) {
-  content::GpuDataManager::GetInstance()->InitializeGpuInfo();
-  if (parsed_command_line.HasSwitch(switches::kSkipGpuDataLoading) ||
-      parsed_command_line.HasSwitch(switches::kIgnoreGpuBlacklist)) {
-    return;
-  }
-
-  const base::StringPiece gpu_blacklist_json(
-      ResourceBundle::GetSharedInstance().GetRawDataResource(
-          IDR_GPU_BLACKLIST, ui::SCALE_FACTOR_NONE));
-  GpuBlacklist* gpu_blacklist = GpuBlacklist::GetInstance();
-  bool succeed = gpu_blacklist->LoadGpuBlacklist(
-      gpu_blacklist_json.as_string(), GpuBlacklist::kCurrentOsOnly);
-  DCHECK(succeed);
-  gpu_blacklist->UpdateGpuDataManager();
 }
 
 #if defined(OS_MACOSX)
@@ -780,7 +736,8 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
 
   // If we're running tests (ui_task is non-null), then the ResourceBundle
   // has already been initialized.
-  if (parameters().ui_task) {
+  if (parameters().ui_task &&
+      !local_state_->IsManagedPreference(prefs::kApplicationLocale)) {
     browser_process_->SetApplicationLocale("en-US");
   } else {
     // Mac starts it earlier in |PreMainMessageLoopStart()| (because it is
@@ -1078,7 +1035,13 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
         printf("%s\n", base::SysWideToNativeMB(UTF16ToWide(
             l10n_util::GetStringUTF16(IDS_USED_EXISTING_BROWSER))).c_str());
 #endif
-        return chrome::RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFIED;
+        // Having a differentiated return type for testing allows for tests to
+        // verify proper handling of some switches. When not testing, stick to
+        // the standard Unix convention of returning zero when things went as
+        // expected.
+        if (parsed_command_line().HasSwitch(switches::kTestType))
+          return chrome::RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFIED;
+        return content::RESULT_CODE_NORMAL_EXIT;
 
       case ProcessSingleton::PROFILE_IN_USE:
         return chrome::RESULT_CODE_PROFILE_IN_USE;
@@ -1352,8 +1315,8 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   CloudPrintProxyServiceFactory::GetForProfile(profile_);
 #endif
 
-  // Load GPU Blacklist.
-  InitializeGpuDataManager(parsed_command_line());
+  // Load GPU Blacklist; load preliminary GPU info.
+  gpu_util::InitializeGpuDataManager(parsed_command_line());
 
   // Start watching all browser threads for responsiveness.
   ThreadWatcherList::StartWatchingAll(parsed_command_line());
@@ -1491,7 +1454,7 @@ bool ChromeBrowserMainParts::MainMessageLoopRun(int* result_code) {
 #endif
 
   if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kRunPerformanceMonitor)) {
+          switches::kPerformanceMonitorGathering)) {
     performance_monitor::PerformanceMonitor::GetInstance()->Start();
   }
 

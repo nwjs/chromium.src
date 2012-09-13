@@ -116,6 +116,9 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
   virtual void ShowBluetoothSettings() OVERRIDE {
   }
 
+  virtual void ShowDisplaySettings() OVERRIDE {
+  }
+
   virtual void ShowDriveSettings() OVERRIDE {
   }
 
@@ -403,7 +406,7 @@ void StatusAreaWidget::UpdateAfterLoginStatusChange(
 void StatusAreaWidget::UpdateShouldShowLauncher() {
   // If any bubble is visible, we should show the launcher.
   bool should_show_launcher =
-      (system_tray_ && system_tray_->IsSystemBubbleVisible()) ||
+      (system_tray_ && system_tray_->HasSystemBubble()) ||
       (web_notification_tray_ &&
        web_notification_tray_->IsMessageCenterBubbleVisible());
   if (!should_show_launcher && Shell::GetInstance()->shelf()->IsVisible()) {

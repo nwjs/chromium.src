@@ -98,7 +98,6 @@ class WebUIBindings;
 namespace content {
 class DocumentState;
 class NavigationState;
-class P2PSocketDispatcher;
 class RenderViewObserver;
 class RenderViewTest;
 class RendererAccessibility;
@@ -255,11 +254,6 @@ class RenderViewImpl : public RenderWidget,
 
   MediaStreamDispatcher* media_stream_dispatcher() {
     return media_stream_dispatcher_;
-  }
-
-  // Current P2PSocketDispatcher. Set to NULL if P2P API is disabled.
-  content::P2PSocketDispatcher* p2p_socket_dispatcher() {
-    return p2p_socket_dispatcher_;
   }
 
   MouseLockDispatcher* mouse_lock_dispatcher() {
@@ -816,12 +810,16 @@ class RenderViewImpl : public RenderWidget,
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, InsertCharacters);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, JSBlockSentAfterPageLoad);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, LastCommittedUpdateState);
+  FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, OnExtendSelectionAndDelete);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, OnHandleKeyboardEvent);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, OnImeStateChanged);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, OnNavStateChanged);
+  FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, OnReplaceAll);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, OnSetTextDirection);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, OnUpdateWebPreferences);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, SendSwapOutACK);
+  FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest,
+                           SetEditableSelectionAndComposition);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, StaleNavigationsIgnored);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, UpdateTargetURLWithInvalidURL);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest,
@@ -906,6 +904,9 @@ class RenderViewImpl : public RenderWidget,
   // The documentation for these functions should be in
   // render_messages_internal.h for the message that the function is handling.
 
+#if defined(OS_ANDROID)
+  void OnActivateNearestFindResult(int request_id, float x, float y);
+#endif
   CONTENT_EXPORT void OnAllowBindings(int enabled_bindings_flags);
   void OnAllowScriptToClose(bool script_can_close);
   void OnAsyncFileOpened(base::PlatformFileError error_code,
@@ -958,10 +959,14 @@ class RenderViewImpl : public RenderWidget,
   void OnDisableAutoResize(const gfx::Size& new_size);
   void OnEnumerateDirectoryResponse(int id, const std::vector<FilePath>& paths);
   void OnExecuteEditCommand(const std::string& name, const std::string& value);
+  CONTENT_EXPORT void OnExtendSelectionAndDelete(int before, int after);
   void OnFileChooserResponse(
       const std::vector<ui::SelectedFileInfo>& files);
   void OnFind(int request_id, const string16&, const WebKit::WebFindOptions&);
   void OnGetAllSavableResourceLinksForCurrentPage(const GURL& page_url);
+#if defined(OS_ANDROID)
+  void OnFindMatchRects(int current_version);
+#endif
   void OnGetSerializedHtmlDataForCurrentPageWithLocalLinks(
       const std::vector<GURL>& links,
       const std::vector<FilePath>& local_paths,
@@ -985,6 +990,7 @@ class RenderViewImpl : public RenderWidget,
   void OnRedo();
   void OnReloadFrame();
   void OnReplace(const string16& text);
+  CONTENT_EXPORT void OnReplaceAll(const string16& text);
   void OnResetPageEncodingToDefault();
   void OnScriptEvalRequest(const string16& frame_xpath,
                            const string16& jscript,
@@ -996,6 +1002,10 @@ class RenderViewImpl : public RenderWidget,
   void OnSetActive(bool active);
   void OnSetAltErrorPageURL(const GURL& gurl);
   void OnSetBackground(const SkBitmap& background);
+  CONTENT_EXPORT void OnSetCompositionFromExistingText(
+      int start, int end,
+      const std::vector<WebKit::WebCompositionUnderline>& underlines);
+  CONTENT_EXPORT void OnSetEditableSelectionOffsets(int start, int end);
   void OnSetNavigationStartTime(
       const base::TimeTicks& browser_navigation_start);
   void OnSetWebUIProperty(const std::string& name, const std::string& value);
@@ -1026,6 +1036,7 @@ class RenderViewImpl : public RenderWidget,
   void OnUpdateTargetURLAck();
   CONTENT_EXPORT void OnUpdateWebPreferences(
       const webkit_glue::WebPreferences& prefs);
+  CONTENT_EXPORT void OnUnselect();
 
 #if defined(OS_MACOSX)
   void OnWindowFrameChanged(const gfx::Rect& window_frame,
@@ -1373,9 +1384,6 @@ class RenderViewImpl : public RenderWidget,
 
   // MediaStreamImpl attached to this view; lazily initialized.
   MediaStreamImpl* media_stream_impl_;
-
-  // Dispatches all P2P socket used by the renderer.
-  content::P2PSocketDispatcher* p2p_socket_dispatcher_;
 
   DevToolsAgent* devtools_agent_;
 

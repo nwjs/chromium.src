@@ -10,6 +10,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/memory/linked_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
 #include "base/time.h"
 #include "ui/base/animation/animation_container_element.h"
@@ -33,8 +34,14 @@ class Transform;
 // When a property of layer needs to be changed it is set by way of
 // LayerAnimator. This enables LayerAnimator to animate property changes.
 // NB: during many tests, set_disable_animations_for_test is used and causes
-// all animations to complete immediately.
-class COMPOSITOR_EXPORT LayerAnimator : public AnimationContainerElement {
+// all animations to complete immediately. The layer animation is ref counted
+// so that if its owning layer is deleted (and the owning layer is only other
+// class that should ever hold a ref ptr to a LayerAnimator), the animator can
+// ensure that it is not disposed of until it finishes executing. It does this
+// by holding a reference to itself for the duration of methods for which it
+// must guarantee that |this| is valid.
+class COMPOSITOR_EXPORT LayerAnimator
+    : public AnimationContainerElement, public base::RefCounted<LayerAnimator> {
  public:
   enum PreemptionStrategy {
     IMMEDIATELY_SET_NEW_TARGET,
@@ -45,7 +52,6 @@ class COMPOSITOR_EXPORT LayerAnimator : public AnimationContainerElement {
   };
 
   explicit LayerAnimator(base::TimeDelta transition_duration);
-  virtual ~LayerAnimator();
 
   // No implicit animations when properties are set.
   static LayerAnimator* CreateDefaultAnimator();
@@ -78,7 +84,9 @@ class COMPOSITOR_EXPORT LayerAnimator : public AnimationContainerElement {
   float GetTargetGrayscale() const;
 
   // Sets the layer animation delegate the animator is associated with. The
-  // animator does not own the delegate.
+  // animator does not own the delegate. The layer animator expects a non-NULL
+  // delegate for most of its operations, so do not call any methods without
+  // a valid delegate installed.
   void SetDelegate(LayerAnimationDelegate* delegate);
 
   // Sets the animation preemption strategy. This determines the behaviour if
@@ -105,6 +113,13 @@ class COMPOSITOR_EXPORT LayerAnimator : public AnimationContainerElement {
   // they animate any common properties. The animator takes ownership of the
   // animation sequences.
   void ScheduleTogether(const std::vector<LayerAnimationSequence*>& animations);
+
+  // Schedules a pause for length |duration| of all the specified properties.
+  // End the list with -1.
+  void SchedulePauseForProperties(
+      base::TimeDelta duration,
+      LayerAnimationElement::AnimatableProperty property,
+      ...);
 
   // Returns true if there is an animation in the queue (animations remain in
   // the queue until they complete, so this includes running animations).
@@ -166,17 +181,20 @@ class COMPOSITOR_EXPORT LayerAnimator : public AnimationContainerElement {
   }
 
  protected:
+  virtual ~LayerAnimator();
+
   LayerAnimationDelegate* delegate() { return delegate_; }
   const LayerAnimationDelegate* delegate() const { return delegate_; }
 
   // Virtual for testing.
-  virtual bool ProgressAnimation(LayerAnimationSequence* sequence,
+  virtual void ProgressAnimation(LayerAnimationSequence* sequence,
                                  base::TimeDelta delta);
 
   // Returns true if the sequence is owned by this animator.
   bool HasAnimation(LayerAnimationSequence* sequence) const;
 
  private:
+  friend class base::RefCounted<LayerAnimator>;
   friend class ScopedLayerAnimationSettings;
 
   // We need to keep track of the start time of every running animation.
@@ -264,6 +282,10 @@ class COMPOSITOR_EXPORT LayerAnimator : public AnimationContainerElement {
   // Returns the default length of animations, including adjustment for slow
   // animation mode if set.
   base::TimeDelta GetTransitionDuration() const;
+
+  // Clears the animation queues and notifies any running animations that they
+  // have been aborted.
+  void ClearAnimationsInternal();
 
   // This is the queue of animations to run.
   AnimationQueue animation_queue_;

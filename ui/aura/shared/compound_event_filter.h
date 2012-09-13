@@ -50,26 +50,14 @@ class AURA_EXPORT CompoundEventFilter : public EventFilter {
   void RemoveFilter(EventFilter* filter);
   size_t GetFilterCount() const;
 
-  // Overridden from EventFilter:
-  virtual bool PreHandleKeyEvent(Window* target, ui::KeyEvent* event) OVERRIDE;
-  virtual bool PreHandleMouseEvent(Window* target,
-                                   ui::MouseEvent* event) OVERRIDE;
-  virtual ui::TouchStatus PreHandleTouchEvent(
-      Window* target,
-      ui::TouchEvent* event) OVERRIDE;
-  virtual ui::GestureStatus PreHandleGestureEvent(
-      Window* target,
-      ui::GestureEvent* event) OVERRIDE;
-
  private:
   // Updates the cursor if the target provides a custom one, and provides
   // default resize cursors for window edges.
   void UpdateCursor(Window* target, ui::MouseEvent* event);
 
-  // Dispatches event to additional filters. Returns false or
-  // ui::TOUCH_STATUS_UNKNOWN if event is consumed.
-  bool FilterKeyEvent(Window* target, ui::KeyEvent* event);
-  bool FilterMouseEvent(Window* target, ui::MouseEvent* event);
+  // Dispatches event to additional filters.
+  ui::EventResult FilterKeyEvent(ui::KeyEvent* event);
+  ui::EventResult FilterMouseEvent(ui::MouseEvent* event);
   ui::TouchStatus FilterTouchEvent(Window* target, ui::TouchEvent* event);
 
   // Sets the visibility of the cursor if the event is not synthesized and
@@ -78,6 +66,16 @@ class AURA_EXPORT CompoundEventFilter : public EventFilter {
                                   ui::LocatedEvent* event,
                                   bool show);
 
+  // Overridden from EventFilter:
+  virtual ui::TouchStatus PreHandleTouchEvent(Window* target,
+                                              ui::TouchEvent* event) OVERRIDE;
+
+  // Overridden from ui::EventHandler:
+  virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
+  virtual ui::EventResult OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
+  virtual ui::TouchStatus OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
+  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
   // Additional event filters that pre-handles events.
   ObserverList<EventFilter, true> filters_;
 

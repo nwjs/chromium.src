@@ -8,9 +8,9 @@
 #include "ash/shell.h"
 #include "ash/wm/window_util.h"
 #include "ui/aura/root_window.h"
-#include "ui/base/event.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/accelerators/accelerator_manager.h"
+#include "ui/base/events/event.h"
 
 namespace ash {
 namespace {
@@ -38,6 +38,9 @@ bool ShouldProcessAcceleratorsNow(const ui::Accelerator& accelerator,
     // before they're passed to a page or flash content.
     return false;
   }
+
+  if (Shell::GetInstance()->GetAppListTargetVisibility())
+    return true;
 
   // Unless |target| is in the full screen state, handle reserved accelerators
   // such as Alt+Tab now.
@@ -89,10 +92,10 @@ ui::TouchStatus AcceleratorFilter::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus AcceleratorFilter::PreHandleGestureEvent(
+ui::EventResult AcceleratorFilter::PreHandleGestureEvent(
     aura::Window* target,
     ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 }  // namespace internal

@@ -86,6 +86,7 @@
 #include "content/browser/speech/input_tag_speech_dispatcher_host.h"
 #include "content/browser/speech/speech_recognition_dispatcher_host.h"
 #include "content/browser/trace_message_filter.h"
+#include "content/browser/worker_host/worker_storage_partition.h"
 #include "content/browser/worker_host/worker_message_filter.h"
 #include "content/common/child_process_host_impl.h"
 #include "content/common/child_process_messages.h"
@@ -510,6 +511,7 @@ bool RenderProcessHostImpl::Init() {
 }
 
 void RenderProcessHostImpl::CreateMessageFilters() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   MediaObserver* media_observer =
       GetContentClient()->browser()->GetMediaObserver();
   scoped_refptr<RenderMessageFilter> render_message_filter(
@@ -592,9 +594,17 @@ void RenderProcessHostImpl::CreateMessageFilters() {
           resource_context);
   channel_->AddFilter(socket_stream_dispatcher_host);
 
-  channel_->AddFilter(new WorkerMessageFilter(GetID(), resource_context,
-      base::Bind(&RenderWidgetHelper::GetNextRoutingID,
-                 base::Unretained(widget_helper_.get()))));
+  channel_->AddFilter(
+      new WorkerMessageFilter(
+          GetID(),
+          resource_context,
+          WorkerStoragePartition(
+              storage_partition_impl_->GetAppCacheService(),
+              storage_partition_impl_->GetFileSystemContext(),
+              storage_partition_impl_->GetDatabaseTracker(),
+              storage_partition_impl_->GetIndexedDBContext()),
+          base::Bind(&RenderWidgetHelper::GetNextRoutingID,
+                     base::Unretained(widget_helper_.get()))));
 
 #if defined(ENABLE_WEBRTC)
   channel_->AddFilter(new P2PSocketDispatcherHost(resource_context));
@@ -607,7 +617,7 @@ void RenderProcessHostImpl::CreateMessageFilters() {
       GetID(),
       storage_partition_impl_->GetQuotaManager(),
       GetContentClient()->browser()->CreateQuotaPermissionContext()));
-  channel_->AddFilter(new GamepadBrowserMessageFilter(this));
+  channel_->AddFilter(new GamepadBrowserMessageFilter());
   channel_->AddFilter(new ProfilerMessageFilter(PROCESS_TYPE_RENDERER));
   channel_->AddFilter(new HistogramMessageFilter());
   channel_->AddFilter(new HyphenatorMessageFilter(this));
@@ -759,9 +769,11 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
 #else
     switches::kDisableWebAudio,
 #endif
+    switches::kEnableWebAudioInput,
     switches::kDisableWebSockets,
     switches::kDomAutomationController,
     switches::kEnableAccessibilityLogging,
+    switches::kEnableAudioOutputResampler,
     switches::kEnableCssExclusions,
     switches::kEnableDCHECK,
     switches::kEnableEncryptedMedia,
@@ -770,7 +782,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kEnableGPUClientLogging,
     switches::kEnableGpuBenchmarking,
     switches::kEnableLogging,
-    switches::kEnableMediaSource,
+    switches::kDisableMediaSource,
     switches::kEnablePartialSwap,
     switches::kEnablePerTilePainting,
     switches::kEnableRendererSideMixing,
@@ -792,7 +804,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kEnableThreadedCompositing,
     switches::kDisableThreadedCompositing,
     switches::kEnableTouchEvents,
-    switches::kEnableVideoTrack,
     switches::kEnableViewport,
     switches::kForceDeviceScaleFactor,
     switches::kFullMemoryCrashReport,
@@ -1047,6 +1058,11 @@ BrowserContext* RenderProcessHostImpl::GetBrowserContext() const {
   return browser_context_;
 }
 
+bool RenderProcessHostImpl::InSameStoragePartition(
+    StoragePartition* partition) const {
+  return storage_partition_impl_ == partition;
+}
+
 int RenderProcessHostImpl::GetID() const {
   return id_;
 }
@@ -1202,6 +1218,15 @@ bool RenderProcessHostImpl::IsSuitableHost(
     return true;
 
   if (host->GetBrowserContext() != browser_context)
+    return false;
+
+  // Check whether the given host and the intended site_url will be using the
+  // same StoragePartition, since a RenderProcessHost can only support a single
+  // StoragePartition.  This is relevant for packaged apps, browser tags, and
+  // isolated sites.
+  StoragePartition* dest_partition =
+      BrowserContext::GetStoragePartitionForSite(browser_context, site_url);
+  if (!host->InSameStoragePartition(dest_partition))
     return false;
 
   // All URLs are suitable if this is associated with a guest renderer process.
@@ -1518,6 +1543,7 @@ void RenderProcessHostImpl::OnCompositorSurfaceBuffersSwappedNoHost(
       int32 surface_id,
       uint64 surface_handle,
       int32 route_id,
+      const gfx::Size& size,
       int32 gpu_process_host_id) {
   TRACE_EVENT0("renderer_host",
                "RenderWidgetHostImpl::OnCompositorSurfaceBuffersSwappedNoHost");

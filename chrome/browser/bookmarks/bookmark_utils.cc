@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/common/pref_names.h"
+#include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -40,7 +41,7 @@
 
 #if defined(TOOLKIT_VIEWS)
 #include "ui/base/dragdrop/os_exchange_data.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/views/drag_utils.h"
 #include "ui/views/widget/native_widget.h"
 #include "ui/views/widget/widget.h"
@@ -155,8 +156,10 @@ bool MoreRecentlyModified(const BookmarkNode* n1, const BookmarkNode* n2) {
 bool DoesBookmarkTextContainWords(const string16& text,
                                   const std::vector<string16>& words) {
   for (size_t i = 0; i < words.size(); ++i) {
-    if (!base::i18n::StringSearchIgnoringCaseAndAccents(words[i], text))
+    if (!base::i18n::StringSearchIgnoringCaseAndAccents(
+            words[i], text, NULL, NULL)) {
       return false;
+    }
   }
   return true;
 }
@@ -172,6 +175,29 @@ bool DoesBookmarkContainWords(const BookmarkNode* node,
       DoesBookmarkTextContainWords(net::FormatUrl(
           node->url(), languages, net::kFormatUrlOmitNothing,
           net::UnescapeRule::NORMAL, NULL, NULL, NULL), words);
+}
+
+const BookmarkNode* CreateNewNode(BookmarkModel* model,
+                                  const BookmarkNode* parent,
+                                  const BookmarkEditor::EditDetails& details,
+                                  const string16& new_title,
+                                  const GURL& new_url) {
+  const BookmarkNode* node;
+  if (details.type == BookmarkEditor::EditDetails::NEW_URL) {
+    node = model->AddURL(parent, parent->child_count(), new_title, new_url);
+  } else if (details.type == BookmarkEditor::EditDetails::NEW_FOLDER) {
+    node = model->AddFolder(parent, parent->child_count(), new_title);
+    for (size_t i = 0; i < details.urls.size(); ++i) {
+      model->AddURL(node, node->child_count(), details.urls[i].second,
+                    details.urls[i].first);
+    }
+    model->SetDateFolderModified(parent, Time::Now());
+  } else {
+    NOTREACHED();
+    return NULL;
+  }
+
+  return node;
 }
 
 #if defined(OS_WIN) || defined(OS_CHROMEOS) || defined(USE_AURA)
@@ -520,30 +546,12 @@ bool DoesBookmarkContainText(const BookmarkNode* node,
   return (node->is_url() && DoesBookmarkContainWords(node, words, languages));
 }
 
-static const BookmarkNode* CreateNewNode(BookmarkModel* model,
-    const BookmarkNode* parent, const BookmarkEditor::EditDetails& details,
-    const string16& new_title, const GURL& new_url) {
-  const BookmarkNode* node;
-  if (details.type == BookmarkEditor::EditDetails::NEW_URL) {
-    node = model->AddURL(parent, parent->child_count(), new_title, new_url);
-  } else if (details.type == BookmarkEditor::EditDetails::NEW_FOLDER) {
-    node = model->AddFolder(parent, parent->child_count(), new_title);
-    for (size_t i = 0; i < details.urls.size(); ++i) {
-      model->AddURL(node, node->child_count(), details.urls[i].second,
-                    details.urls[i].first);
-    }
-    model->SetDateFolderModified(parent, Time::Now());
-  } else {
-    NOTREACHED();
-    return NULL;
-  }
-
-  return node;
-}
-
-const BookmarkNode* ApplyEditsWithNoFolderChange(BookmarkModel* model,
-    const BookmarkNode* parent, const BookmarkEditor::EditDetails& details,
-    const string16& new_title, const GURL& new_url) {
+const BookmarkNode* ApplyEditsWithNoFolderChange(
+    BookmarkModel* model,
+    const BookmarkNode* parent,
+    const BookmarkEditor::EditDetails& details,
+    const string16& new_title,
+    const GURL& new_url) {
   if (details.type == BookmarkEditor::EditDetails::NEW_URL ||
       details.type == BookmarkEditor::EditDetails::NEW_FOLDER) {
     return CreateNewNode(model, parent, details, new_title, new_url);
@@ -559,9 +567,12 @@ const BookmarkNode* ApplyEditsWithNoFolderChange(BookmarkModel* model,
   return node;
 }
 
-const BookmarkNode* ApplyEditsWithPossibleFolderChange(BookmarkModel* model,
-    const BookmarkNode* new_parent, const BookmarkEditor::EditDetails& details,
-    const string16& new_title, const GURL& new_url) {
+const BookmarkNode* ApplyEditsWithPossibleFolderChange(
+    BookmarkModel* model,
+    const BookmarkNode* new_parent,
+    const BookmarkEditor::EditDetails& details,
+    const string16& new_title,
+    const GURL& new_url) {
   if (details.type == BookmarkEditor::EditDetails::NEW_URL ||
       details.type == BookmarkEditor::EditDetails::NEW_FOLDER) {
     return CreateNewNode(model, new_parent, details, new_title, new_url);
@@ -579,7 +590,7 @@ const BookmarkNode* ApplyEditsWithPossibleFolderChange(BookmarkModel* model,
   return node;
 }
 
-// Formerly in BookmarkBarView
+// Formerly in BookmarkBarView.
 void ToggleWhenVisible(Profile* profile) {
   PrefService* prefs = profile->GetPrefs();
   const bool always_show = !prefs->GetBoolean(prefs::kShowBookmarkBar);
@@ -687,6 +698,7 @@ void AddIfNotBookmarked(BookmarkModel* model,
   if (!bookmarks.empty())
     return;  // Nothing to do, a bookmark with that url already exists.
 
+  content::RecordAction(content::UserMetricsAction("BookmarkAdded"));
   const BookmarkNode* parent = model->GetParentForNewNodes();
   model->AddURL(parent, parent->child_count(), title, url);
 }

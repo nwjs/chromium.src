@@ -6,6 +6,9 @@
 
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_host.h"
+#include "chrome/browser/favicon/favicon_tab_helper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/views/extensions/extension_keybinding_registry_views.h"
 #include "chrome/common/extensions/draggable_region.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/render_view_host.h"
@@ -327,6 +330,9 @@ ShellWindowViews::ShellWindowViews(ShellWindow* shell_window,
       window_->non_client_view()->GetWindowBoundsForClientBounds(
           win_params.bounds);
   window_->SetBounds(window_bounds);
+  // Center window if no position was specified.
+  if (win_params.bounds.x() < 0 || win_params.bounds.y() < 0)
+    window_->CenterWindow(window_bounds.size());
 #if defined(OS_WIN) && !defined(USE_AURA)
   std::string app_name = web_app::GenerateApplicationNameFromExtensionId(
       extension()->id());
@@ -335,6 +341,12 @@ ShellWindowViews::ShellWindowViews(ShellWindow* shell_window,
           UTF8ToWide(app_name), shell_window_->profile()->GetPath()),
       GetWidget()->GetTopLevelWidget()->GetNativeWindow());
 #endif
+
+  extension_keybinding_registry_.reset(
+      new ExtensionKeybindingRegistryViews(shell_window_->profile(),
+          window_->GetFocusManager(),
+          extensions::ExtensionKeybindingRegistry::PLATFORM_APPS_ONLY));
+
   OnViewWasResized();
 
   window_->Show();
@@ -561,10 +573,32 @@ void ShellWindowViews::OnViewWasResized() {
 #endif
 }
 
+gfx::ImageSkia ShellWindowViews::GetWindowAppIcon() {
+  gfx::Image app_icon = shell_window_->app_icon();
+  if (app_icon.IsEmpty())
+    return GetWindowIcon();
+  else
+    return *app_icon.ToImageSkia();
+}
+
+gfx::ImageSkia ShellWindowViews::GetWindowIcon() {
+  TabContents* contents = shell_window_->tab_contents();
+  if (contents) {
+    gfx::Image app_icon = contents->favicon_tab_helper()->GetFavicon();
+    if (!app_icon.IsEmpty())
+      return *app_icon.ToImageSkia();
+  }
+  return gfx::ImageSkia();
+}
+
 void ShellWindowViews::Layout() {
   DCHECK(web_view_);
   web_view_->SetBounds(0, 0, width(), height());
   OnViewWasResized();
+}
+
+void ShellWindowViews::UpdateWindowIcon() {
+  window_->UpdateWindowIcon();
 }
 
 void ShellWindowViews::UpdateWindowTitle() {
@@ -602,7 +636,14 @@ void ShellWindowViews::UpdateDraggableRegions(
 
 void ShellWindowViews::HandleKeyboardEvent(
     const content::NativeWebKeyboardEvent& event) {
-  // No-op.
+  unhandled_keyboard_event_handler_.HandleKeyboardEvent(event,
+                                                        GetFocusManager());
+}
+
+void ShellWindowViews::SaveWindowPlacement(const gfx::Rect& bounds,
+                                           ui::WindowShowState show_state) {
+  views::WidgetDelegate::SaveWindowPlacement(bounds, show_state);
+  shell_window_->SaveWindowPosition();
 }
 
 // static

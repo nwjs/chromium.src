@@ -161,11 +161,13 @@ cr.define('login', function() {
       var isTimeout = false;
       var isShown = !offlineMessage.classList.contains('hidden') &&
           !offlineMessage.classList.contains('faded');
+      var currentScreenReloaded = false;
 
       if (reason == ERROR_REASONS.PROXY_CONFIG_CHANGED && shouldOverlay &&
-          isShown) {
+          !currentScreenReloaded) {
         // Schedules a immediate retry.
         currentScreen.doReload();
+        currentScreenReloaded = true;
         console.log('Retry page load since proxy settings has been changed');
       }
 
@@ -202,7 +204,7 @@ cr.define('login', function() {
               !offlineMessage.classList.contains('show-captive-portal')) {
             // In case of timeout we're suspecting that network might be
             // a captive portal but would like to check that first.
-            // Otherwise (signal from flimflam / generate_204 got redirected)
+            // Otherwise (signal from shill / generate_204 got redirected)
             // show dialog right away.
             if (isTimeout)
               chrome.send('fixCaptivePortal');
@@ -278,8 +280,10 @@ cr.define('login', function() {
             Oobe.getInstance().updateInnerContainerSize_(currentScreen);
 
           // Forces a reload for Gaia screen on hiding error message.
-          if (currentScreen.id == 'gaia-signin')
+          if (currentScreen.id == 'gaia-signin' && !currentScreenReloaded) {
             currentScreen.doReload();
+            currentScreenReloaded = true;
+          }
         }
       }
     },

@@ -7,8 +7,8 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
-#include "ui/base/event.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/gestures/gesture_configuration.h"
 #include "ui/base/gestures/gesture_sequence.h"
 #include "ui/base/gestures/gesture_types.h"
@@ -324,14 +324,17 @@ GestureSequence::Gestures* GestureRecognizerImpl::AdvanceTouchQueue(
     if (event->status() == TOUCH_STATUS_QUEUED)
       break;
 
-    GestureSequence::Gestures* current_gestures = AdvanceTouchQueueByOne(
-        consumer, event->status());
-    if (current_gestures) {
+    scoped_ptr<GestureSequence::Gestures> current_gestures(
+        AdvanceTouchQueueByOne(consumer, event->status()));
+    if (current_gestures.get()) {
       if (!gestures.get()) {
-        gestures.reset(current_gestures);
+        gestures.reset(current_gestures.release());
       } else {
         gestures->insert(gestures->end(), current_gestures->begin(),
                                           current_gestures->end());
+        // The gestures in |current_gestures| are now owned by |gestures|. Make
+        // sure they don't get freed with |current_gestures|.
+        current_gestures->weak_clear();
       }
     }
   }

@@ -330,14 +330,21 @@ void BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_FULLSCREEN:
       chrome::ToggleFullscreenMode(browser_);
       break;
+
 #if defined(OS_WIN)
+    // Windows 8 specific commands.
     case IDC_METRO_SNAP_ENABLE:
       browser_->SetMetroSnapMode(true);
       break;
     case IDC_METRO_SNAP_DISABLE:
       browser_->SetMetroSnapMode(false);
       break;
+    case IDC_WIN8_DESKTOP_RESTART:
+    case IDC_WIN8_METRO_RESTART:
+      browser::AttemptRestartWithModeSwitch();
+      break;
 #endif
+
 #if defined(OS_MACOSX)
     case IDC_PRESENTATION_MODE:
       browser_->TogglePresentationMode();
@@ -548,6 +555,9 @@ void BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_IMPORT_SETTINGS:
       ShowImportDialog(browser_);
+      break;
+    case IDC_TOGGLE_REQUEST_TABLET_SITE:
+      ToggleRequestTabletSite(browser_);
       break;
     case IDC_ABOUT:
       ShowAboutChrome(browser_);
@@ -790,6 +800,9 @@ void BrowserCommandController::InitCommandState() {
   const bool metro_mode = base::win::IsMetroProcess();
   command_updater_.UpdateCommandEnabled(IDC_METRO_SNAP_ENABLE, metro_mode);
   command_updater_.UpdateCommandEnabled(IDC_METRO_SNAP_DISABLE, metro_mode);
+  int restart_mode = metro_mode ?
+      IDC_WIN8_DESKTOP_RESTART : IDC_WIN8_METRO_RESTART;
+  command_updater_.UpdateCommandEnabled(restart_mode, normal_window);
 #endif
 #if defined(OS_MACOSX)
   command_updater_.UpdateCommandEnabled(IDC_TABPOSE, normal_window);
@@ -906,6 +919,10 @@ void BrowserCommandController::UpdateCommandsForTabState() {
       IDC_CREATE_SHORTCUTS,
       CanCreateApplicationShortcuts(browser_));
 #endif
+
+  command_updater_.UpdateCommandEnabled(
+      IDC_TOGGLE_REQUEST_TABLET_SITE,
+      CanRequestTabletSite(current_web_contents));
 
   UpdateCommandsForContentRestrictionState();
   UpdateCommandsForBookmarkEditing();

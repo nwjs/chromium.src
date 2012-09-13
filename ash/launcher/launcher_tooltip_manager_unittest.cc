@@ -11,8 +11,8 @@
 #include "base/time.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/root_window.h"
-#include "ui/base/event.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/views/widget/widget.h"
 
@@ -165,7 +165,7 @@ TEST_F(LauncherTooltipManagerTest, ShouldHideForEvents) {
       ui::ET_GESTURE_BEGIN, 0, 0, ui::EF_NONE,
       base::TimeDelta::FromMilliseconds(base::Time::Now().ToDoubleT() * 1000),
       ui::GestureEventDetails(ui::ET_GESTURE_BEGIN, 0.0f, 0.0f), 0);
-  EXPECT_EQ(ui::GESTURE_STATUS_UNKNOWN,
+  EXPECT_EQ(ui::ER_UNHANDLED,
             event_filter->PreHandleGestureEvent(root_window, &gesture_event));
   RunAllPendingInMessageLoop();
   EXPECT_FALSE(TooltipIsVisible());

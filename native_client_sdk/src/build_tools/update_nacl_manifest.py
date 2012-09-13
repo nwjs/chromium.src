@@ -7,6 +7,9 @@
 in manifest.
 """
 
+# pylint is convinced the email module is missing attributes
+# pylint: disable=E1101
+
 import buildbot_common
 import csv
 import cStringIO
@@ -32,7 +35,7 @@ GS_SDK_MANIFEST = GS_BUCKET_PATH + MANIFEST_BASENAME
 GS_MANIFEST_BACKUP_DIR = GS_BUCKET_PATH + 'manifest_backups/'
 
 CANARY_BUNDLE_NAME = 'pepper_canary'
-CANARY='canary'
+CANARY = 'canary'
 
 
 def SplitVersion(version_string):
@@ -92,6 +95,7 @@ def GetPlatformsFromArchives(archive_urls):
 
 class Delegate(object):
   """Delegate all external access; reading/writing to filesystem, gsutil etc."""
+
   def GetRepoManifest(self):
     """Read the manifest file from the NaCl SDK repository.
 
@@ -157,7 +161,6 @@ class Delegate(object):
           effect is that text in stdin is copied to |dest|."""
     raise NotImplementedError()
 
-
   def Print(self, *args):
     """Print a message."""
     raise NotImplementedError()
@@ -165,6 +168,7 @@ class Delegate(object):
 
 class RealDelegate(Delegate):
   def __init__(self, dryrun=False, gsutil=None):
+    super(RealDelegate, self).__init__()
     self.dryrun = dryrun
     if gsutil:
       self.gsutil = gsutil
@@ -313,6 +317,7 @@ class VersionFinder(object):
       'canary'). |archives| is a list of archive URLs."""
     version = None
     skipped_versions = []
+    channel = ''
     while True:
       try:
         version, channel = shared_version_generator.next()
@@ -378,7 +383,7 @@ class VersionFinder(object):
     """
     for platform, channel, version, _ in self.history:
       version = SplitVersion(version)
-      if with_platform == platform and channel==CANARY:
+      if with_platform == platform and channel == CANARY:
         yield channel, version
 
 
@@ -407,7 +412,7 @@ class VersionFinder(object):
       try:
         for i, platform_gen in enumerate(platform_generators):
           if platform_versions[i][1] != shared_version:
-              platform_versions[i] = platform_gen.next()
+            platform_versions[i] = platform_gen.next()
       except StopIteration:
         return
 
@@ -437,8 +442,8 @@ class VersionFinder(object):
 
     assert all(file.startswith('gs://') for file in files)
 
-    archives = [file for file in files if not file.endswith('.json')]
-    manifests = [file for file in files if file.endswith('.json')]
+    archives = [f for f in files if not f.endswith('.json')]
+    manifests = [f for f in files if f.endswith('.json')]
 
     # don't include any archives that don't have an associated manifest.
     return filter(lambda a: a + '.json' in manifests, archives)
@@ -615,7 +620,7 @@ def main(args):
   try:
     delegate = RealDelegate(dryrun=options.dryrun, gsutil=options.gsutil)
     Run(delegate, ('mac', 'win', 'linux'))
-  except Exception, e:
+  except Exception:
     if options.mailfrom and options.mailto:
       traceback.print_exc()
       scriptname = os.path.basename(sys.argv[0])

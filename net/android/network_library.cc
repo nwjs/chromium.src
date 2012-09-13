@@ -69,6 +69,13 @@ bool HaveOnlyLoopbackAddresses() {
   return Java_AndroidNetworkLibrary_haveOnlyLoopbackAddresses(env);
 }
 
+std::string GetNetworkList() {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jstring> ret =
+      Java_AndroidNetworkLibrary_getNetworkList(env);
+  return ConvertJavaStringToUTF8(ret);
+}
+
 bool GetMimeTypeFromExtension(const std::string& extension,
                               std::string* result) {
   JNIEnv* env = AttachCurrentThread();
@@ -80,7 +87,8 @@ bool GetMimeTypeFromExtension(const std::string& extension,
           env, extension_string.obj());
 
   if (!ret.obj()) {
-    LOG(WARNING) << "Call to getMimeTypeFromExtension failed";
+    LOG(WARNING) << "Call to getMimeTypeFromExtension failed for extension: "
+        << extension;
     return false;
   }
   *result = ConvertJavaStringToUTF8(ret);

@@ -6,7 +6,6 @@
 
 #include <vector>
 
-#include "base/chromeos/chromeos_version.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
@@ -15,7 +14,7 @@
 #include "base/sys_info.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/drive_cache_metadata.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths_internal.h"
@@ -256,15 +255,13 @@ void RunCacheOperationCallback(const CacheOperationCallback& callback,
 // Used to implement *OnUIThread methods.
 void RunGetFileFromCacheCallback(const GetFileFromCacheCallback& callback,
                                  DriveFileError* error,
-                                 const std::string& resource_id,
-                                 const std::string& md5,
                                  FilePath* cache_file_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(error);
   DCHECK(cache_file_path);
 
   if (!callback.is_null())
-    callback.Run(*error, resource_id, md5, *cache_file_path);
+    callback.Run(*error, *cache_file_path);
 }
 
 // Runs callback with pointers dereferenced.
@@ -483,8 +480,6 @@ void DriveCache::GetFileOnUIThread(const std::string& resource_id,
       base::Bind(&RunGetFileFromCacheCallback,
                  callback,
                  base::Owned(error),
-                 resource_id,
-                 md5,
                  base::Owned(cache_file_path)));
 }
 
@@ -596,8 +591,6 @@ void DriveCache::MarkDirtyOnUIThread(const std::string& resource_id,
       base::Bind(&RunGetFileFromCacheCallback,
                  callback,
                  base::Owned(error),
-                 resource_id,
-                 md5,
                  base::Owned(cache_file_path)));
 }
 
@@ -930,7 +923,7 @@ void DriveCache::Pin(const std::string& resource_id,
     // Set both |dest_path| and |source_path| to /dev/null, so that:
     // 1) ModifyCacheState won't move files when |source_path| and |dest_path|
     //    are the same.
-    // 2) symlinks to /dev/null will be picked up by GDataSyncClient to download
+    // 2) symlinks to /dev/null will be picked up by DriveSyncClient to download
     //    pinned files that don't exist in cache.
     dest_path = FilePath::FromUTF8Unsafe(util::kSymLinkToDevNull);
     source_path = dest_path;

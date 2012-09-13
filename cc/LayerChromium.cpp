@@ -13,9 +13,9 @@
 #include "CCLayerImpl.h"
 #include "CCLayerTreeHost.h"
 #include "CCSettings.h"
-#include "TextStream.h"
-
 #include <public/WebAnimationDelegate.h>
+#include <public/WebLayerScrollClient.h>
+#include <public/WebSize.h>
 
 using namespace std;
 using WebKit::WebTransformationMatrix;
@@ -64,9 +64,11 @@ LayerChromium::LayerChromium()
     , m_drawTransformIsAnimating(false)
     , m_screenSpaceTransformIsAnimating(false)
     , m_contentsScale(1.0)
+    , m_boundsContainPageScale(false)
     , m_layerAnimationDelegate(0)
-    , m_layerScrollDelegate(0)
+    , m_layerScrollClient(0)
 {
+    turnOffVerifier(); // In the component build we don't have WTF threading initialized in this DLL so the thread verifier explodes.
     if (m_layerId < 0) {
         s_nextLayerId = 1;
         m_layerId = s_nextLayerId++;
@@ -369,6 +371,8 @@ void LayerChromium::setScrollPosition(const IntPoint& scrollPosition)
     if (m_scrollPosition == scrollPosition)
         return;
     m_scrollPosition = scrollPosition;
+    if (m_layerScrollClient)
+        m_layerScrollClient->didScroll();
     setNeedsCommit();
 }
 
@@ -411,13 +415,6 @@ void LayerChromium::setNonFastScrollableRegion(const Region& region)
     m_nonFastScrollableRegion = region;
     m_nonFastScrollableRegionChanged = true;
     setNeedsCommit();
-}
-
-void LayerChromium::scrollBy(const IntSize& scrollDelta)
-{
-    setScrollPosition(scrollPosition() + scrollDelta);
-    if (m_layerScrollDelegate)
-        m_layerScrollDelegate->didScroll(scrollDelta);
 }
 
 void LayerChromium::setDrawCheckerboardForMissingTiles(bool checkerboard)
@@ -511,7 +508,7 @@ void LayerChromium::pushPropertiesTo(CCLayerImpl* layer)
     layer->setContentBounds(contentBounds());
     layer->setDebugBorderColor(m_debugBorderColor);
     layer->setDebugBorderWidth(m_debugBorderWidth);
-    layer->setDebugName(m_debugName.isolatedCopy()); // We have to use isolatedCopy() here to safely pass ownership to another thread.
+    layer->setDebugName(m_debugName);
     layer->setDoubleSided(m_doubleSided);
     layer->setDrawCheckerboardForMissingTiles(m_drawCheckerboardForMissingTiles);
     layer->setForceRenderSurface(m_forceRenderSurface);
@@ -583,7 +580,7 @@ void LayerChromium::setDebugBorderWidth(float width)
     setNeedsCommit();
 }
 
-void LayerChromium::setDebugName(const String& debugName)
+void LayerChromium::setDebugName(const std::string& debugName)
 {
     m_debugName = debugName;
     setNeedsCommit();
@@ -594,6 +591,16 @@ void LayerChromium::setContentsScale(float contentsScale)
     if (!needsContentsScale() || m_contentsScale == contentsScale)
         return;
     m_contentsScale = contentsScale;
+
+    setNeedsDisplay();
+}
+
+void LayerChromium::setBoundsContainPageScale(bool boundsContainPageScale)
+{
+    if (boundsContainPageScale == m_boundsContainPageScale)
+        return;
+
+    m_boundsContainPageScale = boundsContainPageScale;
     setNeedsDisplay();
 }
 

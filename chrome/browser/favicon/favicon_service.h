@@ -31,6 +31,27 @@ class FaviconService : public CancelableRequestProvider,
 
   virtual ~FaviconService();
 
+  // Auxiliary argument structure for requesting favicons for URLs.
+  struct FaviconForURLParams {
+    FaviconForURLParams(Profile* profile,
+                        const GURL& page_url,
+                        int icon_types,
+                        int desired_size_in_dip,
+                        CancelableRequestConsumerBase* consumer)
+        : profile(profile),
+          page_url(page_url),
+          icon_types(icon_types),
+          desired_size_in_dip(desired_size_in_dip),
+          consumer(consumer) {
+    }
+
+    Profile* profile;
+    GURL page_url;
+    int icon_types;
+    int desired_size_in_dip;
+    CancelableRequestConsumerBase* consumer;
+  };
+
   // Callback for GetFaviconImage() and GetFaviconImageForURL().
   // |FaviconImageResult::image| is constructed from the bitmaps for the
   // passed in URL and icon types which most which closely match the passed in
@@ -79,8 +100,9 @@ class FaviconService : public CancelableRequestProvider,
   typedef CancelableRequest<FaviconResultsCallback> GetFaviconRequest;
 
   // Requests the favicon at |icon_url| of |icon_type| whose size most closely
-  // matches |desired_size_in_dip|. |consumer| is notified when the bits have
-  // been fetched. |icon_url| is the URL of the icon itself, e.g.
+  // matches |desired_size_in_dip|. If |desired_size_in_dip| is 0, the largest
+  // favicon bitmap at |icon_url| is returned. |consumer| is notified when the
+  // bits have been fetched. |icon_url| is the URL of the icon itself, e.g.
   // <http://www.google.com/favicon.ico>.
   // Each of the three methods below differs in the format of the callback and
   // the requested scale factors. All of the scale factors supported by the
@@ -118,45 +140,33 @@ class FaviconService : public CancelableRequestProvider,
 
   // Requests the favicons of any of |icon_types| whose pixel sizes most
   // closely match |desired_size_in_dip| and desired scale factors for a web
-  // page URL. |consumer| is notified when the bits have been fetched.
-  // |icon_types| can be any combination of IconType value, but only one icon
-  // will be returned in the priority of TOUCH_PRECOMPOSED_ICON, TOUCH_ICON
-  // and FAVICON. Each of the three methods below differs in the format of the
-  // callback and the requested scale factors. All of the scale factors
-  // supported by the current platform (eg MacOS) are requested for
+  // page URL. If |desired_size_in_dip| is 0, the largest favicon for the web
+  // page URL is returned. |consumer| is notified when the bits have been
+  // fetched. |icon_types| can be any combination of IconType value, but only
+  // one icon will be returned in the priority of TOUCH_PRECOMPOSED_ICON,
+  // TOUCH_ICON and FAVICON. Each of the three methods below differs in the
+  // format of the callback and the requested scale factors. All of the scale
+  // factors supported by the current platform (eg MacOS) are requested for
   // GetFaviconImageForURL().
-  Handle GetFaviconImageForURL(Profile* profile,
-                               const GURL& page_url,
-                               int icon_types,
-                               int desired_size_in_dip,
-                               CancelableRequestConsumerBase* consumer,
+  Handle GetFaviconImageForURL(const FaviconForURLParams& params,
                                const FaviconImageCallback& callback);
 
-  Handle GetRawFaviconForURL(Profile* profile,
-                             const GURL& page_url,
-                             int icon_types,
-                             int desired_size_in_dip,
+  Handle GetRawFaviconForURL(const FaviconForURLParams& params,
                              ui::ScaleFactor desired_scale_factor,
-                             CancelableRequestConsumerBase* consumer,
                              const FaviconRawCallback& callback);
 
   Handle GetFaviconForURL(
-      Profile* profile,
-      const GURL& page_url,
-      int icon_types,
-      int desired_size_in_dip,
+      const FaviconForURLParams& params,
       const std::vector<ui::ScaleFactor>& desired_scale_factors,
-      CancelableRequestConsumerBase* consumer,
       const FaviconResultsCallback& callback);
 
-  // Requests the favicon for |favicon_id| which most closely matches
-  // |desired_size_in_dip| and |desired_scale_factor|. The |consumer| is
-  // notified when the bits have been fetched.
-  Handle GetRawFaviconForID(history::FaviconID favicon_id,
-                            int desired_size_in_dip,
-                            ui::ScaleFactor desired_scale_factor,
-                            CancelableRequestConsumerBase* consumer,
-                            const FaviconRawCallback& callback);
+  // Used to request a bitmap for the favicon with |favicon_id| which is not
+  // resized from the size it is stored at in the database. If there are
+  // multiple favicon bitmaps for |favicon_id|, the largest favicon bitmap is
+  // returned.
+  Handle GetLargestRawFaviconForID(history::FaviconID favicon_id,
+                                   CancelableRequestConsumerBase* consumer,
+                                   const FaviconRawCallback& callback);
 
   // Marks all types of favicon for the page as being out of date.
   void SetFaviconOutOfDateForPage(const GURL& page_url);
@@ -189,12 +199,8 @@ class FaviconService : public CancelableRequestProvider,
   // Helper function for GetFaviconImageForURL(), GetRawFaviconForURL() and
   // GetFaviconForURL().
   Handle GetFaviconForURLImpl(
-      Profile* profile,
-      const GURL& page_url,
-      int icon_types,
-      int desired_size_in_dip,
+      const FaviconForURLParams& params,
       const std::vector<ui::ScaleFactor>& desired_scale_factors,
-      CancelableRequestConsumerBase* consumer,
       GetFaviconRequest* request);
 
   // Intermediate callback for GetFaviconImage() and GetFaviconImageForURL()

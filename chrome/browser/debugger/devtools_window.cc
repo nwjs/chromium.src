@@ -181,7 +181,7 @@ DevToolsWindow* DevToolsWindow::Create(
   tab_contents->web_contents()->GetController().LoadURL(
       GetDevToolsUrl(profile, docked, shared_worker_frontend),
       content::Referrer(),
-      content::PAGE_TRANSITION_START_PAGE,
+      content::PAGE_TRANSITION_AUTO_TOPLEVEL,
       std::string());
   return new DevToolsWindow(tab_contents, profile, inspected_rvh, docked);
 }
@@ -381,7 +381,7 @@ void DevToolsWindow::CreateDevToolsBrowser() {
 
   browser_ = new Browser(Browser::CreateParams::CreateForDevTools(profile_));
   browser_->tab_strip_model()->AddTabContents(
-      tab_contents_, -1, content::PAGE_TRANSITION_START_PAGE,
+      tab_contents_, -1, content::PAGE_TRANSITION_AUTO_TOPLEVEL,
       TabStripModel::ADD_ACTIVE);
 }
 
@@ -426,8 +426,9 @@ void DevToolsWindow::UpdateFrontendAttachedState() {
 
 void DevToolsWindow::AddDevToolsExtensionsToClient() {
   if (inspected_tab_) {
-    base::FundamentalValue tabId(
-        inspected_tab_->session_tab_helper()->session_id().id());
+    SessionTabHelper* session_tab_helper =
+        SessionTabHelper::FromWebContents(inspected_tab_->web_contents());
+    base::FundamentalValue tabId(session_tab_helper->session_id().id());
     CallClientFunction("WebInspector.setInspectedTabId", &tabId);
   }
   ListValue results;
@@ -581,10 +582,12 @@ void DevToolsWindow::AddNewContents(WebContents* source,
                                     WebContents* new_contents,
                                     WindowOpenDisposition disposition,
                                     const gfx::Rect& initial_pos,
-                                    bool user_gesture) {
+                                    bool user_gesture,
+                                    bool* was_blocked) {
   if (inspected_tab_) {
     inspected_tab_->web_contents()->GetDelegate()->AddNewContents(
-        source, new_contents, disposition, initial_pos, user_gesture);
+        source, new_contents, disposition, initial_pos, user_gesture,
+        was_blocked);
   }
 }
 

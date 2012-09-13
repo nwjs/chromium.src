@@ -12,6 +12,8 @@
     <output filename="ui_resources_100_percent.pak" type="data_package" context="default_100_percent" />
     <output filename="ui_resources_200_percent.pak" type="data_package" context="default_200_percent" />
     <output filename="ui_resources_touch_100_percent.pak" type="data_package" context="touch_100_percent" />
+    <output filename="ui_resources_touch_140_percent.pak" type="data_package" context="touch_140_percent" />
+    <output filename="ui_resources_touch_180_percent.pak" type="data_package" context="touch_180_percent" />
   </outputs>
   <release seq="1">
     <structures fallback_to_low_resolution="true">
@@ -55,9 +57,11 @@
         <structure type="chrome_scaled_image" name="IDR_AURA_CURSOR_ZOOM_OUT" file="cros/pointers/zoom_out.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_CURSOR_GRAB" file="cros/pointers/fleur.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_CURSOR_GRABBING" file="cros/pointers/hand3.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_BACKGROUND" file="ash/launcher_background.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_BROWSER" file="ash/launcher_browser.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_BROWSER_PANEL" file="ash/launcher_browser_panel.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_BROWSER_SHORTCUT" file="aura/chromium-32.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_DIMMING" file="ash/launcher_dimming.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_ICON_APPLIST" file="ash/launcher_applist.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_ICON_APPLIST_HOT" file="ash/launcher_applist_hover.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_ICON_APPLIST_PUSHED" file="ash/launcher_applist_pressed.png" />
@@ -122,6 +126,9 @@
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_CELLULAR_DISABLED_HOVER" file="ash/status_cellular_disabled_h.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_CELLULAR_ENABLED" file="ash/status_cellular_enabled.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_CELLULAR_ENABLED_HOVER" file="ash/status_cellular_enabled_h.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_DISPLAY" file="ash/status_display.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_DISPLAY_HOVER" file="ash/status_display_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_DISPLAY_PRESSED" file="ash/status_display_pressed.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_DRIVE" file="ash/status_drive.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_DRIVE_CANCEL" file="ash/status_drive_item_cancel.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_DRIVE_CANCEL_HOVER" file="ash/status_drive_item_cancel_hover.png" />
@@ -136,7 +143,6 @@
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_LOCKSCREEN" file="ash/status_lockscreen.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_LOCKSCREEN_HOVER" file="ash/status_lockscreen_h.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_MORE" file="ash/status_more.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_AIRPLANE" file="ash/status_network_airplane.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_DATA_LOW" file="ash/status_data_low.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_DATA_NONE" file="ash/status_data_none.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_FAILED" file="ash/status_network_failed.png" />
@@ -148,8 +154,16 @@
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_SHUTDOWN" file="ash/status_shutdown.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_SHUTDOWN_HOVER" file="ash/status_shutdown_h.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_SMS" file="ash/status_sms.png" />
+
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE" file="ash/status_update.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE_GREEN" file="ash/status_update_green.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE_ORANGE" file="ash/status_update_orange.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE_RED" file="ash/status_update_red.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE_DARK" file="ash/status_update_dark.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE_DARK_GREEN" file="ash/status_update_dark_green.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE_DARK_ORANGE" file="ash/status_update_dark_orange.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE_DARK_RED" file="ash/status_update_dark_red.png" />
+
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_VOLUME_LEVELS" file="ash/status_volume_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_VOLUME_MUTE" file="ash/status_volume_mute.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WIFI_DISABLED" file="ash/status_wifi_disabled.png" />
@@ -205,6 +219,10 @@
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE" file="cros/window_close_short_normal.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE_H" file="cros/window_close_short_hover.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE_P" file="cros/window_close_short_pressed.png" />
+          <!-- These are temporary, when workspace2 is the default they'll replace IDR_AURA_WINDOW_MAXIMIZED_CLOSE -->
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE2" file="cros/window_close_short_black_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE2_H" file="cros/window_close_short_black_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE2_P" file="cros/window_close_short_black_pressed.png" />
         
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE" file="cros/window_size_tall_normal.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE_H" file="cros/window_size_tall_hover.png" />
@@ -212,6 +230,10 @@
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE" file="cros/window_size_short_normal.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE_H" file="cros/window_size_short_hover.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE_P" file="cros/window_size_short_pressed.png" />
+          <!-- These are temporary, when workspace2 is the default they'll replace IDR_AURA_WINDOW_MAXIMIZED_RESTORE -->
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE2" file="cros/window_size_short_black_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE2_H" file="cros/window_size_short_black_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE2_P" file="cros/window_size_short_black_pressed.png" />
         </if>
         <if expr="not context.startswith('default_')">
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE" file="aura/window_close_normal.png" />

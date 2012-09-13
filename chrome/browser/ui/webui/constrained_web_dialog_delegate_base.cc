@@ -45,7 +45,7 @@ ConstrainedWebDialogDelegateBase::ConstrainedWebDialogDelegateBase(
 
   web_contents->GetController().LoadURL(delegate->GetDialogContentURL(),
                                         content::Referrer(),
-                                        content::PAGE_TRANSITION_START_PAGE,
+                                        content::PAGE_TRANSITION_AUTO_TOPLEVEL,
                                         std::string());
 }
 
@@ -56,12 +56,12 @@ ConstrainedWebDialogDelegateBase::~ConstrainedWebDialogDelegateBase() {
 
 const WebDialogDelegate*
     ConstrainedWebDialogDelegateBase::GetWebDialogDelegate() const {
-  return web_dialog_delegate_;
+  return web_dialog_delegate_.get();
 }
 
 WebDialogDelegate*
     ConstrainedWebDialogDelegateBase::GetWebDialogDelegate() {
-  return web_dialog_delegate_;
+  return web_dialog_delegate_.get();
 }
 
 void ConstrainedWebDialogDelegateBase::OnDialogCloseFromWebUI() {

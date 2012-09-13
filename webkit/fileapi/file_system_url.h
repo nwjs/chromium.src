@@ -42,6 +42,12 @@ namespace fileapi {
 //   filesystem_id() returns 'mount_name', and
 //   mount_type() returns kFileSystemTypeExternal.
 //
+// TODO(ericu): Look into making path() [and all FileSystem API virtual
+// paths] just an std::string, to prevent platform-specific FilePath behavior
+// from getting invoked by accident. Currently the FilePath returned here needs
+// special treatment, as it may contain paths that are illegal on the current
+// platform.  To avoid problems, use VirtualPath::BaseName and
+// VirtualPath::GetComponents instead of the FilePath methods.
 class FILEAPI_EXPORT FileSystemURL {
  public:
   FileSystemURL();
@@ -84,6 +90,10 @@ class FILEAPI_EXPORT FileSystemURL {
   FileSystemURL WithPath(const FilePath& path) const;
 
   bool operator==(const FileSystemURL& that) const;
+
+  struct FILEAPI_EXPORT Comparator {
+    bool operator() (const FileSystemURL& lhs, const FileSystemURL& rhs) const;
+  };
 
  private:
   void MayCrackIsolatedPath();

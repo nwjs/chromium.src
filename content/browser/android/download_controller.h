@@ -63,7 +63,7 @@ class DownloadController : public DownloadItem::Observer {
   // Used to store all the information about an Android download.
   struct DownloadInfoAndroid {
     explicit DownloadInfoAndroid(net::URLRequest* request);
-    ~DownloadInfoAndroid() {}
+    ~DownloadInfoAndroid();
 
     // The URL from which we are downloading. This is the final URL after any
     // redirection by the server for |original_url_|.
@@ -73,9 +73,9 @@ class DownloadController : public DownloadItem::Observer {
     int64 total_bytes;
     std::string content_disposition;
     std::string original_mime_type;
-
     std::string user_agent;
     std::string cookie;
+    std::string referer;
 
     WebContents* web_contents;
     // Default copy constructor is used for passing this struct by value.

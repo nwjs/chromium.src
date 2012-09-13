@@ -58,6 +58,7 @@
       # are built on iOS.
       'common_sources' : [
         'base/models/tree_node_iterator_unittest.cc',
+        'gfx/insets_unittest.cc',
       ],
       'all_sources': [
         '<@(_common_sources)',
@@ -73,7 +74,8 @@
         'base/cocoa/events_mac_unittest.mm',
         'base/cocoa/focus_tracker_unittest.mm',
         'base/dialogs/select_file_dialog_win_unittest.cc',
-        'base/event_unittest.cc',
+        'base/events/event_dispatcher_unittest.cc',
+        'base/events/event_unittest.cc',
         'base/gtk/gtk_expanded_container_unittest.cc',
         'base/gtk/gtk_im_context_util_unittest.cc',
         'base/gtk/menu_label_accelerator_util_unittest.cc',
@@ -109,7 +111,6 @@
         'gfx/image/image_unittest_util.h',
         'gfx/image/image_unittest_util_mac.mm',
         'gfx/image/image_util_unittest.cc',
-        'gfx/insets_unittest.cc',
         'gfx/rect_unittest.cc',
         'gfx/render_text_unittest.cc',
         'gfx/screen_unittest.cc',
@@ -143,6 +144,7 @@
             'base/native_theme/native_theme_win_unittest.cc',
             'base/win/hwnd_subclass_unittest.cc',
             'base/win/tsf_text_store_unittest.cc',
+            'gfx/font_fallback_win_unittest.cc',
             'gfx/icon_util_unittest.cc',
             'gfx/platform_font_win_unittest.cc',
           ],
@@ -233,7 +235,8 @@
           ],
         }, {
           'sources!': [
-            'base/event_unittest.cc',
+            'base/events/event_dispatcher_unittest.cc',
+            'base/events/event_unittest.cc',
           ],
         }],
         ['use_aura==1', {
@@ -257,7 +260,6 @@
           'target_name': 'ui_unittests_apk',
           'type': 'none',
           'dependencies': [
-            '../base/base.gyp:base_java',
             'ui_unittests',
           ],
           'variables': {

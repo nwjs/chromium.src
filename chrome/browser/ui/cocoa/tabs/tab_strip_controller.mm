@@ -30,6 +30,7 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
+#import "chrome/browser/ui/cocoa/constrained_window/constrained_window_sheet_controller.h"
 #import "chrome/browser/ui/cocoa/constrained_window_mac.h"
 #include "chrome/browser/ui/cocoa/drag_util.h"
 #import "chrome/browser/ui/cocoa/image_button_cell.h"
@@ -80,7 +81,11 @@ namespace {
 const CGFloat kUseFullAvailableWidth = -1.0;
 
 // The amount by which tabs overlap.
-const CGFloat kTabOverlap = 19.0;
+// Needs to be <= the x position of the favicon within a tab. Else, every time
+// the throbber is painted, the throbber's invalidation will also invalidate
+// parts of the tab to the left, and two tabs's backgrounds need to be painted
+// on each throbber frame instead of one.
+const CGFloat kTabOverlap = 18.0;
 
 // The amount by which mini tabs are separated from normal tabs.
 const CGFloat kLastMiniTabSpacing = 3.0;
@@ -555,11 +560,17 @@ private:
     [sheetController_ setActiveView:newView];
   }
 
+  NSWindow* parentWindow = [switchView_ window];
+  ConstrainedWindowSheetController* sheetController =
+      [ConstrainedWindowSheetController
+          controllerForParentWindow:parentWindow];
+  [sheetController parentViewDidBecomeActive:newView];
+
   // Make sure the new tabs's sheets are visible (necessary when a background
   // tab opened a sheet while it was in the background and now becomes active).
   TabContents* newTab = tabStripModel_->GetTabContentsAt(modelIndex);
   DCHECK(newTab);
-  if (newTab) {
+  if (newTab && ![sheetController sheetCount]) {
     ConstrainedWindowTabHelper::ConstrainedWindowList::iterator it, end;
     end = newTab->constrained_window_tab_helper()->constrained_window_end();
     NSWindowController* controller = [[newView window] windowController];
@@ -1407,13 +1418,15 @@ private:
 // A helper routine for creating an NSImageView to hold the favicon or app icon
 // for |contents|.
 - (NSImageView*)iconImageViewForContents:(TabContents*)contents {
-  BOOL isApp = contents->extension_tab_helper()->is_app();
+  extensions::TabHelper* extensions_tab_helper =
+      extensions::TabHelper::FromWebContents(contents->web_contents());
+  BOOL isApp = extensions_tab_helper->is_app();
   NSImage* image = nil;
   // Favicons come from the renderer, and the renderer draws everything in the
   // system color space.
   CGColorSpaceRef colorSpace = base::mac::GetSystemColorSpace();
   if (isApp) {
-    SkBitmap* icon = contents->extension_tab_helper()->GetExtensionAppIcon();
+    SkBitmap* icon = extensions_tab_helper->GetExtensionAppIcon();
     if (icon)
       image = gfx::SkBitmapToNSImageWithColorSpace(*icon, colorSpace);
   } else {
@@ -1498,6 +1511,14 @@ private:
     }
 
     [tabController setIconView:iconView];
+    if (iconView) {
+      // See the comment above kTabOverlap for why these DCHECKs exist.
+      DCHECK_GE(NSMinX([iconView frame]), kTabOverlap);
+      // TODO(thakis): Ideally, this would be true too, but it's not true in
+      // some tests.
+      //DCHECK_LE(NSMaxX([iconView frame]),
+      //          NSWidth([[tabController view] frame]) - kTabOverlap);
+    }
   }
 }
 
@@ -2076,55 +2097,15 @@ private:
     tabStripModel_->ActivateTabAt(index, false /* not a user gesture */);
 }
 
-- (void)attachConstrainedWindow:(ConstrainedWindowMac*)window {
-  // TODO(thakis, avi): Figure out how to make this work when tabs are dragged
-  // out or if fullscreen mode is toggled.
+@end
 
+NSView* GetSheetParentViewForTabContents(TabContents* tab_contents) {
   // View hierarchy of the contents view:
   // NSView  -- switchView, same for all tabs
   // +- NSView  -- TabContentsController's view
   //    +- TabContentsViewCocoa
-  // Changing it? Do not forget to modify removeConstrainedWindow too.
-  // We use the TabContentsController's view in |swapInTabAtIndex|, so we have
-  // to pass it to the sheet controller here.
-  NSView* tabContentsView =
-      [window->owner()->web_contents()->GetNativeView() superview];
-  window->delegate()->RunSheet([self sheetController], tabContentsView);
-
-  // TODO(avi, thakis): GTMWindowSheetController has no api to move tabsheets
-  // between windows. Until then, we have to prevent having to move a tabsheet
-  // between windows, e.g. no tearing off of tabs.
-  NSInteger modelIndex = [self modelIndexForContentsView:tabContentsView];
-  NSInteger index = [self indexFromModelIndex:modelIndex];
-  BrowserWindowController* controller =
-      (BrowserWindowController*)[[switchView_ window] windowController];
-  DCHECK(controller != nil);
-  DCHECK(index >= 0);
-  if (index >= 0) {
-    [controller setTab:[self viewAtIndex:index] isDraggable:NO];
-  }
+  //
+  // Changing it? Do not forget to modify
+  // -[TabStripController swapInTabAtIndex:] too.
+  return [tab_contents->web_contents()->GetNativeView() superview];
 }
-
-- (void)removeConstrainedWindow:(ConstrainedWindowMac*)window {
-  NSView* tabContentsView =
-      [window->owner()->web_contents()->GetNativeView() superview];
-
-  // TODO(avi, thakis): GTMWindowSheetController has no api to move tabsheets
-  // between windows. Until then, we have to prevent having to move a tabsheet
-  // between windows, e.g. no tearing off of tabs.
-  NSInteger modelIndex = [self modelIndexForContentsView:tabContentsView];
-  if (modelIndex < 0) {
-    // This can happen during shutdown where the tab contents view has already
-    // removed itself.
-    return;
-  }
-  NSInteger index = [self indexFromModelIndex:modelIndex];
-  BrowserWindowController* controller =
-      (BrowserWindowController*)[[switchView_ window] windowController];
-  DCHECK(index >= 0);
-  if (index >= 0) {
-    [controller setTab:[self viewAtIndex:index] isDraggable:YES];
-  }
-}
-
-@end

@@ -53,6 +53,7 @@
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/context_menu_params.h"
+#include "content/public/common/context_menu_source_type.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/common/url_constants.h"
 #include "net/base/net_util.h"
@@ -491,6 +492,18 @@ void RenderViewHostImpl::SetHasPendingCrossSiteRequest(bool has_pending_request,
 int RenderViewHostImpl::GetPendingRequestId() {
   return pending_request_id_;
 }
+
+#if defined(OS_ANDROID)
+void RenderViewHostImpl::ActivateNearestFindResult(int request_id,
+                                                   float x,
+                                                   float y) {
+  Send(new ViewMsg_ActivateNearestFindResult(GetRoutingID(), request_id, x, y));
+}
+
+void RenderViewHostImpl::RequestFindMatchRects(int current_version) {
+  Send(new ViewMsg_FindMatchRects(GetRoutingID(), current_version));
+}
+#endif
 
 void RenderViewHostImpl::DragTargetDragEnter(
     const WebDropData& drop_data,
@@ -1241,7 +1254,15 @@ void RenderViewHostImpl::OnMsgContextMenu(
   FilterURL(policy, renderer_id, false, &validated_params.page_url);
   FilterURL(policy, renderer_id, true, &validated_params.frame_url);
 
-  delegate_->ShowContextMenu(validated_params);
+  content::ContextMenuSourceType type = content::CONTEXT_MENU_SOURCE_MOUSE;
+  if (!in_process_event_types_.empty()) {
+    WebKit::WebInputEvent::Type event_type = in_process_event_types_.front();
+    if (WebKit::WebInputEvent::isGestureEventType(event_type))
+      type = content::CONTEXT_MENU_SOURCE_TOUCH;
+    else if (WebKit::WebInputEvent::isKeyboardEventType(event_type))
+      type = content::CONTEXT_MENU_SOURCE_KEYBOARD;
+  }
+  delegate_->ShowContextMenu(validated_params, type);
 }
 
 void RenderViewHostImpl::OnMsgToggleFullscreen(bool enter_fullscreen) {
@@ -1560,17 +1581,14 @@ void RenderViewHostImpl::ForwardKeyboardEvent(
   RenderWidgetHostImpl::ForwardKeyboardEvent(key_event);
 }
 
-#if defined(OS_MACOSX)
-void RenderViewHostImpl::DidSelectPopupMenuItem(int selected_index) {
-  Send(new ViewMsg_SelectPopupMenuItem(GetRoutingID(), selected_index));
-}
-
-void RenderViewHostImpl::DidCancelPopupMenu() {
-  Send(new ViewMsg_SelectPopupMenuItem(GetRoutingID(), -1));
-}
-#endif
-
 #if defined(OS_ANDROID)
+void RenderViewHostImpl::AttachLayer(WebKit::WebLayer* layer) {
+  delegate_->AttachLayer(layer);
+}
+
+void RenderViewHostImpl::RemoveLayer(WebKit::WebLayer* layer) {
+  delegate_->RemoveLayer(layer);
+}
 void RenderViewHostImpl::DidSelectPopupMenuItems(
     const std::vector<int>& selected_indices) {
   Send(new ViewMsg_SelectPopupMenuItems(GetRoutingID(), false,
@@ -1580,6 +1598,16 @@ void RenderViewHostImpl::DidSelectPopupMenuItems(
 void RenderViewHostImpl::DidCancelPopupMenu() {
   Send(new ViewMsg_SelectPopupMenuItems(GetRoutingID(), true,
                                         std::vector<int>()));
+}
+#endif
+
+#if defined(OS_MACOSX)
+void RenderViewHostImpl::DidSelectPopupMenuItem(int selected_index) {
+  Send(new ViewMsg_SelectPopupMenuItem(GetRoutingID(), selected_index));
+}
+
+void RenderViewHostImpl::DidCancelPopupMenu() {
+  Send(new ViewMsg_SelectPopupMenuItem(GetRoutingID(), -1));
 }
 #endif
 

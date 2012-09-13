@@ -8,8 +8,9 @@
 #include "base/file_path.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/file_system_mount_point_provider.h"
+#include "webkit/fileapi/fileapi_export.h"
+#include "webkit/fileapi/task_runner_bound_observer_list.h"
 
 namespace base {
 class SequencedTaskRunner;
@@ -52,7 +53,8 @@ class FILEAPI_EXPORT_PRIVATE TestMountPointProvider
       const OVERRIDE;
   virtual FileSystemOperation* CreateFileSystemOperation(
       const FileSystemURL& url,
-      FileSystemContext* context) const OVERRIDE;
+      FileSystemContext* context,
+      base::PlatformFileError* error_code) const OVERRIDE;
   virtual webkit_blob::FileStreamReader* CreateFileStreamReader(
       const FileSystemURL& url,
       int64 offset,
@@ -68,10 +70,16 @@ class FILEAPI_EXPORT_PRIVATE TestMountPointProvider
       FileSystemContext* context,
       const DeleteFileSystemCallback& callback) OVERRIDE;
 
+  const UpdateObserverList* GetUpdateObservers(FileSystemType type) const;
+
  private:
+  class QuotaUtil;
+
   FilePath base_path_;
+  scoped_refptr<base::SequencedTaskRunner> task_runner_;
   scoped_ptr<LocalFileUtil> local_file_util_;
-  scoped_ptr<FileSystemQuotaUtil> quota_util_;
+  scoped_ptr<QuotaUtil> quota_util_;
+  UpdateObserverList observers_;
 };
 
 }  // namespace fileapi

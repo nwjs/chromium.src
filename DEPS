@@ -8,33 +8,33 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "127410",
+  "webkit_revision": "128306",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9612",
+  "nacl_revision": "9715",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
   "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
   "gtm_revision": "534",
 
-  "libjingle_revision": "177",
+  "libjingle_revision": "181",
   "libphonenumber_revision": "456",
   "libvpx_revision": "152423",
   "lss_revision": "11",
 
   # These two FFmpeg variables must be updated together.  One is used for SVN
   # checkouts and the other for Git checkouts.
-  "ffmpeg_revision": "150165",
-  "ffmpeg_hash": "2079ffae30f8da6c6eed985cce00e04c31b40888",
+  "ffmpeg_revision": "155401",
+  "ffmpeg_hash": "4a1909e22211b340ee859a8c9d12e8825fe499b7",
 
   "sfntly_revision": "134",
-  "skia_revision": "5360",
+  "skia_revision": "5503",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
-  "v8_revision": "12377",
-  "webrtc_revision": "2662",
+  "v8_revision": "12481",
+  "webrtc_revision": "2718",
   "jsoncpp_revision": "248",
   "nss_revision": "154476",
 }
@@ -44,7 +44,7 @@ deps = {
     (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1020",
 
   "src/googleurl":
-    (Var("googlecode_url") % "google-url") + "/trunk@178",
+    (Var("googlecode_url") % "google-url") + "/trunk@179",
 
   "src/sandbox/linux/seccomp-legacy":
     (Var("googlecode_url") % "seccompsandbox") + "/trunk@187",
@@ -59,7 +59,7 @@ deps = {
     (Var("googlecode_url") % "googlemock") + "/trunk@405",
 
   "src/third_party/angle":
-    (Var("googlecode_url") % "angleproject") + "/trunk@1267",
+    (Var("googlecode_url") % "angleproject") + "/trunk@1275",
 
   "src/third_party/trace-viewer":
     (Var("googlecode_url") % "trace-viewer") + "/trunk@144",
@@ -100,7 +100,9 @@ deps = {
     (Var("googlecode_url") % "grit-i18n") + "/trunk@67",
 
   "src/tools/gyp":
-    (Var("googlecode_url") % "gyp") + "/trunk@1490",
+    # DO NOT ROLL GYP. The next gyp roll needs some tricks to work.
+    # Talk to thakis@ for details. (I'll try to get this fixed by friday.)
+    (Var("googlecode_url") % "gyp") + "/trunk@1492",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
@@ -147,7 +149,7 @@ deps = {
     Var("webkit_trunk") + "/Tools/TestWebKitAPI@" + Var("webkit_revision"),
 
   "src/third_party/ots":
-    (Var("googlecode_url") % "ots") + "/trunk@94",
+    (Var("googlecode_url") % "ots") + "/trunk@95",
 
   "src/tools/page_cycler/acid3":
     "/trunk/deps/page_cycler/acid3@150075",
@@ -220,6 +222,9 @@ deps = {
   "src/content/test/data/layout_tests/LayoutTests/storage/indexeddb":
     Var("webkit_trunk") + "/LayoutTests/storage/indexeddb@" +
     Var("webkit_revision"),
+  "src/content/test/data/layout_tests/LayoutTests/fast/files":
+    Var("webkit_trunk") + "/LayoutTests/fast/files@" +
+    Var("webkit_revision"),
   "src/content/test/data/layout_tests/LayoutTests/fast/filesystem/resources":
     Var("webkit_trunk") + "/LayoutTests/fast/filesystem/resources@" +
     Var("webkit_revision"),
@@ -247,13 +252,13 @@ deps = {
     Var("libjingle_revision"),
 
   "src/third_party/libsrtp":
-    "/trunk/deps/third_party/libsrtp@123853",
+    "/trunk/deps/third_party/libsrtp@156317",
 
   "src/third_party/speex":
     "/trunk/deps/third_party/speex@149334",
 
   "src/third_party/yasm/source/patched-yasm":
-    "/trunk/deps/third_party/yasm/patched-yasm@154697",
+    "/trunk/deps/third_party/yasm/patched-yasm@154708",
 
   "src/third_party/libjpeg_turbo":
     "/trunk/deps/third_party/libjpeg_turbo@149334",
@@ -280,7 +285,7 @@ deps = {
         "/trunk/jsoncpp/src/lib_json@" + Var("jsoncpp_revision"),
 
   "src/third_party/libyuv":
-    (Var("googlecode_url") % "libyuv") + "/trunk@338",
+    (Var("googlecode_url") % "libyuv") + "/trunk@347",
 
   "src/third_party/mozc/session":
     (Var("googlecode_url") % "mozc") + "/trunk/src/session@83",
@@ -305,7 +310,7 @@ deps = {
     "/trunk/deps/third_party/undoview@119694",
 
   "src/tools/deps2git":
-    "/trunk/tools/deps2git@148781",
+    "/trunk/tools/deps2git@153866",
 
   "src/third_party/webpagereplay":
     (Var("googlecode_url") % "web-page-replay") + "/trunk@494",
@@ -369,12 +374,12 @@ deps_os = {
 
     # Dependencies used by libjpeg-turbo
     "src/third_party/yasm/binaries":
-      "/trunk/deps/third_party/yasm/binaries@74228",
+      "/trunk/deps/third_party/yasm/binaries@154708",
 
     # Binary level profile guided optimizations. This points to the
     # latest release binaries for the toolchain.
     "src/third_party/syzygy/binaries":
-      (Var("googlecode_url") % "sawbuck") + "/trunk/syzygy/binaries@991",
+      (Var("googlecode_url") % "sawbuck") + "/trunk/syzygy/binaries@1083",
 
     # Binaries for nacl sdk.
     "src/third_party/nacl_sdk_binaries":
@@ -391,6 +396,14 @@ deps_os = {
     # class-dump utility to generate header files for undocumented SDKs
     "src/testing/iossim/third_party/class-dump":
       "/trunk/deps/third_party/class-dump@147231",
+
+    # Pull only the headers from WebKit.
+    "src/third_party/WebKit/Source/WebKit/chromium/public":
+      Var("webkit_trunk") + "/Source/WebKit/chromium/public@" +
+      Var("webkit_revision"),
+    "src/third_party/WebKit/Source/Platform/chromium/public":
+      Var("webkit_trunk") + "/Source/Platform/chromium/public@" +
+      Var("webkit_revision"),
 
     # Code that's not needed due to not building everything (especially WebKit).
     "src/build/util/support": None,
@@ -445,7 +458,6 @@ deps_os = {
     "src/third_party/safe_browsing/testing": None,
     "src/third_party/scons-2.0.1": None,
     "src/third_party/sfntly/cpp/src": None,
-    "src/third_party/skia/src": None,
     "src/third_party/smhasher/src": None,
     "src/third_party/snappy/src": None,
     "src/third_party/swig/Lib": None,
@@ -516,7 +528,7 @@ deps_os = {
     # For Chromium OS.
     "src/third_party/cros_system_api":
       Var("chromiumos_git") + "/platform/system_api.git" +
-      "@f648289dfe3c51cb5e4b93b0b5e1642978df0295",
+      "@f496bd2240e01f38b7ba84c485d4866379c16756",
   },
   "android": {
     "src/third_party/freetype":
@@ -561,6 +573,7 @@ skip_child_includes = [
   "testing",
   "third_party",
   "v8",
+  "win8",
 ]
 
 
@@ -573,7 +586,6 @@ hooks = [
     "action": [
         "python", "src/build/download_nacl_toolchains.py",
          "--no-arm-trusted",
-         "--optional-pnacl",
          "--save-downloads-dir",
              "src/native_client_sdk/src/build_tools/toolchain_archives",
          "--keep",

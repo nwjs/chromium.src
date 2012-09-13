@@ -5,16 +5,18 @@
 #include "chrome/browser/ui/app_list/search_builder.h"
 
 #include <string>
+#include <vector>
 
 #include "base/command_line.h"
+#include "chrome/browser/autocomplete/autocomplete_classifier.h"
 #include "chrome/browser/autocomplete/autocomplete_controller.h"
 #include "chrome/browser/autocomplete/autocomplete_input.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
+#include "chrome/browser/autocomplete/autocomplete_provider.h"
 #include "chrome/browser/autocomplete/autocomplete_result.h"
-#include "chrome/browser/autocomplete/extension_app_provider.h"
 #include "chrome/browser/event_disposition.h"
+#include "chrome/browser/extensions/extension_icon_image.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/app_list_controller.h"
 #include "chrome/browser/ui/browser.h"
@@ -33,6 +35,15 @@
 #include "ui/app_list/search_result.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+
+#if defined(OS_CHROMEOS)
+#include "base/memory/ref_counted.h"
+#include "chrome/browser/autocomplete/contact_provider_chromeos.h"
+#include "chrome/browser/chromeos/contacts/contact.pb.h"
+#include "chrome/browser/chromeos/contacts/contact_manager.h"
+#include "chrome/browser/image_decoder.h"
+#include "chrome/common/chrome_switches.h"
+#endif
 
 namespace {
 
@@ -92,51 +103,30 @@ const extensions::Extension* GetExtensionByURL(Profile* profile,
 
 // SearchBuildResult is an app list SearchResult built from an
 // AutocompleteMatch.
-class SearchBuilderResult : public app_list::SearchResult,
-                            public ImageLoadingTracker::Observer {
+class SearchBuilderResult : public app_list::SearchResult {
  public:
-  SearchBuilderResult(Profile* profile,
-                      const AutocompleteMatch& match)
-      : profile_(profile),
-        match_(match) {
+  SearchBuilderResult() : profile_(NULL) {}
+  virtual ~SearchBuilderResult() {}
+
+  Profile* profile() { return profile_; }
+  const AutocompleteMatch& match() const { return match_; }
+
+  virtual void Init(Profile* profile, const AutocompleteMatch& match) {
+    profile_ = profile;
+    match_ = match;
     UpdateIcon();
     UpdateTitleAndDetails();
   }
 
-  const AutocompleteMatch& match() const {
-    return match_;
-  }
-
- private:
-  void UpdateIcon() {
-    if (match_.type == AutocompleteMatch::EXTENSION_APP) {
-      const extensions::Extension* extension =
-          GetExtensionByURL(profile_, match_.destination_url);
-      if (extension) {
-        LoadExtensionIcon(extension);
-        return;
-      }
-    }
-
+ protected:
+  virtual void UpdateIcon() {
     int resource_id = match_.starred ?
         IDR_OMNIBOX_STAR : AutocompleteMatch::TypeToIcon(match_.type);
     SetIcon(*ui::ResourceBundle::GetSharedInstance().GetBitmapNamed(
         resource_id));
   }
 
-  void LoadExtensionIcon(const extensions::Extension* extension) {
-    tracker_.reset(new ImageLoadingTracker(this));
-    // TODO(xiyuan): Fix this for HD.
-    tracker_->LoadImage(extension,
-                        extension->GetIconResource(
-                            extension_misc::EXTENSION_ICON_SMALL,
-                            ExtensionIconSet::MATCH_BIGGER),
-                        gfx::Size(extension_misc::EXTENSION_ICON_SMALL,
-                                  extension_misc::EXTENSION_ICON_SMALL),
-                        ImageLoadingTracker::DONT_CACHE);
-  }
-
-  void UpdateTitleAndDetails() {
+  virtual void UpdateTitleAndDetails() {
     set_title(match_.contents);
     app_list::SearchResult::Tags title_tags;
     ACMatchClassificationsToTags(match_.contents,
@@ -152,25 +142,143 @@ class SearchBuilderResult : public app_list::SearchResult,
     set_details_tags(details_tags);
   }
 
-  // Overridden from ImageLoadingTracker::Observer:
-  virtual void OnImageLoaded(const gfx::Image& image,
-                             const std::string& extension_id,
-                             int tracker_index) OVERRIDE {
-    if (!image.IsEmpty()) {
-      SetIcon(*image.ToSkBitmap());
-      return;
-    }
+ private:
+  Profile* profile_;  // not owned
 
-    SetIcon(profile_->GetExtensionService()->GetOmniboxPopupIcon(extension_id).
-        AsImageSkia());
-  }
-
-  Profile* profile_;
   AutocompleteMatch match_;
-  scoped_ptr<ImageLoadingTracker> tracker_;
 
   DISALLOW_COPY_AND_ASSIGN(SearchBuilderResult);
 };
+
+// SearchBuilderResult implementation for AutocompleteMatch::EXTENSION_APP
+// results.
+class ExtensionAppResult : public SearchBuilderResult,
+                           public extensions::IconImage::Observer {
+ public:
+  ExtensionAppResult() {}
+  virtual ~ExtensionAppResult() {}
+
+ protected:
+  virtual void UpdateIcon() OVERRIDE {
+    const extensions::Extension* extension =
+        GetExtensionByURL(profile(), match().destination_url);
+    if (extension)
+      LoadExtensionIcon(extension);
+    else
+      SearchBuilderResult::UpdateIcon();
+  }
+
+ private:
+  void LoadExtensionIcon(const extensions::Extension* extension) {
+    const gfx::ImageSkia default_icon = profile()->GetExtensionService()->
+        GetOmniboxPopupIcon(extension->id()).AsImageSkia();
+    icon_.reset(new extensions::IconImage(
+        extension,
+        extension->icons(),
+        extension_misc::EXTENSION_ICON_SMALL,
+        default_icon,
+        this));
+    SetIcon(icon_->image_skia());
+  }
+
+  // Overridden from extensions::IconImage::Observer:
+  virtual void OnExtensionIconImageChanged(
+      extensions::IconImage* image) OVERRIDE {
+    DCHECK_EQ(icon_.get(), image);
+    SetIcon(icon_->image_skia());
+  }
+
+  scoped_ptr<extensions::IconImage> icon_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionAppResult);
+};
+
+#if defined(OS_CHROMEOS)
+// SearchBuilderResult implementation for AutocompleteMatch::CONTACT results.
+class ContactResult : public SearchBuilderResult,
+                      public ImageDecoder::Delegate {
+ public:
+  ContactResult() {}
+
+  virtual ~ContactResult() {
+    if (photo_decoder_.get())
+      photo_decoder_->set_delegate(NULL);
+  }
+
+  virtual void Init(Profile* profile, const AutocompleteMatch& match) OVERRIDE {
+    SearchBuilderResult::Init(profile, match);
+
+    ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
+    std::vector<app_list::SearchResult::ActionIconSet> icons;
+    icons.push_back(
+        app_list::SearchResult::ActionIconSet(
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_CHAT),
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_CHAT_H),
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_CHAT),
+            l10n_util::GetStringUTF16(IDS_APP_LIST_CONTACT_CHAT_TOOLTIP)));
+    icons.push_back(
+        app_list::SearchResult::ActionIconSet(
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_VIDEO),
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_VIDEO_H),
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_VIDEO),
+            l10n_util::GetStringUTF16(IDS_APP_LIST_CONTACT_VIDEO_TOOLTIP)));
+    icons.push_back(
+        app_list::SearchResult::ActionIconSet(
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_PHONE),
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_PHONE_H),
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_PHONE),
+            l10n_util::GetStringUTF16(IDS_APP_LIST_CONTACT_PHONE_TOOLTIP)));
+    icons.push_back(
+        app_list::SearchResult::ActionIconSet(
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_EMAIL),
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_EMAIL_H),
+            *bundle.GetImageSkiaNamed(IDR_CONTACT_ACTION_EMAIL),
+            l10n_util::GetStringUTF16(IDS_APP_LIST_CONTACT_EMAIL_TOOLTIP)));
+    SetActionIcons(icons);
+  }
+
+ protected:
+  virtual void UpdateIcon() OVERRIDE {
+    AutocompleteMatch::AdditionalInfo::const_iterator it =
+        match().additional_info.find(ContactProvider::kMatchContactIdKey);
+    DCHECK(it != match().additional_info.end());
+    const contacts::Contact* contact =
+        contacts::ContactManager::GetInstance()->GetContactById(
+            profile(), it->second);
+    if (contact && contact->has_raw_untrusted_photo()) {
+      photo_decoder_ =
+          new ImageDecoder(
+              this,
+              contact->raw_untrusted_photo(),
+              ImageDecoder::DEFAULT_CODEC);
+      photo_decoder_->Start();
+    } else {
+      SetIcon(
+          *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+              IDR_CONTACT_DEFAULT_PHOTO));
+    }
+  }
+
+ private:
+  // Overridden from ImageDecoder::Delegate:
+  virtual void OnImageDecoded(const ImageDecoder* decoder,
+                              const SkBitmap& decoded_image) OVERRIDE {
+    DCHECK_EQ(decoder, photo_decoder_);
+    SetIcon(decoded_image);
+  }
+
+  virtual void OnDecodeImageFailed(const ImageDecoder* decoder) OVERRIDE {
+    DCHECK_EQ(decoder, photo_decoder_);
+    SetIcon(
+        *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+            IDR_CONTACT_DEFAULT_PHOTO));
+  }
+
+  scoped_refptr<ImageDecoder> photo_decoder_;
+
+  DISALLOW_COPY_AND_ASSIGN(ContactResult);
+};
+#endif
 
 }  // namespace
 
@@ -188,47 +296,33 @@ SearchBuilder::SearchBuilder(
   search_box_->SetIcon(*ui::ResourceBundle::GetSharedInstance().
       GetImageSkiaNamed(IDR_OMNIBOX_SEARCH));
 
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          app_list::switches::kAppListShowAppsOnly)) {
-    // ExtensionAppProvider is a synchronous provider and does not really need a
-    // listener.
-    apps_provider_ = new ExtensionAppProvider(NULL, profile);
-  } else {
-    controller_.reset(new AutocompleteController(profile, this));
-  }
+  // TODO(xiyuan): Consider requesting fewer providers in the non-apps-only
+  // case.
+  int providers =
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          app_list::switches::kAppListShowAppsOnly) ?
+      AutocompleteProvider::TYPE_EXTENSION_APP :
+      AutocompleteClassifier::kDefaultOmniboxProviders;
+#if defined(OS_CHROMEOS)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableContacts))
+    providers |= AutocompleteProvider::TYPE_CONTACT;
+#endif
+  controller_.reset(new AutocompleteController(profile, this, providers));
 }
 
 SearchBuilder::~SearchBuilder() {
 }
 
 void SearchBuilder::StartSearch() {
-  const string16& user_text = search_box_->text();
-
-  if (controller_.get()) {
-    // Omnibox features such as keyword selection/accepting and instant query
-    // are not implemented.
-    // TODO(xiyuan): Figure out the features that need to support here.
-    controller_->Start(user_text, string16(), false, false, true,
-        AutocompleteInput::ALL_MATCHES);
-  } else {
-    AutocompleteInput input(user_text, string16(), false, false, true,
-        AutocompleteInput::ALL_MATCHES);
-    apps_provider_->Start(input, false);
-
-    // ExtensionAppProvider is a synchronous provider and results are ready
-    // after returning from Start.
-    AutocompleteResult ac_result;
-    ac_result.AppendMatches(apps_provider_->matches());
-    ac_result.SortAndCull(input);
-    PopulateFromACResult(ac_result);
-  }
+  // Omnibox features such as keyword selection/accepting and instant query
+  // are not implemented.
+  // TODO(xiyuan): Figure out the features that need to support here.
+  controller_->Start(search_box_->text(), string16(), false, false, true,
+      AutocompleteInput::ALL_MATCHES);
 }
 
 void SearchBuilder::StopSearch() {
-  if (controller_.get())
-    controller_->Stop(true);
-  else
-    apps_provider_->Stop(true);
+  controller_->Stop(true);
 }
 
 void SearchBuilder::OpenResult(const app_list::SearchResult& result,
@@ -248,6 +342,10 @@ void SearchBuilder::OpenResult(const app_list::SearchResult& result,
           content::UserMetricsAction("AppList_ClickOnAppFromSearch"));
       list_controller_->ActivateApp(profile_, extension->id(), event_flags);
     }
+#if defined(OS_CHROMEOS)
+  } else if (match.type == AutocompleteMatch::CONTACT) {
+    NOTIMPLEMENTED();
+#endif
   } else {
     // TODO(xiyuan): What should we do for alternate url case?
     chrome::NavigateParams params(profile_,
@@ -269,7 +367,21 @@ void SearchBuilder::PopulateFromACResult(const AutocompleteResult& ac_result) {
   for (ACMatches::const_iterator it = ac_result.begin();
        it != ac_result.end();
        ++it) {
-    results_->Add(new SearchBuilderResult(profile_, *it));
+    SearchBuilderResult* result = NULL;
+    switch (it->type) {
+      case AutocompleteMatch::EXTENSION_APP:
+        result = new ExtensionAppResult();
+        break;
+#if defined(OS_CHROMEOS)
+      case AutocompleteMatch::CONTACT:
+        result = new ContactResult();
+        break;
+#endif
+      default:
+        result = new SearchBuilderResult();
+    }
+    result->Init(profile_, *it);
+    results_->Add(result);
   }
 }
 

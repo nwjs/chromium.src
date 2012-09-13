@@ -74,11 +74,6 @@
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/codec/png_codec.h"
 
-#if defined(USE_ASH)
-#include "ash/ash_switches.h"
-#include "chrome/browser/ui/views/ash/panel_view_aura.h"
-#endif
-
 #if defined(OS_WIN)
 #include "base/win/metro.h"
 #endif  // OS_WIN
@@ -229,9 +224,8 @@ Browser* CreateBrowserWindow(const Browser::CreateParams& params,
   bool use_existing_browser_window = false;
 
 #if defined(OS_WIN)
-  // In Windows 8 metro mode we only allow new windows to be created if the
-  // extension id is valid in which case it is created as an application window
-  if (extension_id.empty() && base::win::IsMetroProcess())
+  // In windows 8 metro mode we don't allow windows to be created.
+  if (base::win::IsMetroProcess())
     use_existing_browser_window = true;
 #endif  // OS_WIN
 
@@ -263,7 +257,7 @@ bool GetWindowFunction::RunImpl() {
     return false;
 
   if (populate_tabs)
-    SetResult(controller->CreateWindowValueWithTabs());
+    SetResult(controller->CreateWindowValueWithTabs(GetExtension()));
   else
     SetResult(controller->CreateWindowValue());
   return true;
@@ -284,7 +278,7 @@ bool GetCurrentWindowFunction::RunImpl() {
     return false;
   }
   if (populate_tabs)
-    SetResult(controller->CreateWindowValueWithTabs());
+    SetResult(controller->CreateWindowValueWithTabs(GetExtension()));
   else
     SetResult(controller->CreateWindowValue());
   return true;
@@ -311,7 +305,7 @@ bool GetLastFocusedWindowFunction::RunImpl() {
   WindowController* controller =
       browser->extension_window_controller();
   if (populate_tabs)
-    SetResult(controller->CreateWindowValueWithTabs());
+    SetResult(controller->CreateWindowValueWithTabs(GetExtension()));
   else
     SetResult(controller->CreateWindowValue());
   return true;
@@ -334,7 +328,7 @@ bool GetAllWindowsFunction::RunImpl() {
     if (!this->CanOperateOnWindow(*iter))
       continue;
     if (populate_tabs)
-      window_list->Append((*iter)->CreateWindowValueWithTabs());
+      window_list->Append((*iter)->CreateWindowValueWithTabs(GetExtension()));
     else
       window_list->Append((*iter)->CreateWindowValue());
   }
@@ -464,31 +458,13 @@ bool CreateWindowFunction::RunImpl() {
     }
   }
 
-  // Try to position the new browser relative its originating browser window.
-  gfx::Rect window_bounds;
-  // The call offsets the bounds by kWindowTilePixels (defined in WindowSizer to
-  // be 10)
-  //
-  // NOTE(rafaelw): It's ok if GetCurrentBrowser() returns NULL here.
-  // GetBrowserWindowBounds will default to saved "default" values for the app.
-  WindowSizer::GetBrowserWindowBounds(std::string(), gfx::Rect(),
-                                      GetCurrentBrowser(), &window_bounds);
-
-  // Calculate popup and panels bounds separately.
-  gfx::Rect popup_bounds;
-  gfx::Rect panel_bounds;  // Use 0x0 for panels. Panel manager sizes them.
-
-  // In ChromiumOS the default popup bounds is 0x0 which indicates default
-  // window sizes in PanelBrowserView. In other OSs use the same default
-  // bounds as windows.
-#if defined(OS_CHROMEOS)
-  popup_bounds = panel_bounds;
-#else
-  popup_bounds = window_bounds;  // Use window size as default for popups
-#endif
-
   Profile* window_profile = profile();
   Browser::Type window_type = Browser::TYPE_TABBED;
+
+  // panel_create_mode only applies if window is TYPE_PANEL.
+  PanelManager::CreateMode panel_create_mode = PanelManager::CREATE_AS_DOCKED;
+
+  gfx::Rect window_bounds;
   bool focused = true;
   bool saw_focus_key = false;
   std::string extension_id;
@@ -506,46 +482,8 @@ bool CreateWindowFunction::RunImpl() {
   }
 
   if (args) {
-    // Any part of the bounds can optionally be set by the caller.
-    int bounds_val = -1;
-    if (args->HasKey(keys::kLeftKey)) {
-      EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kLeftKey,
-                                                   &bounds_val));
-      window_bounds.set_x(bounds_val);
-      popup_bounds.set_x(bounds_val);
-      panel_bounds.set_x(bounds_val);
-    }
-
-    if (args->HasKey(keys::kTopKey)) {
-      EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kTopKey,
-                                                   &bounds_val));
-      window_bounds.set_y(bounds_val);
-      popup_bounds.set_y(bounds_val);
-      panel_bounds.set_y(bounds_val);
-    }
-
-    if (args->HasKey(keys::kWidthKey)) {
-      EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kWidthKey,
-                                                   &bounds_val));
-      window_bounds.set_width(bounds_val);
-      popup_bounds.set_width(bounds_val);
-      panel_bounds.set_width(bounds_val);
-    }
-
-    if (args->HasKey(keys::kHeightKey)) {
-      EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kHeightKey,
-                                                   &bounds_val));
-      window_bounds.set_height(bounds_val);
-      popup_bounds.set_height(bounds_val);
-      panel_bounds.set_height(bounds_val);
-    }
-
-    if (args->HasKey(keys::kFocusedKey)) {
-      EXTENSION_FUNCTION_VALIDATE(args->GetBoolean(keys::kFocusedKey,
-                                                   &focused));
-      saw_focus_key = true;
-    }
-
+    // Figure out window type before figuring out bounds so that default
+    // bounds can be set according to the window type.
     std::string type_str;
     if (args->HasKey(keys::kWindowTypeKey)) {
       EXTENSION_FUNCTION_VALIDATE(args->GetString(keys::kWindowTypeKey,
@@ -553,45 +491,110 @@ bool CreateWindowFunction::RunImpl() {
       if (type_str == keys::kWindowTypeValuePopup) {
         window_type = Browser::TYPE_POPUP;
         extension_id = GetExtension()->id();
-      } else if (type_str == keys::kWindowTypeValuePanel) {
+      } else if (type_str == keys::kWindowTypeValuePanel ||
+                 type_str == keys::kWindowTypeValueDetachedPanel) {
         extension_id = GetExtension()->id();
         bool use_panels = false;
 #if !defined(OS_ANDROID)
         use_panels = PanelManager::ShouldUsePanels(extension_id);
 #endif
-        if (use_panels)
+        if (use_panels) {
           window_type = Browser::TYPE_PANEL;
-        else
+#if !defined(USE_ASH)
+          // Non-Ash has both docked and detached panel types.
+          if (type_str == keys::kWindowTypeValueDetachedPanel)
+            panel_create_mode = PanelManager::CREATE_AS_DETACHED;
+#endif
+        } else {
           window_type = Browser::TYPE_POPUP;
+        }
       } else if (type_str != keys::kWindowTypeValueNormal) {
         error_ = keys::kInvalidWindowTypeError;
         return false;
       }
     }
+
+    // Initialize default window bounds according to window type.
+    // In ChromiumOS the default popup bounds is 0x0 which indicates default
+    // window sizes in PanelBrowserView. In other OSs use the same default
+    // bounds as windows.
+#if !defined(OS_CHROMEOS)
+    if (Browser::TYPE_TABBED == window_type ||
+        Browser::TYPE_POPUP == window_type) {
+#else
+    if (Browser::TYPE_TABBED == window_type) {
+#endif
+      // Try to position the new browser relative to its originating
+      // browser window. The call offsets the bounds by kWindowTilePixels
+      // (defined in WindowSizer to be 10).
+      //
+      // NOTE(rafaelw): It's ok if GetCurrentBrowser() returns NULL here.
+      // GetBrowserWindowBounds will default to saved "default" values for
+      // the app.
+      WindowSizer::GetBrowserWindowBounds(std::string(), gfx::Rect(),
+                                          GetCurrentBrowser(),
+                                          &window_bounds);
+    }
+
+    if (Browser::TYPE_PANEL == window_type &&
+        PanelManager::CREATE_AS_DETACHED == panel_create_mode) {
+      window_bounds.set_origin(
+          PanelManager::GetInstance()->GetDefaultDetachedPanelOrigin());
+    }
+
+    // Any part of the bounds can optionally be set by the caller.
+    int bounds_val = -1;
+    if (args->HasKey(keys::kLeftKey)) {
+      EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kLeftKey,
+                                                   &bounds_val));
+      window_bounds.set_x(bounds_val);
+    }
+
+    if (args->HasKey(keys::kTopKey)) {
+      EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kTopKey,
+                                                   &bounds_val));
+      window_bounds.set_y(bounds_val);
+    }
+
+    if (args->HasKey(keys::kWidthKey)) {
+      EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kWidthKey,
+                                                   &bounds_val));
+      window_bounds.set_width(bounds_val);
+    }
+
+    if (args->HasKey(keys::kHeightKey)) {
+      EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kHeightKey,
+                                                   &bounds_val));
+      window_bounds.set_height(bounds_val);
+    }
+
+    if (args->HasKey(keys::kFocusedKey)) {
+      EXTENSION_FUNCTION_VALIDATE(args->GetBoolean(keys::kFocusedKey,
+                                                   &focused));
+      saw_focus_key = true;
+    }
   }
 
+#if !defined(USE_ASH)
   if (window_type == Browser::TYPE_PANEL) {
     std::string title =
         web_app::GenerateApplicationNameFromExtensionId(extension_id);
-#if !defined(USE_ASH)
-    if (PanelManager::UseBrowserlessPanels()) {
-      // Note: Panels ignore all but the first url provided.
-      Panel* panel = PanelManager::GetInstance()->CreatePanel(
-          title, window_profile, urls[0], panel_bounds.size());
+    // Note: Panels ignore all but the first url provided.
+    Panel* panel = PanelManager::GetInstance()->CreatePanel(
+        title, window_profile, urls[0], window_bounds, panel_create_mode);
 
-      // Unlike other window types, Panels do not take focus by default.
-      if (!saw_focus_key || !focused)
-        panel->ShowInactive();
-      else
-        panel->Show();
+    // Unlike other window types, Panels do not take focus by default.
+    if (!saw_focus_key || !focused)
+      panel->ShowInactive();
+    else
+      panel->Show();
 
     SetResult(
-        panel->extension_window_controller()->CreateWindowValueWithTabs());
+        panel->extension_window_controller()->CreateWindowValueWithTabs(
+            GetExtension()));
     return true;
   }
 #endif
-    // else fall through to create BrowserWindow
-  }
 
   // Create a new BrowserWindow.
   Browser::CreateParams create_params(window_type, window_profile);
@@ -601,7 +604,7 @@ bool CreateWindowFunction::RunImpl() {
     create_params = Browser::CreateParams::CreateForApp(
         window_type,
         web_app::GenerateApplicationNameFromExtensionId(extension_id),
-        (window_type == Browser::TYPE_PANEL ? panel_bounds : popup_bounds),
+        window_bounds,
         window_profile);
   }
   create_params.initial_show_state = ui::SHOW_STATE_NORMAL;
@@ -612,8 +615,10 @@ bool CreateWindowFunction::RunImpl() {
   for (std::vector<GURL>::iterator i = urls.begin(); i != urls.end(); ++i) {
     TabContents* tab = chrome::AddSelectedTabWithURL(
         new_window, *i, content::PAGE_TRANSITION_LINK);
-    if (window_type == Browser::TYPE_PANEL)
-      tab->extension_tab_helper()->SetExtensionAppIconById(extension_id);
+    if (window_type == Browser::TYPE_PANEL) {
+      extensions::TabHelper::FromWebContents(tab->web_contents())->
+          SetExtensionAppIconById(extension_id);
+    }
   }
   if (contents) {
     TabStripModel* target_tab_strip = new_window->tab_strip_model();
@@ -638,7 +643,8 @@ bool CreateWindowFunction::RunImpl() {
     SetResult(Value::CreateNullValue());
   } else {
     SetResult(
-        new_window->extension_window_controller()->CreateWindowValueWithTabs());
+        new_window->extension_window_controller()->CreateWindowValueWithTabs(
+            GetExtension()));
   }
 
   return true;
@@ -819,7 +825,8 @@ bool GetSelectedTabFunction::RunImpl() {
   }
   SetResult(ExtensionTabUtil::CreateTabValue(contents->web_contents(),
                                              tab_strip,
-                                             tab_strip->active_index()));
+                                             tab_strip->active_index(),
+                                             GetExtension()));
   return true;
 }
 
@@ -833,7 +840,7 @@ bool GetAllTabsInWindowFunction::RunImpl() {
   if (!GetBrowserFromWindowID(this, window_id, &browser))
     return false;
 
-  SetResult(ExtensionTabUtil::CreateTabList(browser));
+  SetResult(ExtensionTabUtil::CreateTabList(browser, GetExtension()));
 
   return true;
 }
@@ -944,7 +951,7 @@ bool QueryTabsFunction::RunImpl() {
         continue;
 
       result->Append(ExtensionTabUtil::CreateTabValue(
-          web_contents, tab_strip, i));
+          web_contents, tab_strip, i, GetExtension()));
     }
   }
 
@@ -1019,13 +1026,11 @@ bool CreateTabFunction::RunImpl() {
   // be used instead).
   bool active = true;
   if (args->HasKey(keys::kSelectedKey))
-    EXTENSION_FUNCTION_VALIDATE(
-        args->GetBoolean(keys::kSelectedKey, &active));
+    EXTENSION_FUNCTION_VALIDATE(args->GetBoolean(keys::kSelectedKey, &active));
 
   // The 'active' property has replaced the 'selected' property.
   if (args->HasKey(keys::kActiveKey))
-    EXTENSION_FUNCTION_VALIDATE(
-        args->GetBoolean(keys::kActiveKey, &active));
+    EXTENSION_FUNCTION_VALIDATE(args->GetBoolean(keys::kActiveKey, &active));
 
   // Default to not pinning the tab. Setting the 'pinned' property to true
   // will override this default.
@@ -1081,8 +1086,35 @@ bool CreateTabFunction::RunImpl() {
   if (has_callback()) {
     SetResult(ExtensionTabUtil::CreateTabValue(
         params.target_contents->web_contents(),
-        tab_strip, new_index));
+        tab_strip, new_index, GetExtension()));
   }
+
+  return true;
+}
+
+bool DuplicateTabFunction::RunImpl() {
+  int tab_id = -1;
+  EXTENSION_FUNCTION_VALIDATE(args_->GetInteger(0, &tab_id));
+
+  Browser* browser = NULL;
+  TabStripModel* tab_strip = NULL;
+  TabContents* contents = NULL;
+  int tab_index = -1;
+  if (!GetTabById(tab_id, profile(), include_incognito(),
+                  &browser, &tab_strip, &contents, &tab_index, &error_)) {
+    return false;
+  }
+
+  TabContents* new_contents = chrome::DuplicateTabAt(browser, tab_index);
+  if (!has_callback())
+    return true;
+
+  int new_index = tab_strip->GetIndexOfTabContents(new_contents);
+
+  // Return data about the newly created tab.
+  SetResult(ExtensionTabUtil::CreateTabValue(
+      new_contents->web_contents(),
+      tab_strip, new_index, GetExtension()));
 
   return true;
 }
@@ -1100,7 +1132,8 @@ bool GetTabFunction::RunImpl() {
 
   SetResult(ExtensionTabUtil::CreateTabValue(contents->web_contents(),
                                              tab_strip,
-                                             tab_index));
+                                             tab_index,
+                                             GetExtension()));
   return true;
 }
 
@@ -1109,7 +1142,7 @@ bool GetCurrentTabFunction::RunImpl() {
 
   WebContents* contents = dispatcher()->delegate()->GetAssociatedWebContents();
   if (contents)
-    SetResult(ExtensionTabUtil::CreateTabValue(contents));
+    SetResult(ExtensionTabUtil::CreateTabValue(contents, GetExtension()));
 
   return true;
 }
@@ -1166,7 +1199,8 @@ bool HighlightTabsFunction::RunImpl() {
   selection.set_active(active_index);
   browser->tab_strip_model()->SetSelectionFromModel(selection);
   SetResult(
-      browser->extension_window_controller()->CreateWindowValueWithTabs());
+      browser->extension_window_controller()->CreateWindowValueWithTabs(
+          GetExtension()));
   return true;
 }
 
@@ -1195,7 +1229,7 @@ bool UpdateTabFunction::RunImpl() {
       error_ = keys::kNoSelectedTabError;
       return false;
     }
-    tab_id = SessionID::IdForTab(contents);
+    tab_id = SessionID::IdForTab(contents->web_contents());
   } else {
     EXTENSION_FUNCTION_VALIDATE(tab_value->GetAsInteger(&tab_id));
   }
@@ -1314,14 +1348,15 @@ bool UpdateTabFunction::UpdateURLIfPresent(DictionaryValue* update_props,
       return false;
     }
 
-    tab_contents_->extension_tab_helper()->script_executor()->ExecuteScript(
-        extension_id(),
-        ScriptExecutor::JAVASCRIPT,
-        url.path(),
-        ScriptExecutor::TOP_FRAME,
-        extensions::UserScript::DOCUMENT_IDLE,
-        ScriptExecutor::MAIN_WORLD,
-        base::Bind(&UpdateTabFunction::OnExecuteCodeFinished, this));
+    extensions::TabHelper::FromWebContents(tab_contents_->web_contents())->
+        script_executor()->ExecuteScript(
+            extension_id(),
+            ScriptExecutor::JAVASCRIPT,
+            url.path(),
+            ScriptExecutor::TOP_FRAME,
+            extensions::UserScript::DOCUMENT_IDLE,
+            ScriptExecutor::MAIN_WORLD,
+            base::Bind(&UpdateTabFunction::OnExecuteCodeFinished, this));
 
     *is_async = true;
     return true;
@@ -1342,11 +1377,8 @@ void UpdateTabFunction::PopulateResult() {
   if (!has_callback())
     return;
 
-  if (GetExtension()->HasAPIPermission(extensions::APIPermission::kTab)) {
-    SetResult(ExtensionTabUtil::CreateTabValue(tab_contents_->web_contents()));
-  } else {
-    SetResult(Value::CreateNullValue());
-  }
+  SetResult(ExtensionTabUtil::CreateTabValue(tab_contents_->web_contents(),
+                                             GetExtension()));
 }
 
 void UpdateTabFunction::OnExecuteCodeFinished(const std::string& error,
@@ -1438,9 +1470,13 @@ bool MoveTabsFunction::RunImpl() {
         target_tab_strip->InsertTabContentsAt(
             new_index, contents, TabStripModel::ADD_NONE);
 
-        if (has_callback())
+        if (has_callback()) {
           tab_values.Append(ExtensionTabUtil::CreateTabValue(
-              contents->web_contents(), target_tab_strip, new_index));
+              contents->web_contents(),
+              target_tab_strip,
+              new_index,
+              GetExtension()));
+        }
 
         continue;
       }
@@ -1456,9 +1492,11 @@ bool MoveTabsFunction::RunImpl() {
     if (new_index != tab_index)
       source_tab_strip->MoveTabContentsAt(tab_index, new_index, false);
 
-    if (has_callback())
+    if (has_callback()) {
       tab_values.Append(ExtensionTabUtil::CreateTabValue(
-          contents->web_contents(), source_tab_strip, new_index));
+          contents->web_contents(), source_tab_strip, new_index,
+          GetExtension()));
+    }
   }
 
   if (!has_callback())
@@ -1560,8 +1598,7 @@ bool RemoveTabsFunction::RunImpl() {
   return true;
 }
 
-bool CaptureVisibleTabFunction::GetTabToCapture(
-    WebContents** web_contents, TabContents** tab_contents) {
+bool CaptureVisibleTabFunction::GetTabToCapture(WebContents** web_contents) {
   Browser* browser = NULL;
   // windowId defaults to "current" window.
   int window_id = extension_misc::kCurrentWindowId;
@@ -1578,8 +1615,6 @@ bool CaptureVisibleTabFunction::GetTabToCapture(
     return false;
   }
 
-  *tab_contents = chrome::GetActiveTabContents(browser);
-
   return true;
 };
 
@@ -1591,8 +1626,7 @@ bool CaptureVisibleTabFunction::RunImpl() {
   }
 
   WebContents* web_contents = NULL;
-  TabContents* tab_contents = NULL;
-  if (!GetTabToCapture(&web_contents, &tab_contents))
+  if (!GetTabToCapture(&web_contents))
     return false;
 
   image_format_ = FORMAT_JPEG;  // Default format is JPEG.
@@ -1628,7 +1662,7 @@ bool CaptureVisibleTabFunction::RunImpl() {
   // permission to do this.
   if (!GetExtension()->CanCaptureVisiblePage(
         web_contents->GetURL(),
-        SessionID::IdForTab(tab_contents),
+        SessionID::IdForTab(web_contents),
         &error_)) {
     return false;
   }
@@ -1660,8 +1694,7 @@ void CaptureVisibleTabFunction::CopyFromBackingStoreComplete(
   }
 
   WebContents* web_contents = NULL;
-  TabContents* tab_contents = NULL;
-  if (!GetTabToCapture(&web_contents, &tab_contents)) {
+  if (!GetTabToCapture(&web_contents)) {
     error_ = keys::kInternalVisibleTabCaptureError;
     SendResponse(false);
     return;
@@ -1672,7 +1705,8 @@ void CaptureVisibleTabFunction::CopyFromBackingStoreComplete(
                  chrome::NOTIFICATION_TAB_SNAPSHOT_TAKEN,
                  content::Source<WebContents>(web_contents));
   AddRef();  // Balanced in CaptureVisibleTabFunction::Observe().
-  tab_contents->snapshot_tab_helper()->CaptureSnapshot();
+  TabContents::FromWebContents(web_contents)->snapshot_tab_helper()->
+      CaptureSnapshot();
 }
 
 // If a backing store was not available in CaptureVisibleTabFunction::RunImpl,

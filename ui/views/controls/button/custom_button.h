@@ -6,7 +6,7 @@
 #define UI_VIEWS_CONTROLS_BUTTON_CUSTOM_BUTTON_H_
 
 #include "ui/base/animation/animation_delegate.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/views/controls/button/button.h"
 
 namespace ui {
@@ -87,7 +87,7 @@ class VIEWS_EXPORT CustomButton : public Button,
   virtual void OnMouseMoved(const ui::MouseEvent& event) OVERRIDE;
   virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
   virtual bool OnKeyReleased(const ui::KeyEvent& event) OVERRIDE;
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE;
   virtual bool AcceleratorPressed(const ui::Accelerator& accelerator) OVERRIDE;
   virtual void ShowContextMenu(const gfx::Point& p,

@@ -188,13 +188,6 @@ PipelineIntegrationTestBase::CreateFilterCollection(const std::string& url) {
 
 scoped_ptr<FilterCollection>
 PipelineIntegrationTestBase::CreateFilterCollection(
-    ChunkDemuxerClient* client,
-    Decryptor* decryptor) {
-  return CreateFilterCollection(new ChunkDemuxer(client), decryptor);
-}
-
-scoped_ptr<FilterCollection>
-PipelineIntegrationTestBase::CreateFilterCollection(
     const scoped_refptr<Demuxer>& demuxer,
     Decryptor* decryptor) {
   scoped_ptr<FilterCollection> collection(new FilterCollection());
@@ -202,11 +195,11 @@ PipelineIntegrationTestBase::CreateFilterCollection(
   collection->AddAudioDecoder(new FFmpegAudioDecoder(
       base::Bind(&MessageLoopFactory::GetMessageLoop,
                  base::Unretained(message_loop_factory_.get()),
-                 media::MessageLoopFactory::kAudioDecoder)));
+                 media::MessageLoopFactory::kDecoder)));
   scoped_refptr<VideoDecoder> decoder = new FFmpegVideoDecoder(
       base::Bind(&MessageLoopFactory::GetMessageLoop,
                  base::Unretained(message_loop_factory_.get()),
-                 media::MessageLoopFactory::kVideoDecoder),
+                 media::MessageLoopFactory::kDecoder),
       decryptor);
   collection->GetVideoDecoders()->push_back(decoder);
 

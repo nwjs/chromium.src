@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
 #include "content/public/browser/notification_observer.h"
 #include "ui/views/context_menu_controller.h"
@@ -23,6 +24,10 @@ namespace extensions {
 class Extension;
 }
 
+namespace gfx {
+class Image;
+}
+
 namespace views {
 class MenuItemView;
 class MenuRunner;
@@ -36,7 +41,8 @@ class BrowserActionView : public views::View {
  public:
   // Need DragController here because BrowserActionView could be
   // dragged/dropped.
-  class Delegate : public views::DragController {
+  class Delegate : public views::DragController,
+                   public ExtensionContextMenuModel::PopupDelegate {
    public:
     // Returns the current tab's ID, or -1 if there is no current tab.
     virtual int GetCurrentTabId() const = 0;
@@ -166,6 +172,9 @@ class BrowserActionButton : public views::MenuButton,
   // the built-in views enabled/SetEnabled because disabled views do not
   // receive drag events.
   bool IsEnabled(int tab_id) const;
+
+  // Returns button icon so it can be accessed during tests.
+  gfx::ImageSkia GetIconForTest();
 
  protected:
   // Overridden from views::View:

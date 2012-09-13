@@ -70,9 +70,9 @@ static const int kNativeFrameInactiveTabAlpha = 200;
 static const int kNativeFrameInactiveTabAlphaMultiSelection = 150;
 
 #if defined(USE_ASH)
-static const int kInactiveTabAlpha = 230;
+static const int kInactiveTabAndNewTabButtonAlpha = 230;
 #else
-static const int kInactiveTabAlpha = 255;
+static const int kInactiveTabAndNewTabButtonAlpha = 255;
 #endif
 
 // Inverse ratio of the width of a tab edge to the width of the tab. When
@@ -305,7 +305,7 @@ class NewTabButton : public views::ImageButton {
 #if defined(OS_WIN) && !defined(USE_AURA)
   void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
 #endif
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE;
   void OnPaint(gfx::Canvas* canvas) OVERRIDE;
 
@@ -374,12 +374,12 @@ void NewTabButton::OnMouseReleased(const ui::MouseEvent& event) {
 }
 #endif
 
-ui::GestureStatus NewTabButton::OnGestureEvent(
+ui::EventResult NewTabButton::OnGestureEvent(
     const ui::GestureEvent& event) {
   // Consume all gesture events here so that the parent (BaseTab) does not
   // start consuming gestures.
   views::ImageButton::OnGestureEvent(event);
-  return ui::GESTURE_STATUS_CONSUMED;
+  return ui::ER_CONSUMED;
 }
 
 void NewTabButton::OnPaint(gfx::Canvas* canvas) {
@@ -1188,8 +1188,8 @@ void TabStrip::PaintChildren(gfx::Canvas* canvas) {
   // painting changes as we switch between the two.
   bool stacking = layout_type_ == TAB_STRIP_LAYOUT_STACKED;
 
-  if (kInactiveTabAlpha < 255)
-    canvas->SaveLayerAlpha(kInactiveTabAlpha);
+  if (kInactiveTabAndNewTabButtonAlpha < 255)
+    canvas->SaveLayerAlpha(kInactiveTabAndNewTabButtonAlpha);
 
   PaintClosingTabs(canvas, tab_count());
 
@@ -1229,7 +1229,7 @@ void TabStrip::PaintChildren(gfx::Canvas* canvas) {
       tab->Paint(canvas);
     }
   }
-  if (kInactiveTabAlpha < 255)
+  if (kInactiveTabAndNewTabButtonAlpha < 255)
     canvas->Restore();
 
   if (GetWidget()->ShouldUseNativeFrame()) {
@@ -1259,7 +1259,11 @@ void TabStrip::PaintChildren(gfx::Canvas* canvas) {
     active_tab->Paint(canvas);
 
   // Paint the New Tab button.
+  if (kInactiveTabAndNewTabButtonAlpha < 255)
+    canvas->SaveLayerAlpha(kInactiveTabAndNewTabButtonAlpha);
   newtab_button_->Paint(canvas);
+  if (kInactiveTabAndNewTabButtonAlpha < 255)
+    canvas->Restore();
 
   // And the dragged tabs.
   for (size_t i = 0; i < tabs_dragging.size(); ++i)
@@ -1433,7 +1437,7 @@ void TabStrip::OnMouseEntered(const ui::MouseEvent& event) {
   SetResetToShrinkOnExit(true);
 }
 
-ui::GestureStatus TabStrip::OnGestureEvent(
+ui::EventResult TabStrip::OnGestureEvent(
     const ui::GestureEvent& event) {
   SetResetToShrinkOnExit(false);
   switch (event.type()) {
@@ -1461,7 +1465,7 @@ ui::GestureStatus TabStrip::OnGestureEvent(
     default:
       break;
   }
-  return ui::GESTURE_STATUS_CONSUMED;
+  return ui::ER_CONSUMED;
 }
 
 void TabStrip::GetCurrentTabWidths(double* unselected_width,

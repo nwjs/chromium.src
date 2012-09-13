@@ -10,7 +10,7 @@
 #include "base/bind.h"
 #include "base/system_monitor/system_monitor.h"
 #include "base/win/windows_version.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "ui/base/native_theme/native_theme_win.h"
 #include "ui/base/win/hwnd_util.h"
@@ -386,8 +386,12 @@ HWNDMessageHandler::HWNDMessageHandler(HWNDMessageHandlerDelegate* delegate)
 }
 
 HWNDMessageHandler::~HWNDMessageHandler() {
+  delegate_ = NULL;
   if (destroyed_ != NULL)
     *destroyed_ = true;
+  // Prevent calls back into this class via WNDPROC now that we've been
+  // destroyed.
+  ClearUserData();
 }
 
 void HWNDMessageHandler::Init(HWND parent, const gfx::Rect& bounds) {
@@ -909,7 +913,7 @@ LRESULT HWNDMessageHandler::OnWndProc(UINT message,
   HWND window = hwnd();
   LRESULT result = 0;
 
-  if (delegate_->PreHandleMSG(message, w_param, l_param, &result))
+  if (delegate_ && delegate_->PreHandleMSG(message, w_param, l_param, &result))
     return result;
 
 #if !defined(USE_AURA)
@@ -923,10 +927,12 @@ LRESULT HWNDMessageHandler::OnWndProc(UINT message,
   // Otherwise we handle everything else.
   if (!ProcessWindowMessage(window, message, w_param, l_param, result))
     result = DefWindowProc(window, message, w_param, l_param);
-  delegate_->PostHandleMSG(message, w_param, l_param);
+  if (delegate_)
+    delegate_->PostHandleMSG(message, w_param, l_param);
   if (message == WM_NCDESTROY) {
     MessageLoopForUI::current()->RemoveObserver(this);
-    delegate_->HandleDestroyed();
+    if (delegate_)
+      delegate_->HandleDestroyed();
   }
 
   // Only top level widget should store/restore focus.
@@ -1120,7 +1126,9 @@ void HWNDMessageHandler::ResetWindowRegion(bool force) {
     delegate_->GetWindowMask(
       gfx::Size(window_rect.Width(), window_rect.Height()), &window_mask);
     // TODO(beng): resolve wrt aura.
-#if !defined(USE_AURA)
+#if defined(USE_AURA)
+    new_region = NULL;
+#else
     new_region = window_mask.CreateNativeRegion();
 #endif
   }
@@ -1823,6 +1831,11 @@ LRESULT HWNDMessageHandler::OnNotify(int w_param, NMHDR* l_param) {
 }
 
 void HWNDMessageHandler::OnPaint(HDC dc) {
+#if defined(USE_AURA)
+  // All aura painting is accelerated.
+  delegate_->HandlePaint(NULL);
+  ValidateRect(hwnd(), NULL);
+#else
   RECT dirty_rect;
   // Try to paint accelerated first.
   if (GetUpdateRect(hwnd(), &dirty_rect, FALSE) &&
@@ -1830,18 +1843,16 @@ void HWNDMessageHandler::OnPaint(HDC dc) {
     if (delegate_->HandlePaintAccelerated(gfx::Rect(dirty_rect))) {
       ValidateRect(hwnd(), NULL);
     } else {
-      // TODO(beng): resolve vis-a-vis aura
-#if !defined(USE_AURA)
       scoped_ptr<gfx::CanvasPaint> canvas(
           gfx::CanvasPaint::CreateCanvasPaint(hwnd()));
       delegate_->HandlePaint(canvas->AsCanvas());
-#endif
     }
   } else {
     // TODO(msw): Find a better solution for this crbug.com/93530 workaround.
     // Some scenarios otherwise fail to validate minimized app/popup windows.
     ValidateRect(hwnd(), NULL);
   }
+#endif
 }
 
 LRESULT HWNDMessageHandler::OnPowerBroadcast(DWORD power_event, DWORD data) {

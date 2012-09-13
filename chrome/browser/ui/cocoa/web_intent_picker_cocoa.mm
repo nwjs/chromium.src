@@ -176,7 +176,7 @@ void WebIntentPickerCocoa::OnInlineDisposition(const string16& title,
   inline_disposition_tab_contents_->web_contents()->GetController().LoadURL(
       url,
       content::Referrer(),
-      content::PAGE_TRANSITION_START_PAGE,
+      content::PAGE_TRANSITION_AUTO_TOPLEVEL,
       std::string());
   [sheet_controller_ setInlineDispositionTitle:
       base::SysUTF16ToNSString(title)];
@@ -228,14 +228,17 @@ void WebIntentPickerCocoa::OnInlineDispositionAutoResize(
 void WebIntentPickerCocoa::OnPendingAsyncCompleted() {
 }
 
-void WebIntentPickerCocoa::OnExtensionLinkClicked(const std::string& id) {
+void WebIntentPickerCocoa::OnExtensionLinkClicked(
+    const std::string& id,
+    WindowOpenDisposition disposition) {
   DCHECK(delegate_);
-  delegate_->OnExtensionLinkClicked(id);
+  delegate_->OnExtensionLinkClicked(id, disposition);
 }
 
-void WebIntentPickerCocoa::OnSuggestionsLinkClicked() {
+void WebIntentPickerCocoa::OnSuggestionsLinkClicked(
+    WindowOpenDisposition disposition) {
   DCHECK(delegate_);
-  delegate_->OnSuggestionsLinkClicked();
+  delegate_->OnSuggestionsLinkClicked(disposition);
 }
 
 void WebIntentPickerCocoa::OnChooseAnotherService() {

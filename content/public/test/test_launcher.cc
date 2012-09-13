@@ -22,7 +22,10 @@
 #include "base/test/test_timeouts.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
+#include "content/public/app/content_main.h"
+#include "content/public/app/content_main_delegate.h"
 #include "content/public/app/startup_helper_win.h"
+#include "content/public/common/content_switches.h"
 #include "content/public/common/sandbox_init.h"
 #include "content/public/test/browser_test.h"
 #include "net/base/escape.h"
@@ -622,6 +625,10 @@ void PrintUsage() {
 
 }  // namespace
 
+// The following is kept for historical reasons (so people that are used to
+// using it don't get surprised).
+const char kChildProcessFlag[]   = "child";
+
 const char kGTestFilterFlag[] = "gtest_filter";
 const char kGTestHelpFlag[]   = "gtest_help";
 const char kGTestListTestsFlag[] = "gtest_list_tests";
@@ -629,21 +636,51 @@ const char kGTestRepeatFlag[] = "gtest_repeat";
 const char kGTestRunDisabledTestsFlag[] = "gtest_also_run_disabled_tests";
 const char kGTestOutputFlag[] = "gtest_output";
 
-const char kSingleProcessTestsFlag[]   = "single_process";
-const char kSingleProcessTestsAndChromeFlag[]   = "single-process";
+const char kHelpFlag[]   = "help";
+
+const char kLaunchAsBrowser[] = "as-browser";
 
 // See kManualTestPrefix above.
 const char kRunManualTestsFlag[] = "run-manual";
 
-// The following is kept for historical reasons (so people that are used to
-// using it don't get surprised).
-const char kChildProcessFlag[]   = "child";
-
-const char kHelpFlag[]   = "help";
+const char kSingleProcessTestsFlag[]   = "single_process";
+const char kSingleProcessTestsAndChromeFlag[]   = "single-process";
 
 const char kWarmupFlag[] = "warmup";
 
+
 TestLauncherDelegate::~TestLauncherDelegate() {
+}
+
+bool ShouldRunContentMain() {
+#if defined(OS_WIN) || defined(OS_LINUX)
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  return command_line->HasSwitch(switches::kProcessType) ||
+         command_line->HasSwitch(kLaunchAsBrowser);
+#else
+  return false;
+#endif  // defined(OS_WIN) || defined(OS_LINUX)
+}
+
+int RunContentMain(int argc, char** argv,
+                   TestLauncherDelegate* launcher_delegate) {
+#if defined(OS_WIN)
+  sandbox::SandboxInterfaceInfo sandbox_info = {0};
+  content::InitializeSandboxInfo(&sandbox_info);
+  scoped_ptr<content::ContentMainDelegate> chrome_main_delegate(
+      launcher_delegate->CreateContentMainDelegate());
+  return content::ContentMain(GetModuleHandle(NULL),
+                              &sandbox_info,
+                              chrome_main_delegate.get());
+#elif defined(OS_LINUX)
+  scoped_ptr<content::ContentMainDelegate> chrome_main_delegate(
+      launcher_delegate->CreateContentMainDelegate());
+  return content::ContentMain(argc,
+                              const_cast<const char**>(argv),
+                              chrome_main_delegate.get());
+#endif  // defined(OS_WIN)
+  NOTREACHED();
+  return 0;
 }
 
 int LaunchTests(TestLauncherDelegate* launcher_delegate,
@@ -660,12 +697,9 @@ int LaunchTests(TestLauncherDelegate* launcher_delegate,
     return 0;
   }
 
-  // TODO(pkasting): This "single_process vs. single-process" design is
-  // terrible UI.  Instead, there should be some sort of signal flag on the
-  // command line, with all subsequent arguments passed through to the
-  // underlying browser.
   if (command_line->HasSwitch(kSingleProcessTestsFlag) ||
-      command_line->HasSwitch(kSingleProcessTestsAndChromeFlag) ||
+      (command_line->HasSwitch(kSingleProcessTestsAndChromeFlag) &&
+       command_line->HasSwitch(kGTestFilterFlag)) ||
       command_line->HasSwitch(kGTestListTestsFlag) ||
       command_line->HasSwitch(kGTestHelpFlag)) {
 #if defined(OS_WIN)
@@ -678,9 +712,8 @@ int LaunchTests(TestLauncherDelegate* launcher_delegate,
     return launcher_delegate->RunTestSuite(argc, argv);
   }
 
-  int return_code = 0;
-  if (launcher_delegate->Run(argc, argv, &return_code))
-    return return_code;
+  if (ShouldRunContentMain())
+    return RunContentMain(argc, argv, launcher_delegate);
 
   base::AtExitManager at_exit;
 
@@ -693,8 +726,8 @@ int LaunchTests(TestLauncherDelegate* launcher_delegate,
       "IMPORTANT DEBUGGING NOTE: each test is run inside its own process.\n"
       "For debugging a test inside a debugger, use the\n"
       "--gtest_filter=<your_test_name> flag along with either\n"
-      "--single_process (to run all tests in one launcher/browser process) or\n"
-      "--single-process (to do the above, and also run Chrome in single-\n"
+      "--single_process (to run the test in one launcher/browser process) or\n"
+      "--single-process (to do the above, and also run Chrome in single-"
       "process mode).\n");
 
   testing::InitGoogleTest(&argc, argv);

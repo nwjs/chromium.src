@@ -30,7 +30,7 @@
 #include "ui/aura/window.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #endif
 
@@ -129,7 +129,7 @@ void SaveScreenshot(const FilePath& screenshot_path,
 
 // TODO(kinaba): crbug.com/140425, remove this ungly #ifdef dispatch.
 #ifdef OS_CHROMEOS
-void SaveScreenshotToGData(scoped_refptr<base::RefCountedBytes> png_data,
+void SaveScreenshotToDrive(scoped_refptr<base::RefCountedBytes> png_data,
                            gdata::DriveFileError error,
                            const FilePath& local_path) {
   if (error != gdata::DRIVE_FILE_OK) {
@@ -141,13 +141,13 @@ void SaveScreenshotToGData(scoped_refptr<base::RefCountedBytes> png_data,
 
 void PostSaveScreenshotTask(const FilePath& screenshot_path,
                             scoped_refptr<base::RefCountedBytes> png_data) {
-  if (gdata::util::IsUnderGDataMountPoint(screenshot_path)) {
+  if (gdata::util::IsUnderDriveMountPoint(screenshot_path)) {
     Profile* profile = ProfileManager::GetDefaultProfileOrOffTheRecord();
     if (profile) {
       gdata::util::PrepareWritableFileAndRun(
           profile,
           screenshot_path,
-          base::Bind(&SaveScreenshotToGData, png_data));
+          base::Bind(&SaveScreenshotToDrive, png_data));
     }
   } else {
     content::BrowserThread::PostTask(

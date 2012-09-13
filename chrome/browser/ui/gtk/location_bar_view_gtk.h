@@ -11,6 +11,7 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
@@ -286,8 +287,7 @@ class LocationBarViewGtk : public OmniboxEditController,
                                      void* user_data);
 
     // ExtensionAction::IconAnimationDelegate implementation.
-    virtual void OnIconChanged(
-        const ExtensionAction::IconAnimation& animation) OVERRIDE;
+    virtual void OnIconChanged() OVERRIDE;
 
     // The location bar view that owns us.
     LocationBarViewGtk* owner_;
@@ -366,6 +366,8 @@ class LocationBarViewGtk : public OmniboxEditController,
                        GtkAllocation*);
   CHROMEGTK_CALLBACK_1(LocationBarViewGtk, gboolean, OnZoomButtonPress,
                        GdkEventButton*);
+  CHROMEGTK_CALLBACK_1(LocationBarViewGtk, void, OnStarButtonSizeAllocate,
+                       GtkAllocation*);
   CHROMEGTK_CALLBACK_1(LocationBarViewGtk, gboolean, OnStarButtonPress,
                        GdkEventButton*);
 
@@ -410,6 +412,9 @@ class LocationBarViewGtk : public OmniboxEditController,
   // Update the star icon after it is toggled or the theme changes.
   void UpdateStarIcon();
 
+  // Update the Chrome To Mobile command state.
+  void UpdateChromeToMobileState();
+
   // Returns true if we should only show the URL and none of the extras like
   // the star button or page actions.
   bool ShouldOnlyShowLocation();
@@ -425,6 +430,11 @@ class LocationBarViewGtk : public OmniboxEditController,
   ui::OwnedWidgetGtk star_;
   GtkWidget* star_image_;
   bool starred_;
+  bool star_sized_;  // True after a size-allocate signal to the star widget.
+
+  // Action to execute after the star icon has been sized, can refer to a NULL
+  // function to indicate no such action should be taken.
+  base::Closure on_star_sized_;
 
   // An icon to the left of the address bar.
   GtkWidget* site_type_alignment_;

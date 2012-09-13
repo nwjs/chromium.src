@@ -71,6 +71,7 @@
 #include "net/url_request/url_request_context_getter.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "ui/base/layout.h"
+#include "ui/base/touch/touch_device_win.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
@@ -160,6 +161,7 @@ using content::SessionStorageNamespace;
 using content::SiteInstance;
 using content::UserMetricsAction;
 using content::WebContents;
+using content::WebContentsDelegate;
 using content::WebContentsObserver;
 using content::WebUI;
 using content::WebUIController;
@@ -526,11 +528,12 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
       command_line.HasSwitch(switches::kEnableCssShaders);
   prefs.css_variables_enabled =
       command_line.HasSwitch(switches::kEnableCssVariables);
-  prefs.device_supports_touch =
-      ui::GetDisplayLayout() == ui::LAYOUT_TOUCH;
 #if defined(USE_AURA) && defined(USE_X11)
   prefs.device_supports_touch |=
       ui::TouchFactory::GetInstance()->IsTouchDevicePresent();
+#endif
+#if defined(OS_WIN)
+  prefs.device_supports_touch = ui::IsTouchDevicePresent();
 #endif
 #if defined(OS_ANDROID)
   prefs.device_supports_mouse = false;
@@ -619,6 +622,9 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
   prefs.fixed_position_creates_stacking_context = !command_line.HasSwitch(
       switches::kDisableFixedPositionCreatesStackingContext);
 
+  prefs.gesture_tap_highlight_enabled = !command_line.HasSwitch(
+      switches::kDisableGestureTapHighlight);
+
   prefs.number_of_cpu_cores = base::SysInfo::NumberOfProcessors();
 
   content::GetContentClient()->browser()->OverrideWebkitPrefs(rvh, url, &prefs);
@@ -674,6 +680,10 @@ bool WebContentsImpl::OnMessageReceived(RenderViewHost* render_view_host,
     IPC_MESSAGE_HANDLER(ViewHostMsg_RegisterProtocolHandler,
                         OnRegisterProtocolHandler)
     IPC_MESSAGE_HANDLER(ViewHostMsg_Find_Reply, OnFindReply)
+#if defined(OS_ANDROID)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_FindMatchRects_Reply,
+                        OnFindMatchRectsReply)
+#endif
     IPC_MESSAGE_HANDLER(ViewHostMsg_CrashedPlugin, OnCrashedPlugin)
     IPC_MESSAGE_HANDLER(ViewHostMsg_AppCacheAccessed, OnAppCacheAccessed)
     IPC_MESSAGE_HANDLER(ViewHostMsg_OpenColorChooser, OnOpenColorChooser)
@@ -1026,18 +1036,10 @@ WebContents* WebContentsImpl::Clone() {
                                          GetSiteInstance(), MSG_ROUTING_NONE,
                                          this, opener_);
   tc->GetController().CopyStateFrom(controller_);
+  FOR_EACH_OBSERVER(WebContentsObserver,
+                    observers_,
+                    DidCloneToNewWebContents(this, tc));
   return tc;
-}
-
-void WebContentsImpl::AddNewContents(WebContents* new_contents,
-                                     WindowOpenDisposition disposition,
-                                     const gfx::Rect& initial_pos,
-                                     bool user_gesture) {
-  if (!delegate_)
-    return;
-
-  delegate_->AddNewContents(this, new_contents, disposition, initial_pos,
-                            user_gesture);
 }
 
 gfx::NativeView WebContentsImpl::GetContentNativeView() const {
@@ -1231,7 +1233,7 @@ void WebContentsImpl::CreateNewWindow(
   // BrowsingInstance.
   scoped_refptr<SiteInstance> site_instance =
       params.opener_suppressed ?
-      SiteInstance::Create(GetBrowserContext()) :
+      SiteInstance::CreateForURL(GetBrowserContext(), params.target_url) :
       GetSiteInstance();
 
   // Create the new web contents. This will automatically create the new
@@ -1245,8 +1247,8 @@ void WebContentsImpl::CreateNewWindow(
   // http://crbug.com/142685
   const std::string& partition_id =
       content::GetContentClient()->browser()->
-          GetStoragePartitionIdForSiteInstance(GetBrowserContext(),
-                                               site_instance);
+          GetStoragePartitionIdForSite(GetBrowserContext(),
+                                       site_instance->GetSite());
   content::StoragePartition* partition =
       BrowserContext::GetStoragePartition(GetBrowserContext(),
                                           site_instance);
@@ -1286,17 +1288,21 @@ void WebContentsImpl::CreateNewWindow(
   if (params.opener_suppressed) {
     // When the opener is suppressed, the original renderer cannot access the
     // new window.  As a result, we need to show and navigate the window here.
-    gfx::Rect initial_pos;
-    // TODO(cdn) Fix popup white-listing for links that open in a new process.
-    AddNewContents(
-        new_contents, params.user_gesture ? params.disposition : NEW_POPUP,
-        initial_pos, params.user_gesture);
-
-    content::OpenURLParams open_params(params.target_url, content::Referrer(),
-                                       CURRENT_TAB,
-                                       content::PAGE_TRANSITION_LINK,
-                                       true /* is_renderer_initiated */);
-    new_contents->OpenURL(open_params);
+    bool was_blocked = false;
+    if (delegate_) {
+      gfx::Rect initial_pos;
+      delegate_->AddNewContents(
+          this, new_contents, params.disposition, initial_pos,
+          params.user_gesture, &was_blocked);
+    }
+    if (!was_blocked) {
+      content::OpenURLParams open_params(params.target_url,
+                                         content::Referrer(),
+                                         CURRENT_TAB,
+                                         content::PAGE_TRANSITION_LINK,
+                                         true /* is_renderer_initiated */);
+      new_contents->OpenURL(open_params);
+    }
   }
 }
 
@@ -1336,8 +1342,13 @@ void WebContentsImpl::ShowCreatedWindow(int route_id,
                                         const gfx::Rect& initial_pos,
                                         bool user_gesture) {
   WebContentsImpl* contents = GetCreatedWindow(route_id);
-  if (contents)
-    AddNewContents(contents, disposition, initial_pos, user_gesture);
+  if (contents) {
+    WebContentsDelegate* delegate = GetDelegate();
+    if (delegate) {
+      delegate->AddNewContents(
+          this, contents, disposition, initial_pos, user_gesture, NULL);
+    }
+  }
 }
 
 void WebContentsImpl::ShowCreatedWidget(int route_id,
@@ -1421,12 +1432,13 @@ RenderWidgetHostView* WebContentsImpl::GetCreatedWidget(int route_id) {
 }
 
 void WebContentsImpl::ShowContextMenu(
-    const content::ContextMenuParams& params) {
+    const content::ContextMenuParams& params,
+    const content::ContextMenuSourceType& type) {
   // Allow WebContentsDelegates to handle the context menu operation first.
   if (delegate_ && delegate_->HandleContextMenu(params))
     return;
 
-  render_view_host_delegate_view_->ShowContextMenu(params);
+  render_view_host_delegate_view_->ShowContextMenu(params, type);
 }
 
 void WebContentsImpl::RequestMediaAccessPermission(
@@ -1437,6 +1449,18 @@ void WebContentsImpl::RequestMediaAccessPermission(
   else
     callback.Run(content::MediaStreamDevices());
 }
+
+#if defined(OS_ANDROID)
+void WebContentsImpl::AttachLayer(WebKit::WebLayer* layer) {
+  if (delegate_)
+    delegate_->AttachLayer(this, layer);
+}
+
+void WebContentsImpl::RemoveLayer(WebKit::WebLayer* layer) {
+  if (delegate_)
+    delegate_->RemoveLayer(this, layer);
+}
+#endif
 
 void WebContentsImpl::UpdatePreferredSize(const gfx::Size& pref_size) {
   preferred_size_ = pref_size;
@@ -2203,6 +2227,16 @@ void WebContentsImpl::OnFindReply(int request_id,
                          active_match_ordinal, final_update);
   }
 }
+
+#if defined(OS_ANDROID)
+void WebContentsImpl::OnFindMatchRectsReply(
+    int version,
+    const std::vector<gfx::RectF>& rects,
+    const gfx::RectF& active_rect) {
+  if (delegate_)
+    delegate_->FindMatchRectsReply(this, version, rects, active_rect);
+}
+#endif
 
 void WebContentsImpl::OnCrashedPlugin(const FilePath& plugin_path) {
   FOR_EACH_OBSERVER(WebContentsObserver, observers_,

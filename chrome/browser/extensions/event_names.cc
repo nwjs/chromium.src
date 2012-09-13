@@ -62,6 +62,8 @@ const char kBluetoothOnAvailabilityChanged[] =
     "experimental.bluetooth.onAvailabilityChanged";
 const char kBluetoothOnDeviceDiscovered[] =
     "experimental.bluetooth.onDeviceDiscovered";
+const char kBluetoothOnDeviceSearchResult[] =
+    "experimental.bluetooth.onDeviceSearchResult";
 const char kBluetoothOnDiscoveringChanged[] =
     "experimental.bluetooth.onDiscoveringChanged";
 const char kBluetoothOnPowerChanged[] =
@@ -69,6 +71,11 @@ const char kBluetoothOnPowerChanged[] =
 #endif
 
 const char kOnPushMessage[] = "experimental.pushMessaging.onMessage";
+
+const char kOnStorageAvailableCapacityChanged[] =
+     "experimental.systemInfo.storage.onAvailableCapacityChanged";
+const char kOnStorageAdded[] = "experimental.systemInfo.storage.onAdded";
+const char kOnStorageRemoved[] = "experimental.systemInfo.storage.onRemoved";
 
 }  // namespace event_names
 

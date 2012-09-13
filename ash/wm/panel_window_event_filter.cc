@@ -11,7 +11,7 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/cursor/cursor.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -101,9 +101,9 @@ ui::TouchStatus PanelWindowEventFilter::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus PanelWindowEventFilter::PreHandleGestureEvent(
+ui::EventResult PanelWindowEventFilter::PreHandleGestureEvent(
     aura::Window* target, ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 

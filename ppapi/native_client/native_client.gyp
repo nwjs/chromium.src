@@ -14,41 +14,58 @@
           'type': 'none',
           'dependencies': [
              '../../native_client/src/untrusted/pthread/pthread.gyp:pthread_lib',
-             '../../native_client/src/untrusted/irt_stub/irt_stub.gyp:ppapi_stub_lib',
+             'src/untrusted/irt_stub/irt_stub.gyp:ppapi_stub_lib',
           ],
-          # Here we copy linker scripts out of the Native Client repository.
-          # These are source, not build artifacts.
+          'include_dirs': [
+            '..',
+          ],
           'copies': [
+            {
+              'destination': '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/include/nacl',
+              'files': [
+                'src/trusted/weak_ref/call_on_main_thread.h',
+                'src/shared/ppapi_proxy/ppruntime.h',
+              ],
+            },
+            {
+              'destination': '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/include/nacl',
+              'files': [
+                'src/trusted/weak_ref/call_on_main_thread.h',
+                'src/shared/ppapi_proxy/ppruntime.h',
+              ],
+            },
+            # Here we copy linker scripts out of the Native Client repository.
+            # These are source, not build artifacts.
             {
               'destination': '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32',
               'files': [
-                  '<(DEPTH)/native_client/src/untrusted/irt_stub/libppapi.a',
+                  'src/untrusted/irt_stub/libppapi.a',
               ],
             },
             {
               'destination': '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64',
               'files': [
-                  '<(DEPTH)/native_client/src/untrusted/irt_stub/libppapi.a',
+                  'src/untrusted/irt_stub/libppapi.a',
               ],
             },
             {
               'destination': '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32',
               'files': [
-                  '<(DEPTH)/native_client/src/untrusted/irt_stub/libppapi.a',
-                  '<(DEPTH)/native_client/src/untrusted/irt_stub/libppapi.so',
+                  'src/untrusted/irt_stub/libppapi.a',
+                  'src/untrusted/irt_stub/libppapi.so',
               ],
             },
             {
               'destination': '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64',
               'files': [
-                  '<(DEPTH)/native_client/src/untrusted/irt_stub/libppapi.a',
-                  '<(DEPTH)/native_client/src/untrusted/irt_stub/libppapi.so',
+                  'src/untrusted/irt_stub/libppapi.a',
+                  'src/untrusted/irt_stub/libppapi.so',
               ],
             },
             {
               'destination': '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm',
               'files': [
-                '<(DEPTH)/native_client/src/untrusted/irt_stub/libppapi.a',
+                'src/untrusted/irt_stub/libppapi.a',
               ],
             },
           ],

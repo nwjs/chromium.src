@@ -5,36 +5,33 @@
 #ifndef CHROME_BROWSER_CHROMEOS_GDATA_DRIVE_FILE_SYSTEM_H_
 #define CHROME_BROWSER_CHROMEOS_GDATA_DRIVE_FILE_SYSTEM_H_
 
-#include <map>
-#include <set>
 #include <string>
 #include <vector>
 
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
-#include "base/platform_file.h"
 #include "base/timer.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/chromeos/gdata/drive_cache.h"
 #include "chrome/browser/chromeos/gdata/drive_file_system_interface.h"
-#include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
-#include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_feed_loader.h"
-#include "chrome/browser/chromeos/gdata/gdata_wapi_feed_processor.h"
+#include "chrome/browser/google_apis/gdata_errorcode.h"
 #include "content/public/browser/notification_observer.h"
 
+class PrefChangeRegistrar;
+
 namespace base {
+struct PlatformFileInfo;
 class SequencedTaskRunner;
 }
 
 namespace gdata {
 
 class DriveFunctionRemove;
+class DriveResourceMetadata;
 class DriveServiceInterface;
+class DriveUploaderInterface;
 class DriveWebAppsRegistryInterface;
-class GDataUploaderInterface;
-class GDataWapiFeedLoader;
 struct UploadFileInfo;
 
 // The production implementation of DriveFileSystemInterface.
@@ -45,7 +42,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
   DriveFileSystem(Profile* profile,
                   DriveCache* cache,
                   DriveServiceInterface* drive_service,
-                  GDataUploaderInterface* uploader,
+                  DriveUploaderInterface* uploader,
                   DriveWebAppsRegistryInterface* webapps_registry,
                   base::SequencedTaskRunner* blocking_task_runner);
   virtual ~DriveFileSystem();
@@ -56,6 +53,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
       DriveFileSystemInterface::Observer* observer) OVERRIDE;
   virtual void RemoveObserver(
       DriveFileSystemInterface::Observer* observer) OVERRIDE;
+  virtual void StartInitialFeedFetch() OVERRIDE;
   virtual void StartUpdates() OVERRIDE;
   virtual void StopUpdates() OVERRIDE;
   virtual void NotifyFileSystemMounted() OVERRIDE;
@@ -147,7 +145,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // Used in tests to update the file system from |feed_list|.
   // See also the comment at GDataWapiFeedLoader::UpdateFromFeed().
   DriveFileError UpdateFromFeedForTesting(
-      const std::vector<DocumentFeed*>& feed_list,
+      const ScopedVector<DocumentFeed>& feed_list,
       int64 start_changestamp,
       int64 root_feed_changestamp);
 
@@ -195,6 +193,8 @@ class DriveFileSystem : public DriveFileSystemInterface,
       const FindFirstMissingParentDirectoryResult& result)>
       FindFirstMissingParentDirectoryCallback;
 
+  // Params for FindFirstMissingParentDirectory().
+  struct FindFirstMissingParentDirectoryParams;
 
   // Defines set of parameters passes to intermediate callbacks during
   // execution of CreateDirectory() method.
@@ -236,7 +236,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // |params| params used for getting document feed for content search.
   // |error| error code returned by |LoadFeedFromServer|.
   void OnSearch(const SearchCallback& callback,
-                GetDocumentsParams* params,
+                scoped_ptr<LoadFeedParams> params,
                 DriveFileError error);
 
   // Callback for DriveResourceMetadata::RefreshFile, from OnSearch.
@@ -467,8 +467,6 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // Must be called on UI thread.
   void OnMarkDirtyInCacheCompleteForOpenFile(const OpenFileCallback& callback,
                                              DriveFileError error,
-                                             const std::string& resource_id,
-                                             const std::string& md5,
                                              const FilePath& cache_file_path);
 
   // Callback for handling document copy attempt.
@@ -477,19 +475,6 @@ class DriveFileSystem : public DriveFileSystemInterface,
                                const FileOperationCallback& callback,
                                GDataErrorCode status,
                                scoped_ptr<base::Value> data);
-
-  // Callback for handling an attempt to move a file or directory from the
-  // root directory to another directory on the server side. This function
-  // moves |entry| to the root directory on the client side with
-  // DriveResourceMetadata::MoveEntryToDirectory().
-  //
-  // |callback| must not be null.
-  void OnMoveEntryFromRootDirectoryCompleted(
-      const FileOperationCallback& callback,
-      const FilePath& file_path,
-      const FilePath& dir_path,
-      GDataErrorCode status,
-      const GURL& document_url);
 
   // Callback for handling account metadata fetch.
   void OnGetAvailableSpace(const GetAvailableSpaceCallback& callback,
@@ -549,15 +534,14 @@ class DriveFileSystem : public DriveFileSystemInterface,
                           GDataErrorCode status,
                           const GURL& document_url);
 
-  // Callback for handling an attempt to remove a file or directory from
-  // another directory. Moves a file or directory at |file_path| to root on
-  // the client side.
+  // Moves entry specified by |file_path| to the directory specified by
+  // |dir_path| and calls |callback| asynchronously.
   // |callback| must not be null.
-  void MoveEntryToRootDirectoryLocally(const FileMoveCallback& callback,
-                                       const FilePath& file_path,
-                                       const FilePath& dir_path,
-                                       GDataErrorCode status,
-                                       const GURL& document_url);
+  void MoveEntryToDirectory(const FilePath& file_path,
+                            const FilePath& dir_path,
+                            const FileMoveCallback& callback,
+                            GDataErrorCode status,
+                            const GURL& document_url);
 
   // Callback when an entry is moved to another directory on the client side.
   // Notifies the directory change and runs |callback|.
@@ -592,12 +576,23 @@ class DriveFileSystem : public DriveFileSystemInterface,
                               DriveFileError error,
                               const FilePath& file_path);
 
-  // Given non-existing |directory_path|, finds the first missing parent
-  // directory of |directory_path|.
+  // Finds the first missing parent directory of |directory_path|.
   // |callback| must not be null.
   void FindFirstMissingParentDirectory(
       const FilePath& directory_path,
       const FindFirstMissingParentDirectoryCallback& callback);
+
+  // Helper function for FindFirstMissingParentDirectory, for recursive search
+  // for first missing parent.
+  void FindFirstMissingParentDirectoryInternal(
+      scoped_ptr<FindFirstMissingParentDirectoryParams> params);
+
+  // Callback for ResourceMetadata::GetEntryInfoByPath from
+  // FindFirstMissingParentDirectory.
+  void ContinueFindFirstMissingParentDirectory(
+      scoped_ptr<FindFirstMissingParentDirectoryParams> params,
+      DriveFileError error,
+      scoped_ptr<DriveEntryProto> entry_proto);
 
   // Callback for handling results of ReloadFeedFromServerIfNeeded() initiated
   // from CheckForUpdates(). This callback checks whether feed is successfully
@@ -640,8 +635,6 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // GetFileByPath() request.
   void OnGetFileFromCache(const GetFileFromCacheParams& params,
                           DriveFileError error,
-                          const std::string& resource_id,
-                          const std::string& md5,
                           const FilePath& cache_file_path);
 
   // Callback for |drive_service_->GetDocumentEntry|.
@@ -731,33 +724,24 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // UpdateFileByResourceId().
   // |callback| must not be null.
   void OnGetFileCompleteForUpdateFile(const FileOperationCallback& callback,
+                                      const FilePath& drive_file_path,
+                                      scoped_ptr<DriveEntryProto> entry_proto,
                                       DriveFileError error,
-                                      const std::string& resource_id,
-                                      const std::string& md5,
                                       const FilePath& cache_file_path);
 
   // Part of UpdateFileByResourceId().
   // Callback for getting the size of the cache file in the blocking pool.
   // |callback| must not be null.
-  void OnGetFileSizeCompleteForUpdateFile(const FileOperationCallback& callback,
-                                          const std::string& resource_id,
-                                          const FilePath& cache_file_path,
-                                          DriveFileError* error,
-                                          int64* file_size);
-
-  // Part of UpdateFileByResourceId().
-  // Callback for GDataRootDirectory::GetEntryInfoByResourceId.
-  // |callback| must not be null.
-  void OnGetFileCompleteForUpdateFileByEntry(
+  void OnGetFileSizeCompleteForUpdateFile(
       const FileOperationCallback& callback,
-      int64 file_size,
-      const FilePath& cache_file_path,
-      DriveFileError error,
       const FilePath& drive_file_path,
-      scoped_ptr<DriveEntryProto> entry_proto);
+      scoped_ptr<DriveEntryProto> entry_proto,
+      const FilePath& cache_file_path,
+      DriveFileError* error,
+      int64* file_size);
 
   // Part of UpdateFileByResourceId().
-  // Called when GDataUploader::UploadUpdatedFile() is completed for
+  // Called when DriveUploader::UploadUpdatedFile() is completed for
   // UpdateFileByResourceId().
   // |callback| must not be null.
   void OnUpdatedFileUploaded(const FileOperationCallback& callback,
@@ -809,7 +793,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
       const ReadDirectoryWithSettingCallback& callback);
   void RequestDirectoryRefreshOnUIThread(const FilePath& file_path);
   void OnRequestDirectoryRefresh(const FilePath& directory_path,
-                                 GetDocumentsParams* params,
+                                 scoped_ptr<LoadFeedParams> params,
                                  DriveFileError error);
   void GetAvailableSpaceOnUIThread(const GetAvailableSpaceCallback& callback);
   void AddUploadedFileOnUIThread(UploadMode upload_mode,
@@ -894,8 +878,6 @@ class DriveFileSystem : public DriveFileSystemInterface,
       scoped_ptr<DriveEntryProto> entry_proto,
       const GetEntryInfoCallback& callback,
       DriveFileError error,
-      const std::string& resource_id,
-      const std::string& md5,
       const FilePath& local_cache_path);
   void CheckLocalModificationAndRunAfterGetFileInfo(
       scoped_ptr<DriveEntryProto> entry_proto,
@@ -914,7 +896,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
   DriveCache* cache_;
 
   // The uploader owned by DriveSystemService.
-  GDataUploaderInterface* uploader_;
+  DriveUploaderInterface* uploader_;
 
   // The document service owned by DriveSystemService.
   DriveServiceInterface* drive_service_;

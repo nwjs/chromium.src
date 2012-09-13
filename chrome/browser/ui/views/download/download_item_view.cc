@@ -28,7 +28,7 @@
 #include "grit/theme_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/animation/slide_animation.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/text/text_elider.h"
@@ -496,16 +496,16 @@ bool DownloadItemView::OnKeyPressed(const ui::KeyEvent& event) {
   return false;
 }
 
-ui::GestureStatus DownloadItemView::OnGestureEvent(
+ui::EventResult DownloadItemView::OnGestureEvent(
     const ui::GestureEvent& event) {
   if (event.type() == ui::ET_GESTURE_TAP_DOWN) {
     HandlePressEvent(event, true);
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   }
 
   if (event.type() == ui::ET_GESTURE_TAP) {
     HandleClickEvent(event, true);
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   }
 
   SetState(NORMAL, NORMAL);

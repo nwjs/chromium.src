@@ -47,8 +47,10 @@ const char* kNonPermissionModuleNames[] = {
   "permissions",
   "runtime",
   "scriptBadge",
+  "tabs",
   "test",
-  "types"
+  "types",
+  "windows"
 };
 const size_t kNumNonPermissionModuleNames =
     arraysize(kNonPermissionModuleNames);
@@ -64,10 +66,6 @@ const char* kNonPermissionFunctionNames[] = {
   "app.installState",
   "app.runningState",
   "management.getPermissionWarningsByManifest",
-  "tabs.create",
-  "tabs.onRemoved",
-  "tabs.remove",
-  "tabs.update",
 };
 const size_t kNumNonPermissionFunctionNames =
     arraysize(kNonPermissionFunctionNames);
@@ -505,10 +503,6 @@ void PermissionSet::InitImplicitPermissions() {
   // The fileBrowserHandler permission implies the internal version as well.
   if (apis_.find(APIPermission::kFileBrowserHandler) != apis_.end())
     apis_.insert(APIPermission::kFileBrowserHandlerInternal);
-
-  // mediaGalleriesRead implies the mediaGalleries permission.
-  if (apis_.find(APIPermission::kMediaGalleriesRead) != apis_.end())
-    apis_.insert(APIPermission::kMediaGalleries);
 }
 
 void PermissionSet::InitImplicitExtensionPermissions(
@@ -541,15 +535,14 @@ void PermissionSet::InitEffectiveHosts() {
 std::set<PermissionMessage>
     PermissionSet::GetSimplePermissionMessages() const {
   std::set<PermissionMessage> messages;
-  PermissionsInfo* info = PermissionsInfo::GetInstance();
-  for (APIPermissionSet::const_iterator i = apis_.begin();
-       i != apis_.end(); ++i) {
+  for (APIPermissionSet::const_iterator permission_it = apis_.begin();
+       permission_it != apis_.end(); ++permission_it) {
     DCHECK_GT(PermissionMessage::kNone,
               PermissionMessage::kUnknown);
-    const APIPermissionInfo* permission_info = info->GetByID(i->id());
-    if (permission_info &&
-        permission_info->message_id() > PermissionMessage::kNone)
-      messages.insert(permission_info->GetMessage_());
+    if (permission_it->HasMessages()) {
+      PermissionMessages new_messages = permission_it->GetMessages();
+      messages.insert(new_messages.begin(), new_messages.end());
+    }
   }
   return messages;
 }

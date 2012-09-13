@@ -13,7 +13,7 @@
 #include "base/run_loop.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/x/x11_util.h"
 #include "ui/gfx/screen.h"
 
@@ -63,14 +63,15 @@ ui::TouchStatus X11DesktopWindowMoveClient::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus X11DesktopWindowMoveClient::PreHandleGestureEvent(
+ui::EventResult X11DesktopWindowMoveClient::PreHandleGestureEvent(
     aura::Window* target,
     ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
-void X11DesktopWindowMoveClient::RunMoveLoop(aura::Window* source,
-                                             const gfx::Point& drag_offset) {
+aura::client::WindowMoveResult X11DesktopWindowMoveClient::RunMoveLoop(
+    aura::Window* source,
+    const gfx::Point& drag_offset) {
   DCHECK(!in_move_loop_);  // Can only handle one nested loop at a time.
   in_move_loop_ = true;
   window_offset_ = drag_offset;
@@ -94,7 +95,7 @@ void X11DesktopWindowMoveClient::RunMoveLoop(aura::Window* source,
   XUngrabServer(display);
   if (ret != GrabSuccess) {
     DLOG(ERROR) << "Grabbing new tab for dragging failed: " << ret;
-    return;
+    return aura::client::MOVE_CANCELED;
   }
 
   MessageLoopForUI* loop = MessageLoopForUI::current();
@@ -102,6 +103,7 @@ void X11DesktopWindowMoveClient::RunMoveLoop(aura::Window* source,
   base::RunLoop run_loop(aura::Env::GetInstance()->GetDispatcher());
   quit_closure_ = run_loop.QuitClosure();
   run_loop.Run();
+  return aura::client::MOVE_SUCCESSFUL;
 }
 
 void X11DesktopWindowMoveClient::EndMoveLoop() {

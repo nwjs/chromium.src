@@ -675,14 +675,18 @@ void RecordAppLaunch(Profile* profile, GURL url) {
 
 - (IBAction)openBookmarkInNewWindow:(id)sender {
   const BookmarkNode* node = [self nodeFromMenuItem:sender];
-  if (node)
+  if (node) {
     [self openURL:node->url() disposition:NEW_WINDOW];
+    [self unhighlightBookmark:node];
+  }
 }
 
 - (IBAction)openBookmarkInIncognitoWindow:(id)sender {
   const BookmarkNode* node = [self nodeFromMenuItem:sender];
-  if (node)
+  if (node) {
     [self openURL:node->url() disposition:OFF_THE_RECORD];
+    [self unhighlightBookmark:node];
+  }
 }
 
 - (IBAction)editBookmark:(id)sender {
@@ -690,6 +694,8 @@ void RecordAppLaunch(Profile* profile, GURL url) {
   const BookmarkNode* node = [self nodeFromMenuItem:sender];
   if (!node)
     return;
+
+  [self unhighlightBookmark:node];
 
   if (node->is_folder()) {
     BookmarkNameFolderController* controller =
@@ -770,6 +776,7 @@ void RecordAppLaunch(Profile* profile, GURL url) {
   if (node) {
     [self openAll:node disposition:NEW_WINDOW];
     content::RecordAction(UserMetricsAction("OpenAllBookmarksNewWindow"));
+    [self unhighlightBookmark:node];
   }
 }
 
@@ -779,6 +786,8 @@ void RecordAppLaunch(Profile* profile, GURL url) {
     [self openAll:node disposition:OFF_THE_RECORD];
     content::RecordAction(
         UserMetricsAction("OpenAllBookmarksIncognitoWindow"));
+
+    [self unhighlightBookmark:node];
   }
 }
 
@@ -797,6 +806,8 @@ void RecordAppLaunch(Profile* profile, GURL url) {
                        BookmarkEditor::EditDetails::AddNodeInFolder(
                            parent, -1, url, title),
                        BookmarkEditor::SHOW_TREE);
+
+  [self unhighlightBookmark:parent];
 }
 
 // Might be called from the context menu over the bar OR over a
@@ -827,6 +838,8 @@ void RecordAppLaunch(Profile* profile, GURL url) {
                       parent:parent
                     newIndex:newIndex];
   [controller runAsModalSheet];
+
+  [self unhighlightBookmark:senderNode];
 }
 
 - (IBAction)importBookmarks:(id)sender {
@@ -835,11 +848,9 @@ void RecordAppLaunch(Profile* profile, GURL url) {
 
 #pragma mark Private Methods
 
-// Called after the current theme has changed.
-- (void)themeDidChangeNotification:(NSNotification*)aNotification {
-  ui::ThemeProvider* themeProvider =
-      static_cast<ThemeService*>([[aNotification object] pointerValue]);
-  [self updateTheme:themeProvider];
+// Called after a theme change took place, possibly for a different profile.
+- (void)themeDidChangeNotification:(NSNotification*)notification {
+  [self updateTheme:[[[self view] window] themeProvider]];
 }
 
 // (Private) Method is the same as [self view], but is provided to be explicit.
@@ -1250,8 +1261,10 @@ void RecordAppLaunch(Profile* profile, GURL url) {
   for (int i = 0; i < node->child_count(); i++) {
     const BookmarkNode* child = node->GetChild(i);
     BookmarkButton* button = [self buttonForNode:child xOffset:&xOffset];
-    if (NSMinX([button frame]) >= maxViewX)
+    if (NSMinX([button frame]) >= maxViewX) {
+      [button setDelegate:nil];
       break;
+    }
     [buttons_ addObject:button];
   }
 }
@@ -1541,6 +1554,32 @@ void RecordAppLaunch(Profile* profile, GURL url) {
   return wasHidden;
 }
 
+// Bookmark button menu items that open a new window (e.g., open in new window,
+// open in incognito, edit, etc.) cause us to lose a mouse-exited event
+// on the button, which leaves it in a hover state.
+// Since the showsBorderOnlyWhileMouseInside uses a tracking area, simple
+// tricks (e.g. sending an extra mouseExited: to the button) don't
+// fix the problem.
+// http://crbug.com/129338
+-(void)unhighlightBookmark:(const BookmarkNode*)node {
+  // Only relevant if context menu was opened from a button on the
+  // bookmark bar.
+  const BookmarkNode* parent = node->parent();
+  BookmarkNode::Type parentType = parent->type();
+  if (parentType == BookmarkNode::BOOKMARK_BAR) {
+    int index = parent->GetIndexOf(node);
+    if ((index >= 0) && (static_cast<NSUInteger>(index) < [buttons_ count])) {
+      NSButton* button =
+          [buttons_ objectAtIndex:static_cast<NSUInteger>(index)];
+      if ([button showsBorderOnlyWhileMouseInside]) {
+        [button setShowsBorderOnlyWhileMouseInside:NO];
+        [button setShowsBorderOnlyWhileMouseInside:YES];
+      }
+    }
+  }
+}
+
+
 // Adjust the horizontal width and the visibility of the "For quick access"
 // text field and "Import bookmarks..." button based on the current width
 // of the containing |buttonView_| (which is affected by window width).
@@ -1632,8 +1671,10 @@ void RecordAppLaunch(Profile* profile, GURL url) {
     if (i == barCount + 1)
       maxViewX += NSWidth([offTheSideButton_ frame]) +
           bookmarks::kBookmarkHorizontalPadding;
-    if (NSMaxX([button frame]) >= maxViewX)
+    if (NSMaxX([button frame]) >= maxViewX) {
+      [button setDelegate:nil];
       break;
+    }
     ++displayedButtonCount_;
     [buttons_ addObject:button];
     [buttonView_ addSubview:button];

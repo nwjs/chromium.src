@@ -8,9 +8,9 @@
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
-#include "ui/gfx/canvas.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/gfx/canvas.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/color_chooser/color_chooser_listener.h"
@@ -73,15 +73,15 @@ class LocatedEventHandlerView : public views::View {
     return true;
   }
 
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE {
     if (event.type() == ui::ET_GESTURE_TAP ||
         event.type() == ui::ET_GESTURE_TAP_DOWN ||
         event.IsScrollGestureEvent()) {
       ProcessEventAtLocation(event.location());
-      return ui::GESTURE_STATUS_CONSUMED;
+      return ui::ER_CONSUMED;
     }
-    return ui::GESTURE_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   }
 
   DISALLOW_COPY_AND_ASSIGN(LocatedEventHandlerView);

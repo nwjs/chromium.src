@@ -102,8 +102,6 @@ void WindowSizer::GetDefaultWindowBoundsAsh(gfx::Rect* default_bounds) const {
 
   gfx::Rect work_area = monitor_info_provider_->GetPrimaryDisplayWorkArea();
 
-  DCHECK_EQ(kDesktopBorderSize, ash::Shell::GetInstance()->GetGridSize());
-
   // There should be a 'desktop' border around the window at the left and right
   // side.
   int default_width = work_area.width() - 2 * kDesktopBorderSize;
@@ -115,12 +113,10 @@ void WindowSizer::GetDefaultWindowBoundsAsh(gfx::Rect* default_bounds) const {
   default_width -= default_width % kDesktopBorderSize;
   default_height -= default_height % kDesktopBorderSize;
   int offset_x = kDesktopBorderSize;
-  int maximum_window_width = 1280;
-  if (default_width > maximum_window_width) {
+  if (default_width > kMaximumWindowWidth) {
     // The window should get centered on the screen and not follow the grid.
-    offset_x = (work_area.width() - maximum_window_width) / 2;
-    // Never make a window wider then 1280.
-    default_width = maximum_window_width;
+    offset_x = (work_area.width() - kMaximumWindowWidth) / 2;
+    default_width = kMaximumWindowWidth;
   }
   default_bounds->SetRect(work_area.x() + offset_x,
                           work_area.y() + kDesktopBorderSize,

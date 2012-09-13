@@ -17,7 +17,7 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_skia.h"
@@ -195,7 +195,7 @@ void BrowserActionButton::ShowContextMenuForView(View* source,
 
   // Reconstructs the menu every time because the menu's contents are dynamic.
   scoped_refptr<ExtensionContextMenuModel> context_menu_contents_(
-      new ExtensionContextMenuModel(extension(), browser_));
+      new ExtensionContextMenuModel(extension(), browser_, delegate_));
   views::MenuModelAdapter menu_model_adapter(context_menu_contents_.get());
   menu_runner_.reset(new views::MenuRunner(menu_model_adapter.CreateMenu()));
 
@@ -376,6 +376,10 @@ void BrowserActionButton::SetButtonNotPushed() {
 
 bool BrowserActionButton::IsEnabled(int tab_id) const {
   return browser_action_->GetIsVisible(tab_id);
+}
+
+gfx::ImageSkia BrowserActionButton::GetIconForTest() {
+  return icon();
 }
 
 BrowserActionButton::~BrowserActionButton() {

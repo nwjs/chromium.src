@@ -44,6 +44,7 @@
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/shell_integration.h"
+#include "chrome/browser/ui/app_list/app_list_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -325,6 +326,11 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
     } else {
       DLOG(WARNING) << "Invalid http debugger port number " << port;
     }
+  }
+
+  if (command_line_.HasSwitch(switches::kShowAppList)) {
+    app_list_controller::ShowAppList();
+    return true;
   }
 
   // Open the required browser windows and tabs. First, see if
@@ -775,7 +781,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
     int index = chrome::GetIndexForInsertionDuringRestore(browser, i);
 
     chrome::NavigateParams params(browser, tabs[i].url,
-                                  content::PAGE_TRANSITION_START_PAGE);
+                                  content::PAGE_TRANSITION_AUTO_TOPLEVEL);
     params.disposition = first_tab ? NEW_FOREGROUND_TAB : NEW_BACKGROUND_TAB;
     params.tabstrip_index = index;
     params.tabstrip_add_types = add_types;

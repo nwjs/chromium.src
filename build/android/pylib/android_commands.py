@@ -22,10 +22,12 @@ import time
 import pexpect
 import io_stats_parser
 
-# adb_interface.py is under ../../../third_party/android_testrunner/
-sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), '..',
-                             '..', '..', 'third_party', 'android_testrunner'))
+CHROME_SRC = os.path.join(
+    os.path.abspath(os.path.dirname(__file__)), '..', '..', '..')
+
+sys.path.append(os.path.join(CHROME_SRC, 'third_party', 'android_testrunner'))
 import adb_interface
+
 import cmd_helper
 import errors  #  is under ../../../third_party/android_testrunner/errors.py
 
@@ -38,10 +40,6 @@ PEXPECT_LINE_RE = re.compile('\n([^\r]*)\r')
 # Set the adb shell prompt to be a unique marker that will [hopefully] not
 # appear at the start of any line of a command's output.
 SHELL_PROMPT = '~+~PQ\x17RS~+~'
-
-# This only works for single core devices.
-SCALING_GOVERNOR = '/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor'
-DROP_CACHES = '/proc/sys/vm/drop_caches'
 
 # Java properties file
 LOCAL_PROPERTIES_PATH = '/data/local.prop'
@@ -66,6 +64,7 @@ KEYCODE_DPAD_RIGHT = 22
 KEYCODE_ENTER = 66
 KEYCODE_MENU = 82
 
+MD5SUM_DEVICE_PATH = '/data/local/tmp/md5sum_bin'
 
 def GetEmulators():
   """Returns a list of emulators.  Does not filter by status (e.g. offline).
@@ -112,42 +111,6 @@ def GetAttachedDevices():
     devices.remove(preferred_device)
     devices.insert(0, preferred_device)
   return devices
-
-
-def _GetHostFileInfo(file_name):
-  """Returns a tuple containing size and modified UTC time for file_name."""
-  # The time accuracy on device is only to minute level, remove the second and
-  # microsecond from host results.
-  utc_time = datetime.datetime.utcfromtimestamp(os.path.getmtime(file_name))
-  time_delta = datetime.timedelta(seconds=utc_time.second,
-                                  microseconds=utc_time.microsecond)
-  return os.path.getsize(file_name), utc_time - time_delta
-
-
-def ListHostPathContents(path):
-  """Lists files in all subdirectories of |path|.
-
-  Args:
-    path: The path to list.
-
-  Returns:
-    A dict of {"name": (size, lastmod), ...}.
-  """
-  if os.path.isfile(path):
-    return {os.path.basename(path): _GetHostFileInfo(path)}
-  ret = {}
-  for root, dirs, files in os.walk(path):
-    for d in dirs:
-      if d.startswith('.'):
-        dirs.remove(d)  # Prune the dir for subsequent iterations.
-    for f in files:
-      if f.startswith('.'):
-        continue
-      full_file_name = os.path.join(root, f)
-      file_name = os.path.relpath(full_file_name, path)
-      ret[file_name] = _GetHostFileInfo(full_file_name)
-  return ret
-
 
 def _GetFilesFromRecursiveLsOutput(path, ls_output, re_file, utc_offset=None):
   """Gets a list of files from `ls` command output.
@@ -201,6 +164,20 @@ def _GetFilesFromRecursiveLsOutput(path, ls_output, re_file, utc_offset=None):
       files[filename] = (int(file_match.group('size')), lastmod)
   return files
 
+def _ComputeFileListHash(md5sum_output):
+  """Returns a list of MD5 strings from the provided md5sum output."""
+  return [line.split('  ')[0] for line in md5sum_output]
+
+def _HasAdbPushSucceeded(command_output):
+  """Returns whether adb push has succeeded from the provided output."""
+  if not command_output:
+    return False
+  # Success looks like this: "3035 KB/s (12512056 bytes in 4.025s)"
+  # Errors look like this: "failed to copy  ... "
+  if not re.search('^[0-9]', command_output.splitlines()[-1]):
+    logging.critical('PUSH FAILED: ' + command_output)
+    return False
+  return True
 
 def GetLogTimestamp(log_line, year):
   """Returns the timestamp of the given |log_line| in the given year."""
@@ -225,9 +202,10 @@ class AndroidCommands(object):
     if device:
       self._adb.SetTargetSerial(device)
     self._logcat = None
-    self._original_governor = None
     self._pushed_files = []
     self._device_utc_offset = self.RunShellCommand('date +%z')[0]
+    self._md5sum_path = ''
+    self._external_storage = ''
 
   def Adb(self):
     """Returns our AdbInterface to avoid us wrapping all its methods."""
@@ -241,6 +219,12 @@ class AndroidCommands(object):
   def GetDeviceYear(self):
     """Returns the year information of the date on device."""
     return self.RunShellCommand('date +%Y')[0]
+
+  def GetExternalStorage(self):
+    if not self._external_storage:
+      self._external_storage = self.RunShellCommand('echo $EXTERNAL_STORAGE')[0]
+      assert self._external_storage, 'Unable to find $EXTERNAL_STORAGE'
+    return self._external_storage
 
   def WaitForDevicePm(self):
     """Blocks until the device's package manager is available.
@@ -263,10 +247,6 @@ class AndroidCommands(object):
         retries -= 1
         self.RestartShell()
     raise last_err  # Only reached after max retries, re-raise the last error.
-
-  def SynchronizeDateTime(self):
-    """Synchronize date/time between host and device."""
-    self._adb.SendShellCommand('date -u %f' % time.time())
 
   def RestartShell(self):
     """Restarts the shell on the device. Does not block for it to return."""
@@ -318,7 +298,8 @@ class AndroidCommands(object):
     Returns:
       A status string returned by adb install
     """
-    assert os.path.isfile(package_file_path)
+    assert os.path.isfile(package_file_path), ('<%s> is not file' %
+                                               package_file_path)
 
     install_cmd = ['install']
 
@@ -427,8 +408,9 @@ class AndroidCommands(object):
     sdcard_ready = False
     attempts = 0
     wait_period = 5
+    external_storage = self.GetExternalStorage()
     while not sdcard_ready and attempts * wait_period < timeout_time:
-      output = self.RunShellCommand('ls /sdcard/')
+      output = self.RunShellCommand('ls ' + external_storage)
       if output:
         sdcard_ready = True
       else:
@@ -552,26 +534,34 @@ class AndroidCommands(object):
     """Pushes |local_path| to |device_path|.
 
     Works for files and directories. This method skips copying any paths in
-    |test_data_paths| that already exist on the device with the same timestamp
-    and size.
+    |test_data_paths| that already exist on the device with the same hash.
 
     All pushed files can be removed by calling RemovePushedFiles().
     """
     assert os.path.exists(local_path), 'Local path not found %s' % local_path
-    self._pushed_files.append(device_path)
 
-    # If the path contents are the same, there's nothing to do.
-    local_contents = ListHostPathContents(local_path)
-    device_contents = self.ListPathContents(device_path)
-    # Only compare the size and timestamp if only copying a file because
-    # the filename on device can be renamed.
-    if os.path.isfile(local_path):
-      assert len(local_contents) == 1
-      is_equal = local_contents.values() == device_contents.values()
-    else:
-      is_equal = local_contents == device_contents
-    if is_equal:
-      logging.info('%s is up-to-date. Skipping file push.', device_path)
+    if not self._md5sum_path:
+      default_build_type = os.environ.get('BUILD_TYPE', 'Debug')
+      md5sum_path = '%s/out/%s/md5sum_bin' % (CHROME_SRC, default_build_type)
+      if not os.path.exists(md5sum_path):
+        md5sum_path = '%s/out/Release/md5sum_bin' % (CHROME_SRC)
+        if not os.path.exists(md5sum_path):
+          print >>sys.stderr, 'Please build md5sum.'
+          sys.exit(1)
+      if not self.FileExistsOnDevice(MD5SUM_DEVICE_PATH):
+        command = 'push %s %s' % (md5sum_path, MD5SUM_DEVICE_PATH)
+        assert _HasAdbPushSucceeded(self._adb.SendCommand(command))
+      self._md5sum_path = md5sum_path
+
+    self._pushed_files.append(device_path)
+    hashes_on_device = _ComputeFileListHash(
+        self.RunShellCommand(MD5SUM_DEVICE_PATH + ' ' + device_path))
+    assert os.path.exists(local_path), 'Local path not found %s' % local_path
+    hashes_on_host = _ComputeFileListHash(
+        subprocess.Popen(
+            '%s_host %s' % (self._md5sum_path, local_path),
+            stdout=subprocess.PIPE, shell=True).stdout)
+    if hashes_on_device == hashes_on_host:
       return
 
     # They don't match, so remove everything first and then create it.
@@ -584,11 +574,8 @@ class AndroidCommands(object):
     push_command = 'push %s %s' % (local_path, device_path)
     logging.info('>>> $' + push_command)
     output = self._adb.SendCommand(push_command, timeout_time=30*60)
-    assert output
-    # Success looks like this: "3035 KB/s (12512056 bytes in 4.025s)"
-    # Errors look like this: "failed to copy  ... "
-    if not re.search('^[0-9]', output.splitlines()[-1]):
-      logging.critical('PUSH FAILED: ' + output)
+    assert _HasAdbPushSucceeded(output)
+
 
   def GetFileContents(self, filename, log_result=False):
     """Gets contents from the file specified by |filename|."""
@@ -630,21 +617,6 @@ class AndroidCommands(object):
         path, self.RunShellCommand('ls -lR %s' % path), re_file,
         self._device_utc_offset)
 
-  def SetupPerformanceTest(self):
-    """Sets up performance tests."""
-    # Disable CPU scaling to reduce noise in tests
-    if not self._original_governor:
-      self._original_governor = self.GetFileContents(
-          SCALING_GOVERNOR, log_result=False)
-      self.RunShellCommand('echo performance > ' + SCALING_GOVERNOR)
-    self.DropRamCaches()
-
-  def TearDownPerformanceTest(self):
-    """Tears down performance tests."""
-    if self._original_governor:
-      self.RunShellCommand('echo %s > %s' % (self._original_governor[0],
-                                             SCALING_GOVERNOR))
-    self._original_governor = None
 
   def SetJavaAssertsEnabled(self, enable):
     """Sets or removes the device java assertions property.
@@ -682,9 +654,6 @@ class AndroidCommands(object):
                                               enable and 'all' or ''))
     return True
 
-  def DropRamCaches(self):
-    """Drops the filesystem ram caches for performance testing."""
-    self.RunShellCommand('echo 3 > ' + DROP_CACHES)
 
   def StartMonitoringLogcat(self, clear=True, timeout=10, logfile=None,
                             filters=None):
@@ -706,6 +675,28 @@ class AndroidCommands(object):
       args.extend(filters)
     else:
       args.append('*:v')
+
+    if logfile:
+      class NewLineNormalizer(object):
+        """A file-like object to normalize EOLs to '\n'.
+
+        Pexpect runs adb within a pseudo-tty device (see
+        http://www.noah.org/wiki/pexpect), so any '\n' printed by adb is written
+        as '\r\n' to the logfile. Since adb already uses '\r\n' to terminate
+        lines, the log ends up having '\r\r\n' at the end of each line. This
+        filter replaces the above with a single '\n' in the data stream.
+        """
+        def __init__(self, output):
+          self.output = output
+
+        def write(self, data):
+          data = data.replace('\r\r\n', '\n')
+          self.output.write(data)
+
+        def flush(self):
+          self.output.flush()
+
+      logfile = NewLineNormalizer(logfile)
 
     # Spawn logcat and syncronize with it.
     for _ in range(4):
@@ -993,6 +984,25 @@ class AndroidCommands(object):
         break
     logging.info('PidsUsingDevicePort: %s', pids)
     return pids
+
+  def FileExistsOnDevice(self, file_name):
+    """Checks whether the given (regular) file exists on the device.
+
+    Args:
+      file_name: Full path of file to check.
+
+    Returns:
+      True if the file exists, False otherwise.
+    """
+    assert '"' not in file_name, 'file_name cannot contain double quotes'
+    status = self._adb.SendShellCommand(
+        '\'test -f "%s"; echo $?\'' % (file_name))
+    if 'test: not found' not in status:
+      return int(status) == 0
+
+    status = self._adb.SendShellCommand(
+        '\'ls "%s" >/dev/null 2>&1; echo $?\'' % (file_name))
+    return int(status) == 0
 
   def RunMonkey(self, package_name, category=None, throttle=100, seed=None,
                 event_count=10000, verbosity=1, extra_args=''):

@@ -22,6 +22,10 @@ namespace extensions {
 
 namespace {
 
+// TODO(dcheng): Hardcoded for now. Once the svn export is finished, use
+// ipc::invalidation::ObjectSource::CHROME_PUSH_MESSAGING.
+const int kSourceId = 1030;
+
 class MockInvalidationFrontend : public InvalidationFrontend {
  public:
   MockInvalidationFrontend();
@@ -32,6 +36,7 @@ class MockInvalidationFrontend : public InvalidationFrontend {
                void(syncer::InvalidationHandler*, const syncer::ObjectIdSet&));
   MOCK_METHOD1(UnregisterInvalidationHandler,
                void(syncer::InvalidationHandler*));
+  MOCK_CONST_METHOD0(GetInvalidatorState, syncer::InvalidatorState());
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockInvalidationFrontend);
@@ -97,28 +102,28 @@ TEST_F(PushMessagingInvalidationHandlerTest, Construction) {
   extension_ids.insert("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
   syncer::ObjectIdSet expected_ids;
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/0"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/2"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/3"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/0"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/1"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/2"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/3"));
 
   SetUpWithArgs(extension_ids, expected_ids);
@@ -127,16 +132,16 @@ TEST_F(PushMessagingInvalidationHandlerTest, Construction) {
 TEST_F(PushMessagingInvalidationHandlerTest, RegisterUnregisterExtension) {
   syncer::ObjectIdSet expected_ids;
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/cccccccccccccccccccccccccccccccc/0"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/cccccccccccccccccccccccccccccccc/1"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/cccccccccccccccccccccccccccccccc/2"));
   expected_ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/cccccccccccccccccccccccccccccccc/3"));
   EXPECT_CALL(service_,
               UpdateRegisteredInvalidationIds(handler_.get(), expected_ids));
@@ -150,17 +155,17 @@ TEST_F(PushMessagingInvalidationHandlerTest, RegisterUnregisterExtension) {
 TEST_F(PushMessagingInvalidationHandlerTest, Dispatch) {
   syncer::ObjectIdSet ids;
   ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/dddddddddddddddddddddddddddddddd/0"));
   ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/dddddddddddddddddddddddddddddddd/3"));
   EXPECT_CALL(delegate_,
               OnMessage("dddddddddddddddddddddddddddddddd", 0, "payload"));
   EXPECT_CALL(delegate_,
               OnMessage("dddddddddddddddddddddddddddddddd", 3, "payload"));
-  handler_->OnIncomingNotification(ObjectIdSetToStateMap(ids, "payload"),
-                                   syncer::REMOTE_NOTIFICATION);
+  handler_->OnIncomingInvalidation(ObjectIdSetToStateMap(ids, "payload"),
+                                   syncer::REMOTE_INVALIDATION);
 }
 
 // Tests that malformed object IDs don't trigger spurious callbacks.
@@ -176,22 +181,22 @@ TEST_F(PushMessagingInvalidationHandlerTest, DispatchInvalidObjectIds) {
       "U/dddddddddddddddddddddddddddddddd/3"));
   // Incorrect format type.
   ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "V/dddddddddddddddddddddddddddddddd/3"));
   // Invalid extension ID length.
   ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/ddddddddddddddddddddddddddddddddd/3"));
   // Non-numeric subchannel.
   ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/dddddddddddddddddddddddddddddddd/z"));
   // Subchannel out of range.
   ids.insert(invalidation::ObjectId(
-      ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
+      kSourceId,
       "U/dddddddddddddddddddddddddddddddd/4"));
-  handler_->OnIncomingNotification(ObjectIdSetToStateMap(ids, "payload"),
-                                   syncer::REMOTE_NOTIFICATION);
+  handler_->OnIncomingInvalidation(ObjectIdSetToStateMap(ids, "payload"),
+                                   syncer::REMOTE_INVALIDATION);
 }
 
 }  // namespace extensions

@@ -16,6 +16,7 @@
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/autocomplete/autocomplete_input.h"
 #include "chrome/browser/autocomplete/autocomplete_log.h"
+#include "chrome/browser/autocomplete/autocomplete_provider.h"
 #include "chrome/browser/autocomplete/extension_app_provider.h"
 #include "chrome/browser/autocomplete/keyword_provider.h"
 #include "chrome/browser/autocomplete/search_provider.h"
@@ -84,7 +85,8 @@ OmniboxEditModel::OmniboxEditModel(OmniboxView* view,
                                    OmniboxEditController* controller,
                                    Profile* profile)
     : ALLOW_THIS_IN_INITIALIZER_LIST(
-        autocomplete_controller_(new AutocompleteController(profile, this))),
+        autocomplete_controller_(new AutocompleteController(profile, this,
+            AutocompleteClassifier::kDefaultOmniboxProviders))),
       view_(view),
       popup_(NULL),
       controller_(controller),
@@ -334,7 +336,7 @@ bool OmniboxEditModel::CurrentTextIsURL() const {
 
   AutocompleteMatch match;
   GetInfoForCurrentText(&match, NULL);
-  return match.transition == content::PAGE_TRANSITION_TYPED;
+  return !AutocompleteMatch::IsSearchType(match.type);
 }
 
 AutocompleteMatch::Type OmniboxEditModel::CurrentTextType() const {
@@ -369,7 +371,7 @@ void OmniboxEditModel::AdjustTextForCopy(int sel_min,
   AutocompleteMatch match;
   AutocompleteClassifierFactory::GetForProfile(profile_)->Classify(*text,
         string16(), KeywordIsSelected(), true, &match, NULL);
-  if (match.transition != content::PAGE_TRANSITION_TYPED)
+  if (AutocompleteMatch::IsSearchType(match.type))
     return;
   *url = match.destination_url;
 
@@ -466,7 +468,7 @@ void OmniboxEditModel::PasteAndGo(const string16& text) {
 bool OmniboxEditModel::IsPasteAndSearch(const string16& text) const {
   AutocompleteMatch match;
   ClassifyStringForPasteAndGo(text, &match, NULL);
-  return (match.transition != content::PAGE_TRANSITION_TYPED);
+  return AutocompleteMatch::IsSearchType(match.type);
 }
 
 void OmniboxEditModel::AcceptInput(WindowOpenDisposition disposition,
@@ -526,9 +528,11 @@ void OmniboxEditModel::OpenMatch(const AutocompleteMatch& match,
         base::TimeTicks::Now() - time_user_first_modified_omnibox_,
         0,  // inline autocomplete length; possibly set later
         result());
-    DCHECK(user_input_in_progress_) << "We didn't get here through the "
-        "expected series of calls.  time_user_first_modified_omnibox_ is "
-        "not set correctly and other things may be wrong.";
+    DCHECK(user_input_in_progress_ ||
+           match.provider->type() == AutocompleteProvider::TYPE_ZERO_SUGGEST)
+        << "We didn't get here through the expected series of calls. "
+        << "time_user_first_modified_omnibox_ is not set correctly and other "
+        << "things may be wrong. Match provider: " << match.provider->GetName();
     if (index != OmniboxPopupModel::kNoMatch)
       log.selected_index = index;
     else if (!has_temporary_text_)
@@ -537,8 +541,8 @@ void OmniboxEditModel::OpenMatch(const AutocompleteMatch& match,
       // If we know the destination is being opened in the current tab,
       // we can easily get the tab ID.  (If it's being opened in a new
       // tab, we don't know the tab ID yet.)
-      log.tab_id = controller_->GetTabContents()->
-          session_tab_helper()->session_id().id();
+      log.tab_id = SessionTabHelper::FromWebContents(
+          controller_->GetTabContents()->web_contents())->session_id().id();
     }
     autocomplete_controller_->AddProvidersInfo(&log.providers_info);
     content::NotificationService::current()->Notify(
@@ -691,6 +695,17 @@ void OmniboxEditModel::OnSetFocus(bool control_down) {
   if (instant)
     instant->OnAutocompleteGotFocus();
 
+  TabContents* tab_contents = controller_->GetTabContents();
+  if (tab_contents) {
+    // TODO(jered): We may want to merge this into Start() and just call that
+    // here rather than having a special entry point for zero-suggest.  Note
+    // that we avoid PermanentURL() here because it's not guaranteed to give us
+    // the actual underlying current URL, e.g. if we're on the NTP and the
+    // |permanent_text_| is empty.
+    autocomplete_controller_->StartZeroSuggest(
+        tab_contents->web_contents()->GetURL(), user_text_);
+  }
+
   NotifySearchTabHelper();
 }
 
@@ -700,6 +715,8 @@ void OmniboxEditModel::OnWillKillFocus(gfx::NativeView view_gaining_focus) {
   if (InstantController* instant = controller_->GetInstant())
     instant->OnAutocompleteLostFocus(view_gaining_focus);
 
+  // TODO(jered): Rip this out along with StartZeroSuggest.
+  autocomplete_controller_->StopZeroSuggest();
   NotifySearchTabHelper();
 }
 

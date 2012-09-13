@@ -32,6 +32,7 @@
 #include "googleurl/src/gurl.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/layout.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -348,6 +349,19 @@ void BrowserFrameWin::SetFullscreen(bool fullscreen) {
   views::NativeWidgetWin::SetFullscreen(fullscreen);
 }
 
+void BrowserFrameWin::Activate() {
+  // In Windows 8 metro mode we have only one window visible at any given time.
+  // The Activate code path is typically called when a new browser window is
+  // being activated. In metro we need to ensure that the window currently
+  // being displayed is hidden and the new window being activated becomes
+  // visible. This is achieved by calling Show.
+  if (base::win::IsMetroProcess()) {
+    Show();
+  } else {
+    views::NativeWidgetWin::Activate();
+  }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserFrameWin, NativeBrowserFrame implementation:
@@ -610,6 +624,14 @@ const gfx::Font& BrowserFrame::GetTitleFont() {
   static gfx::Font* title_font =
       new gfx::Font(views::NativeWidgetWin::GetWindowTitleFont());
   return *title_font;
+}
+
+bool BrowserFrame::ShouldLeaveOffsetNearTopBorder() {
+  if (base::win::IsMetroProcess()) {
+    if (ui::GetDisplayLayout() == ui::LAYOUT_DESKTOP)
+      return false;
+  }
+  return !IsMaximized();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

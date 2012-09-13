@@ -11,13 +11,17 @@ body {
 
 .gallery,
 .gallery .content {
-  background: black;
   bottom: 0;
   left: 0;
   overflow: hidden;
   position: absolute;
   right: 0;
   top: 0;
+}
+
+/* Common background for both mosaic and slide mode. */
+.gallery .content {
+  background-color: black;
 }
 
 /* Close button */
@@ -55,7 +59,6 @@ body {
 /* Image container and canvas elements */
 
 .gallery .image-container {
-  background-color: rgba(0, 0, 0, 1);
   cursor: none;   /* Only visible when the toolbar is active */
   height: 100%;
   position: absolute;
@@ -170,7 +173,7 @@ body {
   width: 100%;
 }
 
-.gallery[tools] > .toolbar {
+.gallery[tools]:not([slideshow]) > .toolbar {
   -webkit-transform: translate(0, 0);
   opacity: 1;
   pointer-events: auto;
@@ -193,6 +196,7 @@ body {
 }
 
 .gallery .arrow-box .arrow {
+  opacity: 0;
   pointer-events: none;
 }
 
@@ -201,8 +205,9 @@ body {
   pointer-events: none;
 }
 
-.gallery[tools] .arrow[active] {
+.gallery[tools]:not([slideshow]) .arrow-box[active] .arrow {
   cursor: pointer;
+  opacity: 1;
   pointer-events: auto;
 }
 
@@ -217,11 +222,11 @@ body {
   width: 105px;
 }
 
-.gallery[tools] .arrow[active] div {
+.gallery[tools] .arrow-box[active] .arrow div {
   opacity: 0.25;
 }
 
-.gallery[tools] .arrow[active] div:hover {
+.gallery[tools] .arrow-box[active] .arrow div:hover {
   opacity: 1;
 }
 
@@ -655,12 +660,12 @@ body {
     url('../images/gallery/icon_mosaic_selected.png') 1x);
 }
 
-.gallery[mode='grid'] > .toolbar > .button.mode {
+.gallery[mode='mosaic'] > .toolbar > .button.mode {
   background-image: -webkit-image-set(
     url('../images/gallery/icon_1up.png') 1x);
 }
 
-.gallery[mode='grid'] > .toolbar > .button.mode:active {
+.gallery[mode='mosaic'] > .toolbar > .button.mode:active {
   background-image: -webkit-image-set(
     url('../images/gallery/icon_1up_selected.png') 1x);
 }
@@ -1085,37 +1090,66 @@ body {
   display: none;
 }
 
-.thumbnail-grid {
-  bottom: 56px;  /* Avoid overlapping with the toolbar. */
+.mosaic {
+  bottom: 56px;  /* Make space for the toolbar. */
   left: 0;
-  overflow-y: auto;
+  overflow-x: scroll;
+  overflow-y: hidden;
   position: absolute;
   right: 0;
-  top: 56px;  /* Same as bottom. */
+  top: 0;
 }
 
-.thumbnail-grid::-webkit-scrollbar {
-  background: black;
+.mosaic::-webkit-scrollbar {
+  background: transparent;
 }
 
-.thumbnail-grid::-webkit-scrollbar-thumb {
+.mosaic::-webkit-scrollbar-thumb {
   background: rgb(31, 31, 31);
 }
 
-.thumbnail-item {
-  background-color: rgba(0, 0, 0, 0) !important;
-  background-image: none !important;
-  border: none !important;
-  height: 184px;
-  margin-left: 8px;
-  margin-top: 7px;
-  overflow: hidden;
-  padding: 0;
-  width: 244px;
+.gallery:not([mode='mosaic']) .mosaic::-webkit-scrollbar-thumb {
+  background: transparent;
 }
 
-.thumbnail-item .img-container {
-  border: 2px solid transparent;  /* Make room for the img border */
+.mosaic-tile {
+  position: absolute;
+}
+
+.gallery:not([mode='mosaic']) .mosaic-tile {
+  opacity: 0;
+}
+
+/* Animate tile's opacity, except for the selected tile which should show/hide
+  instantly (this looks better when zooming to/from the slide mode). */
+.mosaic-tile:not([selected]) {
+  -webkit-transition: opacity 280ms ease-in;
+}
+
+/* Must be in sync with mosaic_mode.js.
+  Mosaic.Layout.SPACING should be equal to
+    top + bottom + border-top-width + border-bottom-width AND
+    left + right + border-left-width + border-right-width */
+.mosaic-tile .img-border {
+  border: 1px solid transparent;  /* Space between the outline and the image. */
+  bottom: 4px;
+  left: 4px;
+  outline: 2px solid transparent;
+  overflow: hidden;
+  position: absolute;
+  right: 4px;
+  top: 4px;
+}
+
+.mosaic-tile[selected] .img-border {
+  outline-color: rgb(51, 153, 255);
+}
+
+.mosaic.hover-visible .mosaic-tile:hover:not([selected]) .img-border {
+  outline-color: rgb(182, 212, 252);
+}
+
+.mosaic-tile .img-wrapper {
   bottom: 0;
   left: 0;
   position: absolute;
@@ -1123,35 +1157,26 @@ body {
   top: 0;
 }
 
-/* Smaller box around the generic icon. */
-.thumbnail-item .img-container[generic-thumbnail] {
-  bottom: 25px;
-  left: 55px;
-  right: 55px;
-  top: 25px;
-}
-
-.thumbnail-item[selected] .img-container[generic-thumbnail],
-.thumbnail-item:hover .img-container[generic-thumbnail] {
-  border-color: rgb(51, 153, 255);
-}
-
-.thumbnail-item img {
+.mosaic-tile img {
   -webkit-user-drag: none;
-  border: 2px solid transparent;
-  box-sizing: border-box;
   position: absolute;
 }
 
-.thumbnail-item[selected] img,
-.thumbnail-item:hover img {
-  outline: 2px solid rgb(51, 153, 255);
+/* In order to do mode animated transitions smoothly we keep both mosaic and
+  image-container but transparent. */
+.gallery:not([mode='mosaic']) .mosaic,
+.gallery:not([mode='slide']) .image-container {
+  pointer-events: none;
 }
 
-.gallery:not([mode='grid']) .thumbnail-grid,
-.gallery:not([mode='slide']) .image-container,
 .gallery:not([mode='slide']) .ribbon,
 .gallery:not([mode='slide']) .arrow-box {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Temporary. Remove this along with the delete confirmation dialog
+  when Undo delete is implemented. */
+.cr-dialog-shield {
+  background-color: black;
 }

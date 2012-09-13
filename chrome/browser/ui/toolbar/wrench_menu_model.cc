@@ -43,6 +43,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/profiling.h"
 #include "content/public/browser/host_zoom_map.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
@@ -287,10 +288,12 @@ string16 WrenchMenuModel::GetLabelForCommandId(int command_id) const {
     }
     case IDC_PIN_TO_START_SCREEN: {
       int string_id = IDS_PIN_TO_START_SCREEN;
-      TabContents* tab_contents = chrome::GetActiveTabContents(browser_);
-      if (tab_contents && tab_contents->metro_pin_tab_helper()->is_pinned()) {
+      WebContents* web_contents = chrome::GetActiveWebContents(browser_);
+      MetroPinTabHelper* tab_helper =
+          web_contents ? MetroPinTabHelper::FromWebContents(web_contents)
+                       : NULL;
+      if (tab_helper && tab_helper->is_pinned())
         string_id = IDS_UNPIN_FROM_START_SCREEN;
-      }
       return l10n_util::GetStringUTF16(string_id);
     }
     default:
@@ -362,6 +365,8 @@ bool WrenchMenuModel::IsCommandIdChecked(int command_id) const {
     return browser_->profile()->GetPrefs()->GetBoolean(prefs::kShowBookmarkBar);
   } else if (command_id == IDC_PROFILING_ENABLED) {
     return Profiling::BeingProfiled();
+  } else if (command_id == IDC_TOGGLE_REQUEST_TABLET_SITE) {
+    return chrome::IsRequestingTabletSite(browser_);
   }
 
   return false;
@@ -467,7 +472,7 @@ void WrenchMenuModel::Build() {
 #if defined(OS_WIN)
   if (base::win::IsMetroProcess()) {
     // In Metro, we only show the New Window options if there isn't already
-    // a the window of the requested type (incognito or not) that is available.
+    // a window of the requested type (incognito or not) that is available.
     if (browser_->profile()->IsOffTheRecord()) {
       if (browser::FindBrowserWithProfile(
               browser_->profile()->GetOriginalProfile(),
@@ -496,6 +501,20 @@ void WrenchMenuModel::Build() {
   bookmark_sub_menu_model_.reset(new BookmarkSubMenuModel(this, browser_));
   AddSubMenuWithStringId(IDC_BOOKMARKS_MENU, IDS_BOOKMARKS_MENU,
                          bookmark_sub_menu_model_.get());
+
+#if defined(OS_WIN)
+  if (base::win::IsMetroProcess()) {
+    // Metro mode, add the 'Relaunch Chrome in desktop mode'.
+    AddSeparator(ui::SPACING_SEPARATOR);
+    AddItemWithStringId(IDC_WIN8_DESKTOP_RESTART, IDS_WIN8_DESKTOP_RESTART);
+    AddSeparator(ui::SPACING_SEPARATOR);
+  } else if (base::win::GetVersion() >= base::win::VERSION_WIN8) {
+    // In Windows 8 desktop, add the 'Relaunch Chrome in Windows 8 mode'.
+    AddSeparator(ui::SPACING_SEPARATOR);
+    AddItemWithStringId(IDC_WIN8_METRO_RESTART, IDS_WIN8_METRO_RESTART);
+    AddSeparator(ui::SPACING_SEPARATOR);
+  }
+#endif
 
   // Append the full menu including separators. The final separator only gets
   // appended when this is a touch menu - otherwise it would get added twice.
@@ -534,6 +553,13 @@ void WrenchMenuModel::Build() {
   }
 
   AddItemWithStringId(IDC_OPTIONS, IDS_SETTINGS);
+
+#if defined(OS_CHROMEOS)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableRequestTabletSite))
+    AddCheckItemWithStringId(IDC_TOGGLE_REQUEST_TABLET_SITE,
+                             IDS_TOGGLE_REQUEST_TABLET_SITE);
+#endif
 
 // On ChromeOS-Touch, we don't want the about/background pages menu options.
 #if defined(OS_CHROMEOS)
@@ -582,13 +608,8 @@ void WrenchMenuModel::Build() {
   }
 
   if (browser_defaults::kShowExitMenuItem) {
-#if defined(OS_WIN)
-    if (!base::win::IsMetroProcess())
-#endif
-    {
-      AddSeparator(ui::NORMAL_SEPARATOR);
-      AddItemWithStringId(IDC_EXIT, IDS_EXIT);
-    }
+    AddSeparator(ui::NORMAL_SEPARATOR);
+    AddItemWithStringId(IDC_EXIT, IDS_EXIT);
   }
 
 #if defined(USE_AURA)

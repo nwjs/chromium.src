@@ -7,7 +7,16 @@
 #include "base/callback.h"
 #include "base/message_loop.h"
 #include "chrome/browser/captive_portal/captive_portal_service.h"
+#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
+#include "content/public/browser/browser_thread.h"
+#include "content/public/browser/interstitial_page.h"
+#include "content/public/browser/interstitial_page_delegate.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/test/test_browser_thread.h"
+#include "googleurl/src/gurl.h"
+#include "net/base/cert_status_flags.h"
 #include "net/base/net_errors.h"
+#include "net/base/ssl_info.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -17,8 +26,13 @@ namespace captive_portal {
 // Exposes a number of private functions and mocks out others.
 class TestCaptivePortalTabReloader : public CaptivePortalTabReloader {
  public:
-  TestCaptivePortalTabReloader()
-      : CaptivePortalTabReloader(NULL, NULL, base::Callback<void(void)>()) {
+  explicit TestCaptivePortalTabReloader(content::WebContents* web_contents)
+      : CaptivePortalTabReloader(NULL,
+                                 web_contents,
+                                 base::Callback<void(void)>()) {
+  }
+
+  virtual ~TestCaptivePortalTabReloader() {
   }
 
   bool TimerRunning() {
@@ -37,35 +51,80 @@ class TestCaptivePortalTabReloader : public CaptivePortalTabReloader {
     CaptivePortalTabReloader::set_slow_ssl_load_time(slow_ssl_load_time);
   }
 
+  content::WebContents* web_contents() {
+    return CaptivePortalTabReloader::web_contents();
+  }
+
+  // CaptivePortalTabReloader:
   MOCK_METHOD0(ReloadTab, void());
   MOCK_METHOD0(MaybeOpenCaptivePortalLoginTab, void());
   MOCK_METHOD0(CheckForCaptivePortal, void());
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(TestCaptivePortalTabReloader);
 };
 
-class CaptivePortalTabReloaderTest : public testing::Test {
+// Used to test behavior when a WebContents is showing an interstitial page.
+class MockInterstitialPageDelegate : public content::InterstitialPageDelegate {
  public:
-  CaptivePortalTabReloaderTest() {
-    // Most tests don't run the message loop, so don't use a timer for them.
-    tab_reloader_.set_slow_ssl_load_time(base::TimeDelta());
+  // The newly created MockInterstitialPageDelegate will be owned by the
+  // WebContents' InterstitialPage, and cleaned up when the WebContents
+  // destroys it.
+  explicit MockInterstitialPageDelegate(
+      content::WebContents* web_contents) {
+    content::InterstitialPage* interstitial_page =
+        content::InterstitialPage::Create(
+            web_contents, true, GURL("http://blah"), this);
+    interstitial_page->DontCreateViewForTesting();
+    interstitial_page->Show();
+  }
+
+  virtual ~MockInterstitialPageDelegate() {
+  }
+
+ private:
+  // InterstitialPageDelegate implementation:
+  virtual std::string GetHTMLContents() OVERRIDE {
+    return "HTML Contents";
+  }
+
+  DISALLOW_COPY_AND_ASSIGN(MockInterstitialPageDelegate);
+};
+
+class CaptivePortalTabReloaderTest : public TabContentsTestHarness {
+ public:
+  CaptivePortalTabReloaderTest()
+      : ui_thread_(content::BrowserThread::UI, &message_loop_) {
   }
 
   virtual ~CaptivePortalTabReloaderTest() {
   }
 
-  // testing::Test
-  virtual void TearDown() OVERRIDE {
-    EXPECT_FALSE(tab_reloader().TimerRunning());
-    // Run any pending operations, so the test fails if there was a call to
-    // a mocked out function pending.
-    MessageLoop::current()->RunAllPending();
+  // testing::Test:
+  virtual void SetUp() OVERRIDE {
+    TabContentsTestHarness::SetUp();
+    web_contents_.reset(CreateTestWebContents());
+    tab_reloader_.reset(new testing::StrictMock<TestCaptivePortalTabReloader>(
+        web_contents_.get()));
+
+    // Most tests don't run the message loop, so don't use a timer for them.
+    tab_reloader_->set_slow_ssl_load_time(base::TimeDelta());
   }
 
-  TestCaptivePortalTabReloader& tab_reloader() { return tab_reloader_; }
+  virtual void TearDown() OVERRIDE {
+    EXPECT_FALSE(tab_reloader().TimerRunning());
+    tab_reloader_.reset(NULL);
+    web_contents_.reset(NULL);
+    TabContentsTestHarness::TearDown();
+  }
+
+  TestCaptivePortalTabReloader& tab_reloader() { return *tab_reloader_.get(); }
 
  private:
-  MessageLoop message_loop_;
+  content::TestBrowserThread ui_thread_;
 
-  testing::StrictMock<TestCaptivePortalTabReloader> tab_reloader_;
+  scoped_ptr<content::WebContents> web_contents_;
+  scoped_ptr<TestCaptivePortalTabReloader> tab_reloader_;
 };
 
 // Simulates a slow SSL load when the Internet is connected.
@@ -256,6 +315,73 @@ TEST_F(CaptivePortalTabReloaderTest, TimeoutFast) {
   EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE, tab_reloader().state());
 }
 
+// An SSL protocol error triggers a captive portal check behind a captive
+// portal.  The user then logs in.
+TEST_F(CaptivePortalTabReloaderTest, SSLProtocolError) {
+  tab_reloader().OnLoadStart(true);
+
+  // The error page commits, which should trigger a captive portal check,
+  // since the timer's still running.
+  EXPECT_CALL(tab_reloader(), CheckForCaptivePortal()).Times(1);
+  tab_reloader().OnLoadCommitted(net::ERR_SSL_PROTOCOL_ERROR);
+  EXPECT_EQ(CaptivePortalTabReloader::STATE_MAYBE_BROKEN_BY_PORTAL,
+            tab_reloader().state());
+
+  // The captive portal service detects a captive portal.  The TabReloader
+  // should try and create a new login tab in response.
+  EXPECT_CALL(tab_reloader(), MaybeOpenCaptivePortalLoginTab()).Times(1);
+  tab_reloader().OnCaptivePortalResults(RESULT_INTERNET_CONNECTED,
+                                        RESULT_BEHIND_CAPTIVE_PORTAL);
+  EXPECT_EQ(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
+            tab_reloader().state());
+  EXPECT_FALSE(tab_reloader().TimerRunning());
+
+  // The user logs on from another tab, and a captive portal check is triggered.
+  EXPECT_CALL(tab_reloader(), ReloadTab()).Times(1);
+  tab_reloader().OnCaptivePortalResults(RESULT_BEHIND_CAPTIVE_PORTAL,
+                                        RESULT_INTERNET_CONNECTED);
+  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE, tab_reloader().state());
+}
+
+// An SSL protocol error triggers a captive portal check behind a captive
+// portal.  The user logs in before the results from the captive portal check
+// completes.
+TEST_F(CaptivePortalTabReloaderTest, SSLProtocolErrorFastLogin) {
+  tab_reloader().OnLoadStart(true);
+
+  // The error page commits, which should trigger a captive portal check,
+  // since the timer's still running.
+  EXPECT_CALL(tab_reloader(), CheckForCaptivePortal()).Times(1);
+  tab_reloader().OnLoadCommitted(net::ERR_SSL_PROTOCOL_ERROR);
+  EXPECT_EQ(CaptivePortalTabReloader::STATE_MAYBE_BROKEN_BY_PORTAL,
+            tab_reloader().state());
+
+  // The user has logged in from another tab.  The tab automatically reloads.
+  EXPECT_CALL(tab_reloader(), ReloadTab()).Times(1);
+  tab_reloader().OnCaptivePortalResults(RESULT_BEHIND_CAPTIVE_PORTAL,
+                                        RESULT_INTERNET_CONNECTED);
+  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE, tab_reloader().state());
+}
+
+// An SSL protocol error triggers a captive portal check behind a captive
+// portal.  The user logs in before the results from the captive portal check
+// completes.  This case is probably not too likely, but should be handled.
+TEST_F(CaptivePortalTabReloaderTest, SSLProtocolErrorAlreadyLoggedIn) {
+  tab_reloader().OnLoadStart(true);
+
+  // The user logs in from another tab before the tab errors out.
+  tab_reloader().OnCaptivePortalResults(RESULT_BEHIND_CAPTIVE_PORTAL,
+                                        RESULT_INTERNET_CONNECTED);
+  EXPECT_EQ(CaptivePortalTabReloader::STATE_NEEDS_RELOAD,
+            tab_reloader().state());
+
+  // The error page commits, which should trigger a reload.
+  EXPECT_CALL(tab_reloader(), ReloadTab()).Times(1);
+  tab_reloader().OnLoadCommitted(net::ERR_SSL_PROTOCOL_ERROR);
+  MessageLoop::current()->RunAllPending();
+  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE, tab_reloader().state());
+}
+
 // Simulate the case that a user has already logged in before the tab receives a
 // captive portal result, but a RESULT_BEHIND_CAPTIVE_PORTAL was received
 // before the tab started loading.
@@ -311,7 +437,7 @@ TEST_F(CaptivePortalTabReloaderTest, AlreadyLoggedInBeforeTimerTriggers) {
 
 // Simulate the user logging in while the timer is still running.  May happen
 // if the tab is reloaded just before logging in on another tab.
-TEST_F(CaptivePortalTabReloaderTest, LogInWhileTimerRunning) {
+TEST_F(CaptivePortalTabReloaderTest, LoginWhileTimerRunning) {
   tab_reloader().OnLoadStart(true);
   EXPECT_EQ(CaptivePortalTabReloader::STATE_TIMER_RUNNING,
             tab_reloader().state());
@@ -399,6 +525,36 @@ TEST_F(CaptivePortalTabReloaderTest, LogInWhileTimerRunningNoError) {
   // The page successfully commits, so no reload is triggered.
   tab_reloader().OnLoadCommitted(net::OK);
   EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE, tab_reloader().state());
+}
+
+// Simulate the login process when there's an SSL certificate error.
+TEST_F(CaptivePortalTabReloaderTest, SSLCertErrorLogin) {
+  tab_reloader().OnLoadStart(true);
+  EXPECT_EQ(CaptivePortalTabReloader::STATE_TIMER_RUNNING,
+            tab_reloader().state());
+
+  // The load is interrupted by an interstitial page.  The interstitial page
+  // is created after the TabReloader is notified.
+  EXPECT_CALL(tab_reloader(), CheckForCaptivePortal());
+  net::SSLInfo ssl_info;
+  ssl_info.SetCertError(net::CERT_STATUS_COMMON_NAME_INVALID);
+  tab_reloader().OnSSLCertError(ssl_info);
+  EXPECT_EQ(CaptivePortalTabReloader::STATE_MAYBE_BROKEN_BY_PORTAL,
+            tab_reloader().state());
+  EXPECT_FALSE(tab_reloader().TimerRunning());
+  // The MockInterstitialPageDelegate will cleaned up by the WebContents.
+  new MockInterstitialPageDelegate(tab_reloader().web_contents());
+
+  // Captive portal probe finds a captive portal.
+  EXPECT_CALL(tab_reloader(), MaybeOpenCaptivePortalLoginTab()).Times(1);
+  tab_reloader().OnCaptivePortalResults(RESULT_INTERNET_CONNECTED,
+                                        RESULT_BEHIND_CAPTIVE_PORTAL);
+
+  // The user logs in.  Since the interstitial is showing, the page should
+  // be reloaded, despite still having a provisional load.
+  EXPECT_CALL(tab_reloader(), ReloadTab()).Times(1);
+  tab_reloader().OnCaptivePortalResults(RESULT_BEHIND_CAPTIVE_PORTAL,
+                                        RESULT_INTERNET_CONNECTED);
 }
 
 // Simulate an HTTP redirect to HTTPS, when the Internet is connected.

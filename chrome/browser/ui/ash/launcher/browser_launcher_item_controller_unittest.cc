@@ -6,6 +6,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "ash/launcher/launcher_model.h"
 #include "base/memory/scoped_ptr.h"
@@ -25,7 +26,7 @@
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 
 // TODO(avi): Kill this when TabContents goes away.
 class BrowserLauncherItemControllerContentsCreator {
@@ -36,6 +37,8 @@ class BrowserLauncherItemControllerContentsCreator {
 };
 
 namespace {
+
+const int kExpectedAppIndex = 2;
 
 // Test implementation of AppTabHelper
 class AppTabHelperImpl : public ChromeLauncherController::AppTabHelper {
@@ -95,6 +98,8 @@ class AppIconLoaderImpl : public ChromeLauncherController::AppIconLoader {
   virtual void FetchImage(const std::string& id) OVERRIDE {
     fetch_count_++;
   }
+  virtual void ClearImage(const std::string& id) OVERRIDE {
+  }
 
  private:
   int fetch_count_;
@@ -104,8 +109,8 @@ class AppIconLoaderImpl : public ChromeLauncherController::AppIconLoader {
 
 }  // namespace
 
-class BrowserLauncherItemControllerTest :
-    public ChromeRenderViewHostTestHarness {
+class BrowserLauncherItemControllerTest
+    : public ChromeRenderViewHostTestHarness {
  public:
   BrowserLauncherItemControllerTest()
       : browser_thread_(content::BrowserThread::UI, &message_loop_) {
@@ -327,7 +332,7 @@ TEST_F(BrowserLauncherItemControllerTest, PersistPinned) {
   launcher_delegate_->PinAppWithID("1");
   EXPECT_GT(app_icon_loader_->GetAndClearFetchCount(), 0);
   EXPECT_EQ(ash::TYPE_APP_SHORTCUT,
-            launcher_model_->items()[1].type);
+            launcher_model_->items()[kExpectedAppIndex].type);
   EXPECT_TRUE(launcher_delegate_->IsAppPinned("1"));
   EXPECT_FALSE(launcher_delegate_->IsAppPinned("0"));
   EXPECT_EQ(initial_size + 1, launcher_model_->items().size());
@@ -345,7 +350,7 @@ TEST_F(BrowserLauncherItemControllerTest, PersistPinned) {
   EXPECT_TRUE(launcher_delegate_->IsAppPinned("1"));
   EXPECT_FALSE(launcher_delegate_->IsAppPinned("0"));
   EXPECT_EQ(ash::TYPE_APP_SHORTCUT,
-            launcher_model_->items()[1].type);
+            launcher_model_->items()[kExpectedAppIndex].type);
 
   UnpinAppsWithID("1");
   ASSERT_EQ(initial_size, launcher_model_->items().size());

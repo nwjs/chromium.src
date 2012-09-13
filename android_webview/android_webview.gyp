@@ -26,10 +26,14 @@
         'common/android_webview_message_generator.h',
         'common/render_view_messages.cc',
         'common/render_view_messages.h',
+        'browser/net/aw_network_delegate.cc',
+        'browser/net/aw_network_delegate.h',
         'browser/renderer_host/aw_render_view_host_ext.cc',
         'browser/renderer_host/aw_render_view_host_ext.h',
         'browser/renderer_host/aw_resource_dispatcher_host_delegate.cc',
         'browser/renderer_host/aw_resource_dispatcher_host_delegate.h',
+        'browser/aw_cookie_access_policy.cc',
+        'browser/aw_cookie_access_policy.h',
         'lib/aw_browser_dependency_factory_impl.cc',
         'lib/aw_browser_dependency_factory_impl.h',
         'lib/aw_content_browser_client.cc',
@@ -61,6 +65,7 @@
             '<(android_product_out)/obj/lib/libwebview.so',
             '<(android_product_out)/system/lib/libwebview.so',
             '<(android_product_out)/symbols/system/lib/libwebview.so',
+            '<(android_product_out)/symbols/data/data/org.chromium.android_webview/lib/libwebview.so',
           ],
           'action': [
             '<(install_binary_script)',
@@ -128,6 +133,16 @@
         'outputs': ['<(PRODUCT_DIR)/android_webview/java/libs/chromium_content.jar'],
         'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
       },
+      # TODO: This should be removed once we stop sharing the chrome/ layer JNI
+      # registration code.  We currently include this because we reuse the
+      # chrome/ layer JNI registration code (which will crash if these classes
+      # are not present in the APK).
+      {
+        'action_name': 'copy_chrome_jar',
+        'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_chrome.jar'],
+        'outputs': ['<(PRODUCT_DIR)/android_webview/java/libs/chromium_chrome.jar'],
+        'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
+      },
       {
         'action_name': 'copy_web_contents_delegate_android_java',
         'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_web_contents_delegate_android.jar'],
@@ -167,7 +182,7 @@
       {
         'action_name': 'copy_en_pak',
         'inputs': ['<(SHARED_INTERMEDIATE_DIR)/repack/en-US.pak'],
-        'outputs': ['<(PRODUCT_DIR)/android_webview/assets/en.pak'],
+        'outputs': ['<(PRODUCT_DIR)/android_webview/assets/en-US.pak'],
         'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
       },
       {
@@ -193,6 +208,7 @@
           '<(PRODUCT_DIR)/android_webview/java/libs/chromium_net.jar',
           '<(PRODUCT_DIR)/android_webview/java/libs/chromium_media.jar',
           '<(PRODUCT_DIR)/android_webview/java/libs/chromium_content.jar',
+          '<(PRODUCT_DIR)/android_webview/java/libs/chromium_chrome.jar',
           '<(SHARED_INTERMEDIATE_DIR)/repack/chrome.pak',
           '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_100_percent.pak',
           '<(SHARED_INTERMEDIATE_DIR)/repack/resources.pak',
@@ -210,7 +226,7 @@
           '-DANDROID_SDK_ROOT=<(android_sdk_root)',
           '-DANDROID_SDK_TOOLS=<(android_sdk_tools)',
           '-DANDROID_SDK_VERSION=<(android_sdk_version)',
-          '-DANDROID_TOOLCHAIN=<(android_toolchain)',
+          '-DANDROID_GDBSERVER=<(android_gdbserver)',
           '-buildfile',
           '<(DEPTH)/android_webview/java/android_webview_apk.xml',
         ],
@@ -288,7 +304,7 @@
             '<!@(find <(DEPTH)/android_webview/javatests/ -name "*.java")'
           ],
           'outputs': [
-            '<(PRODUCT_DIR)/android_webview_test/ContentShellTest-debug.apk',
+            '<(PRODUCT_DIR)/android_webview_test/AndroidWebViewTest-debug.apk',
           ],
           'action': [
             'ant',
@@ -298,7 +314,7 @@
             '-DANDROID_SDK_ROOT=<(android_sdk_root)',
             '-DANDROID_SDK_TOOLS=<(android_sdk_tools)',
             '-DANDROID_SDK_VERSION=<(android_sdk_version)',
-            '-DANDROID_TOOLCHAIN=<(android_toolchain)',
+            '-DANDROID_GDBSERVER=<(android_gdbserver)',
             '-buildfile',
             '<(DEPTH)/android_webview/javatests/android_webview_test_apk.xml',
           ]

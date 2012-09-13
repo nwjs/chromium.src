@@ -13,7 +13,7 @@ cr.define('options', function() {
 
   /**
    * Enumeration of secondary display layout.  The value has to be same as the
-   * values in ash/monitor/monitor_controller.cc.
+   * values in ash/display/display_controller.cc.
    * @enum {number}
    */
   var SecondaryDisplayLayout = {
@@ -31,16 +31,57 @@ cr.define('options', function() {
     OptionsPage.call(this, 'display',
                      loadTimeData.getString('displayOptionsPageTabTitle'),
                      'display-options-page');
-    this.mirroring_ = false;
-    this.focusedIndex_ = null;
-    this.displays_ = [];
-    this.visualScale_ = VISUAL_SCALE;
   }
 
   cr.addSingletonGetter(DisplayOptions);
 
   DisplayOptions.prototype = {
     __proto__: OptionsPage.prototype,
+
+    /**
+     * Whether the current output status is mirroring displays or not.
+     * @private
+     */
+    mirroring_: false,
+
+    /**
+     * The current secondary display layout.
+     * @private
+     */
+    layout_: SecondaryDisplayLayout.RIGHT,
+
+    /**
+     * The array of current output displays.  It also contains the display
+     * rectangles currently rendered on screen.
+     * @private
+     */
+    displays_: [],
+
+    /**
+     * The index for the currently focused display in the options UI.  null if
+     * no one has focus.
+     */
+    focusedIndex_: null,
+
+    /**
+     * The flag to check if the current options status should be sent to the
+     * system or not (unchanged).
+     * @private
+     */
+    dirty_: false,
+
+    /**
+     * The container div element which contains all of the display rectangles.
+     * @private
+     */
+    displaysView_: null,
+
+    /**
+     * The scale factor of the actual display size to the drawn display
+     * rectangle size.
+     * @private
+     */
+    visualScale_: VISUAL_SCALE,
 
     /**
      * Initialize the page.
@@ -80,6 +121,34 @@ cr.define('options', function() {
       }
       chrome.send('setDisplayLayout',
                   [this.layout_, offset / this.visualScale_]);
+      this.dirty_ = false;
+    },
+
+    /**
+     * Snaps the region [point, width] to [basePoint, baseWidth] if
+     * the [point, width] is close enough to the base's edge.
+     * @param {number} point The starting point of the region.
+     * @param {number} width The width of the region.
+     * @param {number} basePoint The starting point of the base region.
+     * @param {number} baseWidth The width of the base region.
+     * @return {number} The moved point.  Returns point itself if it doesn't
+     *     need to snap to the edge.
+     * @private
+     */
+    snapToEdge_: function(point, width, basePoint, baseWidth) {
+      // If the edge of the regions is smaller than this, it will snap to the
+      // base's edge.
+      /** @const */ var SNAP_DISTANCE_PX = 16;
+
+      var startDiff = Math.abs(point - basePoint);
+      var endDiff = Math.abs(point + width - (basePoint + baseWidth));
+      // Prefer the closer one if both edges are close enough.
+      if (startDiff < SNAP_DISTANCE_PX && startDiff < endDiff)
+        return basePoint;
+      else if (endDiff < SNAP_DISTANCE_PX)
+        return basePoint + baseWidth - width;
+
+      return point;
     },
 
     /**
@@ -115,6 +184,11 @@ cr.define('options', function() {
 
       var baseDiv = this.displays_[this.dragging_.isPrimary ? 1 : 0].div;
       var draggingDiv = this.dragging_.display.div;
+
+      newPosition.x = this.snapToEdge_(newPosition.x, draggingDiv.offsetWidth,
+                                       baseDiv.offsetLeft, baseDiv.offsetWidth);
+      newPosition.y = this.snapToEdge_(newPosition.y, draggingDiv.offsetHeight,
+                                       baseDiv.offsetTop, baseDiv.offsetHeight);
 
       // Separate the area into four (LEFT/RIGHT/TOP/BOTTOM) by the diagonals of
       // the primary display, and decide which area the display should reside.
@@ -205,6 +279,7 @@ cr.define('options', function() {
         break;
       }
 
+      this.dirty_ = true;
       return false;
     },
 
@@ -233,6 +308,7 @@ cr.define('options', function() {
       for (var i = 0; i < this.displays_.length; i++) {
         var display = this.displays_[i];
         display.div.className = 'displays-display';
+        this.resizeDisplayRectangle_(display, i);
         if (i != this.focusedIndex_)
           continue;
 
@@ -278,7 +354,8 @@ cr.define('options', function() {
           draggingDiv.style.left = left + 'px';
         }
         this.dragging_ = null;
-        this.applyResult_();
+        if (this.dirty_)
+          this.applyResult_();
       }
       this.updateSelectedDisplayDescription_();
       return false;
@@ -330,6 +407,31 @@ cr.define('options', function() {
       this.displaysView_.onmousedown = this.onMouseDown_.bind(this);
       this.displaysView_.onmouseup = this.onMouseUp_.bind(this);
       displaysViewHost.appendChild(this.displaysView_);
+    },
+
+    /**
+     * Resize the specified display rectangle to keep the change of
+     * the border width.
+     * @param {Object} display The display object.
+     * @param {number} index The index of the display.
+     * @private
+     */
+    resizeDisplayRectangle_: function(display, index) {
+      /** @const */ var FOCUSED_BORDER_WIDTH_PX = 2;
+      /** @const */ var NORMAL_BORDER_WIDTH_PX = 1;
+      var borderWidth = (index == this.focusedIndex_) ?
+          FOCUSED_BORDER_WIDTH_PX : NORMAL_BORDER_WIDTH_PX;
+      display.div.style.width =
+          display.width * this.visualScale_ - borderWidth * 2 + 'px';
+      display.div.style.height =
+          display.height * this.visualScale_ - borderWidth * 2 + 'px';
+      display.div.style.lineHeight = display.div.style.height;
+      if (index == 0) {
+        var launcher = display.div.firstChild;
+        if (launcher && launcher.id == 'display-launcher') {
+          launcher.style.width = display.div.style.width;
+        }
+      }
     },
 
     /**
@@ -426,24 +528,17 @@ cr.define('options', function() {
         display.div = div;
 
         div.className = 'displays-display';
-        var borderWidth = 1;
-        if (i == this.focusedIndex_) {
+        if (i == this.focusedIndex_)
           div.classList.add('displays-focused');
-          borderWidth = 2;
-        }
-        div.style.width =
-            display.width * this.visualScale_ - borderWidth * 2 + 'px';
-        div.style.height =
-            display.height * this.visualScale_ - borderWidth * 2 + 'px';
-        div.style.lineHeight = div.style.height;
+
         if (i == 0) {
           // Assumes that first display is primary and put a grey rectangle to
           // denote launcher below.
           var launcher = document.createElement('div');
           launcher.id = 'display-launcher';
-          launcher.style.width = display.div.style.width;
           div.appendChild(launcher);
         }
+        this.resizeDisplayRectangle_(display, i);
         div.style.left = display.x * this.visualScale_ + offset.x + 'px';
         div.style.top = display.y * this.visualScale_ + offset.y + 'px';
         div.appendChild(document.createTextNode(display.name));
@@ -464,6 +559,7 @@ cr.define('options', function() {
       this.mirroring_ = mirroring;
       this.layout_ = layout;
       this.offset_ = offset;
+      this.dirty_ = false;
 
       $('display-options-toggle-mirroring').textContent =
           loadTimeData.getString(

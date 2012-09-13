@@ -5,6 +5,7 @@
 #ifndef CHROME_COMMON_CHROME_NOTIFICATION_TYPES_H_
 #define CHROME_COMMON_CHROME_NOTIFICATION_TYPES_H_
 
+#include "build/build_config.h"
 #include "content/public/browser/notification_types.h"
 
 namespace chrome {
@@ -197,6 +198,14 @@ enum NotificationType {
   // Details encompass a FindNotificationDetail object that tells whether the
   // match was found or not found.
   NOTIFICATION_FIND_RESULT_AVAILABLE,
+
+#if defined(OS_ANDROID)
+  // This notification is sent when the match rects of a find-in-page search
+  // are available. The source is a Source<WebContents>. Details encompass a
+  // FindMatchRectsDetails object that contains the result version and the
+  // rects information.
+  NOTIFICATION_FIND_MATCH_RECTS_AVAILABLE,
+#endif
 
   // BackgroundContents ------------------------------------------------------
 
@@ -468,7 +477,7 @@ enum NotificationType {
   NOTIFICATION_EXTENSIONS_READY,
 
   // Sent when an extension icon being displayed in the location bar is updated.
-  // The source is the Profile and the details are the TabContents for
+  // The source is the Profile and the details are the WebContents for
   // the tab.
   NOTIFICATION_EXTENSION_LOCATION_BAR_UPDATED,
 
@@ -1057,17 +1066,6 @@ enum NotificationType {
   // is being deleted, so the receiver shouldn't use the screen locker
   // object.
   NOTIFICATION_SCREEN_LOCK_STATE_CHANGED,
-
-  // Sent when an attempt to acquire the public key of the owner of a chromium
-  // os device has succeeded.
-  NOTIFICATION_OWNER_KEY_FETCH_ATTEMPT_SUCCEEDED,
-
-  // Sent when an attempt to acquire the public key of the owner of a chromium
-  // os device has failed.
-  NOTIFICATION_OWNER_KEY_FETCH_ATTEMPT_FAILED,
-
-  // Sent after UserManager checked ownership status of logged in user.
-  NOTIFICATION_OWNERSHIP_CHECKED,
 
   // Sent by DeviceSettingsService to indicate that the ownership status
   // changed. If you can, please use DeviceSettingsService::Observer instead.

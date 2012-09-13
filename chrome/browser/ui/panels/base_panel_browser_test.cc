@@ -13,22 +13,20 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/panels/native_panel.h"
-#include "chrome/browser/ui/panels/panel_manager.h"
 #include "chrome/browser/ui/panels/panel_mouse_watcher.h"
+#include "chrome/browser/ui/panels/panel_strip.h"
 #include "chrome/browser/ui/panels/test_panel_active_state_observer.h"
 #include "chrome/browser/ui/panels/test_panel_mouse_watcher.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
-#include "chrome/common/string_ordinal.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/web_contents_tester.h"
+#include "sync/api/string_ordinal.h"
 
 #if defined(OS_LINUX)
 #include "chrome/browser/ui/browser_window.h"
@@ -37,7 +35,6 @@
 
 #if defined(OS_MACOSX)
 #include "base/mac/scoped_nsautorelease_pool.h"
-#include "chrome/browser/ui/cocoa/find_bar/find_bar_bridge.h"
 #include "chrome/browser/ui/cocoa/run_loop_testing.h"
 #endif
 
@@ -194,9 +191,6 @@ const FilePath::CharType* BasePanelBrowserTest::kTestDir =
 BasePanelBrowserTest::BasePanelBrowserTest()
     : InProcessBrowserTest(),
       mock_display_settings_enabled_(true) {
-#if defined(OS_MACOSX)
-  FindBarBridge::disable_animations_during_testing_ = true;
-#endif
 }
 
 BasePanelBrowserTest::~BasePanelBrowserTest() {
@@ -291,7 +285,8 @@ BasePanelBrowserTest::CreatePanelParams::CreatePanelParams(
       bounds(bounds),
       show_flag(show_flag),
       wait_for_fully_created(true),
-      expected_active_state(show_flag) {
+      expected_active_state(show_flag),
+      create_mode(PanelManager::CREATE_AS_DOCKED) {
 }
 
 Panel* BasePanelBrowserTest::CreatePanelWithParams(
@@ -300,7 +295,7 @@ Panel* BasePanelBrowserTest::CreatePanelWithParams(
   // Opening panels on a Mac causes NSWindowController of the Panel window
   // to be autoreleased. We need a pool drained after it's done so the test
   // can close correctly. The NSWindowController of the Panel window controls
-  // lifetime of the Browser object so we want to release it as soon as
+  // lifetime of the Panel object so we want to release it as soon as
   // possible. In real Chrome, this is done by message pump.
   // On non-Mac platform, this is an empty class.
   base::mac::ScopedNSAutoreleasePool autorelease_pool;
@@ -312,7 +307,8 @@ Panel* BasePanelBrowserTest::CreatePanelWithParams(
 
   PanelManager* manager = PanelManager::GetInstance();
   Panel* panel = manager->CreatePanel(params.name, browser()->profile(),
-                                      params.url, params.bounds.size());
+                                      params.url, params.bounds,
+                                      params.create_mode);
 
   if (!params.url.is_empty())
     observer.Wait();
@@ -401,12 +397,6 @@ NativePanelTesting* BasePanelBrowserTest::CreateNativePanelTesting(
   return panel->native_panel()->CreateNativePanelTesting();
 }
 
-void BasePanelBrowserTest::CreateTestTabContents(Browser* browser) {
-  TabContents* tab_contents = TabContents::Factory::CreateTabContents(
-      WebContentsTester::CreateTestWebContents(browser->profile(), NULL));
-  chrome::AddTab(browser, tab_contents, content::PAGE_TRANSITION_LINK);
-}
-
 scoped_refptr<Extension> BasePanelBrowserTest::CreateExtension(
     const FilePath::StringType& path,
     Extension::Location location,
@@ -428,7 +418,9 @@ scoped_refptr<Extension> BasePanelBrowserTest::CreateExtension(
   EXPECT_TRUE(extension.get());
   EXPECT_STREQ("", error.c_str());
   browser()->profile()->GetExtensionService()->
-      OnExtensionInstalled(extension.get(), false, StringOrdinal());
+      OnExtensionInstalled(extension.get(), false /* not from webstore */,
+                           syncer::StringOrdinal(),
+                           false /* no requirement errors */);
   return extension;
 }
 

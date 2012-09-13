@@ -10,6 +10,8 @@
 #include "base/debug/trace_event.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/Platform.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorSupport.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebContentLayer.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebExternalTextureLayer.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebFilterOperation.h"
@@ -93,7 +95,9 @@ Layer::~Layer() {
   // Destroying the animator may cause observers to use the layer (and
   // indirectly the WebLayer). Destroy the animator first so that the WebLayer
   // is still around.
-  animator_.reset();
+  if (animator_)
+    animator_->SetDelegate(NULL);
+  animator_ = NULL;
   if (compositor_)
     compositor_->SetRootLayer(NULL);
   if (parent_)
@@ -172,7 +176,7 @@ bool Layer::Contains(const Layer* other) const {
 void Layer::SetAnimator(LayerAnimator* animator) {
   if (animator)
     animator->SetDelegate(this);
-  animator_.reset(animator);
+  animator_ = animator;
 }
 
 LayerAnimator* Layer::GetAnimator() {
@@ -386,13 +390,16 @@ void Layer::SetExternalTexture(Texture* texture) {
     scoped_ptr<WebKit::WebExternalTextureLayer> old_texture_layer(
         texture_layer_.release());
     WebKit::WebLayer* new_layer = NULL;
+    WebKit::WebCompositorSupport* compositor_support =
+        WebKit::Platform::current()->compositorSupport();
     if (layer_updated_externally_) {
-      texture_layer_.reset(WebKit::WebExternalTextureLayer::create(this));
+      texture_layer_.reset(
+          compositor_support->createExternalTextureLayer(this));
       texture_layer_->setFlipped(texture_->flipped());
       new_layer = texture_layer_->layer();
     } else {
       old_texture_layer->willModifyTexture();
-      content_layer_.reset(WebKit::WebContentLayer::create(this));
+      content_layer_.reset(compositor_support->createContentLayer(this));
       new_layer = content_layer_->layer();
     }
     if (parent_) {
@@ -699,11 +706,13 @@ float Layer::GetGrayscaleForAnimation() const {
 }
 
 void Layer::CreateWebLayer() {
+  WebKit::WebCompositorSupport* compositor_support =
+      WebKit::Platform::current()->compositorSupport();
   if (type_ == LAYER_SOLID_COLOR) {
-    solid_color_layer_.reset(WebKit::WebSolidColorLayer::create());
+    solid_color_layer_.reset(compositor_support->createSolidColorLayer());
     web_layer_ = solid_color_layer_->layer();
   } else {
-    content_layer_.reset(WebKit::WebContentLayer::create(this));
+    content_layer_.reset(compositor_support->createContentLayer(this));
     web_layer_ = content_layer_->layer();
   }
   web_layer_is_accelerated_ = false;

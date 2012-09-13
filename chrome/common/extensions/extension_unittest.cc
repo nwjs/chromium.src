@@ -597,16 +597,17 @@ TEST(ExtensionTest, ApiPermissions) {
     { "bookmarks",      false },
     { "cookies",        false },
     { "history",        false },
-    { "tabs.onUpdated", false },
     // Make sure we find the module name after stripping '.' and '/'.
     { "browserAction/abcd/onClick",  true },
     { "browserAction.abcd.onClick",  true },
     // Test Tabs functions.
     { "tabs.create",      true},
+    { "tabs.duplicate",   true},
     { "tabs.onRemoved",   true},
     { "tabs.remove",      true},
     { "tabs.update",      true},
-    { "tabs.getSelected", false},
+    { "tabs.getSelected", true},
+    { "tabs.onUpdated",   true },
     // Test getPermissionWarnings functions. Only one requires permissions.
     { "management.getPermissionWarningsById", false },
     { "management.getPermissionWarningsByManifest", true },

@@ -9,8 +9,8 @@
 #include "grit/ui_strings.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
-#include "ui/base/event.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
@@ -219,11 +219,11 @@ void MenuButton::OnMouseExited(const ui::MouseEvent& event) {
   }
 }
 
-ui::GestureStatus MenuButton::OnGestureEvent(const ui::GestureEvent& event) {
+ui::EventResult MenuButton::OnGestureEvent(const ui::GestureEvent& event) {
   if (state() != BS_DISABLED && event.type() == ui::ET_GESTURE_TAP) {
     if (Activate())
-      return ui::GESTURE_STATUS_CONSUMED;
-    return ui::GESTURE_STATUS_UNKNOWN;
+      return ui::ER_CONSUMED;
+    return ui::ER_UNHANDLED;
   }
   return TextButton::OnGestureEvent(event);
 }

@@ -6,7 +6,7 @@
 
 #include "ash/wm/property_util.h"
 #include "ash/wm/user_activity_observer.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 
 namespace ash {
 
@@ -50,11 +50,11 @@ ui::TouchStatus UserActivityDetector::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus UserActivityDetector::PreHandleGestureEvent(
+ui::EventResult UserActivityDetector::PreHandleGestureEvent(
     aura::Window* target,
     ui::GestureEvent* event) {
   MaybeNotify();
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 void UserActivityDetector::MaybeNotify() {

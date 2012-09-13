@@ -124,6 +124,7 @@ public:
     void willCommit();
     void commitComplete();
     PassOwnPtr<CCGraphicsContext> createContext();
+    PassOwnPtr<CCInputHandler> createInputHandler();
     virtual PassOwnPtr<CCLayerTreeHostImpl> createLayerTreeHostImpl(CCLayerTreeHostImplClient*);
     void didLoseContext();
     enum RecreateResult {
@@ -141,8 +142,6 @@ public:
     void updateLayers(CCTextureUpdateQueue&, size_t contentsMemoryLimitBytes);
 
     CCLayerTreeHostClient* client() { return m_client; }
-
-    int compositorIdentifier() const { return m_compositorIdentifier; }
 
     // Only used when compositing on the main thread.
     void composite();
@@ -192,11 +191,8 @@ public:
 
     CCPrioritizedTextureManager* contentsTextureManager() const;
 
-    // This will cause contents texture manager to evict all textures, but
-    // without deleting them. This happens after all content textures have
-    // already been deleted on impl, after getting a 0 allocation limit.
-    // Set during a commit, but before updateLayers.
-    void evictAllContentTextures();
+    void unlinkAllContentTextures();
+    void deleteUnlinkedTextures();
 
     bool visible() const { return m_visible; }
     void setVisible(bool);
@@ -246,8 +242,6 @@ private:
     void animateLayers(double monotonicTime);
     bool animateLayersRecursive(LayerChromium* current, double monotonicTime);
     void setAnimationEventsRecursive(const CCAnimationEventsVector&, LayerChromium*, double wallClockTime);
-
-    int m_compositorIdentifier;
 
     bool m_animating;
     bool m_needsAnimateLayers;

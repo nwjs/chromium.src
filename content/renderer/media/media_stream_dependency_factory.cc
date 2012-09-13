@@ -6,8 +6,8 @@
 
 #include <vector>
 
+#include "content/renderer/media/rtc_video_capturer.h"
 #include "content/renderer/media/video_capture_impl_manager.h"
-#include "content/renderer/media/video_capture_module_impl.h"
 #include "content/renderer/media/webrtc_audio_device_impl.h"
 #include "content/renderer/p2p/ipc_network_manager.h"
 #include "content/renderer/p2p/ipc_socket_factory.h"
@@ -86,11 +86,13 @@ bool MediaStreamDependencyFactory::CreatePeerConnectionFactory(
             network_manager,
             socket_factory);
 
+    DCHECK(!audio_device_);
+    audio_device_ = new WebRtcAudioDeviceImpl();
     talk_base::scoped_refptr<webrtc::PeerConnectionFactoryInterface> factory(
         webrtc::CreatePeerConnectionFactory(worker_thread,
                                             signaling_thread,
                                             pa_factory.release(),
-                                            new WebRtcAudioDeviceImpl()));
+                                            audio_device_));
     if (factory.get())
       pc_factory_ = factory.release();
   }
@@ -123,13 +125,12 @@ talk_base::scoped_refptr<webrtc::LocalVideoTrackInterface>
 MediaStreamDependencyFactory::CreateLocalVideoTrack(
     const std::string& label,
     int video_session_id) {
-  webrtc::VideoCaptureModule* vcm = new VideoCaptureModuleImpl(
-      video_session_id,
-      vc_manager_.get());
+  RtcVideoCapturer* capturer = new RtcVideoCapturer(video_session_id,
+                                                    vc_manager_.get());
 
-  // The video capturer takes ownership of |vcm|.
+  // The video track takes ownership of |capturer|.
   return pc_factory_->CreateLocalVideoTrack(label,
-                                            webrtc::CreateVideoCapturer(vcm));
+                                            capturer);
 }
 
 talk_base::scoped_refptr<webrtc::LocalAudioTrackInterface>
@@ -149,4 +150,8 @@ webrtc::IceCandidateInterface* MediaStreamDependencyFactory::CreateIceCandidate(
     int sdp_mline_index,
     const std::string& sdp) {
   return webrtc::CreateIceCandidate(sdp_mid, sdp_mline_index, sdp);
+}
+
+void MediaStreamDependencyFactory::SetAudioDeviceSessionId(int session_id) {
+  audio_device_->SetSessionId(session_id);
 }

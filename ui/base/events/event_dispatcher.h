@@ -5,8 +5,8 @@
 #ifndef UI_BASE_EVENTS_EVENT_DISPATCHER_H_
 #define UI_BASE_EVENTS_EVENT_DISPATCHER_H_
 
-#include "ui/base/event.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/events/event_target.h"
 #include "ui/base/ui_export.h"
 
@@ -15,8 +15,8 @@ namespace ui {
 // Dispatches events to appropriate targets.
 class UI_EXPORT EventDispatcher {
  public:
-  EventDispatcher() {}
-  virtual ~EventDispatcher() {}
+  EventDispatcher();
+  virtual ~EventDispatcher();
 
   // Returns whether an event can still be dispatched to a target. (e.g. during
   // event dispatch, one of the handlers may have destroyed the target, in which
@@ -33,10 +33,14 @@ class UI_EXPORT EventDispatcher {
     if (!target || !target->CanAcceptEvents())
       return ER_UNHANDLED;
 
+    ScopedDispatchHelper dispatch_helper(event);
+    dispatch_helper.set_target(target);
+
     EventHandlerList list;
     target->GetPreTargetHandlers(&list);
     ProcessPreTargetList(&list);
-    int result = DispatchEventToEventHandlers(list, target, event);
+    dispatch_helper.set_phase(EP_PRETARGET);
+    int result = DispatchEventToEventHandlers(list, event);
     if (result & ER_CONSUMED)
       return result;
 
@@ -46,7 +50,9 @@ class UI_EXPORT EventDispatcher {
     // this layer, however it should not be processed in the next layer of
     // abstraction.
     if (CanDispatchToTarget(target)) {
-      result |= DispatchEventToSingleHandler(target, target, event);
+      dispatch_helper.set_phase(EP_TARGET);
+      result |= DispatchEventToSingleHandler(target, event);
+      dispatch_helper.set_result(event->result() | result);
       if (result & ER_CONSUMED)
         return result;
     }
@@ -57,19 +63,29 @@ class UI_EXPORT EventDispatcher {
     list.clear();
     target->GetPostTargetHandlers(&list);
     ProcessPostTargetList(&list);
-    result |= DispatchEventToEventHandlers(list, target, event);
+    dispatch_helper.set_phase(EP_POSTTARGET);
+    result |= DispatchEventToEventHandlers(list, event);
     return result;
   }
 
  private:
+  class UI_EXPORT ScopedDispatchHelper : public NON_EXPORTED_BASE(
+      Event::DispatcherApi) {
+   public:
+    explicit ScopedDispatchHelper(Event* event);
+    virtual ~ScopedDispatchHelper();
+   private:
+    DISALLOW_COPY_AND_ASSIGN(ScopedDispatchHelper);
+  };
+
   template<class T>
-  int DispatchEventToEventHandlers(EventHandlerList& list,
-                                           EventTarget* target,
-                                           T* event) {
+  int DispatchEventToEventHandlers(EventHandlerList& list, T* event) {
     int result = ER_UNHANDLED;
+    Event::DispatcherApi dispatch_helper(event);
     for (EventHandlerList::const_iterator it = list.begin(),
             end = list.end(); it != end; ++it) {
-      result |= DispatchEventToSingleHandler((*it), target, event);
+      result |= DispatchEventToSingleHandler((*it), event);
+      dispatch_helper.set_result(event->result() | result);
       if (result & ER_CONSUMED)
         return result;
     }
@@ -77,38 +93,15 @@ class UI_EXPORT EventDispatcher {
   }
 
   EventResult DispatchEventToSingleHandler(EventHandler* handler,
-                                           EventTarget* target,
-                                           ui::KeyEvent* event) {
-    return handler->OnKeyEvent(target, event);
-  }
-
+                                           KeyEvent* event);
   EventResult DispatchEventToSingleHandler(EventHandler* handler,
-                                           EventTarget* target,
-                                           ui::MouseEvent* event) {
-    return handler->OnMouseEvent(target, event);
-  }
-
+                                           MouseEvent* event);
   EventResult DispatchEventToSingleHandler(EventHandler* handler,
-                                           EventTarget* target,
-                                           ui::ScrollEvent* event) {
-    return handler->OnScrollEvent(target, event);
-  }
-
+                                           ScrollEvent* event);
   EventResult DispatchEventToSingleHandler(EventHandler* handler,
-                                           EventTarget* target,
-                                           ui::TouchEvent* event) {
-    // TODO(sad): This needs fixing (especially for the QUEUED_ status).
-    TouchStatus status = handler->OnTouchEvent(target, event);
-    return status == ui::TOUCH_STATUS_UNKNOWN ? ER_UNHANDLED :
-           status == ui::TOUCH_STATUS_QUEUED_END ? ER_CONSUMED :
-                                                   ER_HANDLED;
-  }
-
+                                           TouchEvent* event);
   EventResult DispatchEventToSingleHandler(EventHandler* handler,
-                                           EventTarget* target,
-                                           ui::GestureEvent* event) {
-    return handler->OnGestureEvent(target, event);
-  }
+                                           GestureEvent* event);
 
   DISALLOW_COPY_AND_ASSIGN(EventDispatcher);
 };

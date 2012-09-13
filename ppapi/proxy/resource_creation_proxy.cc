@@ -37,6 +37,7 @@
 #include "ppapi/proxy/ppb_video_capture_proxy.h"
 #include "ppapi/proxy/ppb_video_decoder_proxy.h"
 #include "ppapi/proxy/ppb_x509_certificate_private_proxy.h"
+#include "ppapi/proxy/printing_resource.h"
 #include "ppapi/shared_impl/api_id.h"
 #include "ppapi/shared_impl/host_resource.h"
 #include "ppapi/shared_impl/ppb_audio_config_shared.h"
@@ -227,6 +228,31 @@ PP_Resource ResourceCreationProxy::CreateGraphics3DRaw(
   return 0;
 }
 
+PP_Resource ResourceCreationProxy::CreateHostResolverPrivate(
+    PP_Instance instance) {
+  return PPB_HostResolver_Private_Proxy::CreateProxyResource(instance);
+}
+
+PP_Resource ResourceCreationProxy::CreateTCPServerSocketPrivate(
+    PP_Instance instance) {
+  return PPB_TCPServerSocket_Private_Proxy::CreateProxyResource(instance);
+}
+
+PP_Resource ResourceCreationProxy::CreateTCPSocketPrivate(
+    PP_Instance instance) {
+  return PPB_TCPSocket_Private_Proxy::CreateProxyResource(instance);
+}
+
+PP_Resource ResourceCreationProxy::CreateUDPSocketPrivate(
+    PP_Instance instance) {
+  return PPB_UDPSocket_Private_Proxy::CreateProxyResource(instance);
+}
+
+PP_Resource ResourceCreationProxy::CreateX509CertificatePrivate(
+    PP_Instance instance) {
+  return PPB_X509Certificate_Private_Proxy::CreateProxyResource(instance);
+}
+
 #if !defined(OS_NACL)
 PP_Resource ResourceCreationProxy::CreateAudioInput0_1(
     PP_Instance instance,
@@ -291,17 +317,16 @@ PP_Resource ResourceCreationProxy::CreateFlashMessageLoop(
   return PPB_Flash_MessageLoop_Proxy::CreateProxyResource(instance);
 }
 
-PP_Resource ResourceCreationProxy::CreateHostResolverPrivate(
-    PP_Instance instance) {
-  return PPB_HostResolver_Private_Proxy::CreateProxyResource(instance);
-}
-
 PP_Resource ResourceCreationProxy::CreateNetworkMonitor(
       PP_Instance instance,
       PPB_NetworkMonitor_Callback callback,
       void* user_data) {
   return PPB_NetworkMonitor_Private_Proxy::CreateProxyResource(
       instance, callback, user_data);
+}
+
+PP_Resource ResourceCreationProxy::CreatePrinting(PP_Instance instance) {
+  return (new PrintingResource(GetConnection(), instance))->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateScrollbar(PP_Instance instance,
@@ -312,21 +337,6 @@ PP_Resource ResourceCreationProxy::CreateScrollbar(PP_Instance instance,
 
 PP_Resource ResourceCreationProxy::CreateTalk(PP_Instance instance) {
   return PPB_Talk_Private_Proxy::CreateProxyResource(instance);
-}
-
-PP_Resource ResourceCreationProxy::CreateTCPServerSocketPrivate(
-    PP_Instance instance) {
-  return PPB_TCPServerSocket_Private_Proxy::CreateProxyResource(instance);
-}
-
-PP_Resource ResourceCreationProxy::CreateTCPSocketPrivate(
-    PP_Instance instance) {
-  return PPB_TCPSocket_Private_Proxy::CreateProxyResource(instance);
-}
-
-PP_Resource ResourceCreationProxy::CreateUDPSocketPrivate(
-    PP_Instance instance) {
-  return PPB_UDPSocket_Private_Proxy::CreateProxyResource(instance);
 }
 
 PP_Resource ResourceCreationProxy::CreateVideoCapture(PP_Instance instance) {
@@ -353,12 +363,7 @@ PP_Resource ResourceCreationProxy::CreateWebSocket(PP_Instance instance) {
   return 0;
 }
 
-PP_Resource ResourceCreationProxy::CreateX509CertificatePrivate(
-    PP_Instance instance) {
-  return PPB_X509Certificate_Private_Proxy::CreateProxyResource(instance);
-}
 #endif  // !defined(OS_NACL)
-
 
 bool ResourceCreationProxy::Send(IPC::Message* msg) {
   return dispatcher()->Send(msg);

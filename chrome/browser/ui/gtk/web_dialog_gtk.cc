@@ -165,13 +165,15 @@ void WebDialogGtk::AddNewContents(content::WebContents* source,
                                   content::WebContents* new_contents,
                                   WindowOpenDisposition disposition,
                                   const gfx::Rect& initial_pos,
-                                  bool user_gesture) {
+                                  bool user_gesture,
+                                  bool* was_blocked) {
   if (delegate_ && delegate_->HandleAddNewContents(
           source, new_contents, disposition, initial_pos, user_gesture)) {
     return;
   }
   WebDialogWebContentsDelegate::AddNewContents(
-      source, new_contents, disposition, initial_pos, user_gesture);
+      source, new_contents, disposition, initial_pos, user_gesture,
+      was_blocked);
 }
 
 void WebDialogGtk::LoadingStateChanged(content::WebContents* source) {
@@ -215,7 +217,7 @@ gfx::NativeWindow WebDialogGtk::InitDialog() {
   tab_->web_contents()->GetController().LoadURL(
       GetDialogContentURL(),
       content::Referrer(),
-      content::PAGE_TRANSITION_START_PAGE,
+      content::PAGE_TRANSITION_AUTO_TOPLEVEL,
       std::string());
   GtkDialogFlags flags = GTK_DIALOG_NO_SEPARATOR;
   if (delegate_->GetDialogModalType() != ui::MODAL_TYPE_NONE)

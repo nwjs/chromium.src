@@ -6,9 +6,11 @@ include_rules = [
   "+chromeos",
   "+content/public/browser",
   "+google/cacheinvalidation",  # Sync invalidation API protobuf files.
+  "+google_apis",
   "+google_update",
   "+grit",  # For generated headers
   "+installer_util_strings",  # For generated headers
+  "+media/base",  # For media switches
   "+policy",  # For generated headers and source
   "+ppapi/c",  # For various types.
   "+ppapi/proxy",
@@ -30,6 +32,7 @@ include_rules = [
   "+webkit/glue",  # Defines some types that are marshalled over IPC.
   "+webkit/plugins",  # Defines some types that are marshalled over IPC.
   "+webkit/quota",
+  "+webkit/user_agent",
   "+xib_localizers", # For generated mac localization helpers
 
   # TODO(jam): Need to remove all these and use only content/public. BUG=98716
@@ -40,9 +43,7 @@ include_rules = [
   "-chrome/browser/ui/views",
   # TODO(tfarina): Remove all these. crbug.com/125846.
   # DO NOT ADD ANY MORE ITEMS TO THE LIST BELOW!
-  "!chrome/browser/ui/views/ash/panel_view_aura.h",
-  "!chrome/browser/ui/views/constrained_window_views.h",
-  "!chrome/browser/ui/views/extensions/extension_view.h",
+  "!chrome/browser/ui/views/extensions/extension_view_views.h",
   "!chrome/browser/ui/views/frame/browser_view.h",
   "!chrome/browser/ui/views/location_bar/location_bar_view.h",
   "!chrome/browser/ui/views/location_bar/location_icon_view.h",

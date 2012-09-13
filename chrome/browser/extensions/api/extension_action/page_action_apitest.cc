@@ -17,8 +17,20 @@
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/gfx/image/image_skia.h"
 
 using extensions::Extension;
+
+namespace {
+
+gfx::Image CreateNonEmptyImage() {
+  SkBitmap bitmap;
+  bitmap.setConfig(SkBitmap::kARGB_8888_Config, 16, 16);
+  bitmap.allocPixels();
+  return gfx::Image(bitmap);
+}
+
+}  // namespace
 
 IN_PROC_BROWSER_TEST_F(ExtensionApiTest, PageAction) {
   ASSERT_TRUE(test_server()->Start());
@@ -34,8 +46,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, PageAction) {
   }
 
   // Test that we received the changes.
-  int tab_id = chrome::GetActiveTabContents(browser())->session_tab_helper()->
-      session_id().id();
+  int tab_id = SessionTabHelper::FromWebContents(
+      chrome::GetActiveWebContents(browser()))->session_id().id();
   ExtensionAction* action = extension->page_action();
   ASSERT_TRUE(action);
   EXPECT_EQ("Modified", action->GetTitle(tab_id));
@@ -60,8 +72,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, PageAction) {
   }
 
   // Test that we received the changes.
-  tab_id = chrome::GetActiveTabContents(browser())->session_tab_helper()->
-      session_id().id();
+  tab_id = SessionTabHelper::FromWebContents(
+      chrome::GetActiveWebContents(browser()))->session_id().id();
   EXPECT_FALSE(action->GetIcon(tab_id).IsEmpty());
 }
 
@@ -167,6 +179,31 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, OldPageActions) {
     service->browser_event_router()->PageActionExecuted(
         browser()->profile(), *extension->page_action(), tab_id, "", 1);
     EXPECT_TRUE(catcher.GetNextResult());
+  }
+
+  // Set icon by its index.
+  {
+    int tab_id =
+        ExtensionTabUtil::GetTabId(chrome::GetActiveWebContents(browser()));
+
+    // Set some icon so we can verify it gets cleaned up by setIconIndex.
+    extension->page_action()->SetIcon(tab_id, CreateNonEmptyImage());
+    ASSERT_FALSE(
+        extension->page_action()->GetExplicitlySetIcon(tab_id).isNull());
+
+    // Currently, icon index should be set to 0.
+    ASSERT_EQ(0, extension->page_action()->GetIconIndex(tab_id));
+
+    ResultCatcher catcher;
+    ui_test_utils::NavigateToURL(browser(),
+        GURL(extension->GetResourceURL("set_icon_index.html")));
+    ASSERT_TRUE(catcher.GetNextResult());
+
+    // Check new value of icon index is as expected.
+    EXPECT_EQ(1, extension->page_action()->GetIconIndex(tab_id));
+    // Explicitly set icon should have been reset.
+    ASSERT_TRUE(
+        extension->page_action()->GetExplicitlySetIcon(tab_id).isNull());
   }
 }
 

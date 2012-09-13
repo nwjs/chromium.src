@@ -6,6 +6,60 @@ cr.define('ntp', function() {
   'use strict';
 
   //----------------------------------------------------------------------------
+  // Constants
+  //----------------------------------------------------------------------------
+
+  /**
+   * The height required to show 2 rows of Tiles in the Bottom Panel.
+   * @type {number}
+   * @const
+   */
+  var HEIGHT_FOR_TWO_ROWS = 275;
+
+  /**
+   * The height required to show the Bottom Panel.
+   * @type {number}
+   * @const
+   */
+  var HEIGHT_FOR_BOTTOM_PANEL = 170;
+
+  /**
+   * The Bottom Panel width required to show 5 cols of Tiles, which is used
+   * in the width computation.
+   * @type {number}
+   * @const
+   */
+  var MAX_BOTTOM_PANEL_WIDTH = 948;
+
+  /**
+   * The normal Bottom Panel width. If the window width is greater than or
+   * equal to this value, then the width of the Bottom Panel's content will be
+   * the available width minus side margin. If the available width is smaller
+   * than this value, then the width of the Bottom Panel's content will be an
+   * interpolation between the normal width, and the minimum width defined by
+   * the constant MIN_BOTTOM_PANEL_CONTENT_WIDTH.
+   * @type {number}
+   * @const
+   */
+  var NORMAL_BOTTOM_PANEL_WIDTH = 500;
+
+  /**
+   * The minimum Bottom Panel width. If the available width is smaller than
+   * this value, then the width of the Bottom Panel's content will be fixed to
+   * MIN_BOTTOM_PANEL_CONTENT_WIDTH.
+   * @type {number}
+   * @const
+   */
+  var MIN_BOTTOM_PANEL_WIDTH = 300;
+
+  /**
+   * The minimum width of the Bottom Panel's content.
+   * @type {number}
+   * @const
+   */
+  var MIN_BOTTOM_PANEL_CONTENT_WIDTH = 200;
+
+  //----------------------------------------------------------------------------
   // Tile
   //----------------------------------------------------------------------------
 
@@ -214,6 +268,9 @@ cr.define('ntp', function() {
       this.tileGrid_.addEventListener('webkitTransitionEnd',
           this.onTileGridTransitionEnd_.bind(this));
 
+      $('page-list').addEventListener('webkitTransitionEnd',
+          this.onPageListTransitionEnd_.bind(this));
+
       this.eventTracker = new EventTracker();
       this.eventTracker.add(window, 'resize', this.onResize_.bind(this));
       this.eventTracker.add(window, 'keyup', this.onKeyUp_.bind(this));
@@ -353,7 +410,6 @@ cr.define('ntp', function() {
      * @private
      */
     handleCardSelection_: function(e) {
-      // When we are selected, we re-layout the page.
       this.layout_();
     },
 
@@ -372,24 +428,6 @@ cr.define('ntp', function() {
     positionNotification_: function() {
     },
 
-    /**
-     * Scrolls the page in response to an mousewheel event, although the event
-     * may have been triggered on a different element. Return true if the
-     * event triggered scrolling, and false otherwise.
-     * This is called explicitly, which allows a consistent experience whether
-     * the user scrolls on the page or on the page switcher, because this
-     * function provides a common conversion factor between wheel delta and
-     * scroll delta.
-     * @param {Event} e The mousewheel event.
-     */
-    handleMouseWheel: function(e) {
-      if (e.wheelDeltaY == 0)
-        return false;
-
-      this.content_.scrollTop -= e.wheelDeltaY / 3;
-      return true;
-    },
-
     // #########################################################################
     // Extended Chrome Instant
     // #########################################################################
@@ -399,15 +437,15 @@ cr.define('ntp', function() {
     // -------------------------------------------------------------------------
 
     // The number of columns.
-    colCount_: 5,
+    colCount_: 0,
     // The number of rows.
-    rowCount_: 2,
-    // The number of visible rows. We initialize this value with undefined so
+    rowCount_: 0,
+    // The number of visible rows. We initialize this value with zero so
     // we can detect when the first time the page is rendered.
-    numOfVisibleRows_: undefined,
+    numOfVisibleRows_: 0,
     // The number of the last column being animated. We initialize this value
-    // with undefined so we can detect when the first time the page is rendered.
-    animatingColCount_: undefined,
+    // with zero so we can detect when the first time the page is rendered.
+    animatingColCount_: 0,
     // The index of the topmost row visible.
     pageOffset_: 0,
 
@@ -420,7 +458,6 @@ cr.define('ntp', function() {
     appendTile: function(tile) {
       var index = this.tiles_.length;
       this.tiles_.push(tile);
-      this.renderGrid_();
       this.fireAddedEvent(tile, index);
     },
 
@@ -433,7 +470,6 @@ cr.define('ntp', function() {
      */
     addTileAt: function(tile, index) {
       this.tiles_.splice(index, 0, tile);
-      this.renderGrid_();
       this.fireAddedEvent(tile, index);
     },
 
@@ -478,17 +514,22 @@ cr.define('ntp', function() {
      */
     getBottomPanelWidth_: function() {
       var windowWidth = cr.doc.documentElement.clientWidth;
+      var margin = 2 * this.config_.bottomPanelHorizontalMargin;
       var width;
-      // TODO(pedrosimonetti): Add constants?
-      if (windowWidth >= 948)
-        width = 748;
-      else if (windowWidth >= 500)
-        width = windowWidth - 2 * this.config_.bottomPanelHorizontalMargin;
-      else if (windowWidth >= 300)
-        // TODO(pedrosimonetti): Check specification.
-        width = Math.floor(((windowWidth - 300) / 200) * 100 + 200);
-      else
-        width = 200;
+      if (windowWidth >= MAX_BOTTOM_PANEL_WIDTH) {
+        width = MAX_BOTTOM_PANEL_WIDTH - margin;
+      } else if (windowWidth >= NORMAL_BOTTOM_PANEL_WIDTH) {
+        width = windowWidth - margin;
+      } else if (windowWidth >= MIN_BOTTOM_PANEL_WIDTH) {
+        // Interpolation between the previous and next states.
+        var minMargin = MIN_BOTTOM_PANEL_WIDTH - MIN_BOTTOM_PANEL_CONTENT_WIDTH;
+        var factor = (windowWidth - MIN_BOTTOM_PANEL_WIDTH) /
+            (NORMAL_BOTTOM_PANEL_WIDTH - MIN_BOTTOM_PANEL_WIDTH);
+        var interpolatedMargin = minMargin + factor * (margin - minMargin);
+        width = windowWidth - interpolatedMargin;
+      } else {
+        width = MIN_BOTTOM_PANEL_CONTENT_WIDTH;
+      }
 
       return width;
     },
@@ -499,6 +540,13 @@ cr.define('ntp', function() {
      */
     getAvailableColCount_: function() {
       return this.getColCountForWidth_(this.getBottomPanelWidth_());
+    },
+
+    /**
+     * @return {boolean} Whether the page has been rendered.
+     */
+    hasBeenRendered: function() {
+      return this.numOfVisibleRows_ != 0 || this.animatingColCount_ != 0;
     },
 
     // rendering
@@ -596,8 +644,9 @@ cr.define('ntp', function() {
      * @private
      */
     layout_: function() {
-      // Only adjusts the layout if the page is currently selected.
-      if (!this.selected)
+      // Only adjusts the layout if the page is currently selected, and we have
+      // tiles to render.
+      if (!this.selected || this.tiles_.length == 0)
         return;
 
       var bottomPanelWidth = this.getBottomPanelWidth_();
@@ -607,10 +656,11 @@ cr.define('ntp', function() {
 
       var windowHeight = cr.doc.documentElement.clientHeight;
 
-      // We should not animate the very first layout, that is, when both
-      // numOfVisibleRows_ and animatingColCount_ are undefined.
-      var shouldAnimate = this.numOfVisibleRows_ !== undefined ||
-          this.animatingColCount_ !== undefined;
+      // We should not animate the very first layout, that is, when the page
+      // has not been rendered.
+      var shouldAnimate = this.hasBeenRendered();
+
+      this.showBottomPanel_(windowHeight >= HEIGHT_FOR_BOTTOM_PANEL);
 
       // TODO(pedrosimonetti): Add constants?
       // If the number of visible rows has changed, then we need to resize the
@@ -618,7 +668,7 @@ cr.define('ntp', function() {
       // whether the number of visible rows has changed because we might have
       // to render the grid when the number of columns hasn't changed.
       var numberOfRowsHasChanged = false;
-      var numOfVisibleRows = windowHeight > 500 ? 2 : 1;
+      var numOfVisibleRows = windowHeight > HEIGHT_FOR_TWO_ROWS ? 2 : 1;
       if (numOfVisibleRows != this.numOfVisibleRows_) {
         this.numOfVisibleRows_ = numOfVisibleRows;
         numberOfRowsHasChanged = true;
@@ -705,6 +755,15 @@ cr.define('ntp', function() {
     // -------------------------------------------------------------------------
 
     /**
+     * Animates the display the Bottom Panel.
+     * @param {boolean} show Whether or not to show the Bottom Panel.
+     */
+    showBottomPanel_: function(show) {
+      $('card-slider-frame').classList[show ? 'remove' : 'add'](
+          'hide-card-slider');
+    },
+
+    /**
      * Animates the display of a row. TODO(pedrosimonetti): Make it local?
      * @param {HTMLElement} row The row element.
      * @param {boolean} show Whether or not to show the row.
@@ -771,7 +830,7 @@ cr.define('ntp', function() {
     },
 
     /**
-     * Handles the end of the horizontal and vertical tile grid transitions.
+     * Handles the end of the horizontal tile grid transition.
      * @param {Event} e The tile grid webkitTransitionEnd event.
      */
     onTileGridTransitionEnd_: function(e) {
@@ -795,9 +854,16 @@ cr.define('ntp', function() {
         if (this.onTileGridTransitionEndHandler_)
           this.onTileGridTransitionEndHandler_();
       }
+    },
 
-      // For the same reason as above, we need to remove the class
-      // 'animate-page-height' when the vertical transition ends.
+    /**
+     * Handles the end of the vertical page list transition.
+     * @param {Event} e The tile grid webkitTransitionEnd event.
+     */
+    onPageListTransitionEnd_: function(e) {
+      // For the same reason as explained in onTileGridTransitionEnd_, we need
+      // to remove the class 'animate-page-height' when the vertical transition
+      // ends.
       var pageList = $('page-list');
       if (event.target == pageList &&
           pageList.classList.contains('animate-page-height')) {

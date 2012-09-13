@@ -20,13 +20,13 @@
 #include "ui/base/ui_base_switches.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_surface.h"
-#include "webkit/glue/webkit_glue.h"
 #include "webkit/plugins/npapi/plugin_instance.h"
 #include "webkit/plugins/npapi/plugin_lib.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #include "webkit/plugins/npapi/plugin_stream_url.h"
 #include "webkit/plugins/npapi/webplugin_delegate.h"
 #include "webkit/plugins/webplugininfo.h"
+#include "webkit/user_agent/user_agent.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/mac_util.h"
@@ -600,20 +600,6 @@ const char* NPN_UserAgent(NPP id) {
   if (use_mozilla_user_agent)
     return "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9a1) "
         "Gecko/20061103 Firefox/2.0a1";
-#elif defined(OS_MACOSX)
-  // Silverlight 4 doesn't handle events correctly unless we claim to be Safari.
-  scoped_refptr<PluginInstance> plugin;
-  if (id)
-    plugin = FindInstance(id);
-  if (plugin.get()) {
-    webkit::WebPluginInfo plugin_info =
-        plugin->plugin_lib()->plugin_info();
-    if (plugin_info.name == ASCIIToUTF16("Silverlight Plug-In") &&
-        StartsWith(plugin_info.version, ASCIIToUTF16("4."), false)) {
-      return "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_4; en-us) "
-          "AppleWebKit/534.1+ (KHTML, like Gecko) Version/5.0 Safari/533.16";
-    }
-  }
 #endif
 
   return webkit_glue::GetUserAgent(GURL()).c_str();

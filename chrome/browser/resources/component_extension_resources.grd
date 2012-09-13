@@ -34,6 +34,10 @@
         <include name="IDR_GAIA_AUTH_SUCCESS_JS" file="gaia_auth/success.js" type="BINDATA" />
         <include name="IDR_GAIA_AUTH_UTIL_JS" file="gaia_auth/util.js" type="BINDATA" />
         <include name="IDR_GAIA_AUTH_TEST_CONTENT_JS" file="gaia_auth/test/content.js" type="BINDATA" />
+        <!-- Background page loader  -->
+        <include name="IDR_BACKLOADER_BACKGROUND_HTML" file="backloader/background.html" type="BINDATA" />
+        <include name="IDR_BACKLOADER_BACKGROUND_JS" file="backloader/scripts/background.js" type="BINDATA" />
+        <include name="IDR_BACKLOADER_BACKGROUND_JS" file="backloader/scripts/pages.js" type="BINDATA" />
       </if>
       <if expr="pp_ifdef('file_manager_extension')">
         <!-- App pages and scripts. -->
@@ -131,7 +135,7 @@
 
         <!-- Resources used for non-flattened HTML files. -->
         <include name="IDR_FILE_MANAGER_GDRIVE_WELCOME_STYLE" file="file_manager/css/gdrive_welcome.css" type="BINDATA" />
-        <include name="IDR_FILE_MANAGER_IMG_UI_GDRIVE_WELCOME_BACKGROUND" file="file_manager/images/files/ui/clouds.png" type="BINDATA" />
+        <include name="IDR_FILE_MANAGER_IMG_UI_GDRIVE_WELCOME_BACKGROUND" file="shared/images/clouds.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_UI_GDRIVE_WELCOME_LOGO" file="file_manager/images/files/ui/gdrive_logo.png" type="BINDATA" />
         <include name="IDR_FILE_MANAGER_IMG_UI_2X_GDRIVE_WELCOME_LOGO" file="file_manager/images/files/ui/2x/gdrive_logo.png" type="BINDATA" />
 

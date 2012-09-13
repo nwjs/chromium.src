@@ -65,6 +65,12 @@ class ChromeBrowserFieldTrials {
   // Sets up the Safe Browsing interstitial redesign trial.
   void SetUpSafeBrowsingInterstitialFieldTrial();
 
+  // Sets up the field trial for testing TLS channel id.
+  void SetUpChannelIDFieldTrial();
+
+  // Sets up the InfiniteCache field trial.
+  void SetUpInfiniteCacheFieldTrial();
+
   const CommandLine& parsed_command_line_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeBrowserFieldTrials);

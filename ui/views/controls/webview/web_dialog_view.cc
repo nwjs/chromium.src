@@ -22,7 +22,7 @@
 #include "ui/web_dialogs/web_dialog_ui.h"
 
 #if defined(USE_AURA)
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/views/widget/native_widget_aura.h"
 #endif
 
@@ -281,13 +281,15 @@ void WebDialogView::AddNewContents(content::WebContents* source,
                                    content::WebContents* new_contents,
                                    WindowOpenDisposition disposition,
                                    const gfx::Rect& initial_pos,
-                                   bool user_gesture) {
+                                   bool user_gesture,
+                                   bool* was_blocked) {
   if (delegate_ && delegate_->HandleAddNewContents(
           source, new_contents, disposition, initial_pos, user_gesture)) {
     return;
   }
   WebDialogWebContentsDelegate::AddNewContents(
-      source, new_contents, disposition, initial_pos, user_gesture);
+      source, new_contents, disposition, initial_pos, user_gesture,
+      was_blocked);
 }
 
 void WebDialogView::LoadingStateChanged(content::WebContents* source) {

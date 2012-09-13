@@ -382,13 +382,12 @@ MultiThreadedCertVerifier::MultiThreadedCertVerifier()
       cache_hits_(0),
       inflight_joins_(0),
       verify_proc_(CertVerifyProc::CreateDefault()) {
-  CertDatabase::AddObserver(this);
+  CertDatabase::GetInstance()->AddObserver(this);
 }
 
 MultiThreadedCertVerifier::~MultiThreadedCertVerifier() {
   STLDeleteValues(&inflight_);
-
-  CertDatabase::RemoveObserver(this);
+  CertDatabase::GetInstance()->RemoveObserver(this);
 }
 
 int MultiThreadedCertVerifier::Verify(X509Certificate* cert,
@@ -461,8 +460,8 @@ void MultiThreadedCertVerifier::CancelRequest(RequestHandle req) {
 }
 
 MultiThreadedCertVerifier::RequestParams::RequestParams(
-    const SHA1Fingerprint& cert_fingerprint_arg,
-    const SHA1Fingerprint& ca_fingerprint_arg,
+    const SHA1HashValue& cert_fingerprint_arg,
+    const SHA1HashValue& ca_fingerprint_arg,
     const std::string& hostname_arg,
     int flags_arg)
     : cert_fingerprint(cert_fingerprint_arg),

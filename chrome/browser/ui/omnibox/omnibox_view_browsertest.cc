@@ -36,7 +36,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/mock_host_resolver.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/point.h"
 
@@ -1363,13 +1363,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, AltEnter) {
   AltEnterTest();
 }
 
-// http://crbug.com/133354
-#if defined(OS_LINUX)
-#define MAYBE_EnterToSearch DISABLED_EnterToSearch
-#else
-#define MAYBE_EnterToSearch EnterToSearch
-#endif
-IN_PROC_BROWSER_TEST_F(OmniboxViewTest, MAYBE_EnterToSearch) {
+// http://crbug.com/133354, http://crbug.com/146953
+IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_EnterToSearch) {
   EnterToSearchTest();
 }
 
@@ -1383,8 +1378,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, MAYBE_EscapeToDefaultMatch) {
   EscapeToDefaultMatchTest();
 }
 
-// http://crbug.com/133370
-#if defined(OS_LINUX)
+// http://crbug.com/131179, http://crbug.com/146619
+#if defined(OS_LINUX) || defined(OS_WIN)
 #define MAYBE_BasicTextOperations DISABLED_BasicTextOperations
 #else
 #define MAYBE_BasicTextOperations BasicTextOperations

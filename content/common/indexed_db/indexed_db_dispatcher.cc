@@ -107,6 +107,8 @@ void IndexedDBDispatcher::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(IndexedDBMsg_CallbacksUpgradeNeeded, OnUpgradeNeeded)
     IPC_MESSAGE_HANDLER(IndexedDBMsg_TransactionCallbacksAbort, OnAbort)
     IPC_MESSAGE_HANDLER(IndexedDBMsg_TransactionCallbacksComplete, OnComplete)
+    IPC_MESSAGE_HANDLER(IndexedDBMsg_DatabaseCallbacksForcedClose,
+                        OnForcedClose)
     IPC_MESSAGE_HANDLER(IndexedDBMsg_DatabaseCallbacksIntVersionChange,
                         OnIntVersionChange)
     IPC_MESSAGE_HANDLER(IndexedDBMsg_DatabaseCallbacksVersionChange,
@@ -198,6 +200,7 @@ void IndexedDBDispatcher::RequestIDBCursorDelete(
     pending_callbacks_.Remove(response_id);
 }
 
+// TODO(jsbell): Remove this overload once WK90411 rolls.
 void IndexedDBDispatcher::RequestIDBFactoryOpen(
     const string16& name,
     int64 version,
@@ -214,6 +217,34 @@ void IndexedDBDispatcher::RequestIDBFactoryOpen(
   IndexedDBHostMsg_FactoryOpen_Params params;
   params.thread_id = CurrentWorkerId();
   params.response_id = pending_callbacks_.Add(callbacks.release());
+  params.database_response_id = 0;  // Unused in this message.
+  params.origin = origin;
+  params.name = name;
+  params.version = version;
+  Send(new IndexedDBHostMsg_FactoryOpenLegacy(params));
+}
+
+void IndexedDBDispatcher::RequestIDBFactoryOpen(
+    const string16& name,
+    int64 version,
+    WebIDBCallbacks* callbacks_ptr,
+    WebIDBDatabaseCallbacks* database_callbacks_ptr,
+    const string16& origin,
+    WebFrame* web_frame) {
+  ResetCursorPrefetchCaches();
+  scoped_ptr<WebIDBCallbacks> callbacks(callbacks_ptr);
+  scoped_ptr<WebIDBDatabaseCallbacks>
+      database_callbacks(database_callbacks_ptr);
+
+  if (!CurrentWorkerId() &&
+      !ChildThread::current()->IsWebFrameValid(web_frame))
+    return;
+
+  IndexedDBHostMsg_FactoryOpen_Params params;
+  params.thread_id = CurrentWorkerId();
+  params.response_id = pending_callbacks_.Add(callbacks.release());
+  params.database_response_id = pending_database_callbacks_.Add(
+      database_callbacks.release());
   params.origin = origin;
   params.name = name;
   params.version = version;
@@ -267,9 +298,10 @@ void IndexedDBDispatcher::RequestIDBDatabaseClose(int32 idb_database_id) {
     pending_database_callbacks_.Remove(idb_database_id);
 }
 
+// TODO(jsbell): Remove once WK90411 has rolled.
 void IndexedDBDispatcher::RequestIDBDatabaseOpen(
-      WebIDBDatabaseCallbacks* callbacks_ptr,
-      int32 idb_database_id) {
+    WebIDBDatabaseCallbacks* callbacks_ptr,
+    int32 idb_database_id) {
   ResetCursorPrefetchCaches();
   scoped_ptr<WebIDBDatabaseCallbacks> callbacks(callbacks_ptr);
 
@@ -740,6 +772,16 @@ void IndexedDBDispatcher::OnComplete(int32 thread_id, int32 transaction_id) {
     return;
   callbacks->onComplete();
   pending_transaction_callbacks_.Remove(transaction_id);
+}
+
+void IndexedDBDispatcher::OnForcedClose(int32 thread_id,
+                                        int32 database_id) {
+  DCHECK_EQ(thread_id, CurrentWorkerId());
+  WebIDBDatabaseCallbacks* callbacks =
+      pending_database_callbacks_.Lookup(database_id);
+  if (!callbacks)
+    return;
+  callbacks->onForcedClose();
 }
 
 void IndexedDBDispatcher::OnIntVersionChange(int32 thread_id,

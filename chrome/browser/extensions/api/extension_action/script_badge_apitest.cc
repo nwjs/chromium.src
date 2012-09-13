@@ -14,6 +14,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_action.h"
+#include "chrome/common/extensions/features/feature.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/mock_host_resolver.h"
@@ -23,11 +24,17 @@
 using extensions::Extension;
 
 class ScriptBadgeApiTest : public ExtensionApiTest {
+ public:
+  ScriptBadgeApiTest() : trunk_(chrome::VersionInfo::CHANNEL_UNKNOWN) {}
+
  protected:
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
     ExtensionApiTest::SetUpCommandLine(command_line);
     command_line->AppendSwitch(switches::kEnableScriptBadges);
   }
+
+ private:
+  extensions::Feature::ScopedCurrentChannel trunk_;
 };
 
 IN_PROC_BROWSER_TEST_F(ScriptBadgeApiTest, Basics) {
@@ -38,11 +45,12 @@ IN_PROC_BROWSER_TEST_F(ScriptBadgeApiTest, Basics) {
   ExtensionAction* script_badge = extension->script_badge();
   ASSERT_TRUE(script_badge);
   const extensions::LocationBarController* location_bar_controller =
-      chrome::GetActiveTabContents(browser())->extension_tab_helper()->
-      location_bar_controller();
+      extensions::TabHelper::FromWebContents(
+          chrome::GetActiveWebContents(browser()))->
+              location_bar_controller();
 
   const int tab_id = SessionID::IdForTab(
-      chrome::GetActiveTabContents(browser()));
+      chrome::GetActiveWebContents(browser()));
   EXPECT_EQ(GURL(extension->GetResourceURL("default_popup.html")),
             script_badge->GetPopupUrl(tab_id));
 

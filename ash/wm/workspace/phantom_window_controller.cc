@@ -15,6 +15,7 @@
 #include "ui/aura/window_delegate.h"
 #include "ui/aura/window_observer.h"
 #include "ui/base/animation/slide_animation.h"
+#include "ui/base/animation/tween.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/canvas.h"
@@ -34,6 +35,9 @@ const int kInsetSize = 4;
 
 // Size of the round rect used by EdgePainter.
 const int kRoundRectSize = 4;
+
+// Animation time for the phantom window state change.
+const int kAnimationDuration = 200;
 
 // Paints the background of the phantom window for window snapping.
 class EdgePainter : public views::Painter {
@@ -106,6 +110,8 @@ void PhantomWindowController::Show(const gfx::Rect& bounds, ui::Layer* layer) {
     start_bounds_ = phantom_widget_->GetWindowBoundsInScreen();
   }
   animation_.reset(new ui::SlideAnimation(this));
+  animation_->SetTweenType(ui::Tween::EASE_IN);
+  animation_->SetSlideDuration(kAnimationDuration);
   animation_->Show();
 }
 
@@ -166,6 +172,7 @@ void PhantomWindowController::CreatePhantomWidget(const gfx::Rect& bounds,
   phantom_widget_->Init(params);
   phantom_widget_->SetVisibilityChangedAnimationsEnabled(false);
   phantom_widget_->GetNativeWindow()->SetName("PhantomWindow");
+  phantom_widget_->GetNativeWindow()->set_id(kShellWindowId_PhantomWindow);
   if (style_ == STYLE_SHADOW) {
     views::View* content_view = new views::View;
     content_view->set_background(

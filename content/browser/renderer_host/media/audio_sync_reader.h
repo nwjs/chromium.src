@@ -11,6 +11,7 @@
 #include "base/synchronization/lock.h"
 #include "base/time.h"
 #include "media/audio/audio_output_controller.h"
+#include "media/base/audio_bus.h"
 
 namespace base {
 class SharedMemory;
@@ -22,13 +23,15 @@ class SharedMemory;
 // process.
 class AudioSyncReader : public media::AudioOutputController::SyncReader {
  public:
-  explicit AudioSyncReader(base::SharedMemory* shared_memory);
+  AudioSyncReader(base::SharedMemory* shared_memory,
+                  const media::AudioParameters& params,
+                  int input_channels);
 
   virtual ~AudioSyncReader();
 
   // media::AudioOutputController::SyncReader implementations.
   virtual void UpdatePendingBytes(uint32 bytes) OVERRIDE;
-  virtual uint32 Read(void* data, uint32 size) OVERRIDE;
+  virtual int Read(media::AudioBus* source, media::AudioBus* dest) OVERRIDE;
   virtual void Close() OVERRIDE;
   virtual bool DataReady() OVERRIDE;
 
@@ -44,12 +47,24 @@ class AudioSyncReader : public media::AudioOutputController::SyncReader {
   base::SharedMemory* shared_memory_;
   base::Time previous_call_time_;
 
+  // Number of input channels for synchronized I/O.
+  int input_channels_;
+
   // Socket for transmitting audio data.
   scoped_ptr<base::CancelableSyncSocket> socket_;
 
   // Socket to be used by the renderer. The reference is released after
   // PrepareForeignSocketHandle() is called and ran successfully.
   scoped_ptr<base::CancelableSyncSocket> foreign_socket_;
+
+  // Shared memory wrapper used for transferring audio data to Read() callers.
+  scoped_ptr<media::AudioBus> output_bus_;
+
+  // Shared memory wrapper used for transferring audio data from Read() callers.
+  scoped_ptr<media::AudioBus> input_bus_;
+
+  // Maximum amount of audio data which can be transferred in one Read() call.
+  int packet_size_;
 
   DISALLOW_COPY_AND_ASSIGN(AudioSyncReader);
 };

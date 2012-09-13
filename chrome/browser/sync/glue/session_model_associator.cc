@@ -553,8 +553,9 @@ void SessionModelAssociator::LoadFaviconForTab(TabLink* tab_link) {
   }
   DVLOG(1) << "Triggering favicon load for url " << tab_link->url().spec();
   FaviconService::Handle handle = favicon_service->GetRawFaviconForURL(
-      profile_, tab_link->url(), history::FAVICON, gfx::kFaviconSize,
-      ui::SCALE_FACTOR_100P, &load_consumer_,
+      FaviconService::FaviconForURLParams(profile_, tab_link->url(),
+          history::FAVICON, gfx::kFaviconSize, &load_consumer_),
+      ui::SCALE_FACTOR_100P,
       base::Bind(&SessionModelAssociator::OnFaviconDataAvailable,
                  AsWeakPtr()));
   load_consumer_.SetClientData(favicon_service, handle, tab_id);
@@ -681,9 +682,9 @@ void SessionModelAssociator::PopulateSessionSpecificsNavigation(
       tab_navigation->set_page_transition(
         sync_pb::SyncEnums_PageTransition_GENERATED);
       break;
-    case content::PAGE_TRANSITION_START_PAGE:
+    case content::PAGE_TRANSITION_AUTO_TOPLEVEL:
       tab_navigation->set_page_transition(
-        sync_pb::SyncEnums_PageTransition_START_PAGE);
+        sync_pb::SyncEnums_PageTransition_AUTO_TOPLEVEL);
       break;
     case content::PAGE_TRANSITION_FORM_SUBMIT:
       tab_navigation->set_page_transition(
@@ -1253,8 +1254,8 @@ void SessionModelAssociator::AppendSessionTabNavigation(
       case sync_pb::SyncEnums_PageTransition_GENERATED:
         transition = content::PAGE_TRANSITION_GENERATED;
         break;
-      case sync_pb::SyncEnums_PageTransition_START_PAGE:
-        transition = content::PAGE_TRANSITION_START_PAGE;
+      case sync_pb::SyncEnums_PageTransition_AUTO_TOPLEVEL:
+        transition = content::PAGE_TRANSITION_AUTO_TOPLEVEL;
         break;
       case sync_pb::SyncEnums_PageTransition_FORM_SUBMIT:
         transition = content::PAGE_TRANSITION_FORM_SUBMIT;

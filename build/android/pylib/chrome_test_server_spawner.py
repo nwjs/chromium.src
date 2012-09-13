@@ -25,7 +25,7 @@ import ports
 
 
 # Path that are needed to import necessary modules when running testserver.py.
-os.environ['PYTHONPATH'] += ':%s:%s:%s:%s' % (
+os.environ['PYTHONPATH'] = os.environ.get('PYTHONPATH', '') + ':%s:%s:%s:%s' % (
     os.path.join(constants.CHROME_DIR, 'third_party'),
     os.path.join(constants.CHROME_DIR, 'third_party', 'tlslite'),
     os.path.join(constants.CHROME_DIR, 'third_party', 'pyftpdlib', 'src'),
@@ -193,7 +193,8 @@ class TestServerThread(threading.Thread):
       if self.arguments.has_key('ssl-client-auth'):
         self.command_line.append('--ssl-client-auth')
       if self.arguments.has_key('tls-intolerant'):
-        self.command_line.append('--tls-intolerant')
+        self.command_line.append('--tls-intolerant=%s' %
+                                 self.arguments['tls-intolerant'])
       if self.arguments.has_key('ssl-client-ca'):
         for ca in self.arguments['ssl-client-ca']:
           self.command_line.append('--ssl-client-ca=%s' %

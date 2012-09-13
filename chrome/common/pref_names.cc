@@ -843,6 +843,11 @@ const char kPluginsEnabledInternalPDF[] = "plugins.enabled_internal_pdf3";
 // enable it by default, we'll want to do so only once.
 const char kPluginsEnabledNaCl[] = "plugins.enabled_nacl";
 
+// When bundled NPAPI Flash is removed, if at that point it is enabled while
+// Pepper Flash is disabled, we would like to turn on Pepper Flash. And we will
+// want to do so only once.
+const char kPluginsMigratedToPepperFlash[] = "plugins.migrated_to_pepper_flash";
+
 #if !defined(OS_ANDROID)
 const char kPluginsShowSetReaderDefaultInfobar[] =
     "plugins.show_set_reader_default";
@@ -947,10 +952,6 @@ const char kDefaultZoomLevel[] = "profile.default_zoom_level";
 // Dictionary that maps hostnames to zoom levels.  Hosts not in this pref will
 // be displayed at the default zoom level.
 const char kPerHostZoomLevels[] = "profile.per_host_zoom_levels";
-
-// Boolean that specifies whether or not a shortcut has been created for this
-// profile in multi-profiles mode.
-const char kProfileShortcutCreated[] = "profile.shortcut_created";
 
 // Boolean that is true if Autofill is enabled and allowed to save profile data.
 const char kAutofillEnabled[] = "autofill.enabled";
@@ -1390,6 +1391,11 @@ const char kRestartLastSessionOnShutdown[] = "restart.last.session.on.shutdown";
 // Set before autorestarting Chrome, cleared on clean exit.
 const char kWasRestarted[] = "was.restarted";
 
+#if defined(OS_WIN)
+// On Windows 8 chrome can restart in desktop or in metro mode.
+const char kRestartSwitchMode[] = "restart.switch_mode";
+#endif
+
 // Number of bookmarks/folders on the bookmark bar/other bookmark folder.
 const char kNumBookmarksOnBookmarkBar[] =
     "user_experience_metrics.num_bookmarks_on_bookmark_bar";
@@ -1822,9 +1828,6 @@ const char kTabStripLayoutType[] = "tab_strip_layout_type";
 
 // If true, cloud policy for the user is loaded once the user signs in.
 const char kLoadCloudPolicyOnSignin[] = "policy.load_cloud_policy_on_signin";
-
-// Debug information for SessionBackend.
-const char kSessionRestoreFilesCycled[] = "session_restore.files_cycled";
 
 // *************** SERVICE PREFS ***************
 // These are attached to the service process.

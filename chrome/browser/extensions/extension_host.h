@@ -20,7 +20,7 @@
 #include "content/public/browser/web_contents_observer.h"
 
 #if defined(TOOLKIT_VIEWS)
-#include "chrome/browser/ui/views/extensions/extension_view.h"
+#include "chrome/browser/ui/views/extensions/extension_view_views.h"
 #elif defined(OS_MACOSX)
 #include "chrome/browser/ui/cocoa/extensions/extension_view_mac.h"
 #elif defined(TOOLKIT_GTK)
@@ -55,7 +55,7 @@ class ExtensionHost : public content::WebContentsDelegate,
   class ProcessCreationQueue;
 
 #if defined(TOOLKIT_VIEWS)
-  typedef ExtensionView PlatformExtensionView;
+  typedef ExtensionViewViews PlatformExtensionView;
 #elif defined(OS_MACOSX)
   typedef ExtensionViewMac PlatformExtensionView;
 #elif defined(TOOLKIT_GTK)
@@ -163,7 +163,8 @@ class ExtensionHost : public content::WebContentsDelegate,
                               content::WebContents* new_contents,
                               WindowOpenDisposition disposition,
                               const gfx::Rect& initial_pos,
-                              bool user_gesture) OVERRIDE;
+                              bool user_gesture,
+                              bool* was_blocked) OVERRIDE;
   virtual void CloseContents(content::WebContents* contents) OVERRIDE;
   virtual void OnStartDownload(content::WebContents* source,
                                content::DownloadItem* download) OVERRIDE;

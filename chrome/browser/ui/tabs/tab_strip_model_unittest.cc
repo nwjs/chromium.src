@@ -1564,7 +1564,8 @@ TEST_F(TabStripModelTest, AddTabContents_NewTabAtEndOfStripInheritsGroup) {
 
   // Open page A
   TabContents* page_a_contents = CreateTabContents();
-  strip.AddTabContents(page_a_contents, -1, content::PAGE_TRANSITION_START_PAGE,
+  strip.AddTabContents(page_a_contents, -1,
+                       content::PAGE_TRANSITION_AUTO_TOPLEVEL,
                        TabStripModel::ADD_ACTIVE);
 
   // Open pages B, C and D in the background from links on page A...
@@ -1641,7 +1642,8 @@ TEST_F(TabStripModelTest, NavigationForgetsOpeners) {
 
   // Open page A
   TabContents* page_a_contents = CreateTabContents();
-  strip.AddTabContents(page_a_contents, -1, content::PAGE_TRANSITION_START_PAGE,
+  strip.AddTabContents(page_a_contents, -1,
+                       content::PAGE_TRANSITION_AUTO_TOPLEVEL,
                        TabStripModel::ADD_ACTIVE);
 
   // Open pages B, C and D in the background from links on page A...
@@ -1657,7 +1659,8 @@ TEST_F(TabStripModelTest, NavigationForgetsOpeners) {
 
   // Open page E in a different opener group from page A.
   TabContents* page_e_contents = CreateTabContents();
-  strip.AddTabContents(page_e_contents, -1, content::PAGE_TRANSITION_START_PAGE,
+  strip.AddTabContents(page_e_contents, -1,
+                       content::PAGE_TRANSITION_AUTO_TOPLEVEL,
                        TabStripModel::ADD_NONE);
 
   // Tell the TabStripModel that we are navigating page D via a link click.
@@ -1690,7 +1693,8 @@ TEST_F(TabStripModelTest, NavigationForgettingDoesntAffectNewTab) {
   // Open a tab and several tabs from it, then select one of the tabs that was
   // opened.
   TabContents* page_a_contents = CreateTabContents();
-  strip.AddTabContents(page_a_contents, -1, content::PAGE_TRANSITION_START_PAGE,
+  strip.AddTabContents(page_a_contents, -1,
+                       content::PAGE_TRANSITION_AUTO_TOPLEVEL,
                        TabStripModel::ADD_ACTIVE);
 
   TabContents* page_b_contents = CreateTabContents();
@@ -1828,9 +1832,11 @@ TEST_F(TabStripModelTest, Apps) {
                         &error));
   extension_app->launch_web_url_ = "http://www.google.com";
   TabContents* contents1 = CreateTabContents();
-  contents1->extension_tab_helper()->SetExtensionApp(extension_app);
+  extensions::TabHelper::FromWebContents(contents1->web_contents())->
+      SetExtensionApp(extension_app);
   TabContents* contents2 = CreateTabContents();
-  contents2->extension_tab_helper()->SetExtensionApp(extension_app);
+  extensions::TabHelper::FromWebContents(contents2->web_contents())->
+      SetExtensionApp(extension_app);
   TabContents* contents3 = CreateTabContents();
 
   SetID(contents1->web_contents(), 1);

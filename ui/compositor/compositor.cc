@@ -10,10 +10,11 @@
 #include "base/threading/thread_restrictions.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/images/SkImageEncoder.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/Platform.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorSupport.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebFloatPoint.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebRect.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebSize.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebCompositor.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorOutputSurface.h"
 #include "ui/compositor/compositor_observer.h"
 #include "ui/compositor/compositor_switches.h"
@@ -138,12 +139,14 @@ Compositor::Compositor(CompositorDelegate* delegate,
     : delegate_(delegate),
       root_layer_(NULL),
       widget_(widget),
-      root_web_layer_(WebKit::WebLayer::create()),
       swap_posted_(false),
       device_scale_factor_(0.0f),
       last_started_frame_(0),
       last_ended_frame_(0),
       disable_schedule_composite_(false) {
+  WebKit::WebCompositorSupport* compositor_support =
+      WebKit::Platform::current()->compositorSupport();
+  root_web_layer_.reset(compositor_support->createLayer());
   WebKit::WebLayerTreeView::Settings settings;
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   settings.showFPSCounter =
@@ -154,8 +157,8 @@ Compositor::Compositor(CompositorDelegate* delegate,
       test_compositor_enabled ? kTestRefreshRate : kDefaultRefreshRate;
 
   root_web_layer_->setAnchorPoint(WebKit::WebFloatPoint(0.f, 0.f));
-  host_.reset(WebKit::WebLayerTreeView::create(this, *root_web_layer_,
-                                               settings));
+  host_.reset(compositor_support->createLayerTreeView(this, *root_web_layer_,
+                                                      settings));
   host_->setSurfaceReady();
 }
 
@@ -175,18 +178,20 @@ Compositor::~Compositor() {
 
 void Compositor::Initialize(bool use_thread) {
   CommandLine* command_line = CommandLine::ForCurrentProcess();
+  WebKit::WebCompositorSupport* compositor_support =
+      WebKit::Platform::current()->compositorSupport();
   // These settings must be applied before we initialize the compositor.
-  WebKit::WebCompositor::setPartialSwapEnabled(
+  compositor_support->setPartialSwapEnabled(
       command_line->HasSwitch(switches::kUIEnablePartialSwap));
-  WebKit::WebCompositor::setPerTilePaintingEnabled(
+  compositor_support->setPerTilePaintingEnabled(
       command_line->HasSwitch(switches::kUIEnablePerTilePainting));
   if (use_thread)
     g_compositor_thread = new webkit_glue::WebThreadImpl("Browser Compositor");
-  WebKit::WebCompositor::initialize(g_compositor_thread);
+  compositor_support->initialize(g_compositor_thread);
 }
 
 void Compositor::Terminate() {
-  WebKit::WebCompositor::shutdown();
+  WebKit::Platform::current()->compositorSupport()->shutdown();
   if (g_compositor_thread) {
     delete g_compositor_thread;
     g_compositor_thread = NULL;
@@ -244,22 +249,12 @@ bool Compositor::ReadPixels(SkBitmap* bitmap,
   if (bounds_in_pixel.right() > size().width() ||
       bounds_in_pixel.bottom() > size().height())
     return false;
-  // Convert to OpenGL coordinates.
-  gfx::Point new_origin(
-      bounds_in_pixel.x(),
-      size().height() - bounds_in_pixel.height() - bounds_in_pixel.y());
-
   bitmap->setConfig(SkBitmap::kARGB_8888_Config,
                     bounds_in_pixel.width(), bounds_in_pixel.height());
   bitmap->allocPixels();
   SkAutoLockPixels lock_image(*bitmap);
   unsigned char* pixels = static_cast<unsigned char*>(bitmap->getPixels());
-  if (host_->compositeAndReadback(
-          pixels, gfx::Rect(new_origin, bounds_in_pixel.size()))) {
-    SwizzleRGBAToBGRAAndFlip(pixels, bounds_in_pixel.size());
-    return true;
-  }
-  return false;
+  return host_->compositeAndReadback(pixels, bounds_in_pixel);
 }
 
 void Compositor::SetScaleAndSize(float scale, const gfx::Size& size_in_pixel) {
@@ -413,29 +408,6 @@ void Compositor::didCompleteSwapBuffers() {
 void Compositor::scheduleComposite() {
   if (!disable_schedule_composite_)
     ScheduleDraw();
-}
-
-void Compositor::SwizzleRGBAToBGRAAndFlip(unsigned char* pixels,
-                                          const gfx::Size& image_size) {
-  // Swizzle from RGBA to BGRA
-  size_t bitmap_size = 4 * image_size.width() * image_size.height();
-  for (size_t i = 0; i < bitmap_size; i += 4)
-    std::swap(pixels[i], pixels[i + 2]);
-
-  // Vertical flip to transform from GL co-ords
-  size_t row_size = 4 * image_size.width();
-  scoped_array<unsigned char> tmp_row(new unsigned char[row_size]);
-  for (int row = 0; row < image_size.height() / 2; row++) {
-    memcpy(tmp_row.get(),
-           &pixels[row * row_size],
-           row_size);
-    memcpy(&pixels[row * row_size],
-           &pixels[bitmap_size - (row + 1) * row_size],
-           row_size);
-    memcpy(&pixels[bitmap_size - (row + 1) * row_size],
-           tmp_row.get(),
-           row_size);
-  }
 }
 
 void Compositor::NotifyEnd() {

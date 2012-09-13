@@ -74,7 +74,6 @@ class CONTENT_EXPORT MediaStreamImpl
       NON_EXPORTED_BASE(public webkit_media::MediaStreamClient),
       public MediaStreamDispatcherEventHandler,
       public base::SupportsWeakPtr<MediaStreamImpl>,
-      NON_EXPORTED_BASE(public content::P2PSocketDispatcherDestructionObserver),
       NON_EXPORTED_BASE(public base::NonThreadSafe) {
  public:
   MediaStreamImpl(
@@ -136,11 +135,6 @@ class CONTENT_EXPORT MediaStreamImpl
   // content::RenderViewObserver OVERRIDE
   virtual void FrameWillClose(WebKit::WebFrame* frame) OVERRIDE;
 
-  // content P2PSocketDispatcherDestructionObserver implementation.
-  // This is needed since all IpcNetworkManager must be deleted before the
-  // P2PSocketDispatcher is destroyed. MediaStreamImpl owns a IpcNetworkManager.
-  virtual void OnSocketDispatcherDestroyed() OVERRIDE;
-
  protected:
   // This function is virtual for test purposes. A test can override this to
   // test requesting local media streams. The function notifies WebKit that the
@@ -186,11 +180,8 @@ class CONTENT_EXPORT MediaStreamImpl
   scoped_refptr<media::VideoDecoder> CreateRemoteVideoDecoder(
       webrtc::MediaStreamInterface* stream,
       media::MessageLoopFactory* message_loop_factory);
-  LocalNativeStreamPtr CreateNativeLocalMediaStream(
-      const std::string& label,
-      WebKit::WebFrame* frame,
-      const WebKit::WebVector<WebKit::WebMediaStreamSource>& audio_sources,
-      const WebKit::WebVector<WebKit::WebMediaStreamSource>& video_sources);
+  bool CreateNativeLocalMediaStream(
+      WebKit::WebMediaStreamDescriptor* description);
 
   scoped_ptr<MediaStreamDependencyFactory> dependency_factory_;
 
@@ -198,9 +189,7 @@ class CONTENT_EXPORT MediaStreamImpl
   // valid for the lifetime of RenderView.
   MediaStreamDispatcher* media_stream_dispatcher_;
 
-  // p2p_socket_dispatcher_ is a weak reference, owned by RenderView. It's valid
-  // for the lifetime of RenderView.
-  content::P2PSocketDispatcher* p2p_socket_dispatcher_;
+  scoped_refptr<content::P2PSocketDispatcher> p2p_socket_dispatcher_;
 
   // We own network_manager_, must be deleted on the worker thread.
   // The network manager uses |p2p_socket_dispatcher_|.

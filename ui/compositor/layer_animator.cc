@@ -26,6 +26,16 @@ static const base::TimeDelta kDefaultTransitionDuration =
 static const base::TimeDelta kTimerInterval =
     base::TimeDelta::FromMilliseconds(10);
 
+// Returns the AnimationContainer we're added to.
+ui::AnimationContainer* GetAnimationContainer() {
+  static ui::AnimationContainer* container = NULL;
+  if (!container) {
+    container = new AnimationContainer();
+    container->AddRef();
+  }
+  return container;
+}
+
 }  // namespace
 
 // static
@@ -49,7 +59,8 @@ LayerAnimator::LayerAnimator(base::TimeDelta transition_duration)
 LayerAnimator::~LayerAnimator() {
   for (size_t i = 0; i < running_animations_.size(); ++i)
     running_animations_[i].sequence->OnAnimatorDestroyed();
-  ClearAnimations();
+  ClearAnimationsInternal();
+  delegate_ = NULL;
 }
 
 // static
@@ -148,11 +159,11 @@ float LayerAnimator::GetTargetGrayscale() const {
 }
 
 void LayerAnimator::SetDelegate(LayerAnimationDelegate* delegate) {
-  DCHECK(delegate);
   delegate_ = delegate;
 }
 
 void LayerAnimator::StartAnimation(LayerAnimationSequence* animation) {
+  scoped_refptr<LayerAnimator> retain(this);
   OnScheduled(animation);
   if (!StartSequenceImmediately(animation)) {
     // Attempt to preempt a running animation.
@@ -181,6 +192,7 @@ void LayerAnimator::StartAnimation(LayerAnimationSequence* animation) {
 }
 
 void LayerAnimator::ScheduleAnimation(LayerAnimationSequence* animation) {
+  scoped_refptr<LayerAnimator> retain(this);
   OnScheduled(animation);
   if (is_animating()) {
     animation_queue_.push_back(make_linked_ptr(animation));
@@ -193,6 +205,8 @@ void LayerAnimator::ScheduleAnimation(LayerAnimationSequence* animation) {
 
 void LayerAnimator::ScheduleTogether(
     const std::vector<LayerAnimationSequence*>& animations) {
+  scoped_refptr<LayerAnimator> retain(this);
+
   // Collect all the affected properties.
   LayerAnimationElement::AnimatableProperties animated_properties;
   std::vector<LayerAnimationSequence*>::const_iterator iter;
@@ -217,6 +231,23 @@ void LayerAnimator::ScheduleTogether(
   UpdateAnimationState();
 }
 
+void LayerAnimator::SchedulePauseForProperties(
+    base::TimeDelta duration,
+    LayerAnimationElement::AnimatableProperty property,
+    ...) {
+  ui::LayerAnimationElement::AnimatableProperties properties_to_pause;
+  va_list marker;
+  va_start(marker, property);
+  for (int p = static_cast<int>(property); p != -1; p = va_arg(marker, int)) {
+    properties_to_pause.insert(
+        static_cast<LayerAnimationElement::AnimatableProperty>(p));
+  }
+  va_end(marker);
+  ScheduleAnimation(new ui::LayerAnimationSequence(
+                        ui::LayerAnimationElement::CreatePauseElement(
+                            properties_to_pause, duration)));
+}
+
 bool LayerAnimator::IsAnimatingProperty(
     LayerAnimationElement::AnimatableProperty property) const {
   for (AnimationQueue::const_iterator queue_iter = animation_queue_.begin();
@@ -231,6 +262,7 @@ bool LayerAnimator::IsAnimatingProperty(
 
 void LayerAnimator::StopAnimatingProperty(
     LayerAnimationElement::AnimatableProperty property) {
+  scoped_refptr<LayerAnimator> retain(this);
   while (true) {
     RunningAnimation* running = GetRunningAnimation(property);
     if (!running)
@@ -240,6 +272,7 @@ void LayerAnimator::StopAnimatingProperty(
 }
 
 void LayerAnimator::StopAnimating() {
+  scoped_refptr<LayerAnimator> retain(this);
   while (is_animating())
     FinishAnimation(running_animations_[0].sequence);
 }
@@ -260,9 +293,12 @@ void LayerAnimator::RemoveObserver(LayerAnimationObserver* observer) {
 
 // LayerAnimator protected -----------------------------------------------------
 
-bool LayerAnimator::ProgressAnimation(LayerAnimationSequence* sequence,
+void LayerAnimator::ProgressAnimation(LayerAnimationSequence* sequence,
                                       base::TimeDelta delta) {
-  return sequence->Progress(delta, delegate());
+  if (!delegate())
+    return;
+
+  sequence->Progress(delta, delegate());
 }
 
 
@@ -279,13 +315,14 @@ bool LayerAnimator::HasAnimation(LayerAnimationSequence* sequence) const {
 
 void LayerAnimator::Step(base::TimeTicks now) {
   TRACE_EVENT0("ui", "LayerAnimator::Step");
+  scoped_refptr<LayerAnimator> retain(this);
 
   last_step_time_ = now;
+
   // We need to make a copy of the running animations because progressing them
   // and finishing them may indirectly affect the collection of running
   // animations.
   RunningAnimations running_animations_copy = running_animations_;
-  bool needs_redraw = false;
   for (size_t i = 0; i < running_animations_copy.size(); ++i) {
     if (!HasAnimation(running_animations_copy[i].sequence))
       continue;
@@ -294,12 +331,9 @@ void LayerAnimator::Step(base::TimeTicks now) {
     if (delta >= running_animations_copy[i].sequence->duration() &&
         !running_animations_copy[i].sequence->is_cyclic()) {
       FinishAnimation(running_animations_copy[i].sequence);
-    } else if (ProgressAnimation(running_animations_copy[i].sequence, delta))
-      needs_redraw = true;
+    } else
+      ProgressAnimation(running_animations_copy[i].sequence, delta);
   }
-
-  if (needs_redraw && delegate())
-    delegate()->ScheduleDrawForAnimation();
 }
 
 void LayerAnimator::SetStartTime(base::TimeTicks start_time) {
@@ -314,17 +348,11 @@ void LayerAnimator::UpdateAnimationState() {
   if (disable_timer_for_test_)
     return;
 
-  static ui::AnimationContainer* container = NULL;
-  if (!container) {
-    container = new AnimationContainer();
-    container->AddRef();
-  }
-
   const bool should_start = is_animating();
   if (should_start && !is_started_)
-    container->Start(this);
+    GetAnimationContainer()->Start(this);
   else if (!should_start && is_started_)
-    container->Stop(this);
+    GetAnimationContainer()->Stop(this);
 
   is_started_ = should_start;
 }
@@ -356,13 +384,16 @@ LayerAnimationSequence* LayerAnimator::RemoveAnimation(
 }
 
 void LayerAnimator::FinishAnimation(LayerAnimationSequence* sequence) {
+  scoped_refptr<LayerAnimator> retain(this);
   scoped_ptr<LayerAnimationSequence> removed(RemoveAnimation(sequence));
-  sequence->Progress(sequence->duration(), delegate());
+  if (delegate())
+    sequence->Progress(sequence->duration(), delegate());
   ProcessQueue();
   UpdateAnimationState();
 }
 
 void LayerAnimator::FinishAnyAnimationWithZeroDuration() {
+  scoped_refptr<LayerAnimator> retain(this);
   // Special case: if we've started a 0 duration animation, just finish it now
   // and get rid of it. We need to make a copy because Progress may indirectly
   // cause new animations to start running.
@@ -372,8 +403,8 @@ void LayerAnimator::FinishAnyAnimationWithZeroDuration() {
       continue;
 
     if (running_animations_copy[i].sequence->duration() == base::TimeDelta()) {
-      running_animations_copy[i].sequence->Progress(
-          running_animations_copy[i].sequence->duration(), delegate());
+      ProgressAnimation(running_animations_copy[i].sequence,
+                        running_animations_copy[i].sequence->duration());
       scoped_ptr<LayerAnimationSequence> removed(
           RemoveAnimation(running_animations_copy[i].sequence));
     }
@@ -383,23 +414,8 @@ void LayerAnimator::FinishAnyAnimationWithZeroDuration() {
 }
 
 void LayerAnimator::ClearAnimations() {
-  // Abort should never affect the set of running animations, but just in case
-  // clients are badly behaved, we will use a copy of the running animations.
-  RunningAnimations running_animations_copy = running_animations_;
-  for (size_t i = 0; i < running_animations_copy.size(); ++i) {
-    if (!HasAnimation(running_animations_copy[i].sequence))
-      continue;
-
-    scoped_ptr<LayerAnimationSequence> removed(
-        RemoveAnimation(running_animations_copy[i].sequence));
-    if (removed.get())
-      removed->Abort();
-  }
-  // This *should* have cleared the list of running animations.
-  DCHECK(running_animations_.empty());
-  running_animations_.clear();
-  animation_queue_.clear();
-  UpdateAnimationState();
+  scoped_refptr<LayerAnimator> retain(this);
+  ClearAnimationsInternal();
 }
 
 LayerAnimator::RunningAnimation* LayerAnimator::GetRunningAnimation(
@@ -446,8 +462,8 @@ void LayerAnimator::RemoveAllAnimationsWithACommonProperty(
       if (abort)
         running_animations_copy[i].sequence->Abort();
       else
-        running_animations_copy[i].sequence->Progress(
-            running_animations_copy[i].sequence->duration(), delegate());
+        ProgressAnimation(running_animations_copy[i].sequence,
+                          running_animations_copy[i].sequence->duration());
     }
   }
 
@@ -468,7 +484,7 @@ void LayerAnimator::RemoveAllAnimationsWithACommonProperty(
       if (abort)
         sequences[i]->Abort();
       else
-        sequences[i]->Progress(sequences[i]->duration(), delegate());
+        ProgressAnimation(sequences[i], sequences[i]->duration());
     }
   }
 }
@@ -480,7 +496,7 @@ void LayerAnimator::ImmediatelySetNewTarget(LayerAnimationSequence* sequence) {
   RemoveAllAnimationsWithACommonProperty(sequence, abort);
   LayerAnimationSequence* removed = RemoveAnimation(sequence);
   DCHECK(removed == NULL || removed == sequence);
-  sequence->Progress(sequence->duration(), delegate());
+  ProgressAnimation(sequence, sequence->duration());
 }
 
 void LayerAnimator::ImmediatelyAnimateToNewTarget(
@@ -578,9 +594,16 @@ bool LayerAnimator::StartSequenceImmediately(LayerAnimationSequence* sequence) {
   // a resolution that can be as bad as 15ms. If this causes glitches in the
   // animations, this can be switched to HighResNow() (animation uses Now()
   // internally).
-  base::TimeTicks start_time = is_animating()
-      ? last_step_time_
-      : base::TimeTicks::Now();
+  // All LayerAnimators share the same AnimationContainer. Use the
+  // last_tick_time() from there to ensure animations started during the same
+  // event complete at the same time.
+  base::TimeTicks start_time;
+  if (is_animating())
+    start_time = last_step_time_;
+  else if (GetAnimationContainer()->is_running())
+    start_time = GetAnimationContainer()->last_tick_time();
+  else
+    start_time = base::TimeTicks::Now();
 
   running_animations_.push_back(RunningAnimation(sequence, start_time));
 
@@ -614,6 +637,26 @@ void LayerAnimator::OnScheduled(LayerAnimationSequence* sequence) {
 
 base::TimeDelta LayerAnimator::GetTransitionDuration() const {
   return transition_duration_;
+}
+
+void LayerAnimator::ClearAnimationsInternal() {
+  // Abort should never affect the set of running animations, but just in case
+  // clients are badly behaved, we will use a copy of the running animations.
+  RunningAnimations running_animations_copy = running_animations_;
+  for (size_t i = 0; i < running_animations_copy.size(); ++i) {
+    if (!HasAnimation(running_animations_copy[i].sequence))
+      continue;
+
+    scoped_ptr<LayerAnimationSequence> removed(
+        RemoveAnimation(running_animations_copy[i].sequence));
+    if (removed.get())
+      removed->Abort();
+  }
+  // This *should* have cleared the list of running animations.
+  DCHECK(running_animations_.empty());
+  running_animations_.clear();
+  animation_queue_.clear();
+  UpdateAnimationState();
 }
 
 }  // namespace ui

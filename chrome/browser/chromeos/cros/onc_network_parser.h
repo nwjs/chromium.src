@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_CHROMEOS_CROS_ONC_NETWORK_PARSER_H_
 
 #include <string>
+#include <vector>
 
 #include "base/compiler_specific.h"  // for OVERRIDE
 #include "base/gtest_prod_util.h"
@@ -59,6 +60,12 @@ class OncNetworkParser : public NetworkParser {
                    NetworkUIData::ONCSource onc_source);
   virtual ~OncNetworkParser();
   static const EnumMapper<PropertyIndex>* property_mapper();
+
+  // Certificates pushed from a policy source with Web trust are only imported
+  // with ParseCertificate() if this permission is granted.
+  void set_allow_web_trust_from_policy(bool allow) {
+    allow_web_trust_from_policy_ = allow;
+  }
 
   // Returns the number of networks in the "NetworkConfigs" list.
   int GetNetworkConfigsSize() const;
@@ -141,7 +148,7 @@ class OncNetworkParser : public NetworkParser {
   static std::string GetPkcs11IdFromCertGuid(const std::string& guid);
 
   // Process ProxySettings dictionary into a format which is then updated into
-  // ProxyConfig property in flimflam.
+  // ProxyConfig property in shill.
   static bool ProcessProxySettings(OncNetworkParser* parser,
                                    const base::Value& value,
                                    Network* network);
@@ -225,6 +232,10 @@ class OncNetworkParser : public NetworkParser {
 
   // Where the ONC blob comes from.
   NetworkUIData::ONCSource onc_source_;
+
+  // Whether certificates with Web trust should be stored when pushed from a
+  // policy source.
+  bool allow_web_trust_from_policy_;
 
   scoped_ptr<base::DictionaryValue> root_dict_;
   base::ListValue* network_configs_;

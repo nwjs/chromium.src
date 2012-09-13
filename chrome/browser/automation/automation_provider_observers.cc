@@ -819,9 +819,10 @@ void BrowserOpenedNotificationObserver::Observe(
     // Only send the result if the loaded tab is in the new window.
     NavigationController* controller =
         content::Source<NavigationController>(source).ptr();
-    TabContents* tab =
-        TabContents::FromWebContents(controller->GetWebContents());
-    int window_id = tab ? tab->session_tab_helper()->window_id().id() : -1;
+    SessionTabHelper* session_tab_helper =
+        SessionTabHelper::FromWebContents(controller->GetWebContents());
+    int window_id = session_tab_helper ? session_tab_helper->window_id().id()
+                                       : -1;
     if (window_id == new_window_id_) {
       if (use_json_interface_) {
         AutomationJSONReply(automation_,
@@ -1431,21 +1432,13 @@ AllDownloadsCompleteObserver::AllDownloadsCompleteObserver(
 
 AllDownloadsCompleteObserver::~AllDownloadsCompleteObserver() {}
 
-void AllDownloadsCompleteObserver::ModelChanged(DownloadManager* manager) {
-  DCHECK_EQ(manager, download_manager_);
-  // The set of downloads in the download manager has changed.  If there are
-  // any new downloads that are still in progress, add them to the pending list.
-  std::vector<DownloadItem*> downloads;
-  download_manager_->GetAllDownloads(FilePath(), &downloads);
-  for (std::vector<DownloadItem*>::iterator it = downloads.begin();
-       it != downloads.end(); ++it) {
-    if ((*it)->GetState() == DownloadItem::IN_PROGRESS &&
-        pre_download_ids_.find((*it)->GetId()) == pre_download_ids_.end()) {
-      (*it)->AddObserver(this);
-      pending_downloads_.insert(*it);
-    }
+
+void AllDownloadsCompleteObserver::OnDownloadCreated(
+    DownloadManager* manager, DownloadItem* item) {
+  if (pre_download_ids_.find(item->GetId()) == pre_download_ids_.end()) {
+    item->AddObserver(this);
+    pending_downloads_.insert(item);
   }
-  ReplyIfNecessary();
 }
 
 void AllDownloadsCompleteObserver::OnDownloadUpdated(DownloadItem* download) {
@@ -2092,11 +2085,11 @@ void AppLaunchObserver::Observe(int type,
   }
 
   DCHECK_EQ(content::NOTIFICATION_LOAD_STOP, type);
-  TabContents* tab = TabContents::FromWebContents(
+  SessionTabHelper* session_tab_helper = SessionTabHelper::FromWebContents(
       content::Source<NavigationController>(source)->GetWebContents());
   if ((launch_container_ == extension_misc::LAUNCH_TAB) ||
-      (tab &&
-          (tab->session_tab_helper()->window_id().id() == new_window_id_))) {
+      (session_tab_helper &&
+          (session_tab_helper->window_id().id() == new_window_id_))) {
     if (automation_) {
       AutomationJSONReply(automation_,
                           reply_message_.release()).SendSuccess(NULL);
@@ -2742,9 +2735,10 @@ void BrowserOpenedWithNewProfileNotificationObserver::Observe(
     // Only send the result if the loaded tab is in the new window.
     NavigationController* controller =
         content::Source<NavigationController>(source).ptr();
-    TabContents* tab =
-        TabContents::FromWebContents(controller->GetWebContents());
-    int window_id = tab ? tab->session_tab_helper()->window_id().id() : -1;
+    SessionTabHelper* session_tab_helper =
+        SessionTabHelper::FromWebContents(controller->GetWebContents());
+    int window_id = session_tab_helper ? session_tab_helper->window_id().id()
+                                       : -1;
     if (window_id == new_window_id_) {
       if (automation_) {
         AutomationJSONReply(automation_, reply_message_.release())
@@ -2850,9 +2844,10 @@ void BrowserOpenedWithExistingProfileNotificationObserver::Observe(
     // Only consider if the loaded tab is in the new window.
     NavigationController* controller =
         content::Source<NavigationController>(source).ptr();
-    TabContents* tab = TabContents::FromWebContents(
-        controller->GetWebContents());
-    int window_id = tab ? tab->session_tab_helper()->window_id().id() : -1;
+    SessionTabHelper* session_tab_helper =
+        SessionTabHelper::FromWebContents(controller->GetWebContents());
+    int window_id = session_tab_helper ? session_tab_helper->window_id().id()
+                                       : -1;
     if (window_id == new_window_id_ && --num_loads_ == 0) {
       if (automation_) {
         AutomationJSONReply(automation_, reply_message_.release())

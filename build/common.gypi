@@ -472,8 +472,14 @@
         }],
 
         ['OS=="ios"', {
-          'enable_automation%': 0,
+          'configuration_policy%': 0,
           'disable_ftp_support%': 1,
+          'enable_automation%': 0,
+          'enable_extensions%': 0,
+          'enable_printing%': 0,
+          'enable_themes%': 0,
+          'enable_webrtc%': 0,
+          'notifications%': 0,
           'remoting%': 0,
         }],
 
@@ -630,6 +636,9 @@
 
     # Use system yasm instead of bundled one.
     'use_system_yasm%': 0,
+
+    # Use compositor implementation in cc/ instead of in WebKit.
+    'use_libcc_for_compositor%': 1,
 
     # Default to enabled PIE; this is important for ASLR but we may need to be
     # able to turn it off for various reasons.
@@ -922,6 +931,7 @@
       }],  # os_posix==1 and OS!="mac" and OS!="ios"
       ['OS=="ios"', {
         'disable_nacl%': 1,
+        'enable_gpu%': 0,
         'icu_use_data_file_flag%': 1,
         'use_system_bzip2%': 1,
         'use_system_libxml%': 1,
@@ -1084,14 +1094,6 @@
             # are too large and the toolchain fails due to the size of the
             # .obj files.
             'incremental_chrome_dll%': 1,
-          }],
-          # Whether to use multiple cores to compile with visual studio. This is
-          # optional because it sometimes causes corruption on VS 2005.
-          # It is on by default on VS 2008 and off on VS 2005.
-          ['MSVS_VERSION=="2005"', {
-            'msvs_multi_core_compile%': 0,
-          },{
-            'msvs_multi_core_compile%': 1,
           }],
           # Don't do incremental linking for large modules on 32-bit.
           ['MSVS_OS_BITS==32', {
@@ -1284,12 +1286,14 @@
       'browser/resources/default_apps/gmail.crx',
       'browser/resources/default_apps/search.crx',
       'browser/resources/default_apps/youtube.crx',
+      'browser/resources/default_apps/drive.crx',
     ],
     'default_apps_list_linux_dest': [
       '<(PRODUCT_DIR)/default_apps/external_extensions.json',
       '<(PRODUCT_DIR)/default_apps/gmail.crx',
       '<(PRODUCT_DIR)/default_apps/search.crx',
       '<(PRODUCT_DIR)/default_apps/youtube.crx',
+      '<(PRODUCT_DIR)/default_apps/drive.crx',
     ],
   },
   'target_defaults': {
@@ -2384,6 +2388,9 @@
               # Warns on switches on enums that cover all enum values but
               # also contain a default: branch. Chrome is full of that.
               '-Wno-covered-switch-default',
+
+              # TODO(thakis): Remove this.
+              '-Wno-implicit-conversion-floating-point-to-bool',
             ],
             'cflags!': [
               # Clang doesn't seem to know know this flag.
@@ -2541,6 +2548,12 @@
     ['OS=="android"', {
       'variables': {
         'target_arch%': 'arm',  # target_arch in android terms.
+        # This is the id for the archived chrome symbols. Each build that
+        # archives symbols is assigned an id which is then added to GYP_DEFINES.
+        # This is written to the device log on crashes just prior to dropping a
+        # tombstone. Tools can determine the location of the archived symbols
+        # from the id.
+        'chrome_symbols_id%': '',
         'conditions': [
           # Android uses x86 instead of ia32 for their target_arch designation.
           ['target_arch=="ia32"', {
@@ -2625,6 +2638,7 @@
               '__GNU_SOURCE=1',  # Necessary for clone()
               'USE_STLPORT=1',
               '_STLP_USE_PTR_SPECIALIZATIONS=1',
+              'CHROME_SYMBOLS_ID="<(chrome_symbols_id)"',
             ],
             'ldflags!': [
               '-pthread',  # Not supported by Android toolchain.
@@ -2897,6 +2911,9 @@
                 # Warns on switches on enums that cover all enum values but
                 # also contain a default: branch. Chrome is full of that.
                 '-Wno-covered-switch-default',
+
+                # TODO(thakis): Remove this.
+                '-Wno-implicit-conversion-floating-point-to-bool',
               ],
             }],
             ['clang==1 and clang_use_chrome_plugins==1', {
@@ -3218,6 +3235,7 @@
         ],
         'msvs_settings': {
           'VCCLCompilerTool': {
+            'AdditionalOptions': ['/MP'],
             'MinimalRebuild': 'false',
             'BufferSecurityCheck': 'true',
             'EnableFunctionLevelLinking': 'true',
@@ -3226,12 +3244,6 @@
             'WarnAsError': 'true',
             'DebugInformationFormat': '3',
             'conditions': [
-              ['msvs_multi_core_compile', {
-                'AdditionalOptions': ['/MP'],
-              }],
-              ['MSVS_VERSION=="2005e"', {
-                'AdditionalOptions': ['/w44068'], # Unknown pragma to 4 (ATL)
-              }],
               ['component=="shared_library"', {
                 'ExceptionHandling': '1',  # /EHsc
               }, {

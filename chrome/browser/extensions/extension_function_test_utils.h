@@ -54,6 +54,33 @@ scoped_refptr<extensions::Extension> CreateEmptyExtension();
 scoped_refptr<extensions::Extension> CreateEmptyExtensionWithLocation(
     extensions::Extension::Location location);
 
+// Creates an empty extension with a variable ID, for tests that require
+// multiple extensions side-by-side having distinct IDs. If not empty, then
+// id_input is passed directly to Extension::CreateId() and thus has the same
+// behavior as that method. If id_input is empty, then Extension::Create()
+// receives an empty explicit ID and generates an appropriate ID for a blank
+// extension.
+scoped_refptr<extensions::Extension> CreateEmptyExtension(
+    const std::string& id_input);
+
+scoped_refptr<extensions::Extension> CreateExtension(
+    extensions::Extension::Location location,
+    base::DictionaryValue* test_extension_value,
+    const std::string& id_input);
+
+// Creates an extension instance with a specified extension value that can be
+// attached to an ExtensionFunction before running.
+scoped_refptr<extensions::Extension> CreateExtension(
+    base::DictionaryValue* test_extension_value);
+
+scoped_refptr<extensions::Extension> CreateExtension(
+    extensions::Extension::Location location,
+    base::DictionaryValue* test_extension_value);
+
+// Returns true if |val| contains privacy information, e.g. url,
+// title, and faviconUrl.
+bool HasPrivacySensitiveFields(base::DictionaryValue* val);
+
 enum RunFunctionFlags {
   NONE = 0,
   INCLUDE_INCOGNITO = 1 << 0

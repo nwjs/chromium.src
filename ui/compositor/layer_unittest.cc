@@ -803,6 +803,7 @@ TEST_F(LayerWithNullDelegateTest, SetBoundsSchedulesPaint) {
 }
 
 // Checks that pixels are actually drawn to the screen with a read back.
+// Currently disabled on all platforms, see http://crbug.com/148709.
 TEST_F(LayerWithRealCompositorTest, MAYBE_DrawPixels) {
   scoped_ptr<Layer> layer(CreateColorLayer(SK_ColorRED,
                                            gfx::Rect(0, 0, 500, 500)));

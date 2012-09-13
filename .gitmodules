@@ -118,10 +118,6 @@
 	path = native_client
 	url = http://git.chromium.org/native_client/src/native_client.git
 	os = all
-[submodule "native_client/src/third_party/ppapi"]
-	path = native_client/src/third_party/ppapi
-	url = 
-	os = ios
 [submodule "native_client_sdk/src/site_scons"]
 	path = native_client_sdk/src/site_scons
 	url = http://git.chromium.org/native_client/src/native_client/site_scons.git
@@ -154,26 +150,6 @@
 	path = third_party/WebKit
 	url = http://git.chromium.org/external/WebKit_trimmed.git
 	os = all
-[submodule "third_party/WebKit/LayoutTests"]
-	path = third_party/WebKit/LayoutTests
-	url = 
-	os = ios
-[submodule "third_party/WebKit/Source"]
-	path = third_party/WebKit/Source
-	url = 
-	os = ios
-[submodule "third_party/WebKit/Tools/DumpRenderTree"]
-	path = third_party/WebKit/Tools/DumpRenderTree
-	url = 
-	os = ios
-[submodule "third_party/WebKit/Tools/Scripts"]
-	path = third_party/WebKit/Tools/Scripts
-	url = 
-	os = ios
-[submodule "third_party/WebKit/Tools/TestWebKitAPI"]
-	path = third_party/WebKit/Tools/TestWebKitAPI
-	url = 
-	os = ios
 [submodule "third_party/android_tools"]
 	path = third_party/android_tools
 	url = http://git.chromium.org/git/android_tools.git

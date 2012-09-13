@@ -13,7 +13,6 @@
 #include "base/string_number_conversions.h"
 #include "base/test/test_file_util.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/captive_portal/captive_portal_service.h"
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/io_thread.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -49,6 +48,10 @@
 #include "chrome/browser/chromeos/audio/audio_handler.h"
 #elif defined(OS_MACOSX)
 #include "base/mac/scoped_nsautorelease_pool.h"
+#endif
+
+#if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
+#include "chrome/browser/captive_portal/captive_portal_service.h"
 #endif
 
 namespace {
@@ -145,7 +148,8 @@ void InProcessBrowserTest::SetUp() {
 #endif
 
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
-  captive_portal::CaptivePortalService::set_is_disabled_for_testing(true);
+  captive_portal::CaptivePortalService::set_state_for_testing(
+      captive_portal::CaptivePortalService::DISABLED_FOR_TESTING);
 #endif
 
   google_util::SetMockLinkDoctorBaseURLForTesting();
@@ -179,10 +183,6 @@ void InProcessBrowserTest::PrepareTestCommandLine(CommandLine* command_line) {
   // TODO(pkotwicz): Investigate if we can remove this switch.
   command_line->AppendSwitch(switches::kDisableZeroBrowsersOpenForTests);
 
-  if (!command_line->HasSwitch(switches::kHomePage)) {
-    command_line->AppendSwitchASCII(
-        switches::kHomePage, chrome::kAboutBlankURL);
-  }
   if (command_line->GetArgs().empty())
     command_line->AppendArg(chrome::kAboutBlankURL);
 }
@@ -277,7 +277,7 @@ void InProcessBrowserTest::AddBlankTabAndShow(Browser* browser) {
       content::NOTIFICATION_LOAD_STOP,
       content::NotificationService::AllSources());
   chrome::AddSelectedTabWithURL(browser, GURL(chrome::kAboutBlankURL),
-                                content::PAGE_TRANSITION_START_PAGE);
+                                content::PAGE_TRANSITION_AUTO_TOPLEVEL);
   observer.Wait();
 
   browser->window()->Show();
@@ -291,7 +291,7 @@ CommandLine InProcessBrowserTest::GetCommandLineForRelaunch() {
   switches.erase(switches::kUserDataDir);
   switches.erase(test_launcher::kSingleProcessTestsFlag);
   switches.erase(test_launcher::kSingleProcessTestsAndChromeFlag);
-  new_command_line.AppendSwitch(ChromeTestSuite::kLaunchAsBrowser);
+  new_command_line.AppendSwitch(test_launcher::kLaunchAsBrowser);
 
 #if defined(USE_AURA)
   // Copy what UITestBase::SetLaunchSwitches() does, and also what

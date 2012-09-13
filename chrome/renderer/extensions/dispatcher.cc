@@ -232,20 +232,37 @@ class LoggingNativeHandler : public NativeHandler {
     bool check_value = args[0]->BooleanValue();
     std::string error_message;
     if (args.Length() == 2)
-      error_message += "Error: " + std::string(*v8::String::AsciiValue(args[1]))
-          + "\n";
+      error_message = "Error: " + std::string(*v8::String::AsciiValue(args[1]));
 
-    v8::Handle<v8::Array> stack_trace(
-        v8::StackTrace::CurrentStackTrace(10)->AsArray());
-    error_message += "Stack trace: {\n";
-    for (size_t i = 0; i < stack_trace->Length(); i++) {
-      error_message += "  "
-          + std::string(*v8::String::AsciiValue(stack_trace->Get(i))) + "\n";
+    v8::Handle<v8::StackTrace> stack_trace =
+        v8::StackTrace::CurrentStackTrace(10);
+    if (stack_trace.IsEmpty() || stack_trace->GetFrameCount() == 0) {
+      error_message += "\n    <no stack trace>";
+    } else {
+      for (size_t i = 0; i < (size_t) stack_trace->GetFrameCount(); ++i) {
+        v8::Handle<v8::StackFrame> frame = stack_trace->GetFrame(i);
+        CHECK(!frame.IsEmpty());
+        error_message += base::StringPrintf("\n    at %s (%s:%d:%d)",
+            ToStringOrDefault(frame->GetFunctionName(), "<anonymous>").c_str(),
+            ToStringOrDefault(frame->GetScriptName(), "<anonymous>").c_str(),
+            frame->GetLineNumber(),
+            frame->GetColumn());
+      }
     }
-    error_message += "}";
     DCHECK(check_value) << error_message;
+    LOG(WARNING) << error_message;
     return v8::Undefined();
   }
+
+ private:
+  std::string ToStringOrDefault(const v8::Handle<v8::String>& v8_string,
+                                  const std::string& dflt) {
+    if (v8_string.IsEmpty())
+      return dflt;
+    std::string ascii_value = *v8::String::AsciiValue(v8_string);
+    return ascii_value.empty() ? dflt : ascii_value;
+  }
+
 };
 
 void InstallAppBindings(ModuleSystem* module_system,
@@ -671,6 +688,7 @@ void Dispatcher::PopulateSourceMap() {
   // Platform app sources that are not API-specific..
   source_map_.RegisterSource("browserTag", IDR_BROWSER_TAG_JS);
   source_map_.RegisterSource("platformApp", IDR_PLATFORM_APP_JS);
+  source_map_.RegisterSource("injectAppTitlebar", IDR_INJECT_APP_TITLEBAR_JS);
 }
 
 void Dispatcher::PopulateLazyBindingsMap() {
@@ -1066,19 +1084,7 @@ bool Dispatcher::CheckCurrentContextAccessToExtensionAPI(
     return false;
   }
 
-  // We need to whitelist tabs.executeScript and tabs.insertCSS because they
-  // are granted under special circumstances with the activeTab permission
-  // (note that the browser checks too, so this isn't a security problem).
-  //
-  // Only the browser knows which tab this call will be sent to... sometimes we
-  // *could* figure it out (if the extension gives an explicit tab ID in the
-  // call), but the expected case will be the extension passing through -1,
-  // meaning the active tab, and only the browser safely knows what this is.
-  bool skip_permission_check = (function_name == "tabs.executeScript") ||
-                               (function_name == "tabs.insertCSS");
-
-  if (!skip_permission_check &&
-      !context->extension()->HasAPIPermission(function_name)) {
+  if (!context->extension()->HasAPIPermission(function_name)) {
     static const char kMessage[] =
         "You do not have permission to use '%s'. Be sure to declare"
         " in your manifest what permissions you need.";

@@ -7,6 +7,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
+#include "base/cancelable_callback.h"
 #include "base/command_line.h"
 #include "base/hash_tables.h"
 #include "base/logging.h"
@@ -32,8 +33,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/net/gaia/gaia_auth_util.h"
-#include "chrome/common/net/gaia/gaia_urls.h"
 #include "chrome/common/url_constants.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/power_manager_client.h"
@@ -42,6 +41,9 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "google_apis/gaia/gaia_auth_util.h"
+#include "google_apis/gaia/gaia_switches.h"
+#include "google_apis/gaia/gaia_urls.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -79,6 +81,9 @@ const char kKeyOauthTokenStatus[] = "oauthTokenStatus";
 
 // Max number of users to show.
 const size_t kMaxUsers = 5;
+
+// Timeout to smooth temporary network state transitions for flaky networks.
+const int kNetworkStateCheckDelayMs = 5000;
 
 const char kReasonNetworkChanged[] = "network changed";
 const char kReasonProxyChanged[] = "proxy changed";
@@ -149,10 +154,10 @@ class NetworkStateInformer
   // CaptivePortalWindowProxyDelegate implementation:
   virtual void OnPortalDetected() OVERRIDE;
 
-  // Returns active network's service path. It can be used to uniquely
+  // Returns active network's ID. It can be used to uniquely
   // identify the network.
-  std::string active_network_service_path() {
-    return active_network_service_path_;
+  std::string active_network_id() {
+    return last_online_network_id_;
   }
 
   bool is_online() { return state_ == ONLINE; }
@@ -161,17 +166,20 @@ class NetworkStateInformer
   enum State {OFFLINE, ONLINE, CAPTIVE_PORTAL};
 
   bool UpdateState(chromeos::NetworkLibrary* cros);
+  void UpdateStateAndNotify();
 
   void SendStateToObservers(const std::string& reason);
 
   content::NotificationRegistrar registrar_;
   base::hash_set<std::string> observers_;
-  std::string active_network_service_path_;
   ConnectionType last_network_type_;
   std::string network_name_;
   State state_;
   SigninScreenHandler* handler_;
   content::WebUI* web_ui_;
+  base::CancelableClosure check_state_;
+  std::string last_online_network_id_;
+  std::string last_connected_network_id_;
 };
 
 // NetworkStateInformer implementation -----------------------------------------
@@ -220,8 +228,35 @@ void NetworkStateInformer::SendState(const std::string& callback,
 }
 
 void NetworkStateInformer::OnNetworkManagerChanged(NetworkLibrary* cros) {
-  if (UpdateState(cros)) {
-    SendStateToObservers(kReasonNetworkChanged);
+  State new_state = OFFLINE;
+  std::string new_network_id;
+  const Network* active_network = cros->active_network();
+  if (active_network) {
+    if (active_network->online()) {
+      new_state = ONLINE;
+      new_network_id = active_network->unique_id();
+    } else if (active_network->restricted_pool()) {
+      new_state = CAPTIVE_PORTAL;
+    }
+  }
+
+  if ((state_ != ONLINE && new_state == ONLINE) ||
+      (state_ == ONLINE && new_state == ONLINE &&
+       new_network_id != last_online_network_id_)) {
+    if (new_state == ONLINE)
+      last_online_network_id_ = new_network_id;
+    // Transitions {OFFLINE, PORTAL} -> ONLINE and connections to different
+    // network are processed without delay.
+    UpdateStateAndNotify();
+  } else {
+    check_state_.Cancel();
+    check_state_.Reset(
+        base::Bind(&NetworkStateInformer::UpdateStateAndNotify,
+                   base::Unretained(this)));
+    MessageLoop::current()->PostDelayedTask(
+        FROM_HERE,
+        check_state_.callback(),
+        base::TimeDelta::FromMilliseconds(kNetworkStateCheckDelayMs));
   }
 }
 
@@ -243,7 +278,7 @@ void NetworkStateInformer::OnPortalDetected() {
 
 bool NetworkStateInformer::UpdateState(NetworkLibrary* cros) {
   State new_state = OFFLINE;
-  std::string new_active_network_service_path;
+  std::string new_network_id;
   network_name_.clear();
 
   const Network* active_network = cros->active_network();
@@ -253,20 +288,29 @@ bool NetworkStateInformer::UpdateState(NetworkLibrary* cros) {
     else if (active_network->restricted_pool())
       new_state = CAPTIVE_PORTAL;
 
-    new_active_network_service_path = active_network->service_path();
+    new_network_id = active_network->unique_id();
     network_name_ = active_network->name();
     last_network_type_ = active_network->type();
   }
 
   bool updated = (new_state != state_) ||
-      (active_network_service_path_ != new_active_network_service_path);
+      (new_state != OFFLINE && new_network_id != last_connected_network_id_);
   state_ = new_state;
-  active_network_service_path_ = new_active_network_service_path;
+  if (state_ != OFFLINE)
+    last_connected_network_id_ = new_network_id;
 
   if (updated && state_ == ONLINE)
     handler_->OnNetworkReady();
 
   return updated;
+}
+
+void NetworkStateInformer::UpdateStateAndNotify() {
+  // Cancel pending update request if any.
+  check_state_.Cancel();
+
+  if (UpdateState(CrosLibrary::Get()->GetNetworkLibrary()))
+    SendStateToObservers(kReasonNetworkChanged);
 }
 
 void NetworkStateInformer::SendStateToObservers(const std::string& reason) {
@@ -289,7 +333,8 @@ SigninScreenHandler::SigninScreenHandler()
       dns_clear_task_running_(false),
       cookies_cleared_(false),
       cookie_remover_(NULL),
-      ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
+      webui_visible_(false) {
   CrosSettings::Get()->AddSettingsObserver(kAccountsPrefAllowNewUser, this);
   CrosSettings::Get()->AddSettingsObserver(kAccountsPrefAllowGuest, this);
 }
@@ -631,7 +676,7 @@ void SigninScreenHandler::ShowSigninScreenIfReady() {
   if (gaia_silent_load_ &&
       (!network_state_informer_->is_online() ||
        gaia_silent_load_network_ !=
-           network_state_informer_->active_network_service_path())) {
+          network_state_informer_->active_network_id())) {
     // Network has changed. Force Gaia reload.
     gaia_silent_load_ = false;
     // Gaia page will be realoded, so focus isn't stolen anymore.
@@ -1076,6 +1121,8 @@ void SigninScreenHandler::HandleOpenProxySettings(const base::ListValue* args) {
 }
 
 void SigninScreenHandler::HandleLoginVisible(const base::ListValue* args) {
+  LOG(INFO) << "Login WebUI >> LoginVisible, webui_visible_: "
+            << webui_visible_;
   if (!webui_visible_) {
     // There might be multiple messages from OOBE UI so send notifications after
     // the first one only.
@@ -1107,10 +1154,8 @@ void SigninScreenHandler::StartClearingCookies() {
   if (cookie_remover_)
     cookie_remover_->RemoveObserver(this);
 
-  cookie_remover_ = new BrowsingDataRemover(
-      Profile::FromWebUI(web_ui()),
-      BrowsingDataRemover::EVERYTHING,
-      base::Time::Now());
+  cookie_remover_ = BrowsingDataRemover::CreateForUnboundedRange(
+      Profile::FromWebUI(web_ui()));
   cookie_remover_->AddObserver(this);
   cookie_remover_->Remove(BrowsingDataRemover::REMOVE_SITE_DATA,
                           BrowsingDataHelper::UNPROTECTED_WEB);
@@ -1129,8 +1174,7 @@ void SigninScreenHandler::MaybePreloadAuthExtension() {
       !dns_clear_task_running_ &&
       network_state_informer_->is_online()) {
     gaia_silent_load_ = true;
-    gaia_silent_load_network_ =
-        network_state_informer_->active_network_service_path();
+    gaia_silent_load_network_ = network_state_informer_->active_network_id();
     LoadAuthExtension(true, true, false);
   }
 }

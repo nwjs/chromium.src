@@ -17,7 +17,7 @@ AppCacheRequestHandler::AppCacheRequestHandler(
     : host_(host), resource_type_(resource_type),
       is_waiting_for_cache_selection_(false), found_group_id_(0),
       found_cache_id_(0), found_network_namespace_(false),
-      cache_entry_not_found_(false) {
+      cache_entry_not_found_(false), maybe_load_resource_executed_(false) {
   DCHECK(host_);
   host_->AddObserver(this);
 }
@@ -44,6 +44,7 @@ void AppCacheRequestHandler::GetExtraResponseInfo(
 
 AppCacheURLRequestJob* AppCacheRequestHandler::MaybeLoadResource(
     net::URLRequest* request, net::NetworkDelegate* network_delegate) {
+  maybe_load_resource_executed_ = true;
   if (!host_ || !IsSchemeAndMethodSupported(request) || cache_entry_not_found_)
     return NULL;
 
@@ -96,6 +97,10 @@ AppCacheURLRequestJob* AppCacheRequestHandler::MaybeLoadFallbackForRedirect(
     return NULL;
   if (is_main_resource())
     return NULL;
+  // TODO(vabr) This is a temporary fix (see crbug/141114). We should get rid of
+  // it once a more general solution to crbug/121325 is in place.
+  if (!maybe_load_resource_executed_)
+    return NULL;
   if (request->url().GetOrigin() == location.GetOrigin())
     return NULL;
 
@@ -126,8 +131,7 @@ AppCacheURLRequestJob* AppCacheRequestHandler::MaybeLoadFallbackForResponse(
   if (!found_fallback_entry_.has_response_id())
     return NULL;
 
-  if (request->status().status() == net::URLRequestStatus::CANCELED ||
-      request->status().status() == net::URLRequestStatus::HANDLED_EXTERNALLY) {
+  if (request->status().status() == net::URLRequestStatus::CANCELED) {
     // 6.9.6, step 4: But not if the user canceled the download.
     return NULL;
   }

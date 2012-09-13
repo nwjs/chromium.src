@@ -719,10 +719,8 @@ void NetInternalsMessageHandler::OnRendererReady(const ListValue* list) {
 }
 
 void NetInternalsMessageHandler::OnClearBrowserCache(const ListValue* list) {
-  BrowsingDataRemover* remover =
-      new BrowsingDataRemover(Profile::FromWebUI(web_ui()),
-                              BrowsingDataRemover::EVERYTHING,
-                              base::Time::Now());
+  BrowsingDataRemover* remover = BrowsingDataRemover::CreateForUnboundedRange(
+      Profile::FromWebUI(web_ui()));
   remover->Remove(BrowsingDataRemover::REMOVE_CACHE,
                   BrowsingDataHelper::UNPROTECTED_WEB);
   // BrowsingDataRemover deletes itself.
@@ -1084,18 +1082,18 @@ void NetInternalsMessageHandler::IOThreadImpl::OnStartConnectionTests(
   connection_tester_->RunAllTests(url);
 }
 
-void SPKIHashesToString(const net::FingerprintVector& hashes,
+void SPKIHashesToString(const net::HashValueVector& hashes,
                         std::string* string) {
-  for (net::FingerprintVector::const_iterator
+  for (net::HashValueVector::const_iterator
        i = hashes.begin(); i != hashes.end(); ++i) {
-    base::StringPiece hash_str(reinterpret_cast<const char*>(i->data),
-                               arraysize(i->data));
+    base::StringPiece hash_str(reinterpret_cast<const char*>(i->data()),
+                               i->size());
     std::string encoded;
     base::Base64Encode(hash_str, &encoded);
 
     if (i != hashes.begin())
       *string += ",";
-    *string += "sha1/" + encoded;
+    *string += net::TransportSecurityState::HashValueLabel(*i) + encoded;
   }
 }
 
@@ -1171,7 +1169,7 @@ void NetInternalsMessageHandler::IOThreadImpl::OnHSTSAdd(
          i = type_and_b64s.begin(); i != type_and_b64s.end(); ++i) {
       std::string type_and_b64;
       RemoveChars(*i, " \t\r\n", &type_and_b64);
-      net::SHA1Fingerprint hash;
+      net::HashValue hash;
       if (!net::TransportSecurityState::ParsePin(type_and_b64, &hash))
         continue;
 
@@ -1391,6 +1389,7 @@ void NetInternalsMessageHandler::OnImportONCFile(const ListValue* list) {
       chromeos::CrosLibrary::Get()->GetNetworkLibrary();
   cros_network->LoadOncNetworks(onc_blob, passcode,
                                 chromeos::NetworkUIData::ONC_SOURCE_USER_IMPORT,
+                                false,  // allow_web_trust_from_policy
                                 &error);
 
   // Now that we've added the networks, we need to rescan them so they'll be
@@ -1450,12 +1449,10 @@ void NetInternalsMessageHandler::IOThreadImpl::OnGetHttpPipeliningStatus(
   DCHECK(!list);
   DictionaryValue* status_dict = new DictionaryValue();
 
-  status_dict->Set("pipelining_enabled",
-                   Value::CreateBooleanValue(
-                       net::HttpStreamFactory::http_pipelining_enabled()));
-
   net::HttpNetworkSession* http_network_session =
       GetHttpNetworkSession(context_getter_->GetURLRequestContext());
+  status_dict->Set("pipelining_enabled", Value::CreateBooleanValue(
+      http_network_session->params().http_pipelining_enabled));
   Value* pipelined_connection_info = NULL;
   if (http_network_session) {
     pipelined_connection_info =

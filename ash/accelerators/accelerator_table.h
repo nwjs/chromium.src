@@ -6,7 +6,7 @@
 #define ASH_ACCELERATORS_ACCELERATOR_TABLE_H_
 
 #include "ash/ash_export.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 
 namespace ash {
 
@@ -20,8 +20,6 @@ enum AcceleratorAction {
   CYCLE_FORWARD_LINEAR,
   CYCLE_FORWARD_MRU,
   DISABLE_CAPS_LOCK,
-  DISPLAY_ADD_REMOVE,
-  DISPLAY_CYCLE,
   DISPLAY_TOGGLE_SCALE,
   EXIT,
   FOCUS_LAUNCHER,
@@ -41,6 +39,8 @@ enum AcceleratorAction {
   NEXT_IME,
   OPEN_FEEDBACK_PAGE,
   PREVIOUS_IME,
+  POWER_PRESSED,
+  POWER_RELEASED,
   RESTORE_TAB,
   ROTATE_SCREEN,
   ROTATE_WINDOWS,

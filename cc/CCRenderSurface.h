@@ -8,21 +8,19 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "CCRenderPass.h"
 #include "CCSharedQuadState.h"
 #include "FloatRect.h"
 #include "IntRect.h"
 #include <public/WebTransformationMatrix.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class CCDamageTracker;
 class CCQuadSink;
-class CCRenderPass;
 class CCRenderPassSink;
 class CCLayerImpl;
-class TextStream;
 
 struct CCAppendQuadsData;
 
@@ -32,8 +30,8 @@ public:
     explicit CCRenderSurface(CCLayerImpl*);
     virtual ~CCRenderSurface();
 
-    String name() const;
-    void dumpSurface(TextStream&, int indent) const;
+    std::string name() const;
+    void dumpSurface(std::string*, int indent) const;
 
     FloatPoint contentRectCenter() const { return FloatRect(m_contentRect).center(); }
 
@@ -85,8 +83,10 @@ public:
 
     CCDamageTracker* damageTracker() const { return m_damageTracker.get(); }
 
+    CCRenderPass::Id renderPassId();
+
     void appendRenderPasses(CCRenderPassSink&);
-    void appendQuads(CCQuadSink&, CCAppendQuadsData&, bool forReplica, int renderPassId);
+    void appendQuads(CCQuadSink&, CCAppendQuadsData&, bool forReplica, CCRenderPass::Id renderPassId);
 
 private:
     CCLayerImpl* m_owningLayer;

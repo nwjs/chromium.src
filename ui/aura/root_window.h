@@ -17,8 +17,8 @@
 #include "ui/aura/root_window_host_delegate.h"
 #include "ui/aura/window.h"
 #include "ui/base/cursor/cursor.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/events/event_dispatcher.h"
-#include "ui/base/events.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/base/gestures/gesture_types.h"
 #include "ui/compositor/compositor.h"
@@ -84,17 +84,22 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
                                public aura::client::CaptureDelegate,
                                public aura::RootWindowHostDelegate {
  public:
-  explicit RootWindow(const gfx::Rect& initial_bounds);
+  struct AURA_EXPORT CreateParams {
+    // CreateParams with initial_bounds and default host.
+    CreateParams(const gfx::Rect& initial_bounds);
+    ~CreateParams() {}
+
+    gfx::Rect initial_bounds;
+
+    // A host to use in place of the default one that RootWindow will create.
+    // NULL by default.
+    RootWindowHost* host;
+  };
+
+  explicit RootWindow(const CreateParams& params);
   virtual ~RootWindow();
 
   static RootWindow* GetForAcceleratedWidget(gfx::AcceleratedWidget widget);
-
-  static void set_hide_host_cursor(bool hide) {
-    hide_host_cursor_ = hide;
-  }
-  static bool hide_host_cursor() {
-    return hide_host_cursor_;
-  }
 
   ui::Compositor* compositor() { return compositor_.get(); }
   gfx::NativeCursor last_cursor() const { return last_cursor_; }
@@ -113,6 +118,9 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
 
   // Hides the root window host.
   void HideRootWindow();
+
+  // Stop listening events in preparation for shutdown.
+  void PrepareForShutdown();
 
   RootWindowHostDelegate* AsRootWindowHostDelegate();
 
@@ -280,8 +288,8 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   bool ProcessMouseEvent(Window* target, ui::MouseEvent* event);
   bool ProcessKeyEvent(Window* target, ui::KeyEvent* event);
   ui::TouchStatus ProcessTouchEvent(Window* target, ui::TouchEvent* event);
-  ui::GestureStatus ProcessGestureEvent(Window* target,
-                                        ui::GestureEvent* event);
+  ui::EventResult ProcessGestureEvent(Window* target,
+                                      ui::GestureEvent* event);
   bool ProcessGestures(ui::GestureRecognizer::Gestures* gestures);
 
   // Called when a Window is attached or detached from the RootWindow.
@@ -292,6 +300,10 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   // from root window hierachy, via SetVisible(false) or being destroyed.
   // |destroyed| is set to true when the window is being destroyed.
   void OnWindowHidden(Window* invisible, bool destroyed);
+
+  // Cleans up the gesture recognizer for all windows in |window| (including
+  // |window| itself).
+  void CleanupGestureRecognizerState(Window* window);
 
   // Overridden from ui::EventDispatcher.
   virtual bool CanDispatchToTarget(EventTarget* target) OVERRIDE;
@@ -350,11 +362,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   scoped_ptr<ui::Compositor> compositor_;
 
   scoped_ptr<RootWindowHost> host_;
-
-  // If set before the RootWindow is created, the cursor will be drawn within
-  // the Aura root window but hidden outside of it, and it'll remain hidden
-  // after the Aura window is closed.
-  static bool hide_host_cursor_;
 
   // Used to schedule painting.
   base::WeakPtrFactory<RootWindow> schedule_paint_factory_;

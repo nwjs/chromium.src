@@ -15,19 +15,19 @@
 #include "ui/aura/aura_switches.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/capture_client.h"
-#include "ui/aura/client/drag_drop_client.h"
+#include "ui/aura/client/cursor_client.h"
 #include "ui/aura/client/event_client.h"
 #include "ui/aura/client/screen_position_client.h"
+#include "ui/aura/display_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/focus_manager.h"
-#include "ui/aura/display_manager.h"
 #include "ui/aura/root_window_host.h"
 #include "ui/aura/root_window_observer.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/aura/window_tracker.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/base/gestures/gesture_types.h"
 #include "ui/base/hit_test.h"
@@ -83,6 +83,12 @@ void SetLastMouseLocation(const Window* root_window,
   Env::GetInstance()->SetLastMouseLocation(*root_window, location);
 }
 
+RootWindowHost* CreateHost(RootWindow* root_window,
+                           const RootWindow::CreateParams& params) {
+  return params.host ? params.host :
+      RootWindowHost::Create(root_window, params.initial_bounds);
+}
+
 }  // namespace
 
 CompositorLock::CompositorLock(RootWindow* root_window)
@@ -104,15 +110,17 @@ void CompositorLock::CancelLock() {
   root_window_ = NULL;
 }
 
-bool RootWindow::hide_host_cursor_ = false;
+RootWindow::CreateParams::CreateParams(const gfx::Rect& a_initial_bounds)
+    : initial_bounds(a_initial_bounds),
+      host(NULL) {
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // RootWindow, public:
 
-RootWindow::RootWindow(const gfx::Rect& initial_bounds)
+RootWindow::RootWindow(const CreateParams& params)
     : Window(NULL),
-      ALLOW_THIS_IN_INITIALIZER_LIST(
-          host_(RootWindowHost::Create(this, initial_bounds))),
+      ALLOW_THIS_IN_INITIALIZER_LIST(host_(CreateHost(this, params))),
       ALLOW_THIS_IN_INITIALIZER_LIST(schedule_paint_factory_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(event_factory_(this)),
       mouse_button_flags_(0),
@@ -191,6 +199,12 @@ void RootWindow::HideRootWindow() {
   host_->Hide();
 }
 
+void RootWindow::PrepareForShutdown() {
+  host_->PrepareForShutdown();
+  // discard synthesize event request as well.
+  synthesize_mouse_move_ = false;
+}
+
 RootWindowHostDelegate* RootWindow::AsRootWindowHostDelegate() {
   return this;
 }
@@ -230,11 +244,6 @@ gfx::Point RootWindow::GetHostOrigin() const {
 }
 
 void RootWindow::SetCursor(gfx::NativeCursor cursor) {
-  // If a drag is in progress, the DragDropClient should override the cursor.
-  client::DragDropClient* dnd_client = client::GetDragDropClient(this);
-  if (dnd_client && dnd_client->IsDragDropInProgress())
-    cursor = dnd_client->GetDragCursor();
-
   last_cursor_ = cursor;
   // A lot of code seems to depend on NULL cursors actually showing an arrow,
   // so just pass everything along to the host.
@@ -302,8 +311,8 @@ bool RootWindow::DispatchGestureEvent(ui::GestureEvent* event) {
 
   if (target) {
     event->ConvertLocationToTarget(static_cast<Window*>(this), target);
-    ui::GestureStatus status = ProcessGestureEvent(target, event);
-    return status != ui::GESTURE_STATUS_UNKNOWN;
+    ui::EventResult status = ProcessGestureEvent(target, event);
+    return status != ui::ER_UNHANDLED;
   }
 
   return false;
@@ -513,11 +522,20 @@ void RootWindow::OnCompositingAborted(ui::Compositor*) {
 
 void RootWindow::OnDeviceScaleFactorChanged(
     float device_scale_factor) {
-  if (cursor_shown_)
+  const bool cursor_is_in_bounds =
+      GetBoundsInScreen().Contains(Env::GetInstance()->last_mouse_location());
+  if (cursor_is_in_bounds && cursor_shown_)
     ShowCursor(false);
   host_->OnDeviceScaleFactorChanged(device_scale_factor);
   Window::OnDeviceScaleFactorChanged(device_scale_factor);
-  if (cursor_shown_)
+  // Update the device scale factor of the cursor client only when the last
+  // mouse location is on this root window.
+  if (cursor_is_in_bounds) {
+    client::CursorClient* cursor_client = client::GetCursorClient(this);
+    if (cursor_client)
+      cursor_client->SetDeviceScaleFactor(device_scale_factor);
+  }
+  if (cursor_is_in_bounds && cursor_shown_)
     ShowCursor(true);
 }
 
@@ -655,6 +673,8 @@ ui::TouchStatus RootWindow::ProcessTouchEvent(Window* target,
   WindowTracker tracker;
   tracker.Add(target);
 
+  ui::Event::DispatcherApi dispatcher(event);
+  dispatcher.set_target(target);
   for (EventFilters::const_reverse_iterator it = filters.rbegin(),
            rend = filters.rend();
        it != rend; ++it) {
@@ -672,14 +692,12 @@ ui::TouchStatus RootWindow::ProcessTouchEvent(Window* target,
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus RootWindow::ProcessGestureEvent(Window* target,
-                                                  ui::GestureEvent* event) {
+ui::EventResult RootWindow::ProcessGestureEvent(Window* target,
+                                                ui::GestureEvent* event) {
   if (!target)
     target = this;
   AutoReset<Window*> reset(&event_dispatch_target_, target);
-  if (ProcessEvent(target, event) != ui::ER_UNHANDLED)
-    return ui::GESTURE_STATUS_CONSUMED;
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return static_cast<ui::EventResult>(ProcessEvent(target, event));
 }
 
 bool RootWindow::ProcessGestures(ui::GestureRecognizer::Gestures* gestures) {
@@ -688,7 +706,7 @@ bool RootWindow::ProcessGestures(ui::GestureRecognizer::Gestures* gestures) {
   bool handled = false;
   for (unsigned int i = 0; i < gestures->size(); i++) {
     ui::GestureEvent* gesture = gestures->get().at(i);
-    if (DispatchGestureEvent(gesture) != ui::GESTURE_STATUS_UNKNOWN)
+    if (DispatchGestureEvent(gesture) != ui::ER_UNHANDLED)
       handled = true;
   }
   return handled;
@@ -747,7 +765,18 @@ void RootWindow::OnWindowHidden(Window* invisible, bool destroyed) {
     mouse_event_dispatch_target_ = NULL;
   if (invisible->Contains(event_dispatch_target_))
     event_dispatch_target_ = NULL;
-  gesture_recognizer_->FlushTouchQueue(invisible);
+
+  CleanupGestureRecognizerState(invisible);
+}
+
+void RootWindow::CleanupGestureRecognizerState(Window* window) {
+  gesture_recognizer_->FlushTouchQueue(window);
+  Windows windows = window->children();
+  for (Windows::const_iterator iter = windows.begin();
+      iter != windows.end();
+      ++iter) {
+    CleanupGestureRecognizerState(*iter);
+  }
 }
 
 void RootWindow::OnWindowAddedToRootWindow(Window* attached) {

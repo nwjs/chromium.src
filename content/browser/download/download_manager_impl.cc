@@ -333,38 +333,6 @@ void DownloadManagerImpl::Shutdown() {
   delegate_ = NULL;
 }
 
-void DownloadManagerImpl::GetTemporaryDownloads(
-    const FilePath& dir_path, DownloadVector* result) {
-  DCHECK(result);
-
-  for (DownloadMap::iterator it = downloads_.begin();
-       it != downloads_.end(); ++it) {
-    DownloadItemImpl* item = it->second;
-    // TODO(benjhayden): Don't check IsPersisted().
-    if (item->IsTemporary() &&
-        item->IsPersisted() &&
-        (dir_path.empty() ||
-         item->GetTargetFilePath().DirName() == dir_path))
-      result->push_back(item);
-  }
-}
-
-void DownloadManagerImpl::GetAllDownloads(
-    const FilePath& dir_path, DownloadVector* result) {
-  DCHECK(result);
-
-  for (DownloadMap::iterator it = downloads_.begin();
-       it != downloads_.end(); ++it) {
-    DownloadItemImpl* item = it->second;
-    // TODO(benjhayden): Don't check IsPersisted().
-    if (!item->IsTemporary() &&
-        item->IsPersisted() &&
-        (dir_path.empty() ||
-         item->GetTargetFilePath().DirName() == dir_path))
-      result->push_back(item);
-  }
-}
-
 void DownloadManagerImpl::SearchDownloads(const string16& query,
                                           DownloadVector* result) {
   string16 query_lower(base::i18n::ToLower(query));
@@ -413,9 +381,8 @@ content::DownloadId DownloadManagerImpl::StartDownload(
       BrowserThread::FILE, FROM_HERE,
       base::Bind(&DownloadFileManager::CreateDownloadFile,
                  file_manager_, base::Passed(info.Pass()),
-                 base::Passed(stream.Pass()),
-                 make_scoped_refptr(this),
-                 GenerateFileHash(), bound_net_log,
+                 base::Passed(stream.Pass()), make_scoped_refptr(this),
+                 (delegate_ && delegate_->GenerateFileHash()), bound_net_log,
                  callback));
 
   return download_id;
@@ -751,10 +718,6 @@ void DownloadManagerImpl::RemoveFromActiveList(DownloadItemImpl* download) {
   }
 }
 
-bool DownloadManagerImpl::GenerateFileHash() {
-  return delegate_ && delegate_->GenerateFileHash();
-}
-
 int DownloadManagerImpl::RemoveDownloadItems(
     const DownloadItemImplVector& pending_deletes) {
   if (pending_deletes.empty())
@@ -982,6 +945,13 @@ DownloadItem* DownloadManagerImpl::GetDownload(int download_id) {
   return ContainsKey(downloads_, download_id) ? downloads_[download_id] : NULL;
 }
 
+void DownloadManagerImpl::GetAllDownloads(DownloadVector* downloads) {
+  for (DownloadMap::iterator it = downloads_.begin();
+       it != downloads_.end(); ++it) {
+    downloads->push_back(it->second);
+  }
+}
+
 DownloadItem* DownloadManagerImpl::GetActiveDownloadItem(int download_id) {
   if (ContainsKey(active_downloads_, download_id))
     return active_downloads_[download_id];
@@ -1050,11 +1020,6 @@ void DownloadManagerImpl::SavePageDownloadFinished(
   if (download->IsPersisted()) {
     if (delegate_)
       delegate_->UpdateItemInPersistentStore(download);
-    if (download->IsComplete())
-      content::NotificationService::current()->Notify(
-          content::NOTIFICATION_SAVE_PACKAGE_SUCCESSFULLY_FINISHED,
-          content::Source<DownloadManager>(this),
-          content::Details<DownloadItem>(download));
   }
 }
 

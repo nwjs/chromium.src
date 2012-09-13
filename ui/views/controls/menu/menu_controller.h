@@ -15,7 +15,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "base/timer.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/views/controls/menu/menu_delegate.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 
@@ -118,7 +118,7 @@ class VIEWS_EXPORT MenuController
 #if defined(OS_LINUX)
   bool OnMouseWheel(SubmenuView* source, const ui::MouseWheelEvent& event);
 #endif
-  ui::GestureStatus OnGestureEvent(SubmenuView* source,
+  ui::EventResult OnGestureEvent(SubmenuView* source,
                                    const ui::GestureEvent& event);
 
   bool GetDropFormats(

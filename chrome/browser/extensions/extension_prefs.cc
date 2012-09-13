@@ -26,6 +26,10 @@
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
+#if defined(OS_WIN)
+#include "base/win/metro.h"
+#endif  // OS_WIN
+
 namespace extensions {
 
 namespace {
@@ -1161,6 +1165,12 @@ ExtensionPrefs::LaunchType ExtensionPrefs::GetLaunchType(
       result = LAUNCH_REGULAR;
   #endif
 
+#if defined(OS_WIN)
+    // We don't support app windows in windows 8 metro mode.
+    if (base::win::IsMetroProcess() && result == LAUNCH_WINDOW)
+      result = LAUNCH_REGULAR;
+#endif  // OS_WIN
+
   return result;
 }
 
@@ -1391,7 +1401,7 @@ void ExtensionPrefs::OnExtensionInstalled(
     const Extension* extension,
     Extension::State initial_state,
     bool from_webstore,
-    const StringOrdinal& page_ordinal) {
+    const syncer::StringOrdinal& page_ordinal) {
   const std::string& id = extension->id();
   CHECK(Extension::IdIsValid(id));
   ScopedExtensionPrefUpdate update(prefs_, id);
@@ -1429,7 +1439,7 @@ void ExtensionPrefs::OnExtensionInstalled(
   extension_dict->Remove(kRegisteredEvents, NULL);
 
   if (extension->is_app()) {
-    StringOrdinal new_page_ordinal = page_ordinal.IsValid() ?
+    syncer::StringOrdinal new_page_ordinal = page_ordinal.IsValid() ?
         page_ordinal : extension_sorting_->GetNaturalAppPageOrdinal();
     if (!extension_sorting_->GetPageOrdinal(id).IsValid())
       extension_sorting_->SetPageOrdinal(id, new_page_ordinal);

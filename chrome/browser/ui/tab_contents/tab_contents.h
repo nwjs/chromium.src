@@ -39,21 +39,19 @@ class HungPluginTabHelper;
 class InfoBarControllerContentsCreator;
 class InfoBarTabHelper;
 class InstantLoader;
-class MetroPinTabHelper;
 class NavigationMetricsRecorder;
 class OffscreenTabContentsCreator;
-class OldBasePanelBrowserTest;
 class OmniboxSearchHint;
 class PanelHost;
 class PasswordManager;
 class PasswordManagerDelegate;
 class PDFTabObserver;
+class PepperBrokerObserver;
 class PluginObserver;
 class PrefsTabHelper;
 class Profile;
 class SadTabHelper;
 class SearchEngineTabHelper;
-class SessionTabHelper;
 class ShellWindow;
 class SnapshotTabHelper;
 class TabAutofillManagerDelegate;
@@ -106,7 +104,6 @@ class WebUILoginView;
 }
 
 namespace extensions {
-class TabHelper;
 class WebAuthFlow;
 class WebNavigationTabObserver;
 }
@@ -165,7 +162,6 @@ class TabContents : public content::WebContentsObserver {
     friend class GeolocationPermissionContextTests;
     friend class InfoBarControllerContentsCreator;
     friend class InstantLoader;
-    friend class OldBasePanelBrowserTest;
     friend class OffscreenTabContentsCreator;
     friend class PanelHost;
     friend class prerender::PrerenderContents;
@@ -239,14 +235,6 @@ class TabContents : public content::WebContentsObserver {
 
   CoreTabHelper* core_tab_helper() { return core_tab_helper_.get(); }
 
-  extensions::TabHelper* extension_tab_helper() {
-    return extension_tab_helper_.get();
-  }
-
-  const extensions::TabHelper* extension_tab_helper() const {
-    return extension_tab_helper_.get();
-  }
-
   FaviconTabHelper* favicon_tab_helper() { return favicon_tab_helper_.get(); }
   FindTabHelper* find_tab_helper() { return find_tab_helper_.get(); }
   HistoryTabHelper* history_tab_helper() { return history_tab_helper_.get(); }
@@ -254,10 +242,6 @@ class TabContents : public content::WebContentsObserver {
     return hung_plugin_tab_helper_.get();
   }
   InfoBarTabHelper* infobar_tab_helper() { return infobar_tab_helper_.get(); }
-
-  MetroPinTabHelper* metro_pin_tab_helper() {
-    return metro_pin_tab_helper_.get();
-  }
 
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   OneClickSigninHelper* one_click_signin_helper() {
@@ -284,14 +268,6 @@ class TabContents : public content::WebContentsObserver {
 
   chrome::search::SearchTabHelper* search_tab_helper() {
     return search_tab_helper_.get();
-  }
-
-  SessionTabHelper* session_tab_helper() {
-    return session_tab_helper_.get();
-  }
-
-  const SessionTabHelper* session_tab_helper() const {
-    return session_tab_helper_.get();
   }
 
   SnapshotTabHelper* snapshot_tab_helper() {
@@ -359,13 +335,11 @@ class TabContents : public content::WebContentsObserver {
 #endif
   scoped_ptr<ConstrainedWindowTabHelper> constrained_window_tab_helper_;
   scoped_ptr<CoreTabHelper> core_tab_helper_;
-  scoped_ptr<extensions::TabHelper> extension_tab_helper_;
   scoped_ptr<FaviconTabHelper> favicon_tab_helper_;
   scoped_ptr<FindTabHelper> find_tab_helper_;
   scoped_ptr<HistoryTabHelper> history_tab_helper_;
   scoped_ptr<HungPluginTabHelper> hung_plugin_tab_helper_;
   scoped_ptr<InfoBarTabHelper> infobar_tab_helper_;
-  scoped_ptr<MetroPinTabHelper> metro_pin_tab_helper_;
 
   // PasswordManager and its delegate. The delegate must outlive the manager,
   // per documentation in password_manager.h.
@@ -381,7 +355,6 @@ class TabContents : public content::WebContentsObserver {
   scoped_ptr<SadTabHelper> sad_tab_helper_;
   scoped_ptr<SearchEngineTabHelper> search_engine_tab_helper_;
   scoped_ptr<chrome::search::SearchTabHelper> search_tab_helper_;
-  scoped_ptr<SessionTabHelper> session_tab_helper_;
   scoped_ptr<SnapshotTabHelper> snapshot_tab_helper_;
   scoped_ptr<TabContentsSSLHelper> ssl_helper_;
   scoped_ptr<browser_sync::SyncedTabDelegate> synced_tab_delegate_;
@@ -411,6 +384,7 @@ class TabContents : public content::WebContentsObserver {
   scoped_ptr<OneClickSigninHelper> one_click_signin_helper_;
 #endif
   scoped_ptr<PDFTabObserver> pdf_tab_observer_;
+  scoped_ptr<PepperBrokerObserver> pepper_broker_observer_;
   scoped_ptr<PluginObserver> plugin_observer_;
   scoped_ptr<printing::PrintPreviewMessageHandler> print_preview_;
   scoped_ptr<safe_browsing::SafeBrowsingTabObserver>

@@ -35,11 +35,11 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/net/gaia/gaia_urls.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_browser_thread.h"
+#include "google_apis/gaia/gaia_urls.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
@@ -54,9 +54,9 @@
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/url_request/url_request_status.h"
+#include "sync/engine/sync_scheduler_impl.h"
 #include "sync/notifier/p2p_invalidator.h"
 #include "sync/protocol/sync.pb.h"
-#include "sync/engine/sync_scheduler_impl.h"
 
 using content::BrowserThread;
 
@@ -176,6 +176,9 @@ void SyncTest::SetUp() {
 }
 
 void SyncTest::TearDown() {
+  // Clear any mock gaia responses that might have been set.
+  ClearMockGaiaResponses();
+
   // Allow the InProcessBrowserTest framework to perform its tear down.
   InProcessBrowserTest::TearDown();
 
@@ -458,6 +461,19 @@ void SyncTest::SetupMockGaiaResponses() {
       true);
 }
 
+void SyncTest::ClearMockGaiaResponses() {
+  // Clear any mock gaia responses that might have been set.
+  if (fake_factory_.get()) {
+    fake_factory_->ClearFakeResponses();
+    fake_factory_.reset();
+  }
+
+  // Cancel any outstanding URL fetches and destroy the URLFetcherImplFactory we
+  // created.
+  net::URLFetcher::CancelAll();
+  factory_.reset();
+}
+
 // Start up a local sync server based on the value of server_type_, which
 // was determined from the command line parameters.
 void SyncTest::SetUpTestServerIfRequired() {
@@ -660,7 +676,7 @@ void SyncTest::TriggerNotification(syncer::ModelTypeSet changed_types) {
           syncer::NOTIFY_ALL,
           syncer::ObjectIdSetToStateMap(
               syncer::ModelTypeSetToObjectIdSet(changed_types), ""),
-          syncer::REMOTE_NOTIFICATION).ToString();
+          syncer::REMOTE_INVALIDATION).ToString();
   const std::string& path =
       std::string("chromiumsync/sendnotification?channel=") +
       syncer::kSyncP2PNotificationChannel + "&data=" + data;

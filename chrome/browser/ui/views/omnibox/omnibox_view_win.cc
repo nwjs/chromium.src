@@ -27,13 +27,13 @@
 #include "chrome/browser/autocomplete/autocomplete_input.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/autocomplete/keyword_provider.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
+#include "chrome/browser/ui/search/search.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -51,8 +51,8 @@
 #include "ui/base/dragdrop/drop_target.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_win.h"
-#include "ui/base/event.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_win.h"
@@ -120,6 +120,15 @@ struct AutocompleteEditState : public base::SupportsUserData::Data {
 bool IsDrag(const POINT& origin, const POINT& current) {
   return views::View::ExceededDragThreshold(current.x - origin.x,
                                             current.y - origin.y);
+}
+
+// Write |text| and an optional |url| to the clipboard.
+void DoCopy(const string16& text, const GURL* url) {
+  ui::ScopedClipboardWriter scw(ui::Clipboard::GetForCurrentThread(),
+                                ui::Clipboard::BUFFER_STANDARD);
+  scw.WriteText(text);
+  if (url != NULL)
+    scw.WriteBookmark(text, url->spec());
 }
 
 }  // namespace
@@ -1015,6 +1024,10 @@ int OmniboxViewWin::OnPerformDropImpl(const ui::DropTargetEvent& event,
   return ui::DragDropTypes::DRAG_NONE;
 }
 
+void OmniboxViewWin::CopyURL() {
+  DoCopy(toolbar_model()->GetText(false), &toolbar_model()->GetURL());
+}
+
 bool OmniboxViewWin::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
   ui::KeyboardCode key = event.key_code();
   // We don't process ALT + numpad digit as accelerators, they are used for
@@ -1081,12 +1094,22 @@ bool OmniboxViewWin::IsCommandIdChecked(int command_id) const {
 
 bool OmniboxViewWin::IsCommandIdEnabled(int command_id) const {
   switch (command_id) {
-    case IDS_UNDO:         return !!CanUndo();
-    case IDC_CUT:          return !!CanCut();
-    case IDC_COPY:         return !!CanCopy();
-    case IDC_PASTE:        return !!CanPaste();
-    case IDS_PASTE_AND_GO: return model()->CanPasteAndGo(GetClipboardText());
-    case IDS_SELECT_ALL:   return !!CanSelectAll();
+    case IDS_UNDO:
+      return !!CanUndo();
+    case IDC_CUT:
+      return !!CanCut();
+    case IDC_COPY:
+      return !!CanCopy();
+    case IDC_COPY_URL:
+      return !!CanCopy() &&
+          !model()->user_input_in_progress() &&
+          toolbar_model()->WouldReplaceSearchURLWithSearchTerms();
+    case IDC_PASTE:
+      return !!CanPaste();
+    case IDS_PASTE_AND_GO:
+      return model()->CanPasteAndGo(GetClipboardText());
+    case IDS_SELECT_ALL:
+      return !!CanSelectAll();
     case IDS_EDIT_SEARCH_ENGINES:
       return command_updater()->IsCommandEnabled(IDC_EDIT_SEARCH_ENGINES);
     default:
@@ -1135,6 +1158,10 @@ void OmniboxViewWin::ExecuteCommand(int command_id) {
 
     case IDC_COPY:
       Copy();
+      break;
+
+    case IDC_COPY_URL:
+      CopyURL();
       break;
 
     case IDC_PASTE:
@@ -1333,11 +1360,7 @@ void OmniboxViewWin::OnCopy() {
   // GetSel() doesn't preserve selection direction, so sel.cpMin will always be
   // the smaller value.
   model()->AdjustTextForCopy(sel.cpMin, IsSelectAll(), &text, &url, &write_url);
-  ui::ScopedClipboardWriter scw(g_browser_process->clipboard(),
-                                ui::Clipboard::BUFFER_STANDARD);
-  scw.WriteText(text);
-  if (write_url)
-    scw.WriteBookmark(text, url.spec());
+  DoCopy(text, write_url ? &url : NULL);
 }
 
 LRESULT OmniboxViewWin::OnCreate(const CREATESTRUCTW* /*create_struct*/) {
@@ -2597,6 +2620,8 @@ void OmniboxViewWin::BuildContextMenu() {
     context_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
     context_menu_contents_->AddItemWithStringId(IDC_CUT, IDS_CUT);
     context_menu_contents_->AddItemWithStringId(IDC_COPY, IDS_COPY);
+    if (chrome::search::IsInstantExtendedAPIEnabled(parent_view_->profile()))
+      context_menu_contents_->AddItemWithStringId(IDC_COPY_URL, IDS_COPY_URL);
     context_menu_contents_->AddItemWithStringId(IDC_PASTE, IDS_PASTE);
     // GetContextualLabel() will override this next label with the
     // IDS_PASTE_AND_SEARCH label as needed.

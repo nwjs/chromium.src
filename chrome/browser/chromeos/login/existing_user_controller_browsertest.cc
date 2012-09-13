@@ -22,11 +22,11 @@
 #include "chrome/browser/chromeos/login/mock_user_manager.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/net/gaia/mock_url_fetcher_factory.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chromeos/dbus/mock_dbus_thread_manager.h"
 #include "chromeos/dbus/mock_session_manager_client.h"
+#include "google_apis/gaia/mock_url_fetcher_factory.h"
 #include "grit/generated_resources.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -134,7 +134,7 @@ class ExistingUserControllerTest : public CrosInProcessBrowserTest {
     mock_network_library_ = cros_mock_->mock_network_library();
     EXPECT_CALL(*mock_network_library_, AddUserActionObserver(_))
         .Times(AnyNumber());
-    EXPECT_CALL(*mock_network_library_, LoadOncNetworks(_, _, _, _))
+    EXPECT_CALL(*mock_network_library_, LoadOncNetworks(_, _, _, _, _))
         .WillRepeatedly(Return(true));
 
     MockSessionManagerClient* mock_session_manager_client =

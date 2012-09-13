@@ -751,16 +751,12 @@ static WebGestureEvent MakeGestureEvent(WebInputEvent::Type type,
                                         double timestamp_seconds,
                                         int x,
                                         int y,
-                                        float delta_x,
-                                        float delta_y,
                                         int modifiers) {
   WebGestureEvent result;
 
   result.type = type;
   result.x = x;
   result.y = y;
-  result.deltaX = delta_x;
-  result.deltaY = delta_y;
   result.timeStampSeconds = timestamp_seconds;
   result.modifiers = modifiers;
 
@@ -780,17 +776,20 @@ void RenderWidgetHostImpl::SimulateTouchGestureWithMouse(
         startY = y;
         ForwardGestureEvent(MakeGestureEvent(
             WebInputEvent::GestureScrollBegin, mouse_event.timeStampSeconds,
-            x, y, 0, 0, 0));
+            x, y, 0));
       }
       if (dx != 0 || dy != 0) {
-        ForwardGestureEvent(MakeGestureEvent(
+        WebGestureEvent event = MakeGestureEvent(
             WebInputEvent::GestureScrollUpdate, mouse_event.timeStampSeconds,
-            x, y, dx, dy, 0));
+            x, y, 0);
+        event.data.scrollUpdate.deltaX = dx;
+        event.data.scrollUpdate.deltaY = dy;
+        ForwardGestureEvent(event);
       }
       if (mouse_event.type == WebInputEvent::MouseUp) {
         ForwardGestureEvent(MakeGestureEvent(
             WebInputEvent::GestureScrollEnd, mouse_event.timeStampSeconds,
-            x, y, dx, dy, 0));
+            x, y, 0));
       }
       break;
     case WebMouseEvent::ButtonMiddle:
@@ -799,12 +798,12 @@ void RenderWidgetHostImpl::SimulateTouchGestureWithMouse(
         startY = y;
         ForwardGestureEvent(MakeGestureEvent(
             WebInputEvent::GestureTapDown, mouse_event.timeStampSeconds,
-            x, y, 0, 0, 0));
+            x, y, 0));
       }
       if (mouse_event.type == WebInputEvent::MouseUp) {
         ForwardGestureEvent(MakeGestureEvent(
             WebInputEvent::GestureTap, mouse_event.timeStampSeconds,
-            x, y, dx, dy, 0));
+            x, y, 0));
       }
       break;
     case WebMouseEvent::ButtonRight:
@@ -813,19 +812,20 @@ void RenderWidgetHostImpl::SimulateTouchGestureWithMouse(
         startY = y;
         ForwardGestureEvent(MakeGestureEvent(
             WebInputEvent::GesturePinchBegin, mouse_event.timeStampSeconds,
-            x, y, 1, 1, 0));
+            x, y, 0));
       }
       if (dx != 0 || dy != 0) {
         dx = pow(dy < 0 ? 0.998f : 1.002f, fabs(dy));
-        dy = dx;
-        ForwardGestureEvent(MakeGestureEvent(
+        WebGestureEvent event = MakeGestureEvent(
             WebInputEvent::GesturePinchUpdate, mouse_event.timeStampSeconds,
-            startX, startY, dx, dy, 0));
+            startX, startY, 0);
+        event.data.pinchUpdate.scale = dx;
+        ForwardGestureEvent(event);
       }
       if (mouse_event.type == WebInputEvent::MouseUp) {
         ForwardGestureEvent(MakeGestureEvent(
             WebInputEvent::GesturePinchEnd, mouse_event.timeStampSeconds,
-            x, y, dx, dy, 0));
+            x, y, 0));
       }
       break;
     case WebMouseEvent::ButtonNone:
@@ -1011,6 +1011,8 @@ void RenderWidgetHostImpl::ForwardInputEvent(const WebInputEvent& input_event,
     return;
 
   DCHECK(!process_->IgnoreInputEvents());
+
+  in_process_event_types_.push(input_event.type);
 
   IPC::Message* message = new ViewMsg_HandleInputEvent(routing_id_);
   message->WriteData(
@@ -1338,6 +1340,7 @@ void RenderWidgetHostImpl::OnCompositorSurfaceBuffersSwapped(
       int32 surface_id,
       uint64 surface_handle,
       int32 route_id,
+      const gfx::Size& size,
       int32 gpu_process_host_id) {
   TRACE_EVENT0("renderer_host",
                "RenderWidgetHostImpl::OnCompositorSurfaceBuffersSwapped");
@@ -1351,6 +1354,7 @@ void RenderWidgetHostImpl::OnCompositorSurfaceBuffersSwapped(
   gpu_params.surface_id = surface_id;
   gpu_params.surface_handle = surface_handle;
   gpu_params.route_id = route_id;
+  gpu_params.size = size;
 #if defined(OS_MACOSX)
   // Compositor window is always gfx::kNullPluginWindow.
   // TODO(jbates) http://crbug.com/105344 This will be removed when there are no
@@ -1482,7 +1486,7 @@ void RenderWidgetHostImpl::DidUpdateBackingStore(
   // in the process could dispatch other window messages which could cause the
   // view to be destroyed.
   if (view_)
-    view_->MovePluginWindows(params.plugin_window_moves);
+    view_->MovePluginWindows(params.scroll_offset, params.plugin_window_moves);
 
   NotificationService::current()->Notify(
       NOTIFICATION_RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE,
@@ -1530,6 +1534,9 @@ void RenderWidgetHostImpl::DidUpdateBackingStore(
 void RenderWidgetHostImpl::OnMsgInputEventAck(WebInputEvent::Type event_type,
                                               bool processed) {
   TRACE_EVENT0("renderer_host", "RenderWidgetHostImpl::OnMsgInputEventAck");
+  if (!in_process_event_types_.empty() &&
+      in_process_event_types_.front() == event_type)
+    in_process_event_types_.pop();
 
   // Log the time delta for processing an input event.
   TimeDelta delta = TimeTicks::Now() - input_event_start_time_;

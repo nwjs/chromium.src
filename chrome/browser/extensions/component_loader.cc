@@ -312,8 +312,8 @@ void ComponentLoader::AddDefaultComponentExtensions() {
 #endif
 
 #if defined(OS_CHROMEOS)
-  if (CommandLine::ForCurrentProcess()->
-          HasSwitch(switches::kEnableNewWallpaperUI)) {
+  if (!CommandLine::ForCurrentProcess()->
+          HasSwitch(switches::kDisableNewWallpaperUI)) {
     Add(IDR_WALLPAPERMANAGER_MANIFEST,
         FilePath(FILE_PATH_LITERAL("chromeos/wallpaper_manager")));
   }
@@ -324,6 +324,12 @@ void ComponentLoader::AddDefaultComponentExtensions() {
 #endif
 
 #if defined(OS_CHROMEOS)
+  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kEnableBackgroundLoader)) {
+    Add(IDR_BACKLOADER_MANIFEST,
+        FilePath(FILE_PATH_LITERAL("backloader")));
+  }
+
   Add(IDR_MOBILE_MANIFEST,
       FilePath(FILE_PATH_LITERAL("/usr/share/chromeos-assets/mobile")));
 
@@ -333,7 +339,6 @@ void ComponentLoader::AddDefaultComponentExtensions() {
   AddGaiaAuthExtension();
 
   // TODO(gauravsh): Only include echo extension on official builds.
-  const CommandLine* command_line = CommandLine::ForCurrentProcess();
   FilePath echo_extension_path(FILE_PATH_LITERAL(
       "/usr/share/chromeos-assets/echo"));
   if (command_line->HasSwitch(switches::kEchoExtensionPath)) {

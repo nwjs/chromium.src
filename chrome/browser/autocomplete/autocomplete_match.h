@@ -89,6 +89,7 @@ struct AutocompleteMatch {
     SEARCH_OTHER_ENGINE,     // A search with a non-default engine.
     EXTENSION_APP,           // An Extension App with a title/url that contains
                              // the input.
+    CONTACT,                 // One of the user's contacts.
     NUM_TYPES,
   };
 
@@ -144,6 +145,12 @@ struct AutocompleteMatch {
                                        int style,
                                        ACMatchClassifications* classifications);
 
+  // Returns a new vector of classifications containing the merged contents of
+  // |classifications1| and |classifications2|.
+  static ACMatchClassifications MergeClassifications(
+      const ACMatchClassifications& classifications1,
+      const ACMatchClassifications& classifications2);
+
   // Converts classifications to and from a serialized string representation
   // (using comma-separated integers to sequentially list positions and styles).
   static std::string ClassificationsToString(
@@ -164,8 +171,15 @@ struct AutocompleteMatch {
   // or |description|.
   static string16 SanitizeString(const string16& text);
 
+  // Convenience function to check if |type| is a search (as opposed to a URL or
+  // an extension).
+  static bool IsSearchType(Type type);
+
   // Copies the destination_url with "www." stripped off to
-  // |stripped_destination_url|.  This method is invoked internally by the
+  // |stripped_destination_url| and also converts https protocol to
+  // http.  These two conversions are merely to allow comparisons to
+  // remove likely duplicates; these URLs are not used as actual
+  // destination URLs.  This method is invoked internally by the
   // AutocompleteController and does not normally need to be invoked.
   void ComputeStrippedDestinationURL();
 

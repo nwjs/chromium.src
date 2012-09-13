@@ -5,6 +5,8 @@
 #include "chrome/browser/net/chrome_network_delegate.h"
 
 #include "base/logging.h"
+#include "base/base_paths.h"
+#include "base/path_service.h"
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings.h"
@@ -41,6 +43,8 @@
 
 #if defined(OS_CHROMEOS)
 #include "base/chromeos/chromeos_version.h"
+#include "base/command_line.h"
+#include "chrome/common/chrome_switches.h"
 #endif
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
@@ -51,9 +55,9 @@ using content::BrowserThread;
 using content::RenderViewHost;
 using content::ResourceRequestInfo;
 
-// By default we don't allow access to all file:// urls on ChromeOS but we do on
-// other platforms.
-#if defined(OS_CHROMEOS)
+// By default we don't allow access to all file:// urls on ChromeOS and
+// Android.
+#if defined(OS_CHROMEOS) || defined(OS_ANDROID)
 bool ChromeNetworkDelegate::g_allow_file_access_ = false;
 #else
 bool ChromeNetworkDelegate::g_allow_file_access_ = true;
@@ -259,8 +263,7 @@ void ChromeNetworkDelegate::OnRawBytesRead(const net::URLRequest& request,
 
 void ChromeNetworkDelegate::OnCompleted(net::URLRequest* request,
                                         bool started) {
-  if (request->status().status() == net::URLRequestStatus::SUCCESS ||
-      request->status().status() == net::URLRequestStatus::HANDLED_EXTERNALLY) {
+  if (request->status().status() == net::URLRequestStatus::SUCCESS) {
     bool is_redirect = request->response_headers() &&
         net::HttpResponseHeaders::IsRedirectResponseCode(
             request->response_headers()->response_code());
@@ -357,9 +360,19 @@ bool ChromeNetworkDelegate::OnCanAccessFile(const net::URLRequest& request,
   if (g_allow_file_access_)
     return true;
 
+#if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
+  return true;
+#else
 #if defined(OS_CHROMEOS)
-  // ChromeOS uses a whitelist to only allow access to files residing in the
-  // list of directories below.
+  // If we're running Chrome for ChromeOS on Linux, we want to allow file
+  // access.
+  if (!base::chromeos::IsRunningOnChromeOS() ||
+      CommandLine::ForCurrentProcess()->HasSwitch(switches::kTestType)) {
+    return true;
+  }
+
+  // Use a whitelist to only allow access to files residing in the list of
+  // directories below.
   static const char* const kLocalAccessWhiteList[] = {
       "/home/chronos/user/Downloads",
       "/home/chronos/user/log",
@@ -369,11 +382,19 @@ bool ChromeNetworkDelegate::OnCanAccessFile(const net::URLRequest& request,
       "/tmp",
       "/var/log",
   };
-
-  // If we're running Chrome for ChromeOS on Linux, we want to allow file
-  // access.
-  if (!base::chromeos::IsRunningOnChromeOS())
+#elif defined(OS_ANDROID)
+  // Access to files in external storage is allowed.
+  FilePath external_storage_path;
+  PathService::Get(base::DIR_ANDROID_EXTERNAL_STORAGE, &external_storage_path);
+  if (external_storage_path.IsParent(path))
     return true;
+
+  // Whitelist of other allowed directories.
+  static const char* const kLocalAccessWhiteList[] = {
+      "/sdcard",
+      "/mnt/sdcard",
+  };
+#endif
 
   for (size_t i = 0; i < arraysize(kLocalAccessWhiteList); ++i) {
     const FilePath white_listed_path(kLocalAccessWhiteList[i]);
@@ -383,10 +404,10 @@ bool ChromeNetworkDelegate::OnCanAccessFile(const net::URLRequest& request,
       return true;
     }
   }
+
+  DVLOG(1) << "File access denied - " << path.value().c_str();
   return false;
-#else
-  return true;
-#endif  // defined(OS_CHROMEOS)
+#endif  // !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
 }
 
 bool ChromeNetworkDelegate::OnCanThrottleRequest(

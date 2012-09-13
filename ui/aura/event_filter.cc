@@ -5,6 +5,7 @@
 #include "ui/aura/event_filter.h"
 
 #include "ui/aura/window.h"
+#include "ui/base/events/event.h"
 
 namespace aura {
 
@@ -21,37 +22,31 @@ ui::TouchStatus EventFilter::PreHandleTouchEvent(Window* target,
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus EventFilter::PreHandleGestureEvent(Window* target,
-                                                     ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
-}
-
-ui::EventResult EventFilter::OnKeyEvent(ui::EventTarget* target,
-                                        ui::KeyEvent* event) {
-  return PreHandleKeyEvent(static_cast<Window*>(target), event) ?
-      ui::ER_CONSUMED : ui::ER_UNHANDLED;
-}
-
-ui::EventResult EventFilter::OnMouseEvent(ui::EventTarget* target,
-                                          ui::MouseEvent* event) {
-  return PreHandleMouseEvent(static_cast<Window*>(target), event) ?
-      ui::ER_CONSUMED : ui::ER_UNHANDLED;
-}
-
-ui::EventResult EventFilter::OnScrollEvent(ui::EventTarget* target,
-                                           ui::ScrollEvent* event) {
+ui::EventResult EventFilter::PreHandleGestureEvent(Window* target,
+                                                   ui::GestureEvent* event) {
   return ui::ER_UNHANDLED;
 }
 
-ui::TouchStatus EventFilter::OnTouchEvent(ui::EventTarget* target,
-                                          ui::TouchEvent* event) {
-  return PreHandleTouchEvent(static_cast<Window*>(target), event);
+ui::EventResult EventFilter::OnKeyEvent(ui::KeyEvent* event) {
+  return PreHandleKeyEvent(static_cast<Window*>(event->target()), event) ?
+      ui::ER_CONSUMED : ui::ER_UNHANDLED;
 }
 
-ui::EventResult EventFilter::OnGestureEvent(ui::EventTarget* target,
-                                            ui::GestureEvent* event) {
-  return PreHandleGestureEvent(static_cast<Window*>(target), event) ==
-      ui::GESTURE_STATUS_CONSUMED ? ui::ER_CONSUMED : ui::ER_UNHANDLED;
+ui::EventResult EventFilter::OnMouseEvent(ui::MouseEvent* event) {
+  return PreHandleMouseEvent(static_cast<Window*>(event->target()), event) ?
+      ui::ER_CONSUMED : ui::ER_UNHANDLED;
+}
+
+ui::EventResult EventFilter::OnScrollEvent(ui::ScrollEvent* event) {
+  return ui::ER_UNHANDLED;
+}
+
+ui::TouchStatus EventFilter::OnTouchEvent(ui::TouchEvent* event) {
+  return PreHandleTouchEvent(static_cast<Window*>(event->target()), event);
+}
+
+ui::EventResult EventFilter::OnGestureEvent(ui::GestureEvent* event) {
+  return PreHandleGestureEvent(static_cast<Window*>(event->target()), event);
 }
 
 }  // namespace aura

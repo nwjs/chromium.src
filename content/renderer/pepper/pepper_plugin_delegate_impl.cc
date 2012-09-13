@@ -542,8 +542,11 @@ PepperPluginDelegateImpl::GetBitmapForOptimizedPluginPaint(
            active_instances_.begin();
        i != active_instances_.end(); ++i) {
     webkit::ppapi::PluginInstance* instance = *i;
-    if (instance->GetBitmapForOptimizedPluginPaint(
-            paint_bounds, dib, location, clip, scale_factor))
+    // In Flash fullscreen , the plugin contents should be painted onto the
+    // fullscreen widget instead of the web page.
+    if (!instance->FlashIsFullscreenOrPending() &&
+        instance->GetBitmapForOptimizedPluginPaint(paint_bounds, dib, location,
+                                                   clip, scale_factor))
       return *i;
   }
   return NULL;
@@ -1287,7 +1290,7 @@ bool PepperPluginDelegateImpl::AddNetworkListObserver(
     webkit_glue::NetworkListObserver* observer) {
 #if defined(ENABLE_WEBRTC)
   P2PSocketDispatcher* socket_dispatcher =
-      render_view_->p2p_socket_dispatcher();
+      RenderThreadImpl::current()->p2p_socket_dispatcher();
   if (!socket_dispatcher) {
     return false;
   }
@@ -1302,7 +1305,7 @@ void PepperPluginDelegateImpl::RemoveNetworkListObserver(
     webkit_glue::NetworkListObserver* observer) {
 #if defined(ENABLE_WEBRTC)
   P2PSocketDispatcher* socket_dispatcher =
-      render_view_->p2p_socket_dispatcher();
+      RenderThreadImpl::current()->p2p_socket_dispatcher();
   if (socket_dispatcher)
     socket_dispatcher->RemoveNetworkListObserver(observer);
 #endif

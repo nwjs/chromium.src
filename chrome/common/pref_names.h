@@ -306,6 +306,7 @@ extern const char kPluginsDisabledPluginsExceptions[];
 extern const char kPluginsEnabledPlugins[];
 extern const char kPluginsEnabledInternalPDF[];
 extern const char kPluginsEnabledNaCl[];
+extern const char kPluginsMigratedToPepperFlash[];
 extern const char kPluginsShowSetReaderDefaultInfobar[];
 extern const char kPluginsShowDetails[];
 extern const char kPluginsAllowOutdated[];
@@ -335,7 +336,6 @@ extern const char kBlockThirdPartyCookies[];
 extern const char kClearSiteDataOnExit[];
 extern const char kDefaultZoomLevel[];
 extern const char kPerHostZoomLevels[];
-extern const char kProfileShortcutCreated[];
 extern const char kAutofillEnabled[];
 extern const char kAutofillAuxiliaryProfilesEnabled[];
 extern const char kAutofillPositiveUploadRate[];
@@ -491,6 +491,9 @@ extern const char kShutdownNumProcessesSlow[];
 
 extern const char kRestartLastSessionOnShutdown[];
 extern const char kWasRestarted[];
+#if defined(OS_WIN)
+extern const char kRestartSwitchMode[];
+#endif
 
 extern const char kNumBookmarksOnBookmarkBar[];
 extern const char kNumFoldersOnBookmarkBar[];
@@ -696,8 +699,6 @@ extern const char kBackgroundModeEnabled[];
 extern const char kDevicePolicyRefreshRate[];
 extern const char kUserPolicyRefreshRate[];
 extern const char kLoadCloudPolicyOnSignin[];
-
-extern const char kSessionRestoreFilesCycled[];
 
 extern const char kRecoveryComponentVersion[];
 extern const char kComponentUpdaterState[];

@@ -52,15 +52,6 @@ public class ContentViewCore implements MotionEventDelegate {
     public static final int PAGE_TRANSITION_AUTO_BOOKMARK = 2;
     public static final int PAGE_TRANSITION_START_PAGE = 6;
 
-    /** Translate the find selection into a normal selection. */
-    public static final int FIND_SELECTION_ACTION_KEEP_SELECTION = 0;
-    /** Clear the find selection. */
-    public static final int FIND_SELECTION_ACTION_CLEAR_SELECTION = 1;
-    /** Focus and click the selected node (for links). */
-    public static final int FIND_SELECTION_ACTION_ACTIVATE_SELECTION = 2;
-
-    // Personality of the ContentView.
-    private int mPersonality;
     // Used when ContentView implements a standalone View.
     public static final int PERSONALITY_VIEW = 0;
     // Used for Chrome.
@@ -68,11 +59,14 @@ public class ContentViewCore implements MotionEventDelegate {
 
     // Used to avoid enabling zooming in / out if resulting zooming will
     // produce little visible difference.
-    private static float ZOOM_CONTROLS_EPSILON = 0.007f;
+    private static final float ZOOM_CONTROLS_EPSILON = 0.007f;
 
     // To avoid checkerboard, we clamp the fling velocity based on the maximum number of tiles
     // should be allowed to upload per 100ms.
-    private static int MAX_NUM_UPLOAD_TILES = 12;
+    private final int mMaxNumUploadTiles = 12;
+
+    // Personality of the ContentView.
+    private final int mPersonality;
 
     /**
      * Interface that consumers of {@link ContentViewCore} must implement to allow the proper
@@ -131,7 +125,7 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     private static final class DestroyRunnable implements Runnable {
-        private int mNativeContentViewCore;
+        private final int mNativeContentViewCore;
         private DestroyRunnable(int nativeContentViewCore) {
             mNativeContentViewCore = nativeContentViewCore;
         }
@@ -143,7 +137,7 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private CleanupReference mCleanupReference;
 
-    private Context mContext;
+    private final Context mContext;
     private ViewGroup mContainerView;
     private InternalAccessDelegate mContainerViewInternals;
 
@@ -202,6 +196,9 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private boolean mNeedUpdateOrientationChanged;
 
+    // Whether we use hardware-accelerated drawing.
+    private boolean mHardwareAccelerated = false;
+
     /**
      * Enable multi-process ContentView. This should be called by the application before
      * constructing any ContentView instances. If enabled, ContentView will run renderers in
@@ -235,22 +232,14 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     /**
-     * Constructs a new ContentViewCore.
+     * Constructs a new ContentViewCore. Embedders must call initialize() after constructing
+     * a ContentViewCore and before using it.
      *
      * @param context The context used to create this.
-     * @param containerView The view that will act as a container for all views created by this.
-     * @param internalDispatcher Handles dispatching all hidden or super methods to the
-     *                           containerView.
-     * @param nativeWebContents A pointer to the native web contents.
      * @param personality The type of ContentViewCore being created.
      */
-    public ContentViewCore(
-            Context context, ViewGroup containerView,
-            InternalAccessDelegate internalDispatcher,
-            int nativeWebContents, int personality) {
+    public ContentViewCore(Context context, int personality) {
         mContext = context;
-        mContainerView = containerView;
-        mContainerViewInternals = internalDispatcher;
 
         WeakContext.initializeWeakContext(context);
         // By default, ContentView will initialize single process mode. The call to
@@ -262,8 +251,8 @@ public class ContentViewCore implements MotionEventDelegate {
         mAccessibilityInjector = AccessibilityInjector.newInstance(this);
         mAccessibilityInjector.addOrRemoveAccessibilityApisIfNecessary();
 
+        mPersonality = personality;
         HeapStatsLogger.init(mContext.getApplicationContext());
-        initialize(context, nativeWebContents, personality, false);
     }
 
     /**
@@ -314,22 +303,37 @@ public class ContentViewCore implements MotionEventDelegate {
         );
     }
 
-    // TODO(jrg): incomplete; upstream the rest of this method.
-    private void initialize(Context context, int nativeWebContents, int personality,
+    /**
+     *
+     * @param containerView The view that will act as a container for all views created by this.
+     * @param internalDispatcher Handles dispatching all hidden or super methods to the
+     *                           containerView.
+     * @param takeOwnershipOfWebContents Whether this object will take ownership of
+     *                                   nativeWebContents over on its native side.
+     * @param nativeWebContents A pointer to the native web contents.
+     * @param isAccessFromFileURLsGrantedByDefault Default WebSettings configuration.
+     */
+    // Perform important post-construction set up of the ContentViewCore.
+    // We do not require the containing view in the constructor to allow embedders to create a
+    // ContentViewCore without having fully created it's containing view. The containing view
+    // is a vital component of the ContentViewCore, so embedders must exercise caution in what
+    // they do with the ContentViewCore before calling initialize().
+    // We supply the nativeWebContents pointer here rather than in the constructor to allow us
+    // to set the private browsing mode at a later point for the WebView implementation.
+    public void initialize(ViewGroup containerView, InternalAccessDelegate internalDispatcher,
+            boolean takeOwnershipOfWebContents, int nativeWebContents,
             boolean isAccessFromFileURLsGrantedByDefault) {
-        mNativeContentViewCore = nativeInit(nativeWebContents);
-        mCleanupReference = new CleanupReference(this, new DestroyRunnable(mNativeContentViewCore));
-
-        mPersonality = personality;
+        mContainerView = containerView;
+        mNativeContentViewCore = nativeInit(mHardwareAccelerated, takeOwnershipOfWebContents,
+                nativeWebContents);
+        mCleanupReference = new CleanupReference(
+                this, new DestroyRunnable(mNativeContentViewCore));
         mContentSettings = new ContentSettings(
-            this, mNativeContentViewCore, isAccessFromFileURLsGrantedByDefault);
-        mContainerView.setFocusable(true);
-        mContainerView.setFocusableInTouchMode(true);
-        if (mContainerView.getScrollBarStyle() == View.SCROLLBARS_INSIDE_OVERLAY) {
-            mContainerView.setHorizontalScrollBarEnabled(false);
-            mContainerView.setVerticalScrollBarEnabled(false);
+                this, mNativeContentViewCore, isAccessFromFileURLsGrantedByDefault);
+        initializeContainerView(internalDispatcher);
+        if (mPersonality == PERSONALITY_VIEW) {
+            setAllUserAgentOverridesInHistory();
         }
-        mContainerView.setClickable(true);
 
         String contentDescription = "Web View";
         if (AppResource.STRING_CONTENT_VIEW_CONTENT_DESCRIPTION == 0) {
@@ -339,23 +343,46 @@ public class ContentViewCore implements MotionEventDelegate {
                     AppResource.STRING_CONTENT_VIEW_CONTENT_DESCRIPTION);
         }
         mContainerView.setContentDescription(contentDescription);
+    }
 
-        mZoomManager = new ZoomManager(context, this);
+    /**
+     * Initializes the View that will contain all Views created by the ContentViewCore.
+     *
+     * @param internalDispatcher Handles dispatching all hidden or super methods to the
+     *                           containerView.
+     */
+    private void initializeContainerView(InternalAccessDelegate internalDispatcher) {
+        TraceEvent.begin();
+        mContainerViewInternals = internalDispatcher;
+
+        mContainerView.setWillNotDraw(false);
+        mContainerView.setFocusable(true);
+        mContainerView.setFocusableInTouchMode(true);
+        mContainerView.setClickable(true);
+
+        if (mPersonality == PERSONALITY_CHROME) {
+            // Doing this in PERSONALITY_VIEW mode causes rendering problems in our
+            // current WebView test case (the HTMLViewer application).
+            // TODO(benm): Figure out why this is the case.
+            if (mContainerView.getScrollBarStyle() == View.SCROLLBARS_INSIDE_OVERLAY) {
+                mContainerView.setHorizontalScrollBarEnabled(false);
+                mContainerView.setVerticalScrollBarEnabled(false);
+            }
+        }
+
+        mZoomManager = new ZoomManager(mContext, this);
         mZoomManager.updateMultiTouchSupport();
-        mContentViewGestureHandler = new ContentViewGestureHandler(context, this, mZoomManager);
+        mContentViewGestureHandler = new ContentViewGestureHandler(mContext, this, mZoomManager);
 
         initPopupZoomer(mContext);
-
-        mImeAdapter = createImeAdapter(context);
+        mImeAdapter = createImeAdapter(mContext);
         mKeyboardConnected = mContainerView.getResources().getConfiguration().keyboard
                 != Configuration.KEYBOARD_NOKEYS;
-
-        Log.i(TAG, "mNativeContentView=0x"+ Integer.toHexString(mNativeContentViewCore));
+        TraceEvent.end();
     }
 
     private void initPopupZoomer(Context context){
-        assert AppResource.DIMENSION_LINK_PREVIEW_OVERLAY_RADIUS != 0;
-        mPopupZoomer = new PopupZoomer(context, AppResource.DIMENSION_LINK_PREVIEW_OVERLAY_RADIUS);
+        mPopupZoomer = new PopupZoomer(context);
         mContainerView.addView(mPopupZoomer);
         PopupZoomer.OnTapListener listener = new PopupZoomer.OnTapListener() {
             @Override
@@ -867,7 +894,7 @@ public class ContentViewCore implements MotionEventDelegate {
      * logic in Scroller.java. As it is almost linear for the first 100ms, we use a simple math.
      */
     private int clampFlingVelocityX(int velocity) {
-        int cols = MAX_NUM_UPLOAD_TILES / (int) (Math.ceil((float) getHeight() / 256) + 1);
+        int cols = mMaxNumUploadTiles / (int) (Math.ceil((float) getHeight() / 256) + 1);
         int maxVelocity = cols > 0 ? cols * 2560 : 1000;
         if (Math.abs(velocity) > maxVelocity) {
             return velocity > 0 ? maxVelocity : -maxVelocity;
@@ -877,7 +904,7 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     private int clampFlingVelocityY(int velocity) {
-        int rows = MAX_NUM_UPLOAD_TILES / (int) (Math.ceil((float) getWidth() / 256) + 1);
+        int rows = mMaxNumUploadTiles / (int) (Math.ceil((float) getWidth() / 256) + 1);
         int maxVelocity = rows > 0 ? rows * 2560 : 1000;
         if (Math.abs(velocity) > maxVelocity) {
             return velocity > 0 ? maxVelocity : -maxVelocity;
@@ -1299,18 +1326,10 @@ public class ContentViewCore implements MotionEventDelegate {
 
     // The following methods are implemented at native side.
 
-    /**
-     * Initialize the ContentView native side.
-     * Should be called with a valid native WebContents.
-     * If nativeInitProcess is never called, the first time this method is called,
-     * nativeInitProcess will be called implicitly with the default settings.
-     * @param webContentsPtr the ContentView does not create a new native WebContents and uses
-     *                       the provided one.
-     * @return a native pointer to the native ContentView object.
-     */
-    private native int nativeInit(int webContentsPtr);
+    private native int nativeInit(boolean hardwareAccelerated, boolean takeOwnershipOfWebContents,
+            int webContentsPtr);
 
-    private static native void nativeDestroy(int nativeContentViewCoreImpl);
+    private static native void nativeDestroy(int nativeContentViewCore);
 
     private native void nativeLoadUrl(
             int nativeContentViewCoreImpl,
@@ -1365,6 +1384,9 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private native void nativePinchBy(int nativeContentViewCoreImpl, long timeMs,
             int anchorX, int anchorY, float deltaScale);
+
+    private native void nativeSelectBetweenCoordinates(
+            int nativeContentViewCore, int x1, int y1, int x2, int y2);
 
     private native boolean nativeCanGoBack(int nativeContentViewCoreImpl);
 

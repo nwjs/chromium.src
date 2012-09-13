@@ -696,8 +696,12 @@ void RenderWidget::PaintRect(const gfx::Rect& rect,
     // the plugin. Unlike the DoDeferredUpdate case, an extra copy is still
     // required.
     base::TimeTicks paint_begin_ticks = base::TimeTicks::Now();
+    canvas->save();
+    float canvas_scale = device_scale_factor_ / dib_scale_factor;
+    canvas->scale(canvas_scale, canvas_scale);
     optimized_instance->Paint(webkit_glue::ToWebCanvas(canvas),
                               optimized_copy_location, rect);
+    canvas->restore();
     base::TimeDelta paint_time = base::TimeTicks::Now() - paint_begin_ticks;
     if (!is_accelerated_compositing_active_)
       software_stats_.totalPaintTimeInSeconds += paint_time.InSecondsF();
@@ -1828,6 +1832,15 @@ void RenderWidget::GetRenderingStats(WebKit::WebRenderingStats& stats) const {
   stats.numAnimationFrames += software_stats_.numAnimationFrames;
   stats.numFramesSentToScreen += software_stats_.numFramesSentToScreen;
   stats.totalPaintTimeInSeconds += software_stats_.totalPaintTimeInSeconds;
+}
+
+bool RenderWidget::GetGpuRenderingStats(
+    content::GpuRenderingStats* stats) const {
+  GpuChannelHost* gpu_channel = RenderThreadImpl::current()->GetGpuChannel();
+  if (!gpu_channel)
+    return false;
+
+  return gpu_channel->CollectRenderingStatsForSurface(surface_id(), stats);
 }
 
 void RenderWidget::BeginSmoothScroll(

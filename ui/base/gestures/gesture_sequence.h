@@ -6,7 +6,7 @@
 #define UI_BASE_GESTURES_GESTURE_SEQUENCE_H_
 
 #include "base/timer.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/gestures/gesture_point.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/gfx/rect.h"
@@ -86,6 +86,8 @@ class UI_EXPORT GestureSequence {
 
   // Tap gestures.
   void AppendTapDownGestureEvent(const GesturePoint& point, Gestures* gestures);
+  void PrependTapCancelGestureEvent(const GesturePoint& point,
+                                   Gestures* gestures);
   void AppendBeginGestureEvent(const GesturePoint& point, Gestures* gestures);
   void AppendEndGestureEvent(const GesturePoint& point, Gestures* gestures);
   void AppendClickGestureEvent(const GesturePoint& point,

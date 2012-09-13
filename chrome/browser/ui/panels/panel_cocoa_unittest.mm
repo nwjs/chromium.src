@@ -52,7 +52,8 @@ class PanelCocoaTest : public CocoaProfileTest {
     int panels_count = manager->num_panels();
 
     Panel* panel = manager->CreatePanel(panel_name, profile(),
-                                        GURL(), gfx::Size());
+                                        GURL(), gfx::Rect(),
+                                        PanelManager::CREATE_AS_DOCKED);
     EXPECT_EQ(panels_count + 1, manager->num_panels());
 
     EXPECT_TRUE(panel);
@@ -321,6 +322,11 @@ TEST_F(PanelCocoaTest, MenuItems) {
   EXPECT_FALSE([fullscreen_menu_item isEnabled]);
   EXPECT_FALSE([presentation_menu_item isEnabled]);
   EXPECT_FALSE([sync_menu_item isEnabled]);
+
+  // Verify that commandDispatch on an invalid menu item does not crash.
+  [NSApp sendAction:[sync_menu_item action]
+                 to:[sync_menu_item target]
+               from:sync_menu_item];
 
   ClosePanelAndWait(panel);
 }

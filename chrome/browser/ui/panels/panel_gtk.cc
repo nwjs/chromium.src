@@ -227,13 +227,6 @@ void PanelGtk::Init() {
   gtk_widget_add_events(GTK_WIDGET(window_), GDK_BUTTON_PRESS_MASK |
                                              GDK_POINTER_MOTION_MASK);
   gtk_window_set_decorated(window_, false);
-  // Keep the window always on top.
-  gtk_window_set_keep_above(window_, TRUE);
-  // Show the window on all the virtual desktops.
-  gtk_window_stick(window_);
-  // Do not show an icon in the task bar.  Window operations such as close,
-  // minimize etc. can only be done from the panel UI.
-  gtk_window_set_skip_taskbar_hint(window_, TRUE);
 
   // Disable the resize gripper on Ubuntu.
   gtk_window_util::DisableResizeGrip(window_);
@@ -271,7 +264,7 @@ void PanelGtk::Init() {
 
   // TODO(jennb): add GlobalMenuBar after refactoring out Browser.
 
-  // The window container draws the custom browser frame.
+  // The window container draws the custom window frame.
   window_container_ = gtk_alignment_new(0.0, 0.0, 1.0, 1.0);
   gtk_widget_set_name(window_container_, "chrome-custom-frame-border");
   gtk_widget_set_app_paintable(window_container_, TRUE);
@@ -680,7 +673,7 @@ gboolean PanelGtk::OnButtonPressEvent(GtkWidget* widget,
 }
 
 void PanelGtk::ActiveWindowChanged(GdkWindow* active_window) {
-  // Do nothing if we're in the process of closing the browser window.
+  // Do nothing if we're in the process of closing the panel window.
   if (!window_)
     return;
 
@@ -863,10 +856,6 @@ void PanelGtk::LoadingAnimationCallback() {
   titlebar_->UpdateThrobber(panel_->GetWebContents());
 }
 
-FindBar* PanelGtk::CreatePanelFindBar() {
-  return NULL;  // legacy
-}
-
 void PanelGtk::NotifyPanelOnUserChangedTheme() {
   titlebar_->UpdateTextColor();
   InvalidateWindow();
@@ -903,13 +892,6 @@ void PanelGtk::DrawAttention(bool draw_attention) {
 
 bool PanelGtk::IsDrawingAttention() const {
   return is_drawing_attention_;
-}
-
-bool PanelGtk::PreHandlePanelKeyboardEvent(
-    const NativeWebKeyboardEvent& event,
-    bool* is_keyboard_shortcut) {
-  // No need to prehandle as no keys are reserved.
-  return false;
 }
 
 void PanelGtk::HandlePanelKeyboardEvent(
@@ -950,10 +932,6 @@ void PanelGtk::DetachWebContents(content::WebContents* contents) {
   }
 }
 
-Browser* PanelGtk::GetPanelBrowser() const {
-  return NULL;  // legacy
-}
-
 gfx::Size PanelGtk::WindowSizeFromContentSize(
     const gfx::Size& content_size) const {
   gfx::Size& frame_size = GetFrameSize();
@@ -974,12 +952,19 @@ int PanelGtk::TitleOnlyHeight() const {
   return allocation.height;
 }
 
-void PanelGtk::EnsurePanelFullyVisible() {
-  gtk_window_present(window_);
-}
-
 void PanelGtk::SetPanelAlwaysOnTop(bool on_top) {
   gtk_window_set_keep_above(window_, on_top);
+
+  // Do not show an icon in the task bar for always-on-top windows.
+  // Window operations such as close, minimize etc. can only be done
+  // from the panel UI.
+  gtk_window_set_skip_taskbar_hint(window_, on_top);
+
+  // Show always-on-top windows on all the virtual desktops.
+  if (on_top)
+    gtk_window_stick(window_);
+  else
+    gtk_window_unstick(window_);
 }
 
 void PanelGtk::EnableResizeByMouse(bool enable) {

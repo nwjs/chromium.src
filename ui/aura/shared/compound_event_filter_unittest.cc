@@ -13,7 +13,7 @@
 #include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_activation_client.h"
 #include "ui/aura/test/test_windows.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 
 namespace {
 
@@ -35,6 +35,9 @@ class TestVisibleClient : public aura::client::CursorClient {
 
   virtual bool IsCursorVisible() const OVERRIDE {
     return visible_;
+  }
+
+  virtual void SetDeviceScaleFactor(float scale_factor) OVERRIDE {
   }
 
  private:
@@ -70,10 +73,10 @@ class ConsumeGestureEventFilter : public EventFilter {
     return ui::TOUCH_STATUS_UNKNOWN;
   }
 
-  virtual ui::GestureStatus PreHandleGestureEvent(
+  virtual ui::EventResult PreHandleGestureEvent(
       Window* target,
       ui::GestureEvent* event) OVERRIDE {
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   }
 
   DISALLOW_COPY_AND_ASSIGN(ConsumeGestureEventFilter);
@@ -87,10 +90,6 @@ typedef AuraTestBase CompoundEventFilterTest;
 
 TEST_F(CompoundEventFilterTest, TouchHidesCursor) {
   aura::Env::GetInstance()->SetEventFilter(new shared::CompoundEventFilter());
-  aura::client::SetActivationClient(root_window(),
-                                    new TestActivationClient(root_window()));
-  aura::client::SetCaptureClient(
-      root_window(), new shared::RootWindowCaptureClient(root_window()));
   TestWindowDelegate delegate;
   scoped_ptr<Window> window(CreateTestWindowWithDelegate(&delegate, 1234,
       gfx::Rect(5, 5, 100, 100), NULL));
@@ -139,10 +138,6 @@ TEST_F(CompoundEventFilterTest, TouchHidesCursor) {
 // Tests that tapping a window gives the window focus.
 TEST_F(CompoundEventFilterTest, GestureFocusesWindow) {
   aura::Env::GetInstance()->SetEventFilter(new shared::CompoundEventFilter());
-  aura::client::SetActivationClient(root_window(),
-                                    new TestActivationClient(root_window()));
-  aura::client::SetCaptureClient(
-      root_window(), new shared::RootWindowCaptureClient(root_window()));
   TestWindowDelegate delegate;
   scoped_ptr<Window> window(CreateTestWindowWithDelegate(&delegate, 1234,
       gfx::Rect(5, 5, 100, 100), NULL));
@@ -165,10 +160,6 @@ TEST_F(CompoundEventFilterTest, FilterConsumedGesture) {
   scoped_ptr<EventFilter> gesture_filter(new ConsumeGestureEventFilter());
   compound_filter->AddFilter(gesture_filter.get());
   aura::Env::GetInstance()->SetEventFilter(compound_filter);
-  aura::client::SetActivationClient(root_window(),
-                                    new TestActivationClient(root_window()));
-  aura::client::SetCaptureClient(
-      root_window(), new shared::RootWindowCaptureClient(root_window()));
   TestWindowDelegate delegate;
   scoped_ptr<Window> window(CreateTestWindowWithDelegate(&delegate, 1234,
       gfx::Rect(5, 5, 100, 100), NULL));

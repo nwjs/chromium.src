@@ -9,6 +9,11 @@
 #include "LayerChromium.h"
 #include "SkMatrix44.h"
 #include "WebAnimationImpl.h"
+#ifdef LOG
+#undef LOG
+#endif
+#include "base/string_util.h"
+#include "webcore_convert.h"
 #include <public/WebFloatPoint.h>
 #include <public/WebFloatRect.h>
 #include <public/WebSize.h>
@@ -53,8 +58,7 @@ SkMatrix44 skMatrix44FromTransformationMatrix(const WebTransformationMatrix& mat
     return skMatrix;
 }
 
-} // anonymous namespace
-
+}
 
 WebLayer* WebLayer::create()
 {
@@ -85,7 +89,7 @@ int WebLayerImpl::id() const
 
 void WebLayerImpl::invalidateRect(const WebFloatRect& rect)
 {
-    m_layer->setNeedsDisplayRect(rect);
+    m_layer->setNeedsDisplayRect(convert(rect));
 }
 
 void WebLayerImpl::invalidate()
@@ -120,12 +124,12 @@ void WebLayerImpl::removeAllChildren()
 
 void WebLayerImpl::setAnchorPoint(const WebFloatPoint& anchorPoint)
 {
-    m_layer->setAnchorPoint(anchorPoint);
+    m_layer->setAnchorPoint(convert(anchorPoint));
 }
 
 WebFloatPoint WebLayerImpl::anchorPoint() const
 {
-    return WebFloatPoint(m_layer->anchorPoint());
+    return WebFloatPoint(m_layer->anchorPoint().x(), m_layer->anchorPoint().y());
 }
 
 void WebLayerImpl::setAnchorPointZ(float anchorPointZ)
@@ -140,12 +144,12 @@ float WebLayerImpl::anchorPointZ() const
 
 void WebLayerImpl::setBounds(const WebSize& size)
 {
-    m_layer->setBounds(size);
+    m_layer->setBounds(convert(size));
 }
 
 WebSize WebLayerImpl::bounds() const
 {
-    return WebSize(m_layer->bounds());
+    return convert(m_layer->bounds());
 }
 
 void WebLayerImpl::setMasksToBounds(bool masksToBounds)
@@ -190,12 +194,12 @@ bool WebLayerImpl::opaque() const
 
 void WebLayerImpl::setPosition(const WebFloatPoint& position)
 {
-    m_layer->setPosition(position);
+    m_layer->setPosition(convert(position));
 }
 
 WebFloatPoint WebLayerImpl::position() const
 {
-    return WebFloatPoint(m_layer->position());
+    return WebFloatPoint(m_layer->position().x(), m_layer->position().y());
 }
 
 void WebLayerImpl::setSublayerTransform(const SkMatrix44& matrix)
@@ -275,7 +279,7 @@ void WebLayerImpl::setDebugBorderWidth(float width)
 
 void WebLayerImpl::setDebugName(WebString name)
 {
-    m_layer->setDebugName(name);
+    m_layer->setDebugName(UTF16ToASCII(string16(name.data(), name.length())));
 }
 
 void WebLayerImpl::setAnimationDelegate(WebAnimationDelegate* delegate)
@@ -331,7 +335,17 @@ void WebLayerImpl::setForceRenderSurface(bool forceRenderSurface)
 
 void WebLayerImpl::setScrollPosition(WebPoint position)
 {
-    m_layer->setScrollPosition(position);
+    m_layer->setScrollPosition(convert(position));
+}
+
+WebPoint WebLayerImpl::scrollPosition() const
+{
+    return WebPoint(m_layer->scrollPosition().x(), m_layer->scrollPosition().y());
+}
+
+void WebLayerImpl::setMaxScrollPosition(WebSize maxScrollPosition)
+{
+    m_layer->setMaxScrollPosition(convert(maxScrollPosition));
 }
 
 void WebLayerImpl::setScrollable(bool scrollable)
@@ -353,7 +367,7 @@ void WebLayerImpl::setNonFastScrollableRegion(const WebVector<WebRect>& rects)
 {
     WebCore::Region region;
     for (size_t i = 0; i < rects.size(); ++i) {
-        WebCore::IntRect rect = rects[i];
+        WebCore::IntRect rect = convert(rects[i]);
         region.unite(rect);
     }
     m_layer->setNonFastScrollableRegion(region);
@@ -368,6 +382,11 @@ void WebLayerImpl::setIsContainerForFixedPositionLayers(bool enable)
 void WebLayerImpl::setFixedToContainerLayer(bool enable)
 {
     m_layer->setFixedToContainerLayer(enable);
+}
+
+void WebLayerImpl::setScrollClient(WebLayerScrollClient* scrollClient)
+{
+    m_layer->setLayerScrollClient(scrollClient);
 }
 
 LayerChromium* WebLayerImpl::layer() const

@@ -17,6 +17,7 @@
 #include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
@@ -210,8 +211,7 @@ void SearchProviderTest::QueryForInputAndSetWYTMatch(
   QueryForInput(text, string16(), false);
   profile_.BlockUntilHistoryProcessesPendingRequests();
   ASSERT_NO_FATAL_FAILURE(FinishDefaultSuggestQuery());
-  EXPECT_NE(profile_.GetPrefs()->GetBoolean(prefs::kInstantEnabled),
-            provider_->done());
+  EXPECT_NE(InstantController::IsSuggestEnabled(&profile_), provider_->done());
   if (!wyt_match)
     return;
   ASSERT_GE(provider_->matches().size(), 1u);
@@ -666,12 +666,8 @@ TEST_F(SearchProviderTest, UpdateKeywordDescriptions) {
   AddSearchToHistory(keyword_t_url_, ASCIIToUTF16("term2"), 1);
   profile_.BlockUntilHistoryProcessesPendingRequests();
 
-  ACProviders providers;
-  SearchProvider* provider = provider_.release();
-  providers.push_back(provider);
-  AutocompleteController controller(providers, &profile_);
-  controller.set_search_provider(provider);
-  provider->set_listener(&controller);
+  AutocompleteController controller(&profile_, NULL,
+      AutocompleteProvider::TYPE_SEARCH);
   controller.Start(ASCIIToUTF16("k t"), string16(), false, false, true,
                    AutocompleteInput::ALL_MATCHES);
   const AutocompleteResult& result = controller.result();

@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "ash/shell.h"
-#include "ash/shell_window_ids.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/test_shell_delegate.h"
 #include "ash/wm/window_resizer.h"
@@ -80,11 +79,16 @@ TestBrowserWindowAura::TestBrowserWindowAura(aura::Window *native_window)
 
 TestBrowserWindowAura::~TestBrowserWindowAura() {}
 
+int AlignToGridRoundDown(int location, int grid_size) {
+  if (grid_size <= 1 || location % grid_size == 0)
+    return location;
+  return location / grid_size * grid_size;
+}
+
 // Test that the window is sized appropriately for the first run experience
 // where the default window bounds calculation is invoked.
 TEST_F(WindowSizerTest, DefaultSizeCase) {
-  int grid = ash::Shell::GetInstance()->GetGridSize();
-  EXPECT_EQ(WindowSizer::kDesktopBorderSize, grid);
+  int grid = WindowSizer::kDesktopBorderSize;
   { // 4:3 monitor case, 1024x768, no taskbar
     gfx::Rect window_bounds;
     GetWindowBounds(tentwentyfour, tentwentyfour, gfx::Rect(), gfx::Rect(),
@@ -104,7 +108,7 @@ TEST_F(WindowSizerTest, DefaultSizeCase) {
     EXPECT_EQ(gfx::Rect(WindowSizer::kDesktopBorderSize,
                         WindowSizer::kDesktopBorderSize,
                         1024 - WindowSizer::kDesktopBorderSize * 2,
-                        ash::WindowResizer::AlignToGridRoundDown(
+                        AlignToGridRoundDown(
                             taskbar_bottom_work_area.height() -
                             WindowSizer::kDesktopBorderSize, grid)),
                         window_bounds);
@@ -117,7 +121,7 @@ TEST_F(WindowSizerTest, DefaultSizeCase) {
                     gfx::Rect());
     EXPECT_EQ(gfx::Rect(WindowSizer::kDesktopBorderSize,
                         WindowSizer::kDesktopBorderSize,
-                        ash::WindowResizer::AlignToGridRoundDown(
+                        AlignToGridRoundDown(
                             taskbar_right_work_area.width() -
                             WindowSizer::kDesktopBorderSize * 2, grid),
                         768 - WindowSizer::kDesktopBorderSize),
@@ -132,10 +136,10 @@ TEST_F(WindowSizerTest, DefaultSizeCase) {
     EXPECT_EQ(gfx::Rect(taskbar_left_work_area.x() +
                           WindowSizer::kDesktopBorderSize,
                         WindowSizer::kDesktopBorderSize,
-                        ash::WindowResizer::AlignToGridRoundDown(
+                        AlignToGridRoundDown(
                             taskbar_left_work_area.width() -
                         WindowSizer::kDesktopBorderSize * 2, grid),
-                            ash::WindowResizer::AlignToGridRoundDown(
+                            AlignToGridRoundDown(
                             taskbar_left_work_area.height() -
                             WindowSizer::kDesktopBorderSize, grid)),
               window_bounds);
@@ -150,7 +154,7 @@ TEST_F(WindowSizerTest, DefaultSizeCase) {
                         taskbar_top_work_area.y() +
                           WindowSizer::kDesktopBorderSize,
                         1024 - WindowSizer::kDesktopBorderSize * 2,
-                        ash::WindowResizer::AlignToGridRoundDown(
+                        AlignToGridRoundDown(
                             taskbar_top_work_area.height() -
                             WindowSizer::kDesktopBorderSize, grid)),
               window_bounds);
@@ -160,9 +164,9 @@ TEST_F(WindowSizerTest, DefaultSizeCase) {
     gfx::Rect window_bounds;
     GetWindowBounds(twelveeighty, twelveeighty, gfx::Rect(), gfx::Rect(),
                     gfx::Rect(), DEFAULT, &window_bounds, NULL, gfx::Rect());
-    EXPECT_EQ(gfx::Rect(WindowSizer::kDesktopBorderSize,
+    EXPECT_EQ(gfx::Rect((1280 - WindowSizer::kMaximumWindowWidth) / 2,
                         WindowSizer::kDesktopBorderSize,
-                        1280 - 2 * WindowSizer::kDesktopBorderSize,
+                        WindowSizer::kMaximumWindowWidth,
                         1024 - WindowSizer::kDesktopBorderSize),
               window_bounds);
   }
@@ -171,8 +175,9 @@ TEST_F(WindowSizerTest, DefaultSizeCase) {
     gfx::Rect window_bounds;
     GetWindowBounds(sixteenhundred, sixteenhundred, gfx::Rect(), gfx::Rect(),
                     gfx::Rect(), DEFAULT, &window_bounds, NULL, gfx::Rect());
-    EXPECT_EQ(gfx::Rect((1600 - 1280) / 2, WindowSizer::kDesktopBorderSize,
-                        1280,
+    EXPECT_EQ(gfx::Rect((1600 - WindowSizer::kMaximumWindowWidth) / 2,
+                        WindowSizer::kDesktopBorderSize,
+                        WindowSizer::kMaximumWindowWidth,
                         1200 - WindowSizer::kDesktopBorderSize),
               window_bounds);
   }
@@ -181,9 +186,10 @@ TEST_F(WindowSizerTest, DefaultSizeCase) {
     gfx::Rect window_bounds;
     GetWindowBounds(sixteeneighty, sixteeneighty, gfx::Rect(), gfx::Rect(),
                     gfx::Rect(), DEFAULT, &window_bounds, NULL, gfx::Rect());
-    EXPECT_EQ(gfx::Rect((1680 - 1280) / 2, WindowSizer::kDesktopBorderSize,
-                        1280,
-                        ash::WindowResizer::AlignToGridRoundDown(
+    EXPECT_EQ(gfx::Rect((1680 - WindowSizer::kMaximumWindowWidth) / 2,
+                        WindowSizer::kDesktopBorderSize,
+                        WindowSizer::kMaximumWindowWidth,
+                        AlignToGridRoundDown(
                             1050 - WindowSizer::kDesktopBorderSize,
                             grid)),
               window_bounds);
@@ -193,8 +199,9 @@ TEST_F(WindowSizerTest, DefaultSizeCase) {
     gfx::Rect window_bounds;
     GetWindowBounds(nineteentwenty, nineteentwenty, gfx::Rect(), gfx::Rect(),
                     gfx::Rect(), DEFAULT, &window_bounds, NULL, gfx::Rect());
-    EXPECT_EQ(gfx::Rect((1920 - 1280) / 2, WindowSizer::kDesktopBorderSize,
-                        1280,
+    EXPECT_EQ(gfx::Rect((1920 - WindowSizer::kMaximumWindowWidth) / 2,
+                        WindowSizer::kDesktopBorderSize,
+                        WindowSizer::kMaximumWindowWidth,
                         1200 - WindowSizer::kDesktopBorderSize),
               window_bounds);
   }
@@ -599,20 +606,16 @@ TEST_F(WindowSizerTest,
 // window.
 TEST_F(WindowSizerTestWithBrowser, PlaceNewWindowOverOldWindow) {
   // Create a dummy window.
-  aura::Window* default_container =
-      ash::Shell::GetContainer(
-          ash::Shell::GetPrimaryRootWindow(),
-          ash::internal::kShellWindowId_DefaultContainer);
   scoped_ptr<aura::Window> window(
-      aura::test::CreateTestWindowWithId(0, default_container));
+      aura::test::CreateTestWindowWithId(0, NULL));
   window->SetBounds(gfx::Rect(16, 32, 640, 320));
 
   scoped_ptr<aura::Window> popup(
-      aura::test::CreateTestWindowWithId(1, default_container));
+      aura::test::CreateTestWindowWithId(1, NULL));
   popup->SetBounds(gfx::Rect(16, 32, 128, 256));
 
   scoped_ptr<aura::Window> panel(
-      aura::test::CreateTestWindowWithId(2, default_container));
+      aura::test::CreateTestWindowWithId(2, NULL));
   panel->SetBounds(gfx::Rect(32, 48, 256, 512));
 
   // Create a browser which we can use to pass into the GetWindowBounds

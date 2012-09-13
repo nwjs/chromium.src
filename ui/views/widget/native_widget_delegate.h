@@ -7,7 +7,7 @@
 
 #include <vector>
 
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/views/views_export.h"
 
 namespace gfx {
@@ -109,7 +109,7 @@ class VIEWS_EXPORT NativeWidgetDelegate {
   virtual bool OnMouseEvent(const ui::MouseEvent& event) = 0;
   virtual void OnMouseCaptureLost() = 0;
   virtual ui::TouchStatus OnTouchEvent(const ui::TouchEvent& event) = 0;
-  virtual ui::GestureStatus OnGestureEvent(const ui::GestureEvent& event) = 0;
+  virtual ui::EventResult OnGestureEvent(const ui::GestureEvent& event) = 0;
 
   // Runs the specified native command. Returns true if the command is handled.
   virtual bool ExecuteCommand(int command_id) = 0;

@@ -29,13 +29,14 @@ class VIEWS_EXPORT X11DesktopWindowMoveClient
                                    ui::MouseEvent* event) OVERRIDE;
   virtual ui::TouchStatus PreHandleTouchEvent(aura::Window* target,
                                               ui::TouchEvent* event) OVERRIDE;
-  virtual ui::GestureStatus PreHandleGestureEvent(
+  virtual ui::EventResult PreHandleGestureEvent(
       aura::Window* target,
       ui::GestureEvent* event) OVERRIDE;
 
   // Overridden from aura::client::WindowMoveClient:
-  virtual void RunMoveLoop(aura::Window* window,
-                           const gfx::Point& drag_offset) OVERRIDE;
+  virtual aura::client::WindowMoveResult RunMoveLoop(
+      aura::Window* window,
+      const gfx::Point& drag_offset) OVERRIDE;
   virtual void EndMoveLoop() OVERRIDE;
 
  private:

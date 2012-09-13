@@ -174,6 +174,20 @@ const int kNewtabBarRoundness = 5;
 // Returned from BrowserView::GetClassName.
 const char BrowserView::kViewClassName[] = "browser/ui/views/BrowserView";
 
+namespace {
+
+bool ShouldSaveOrRestoreWindowPos() {
+#if defined(OS_WIN) && !defined(USE_AURA)
+  // In Windows 8 metro mode the window is always maximized (without the
+  // WS_MAXIMIZE) style.
+  if (base::win::IsMetroProcess())
+    return false;
+#endif
+  return true;
+}
+
+}  // namespace
+
 ///////////////////////////////////////////////////////////////////////////////
 // BookmarkExtensionBackground, private:
 // This object serves as the views::Background object which is used to layout
@@ -865,6 +879,7 @@ SkColor BrowserView::GetToolbarBackgroundColor(
     return theme_provider->GetColor(ThemeService::COLOR_TOOLBAR);
 
   switch (mode) {
+    case chrome::search::Mode::MODE_NTP_LOADING:
     case chrome::search::Mode::MODE_NTP:
       return theme_provider->GetColor(
           ThemeService::COLOR_SEARCH_NTP_BACKGROUND);
@@ -889,6 +904,7 @@ gfx::ImageSkia* BrowserView::GetToolbarBackgroundImage(
     return theme_provider->GetImageSkiaNamed(IDR_THEME_TOOLBAR);
 
   switch (mode) {
+    case chrome::search::Mode::MODE_NTP_LOADING:
     case chrome::search::Mode::MODE_NTP:
       return theme_provider->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND);
 
@@ -1364,6 +1380,10 @@ gfx::Rect BrowserView::GetInstantBounds() {
   return contents_->GetPreviewBounds();
 }
 
+bool BrowserView::IsInstantTabShowing() {
+  return preview_container_ != NULL;
+}
+
 WindowOpenDisposition BrowserView::GetDispositionForPopupBounds(
     const gfx::Rect& bounds) {
 #if defined(OS_WIN)
@@ -1531,9 +1551,11 @@ bool BrowserView::ShouldShowWindowTitle() const {
 
 gfx::ImageSkia BrowserView::GetWindowAppIcon() {
   if (browser_->is_app()) {
-    TabContents* contents = chrome::GetActiveTabContents(browser_.get());
-    if (contents && contents->extension_tab_helper()->GetExtensionAppIcon())
-      return *contents->extension_tab_helper()->GetExtensionAppIcon();
+    WebContents* contents = chrome::GetActiveWebContents(browser_.get());
+    extensions::TabHelper* extensions_tab_helper =
+        contents ? extensions::TabHelper::FromWebContents(contents) : NULL;
+    if (extensions_tab_helper && extensions_tab_helper->GetExtensionAppIcon())
+      return *extensions_tab_helper->GetExtensionAppIcon();
   }
 
   return GetWindowIcon();
@@ -1590,10 +1612,9 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
   // If IsFullscreen() is true, we've just changed into fullscreen mode, and
   // we're catching the going-into-fullscreen sizing and positioning calls,
   // which we want to ignore.
-#if defined(OS_WIN) && !defined(USE_AURA)
-  if (base::win::IsMetroProcess())
+  if (!ShouldSaveOrRestoreWindowPos())
     return;
-#endif
+
   if (!IsFullscreen() && chrome::ShouldSaveWindowPlacement(browser_.get())) {
     WidgetDelegate::SaveWindowPlacement(bounds, show_state);
     chrome::SaveWindowPlacement(browser_.get(), bounds, show_state);
@@ -1603,6 +1624,8 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
 bool BrowserView::GetSavedWindowPlacement(
     gfx::Rect* bounds,
     ui::WindowShowState* show_state) const {
+  if (!ShouldSaveOrRestoreWindowPos())
+    return false;
   *bounds = chrome::GetSavedWindowBounds(browser_.get());
   *show_state = chrome::GetSavedWindowShowState(browser_.get());
 
@@ -2399,6 +2422,11 @@ void BrowserView::UpdateAcceleratorMetrics(
   if (command_id == IDC_HELP_PAGE_VIA_KEYBOARD && key_code == ui::VKEY_F1)
     content::RecordAction(UserMetricsAction("ShowHelpTabViaF1"));
 
+  if (command_id == IDC_BOOKMARK_PAGE)
+    UMA_HISTOGRAM_ENUMERATION("Bookmarks.EntryPoint",
+                              bookmark_utils::ENTRY_POINT_ACCELERATOR,
+                              bookmark_utils::ENTRY_POINT_LIMIT);
+
 #if defined(OS_CHROMEOS)
   // Collect information about the relative popularity of various accelerators
   // on Chrome OS.
@@ -2476,15 +2504,15 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
   }
   UpdateUIForContents(new_contents);
 
+  if (change_tab_contents)
+    contents_container_->SetWebContents(new_contents->web_contents());
+
 #if defined(USE_AURA)
   // |change_tab_contents| can mean same WebContents but different TabContents,
   // so let SearchViewController decide how it would handle |new_contents|.
   if (search_view_controller_.get())
     search_view_controller_->SetTabContents(new_contents);
 #endif
-
-  if (change_tab_contents)
-    contents_container_->SetWebContents(new_contents->web_contents());
 
   UpdateDevToolsForContents(new_contents);
   if (!browser_->tab_strip_model()->closing_all() && GetWidget()->IsActive() &&
@@ -2566,13 +2594,14 @@ void BrowserView::ShowPasswordGenerationBubble(
 
   PasswordGenerationBubbleView* bubble =
       new PasswordGenerationBubbleView(
-          bounds,
           form,
+          bounds,
           this,
           tab_contents->web_contents()->GetRenderViewHost(),
+          tab_contents->password_manager(),
           password_generator,
           browser_.get(),
-          tab_contents->password_manager());
+          GetWidget()->GetThemeProvider());
 
   views::BubbleDelegateView::CreateBubble(bubble);
   bubble->SetAlignment(views::BubbleBorder::ALIGN_ARROW_TO_MID_ANCHOR);

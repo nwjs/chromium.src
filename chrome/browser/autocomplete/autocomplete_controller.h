@@ -19,6 +19,7 @@ class AutocompleteControllerDelegate;
 class KeywordProvider;
 class Profile;
 class SearchProvider;
+class ZeroSuggestProvider;
 
 // The AutocompleteController is the center of the autocomplete system.  A
 // class creates an instance of the controller, which in turn creates a set of
@@ -45,23 +46,12 @@ class AutocompleteController : public AutocompleteProviderListener {
   // Used to indicate an index that is not selected in a call to Update().
   static const int kNoItemSelected;
 
-  // Normally, you will call the first constructor.  Unit tests can use the
-  // second to set the providers to some known testing providers.  The default
-  // providers will be overridden and the controller will take ownership of the
-  // providers, Release()ing them on destruction.
+  // |provider_types| is a bitmap containing AutocompleteProvider::Type values
+  // that will (potentially, depending on platform, flags, etc.) be
+  // instantiated.
   AutocompleteController(Profile* profile,
-                         AutocompleteControllerDelegate* delegate);
-#ifdef UNIT_TEST
-  AutocompleteController(const ACProviders& providers, Profile* profile)
-      : delegate_(NULL),
-        providers_(providers),
-        keyword_provider_(NULL),
-        search_provider_(NULL),
-        done_(true),
-        in_start_(false),
-        profile_(profile) {
-  }
-#endif
+                         AutocompleteControllerDelegate* delegate,
+                         int provider_types);
   ~AutocompleteController();
 
   // Starts an autocomplete query, which continues until all providers are
@@ -108,6 +98,16 @@ class AutocompleteController : public AutocompleteProviderListener {
   // If |clear_result| is true, the controller will also erase the result set.
   void Stop(bool clear_result);
 
+  // Begin asynchronously fetching zero-suggest suggestions for |url|.
+  // |user_text| is the text entered in the omnibox, which may be non-empty if
+  // the user previously focused in the omnibox during this interaction.
+  // TODO(jered): Rip out |user_text| once the first match is decoupled from
+  // the current typing in the omnibox.
+  void StartZeroSuggest(const GURL& url, const string16& user_text);
+
+  // Cancels any pending zero-suggest fetch.
+  void StopZeroSuggest();
+
   // Asks the relevant provider to delete |match|, and ensures observers are
   // notified of resulting changes immediately.  This should only be called when
   // no query is running.
@@ -117,14 +117,6 @@ class AutocompleteController : public AutocompleteProviderListener {
   // the popup to ensure it's not showing an out-of-date query.
   void ExpireCopiedEntries();
 
-#ifdef UNIT_TEST
-  void set_search_provider(SearchProvider* provider) {
-    search_provider_ = provider;
-  }
-  void set_keyword_provider(KeywordProvider* provider) {
-    keyword_provider_ = provider;
-  }
-#endif
   SearchProvider* search_provider() const { return search_provider_; }
   KeywordProvider* keyword_provider() const { return keyword_provider_; }
 
@@ -188,6 +180,8 @@ class AutocompleteController : public AutocompleteProviderListener {
 
   SearchProvider* search_provider_;
 
+  ZeroSuggestProvider* zero_suggest_provider_;
+
   // Input passed to Start.
   AutocompleteInput input_;
 
@@ -204,6 +198,9 @@ class AutocompleteController : public AutocompleteProviderListener {
   // Are we in Start()? This is used to avoid updating |result_| and sending
   // notifications until Start() has been invoked on all providers.
   bool in_start_;
+
+  // Has StartZeroSuggest() been called but not Start()?
+  bool in_zero_suggest_;
 
   Profile* profile_;
 

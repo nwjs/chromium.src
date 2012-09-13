@@ -7,7 +7,7 @@
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_font_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -1126,7 +1126,7 @@ ui::TouchStatus Widget::OnTouchEvent(const ui::TouchEvent& event) {
   return GetRootView()->OnTouchEvent(event);
 }
 
-ui::GestureStatus Widget::OnGestureEvent(const ui::GestureEvent& event) {
+ui::EventResult Widget::OnGestureEvent(const ui::GestureEvent& event) {
   ScopedEvent scoped(this, event);
   switch (event.type()) {
     case ui::ET_GESTURE_TAP_DOWN:
@@ -1258,7 +1258,7 @@ void Widget::SetInitialBounds(const gfx::Rect& bounds) {
   if (GetSavedWindowPlacement(&saved_bounds, &saved_show_state_)) {
     if (saved_show_state_ == ui::SHOW_STATE_MAXIMIZED) {
       // If we're going to maximize, wait until Show is invoked to set the
-      // bounds. That way we avoid a noticable resize.
+      // bounds. That way we avoid a noticeable resize.
       initial_restored_bounds_ = saved_bounds;
     } else {
       SetBounds(saved_bounds);

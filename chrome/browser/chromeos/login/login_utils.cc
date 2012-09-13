@@ -66,8 +66,6 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
-#include "chrome/common/net/gaia/gaia_auth_consumer.h"
-#include "chrome/common/net/gaia/gaia_urls.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chromeos/chromeos_switches.h"
@@ -76,6 +74,8 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_service.h"
+#include "google_apis/gaia/gaia_auth_consumer.h"
+#include "google_apis/gaia/gaia_urls.h"
 #include "googleurl/src/gurl.h"
 #include "media/base/media_switches.h"
 #include "net/base/network_change_notifier.h"
@@ -764,6 +764,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kEnablePinch,
       ::switches::kEnableSmoothScrolling,
       ::switches::kEnableThreadedCompositing,
+      ::switches::kEnableTouchCalibration,
       ::switches::kEnableTouchEvents,
       ::switches::kEnableViewport,
       ::switches::kDisableThreadedCompositing,
@@ -1053,17 +1054,28 @@ void LoginUtilsImpl::StoreOAuth1AccessToken(Profile* user_profile,
                                             const std::string& token,
                                             const std::string& secret) {
   // First store OAuth1 token + service for the current user profile...
+  std::string encrypted_token =
+      CrosLibrary::Get()->GetCertLibrary()->EncryptToken(token);
+  std::string encrypted_secret =
+      CrosLibrary::Get()->GetCertLibrary()->EncryptToken(secret);
   PrefService* pref_service = user_profile->GetPrefs();
-  pref_service->SetString(prefs::kOAuth1Token,
-      CrosLibrary::Get()->GetCertLibrary()->EncryptToken(token));
-  pref_service->SetString(prefs::kOAuth1Secret,
-      CrosLibrary::Get()->GetCertLibrary()->EncryptToken(secret));
+  if (!encrypted_token.empty() && !encrypted_secret.empty()) {
+    pref_service->SetString(prefs::kOAuth1Token, encrypted_token);
+    pref_service->SetString(prefs::kOAuth1Secret, encrypted_secret);
 
-  // ...then record the presence of valid OAuth token for this account in local
-  // state as well.
-  UserManager::Get()->SaveUserOAuthStatus(
-      UserManager::Get()->GetLoggedInUser().email(),
-      User::OAUTH_TOKEN_STATUS_VALID);
+    // ...then record the presence of valid OAuth token for this account in
+    // local state as well.
+    UserManager::Get()->SaveUserOAuthStatus(
+        UserManager::Get()->GetLoggedInUser().email(),
+        User::OAUTH_TOKEN_STATUS_VALID);
+  } else {
+    LOG(WARNING) << "Failed to get OAuth1 token/secret encrypted.";
+    // Set the OAuth status invalid so that the user will go through full
+    // GAIA login next time.
+    UserManager::Get()->SaveUserOAuthStatus(
+        UserManager::Get()->GetLoggedInUser().email(),
+        User::OAUTH_TOKEN_STATUS_INVALID);
+  }
 }
 
 void LoginUtilsImpl::VerifyOAuth1AccessToken(Profile* user_profile,

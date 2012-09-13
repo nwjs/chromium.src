@@ -5,6 +5,8 @@
 #include "config.h"
 
 #include "CCSchedulerStateMachine.h"
+#include "base/stringprintf.h"
+
 
 namespace WebCore {
 
@@ -24,11 +26,36 @@ CCSchedulerStateMachine::CCSchedulerStateMachine()
     , m_insideVSync(false)
     , m_visible(false)
     , m_canBeginFrame(false)
-    , m_canDraw(true)
+    , m_canDraw(false)
     , m_drawIfPossibleFailed(false)
     , m_textureState(LAYER_TEXTURE_STATE_UNLOCKED)
     , m_contextState(CONTEXT_ACTIVE)
 {
+}
+
+std::string CCSchedulerStateMachine::toString()
+{
+    std::string str;
+    base::StringAppendF(&str, "m_commitState = %d; ", m_commitState);
+    base::StringAppendF(&str, "m_currentFrameNumber = %d; ", m_currentFrameNumber);
+    base::StringAppendF(&str, "m_lastFrameNumberWhereDrawWasCalled = %d; ", m_lastFrameNumberWhereDrawWasCalled);
+    base::StringAppendF(&str, "m_consecutiveFailedDraws = %d; ", m_consecutiveFailedDraws);
+    base::StringAppendF(&str, "m_maximumNumberOfFailedDrawsBeforeDrawIsForced = %d; ", m_maximumNumberOfFailedDrawsBeforeDrawIsForced);
+    base::StringAppendF(&str, "m_needsRedraw = %d; ", m_needsRedraw);
+    base::StringAppendF(&str, "m_needsForcedRedraw = %d; ", m_needsForcedRedraw);
+    base::StringAppendF(&str, "m_needsForcedRedrawAfterNextCommit = %d; ", m_needsForcedRedrawAfterNextCommit);
+    base::StringAppendF(&str, "m_needsCommit = %d; ", m_needsCommit);
+    base::StringAppendF(&str, "m_needsForcedCommit = %d; ", m_needsForcedCommit);
+    base::StringAppendF(&str, "m_mainThreadNeedsLayerTextures = %d; ", m_mainThreadNeedsLayerTextures);
+    base::StringAppendF(&str, "m_updateMoreResourcesPending = %d; ", m_updateMoreResourcesPending);
+    base::StringAppendF(&str, "m_insideVSync = %d; ", m_insideVSync);
+    base::StringAppendF(&str, "m_visible = %d; ", m_visible);
+    base::StringAppendF(&str, "m_canBeginFrame = %d; ", m_canBeginFrame);
+    base::StringAppendF(&str, "m_canDraw = %d; ", m_canDraw);
+    base::StringAppendF(&str, "m_drawIfPossibleFailed = %d; ", m_drawIfPossibleFailed);
+    base::StringAppendF(&str, "m_textureState = %d; ", m_textureState);
+    base::StringAppendF(&str, "m_contextState = %d; ", m_contextState);
+    return str;
 }
 
 bool CCSchedulerStateMachine::hasDrawnThisFrame() const
@@ -156,11 +183,7 @@ void CCSchedulerStateMachine::updateState(Action action)
         return;
 
     case ACTION_COMMIT:
-        if ((m_needsCommit || !m_visible) && !m_needsForcedCommit)
-            m_commitState = COMMIT_STATE_WAITING_FOR_FIRST_DRAW;
-        else
-            m_commitState = COMMIT_STATE_IDLE;
-
+        m_commitState = COMMIT_STATE_WAITING_FOR_FIRST_DRAW;
         m_needsRedraw = true;
         if (m_drawIfPossibleFailed)
             m_lastFrameNumberWhereDrawWasCalled = -1;
@@ -210,14 +233,18 @@ void CCSchedulerStateMachine::setMainThreadNeedsLayerTextures()
 
 bool CCSchedulerStateMachine::vsyncCallbackNeeded() const
 {
-    if (!m_visible || m_contextState != CONTEXT_ACTIVE) {
-        if (m_needsForcedRedraw || m_commitState == COMMIT_STATE_UPDATING_RESOURCES)
-            return true;
+    // To prevent live-lock, we must always tick when updating resources.
+    if (m_updateMoreResourcesPending || m_commitState == COMMIT_STATE_UPDATING_RESOURCES)
+        return true;
 
+    // If we can't draw, don't tick until we are notified that we can draw again.
+    if (!m_canDraw)
         return false;
-    }
 
-    return m_needsRedraw || m_needsForcedRedraw || m_commitState == COMMIT_STATE_UPDATING_RESOURCES;
+    if (m_needsForcedRedraw)
+        return true;
+
+    return m_needsRedraw && m_visible && m_contextState == CONTEXT_ACTIVE;
 }
 
 void CCSchedulerStateMachine::didEnterVSync()

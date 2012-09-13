@@ -19,7 +19,9 @@
 #include "content/public/common/main_function_params.h"
 
 #if defined(OS_WIN)
+#include "base/win/metro.h"
 #include "base/win/scoped_com_initializer.h"
+#include "ui/base/win/tsf_bridge.h"
 #endif
 
 bool g_exited_main_message_loop = false;
@@ -43,6 +45,7 @@ class BrowserMainRunnerImpl : public content::BrowserMainRunner {
       OVERRIDE {
     is_initialized_ = true;
 
+#if !defined(OS_IOS)
     // ChildProcess:: is a misnomer unless you consider context.  Use
     // of --wait-for-debugger only makes sense when Chrome itself is a
     // child process (e.g. when launched by PyAuto).
@@ -51,6 +54,14 @@ class BrowserMainRunnerImpl : public content::BrowserMainRunner {
 
     if (parameters.command_line.HasSwitch(switches::kSingleProcess))
       content::RenderProcessHost::set_run_renderer_in_process(true);
+#endif  // !defined(OS_IOS)
+
+#if defined(OS_WIN)
+    if (parameters.command_line.HasSwitch(
+            switches::kEnableTextServiceFramework)) {
+      base::win::SetForceToUseTsf();
+    }
+#endif  // OS_WIN
 
     base::StatisticsRecorder::Initialize();
 
@@ -79,8 +90,9 @@ class BrowserMainRunnerImpl : public content::BrowserMainRunner {
     // Make this call before going multithreaded, or spawning any subprocesses.
     base::allocator::SetupSubprocessAllocator();
 #endif
-
     com_initializer_.reset(new base::win::ScopedCOMInitializer);
+    if (base::win::IsTsfAwareRequired())
+      ui::TsfBridge::Initialize();
 #endif  // OS_WIN
 
     main_loop_->CreateThreads();
@@ -109,6 +121,8 @@ class BrowserMainRunnerImpl : public content::BrowserMainRunner {
       main_loop_->ShutdownThreadsAndCleanUp();
 
 #if defined(OS_WIN)
+    if (base::win::IsTsfAwareRequired())
+      ui::TsfBridge::GetInstance()->Shutdown();
     com_initializer_.reset(NULL);
 #endif
 

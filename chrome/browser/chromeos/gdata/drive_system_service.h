@@ -11,7 +11,7 @@
 #include "base/memory/singleton.h"
 #include "base/memory/weak_ptr.h"
 #include "base/threading/sequenced_worker_pool.h"
-#include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
+#include "chrome/browser/google_apis/gdata_errorcode.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/profiles/profile_keyed_service_factory.h"
 
@@ -20,13 +20,14 @@ class FilePath;
 namespace gdata {
 
 class DriveCache;
+class DriveDownloadObserver;
 class DriveFileSystemInterface;
 class DriveServiceInterface;
+class DriveUploader;
 class DriveWebAppsRegistry;
 class FileWriteHelper;
-class GDataDownloadObserver;
-class GDataSyncClient;
-class GDataUploader;
+class DriveSyncClient;
+class StaleCacheFilesRemover;
 
 // DriveSystemService runs the Drive system, including the Drive file system
 // implementation for the file manager, and some other sub systems.
@@ -40,7 +41,7 @@ class DriveSystemService : public ProfileKeyedService  {
   DriveCache* cache() { return cache_; }
   DriveFileSystemInterface* file_system() { return file_system_.get(); }
   FileWriteHelper* file_write_helper() { return file_write_helper_.get(); }
-  GDataUploader* uploader() { return uploader_.get(); }
+  DriveUploader* uploader() { return uploader_.get(); }
   DriveWebAppsRegistry* webapps_registry() { return webapps_registry_.get(); }
 
   // Clears all the local cache files and in-memory data, and remounts the file
@@ -76,12 +77,13 @@ class DriveSystemService : public ProfileKeyedService  {
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   DriveCache* cache_;
   scoped_ptr<DriveServiceInterface> drive_service_;
-  scoped_ptr<GDataUploader> uploader_;
+  scoped_ptr<DriveUploader> uploader_;
   scoped_ptr<DriveWebAppsRegistry> webapps_registry_;
   scoped_ptr<DriveFileSystemInterface> file_system_;
   scoped_ptr<FileWriteHelper> file_write_helper_;
-  scoped_ptr<GDataDownloadObserver> download_observer_;
-  scoped_ptr<GDataSyncClient> sync_client_;
+  scoped_ptr<DriveDownloadObserver> download_observer_;
+  scoped_ptr<DriveSyncClient> sync_client_;
+  scoped_ptr<StaleCacheFilesRemover> stale_cache_files_remover_;
   base::WeakPtrFactory<DriveSystemService> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(DriveSystemService);

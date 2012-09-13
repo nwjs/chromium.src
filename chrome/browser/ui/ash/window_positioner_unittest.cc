@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/ash/window_positioner.h"
 
 #include "ash/shell.h"
-#include "ash/shell_window_ids.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/test_shell_delegate.h"
 #include "ash/wm/window_resizer.h"
@@ -77,7 +76,7 @@ class WindowPositionerTest : public AshTestBase {
   WindowPositioner* window_positioner() { return window_positioner_; }
 
   // The positioner & desktop's used grid alignment size.
-  int grid_size_;
+  const int grid_size_;
 
  private:
   WindowPositioner* window_positioner_;
@@ -103,7 +102,8 @@ class WindowPositionerTest : public AshTestBase {
 };
 
 WindowPositionerTest::WindowPositionerTest()
-    : window_positioner_(NULL) {
+    : grid_size_(WindowPositioner::kMinimumWindowOffset),
+      window_positioner_(NULL) {
   // Create a message loop.
   MessageLoopForUI* ui_loop = message_loop();
   ui_thread_.reset(
@@ -121,14 +121,11 @@ WindowPositionerTest::~WindowPositionerTest() {
 void WindowPositionerTest::SetUp() {
   AshTestBase::SetUp();
   // Create some default dummy windows.
-  aura::Window* default_container = ash::Shell::GetContainer(
-      ash::Shell::GetPrimaryRootWindow(),
-      ash::internal::kShellWindowId_DefaultContainer);
-  window_.reset(aura::test::CreateTestWindowWithId(0, default_container));
+  window_.reset(aura::test::CreateTestWindowWithId(0, NULL));
   window_->SetBounds(gfx::Rect(16, 32, 640, 320));
-  popup_.reset(aura::test::CreateTestWindowWithId(1, default_container));
+  popup_.reset(aura::test::CreateTestWindowWithId(1, NULL));
   popup_->SetBounds(gfx::Rect(16, 32, 128, 256));
-  panel_.reset(aura::test::CreateTestWindowWithId(2, default_container));
+  panel_.reset(aura::test::CreateTestWindowWithId(2, NULL));
   panel_->SetBounds(gfx::Rect(32, 48, 256, 512));
 
   // Create a browser for the window.
@@ -154,15 +151,6 @@ void WindowPositionerTest::SetUp() {
   popup()->Hide();
   panel()->Hide();
   window_positioner_ = new WindowPositioner();
-
-  // Get the alignment size.
-  grid_size_ = ash::Shell::GetInstance()->GetGridSize();
-  if (!grid_size_) {
-    grid_size_ = WindowPositioner::kMinimumWindowOffset;
-  } else {
-    while (grid_size_ < WindowPositioner::kMinimumWindowOffset)
-      grid_size_ *= 2;
-  }
 }
 
 void WindowPositionerTest::TearDown() {
@@ -183,6 +171,12 @@ void WindowPositionerTest::TearDown() {
   AshTestBase::TearDown();
   delete window_positioner_;
   window_positioner_ = NULL;
+}
+
+int AlignToGridRoundDown(int location, int grid_size) {
+  if (grid_size <= 1 || location % grid_size == 0)
+    return location;
+  return location / grid_size * grid_size;
 }
 
 TEST_F(WindowPositionerTest, cascading) {
@@ -247,7 +241,6 @@ TEST_F(WindowPositionerTest, cascading) {
 
 TEST_F(WindowPositionerTest, filling) {
   const gfx::Rect work_area = gfx::Screen::GetPrimaryDisplay().work_area();
-  int grid = ash::Shell::GetInstance()->GetGridSize();
   gfx::Rect popup_position(0, 0, 256, 128);
   // Leave space on the left and the right and see if we fill top to bottom.
   window()->SetBounds(gfx::Rect(work_area.x() + popup_position.width(),
@@ -266,8 +259,8 @@ TEST_F(WindowPositionerTest, filling) {
   popup()->Show();
   gfx::Rect mid_left = window_positioner()->GetPopupPosition(popup_position);
   EXPECT_EQ(gfx::Rect(work_area.x(),
-                      ash::WindowResizer::AlignToGridRoundDown(
-                          work_area.y() + top_left.height(), grid),
+                      AlignToGridRoundDown(
+                          work_area.y() + top_left.height(), grid_size_),
                           popup_position.width(), popup_position.height()),
                       mid_left);
 
@@ -278,7 +271,7 @@ TEST_F(WindowPositionerTest, filling) {
   popup()->SetBounds(gfx::Rect(work_area.x(), work_area.y(),
                                popup_position.width(),
                                work_area.height() - popup_position.height() -
-                                   grid + 1));
+                                   grid_size_ + 1));
   gfx::Rect bottom_left = window_positioner()->GetPopupPosition(
                               popup_position);
   EXPECT_EQ(gfx::Rect(work_area.x(),
@@ -293,8 +286,8 @@ TEST_F(WindowPositionerTest, filling) {
                                1));
   gfx::Rect top_right = window_positioner()->GetPopupPosition(
                             popup_position);
-  EXPECT_EQ(gfx::Rect(ash::WindowResizer::AlignToGridRoundDown(
-                         work_area.right() - popup_position.width(), grid),
+  EXPECT_EQ(gfx::Rect(AlignToGridRoundDown(work_area.right() -
+                                           popup_position.width(), grid_size_),
                       work_area.y(),
                       popup_position.width(), popup_position.height()),
                       top_right);

@@ -9,14 +9,15 @@
 #include "base/memory/ref_counted.h"
 #include "base/sequenced_task_runner.h"
 #include "googleurl/src/gurl.h"
-#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_file_util.h"
 #include "webkit/fileapi/file_system_types.h"
+#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/media/media_file_system_config.h"
+#include "webkit/fileapi/task_runner_bound_observer_list.h"
 
 #if defined(SUPPORT_MEDIA_FILESYSTEM)
-#include "webkit/fileapi/media/media_device_interface_impl.h"
+#include "webkit/fileapi/media/media_device_delegate.h"
 #endif
 
 namespace fileapi {
@@ -38,12 +39,12 @@ class FILEAPI_EXPORT_PRIVATE FileSystemOperationContext {
   int64 allowed_bytes_growth() const { return allowed_bytes_growth_; }
 
 #if defined(SUPPORT_MEDIA_FILESYSTEM)
-  void set_media_device(MediaDeviceInterfaceImpl* media_device) {
-    media_device_ = media_device;
+  void set_media_device_delegate(MediaDeviceDelegate* delegate) {
+    media_device_delegate_ = delegate;
   }
 
-  MediaDeviceInterfaceImpl* media_device() const {
-    return media_device_.get();
+  MediaDeviceDelegate* media_device_delegate() const {
+    return media_device_delegate_.get();
   }
 #endif
 
@@ -64,6 +65,21 @@ class FILEAPI_EXPORT_PRIVATE FileSystemOperationContext {
     return media_path_filter_;
   }
 
+  void set_change_observers(const ChangeObserverList& list) {
+    change_observers_ = list;
+  }
+  ChangeObserverList* change_observers() { return &change_observers_; }
+
+  void set_access_observers(const AccessObserverList& list) {
+    access_observers_ = list;
+  }
+  AccessObserverList* access_observers() { return &access_observers_; }
+
+  void set_update_observers(const UpdateObserverList& list) {
+    update_observers_ = list;
+  }
+  UpdateObserverList* update_observers() { return &update_observers_; }
+
  private:
   scoped_refptr<FileSystemContext> file_system_context_;
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
@@ -71,9 +87,13 @@ class FILEAPI_EXPORT_PRIVATE FileSystemOperationContext {
   int64 allowed_bytes_growth_;
   MediaPathFilter* media_path_filter_;
 
+  AccessObserverList access_observers_;
+  ChangeObserverList change_observers_;
+  UpdateObserverList update_observers_;
+
 #if defined(SUPPORT_MEDIA_FILESYSTEM)
   // Store the current media device.
-  scoped_refptr<MediaDeviceInterfaceImpl> media_device_;
+  scoped_refptr<MediaDeviceDelegate> media_device_delegate_;
 #endif
 };
 

@@ -15,8 +15,6 @@
 #include "chrome/browser/ui/panels/panel_strip.h"
 #include "ui/gfx/rect.h"
 
-class Browser;
-class BrowserWindow;
 class DetachedPanelStrip;
 class DockedPanelStrip;
 class GURL;
@@ -28,28 +26,33 @@ class PanelMouseWatcher;
 class PanelManager : public DisplaySettingsProvider::DisplayAreaObserver,
                      public DisplaySettingsProvider::FullScreenObserver {
  public:
+  enum CreateMode {
+    CREATE_AS_DOCKED,  // Creates a docked panel. The default.
+    CREATE_AS_DETACHED  // Creates a detached panel.
+  };
+
   // Returns a single instance.
   static PanelManager* GetInstance();
 
   // Returns true if panels should be used for the extension.
   static bool ShouldUsePanels(const std::string& extension_id);
 
-  // Returns true if using browserless panels. False if using old panels.
-  // TODO(jennb): Delete after refactor.
-  static bool UseBrowserlessPanels();
+  // Returns the default top-left position for a detached panel.
+  gfx::Point GetDefaultDetachedPanelOrigin();
 
   // Creates a panel and returns it. The panel might be queued for display
   // later.
   // |app_name| is the default title for Panels when the page content does not
   // provide a title. For extensions, this is usually the application name
   // generated from the extension id.
-  // |requested_size| is the desired size for the panel, but actual
-  // size may differ after panel layout.
+  // |requested_bounds| is the desired bounds for the panel, but actual
+  // bounds may differ after panel layout depending on create |mode|.
+  // |mode| indicates whether panel should be created as docked or detached.
   Panel* CreatePanel(const std::string& app_name,
                      Profile* profile,
                      const GURL& url,
-                     const gfx::Size& requested_size);
-  Panel* CreatePanel(Browser* browser);  // legacy
+                     const gfx::Rect& requested_bounds,
+                     CreateMode mode);
 
   // Close all panels (asynchronous). Panels will be removed after closing.
   void CloseAll();
@@ -89,11 +92,6 @@ class PanelManager : public DisplaySettingsProvider::DisplayAreaObserver,
 
   // Brings up or down the titlebars for all minimized panels.
   void BringUpOrDownTitlebars(bool bring_up);
-
-  // Returns the next browser window which could be either panel window or
-  // tabbed window, to switch to if the given panel is going to be deactivated.
-  // Returns NULL if such window cannot be found.
-  BrowserWindow* GetNextBrowserWindowToActivate(Browser* current_browser) const;
 
   int num_panels() const;
   std::vector<Panel*> panels() const;
@@ -167,13 +165,6 @@ class PanelManager : public DisplaySettingsProvider::DisplayAreaObserver,
 
   PanelManager();
   virtual ~PanelManager();
-
-  // Combined CreatePanel() logic until we can delete legacy CreatePanel().
-  Panel* CreatePanel(Browser* browser,
-                     const std::string& app_name,
-                     Profile* profile,
-                     const GURL& url,
-                     const gfx::Size& requested_size);
 
   // Overridden from DisplaySettingsProvider::DisplayAreaObserver:
   virtual void OnDisplayAreaChanged(const gfx::Rect& display_area) OVERRIDE;

@@ -15,7 +15,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
-#include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
+#include "chrome/browser/google_apis/gdata_errorcode.h"
 #endif
 
 typedef std::vector<unsigned char> ScreenshotData;
@@ -60,7 +60,7 @@ class ScreenshotSource : public ChromeURLDataManager::DataSource {
                            int request_id,
                            const FilePath& file);
 
-  // The callback for GData's getting file method.
+  // The callback for Drive's getting file method.
   void GetSavedScreenshotCallback(const std::string& screenshot_path,
                                   int request_id,
                                   gdata::DriveFileError error,

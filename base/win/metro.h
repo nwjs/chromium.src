@@ -42,12 +42,6 @@ struct CurrentTabInfo {
   wchar_t* url;
 };
 
-// The types of exports in metro_driver.dll.
-typedef HRESULT (*ActivateApplicationFn)(const wchar_t*);
-
-// The names of the exports in metro_driver.dll.
-BASE_EXPORT extern const char kActivateApplication[];
-
 // Returns the handle to the metro dll loaded in the process. A NULL return
 // indicates that the metro dll was not loaded in the process.
 BASE_EXPORT HMODULE GetMetroModule();
@@ -59,6 +53,13 @@ BASE_EXPORT bool IsMetroProcess();
 // Returns true if this process is running under Text Services Framework (TSF)
 // and browser must be TSF-aware.
 BASE_EXPORT bool IsTsfAwareRequired();
+
+// Sets browser to use Text Service Framework (TSF) regardless of process
+// status. On Windows 8, this function also disables CUAS (Cicero Unaware
+// Application Support) to emulate Windows Metro mode in terms of IME
+// functionality. This should be beneficial in QA process because on can test
+// IME functionality in Windows 8 desktop mode.
+BASE_EXPORT void SetForceToUseTsf();
 
 // Allocates and returns the destination string via the LocalAlloc API after
 // copying the src to it.

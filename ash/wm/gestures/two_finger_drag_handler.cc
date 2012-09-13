@@ -4,14 +4,13 @@
 
 #include "ash/wm/gestures/two_finger_drag_handler.h"
 
-#include "ash/shell.h"
 #include "ash/wm/default_window_resizer.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace/snap_sizer.h"
 #include "ui/aura/client/window_types.h"
 #include "ui/aura/window.h"
-#include "ui/base/event.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/hit_test.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -68,8 +67,7 @@ bool TwoFingerDragHandler::ProcessGestureEvent(aura::Window* target,
         internal::SnapSizer sizer(target,
             gfx::Point(),
             event.details().swipe_left() ? internal::SnapSizer::LEFT_EDGE :
-                                           internal::SnapSizer::RIGHT_EDGE,
-            Shell::GetInstance()->GetGridSize());
+                                           internal::SnapSizer::RIGHT_EDGE);
 
         ui::ScopedLayerAnimationSettings scoped_setter(
             target->layer()->GetAnimator());

@@ -10,11 +10,11 @@
 #include "ui/aura/display_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
-#include "ui/aura/window.h"
 #include "ui/aura/single_display_manager.h"
+#include "ui/aura/window.h"
 #include "ui/base/accessibility/accessibility_types.h"
 #include "ui/base/clipboard/clipboard.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/controls/button/text_button.h"
@@ -52,13 +52,6 @@ class ShellViewsDelegateAura : public ViewsDelegate {
   }
 
   // Overridden from ViewsDelegate:
-  virtual ui::Clipboard* GetClipboard() const OVERRIDE {
-    if (!clipboard_.get()) {
-      clipboard_.reset(new ui::Clipboard);
-    }
-    return clipboard_.get();
-  }
-
   virtual void SaveWindowPlacement(const Widget* window,
                                    const std::string& window_name,
                                    const gfx::Rect& bounds,
@@ -111,7 +104,6 @@ class ShellViewsDelegateAura : public ViewsDelegate {
   }
 
  private:
-  mutable scoped_ptr<ui::Clipboard> clipboard_;
   bool use_transparent_windows_;
 
   DISALLOW_COPY_AND_ASSIGN(ShellViewsDelegateAura);

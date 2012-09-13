@@ -5,6 +5,8 @@
 
 import os
 
+# pylint: disable=C0301
+# This file contains lines longer than 80
 
 #
 # Default macros for various platforms.
@@ -89,6 +91,11 @@ SO_LINK_RULES = {
   'Release': '<TAB>$(<LINK>) -o $@ $^ <MACH> -shared $(<PROJ>_LDFLAGS) -L$(NACL_SDK_ROOT)/lib/$(OSNAME)_<ARCH>_<tcname>/<config> <LIBLIST>',
 }
 
+LINUX_SO_LINK_RULES = {
+  'Debug': '<TAB>$(<LINK>) -o $@ $^ -g <MACH> -shared $(<PROJ>_LDFLAGS) -L$(NACL_SDK_ROOT)/lib/$(OSNAME)_<tcname>/<config> <LIBLIST>',
+  'Release': '<TAB>$(<LINK>) -o $@ $^ <MACH> -shared $(<PROJ>_LDFLAGS) -L$(NACL_SDK_ROOT)/lib/$(OSNAME)_<tcname>/<config> <LIBLIST>',
+}
+
 PEXE_TRANSLATE_RULE = """
 <tc>/<config>/<proj>_x86_32.nexe : <tc>/<config>/<proj>.pexe
 <TAB>$(TRANSLATE) -arch x86-32 $< -o $@
@@ -168,7 +175,7 @@ LINUX_TOOL = {
   'MAIN': '<tc>/<config>/lib<proj>.so',
   'NMFMAIN': '<tc>/<config>/lib<proj>.so',
   'SO': '<tc>/<config>/lib<proj>.so',
-  'LIB': '$(NACL_SDK_ROOT)/lib/linux_<ARCH>_host/<config>/lib<proj>.a',
+  'LIB': '$(NACL_SDK_ROOT)/lib/linux_host/<config>/lib<proj>.a',
 }
 
 NACL_TOOL = {
@@ -276,7 +283,7 @@ BUILD_RULES = {
     'CC': SO_CC_RULES,
     'CXX': SO_CC_RULES,
     'NMF' : NMF_EMPTY,
-    'MAIN': SO_LINK_RULES,
+    'MAIN': LINUX_SO_LINK_RULES,
     'LIB': POSIX_LIB_RULES,
     'SO': None,
     'TOOL': LINUX_TOOL
@@ -294,6 +301,10 @@ class MakeRules(object):
 
   def __init__(self, tc, cfg=None, arch=None):
     self.tc = tc
+    self.project = ''
+    self.cfg = ''
+    self.arch = ''
+    self.ptype = ''
     self.defines = []
     self.includes = []
     self.libraries = []
@@ -332,7 +343,7 @@ class MakeRules(object):
     self.vars['<EXT>'] = EXT
     out = '<tc>/<config>/%s_<ARCH>.o : %s $(THIS_MAKE) | <tc>/<config>\n' % (
         os.path.splitext(src)[0], src)
-    out+= BUILD_RULES[self.tc][EXT][self.cfg] + '\n\n'
+    out += BUILD_RULES[self.tc][EXT][self.cfg] + '\n\n'
     return self.Replace(out)
 
   def BuildLinkRule(self):
@@ -396,7 +407,6 @@ class MakeRules(object):
     self.SetLibraries(libs)
 
   def SetSource(self, src):
-    self.source = source
     self.vars['<src>'] = src
 
   def SetToolchain(self, tc):
@@ -421,7 +431,6 @@ class MakeRules(object):
     # Add other passed in replacements
     for key in kwargs:
       self.vars['<%s>' % key] = kwargs[key]
-    self.var_set = kwargs
 
   def Replace(self, text):
     return Replace(text, self.vars)

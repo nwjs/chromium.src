@@ -16,9 +16,9 @@
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
-#include "ui/base/event.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_aura.h"
+#include "ui/base/events/event.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -62,7 +62,6 @@ int DragDropController::StartDragAndDrop(const ui::OSExchangeData& data,
                                          int operation) {
   DCHECK(!IsDragDropInProgress());
 
-  drag_cursor_ = ui::kCursorPointer;
   drag_drop_tracker_.reset(new DragDropTracker(root_window));
 
   drag_data_ = &data;
@@ -128,7 +127,6 @@ void DragDropController::DragUpdate(aura::Window* target,
         cursor = ui::kCursorAlias;
       else if (op & ui::DragDropTypes::DRAG_MOVE)
         cursor = ui::kCursorMove;
-      drag_cursor_ = cursor;
       ash::Shell::GetInstance()->cursor_manager()->SetCursor(cursor);
     }
   }
@@ -145,7 +143,6 @@ void DragDropController::DragUpdate(aura::Window* target,
 
 void DragDropController::Drop(aura::Window* target,
                               const ui::LocatedEvent& event) {
-  drag_cursor_ = ui::kCursorPointer;
   ash::Shell::GetInstance()->cursor_manager()->SetCursor(ui::kCursorPointer);
   aura::client::DragDropDelegate* delegate = NULL;
 
@@ -175,7 +172,6 @@ void DragDropController::Drop(aura::Window* target,
 }
 
 void DragDropController::DragCancel() {
-  drag_cursor_ = ui::kCursorPointer;
   ash::Shell::GetInstance()->cursor_manager()->SetCursor(ui::kCursorPointer);
 
   // |drag_window_| can be NULL if we have just started the drag and have not
@@ -195,10 +191,6 @@ void DragDropController::DragCancel() {
 
 bool DragDropController::IsDragDropInProgress() {
   return !!drag_drop_tracker_.get();
-}
-
-gfx::NativeCursor DragDropController::GetDragCursor() {
-  return drag_cursor_;
 }
 
 bool DragDropController::PreHandleKeyEvent(aura::Window* target,
@@ -261,10 +253,10 @@ ui::TouchStatus DragDropController::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_CONTINUE;
 }
 
-ui::GestureStatus DragDropController::PreHandleGestureEvent(
+ui::EventResult DragDropController::PreHandleGestureEvent(
     aura::Window* target,
     ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 void DragDropController::OnWindowDestroyed(aura::Window* window) {

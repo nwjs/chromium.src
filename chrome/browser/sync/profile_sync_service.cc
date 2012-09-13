@@ -21,6 +21,7 @@
 #include "base/string16.h"
 #include "base/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
+#include "build/build_config.h"
 #include "chrome/browser/about_flags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/defaults.h"
@@ -49,12 +50,12 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
-#include "chrome/common/net/gaia/gaia_constants.h"
 #include "chrome/common/time_format.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
+#include "google_apis/gaia/gaia_constants.h"
 #include "grit/generated_resources.h"
 #include "net/cookies/cookie_monster.h"
 #include "sync/api/sync_error.h"
@@ -467,6 +468,10 @@ void ProfileSyncService::UnregisterInvalidationHandler(
   invalidator_registrar_.UnregisterHandler(handler);
 }
 
+syncer::InvalidatorState ProfileSyncService::GetInvalidatorState() const {
+  return invalidator_registrar_.GetInvalidatorState();
+}
+
 void ProfileSyncService::Shutdown() {
   ShutdownImpl(false);
 }
@@ -523,7 +528,7 @@ void ProfileSyncService::ShutdownImpl(bool sync_disabled) {
   encrypt_everything_ = false;
   encrypted_types_ = syncer::SyncEncryptionHandler::SensitiveTypes();
   passphrase_required_reason_ = syncer::REASON_PASSPHRASE_NOT_REQUIRED;
-  last_auth_error_ = GoogleServiceAuthError::None();
+  last_auth_error_ = AuthError::None();
 
   if (sync_global_error_.get()) {
     GlobalErrorServiceFactory::GetForProfile(profile_)->RemoveGlobalError(
@@ -659,18 +664,14 @@ void ProfileSyncService::DisableBrokenDatatype(
                  weak_factory_.GetWeakPtr()));
 }
 
-void ProfileSyncService::OnNotificationsEnabled() {
-  invalidator_registrar_.EmitOnNotificationsEnabled();
+void ProfileSyncService::OnInvalidatorStateChange(
+    syncer::InvalidatorState state) {
+  invalidator_registrar_.UpdateInvalidatorState(state);
 }
 
-void ProfileSyncService::OnNotificationsDisabled(
-    syncer::NotificationsDisabledReason reason) {
-  invalidator_registrar_.EmitOnNotificationsDisabled(reason);
-}
-
-void ProfileSyncService::OnIncomingNotification(
+void ProfileSyncService::OnIncomingInvalidation(
     const syncer::ObjectIdStateMap& id_state_map,
-    syncer::IncomingNotificationSource source) {
+    syncer::IncomingInvalidationSource source) {
   invalidator_registrar_.DispatchInvalidationsToHandlers(id_state_map, source);
 }
 
@@ -829,13 +830,17 @@ void ProfileSyncService::OnExperimentsChanged(
     about_flags::SetExperimentEnabled(g_browser_process->local_state(),
                                       "sync-tab-favicons",
                                       true);
+#if defined(OS_ANDROID)
+    // Android does not support about:flags and experiments, so we need to force
+    // setting the experiments as command line switches.
+    CommandLine::ForCurrentProcess()->AppendSwitch(switches::kSyncTabFavicons);
+#endif
   }
 
   current_experiments = experiments;
 }
 
-void ProfileSyncService::UpdateAuthErrorState(
-    const GoogleServiceAuthError& error) {
+void ProfileSyncService::UpdateAuthErrorState(const AuthError& error) {
   is_auth_in_progress_ = false;
   last_auth_error_ = error;
 
@@ -845,22 +850,21 @@ void ProfileSyncService::UpdateAuthErrorState(
 
 namespace {
 
-GoogleServiceAuthError ConnectionStatusToAuthError(
+AuthError ConnectionStatusToAuthError(
     syncer::ConnectionStatus status) {
   switch (status) {
     case syncer::CONNECTION_OK:
-      return GoogleServiceAuthError::None();
+      return AuthError::None();
       break;
     case syncer::CONNECTION_AUTH_ERROR:
-      return GoogleServiceAuthError(
-          GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS);
+      return AuthError(AuthError::INVALID_GAIA_CREDENTIALS);
       break;
     case syncer::CONNECTION_SERVER_ERROR:
-      return GoogleServiceAuthError(GoogleServiceAuthError::CONNECTION_FAILED);
+      return AuthError(AuthError::CONNECTION_FAILED);
       break;
     default:
       NOTREACHED();
-      return GoogleServiceAuthError(GoogleServiceAuthError::CONNECTION_FAILED);
+      return AuthError(AuthError::CONNECTION_FAILED);
   }
 }
 
@@ -872,8 +876,7 @@ void ProfileSyncService::OnConnectionStatusChange(
 }
 
 void ProfileSyncService::OnStopSyncingPermanently() {
-  UpdateAuthErrorState(
-      GoogleServiceAuthError(GoogleServiceAuthError::SERVICE_UNAVAILABLE));
+  UpdateAuthErrorState(AuthError(AuthError::SERVICE_UNAVAILABLE));
   sync_prefs_.SetStartSuppressed(true);
   DisableForUser();
 }
@@ -1135,7 +1138,7 @@ bool ProfileSyncService::QueryDetailedSyncStatus(
   }
 }
 
-const GoogleServiceAuthError& ProfileSyncService::GetAuthError() const {
+const AuthError& ProfileSyncService::GetAuthError() const {
   return last_auth_error_;
 }
 
@@ -1633,7 +1636,7 @@ void ProfileSyncService::Observe(int type,
       RefreshSpareBootstrapToken(successful->password);
 #endif
       if (!sync_initialized() ||
-          GetAuthError().state() != GoogleServiceAuthError::NONE) {
+          GetAuthError().state() != AuthError::NONE) {
         // Track the fact that we're still waiting for auth to complete.
         is_auth_in_progress_ = true;
       }
@@ -1651,8 +1654,7 @@ void ProfileSyncService::Observe(int type,
         // network). It's possible the token we do have is also invalid, but in
         // that case we should already have (or can expect) an auth error sent
         // from the sync backend.
-        GoogleServiceAuthError error(
-            GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS);
+        AuthError error(AuthError::INVALID_GAIA_CREDENTIALS);
         UpdateAuthErrorState(error);
       }
       break;

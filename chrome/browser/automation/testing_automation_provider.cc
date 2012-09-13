@@ -149,7 +149,7 @@
 #include "content/public/common/ssl_status.h"
 #include "net/cookies/cookie_store.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/ui_controls/ui_controls.h"
@@ -202,6 +202,22 @@ void SendSuccessReply(base::WeakPtr<AutomationProvider> automation,
                       IPC::Message* reply_message) {
   if (automation)
     AutomationJSONReply(automation.get(), reply_message).SendSuccess(NULL);
+}
+
+// Helper to process the result of CanEnablePlugin.
+void DidEnablePlugin(base::WeakPtr<AutomationProvider> automation,
+                     IPC::Message* reply_message,
+                     const FilePath::StringType& path,
+                     const std::string& error_msg,
+                     bool did_enable) {
+  if (did_enable) {
+    SendSuccessReply(automation, reply_message);
+  } else {
+    if (automation) {
+      AutomationJSONReply(automation.get(), reply_message).SendError(
+          StringPrintf(error_msg.c_str(), path.c_str()));
+    }
+  }
 }
 
 // Helper to resolve the overloading of PostTask.
@@ -1094,7 +1110,8 @@ void TestingAutomationProvider::OpenNewBrowserWindowWithNewProfile(
     base::DictionaryValue* args, IPC::Message* reply_message) {
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   new BrowserOpenedWithNewProfileNotificationObserver(this, reply_message);
-  profile_manager->CreateMultiProfileAsync(string16(), string16());
+  profile_manager->CreateMultiProfileAsync(
+      string16(), string16(), ProfileManager::CreateCallback());
 }
 
 // Sample json input: { "command": "GetMultiProfileInfo" }
@@ -2269,9 +2286,7 @@ void TestingAutomationProvider::PerformActionOnInfobar(
         return;
       }
 
-      media_stream_infobar->Accept(audio_devices[0].device_id,
-                                   video_devices[0].device_id,
-                                   false);
+      media_stream_infobar->Accept();
       infobar_helper->RemoveInfoBar(infobar);
     } else if ("deny" == action) {
       media_stream_infobar->Deny();
@@ -2628,8 +2643,8 @@ void TestingAutomationProvider::GetDownloadsInfo(Browser* browser,
 
   if (download_service->HasCreatedDownloadManager()) {
     std::vector<DownloadItem*> downloads;
-    BrowserContext::GetDownloadManager(browser->profile())->
-        GetAllDownloads(FilePath(), &downloads);
+    BrowserContext::GetDownloadManager(browser->profile())->GetAllDownloads(
+        &downloads);
 
     for (std::vector<DownloadItem*>::iterator it = downloads.begin();
          it != downloads.end();
@@ -2669,27 +2684,6 @@ void TestingAutomationProvider::WaitForAllDownloadsToComplete(
       pre_download_ids);
 }
 
-namespace {
-
-DownloadItem* GetDownloadItemFromId(int id, DownloadManager* download_manager) {
-  std::vector<DownloadItem*> downloads;
-  download_manager->GetAllDownloads(FilePath(), &downloads);
-  DownloadItem* selected_item = NULL;
-
-  for (std::vector<DownloadItem*>::iterator it = downloads.begin();
-       it != downloads.end();
-       it++) {
-    DownloadItem* curr_item = *it;
-    if (curr_item->GetId() == id) {
-      selected_item = curr_item;
-      break;
-    }
-  }
-  return selected_item;
-}
-
-}  // namespace
-
 // See PerformActionOnDownload() in chrome/test/pyautolib/pyauto.py for sample
 // json input and output.
 void TestingAutomationProvider::PerformActionOnDownload(
@@ -2713,7 +2707,7 @@ void TestingAutomationProvider::PerformActionOnDownload(
 
   DownloadManager* download_manager =
       BrowserContext::GetDownloadManager(browser->profile());
-  DownloadItem* selected_item = GetDownloadItemFromId(id, download_manager);
+  DownloadItem* selected_item = download_manager->GetDownload(id);
   if (!selected_item) {
     AutomationJSONReply(this, reply_message)
         .SendError(StringPrintf("No download with an id of %d\n", id));
@@ -3317,14 +3311,9 @@ void TestingAutomationProvider::EnablePlugin(Browser* browser,
     return;
   }
   PluginPrefs* plugin_prefs = PluginPrefs::GetForProfile(browser->profile());
-  if (!plugin_prefs->CanEnablePlugin(true, FilePath(path))) {
-    AutomationJSONReply(this, reply_message).SendError(
-        StringPrintf("Could not enable plugin for path %s.", path.c_str()));
-    return;
-  }
-  plugin_prefs->EnablePlugin(
-      true, FilePath(path),
-      base::Bind(SendSuccessReply, AsWeakPtr(), reply_message));
+  plugin_prefs->EnablePlugin(true, FilePath(path),
+      base::Bind(&DidEnablePlugin, AsWeakPtr(), reply_message,
+                 path, "Could not enable plugin for path %s."));
 }
 
 // Sample json input:
@@ -3339,14 +3328,9 @@ void TestingAutomationProvider::DisablePlugin(Browser* browser,
     return;
   }
   PluginPrefs* plugin_prefs = PluginPrefs::GetForProfile(browser->profile());
-  if (!plugin_prefs->CanEnablePlugin(false, FilePath(path))) {
-    AutomationJSONReply(this, reply_message).SendError(
-        StringPrintf("Could not disable plugin for path %s.", path.c_str()));
-    return;
-  }
-  plugin_prefs->EnablePlugin(
-      false, FilePath(path),
-      base::Bind(SendSuccessReply, AsWeakPtr(), reply_message));
+  plugin_prefs->EnablePlugin(false, FilePath(path),
+      base::Bind(&DidEnablePlugin, AsWeakPtr(), reply_message,
+                 path, "Could not disable plugin for path %s."));
 }
 
 // Sample json input:
@@ -5445,17 +5429,20 @@ void TestingAutomationProvider::GetIndicesFromTab(
   }
   int id = id_or_handle;
   if (has_handle) {
-    TabContents* tab = TabContents::FromWebContents(
-        tab_tracker_->GetResource(id_or_handle)->GetWebContents());
-    id = tab->session_tab_helper()->session_id().id();
+    SessionTabHelper* session_tab_helper =
+        SessionTabHelper::FromWebContents(
+            tab_tracker_->GetResource(id_or_handle)->GetWebContents());
+    id = session_tab_helper->session_id().id();
   }
   BrowserList::const_iterator iter = BrowserList::begin();
   int browser_index = 0;
   for (; iter != BrowserList::end(); ++iter, ++browser_index) {
     Browser* browser = *iter;
     for (int tab_index = 0; tab_index < browser->tab_count(); ++tab_index) {
-      TabContents* tab = chrome::GetTabContentsAt(browser, tab_index);
-      if (tab->session_tab_helper()->session_id().id() == id) {
+      WebContents* tab = chrome::GetWebContentsAt(browser, tab_index);
+      SessionTabHelper* session_tab_helper =
+          SessionTabHelper::FromWebContents(tab);
+      if (session_tab_helper->session_id().id() == id) {
         DictionaryValue dict;
         dict.SetInteger("windex", browser_index);
         dict.SetInteger("tab_index", tab_index);
@@ -6098,8 +6085,8 @@ void TestingAutomationProvider::GetTabIds(
   for (; iter != BrowserList::end(); ++iter) {
     Browser* browser = *iter;
     for (int i = 0; i < browser->tab_count(); ++i) {
-      int id = chrome::GetTabContentsAt(browser, i)->session_tab_helper()->
-          session_id().id();
+      int id = SessionTabHelper::FromWebContents(
+          chrome::GetWebContentsAt(browser, i))->session_id().id();
       id_list->Append(Value::CreateIntegerValue(id));
     }
   }
@@ -6170,8 +6157,10 @@ void TestingAutomationProvider::IsTabIdValid(
   for (; iter != BrowserList::end(); ++iter) {
     Browser* browser = *iter;
     for (int i = 0; i < browser->tab_count(); ++i) {
-      TabContents* tab = chrome::GetTabContentsAt(browser, i);
-      if (tab->session_tab_helper()->session_id().id() == id) {
+      WebContents* tab = chrome::GetWebContentsAt(browser, i);
+      SessionTabHelper* session_tab_helper =
+          SessionTabHelper::FromWebContents(tab);
+      if (session_tab_helper->session_id().id() == id) {
         is_valid = true;
         break;
       }

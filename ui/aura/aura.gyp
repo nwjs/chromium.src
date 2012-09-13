@@ -119,8 +119,6 @@
         'window_observer.h',
         'window_tracker.cc',
         'window_tracker.h',
-        'x11_atom_cache.cc',
-        'x11_atom_cache.h',
       ],
       'conditions': [
         ['OS=="mac"', {
@@ -132,6 +130,8 @@
         ['OS=="linux"', {
           'link_settings': {
             'libraries': [
+              '-lX11',
+              '-lXi',
               '-lXfixes',
               '-lXrandr',
             ],

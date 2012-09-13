@@ -132,11 +132,14 @@ Browser* GetBrowserForDisposition(chrome::NavigateParams* params) {
             params->extension_app_id);
       } else if (!params->browser->app_name().empty()) {
         app_name = params->browser->app_name();
-      } else if (params->source_contents &&
-                 params->source_contents->extension_tab_helper()->is_app()) {
-        app_name = web_app::GenerateApplicationNameFromExtensionId(
-            params->source_contents->extension_tab_helper()->
-                extension_app()->id());
+      } else if (params->source_contents) {
+        extensions::TabHelper* extensions_tab_helper =
+            extensions::TabHelper::FromWebContents(
+                params->source_contents->web_contents());
+        if (extensions_tab_helper->is_app()) {
+          app_name = web_app::GenerateApplicationNameFromExtensionId(
+              extensions_tab_helper->extension_app()->id());
+        }
       }
       if (app_name.empty()) {
         Browser::CreateParams browser_params(Browser::TYPE_POPUP, profile);
@@ -402,16 +405,6 @@ void Navigate(NavigateParams* params) {
             params->window_bounds);
   }
 
-  // Adjust disposition for the navigation happending in the sad page of the
-  // panel window.
-  if (params->source_contents &&
-      params->source_contents->web_contents()->IsCrashed() &&
-      params->disposition == CURRENT_TAB &&
-      params->browser &&
-      params->browser->is_type_panel()) {
-    params->disposition = NEW_FOREGROUND_TAB;
-  }
-
   params->browser = GetBrowserForDisposition(params);
 
   if (!params->browser)
@@ -459,7 +452,7 @@ void Navigate(NavigateParams* params) {
       base_transition == content::PAGE_TRANSITION_TYPED ||
       base_transition == content::PAGE_TRANSITION_AUTO_BOOKMARK ||
       base_transition == content::PAGE_TRANSITION_GENERATED ||
-      base_transition == content::PAGE_TRANSITION_START_PAGE ||
+      base_transition == content::PAGE_TRANSITION_AUTO_TOPLEVEL ||
       base_transition == content::PAGE_TRANSITION_RELOAD ||
       base_transition == content::PAGE_TRANSITION_KEYWORD;
 
@@ -494,8 +487,9 @@ void Navigate(NavigateParams* params) {
       // This function takes ownership of |params->target_contents| until it
       // is added to a TabStripModel.
       target_contents_owner.TakeOwnership();
-      params->target_contents->extension_tab_helper()->
-          SetExtensionAppById(params->extension_app_id);
+      extensions::TabHelper::FromWebContents(
+          params->target_contents->web_contents())->
+              SetExtensionAppById(params->extension_app_id);
       // TODO(sky): figure out why this is needed. Without it we seem to get
       // failures in startup tests.
       // By default, content believes it is not hidden.  When adding contents

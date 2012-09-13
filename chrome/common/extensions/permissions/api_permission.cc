@@ -4,6 +4,7 @@
 
 #include "chrome/common/extensions/permissions/api_permission.h"
 
+#include "chrome/common/extensions/permissions/media_galleries_permission.h"
 #include "chrome/common/extensions/permissions/permissions_info.h"
 #include "chrome/common/extensions/permissions/socket_permission.h"
 #include "grit/generated_resources.h"
@@ -13,6 +14,8 @@ namespace {
 
 using extensions::APIPermission;
 using extensions::APIPermissionInfo;
+using extensions::PermissionMessage;
+using extensions::PermissionMessages;
 
 const char kOldUnlimitedStoragePermission[] = "unlimited_storage";
 const char kWindowsPermission[] = "windows";
@@ -24,6 +27,34 @@ class SimpleAPIPermission : public APIPermission {
 
   virtual ~SimpleAPIPermission() { }
 
+  virtual bool HasMessages() const OVERRIDE {
+    return info()->message_id() > PermissionMessage::kNone;
+  }
+
+  virtual PermissionMessages GetMessages() const OVERRIDE {
+    DCHECK(HasMessages());
+    PermissionMessages result;
+    result.push_back(GetMessage_());
+    return result;
+  }
+
+  virtual bool Check(
+      const APIPermission::CheckParam* param) const OVERRIDE {
+    return !param;
+  }
+
+  virtual bool Contains(const APIPermission* rhs) const OVERRIDE {
+    CHECK(info() == rhs->info());
+    return true;
+  }
+
+  virtual bool Equal(const APIPermission* rhs) const OVERRIDE {
+    if (this == rhs)
+      return true;
+    CHECK(info() == rhs->info());
+    return true;
+  }
+
   virtual bool FromValue(const base::Value* value) OVERRIDE {
     if (value)
       return false;
@@ -32,18 +63,6 @@ class SimpleAPIPermission : public APIPermission {
 
   virtual void ToValue(base::Value** value) const OVERRIDE {
     *value = NULL;
-  }
-
-  virtual bool Check(
-      const APIPermission::CheckParam* param) const OVERRIDE {
-    return !param;
-  }
-
-  virtual bool Equal(const APIPermission* rhs) const OVERRIDE {
-    if (this == rhs)
-      return true;
-    CHECK(info() == rhs->info());
-    return true;
   }
 
   virtual APIPermission* Clone() const OVERRIDE {
@@ -63,11 +82,6 @@ class SimpleAPIPermission : public APIPermission {
   virtual APIPermission* Intersect(const APIPermission* rhs) const OVERRIDE {
     CHECK(info() == rhs->info());
     return new SimpleAPIPermission(info());
-  }
-
-  virtual bool Contains(const APIPermission* rhs) const OVERRIDE {
-    CHECK(info() == rhs->info());
-    return true;
   }
 
   virtual void Write(IPC::Message* m) const OVERRIDE { }
@@ -103,6 +117,9 @@ const char* APIPermission::name() const {
   return info()->name();
 }
 
+PermissionMessage APIPermission::GetMessage_() const {
+  return info()->GetMessage_();
+}
 
 //
 // APIPermissionInfo
@@ -194,8 +211,6 @@ void APIPermissionInfo::RegisterAllPermissions(
     { APIPermission::kManagement, "management", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_MANAGEMENT,
       PermissionMessage::kManagement },
-    { APIPermission::kMediaGalleries, "mediaGalleries" },
-    { APIPermission::kMediaGalleriesRead, "mediaGalleriesRead" },
     { APIPermission::kPageCapture, "pageCapture", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_ALL_PAGES_CONTENT,
       PermissionMessage::kAllPageContent },
@@ -238,6 +253,7 @@ void APIPermissionInfo::RegisterAllPermissions(
     { APIPermission::kInputMethodPrivate, "inputMethodPrivate",
       kFlagCannotBeOptional },
     { APIPermission::kEchoPrivate, "echoPrivate", kFlagCannotBeOptional },
+    { APIPermission::kRtcPrivate, "rtcPrivate", kFlagCannotBeOptional },
     { APIPermission::kTerminalPrivate, "terminalPrivate",
       kFlagCannotBeOptional },
     { APIPermission::kWallpaperPrivate, "wallpaperPrivate",
@@ -246,6 +262,8 @@ void APIPermissionInfo::RegisterAllPermissions(
     { APIPermission::kWebSocketProxyPrivate, "webSocketProxyPrivate",
       kFlagCannotBeOptional },
     { APIPermission::kWebstorePrivate, "webstorePrivate",
+      kFlagCannotBeOptional },
+    { APIPermission::kMediaGalleriesPrivate, "mediaGalleriesPrivate",
       kFlagCannotBeOptional },
 
     // Full url access permissions.
@@ -283,10 +301,9 @@ void APIPermissionInfo::RegisterAllPermissions(
     { APIPermission::kFileSystemWrite, "fileSystemWrite", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_FILE_SYSTEM_WRITE,
       PermissionMessage::kFileSystemWrite },
-    { APIPermission::kMediaGalleriesAllGalleries, "mediaGalleriesAllGalleries",
-      kFlagCannotBeOptional,
-      IDS_EXTENSION_PROMPT_WARNING_MEDIA_GALLERIES_ALL_GALLERIES,
-      PermissionMessage::kMediaGalleriesAllGalleries },
+    { APIPermission::kMediaGalleries, "mediaGalleries", kFlagNone, 0,
+      PermissionMessage::kNone,
+      &::CreateAPIPermission<MediaGalleriesPermission> },
     { APIPermission::kPushMessaging, "pushMessaging", kFlagCannotBeOptional },
   };
 

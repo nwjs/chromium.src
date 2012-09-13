@@ -9,17 +9,19 @@
 #include "base/message_loop.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/api/processes/processes_api.h"
+#include "chrome/browser/extensions/api/processes/processes_api_constants.h"
 #include "chrome/browser/extensions/api/runtime/runtime_api.h"
 #include "chrome/browser/extensions/api/web_request/web_request_api.h"
 #include "chrome/browser/extensions/extension_devtools_manager.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
-#include "chrome/browser/extensions/extension_processes_api.h"
-#include "chrome/browser/extensions/extension_processes_api_constants.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
+#include "chrome/browser/extensions/event_names.h"
 #include "chrome/browser/extensions/lazy_background_task_queue.h"
 #include "chrome/browser/extensions/process_map.h"
+#include "chrome/browser/extensions/system_info_event_router.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -155,10 +157,14 @@ void EventRouter::OnListenerAdded(const EventListener* listener) {
   // We lazily tell the TaskManager to start updating when listeners to the
   // processes.onUpdated or processes.onUpdatedWithMemory events arrive.
   const std::string& event_name = listener->event_name;
-  if (event_name.compare(extension_processes_api_constants::kOnUpdated) == 0 ||
+  if (event_name.compare(
+          extensions::processes_api_constants::kOnUpdated) == 0 ||
       event_name.compare(
-          extension_processes_api_constants::kOnUpdatedWithMemory) == 0)
-    ExtensionProcessesEventRouter::GetInstance()->ListenerAdded();
+          extensions::processes_api_constants::kOnUpdatedWithMemory) == 0)
+    extensions::ProcessesEventRouter::GetInstance()->ListenerAdded();
+
+  if (SystemInfoEventRouter::IsSystemInfoEvent(event_name))
+    SystemInfoEventRouter::GetInstance()->AddEventListener(event_name);
 }
 
 void EventRouter::OnListenerRemoved(const EventListener* listener) {
@@ -174,15 +180,19 @@ void EventRouter::OnListenerRemoved(const EventListener* listener) {
   // If a processes.onUpdated or processes.onUpdatedWithMemory event listener
   // is removed (or a process with one exits), then we let the extension API
   // know that it has one fewer listener.
-  if (event_name.compare(extension_processes_api_constants::kOnUpdated) == 0 ||
+  if (event_name.compare(
+          extensions::processes_api_constants::kOnUpdated) == 0 ||
       event_name.compare(
-          extension_processes_api_constants::kOnUpdatedWithMemory) == 0)
-    ExtensionProcessesEventRouter::GetInstance()->ListenerRemoved();
+          extensions::processes_api_constants::kOnUpdatedWithMemory) == 0)
+    extensions::ProcessesEventRouter::GetInstance()->ListenerRemoved();
 
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
       base::Bind(&NotifyEventListenerRemovedOnIOThread,
                  profile_, listener->extension_id, listener->event_name));
+
+  if (SystemInfoEventRouter::IsSystemInfoEvent(event_name))
+    SystemInfoEventRouter::GetInstance()->RemoveEventListener(event_name);
 }
 
 void EventRouter::AddLazyEventListener(const std::string& event_name,
@@ -523,9 +533,10 @@ void EventRouter::DispatchPendingEvent(const linked_ptr<Event>& event,
     return;
 
   if (listeners_.HasProcessListener(host->render_process_host(),
-                                    host->extension()->id()))
+                                    host->extension()->id())) {
     DispatchEventToProcess(host->extension()->id(),
                            host->render_process_host(), event);
+  }
 }
 
 void EventRouter::Observe(int type,

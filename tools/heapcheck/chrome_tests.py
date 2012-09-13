@@ -82,6 +82,9 @@ class ChromeTests(object):
       "aura": self.TestAura,            "aura_unittests": self.TestAura,
       "base": self.TestBase,            "base_unittests": self.TestBase,
       "browser": self.TestBrowser,      "browser_tests": self.TestBrowser,
+      "chromeos": self.TestChromeOS,    "chromeos_unittests": self.TestChromeOS,
+      "compositor": self.TestCompositor,
+      "compositor_unittests": self.TestCompositor,
       "content": self.TestContent,      "content_unittests": self.TestContent,
       "content_browsertests": self.TestContentBrowser,
       "courgette": self.TestCourgette,
@@ -254,6 +257,12 @@ class ChromeTests(object):
 
   def TestBrowser(self):
     return self.SimpleTest("chrome", "browser_tests")
+
+  def TestChromeOS(self):
+    return self.SimpleTest("chromeos", "chromeos_unittests")
+
+  def TestCompositor(self):
+    return self.SimpleTest("compositor", "compositor_unittests")
 
   def TestContent(self):
     return self.SimpleTest("content", "content_unittests")

@@ -41,6 +41,7 @@ class SystemTrayItem;
 namespace internal {
 class SystemTrayBubble;
 class SystemTrayContainer;
+class TrayGestureHandler;
 }
 
 // There are different methods for creating bubble views.
@@ -95,8 +96,9 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   // Temporarily hides/unhides the notification bubble.
   void SetHideNotifications(bool hidden);
 
-  // Returns true if the system bubble is visible.
-  bool IsSystemBubbleVisible() const;
+  // Returns true if there is a system bubble (already visible or in the process
+  // of being created).
+  bool HasSystemBubble() const;
 
   // Returns true if any bubble is visible.
   bool IsAnyBubbleVisible() const;
@@ -160,6 +162,7 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
 
  private:
   friend class internal::SystemTrayBubble;
+  friend class internal::TrayGestureHandler;
 
   // Resets |bubble_| and clears any related state.
   void DestroyBubble();

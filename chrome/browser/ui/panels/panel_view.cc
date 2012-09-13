@@ -6,7 +6,9 @@
 
 #include <map>
 #include "base/logging.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/panels/panel.h"
 #include "chrome/browser/ui/panels/panel_bounds_animation.h"
 #include "chrome/browser/ui/panels/panel_frame_view.h"
@@ -21,7 +23,9 @@
 #include "ui/views/widget/widget.h"
 
 #if defined(OS_WIN) && !defined(USE_ASH) && !defined(USE_AURA)
+#include "ui/base/win/shell.h"
 #include "base/win/windows_version.h"
+#include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/panels/taskbar_window_thumbnailer_win.h"
 #endif
 
@@ -161,6 +165,7 @@ NativePanel* Panel::CreateNativePanel(Panel* panel, const gfx::Rect& bounds) {
 
 PanelView::PanelView(Panel* panel, const gfx::Rect& bounds)
     : panel_(panel),
+      bounds_(bounds),
       window_(NULL),
       web_view_(NULL),
       focused_(false),
@@ -195,6 +200,13 @@ PanelView::PanelView(Panel* panel, const gfx::Rect& bounds)
     focus_manager->RegisterAccelerator(
         iter->first, ui::AcceleratorManager::kNormalPriority, this);
   }
+
+#if defined(OS_WIN) && !defined(USE_ASH) && !defined(USE_AURA)
+  ui::win::SetAppIdForWindow(
+      ShellIntegration::GetAppModelIdForProfile(UTF8ToWide(panel->app_name()),
+                                                panel->profile()->GetPath()),
+      window_->GetNativeWindow());
+#endif
 }
 
 PanelView::~PanelView() {
@@ -303,11 +315,6 @@ void PanelView::UpdatePanelLoadingAnimations(bool should_animate) {
   GetFrameView()->UpdateThrobber();
 }
 
-FindBar* PanelView::CreatePanelFindBar() {
-  NOTREACHED();  // legacy API from browser window. N/A for refactored panels.
-  return NULL;
-}
-
 void PanelView::NotifyPanelOnUserChangedTheme() {
   GetFrameView()->SchedulePaint();
 }
@@ -347,12 +354,6 @@ bool PanelView::IsDrawingAttention() const {
   return is_drawing_attention_;
 }
 
-bool PanelView::PreHandlePanelKeyboardEvent(
-    const content::NativeWebKeyboardEvent& event,
-    bool* is_keyboard_shortcut) {
-  return false;
-}
-
 void PanelView::HandlePanelKeyboardEvent(
     const content::NativeWebKeyboardEvent& event) {
   views::FocusManager* focus_manager = GetFocusManager();
@@ -374,15 +375,6 @@ void PanelView::FullScreenModeChanged(bool is_full_screen) {
   } else {
     ShowPanelInactive();
   }
-}
-
-Browser* PanelView::GetPanelBrowser() const {
-  NOTREACHED();  // legacy API from BrowserWindow. N/A for refactored panels.
-  return NULL;
-}
-
-void PanelView::EnsurePanelFullyVisible() {
-  // This method is going to be removed.
 }
 
 void PanelView::SetPanelAlwaysOnTop(bool on_top) {

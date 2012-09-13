@@ -55,10 +55,9 @@ class BrowsingDataRemoverBrowserTest : public InProcessBrowserTest {
   void RemoveAndWait(int remove_mask) {
     content::WindowedNotificationObserver signal(
         chrome::NOTIFICATION_BROWSING_DATA_REMOVED,
-        content::Source<Profile>(browser()->profile()));  
-    BrowsingDataRemover* remover = new BrowsingDataRemover(
-        browser()->profile(), BrowsingDataRemover::LAST_HOUR,
-        base::Time::Now() + base::TimeDelta::FromMilliseconds(10));
+        content::Source<Profile>(browser()->profile()));
+    BrowsingDataRemover* remover = BrowsingDataRemover::CreateForPeriod(
+        browser()->profile(), BrowsingDataRemover::LAST_HOUR);
     remover->Remove(remove_mask, BrowsingDataHelper::UNPROTECTED_WEB);
     signal.Wait();
   }
@@ -86,13 +85,13 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, Download) {
   observer->WaitForFinished();
 
   std::vector<content::DownloadItem*> downloads;
-  download_manager->GetAllDownloads(FilePath(), &downloads);
+  download_manager->GetAllDownloads(&downloads);
   EXPECT_EQ(1u, downloads.size());
 
   RemoveAndWait(BrowsingDataRemover::REMOVE_DOWNLOADS);
 
   downloads.clear();
-  download_manager->GetAllDownloads(FilePath(), &downloads);
+  download_manager->GetAllDownloads(&downloads);
   EXPECT_TRUE(downloads.empty());
 }
 

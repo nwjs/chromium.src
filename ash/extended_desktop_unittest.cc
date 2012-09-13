@@ -165,17 +165,17 @@ TEST_F(ExtendedDesktopTest, SystemModal) {
 
 TEST_F(ExtendedDesktopTest, TestCursor) {
   UpdateDisplay("1000x600,600x400");
-  Shell::GetInstance()->ShowCursor(false);
+  Shell::GetInstance()->cursor_manager()->ShowCursor(false);
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
   EXPECT_FALSE(root_windows[0]->cursor_shown());
   EXPECT_FALSE(root_windows[1]->cursor_shown());
-  Shell::GetInstance()->ShowCursor(true);
+  Shell::GetInstance()->cursor_manager()->ShowCursor(true);
   EXPECT_TRUE(root_windows[0]->cursor_shown());
   EXPECT_TRUE(root_windows[1]->cursor_shown());
 
   EXPECT_EQ(ui::kCursorPointer, root_windows[0]->last_cursor().native_type());
   EXPECT_EQ(ui::kCursorPointer, root_windows[1]->last_cursor().native_type());
-  Shell::GetInstance()->SetCursor(ui::kCursorCopy);
+  Shell::GetInstance()->cursor_manager()->SetCursor(ui::kCursorCopy);
   EXPECT_EQ(ui::kCursorCopy, root_windows[0]->last_cursor().native_type());
   EXPECT_EQ(ui::kCursorCopy, root_windows[1]->last_cursor().native_type());
 }
@@ -327,8 +327,14 @@ TEST_F(ExtendedDesktopTest, Capture) {
   generator2.ClickLeftButton();
   EXPECT_EQ("0 0 0", r2_d1.GetMouseMotionCountsAndReset());
   EXPECT_EQ("0 0", r2_d1.GetMouseButtonCountsAndReset());
-  // The mouse is outside, so no move event will be sent.
+  // The mouse is outside. On chromeos, the mouse is warped to the
+  // dest root window, but it's not implemented on Win yet, so
+  // no mouse move event on Win.
+#if defined(OS_WIN)
   EXPECT_EQ("1 0 0", r1_d1.GetMouseMotionCountsAndReset());
+#else
+  EXPECT_EQ("1 1 0", r1_d1.GetMouseMotionCountsAndReset());
+#endif
   EXPECT_EQ("1 1", r1_d1.GetMouseButtonCountsAndReset());
   // (15,15) on 1st display is (-985,15) on 2nd display.
   generator2.MoveMouseTo(-985, 15);

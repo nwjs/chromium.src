@@ -47,6 +47,7 @@
 //<include src="../../shared/js/cr/ui/menu_button.js"/>
 //<include src="../../shared/js/cr/ui/context_menu_handler.js"/>
 //<include src="combobutton.js"/>
+//<include src="commandbutton.js"/>
 //
 //<include src="path_util.js"/>
 //<include src="util.js"/>
@@ -55,6 +56,7 @@
 //<include src="directory_contents.js">
 //<include src="directory_model.js"/>
 //<include src="file_copy_manager_wrapper.js"/>
+//<include src="drive_banners.js" />
 //<include src="file_manager.js"/>
 //<include src="file_manager_pyauto.js"/>
 //<include src="file_tasks.js"/>

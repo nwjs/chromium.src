@@ -18,6 +18,8 @@
 #include "webkit/fileapi/file_system_util.h"
 #include "webkit/fileapi/isolated_mount_point_provider.h"
 #include "webkit/fileapi/sandbox_mount_point_provider.h"
+#include "webkit/fileapi/syncable/local_file_sync_status.h"
+#include "webkit/fileapi/test_mount_point_provider.h"
 #include "webkit/quota/quota_manager.h"
 #include "webkit/quota/special_storage_policy.h"
 
@@ -45,7 +47,7 @@ void DidOpenFileSystem(
   callback.Run(error, filesystem_name, filesystem_root);
 }
 
-}  // anonymous namespace
+}  // namespace
 
 FileSystemContext::FileSystemContext(
     scoped_ptr<FileSystemTaskRunners> task_runners,
@@ -57,10 +59,12 @@ FileSystemContext::FileSystemContext(
       quota_manager_proxy_(quota_manager_proxy),
       sandbox_provider_(
           new SandboxMountPointProvider(
+              quota_manager_proxy,
               task_runners_->file_task_runner(),
               profile_path,
               options)),
-      isolated_provider_(new IsolatedMountPointProvider(profile_path)) {
+      isolated_provider_(new IsolatedMountPointProvider(profile_path)),
+      sync_status_(new LocalFileSyncStatus) {
   DCHECK(task_runners_.get());
 
   if (quota_manager_proxy) {
@@ -136,6 +140,23 @@ FileSystemMountPointProvider* FileSystemContext::GetMountPointProvider(
   }
 }
 
+const UpdateObserverList* FileSystemContext::GetUpdateObservers(
+    FileSystemType type) const {
+  // Currently update observer is only available in SandboxMountPointProvider
+  // and TestMountPointProvider.
+  // TODO(kinuko): Probably GetUpdateObservers() virtual method should be
+  // added to FileSystemMountPointProvider interface and be called like
+  // other GetFoo() methods do.
+  if (SandboxMountPointProvider::CanHandleType(type))
+    return sandbox_provider()->GetUpdateObservers(type);
+  if (type != kFileSystemTypeTest)
+    return NULL;
+  FileSystemMountPointProvider* mount_point_provider =
+      GetMountPointProvider(type);
+  return static_cast<TestMountPointProvider*>(
+      mount_point_provider)->GetUpdateObservers(type);
+}
+
 SandboxMountPointProvider*
 FileSystemContext::sandbox_provider() const {
   return sandbox_provider_.get();
@@ -183,14 +204,27 @@ void FileSystemContext::DeleteFileSystem(
 }
 
 FileSystemOperation* FileSystemContext::CreateFileSystemOperation(
-    const FileSystemURL& url) {
-  if (!url.is_valid())
+    const FileSystemURL& url, PlatformFileError* error_code) {
+  if (!url.is_valid()) {
+    if (error_code)
+      *error_code = base::PLATFORM_FILE_ERROR_INVALID_URL;
     return NULL;
+  }
   FileSystemMountPointProvider* mount_point_provider =
       GetMountPointProvider(url.type());
-  if (!mount_point_provider)
+  if (!mount_point_provider) {
+    if (error_code)
+      *error_code = base::PLATFORM_FILE_ERROR_FAILED;
     return NULL;
-  return mount_point_provider->CreateFileSystemOperation(url, this);
+  }
+
+  PlatformFileError fs_error = base::PLATFORM_FILE_OK;
+  FileSystemOperation* operation =
+      mount_point_provider->CreateFileSystemOperation(url, this, &fs_error);
+
+  if (error_code)
+    *error_code = fs_error;
+  return operation;
 }
 
 webkit_blob::FileStreamReader* FileSystemContext::CreateFileStreamReader(

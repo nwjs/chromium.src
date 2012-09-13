@@ -121,7 +121,8 @@ bool SearchProvider::query_suggest_immediately_ = false;
 
 SearchProvider::SearchProvider(AutocompleteProviderListener* listener,
                                Profile* profile)
-    : AutocompleteProvider(listener, profile, "Search"),
+    : AutocompleteProvider(listener, profile,
+          AutocompleteProvider::TYPE_SEARCH),
       providers_(TemplateURLServiceFactory::GetForProfile(profile)),
       suggest_results_pending_(0),
       suggest_field_trial_group_number_(
@@ -312,20 +313,11 @@ void SearchProvider::Run() {
   DCHECK(!done_);
   suggest_results_pending_ = 0;
   time_suggest_request_sent_ = base::TimeTicks::Now();
-  const TemplateURL* default_url = providers_.GetDefaultProviderURL();
-  if (default_url && !default_url->suggestions_url().empty()) {
-    suggest_results_pending_++;
-    LogOmniboxSuggestRequest(REQUEST_SENT);
-    default_fetcher_.reset(CreateSuggestFetcher(kDefaultProviderURLFetcherID,
-        default_url->suggestions_url_ref(), input_.text()));
-  }
-  const TemplateURL* keyword_url = providers_.GetKeywordProviderURL();
-  if (keyword_url && !keyword_url->suggestions_url().empty()) {
-    suggest_results_pending_++;
-    LogOmniboxSuggestRequest(REQUEST_SENT);
-    keyword_fetcher_.reset(CreateSuggestFetcher(kKeywordProviderURLFetcherID,
-        keyword_url->suggestions_url_ref(), keyword_input_text_));
-  }
+
+  default_fetcher_.reset(CreateSuggestFetcher(kDefaultProviderURLFetcherID,
+      providers_.GetDefaultProviderURL(), input_.text()));
+  keyword_fetcher_.reset(CreateSuggestFetcher(kKeywordProviderURLFetcherID,
+      providers_.GetKeywordProviderURL(), keyword_input_text_));
 
   // Both the above can fail if the providers have been modified or deleted
   // since the query began.
@@ -641,13 +633,22 @@ void SearchProvider::ApplyCalculatedNavigationRelevance(NavigationResults* list,
 
 net::URLFetcher* SearchProvider::CreateSuggestFetcher(
     int id,
-    const TemplateURLRef& suggestions_url,
+    const TemplateURL* template_url,
     const string16& text) {
-  DCHECK(suggestions_url.SupportsReplacement());
-  net::URLFetcher* fetcher = net::URLFetcher::Create(id,
-      GURL(suggestions_url.ReplaceSearchTerms(
-          TemplateURLRef::SearchTermsArgs(text))),
-      net::URLFetcher::GET, this);
+  if (!template_url || template_url->suggestions_url().empty())
+    return NULL;
+
+  // Bail if the suggestion URL is invalid with the given replacements.
+  GURL suggest_url(template_url->suggestions_url_ref().ReplaceSearchTerms(
+      TemplateURLRef::SearchTermsArgs(text)));
+  if (!suggest_url.is_valid())
+    return NULL;
+
+  suggest_results_pending_++;
+  LogOmniboxSuggestRequest(REQUEST_SENT);
+
+  net::URLFetcher* fetcher =
+      net::URLFetcher::Create(id, suggest_url, net::URLFetcher::GET, this);
   fetcher->SetRequestContext(profile_->GetRequestContext());
   fetcher->SetLoadFlags(net::LOAD_DO_NOT_SAVE_COOKIES);
   fetcher->Start();
@@ -686,7 +687,7 @@ bool SearchProvider::ParseSuggestResults(Value* root_val, bool is_keyword) {
     extras->GetList("google:suggesttype", &types);
 
     // Only accept relevance suggestions if Instant is disabled.
-    if (!is_keyword && !InstantController::IsEnabled(profile_)) {
+    if (!is_keyword && !InstantController::IsSuggestEnabled(profile_)) {
       // Discard this list if its size does not match that of the suggestions.
       if (extras->GetList("google:suggestrelevance", &relevances) &&
           relevances->GetSize() != results->GetSize())
@@ -946,7 +947,7 @@ SearchProvider::SuggestResults SearchProvider::ScoreHistoryResults(
       AutocompleteMatch match;
       classifier->Classify(i->term, string16(), false, false, &match, NULL);
       prevent_inline_autocomplete =
-          match.transition == content::PAGE_TRANSITION_TYPED;
+          !AutocompleteMatch::IsSearchType(match.type);
     }
 
     int relevance = CalculateRelevanceForHistory(i->time, is_keyword,
@@ -1236,5 +1237,6 @@ void SearchProvider::UpdateDone() {
   // We're done when the timer isn't running, there are no suggest queries
   // pending, and we're not waiting on instant.
   done_ = (!timer_.IsRunning() && (suggest_results_pending_ == 0) &&
-           (instant_finalized_ || !InstantController::IsEnabled(profile_)));
+           (instant_finalized_ ||
+            !InstantController::IsSuggestEnabled(profile_)));
 }

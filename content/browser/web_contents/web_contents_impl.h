@@ -24,6 +24,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/renderer_preferences.h"
 #include "net/base/load_states.h"
+#include "ui/gfx/rect_f.h"
 #include "ui/gfx/size.h"
 #include "webkit/glue/resource_type.h"
 
@@ -205,10 +206,6 @@ class CONTENT_EXPORT WebContentsImpl
   virtual bool NeedToFireBeforeUnload() OVERRIDE;
   virtual void Stop() OVERRIDE;
   virtual content::WebContents* Clone() OVERRIDE;
-  virtual void AddNewContents(content::WebContents* new_contents,
-                              WindowOpenDisposition disposition,
-                              const gfx::Rect& initial_pos,
-                              bool user_gesture) OVERRIDE;
   virtual gfx::NativeView GetContentNativeView() const OVERRIDE;
   virtual gfx::NativeView GetNativeView() const OVERRIDE;
   virtual void GetContainerBounds(gfx::Rect* out) const OVERRIDE;
@@ -406,10 +403,16 @@ class CONTENT_EXPORT WebContentsImpl
                                  const gfx::Rect& initial_pos) OVERRIDE;
   virtual void ShowCreatedFullscreenWidget(int route_id) OVERRIDE;
   virtual void ShowContextMenu(
-      const content::ContextMenuParams& params) OVERRIDE;
+      const content::ContextMenuParams& params,
+      const content::ContextMenuSourceType& type) OVERRIDE;
   virtual void RequestMediaAccessPermission(
       const content::MediaStreamRequest* request,
       const content::MediaResponseCallback& callback) OVERRIDE;
+
+#if defined(OS_ANDROID)
+  virtual void AttachLayer(WebKit::WebLayer* layer) OVERRIDE;
+  virtual void RemoveLayer(WebKit::WebLayer* layer) OVERRIDE;
+#endif
 
   // RenderWidgetHostDelegate --------------------------------------------------
 
@@ -526,9 +529,16 @@ class CONTENT_EXPORT WebContentsImpl
                                  const GURL& url,
                                  const string16& title,
                                  bool user_gesture);
-  void OnFindReply(int request_id, int number_of_matches,
-                   const gfx::Rect& selection_rect, int active_match_ordinal,
+  void OnFindReply(int request_id,
+                   int number_of_matches,
+                   const gfx::Rect& selection_rect,
+                   int active_match_ordinal,
                    bool final_update);
+#if defined(OS_ANDROID)
+  void OnFindMatchRectsReply(int version,
+                             const std::vector<gfx::RectF>& rects,
+                             const gfx::RectF& active_rect);
+#endif
   void OnCrashedPlugin(const FilePath& plugin_path);
   void OnAppCacheAccessed(const GURL& manifest_url, bool blocked_by_policy);
   void OnOpenColorChooser(int color_chooser_id, SkColor color);

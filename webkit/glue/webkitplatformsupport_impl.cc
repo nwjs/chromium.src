@@ -39,6 +39,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURL.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebVector.h"
 #include "ui/base/layout.h"
+#include "webkit/compositor_bindings/web_compositor_support_impl.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/glue/websocketstreamhandle_impl.h"
 #include "webkit/glue/webthread_impl.h"
@@ -47,6 +48,7 @@
 #include "webkit/media/audio_decoder.h"
 #include "webkit/plugins/npapi/plugin_instance.h"
 #include "webkit/plugins/webplugininfo.h"
+#include "webkit/user_agent/user_agent.h"
 
 #if defined(OS_ANDROID)
 #include "webkit/glue/fling_animator_impl_android.h"
@@ -124,12 +126,20 @@ namespace webkit_glue {
 
 static int ToMessageID(WebLocalizedString::Name name) {
   switch (name) {
+    case WebLocalizedString::AXAMPMFieldText:
+      return IDS_AX_AM_PM_FIELD_TEXT;
     case WebLocalizedString::AXButtonActionVerb:
       return IDS_AX_BUTTON_ACTION_VERB;
     case WebLocalizedString::AXCheckedCheckBoxActionVerb:
       return IDS_AX_CHECKED_CHECK_BOX_ACTION_VERB;
+    case WebLocalizedString::AXDateTimeFieldEmptyValueText:
+      return IDS_AX_DATE_TIME_FIELD_EMPTY_VALUE_TEXT;
+    case WebLocalizedString::AXDayOfMonthFieldText:
+      return IDS_AX_DAY_OF_MONTH_FIELD_TEXT;
     case WebLocalizedString::AXHeadingText:
       return IDS_AX_ROLE_HEADING;
+    case WebLocalizedString::AXHourFieldText:
+      return IDS_AX_HOUR_FIELD_TEXT;
     case WebLocalizedString::AXImageMapText:
       return IDS_AX_ROLE_IMAGE_MAP;
     case WebLocalizedString::AXLinkActionVerb:
@@ -138,14 +148,26 @@ static int ToMessageID(WebLocalizedString::Name name) {
       return IDS_AX_ROLE_LINK;
     case WebLocalizedString::AXListMarkerText:
       return IDS_AX_ROLE_LIST_MARKER;
+    case WebLocalizedString::AXMillisecondFieldText:
+      return IDS_AX_MILLISECOND_FIELD_TEXT;
+    case WebLocalizedString::AXMinuteFieldText:
+      return IDS_AX_MINUTE_FIELD_TEXT;
+    case WebLocalizedString::AXMonthFieldText:
+      return IDS_AX_MONTH_FIELD_TEXT;
     case WebLocalizedString::AXRadioButtonActionVerb:
       return IDS_AX_RADIO_BUTTON_ACTION_VERB;
+    case WebLocalizedString::AXSecondFieldText:
+      return IDS_AX_SECOND_FIELD_TEXT;
     case WebLocalizedString::AXTextFieldActionVerb:
       return IDS_AX_TEXT_FIELD_ACTION_VERB;
     case WebLocalizedString::AXUncheckedCheckBoxActionVerb:
       return IDS_AX_UNCHECKED_CHECK_BOX_ACTION_VERB;
     case WebLocalizedString::AXWebAreaText:
       return IDS_AX_ROLE_WEB_AREA;
+    case WebLocalizedString::AXWeekOfYearFieldText:
+      return IDS_AX_WEEK_OF_YEAR_FIELD_TEXT;
+    case WebLocalizedString::AXYearFieldText:
+      return IDS_AX_YEAR_FIELD_TEXT;
     case WebLocalizedString::CalendarClear:
       return IDS_FORM_CALENDAR_CLEAR;
     case WebLocalizedString::CalendarToday:
@@ -233,7 +255,8 @@ WebKitPlatformSupportImpl::WebKitPlatformSupportImpl()
       shared_timer_func_(NULL),
       shared_timer_fire_time_(0.0),
       shared_timer_suspended_(0),
-      current_thread_slot_(&DestroyCurrentThread) {
+      current_thread_slot_(&DestroyCurrentThread),
+      compositor_support_(new webkit::WebCompositorSupportImpl) {
 }
 
 WebKitPlatformSupportImpl::~WebKitPlatformSupportImpl() {
@@ -460,11 +483,11 @@ const DataResource kDataResources[] = {
     IDR_MEDIAPLAYER_VOLUME_SLIDER_THUMB_DISABLED, ui::SCALE_FACTOR_100P },
   { "mediaplayerClosedCaption",
     IDR_MEDIAPLAYER_CLOSEDCAPTION_BUTTON, ui::SCALE_FACTOR_100P },
-  { "mediaplayerClosedCaption",
+  { "mediaplayerClosedCaptionHover",
     IDR_MEDIAPLAYER_CLOSEDCAPTION_BUTTON_HOVER, ui::SCALE_FACTOR_100P },
-  { "mediaplayerClosedCaption",
+  { "mediaplayerClosedCaptionDown",
     IDR_MEDIAPLAYER_CLOSEDCAPTION_BUTTON_DOWN, ui::SCALE_FACTOR_100P },
-  { "mediaplayerClosedCaption",
+  { "mediaplayerClosedCaptionDisabled",
     IDR_MEDIAPLAYER_CLOSEDCAPTION_BUTTON_DISABLED, ui::SCALE_FACTOR_100P },
   { "mediaplayerFullscreen",
     IDR_MEDIAPLAYER_FULLSCREEN_BUTTON, ui::SCALE_FACTOR_100P },
@@ -650,6 +673,10 @@ WebKit::WebThread* WebKitPlatformSupportImpl::currentThread() {
   thread = new WebThreadImplForMessageLoop(message_loop);
   current_thread_slot_.Set(thread);
   return thread;
+}
+
+WebKit::WebCompositorSupport* WebKitPlatformSupportImpl::compositorSupport() {
+  return compositor_support_.get();
 }
 
 base::PlatformFile WebKitPlatformSupportImpl::databaseOpenFile(

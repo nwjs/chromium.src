@@ -81,6 +81,9 @@ views::Background* ActionBoxMenu::CreateMenuBackground() {
   return views::Background::CreateSolidBackground(background_color);
 }
 
+void ActionBoxMenu::InspectPopup(ExtensionAction* action) {
+}
+
 int ActionBoxMenu::GetCurrentTabId() const {
   return 0;
 }
@@ -130,8 +133,8 @@ void ActionBoxMenu::PopulateMenu() {
     views::MenuItemView* menu_item = root_->AppendMenuItemFromModel(
         model_, model_index, model_->GetCommandIdAt(model_index));
     if (model_->GetTypeAt(model_index) == ui::MenuModel::TYPE_COMMAND) {
-      menu_item->SetMargins(0, 0);
       if (model_->IsItemExtension(model_index)) {
+        menu_item->SetMargins(0, 0);
         const extensions::Extension* extension =
             model_->GetExtensionAt(model_index);
         BrowserActionView* view = new BrowserActionView(extension,

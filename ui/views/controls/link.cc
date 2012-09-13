@@ -9,7 +9,7 @@
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
 #include "ui/base/accessibility/accessible_view_state.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/font.h"
@@ -111,9 +111,9 @@ bool Link::OnKeyPressed(const ui::KeyEvent& event) {
   return true;
 }
 
-ui::GestureStatus Link::OnGestureEvent(const ui::GestureEvent& event) {
+ui::EventResult Link::OnGestureEvent(const ui::GestureEvent& event) {
   if (!enabled())
-    return ui::GESTURE_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
 
   if (event.type() == ui::ET_GESTURE_TAP_DOWN) {
     SetPressed(true);
@@ -123,9 +123,9 @@ ui::GestureStatus Link::OnGestureEvent(const ui::GestureEvent& event) {
       listener_->LinkClicked(this, event.flags());
   } else {
     SetPressed(false);
-    return ui::GESTURE_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   }
-  return ui::GESTURE_STATUS_CONSUMED;
+  return ui::ER_CONSUMED;
 }
 
 bool Link::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {

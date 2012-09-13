@@ -30,13 +30,14 @@
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/cursor_client.h"
 #include "ui/aura/client/screen_position_client.h"
+#include "ui/aura/client/stacking_client.h"
 #include "ui/aura/client/tooltip_client.h"
 #include "ui/aura/client/window_types.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/ime/input_method.h"
@@ -247,7 +248,7 @@ void RenderWidgetHostViewAura::InitAsChild(
 
 void RenderWidgetHostViewAura::InitAsPopup(
     RenderWidgetHostView* parent_host_view,
-    const gfx::Rect& pos) {
+    const gfx::Rect& bounds_in_display) {
   popup_parent_host_view_ =
       static_cast<RenderWidgetHostViewAura*>(parent_host_view);
   popup_parent_host_view_->popup_child_host_view_ = this;
@@ -255,8 +256,18 @@ void RenderWidgetHostViewAura::InitAsPopup(
   window_->Init(ui::LAYER_TEXTURED);
   window_->SetName("RenderWidgetHostViewAura");
 
-  window_->SetParent(NULL);
-  SetBounds(pos);
+  aura::Window* parent = NULL;
+  aura::RootWindow* root = popup_parent_host_view_->window_->GetRootWindow();
+  aura::client::ScreenPositionClient* screen_position_client =
+      aura::client::GetScreenPositionClient(root);
+  if (screen_position_client) {
+    gfx::Point origin_in_screen(bounds_in_display.origin());
+    screen_position_client->ConvertPointToScreen(root, &origin_in_screen);
+    parent = aura::client::GetStackingClient()->GetDefaultParent(
+        window_, gfx::Rect(origin_in_screen, bounds_in_display.size()));
+  }
+  window_->SetParent(parent);
+  SetBounds(bounds_in_display);
   Show();
 }
 
@@ -312,8 +323,11 @@ void RenderWidgetHostViewAura::SetSize(const gfx::Size& size) {
 void RenderWidgetHostViewAura::SetBounds(const gfx::Rect& rect) {
   if (window_->bounds().size() != rect.size() &&
       host_->is_accelerated_compositing_active()) {
-    resize_locks_.push_back(make_linked_ptr(
-        new ResizeLock(window_->GetRootWindow(), rect.size())));
+    aura::RootWindow* root_window = window_->GetRootWindow();
+    if (root_window) {
+      resize_locks_.push_back(make_linked_ptr(
+          new ResizeLock(root_window, rect.size())));
+    }
   }
   window_->SetBounds(rect);
   host_->WasResized();
@@ -324,7 +338,12 @@ gfx::NativeView RenderWidgetHostViewAura::GetNativeView() const {
 }
 
 gfx::NativeViewId RenderWidgetHostViewAura::GetNativeViewId() const {
+#if defined(OS_WIN)
+  HWND window = window_->GetRootWindow()->GetAcceleratedWidget();
+  return reinterpret_cast<gfx::NativeViewId>(window);
+#else
   return static_cast<gfx::NativeViewId>(NULL);
+#endif
 }
 
 gfx::NativeViewAccessible RenderWidgetHostViewAura::GetNativeViewAccessible() {
@@ -333,8 +352,29 @@ gfx::NativeViewAccessible RenderWidgetHostViewAura::GetNativeViewAccessible() {
 }
 
 void RenderWidgetHostViewAura::MovePluginWindows(
-    const std::vector<webkit::npapi::WebPluginGeometry>& moves) {
-  // We don't support windowed plugins.
+    const gfx::Point& scroll_offset,
+    const std::vector<webkit::npapi::WebPluginGeometry>& plugin_window_moves) {
+#if defined(OS_WIN)
+  HWND parent = window_->GetRootWindow()->GetAcceleratedWidget();
+  gfx::Rect view_bounds = window_->GetBoundsInRootWindow();
+  std::vector<webkit::npapi::WebPluginGeometry> moves = plugin_window_moves;
+
+  gfx::Rect view_port(scroll_offset.x(), scroll_offset.y(), view_bounds.width(),
+                      view_bounds.height());
+
+  for (size_t i = 0; i < moves.size(); ++i) {
+    gfx::Rect clip = moves[i].clip_rect;
+    clip.Offset(moves[i].window_rect.origin());
+    clip.Offset(scroll_offset);
+    clip = clip.Intersect(view_port);
+    clip.Offset(-moves[i].window_rect.x(), -moves[i].window_rect.y());
+    clip.Offset(-scroll_offset.x(), -scroll_offset.y());
+    moves[i].clip_rect = clip;
+
+    moves[i].window_rect.Offset(view_bounds.origin());
+  }
+  MovePluginWindowsHelper(parent, moves);
+#endif  // defined(OS_WIN)
 }
 
 void RenderWidgetHostViewAura::Focus() {
@@ -439,6 +479,15 @@ void RenderWidgetHostViewAura::DidUpdateBackingStore(
       continue;
 
     SchedulePaintIfNotInClip(rect, clip_rect);
+
+#if defined(OS_WIN)
+    // Send the invalid rect in screen coordinates.
+    gfx::Rect screen_rect = GetViewBounds();
+    gfx::Rect invalid_screen_rect(rect);
+    invalid_screen_rect.Offset(screen_rect.x(), screen_rect.y());
+    HWND hwnd = window_->GetRootWindow()->GetAcceleratedWidget();
+    PaintPluginWindowsHelper(hwnd, invalid_screen_rect);
+#endif  // defined(OS_WIN)
   }
 }
 
@@ -1153,36 +1202,6 @@ void RenderWidgetHostViewAura::OnBlur() {
   }
 }
 
-bool RenderWidgetHostViewAura::OnKeyEvent(ui::KeyEvent* event) {
-  TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnKeyEvent");
-  if (popup_child_host_view_ && popup_child_host_view_->NeedsInputGrab() &&
-      popup_child_host_view_->OnKeyEvent(event))
-    return true;
-
-  // We need to handle the Escape key for Pepper Flash.
-  if (is_fullscreen_ && event->key_code() == ui::VKEY_ESCAPE) {
-    if (!in_shutdown_) {
-      in_shutdown_ = true;
-      host_->Shutdown();
-    }
-  } else {
-    // We don't have to communicate with an input method here.
-    if (!event->HasNativeEvent()) {
-      // Send a fabricated event, which is usually a VKEY_PROCESSKEY IME event.
-      NativeWebKeyboardEvent webkit_event(event->type(),
-                                          false /* is_char */,
-                                          event->GetCharacter(),
-                                          event->flags(),
-                                          base::Time::Now().ToDoubleT());
-      host_->ForwardKeyboardEvent(webkit_event);
-    } else {
-      NativeWebKeyboardEvent webkit_event(event);
-      host_->ForwardKeyboardEvent(webkit_event);
-    }
-  }
-  return true;
-}
-
 gfx::NativeCursor RenderWidgetHostViewAura::GetCursor(const gfx::Point& point) {
   if (mouse_locked_)
     return ui::kCursorNone;
@@ -1198,154 +1217,6 @@ bool RenderWidgetHostViewAura::ShouldDescendIntoChildForEventHandling(
     aura::Window* child,
     const gfx::Point& location) {
   return true;
-}
-
-bool RenderWidgetHostViewAura::OnMouseEvent(ui::MouseEvent* event) {
-  TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnMouseEvent");
-  if (mouse_locked_) {
-    WebKit::WebMouseEvent mouse_event = MakeWebMouseEvent(event);
-    gfx::Point center(gfx::Rect(window_->bounds().size()).CenterPoint());
-
-    bool is_move_to_center_event = (event->type() == ui::ET_MOUSE_MOVED ||
-        event->type() == ui::ET_MOUSE_DRAGGED) &&
-        mouse_event.x == center.x() && mouse_event.y == center.y();
-
-    ModifyEventMovementAndCoords(&mouse_event);
-
-    bool should_not_forward = is_move_to_center_event && synthetic_move_sent_;
-    if (should_not_forward) {
-      synthetic_move_sent_ = false;
-    } else {
-      // Check if the mouse has reached the border and needs to be centered.
-      if (ShouldMoveToCenter()) {
-        synthetic_move_sent_ = true;
-        window_->MoveCursorTo(center);
-      }
-
-      // Forward event to renderer.
-      if (CanRendererHandleEvent(event))
-        host_->ForwardMouseEvent(mouse_event);
-    }
-
-    return false;
-  }
-
-  if (event->type() == ui::ET_MOUSEWHEEL) {
-    WebKit::WebMouseWheelEvent mouse_wheel_event =
-        MakeWebMouseWheelEvent(static_cast<ui::MouseWheelEvent*>(event));
-    if (mouse_wheel_event.deltaX != 0 || mouse_wheel_event.deltaY != 0)
-      host_->ForwardWheelEvent(mouse_wheel_event);
-  } else if (event->type() == ui::ET_SCROLL) {
-    WebKit::WebGestureEvent gesture_event =
-        MakeWebGestureEventFlingCancel();
-    host_->ForwardGestureEvent(gesture_event);
-    WebKit::WebMouseWheelEvent mouse_wheel_event =
-        MakeWebMouseWheelEvent(static_cast<ui::ScrollEvent*>(event));
-    host_->ForwardWheelEvent(mouse_wheel_event);
-    RecordAction(UserMetricsAction("TrackpadScroll"));
-  } else if (event->type() == ui::ET_SCROLL_FLING_START ||
-      event->type() == ui::ET_SCROLL_FLING_CANCEL) {
-    WebKit::WebGestureEvent gesture_event =
-        MakeWebGestureEvent(static_cast<ui::ScrollEvent*>(event));
-    host_->ForwardGestureEvent(gesture_event);
-    if (event->type() == ui::ET_SCROLL_FLING_START)
-      RecordAction(UserMetricsAction("TrackpadScrollFling"));
-  } else if (CanRendererHandleEvent(event)) {
-    WebKit::WebMouseEvent mouse_event = MakeWebMouseEvent(event);
-    ModifyEventMovementAndCoords(&mouse_event);
-    host_->ForwardMouseEvent(mouse_event);
-  }
-
-  switch (event->type()) {
-    case ui::ET_MOUSE_PRESSED:
-      window_->SetCapture();
-      // Confirm existing composition text on mouse click events, to make sure
-      // the input caret won't be moved with an ongoing composition text.
-      FinishImeCompositionSession();
-      break;
-    case ui::ET_MOUSE_RELEASED:
-      window_->ReleaseCapture();
-      break;
-    default:
-      break;
-  }
-
-  // Needed to propagate mouse event to native_tab_contents_view_aura.
-  // TODO(pkotwicz): Find a better way of doing this.
-  if (window_->parent()->delegate())
-    window_->parent()->delegate()->OnMouseEvent(event);
-
-  // Return true so that we receive released/drag events.
-  return true;
-}
-
-ui::TouchStatus RenderWidgetHostViewAura::OnTouchEvent(
-    ui::TouchEvent* event) {
-  TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnTouchEvent");
-  // Update the touch event first.
-  WebKit::WebTouchPoint* point = UpdateWebTouchEvent(event,
-      &touch_event_);
-
-  // Forward the touch event only if a touch point was updated, and there's a
-  // touch-event handler in the page.
-  if (point && host_->has_touch_handler()) {
-    host_->ForwardTouchEvent(touch_event_);
-    UpdateWebTouchEventAfterDispatch(&touch_event_, point);
-    return DecideTouchStatus(touch_event_, point);
-  }
-
-  return ui::TOUCH_STATUS_UNKNOWN;
-}
-
-ui::GestureStatus RenderWidgetHostViewAura::OnGestureEvent(
-    ui::GestureEvent* event) {
-  TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnGestureEvent");
-  // Pinch gestures are currently disabled by default. See crbug.com/128477.
-  if ((event->type() == ui::ET_GESTURE_PINCH_BEGIN ||
-      event->type() == ui::ET_GESTURE_PINCH_UPDATE ||
-      event->type() == ui::ET_GESTURE_PINCH_END) && !ShouldSendPinchGesture()) {
-    return ui::GESTURE_STATUS_CONSUMED;
-  }
-
-  RenderViewHostDelegate* delegate = NULL;
-  if (popup_type_ == WebKit::WebPopupTypeNone && !is_fullscreen_)
-    delegate = RenderViewHost::From(host_)->GetDelegate();
-  if (delegate && event->type() == ui::ET_GESTURE_BEGIN &&
-      event->details().touch_points() == 1) {
-    delegate->HandleGestureBegin();
-  }
-
-  WebKit::WebGestureEvent gesture = MakeWebGestureEvent(event);
-  if (event->type() == ui::ET_GESTURE_TAP_DOWN) {
-    // Webkit does not stop a fling-scroll on tap-down. So explicitly send an
-    // event to stop any in-progress flings.
-    WebKit::WebGestureEvent fling_cancel = gesture;
-    fling_cancel.type = WebKit::WebInputEvent::GestureFlingCancel;
-    host_->ForwardGestureEvent(fling_cancel);
-  }
-
-  if (gesture.type != WebKit::WebInputEvent::Undefined) {
-    host_->ForwardGestureEvent(gesture);
-
-    if (event->type() == ui::ET_GESTURE_SCROLL_BEGIN ||
-        event->type() == ui::ET_GESTURE_SCROLL_UPDATE ||
-        event->type() == ui::ET_GESTURE_SCROLL_END) {
-      RecordAction(UserMetricsAction("TouchscreenScroll"));
-    } else if (event->type() == ui::ET_SCROLL_FLING_START) {
-      RecordAction(UserMetricsAction("TouchscreenScrollFling"));
-    }
-  }
-
-  if (delegate && event->type() == ui::ET_GESTURE_END &&
-      event->details().touch_points() == 1) {
-    delegate->HandleGestureEnd();
-  }
-
-  // If a gesture is not processed by the webpage, then WebKit processes it
-  // (e.g. generates synthetic mouse events). So CONSUMED should be returned
-  // from here to avoid any duplicate synthetic mouse-events being generated
-  // from aura.
-  return ui::GESTURE_STATUS_CONSUMED;
 }
 
 bool RenderWidgetHostViewAura::CanFocus() {
@@ -1398,6 +1269,187 @@ bool RenderWidgetHostViewAura::HasHitTestMask() const {
 }
 
 void RenderWidgetHostViewAura::GetHitTestMask(gfx::Path* mask) const {
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RenderWidgetHostViewAura, ui::EventHandler implementation:
+
+ui::EventResult RenderWidgetHostViewAura::OnKeyEvent(ui::KeyEvent* event) {
+  TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnKeyEvent");
+  if (popup_child_host_view_ && popup_child_host_view_->NeedsInputGrab() &&
+      popup_child_host_view_->OnKeyEvent(event))
+    return ui::ER_HANDLED;
+
+  // We need to handle the Escape key for Pepper Flash.
+  if (is_fullscreen_ && event->key_code() == ui::VKEY_ESCAPE) {
+    if (!in_shutdown_) {
+      in_shutdown_ = true;
+      host_->Shutdown();
+    }
+  } else {
+    // We don't have to communicate with an input method here.
+    if (!event->HasNativeEvent()) {
+      // Send a fabricated event, which is usually a VKEY_PROCESSKEY IME event.
+      NativeWebKeyboardEvent webkit_event(event->type(),
+                                          false /* is_char */,
+                                          event->GetCharacter(),
+                                          event->flags(),
+                                          base::Time::Now().ToDoubleT());
+      host_->ForwardKeyboardEvent(webkit_event);
+    } else {
+      NativeWebKeyboardEvent webkit_event(event);
+      host_->ForwardKeyboardEvent(webkit_event);
+    }
+  }
+  return ui::ER_HANDLED;
+}
+
+ui::EventResult RenderWidgetHostViewAura::OnMouseEvent(ui::MouseEvent* event) {
+  TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnMouseEvent");
+  if (mouse_locked_) {
+    WebKit::WebMouseEvent mouse_event = MakeWebMouseEvent(event);
+    gfx::Point center(gfx::Rect(window_->bounds().size()).CenterPoint());
+
+    bool is_move_to_center_event = (event->type() == ui::ET_MOUSE_MOVED ||
+        event->type() == ui::ET_MOUSE_DRAGGED) &&
+        mouse_event.x == center.x() && mouse_event.y == center.y();
+
+    ModifyEventMovementAndCoords(&mouse_event);
+
+    bool should_not_forward = is_move_to_center_event && synthetic_move_sent_;
+    if (should_not_forward) {
+      synthetic_move_sent_ = false;
+    } else {
+      // Check if the mouse has reached the border and needs to be centered.
+      if (ShouldMoveToCenter()) {
+        synthetic_move_sent_ = true;
+        window_->MoveCursorTo(center);
+      }
+
+      // Forward event to renderer.
+      if (CanRendererHandleEvent(event))
+        host_->ForwardMouseEvent(mouse_event);
+    }
+
+    return ui::ER_UNHANDLED;
+  }
+
+  if (event->type() == ui::ET_MOUSEWHEEL) {
+    WebKit::WebMouseWheelEvent mouse_wheel_event =
+        MakeWebMouseWheelEvent(static_cast<ui::MouseWheelEvent*>(event));
+    if (mouse_wheel_event.deltaX != 0 || mouse_wheel_event.deltaY != 0)
+      host_->ForwardWheelEvent(mouse_wheel_event);
+  } else if (event->type() == ui::ET_SCROLL) {
+    WebKit::WebGestureEvent gesture_event =
+        MakeWebGestureEventFlingCancel();
+    host_->ForwardGestureEvent(gesture_event);
+    WebKit::WebMouseWheelEvent mouse_wheel_event =
+        MakeWebMouseWheelEvent(static_cast<ui::ScrollEvent*>(event));
+    host_->ForwardWheelEvent(mouse_wheel_event);
+    RecordAction(UserMetricsAction("TrackpadScroll"));
+  } else if (event->type() == ui::ET_SCROLL_FLING_START ||
+      event->type() == ui::ET_SCROLL_FLING_CANCEL) {
+    WebKit::WebGestureEvent gesture_event =
+        MakeWebGestureEvent(static_cast<ui::ScrollEvent*>(event));
+    host_->ForwardGestureEvent(gesture_event);
+    if (event->type() == ui::ET_SCROLL_FLING_START)
+      RecordAction(UserMetricsAction("TrackpadScrollFling"));
+  } else if (CanRendererHandleEvent(event)) {
+    WebKit::WebMouseEvent mouse_event = MakeWebMouseEvent(event);
+    ModifyEventMovementAndCoords(&mouse_event);
+    host_->ForwardMouseEvent(mouse_event);
+  }
+
+  switch (event->type()) {
+    case ui::ET_MOUSE_PRESSED:
+      window_->SetCapture();
+      // Confirm existing composition text on mouse click events, to make sure
+      // the input caret won't be moved with an ongoing composition text.
+      FinishImeCompositionSession();
+      break;
+    case ui::ET_MOUSE_RELEASED:
+      window_->ReleaseCapture();
+      break;
+    default:
+      break;
+  }
+
+  // Needed to propagate mouse event to native_tab_contents_view_aura.
+  // TODO(pkotwicz): Find a better way of doing this.
+  if (window_->parent()->delegate())
+    window_->parent()->delegate()->OnMouseEvent(event);
+
+  // Return true so that we receive released/drag events.
+  return ui::ER_HANDLED;
+}
+
+ui::TouchStatus RenderWidgetHostViewAura::OnTouchEvent(
+    ui::TouchEvent* event) {
+  TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnTouchEvent");
+  // Update the touch event first.
+  WebKit::WebTouchPoint* point = UpdateWebTouchEvent(event,
+      &touch_event_);
+
+  // Forward the touch event only if a touch point was updated, and there's a
+  // touch-event handler in the page.
+  if (point && host_->has_touch_handler()) {
+    host_->ForwardTouchEvent(touch_event_);
+    UpdateWebTouchEventAfterDispatch(&touch_event_, point);
+    return DecideTouchStatus(touch_event_, point);
+  }
+
+  return ui::TOUCH_STATUS_UNKNOWN;
+}
+
+ui::EventResult RenderWidgetHostViewAura::OnGestureEvent(
+    ui::GestureEvent* event) {
+  TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnGestureEvent");
+  // Pinch gestures are currently disabled by default. See crbug.com/128477.
+  if ((event->type() == ui::ET_GESTURE_PINCH_BEGIN ||
+      event->type() == ui::ET_GESTURE_PINCH_UPDATE ||
+      event->type() == ui::ET_GESTURE_PINCH_END) && !ShouldSendPinchGesture()) {
+    return ui::ER_CONSUMED;
+  }
+
+  RenderViewHostDelegate* delegate = NULL;
+  if (popup_type_ == WebKit::WebPopupTypeNone && !is_fullscreen_)
+    delegate = RenderViewHost::From(host_)->GetDelegate();
+  if (delegate && event->type() == ui::ET_GESTURE_BEGIN &&
+      event->details().touch_points() == 1) {
+    delegate->HandleGestureBegin();
+  }
+
+  WebKit::WebGestureEvent gesture = MakeWebGestureEvent(event);
+  if (event->type() == ui::ET_GESTURE_TAP_DOWN) {
+    // Webkit does not stop a fling-scroll on tap-down. So explicitly send an
+    // event to stop any in-progress flings.
+    WebKit::WebGestureEvent fling_cancel = gesture;
+    fling_cancel.type = WebKit::WebInputEvent::GestureFlingCancel;
+    host_->ForwardGestureEvent(fling_cancel);
+  }
+
+  if (gesture.type != WebKit::WebInputEvent::Undefined) {
+    host_->ForwardGestureEvent(gesture);
+
+    if (event->type() == ui::ET_GESTURE_SCROLL_BEGIN ||
+        event->type() == ui::ET_GESTURE_SCROLL_UPDATE ||
+        event->type() == ui::ET_GESTURE_SCROLL_END) {
+      RecordAction(UserMetricsAction("TouchscreenScroll"));
+    } else if (event->type() == ui::ET_SCROLL_FLING_START) {
+      RecordAction(UserMetricsAction("TouchscreenScrollFling"));
+    }
+  }
+
+  if (delegate && event->type() == ui::ET_GESTURE_END &&
+      event->details().touch_points() == 1) {
+    delegate->HandleGestureEnd();
+  }
+
+  // If a gesture is not processed by the webpage, then WebKit processes it
+  // (e.g. generates synthetic mouse events). So CONSUMED should be returned
+  // from here to avoid any duplicate synthetic mouse-events being generated
+  // from aura.
+  return ui::ER_CONSUMED;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1510,7 +1562,10 @@ void RenderWidgetHostViewAura::UpdateCursorIfOverSelf() {
   if (is_loading_)
     cursor = ui::kCursorPointer;
 
-  root_window->SetCursor(cursor);
+  aura::client::CursorClient* cursor_client =
+      aura::client::GetCursorClient(root_window);
+  if (cursor_client)
+    cursor_client->SetCursor(cursor);
 }
 
 ui::InputMethod* RenderWidgetHostViewAura::GetInputMethod() const {

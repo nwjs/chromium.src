@@ -25,6 +25,8 @@
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animator.h"
+#include "ui/gfx/canvas.h"
 #include "ui/views/animation/bounds_animator.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
@@ -385,15 +387,16 @@ void LauncherView::CalculateIdealBounds(IdealBounds* bounds) {
       continue;
     }
 
-    view_model_->set_ideal_bounds(i, gfx::Rect(
-        x, y, kLauncherPreferredSize, kLauncherPreferredSize));
-    x = primary_axis_coordinate(x + kLauncherPreferredSize + kButtonSpacing, 0);
-    y = primary_axis_coordinate(0, y + kLauncherPreferredSize + kButtonSpacing);
+    int w = primary_axis_coordinate(kLauncherPreferredSize, width());
+    int h = primary_axis_coordinate(height(), kLauncherPreferredSize);
+    view_model_->set_ideal_bounds(i, gfx::Rect(x, y, w, h));
+    x = primary_axis_coordinate(x + w + kButtonSpacing, 0);
+    y = primary_axis_coordinate(0, y + h + kButtonSpacing);
   }
 
-  int app_list_index = view_model_->view_size() - 1;
+  int last_view_index = view_model_->view_size() - 1;
   if (is_overflow_mode()) {
-    last_visible_index_ = app_list_index - 1;
+    last_visible_index_ = last_view_index;
     for (int i = 0; i < view_model_->view_size(); ++i) {
       view_model_->view_at(i)->SetVisible(
           i >= first_visible_index_ && i <= last_visible_index_);
@@ -405,21 +408,21 @@ void LauncherView::CalculateIdealBounds(IdealBounds* bounds) {
     // Makes the first launcher button include the leading inset.
     view_model_->set_ideal_bounds(0, gfx::Rect(gfx::Size(
         primary_axis_coordinate(leading_inset() + kLauncherPreferredSize,
-                                kLauncherPreferredSize),
-        primary_axis_coordinate(kLauncherPreferredSize,
+                                width()),
+        primary_axis_coordinate(height(),
                                 leading_inset() + kLauncherPreferredSize))));
   }
 
-  bounds->overflow_bounds.set_size(
-      gfx::Size(kLauncherPreferredSize, kLauncherPreferredSize));
+  bounds->overflow_bounds.set_size(gfx::Size(
+      primary_axis_coordinate(kLauncherPreferredSize, width()),
+      primary_axis_coordinate(height(), kLauncherPreferredSize)));
   last_visible_index_ = DetermineLastVisibleIndex(
       available_size - leading_inset() - kLauncherPreferredSize -
       kButtonSpacing - kLauncherPreferredSize);
-  bool show_overflow = (last_visible_index_ + 1 < app_list_index);
+  bool show_overflow = (last_visible_index_ < last_view_index);
 
   for (int i = 0; i < view_model_->view_size(); ++i) {
-    view_model_->view_at(i)->SetVisible(
-        i == app_list_index || i <= last_visible_index_);
+    view_model_->view_at(i)->SetVisible(i <= last_visible_index_);
   }
 
   overflow_button_->SetVisible(show_overflow);
@@ -434,14 +437,8 @@ void LauncherView::CalculateIdealBounds(IdealBounds* bounds) {
       y = primary_axis_coordinate(0,
           view_model_->ideal_bounds(last_visible_index_).bottom());
     }
-    gfx::Rect app_list_bounds = view_model_->ideal_bounds(app_list_index);
     bounds->overflow_bounds.set_x(x);
     bounds->overflow_bounds.set_y(y);
-    x = primary_axis_coordinate(x + kLauncherPreferredSize + kButtonSpacing, 0);
-    y = primary_axis_coordinate(0, y + kLauncherPreferredSize + kButtonSpacing);
-    app_list_bounds.set_x(x);
-    app_list_bounds.set_y(y);
-    view_model_->set_ideal_bounds(app_list_index, app_list_bounds);
   } else {
     if (overflow_bubble_.get())
       overflow_bubble_->Hide();
@@ -720,9 +717,14 @@ int LauncherView::CancelDrag(int modified_index) {
     return modified_index;
 
   // Restore previous position, tracking the position of the modified view.
+  model_->Move(drag_view_index, start_drag_index_);
+
+  // Adding a new view at end.
+  if (modified_index == view_model_->view_size())
+    return modified_index;
+
   views::View* removed_view =
       (modified_index >= 0) ? view_model_->view_at(modified_index) : NULL;
-  model_->Move(drag_view_index, start_drag_index_);
   return removed_view ? view_model_->GetIndexOfView(removed_view) : -1;
 }
 
@@ -730,12 +732,9 @@ gfx::Size LauncherView::GetPreferredSize() {
   IdealBounds ideal_bounds;
   CalculateIdealBounds(&ideal_bounds);
 
-  const int app_list_index = view_model_->view_size() - 1;
-  const int last_button_index = is_overflow_mode() ?
-      last_visible_index_ : app_list_index;
   const gfx::Rect last_button_bounds =
-      last_button_index  >= first_visible_index_ ?
-          view_model_->view_at(last_button_index)->bounds() :
+      last_visible_index_  >= first_visible_index_ ?
+          view_model_->view_at(last_visible_index_)->bounds() :
           gfx::Rect(gfx::Size(kLauncherPreferredSize,
                               kLauncherPreferredSize));
 
@@ -748,9 +747,9 @@ gfx::Size LauncherView::GetPreferredSize() {
                    last_button_bounds.bottom() + leading_inset());
 }
 
-ui::GestureStatus LauncherView::OnGestureEvent(const ui::GestureEvent& event) {
+ui::EventResult LauncherView::OnGestureEvent(const ui::GestureEvent& event) {
   return gesture_handler_.ProcessGestureEvent(event) ?
-      ui::GESTURE_STATUS_CONSUMED : ui::GESTURE_STATUS_UNKNOWN;
+      ui::ER_CONSUMED : ui::ER_UNHANDLED;
 }
 
 void LauncherView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
@@ -991,6 +990,8 @@ void LauncherView::ButtonPressed(views::Button* sender,
   if (view_index == -1)
     return;
 
+  if (event.IsShiftDown())
+    ui::LayerAnimator::set_slow_animation_mode(true);
   tooltip_->Close();
   switch (model_->items()[view_index].type) {
     case TYPE_TABBED:
@@ -1022,6 +1023,8 @@ void LauncherView::ButtonPressed(views::Button* sender,
         delegate_->CreateNewTab();
       break;
   }
+  if (event.IsShiftDown())
+    ui::LayerAnimator::set_slow_animation_mode(false);
 }
 
 void LauncherView::ShowContextMenuForView(views::View* source,

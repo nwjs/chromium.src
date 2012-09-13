@@ -5,18 +5,19 @@
 #include "chrome/browser/chromeos/gdata/drive_system_service.h"
 
 #include "base/bind.h"
-#include "base/bind_helpers.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/gdata/drive_api_service.h"
+#include "chrome/browser/chromeos/gdata/drive_download_observer.h"
 #include "chrome/browser/chromeos/gdata/drive_file_system.h"
 #include "chrome/browser/chromeos/gdata/drive_file_system_proxy.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
+#include "chrome/browser/chromeos/gdata/drive_sync_client.h"
+#include "chrome/browser/chromeos/gdata/drive_uploader.h"
 #include "chrome/browser/chromeos/gdata/drive_webapps_registry.h"
 #include "chrome/browser/chromeos/gdata/file_write_helper.h"
-#include "chrome/browser/chromeos/gdata/gdata_download_observer.h"
-#include "chrome/browser/chromeos/gdata/gdata_sync_client.h"
-#include "chrome/browser/chromeos/gdata/gdata_uploader.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_service.h"
+#include "chrome/browser/chromeos/gdata/stale_cache_files_remover.h"
 #include "chrome/browser/download/download_service.h"
 #include "chrome/browser/download/download_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -62,7 +63,7 @@ void DriveSystemService::Initialize(
   cache_ = DriveCache::CreateDriveCacheOnUIThread(
       cache_root,
       blocking_task_runner_);
-  uploader_.reset(new GDataUploader(drive_service_.get()));
+  uploader_.reset(new DriveUploader(drive_service_.get()));
   webapps_registry_.reset(new DriveWebAppsRegistry);
   file_system_.reset(new DriveFileSystem(profile_,
                                          cache(),
@@ -71,9 +72,11 @@ void DriveSystemService::Initialize(
                                          webapps_registry(),
                                          blocking_task_runner_));
   file_write_helper_.reset(new FileWriteHelper(file_system()));
-  download_observer_.reset(new GDataDownloadObserver(uploader(),
+  download_observer_.reset(new DriveDownloadObserver(uploader(),
                                                      file_system()));
-  sync_client_.reset(new GDataSyncClient(profile_, file_system(), cache()));
+  sync_client_.reset(new DriveSyncClient(profile_, file_system(), cache()));
+  stale_cache_files_remover_.reset(new StaleCacheFilesRemover(file_system(),
+                                                              cache()));
 
   sync_client_->Initialize();
   file_system_->Initialize();
@@ -88,6 +91,7 @@ void DriveSystemService::Initialize(
           DriveCache::CACHE_TYPE_TMP_DOWNLOADS));
 
   AddDriveMountPoint();
+  file_system_->StartInitialFeedFetch();
 }
 
 void DriveSystemService::Shutdown() {
@@ -95,6 +99,7 @@ void DriveSystemService::Shutdown() {
   RemoveDriveMountPoint();
 
   // Shut down the member objects in the reverse order of creation.
+  stale_cache_files_remover_.reset();
   sync_client_.reset();
   download_observer_.reset();
   file_write_helper_.reset();
@@ -133,7 +138,7 @@ void DriveSystemService::AddDriveMountPoint() {
   if (!gdata::util::IsGDataAvailable(profile_))
     return;
 
-  const FilePath mount_point = gdata::util::GetGDataMountPointPath();
+  const FilePath mount_point = gdata::util::GetDriveMountPointPath();
   fileapi::ExternalFileSystemMountPointProvider* provider =
       BrowserContext::GetFileSystemContext(profile_)->external_provider();
   if (provider && !provider->HasMountPoint(mount_point)) {
@@ -149,7 +154,7 @@ void DriveSystemService::RemoveDriveMountPoint() {
   file_system_->NotifyFileSystemToBeUnmounted();
   file_system_->StopUpdates();
 
-  const FilePath mount_point = gdata::util::GetGDataMountPointPath();
+  const FilePath mount_point = gdata::util::GetDriveMountPointPath();
   fileapi::ExternalFileSystemMountPointProvider* provider =
       BrowserContext::GetFileSystemContext(profile_)->external_provider();
   if (provider && provider->HasMountPoint(mount_point))

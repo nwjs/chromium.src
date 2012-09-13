@@ -7,6 +7,7 @@
 #include "ash/ash_constants.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
+#include "ash/wm/property_util.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/logging.h"  // DCHECK
@@ -26,6 +27,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/image/image.h"
+#include "ui/gfx/screen.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -246,6 +248,7 @@ int FramePainter::NonClientHitTest(views::NonClientFrameView* view,
                                                      kResizeAreaCornerSize,
                                                      kResizeAreaCornerSize,
                                                      can_ever_resize);
+  frame_component = AdjustFrameHitCodeForMaximizedModes(frame_component);
   if (frame_component != HTNOWHERE)
     return frame_component;
 
@@ -299,11 +302,26 @@ void FramePainter::PaintHeader(views::NonClientFrameView* view,
                                const gfx::ImageSkia* theme_frame_overlay) {
   if (previous_theme_frame_id_ != 0 &&
       previous_theme_frame_id_ != theme_frame_id) {
-    crossfade_animation_.reset(new ui::SlideAnimation(this));
-    crossfade_theme_frame_id_ = previous_theme_frame_id_;
-    crossfade_opacity_ = previous_opacity_;
-    crossfade_animation_->SetSlideDuration(kActivationCrossfadeDurationMs);
-    crossfade_animation_->Show();
+    aura::Window* parent = frame_->GetNativeWindow()->parent();
+    // Don't animate the header if the parent (a workspace) is already
+    // animating. Doing so results in continually painting during the animation
+    // and gives a slower frame rate.
+    // TODO(sky): expose a better way to determine this rather than assuming
+    // the parent is a workspace.
+    bool parent_animating = parent &&
+        (parent->layer()->GetAnimator()->IsAnimatingProperty(
+            ui::LayerAnimationElement::OPACITY) ||
+         parent->layer()->GetAnimator()->IsAnimatingProperty(
+             ui::LayerAnimationElement::VISIBILITY));
+    if (!parent_animating) {
+      crossfade_animation_.reset(new ui::SlideAnimation(this));
+      crossfade_theme_frame_id_ = previous_theme_frame_id_;
+      crossfade_opacity_ = previous_opacity_;
+      crossfade_animation_->SetSlideDuration(kActivationCrossfadeDurationMs);
+      crossfade_animation_->Show();
+    } else {
+      crossfade_animation_.reset();
+    }
   }
 
   int opacity =
@@ -365,10 +383,12 @@ void FramePainter::PaintHeader(views::NonClientFrameView* view,
                        close_button_->y());
 
   // We don't need the extra lightness in the edges when we're at the top edge
-  // of the screen.
+  // of the screen or maximized. We have the maximized check as during
+  // animations the bounds may not be at 0, but the border shouldn't be drawn.
+  //
   // TODO(oshima): This will not work under multi-display, need to add method
   // like GetWindowBoundsInDisplay().
-  if (frame_->GetWindowBoundsInScreen().y() == 0)
+  if (frame_->GetWindowBoundsInScreen().y() == 0 || frame_->IsMaximized())
     return;
 
   // Draw the top corners and edge.
@@ -452,7 +472,21 @@ void FramePainter::PaintTitleBar(views::NonClientFrameView* view,
 void FramePainter::LayoutHeader(views::NonClientFrameView* view,
                                 bool maximized_layout) {
   // The maximized layout uses shorter buttons.
-  if (maximized_layout) {
+  if (maximized_layout &&
+      internal::WorkspaceController::IsWorkspace2Enabled()) {
+    SetButtonImages(close_button_,
+                    IDR_AURA_WINDOW_MAXIMIZED_CLOSE2,
+                    IDR_AURA_WINDOW_MAXIMIZED_CLOSE2_H,
+                    IDR_AURA_WINDOW_MAXIMIZED_CLOSE2_P);
+    // The chat window cannot be restored but only minimized.
+    // Case: (size_button_behavior_ == SIZE_BUTTON_MINIMIZES). We used to have
+    // a special set of artwork to show this case, but per discussion we
+    // removed this.
+    SetButtonImages(size_button_,
+                    IDR_AURA_WINDOW_MAXIMIZED_RESTORE2,
+                    IDR_AURA_WINDOW_MAXIMIZED_RESTORE2_H,
+                    IDR_AURA_WINDOW_MAXIMIZED_RESTORE2_P);
+  } else if (maximized_layout) {
     SetButtonImages(close_button_,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE_H,
@@ -579,6 +613,11 @@ int FramePainter::GetHeaderOpacity(HeaderMode header_mode,
   if (theme_frame_overlay)
     return kFullyOpaque;
 
+  // Maximized windows with workspace2 are totally transparent.
+  if (frame_->IsMaximized() &&
+      internal::WorkspaceController::IsWorkspace2Enabled())
+    return 0;
+
   // Single browser window is very transparent.
   if (UseSoloWindowHeader())
     return kSoloWindowOpacity;
@@ -587,6 +626,43 @@ int FramePainter::GetHeaderOpacity(HeaderMode header_mode,
   if (header_mode == ACTIVE)
     return kActiveWindowOpacity;
   return kInactiveWindowOpacity;
+}
+
+int FramePainter::AdjustFrameHitCodeForMaximizedModes(int hit_code) {
+  if (hit_code != HTNOWHERE && wm::IsWindowNormal(window_) &&
+      GetRestoreBoundsInScreen(window_)) {
+    // When there is a restore rectangle, a left/right maximized window might
+    // be active.
+    const gfx::Rect& bounds = frame_->GetWindowBoundsInScreen();
+    const gfx::Rect& screen =
+        gfx::Screen::GetDisplayMatching(bounds).work_area();
+    if (bounds.y() == screen.y() && bounds.bottom() == screen.bottom()) {
+      // The window is probably either left or right maximized.
+      if (bounds.x() == screen.x()) {
+        // It is left maximized and we can only allow a right resize.
+        return (hit_code == HTBOTTOMRIGHT ||
+                hit_code == HTTOPRIGHT ||
+                hit_code == HTRIGHT) ? HTRIGHT : HTNOWHERE;
+      } else if (bounds.right() == screen.right()) {
+        // It is right maximized and we can only allow a left resize.
+        return (hit_code == HTBOTTOMLEFT ||
+                hit_code == HTTOPLEFT ||
+                hit_code == HTLEFT) ? HTLEFT : HTNOWHERE;
+      }
+    } else if (bounds.x() == screen.x() &&
+               bounds.right() == screen.right()) {
+      // If horizontal fill mode is activated we don't allow a left/right
+      // resizing.
+      if (hit_code == HTTOPRIGHT ||
+          hit_code == HTTOP ||
+          hit_code == HTTOPLEFT)
+        return HTTOP;
+      return (hit_code == HTBOTTOMRIGHT ||
+              hit_code == HTBOTTOM ||
+              hit_code == HTBOTTOMLEFT) ? HTBOTTOM : HTNOWHERE;
+    }
+  }
+  return hit_code;
 }
 
 // static

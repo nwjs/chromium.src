@@ -8,9 +8,11 @@
 #include <vector>
 
 #include "ash/wm/window_resizer.h"
+#include "ash/wm/workspace/magnetism_matcher.h"
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
+#include "ui/aura/window_tracker.h"
 
 namespace aura {
 class RootWindow;
@@ -42,6 +44,10 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
   // TODO: this should come from a property on the window.
   static const int kMinOnscreenHeight;
 
+  // Snap region when dragging close to the edges. That is, as the window gets
+  // this close to an edge of the screen it snaps to the edge.
+  static const int kScreenEdgeInset;
+
   virtual ~WorkspaceWindowResizer();
 
   static WorkspaceWindowResizer* Create(
@@ -61,6 +67,7 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
   virtual void Drag(const gfx::Point& location, int event_flags) OVERRIDE;
   virtual void CompleteDrag(int event_flags) OVERRIDE;
   virtual void RevertDrag() OVERRIDE;
+  virtual aura::Window* GetTarget() OVERRIDE;
 
  private:
   WorkspaceWindowResizer(const Details& details,
@@ -80,27 +87,29 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
   };
 
   // Returns the final bounds to place the window at. This differs from
-  // the current if there is a grid.
-  gfx::Rect GetFinalBounds(const gfx::Rect& bounds, int grid_size) const;
+  // the current when snapping.
+  gfx::Rect GetFinalBounds(const gfx::Rect& bounds) const;
 
   // Lays out the attached windows. |bounds| is the bounds of the main window.
-  void LayoutAttachedWindows(const gfx::Rect& bounds, int grid_size);
+  void LayoutAttachedWindows(const gfx::Rect& bounds);
 
   // Calculates the size (along the primary axis) of the attached windows.
   // |initial_size| is the initial size of the main window, |current_size| the
   // new size of the main window, |start| the position to layout the attached
   // windows from and |end| the coordinate to position to.
-  void CalculateAttachedSizes(
-      int initial_size,
-      int current_size,
-      int start,
-      int end,
-      int grid_size,
-      std::vector<int>* sizes) const;
+  void CalculateAttachedSizes(int initial_size,
+                              int current_size,
+                              int start,
+                              int end,
+                              std::vector<int>* sizes) const;
+
+  // Attempts to snap the window to any other nearly windows, update |bounds| if
+  // there was a close enough window.
+  void MagneticallySnapToOtherWindows(gfx::Rect* bounds);
 
   // Adjusts the bounds to enforce that windows are vertically contained in the
   // work area.
-  void AdjustBoundsForMainWindow(gfx::Rect* bounds, int grid_size) const;
+  void AdjustBoundsForMainWindow(gfx::Rect* bounds, int grid_size);
 
   // Snaps the window bounds to the work area edges if necessary.
   void SnapToWorkAreaEdges(
@@ -118,8 +127,7 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
 
   // Updates the bounds of the phantom window for window snapping.
   void UpdateSnapPhantomWindow(const gfx::Point& location,
-                               const gfx::Rect& bounds,
-                               int grid_size);
+                               const gfx::Rect& bounds);
 
   // Updates the bounds of the phantom window for window dragging. Set true on
   // |in_original_root| if the pointer is still in |window()->GetRootWindow()|.
@@ -200,6 +208,13 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
   // If non-NULL the destructor sets this to true. Used to determine if this has
   // been deleted.
   bool* destroyed_;
+
+  aura::Window* magnetism_window_;
+
+  // Used to verify |magnetism_window_| is still valid.
+  aura::WindowTracker window_tracker_;
+
+  MagnetismEdge magnetism_edge_;
 
   DISALLOW_COPY_AND_ASSIGN(WorkspaceWindowResizer);
 };

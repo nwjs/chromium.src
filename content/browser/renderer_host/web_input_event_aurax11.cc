@@ -37,17 +37,17 @@
 
 #include "content/browser/renderer_host/web_input_event_aura.h"
 
-#include <cstdlib>
 #include <X11/keysym.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <cstdlib>
 
 #include "base/event_types.h"
 #include "base/logging.h"
-#include "ui/base/event.h"
-#include "ui/base/events.h"
-#include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/events/event.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/keycodes/keyboard_code_conversion_x.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 
 namespace content {
 
@@ -256,16 +256,28 @@ WebKit::WebMouseWheelEvent MakeWebMouseWheelEventFromAuraEvent(
   return webkit_event;
 }
 
+// NOTE: ui::ScrollEvent instances come from the touchpad.
 WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
     ui::ScrollEvent* event) {
   WebKit::WebGestureEvent webkit_event;
 
   switch (event->type()) {
     case ui::ET_SCROLL:
+      // TODO(sadrul || rjkroege): This will do touchscreen style scrolling in
+      // response to touchpad events. Currently, touchscreen and touchpad
+      // scrolls are the same. However, if the planned changes to touchscreen
+      // scrolling take place, this will no longer be so. If so, this needs to
+      // be adjusted.
       webkit_event.type = WebKit::WebInputEvent::GestureScrollUpdate;
+      webkit_event.data.scrollUpdate.deltaX = event->x_offset();
+      webkit_event.data.scrollUpdate.deltaY = event->y_offset();
       break;
     case ui::ET_SCROLL_FLING_START:
       webkit_event.type = WebKit::WebInputEvent::GestureFlingStart;
+      webkit_event.data.flingStart.velocityX = event->x_offset();
+      webkit_event.data.flingStart.velocityY = event->y_offset();
+      webkit_event.data.flingStart.sourceDevice =
+          WebKit::WebGestureEvent::Touchpad;
       break;
     case ui::ET_SCROLL_FLING_CANCEL:
       webkit_event.type = WebKit::WebInputEvent::GestureFlingCancel;
@@ -276,8 +288,6 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
 
   webkit_event.modifiers = EventFlagsToWebEventModifiers(event->flags());
   webkit_event.timeStampSeconds = event->time_stamp().InSecondsF();
-  webkit_event.deltaX = event->x_offset();
-  webkit_event.deltaY = event->y_offset();
 
   return webkit_event;
 }
@@ -330,6 +340,7 @@ WebKit::WebKeyboardEvent MakeWebKeyboardEventFromAuraEvent(
   return webkit_event;
 }
 
+// NOTE: ui::GestureEvent instances come from the touchscreen.
 WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
     ui::GestureEvent* event) {
   WebKit::WebGestureEvent gesture_event;
@@ -340,12 +351,12 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       gesture_event.data.tap.tapCount = event->details().tap_count();
       gesture_event.data.tap.width = event->details().bounding_box().width();
       gesture_event.data.tap.height = event->details().bounding_box().height();
-      // TODO(rbyers): Stop setting deltaX once WebKit knows how to handle
-      // the other fields (here and below).  crbug.com/143237
-      gesture_event.deltaX = event->details().tap_count();
       break;
     case ui::ET_GESTURE_TAP_DOWN:
       gesture_event.type = WebKit::WebInputEvent::GestureTapDown;
+      break;
+    case ui::ET_GESTURE_TAP_CANCEL:
+      gesture_event.type = WebKit::WebInputEvent::GestureTapCancel;
       break;
     case ui::ET_GESTURE_DOUBLE_TAP:
       gesture_event.type = WebKit::WebInputEvent::GestureDoubleTap;
@@ -357,8 +368,6 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       gesture_event.type = WebKit::WebInputEvent::GestureScrollUpdate;
       gesture_event.data.scrollUpdate.deltaX = event->details().scroll_x();
       gesture_event.data.scrollUpdate.deltaY = event->details().scroll_y();
-      gesture_event.deltaX = event->details().scroll_x();
-      gesture_event.deltaY = event->details().scroll_y();
       break;
     case ui::ET_GESTURE_SCROLL_END:
       gesture_event.type = WebKit::WebInputEvent::GestureScrollEnd;
@@ -369,7 +378,6 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
     case ui::ET_GESTURE_PINCH_UPDATE:
       gesture_event.type = WebKit::WebInputEvent::GesturePinchUpdate;
       gesture_event.data.pinchUpdate.scale = event->details().scale();
-      gesture_event.deltaX = event->details().scale();
       break;
     case ui::ET_GESTURE_PINCH_END:
       gesture_event.type = WebKit::WebInputEvent::GesturePinchEnd;
@@ -378,8 +386,8 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       gesture_event.type = WebKit::WebInputEvent::GestureFlingStart;
       gesture_event.data.flingStart.velocityX = event->details().velocity_x();
       gesture_event.data.flingStart.velocityY = event->details().velocity_y();
-      gesture_event.deltaX = event->details().velocity_x();
-      gesture_event.deltaY = event->details().velocity_y();
+      gesture_event.data.flingStart.sourceDevice =
+          WebKit::WebGestureEvent::Touchscreen;
       break;
     case ui::ET_SCROLL_FLING_CANCEL:
       gesture_event.type = WebKit::WebInputEvent::GestureFlingCancel;
@@ -397,14 +405,12 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
     case ui::ET_GESTURE_BEGIN:
     case ui::ET_GESTURE_END:
     case ui::ET_GESTURE_MULTIFINGER_SWIPE:
+      gesture_event.type = WebKit::WebInputEvent::Undefined;
       break;
     default:
       NOTREACHED() << "Unknown gesture type: " << event->type();
   }
 
-  // TODO(rbyers): Also stop setting boundingBox for all events (as for delta
-  // above).
-  gesture_event.boundingBox = event->details().bounding_box();
   gesture_event.modifiers = EventFlagsToWebEventModifiers(event->flags());
   gesture_event.timeStampSeconds = event->time_stamp().InSecondsF();
 

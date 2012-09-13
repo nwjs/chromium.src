@@ -6,6 +6,7 @@
 
 #include "base/message_loop_proxy.h"
 #include "net/base/ip_endpoint.h"
+#include "remoting/base/auto_thread_task_runner.h"
 #include "remoting/base/capture_data.h"
 #include "remoting/proto/event.pb.h"
 #include "remoting/protocol/transport.h"
@@ -29,9 +30,14 @@ MockEventExecutor::MockEventExecutor() {}
 
 MockEventExecutor::~MockEventExecutor() {}
 
-void MockEventExecutor::OnSessionStarted(
+void MockEventExecutor::Start(
     scoped_ptr<protocol::ClipboardStub> client_clipboard) {
-  OnSessionStartedPtr(client_clipboard.get());
+  StartPtr(client_clipboard.get());
+}
+
+void MockEventExecutor::StopAndDelete() {
+  StopAndDeleteMock();
+  delete this;
 }
 
 MockDisconnectWindow::MockDisconnectWindow() {}
@@ -59,7 +65,8 @@ scoped_ptr<LocalInputMonitor> LocalInputMonitor::Create() {
 }
 
 MockChromotingHostContext::MockChromotingHostContext()
-    : ChromotingHostContext(base::MessageLoopProxy::current()) {
+    : ChromotingHostContext(new AutoThreadTaskRunner(
+          base::MessageLoopProxy::current())) {
 }
 
 MockChromotingHostContext::~MockChromotingHostContext() {}

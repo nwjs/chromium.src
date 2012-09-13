@@ -9,23 +9,12 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
 #include "net/base/escape.h"
 
 namespace gdata {
-namespace {
-
-const char kSlash[] = "/";
-const char kEscapedSlash[] = "\xE2\x88\x95";
-
-// Extracts resource_id out of edit url.
-std::string ExtractResourceId(const GURL& url) {
-  return net::UnescapeURLComponent(url.ExtractFileName(),
-                                   net::UnescapeRule::URL_SPECIAL_CHARS);
-}
-
-}  // namespace
 
 // DriveEntry class.
 
@@ -56,6 +45,8 @@ void DriveEntry::InitFromDocumentEntry(const DocumentEntry& doc) {
   // SetBaseNameFromTitle() must be called after |title_| is set.
   SetBaseNameFromTitle();
 
+  // TODO(satorux): The last modified and the last accessed time shouldn't
+  // be treated as the same thing: crbug.com/148434
   file_info_.last_modified = doc.updated_time();
   file_info_.last_accessed = doc.updated_time();
   file_info_.creation_time = doc.published_time();
@@ -64,13 +55,13 @@ void DriveEntry::InitFromDocumentEntry(const DocumentEntry& doc) {
   content_url_ = doc.content_url();
   deleted_ = doc.deleted();
 
-  const Link* edit_link = doc.GetLinkByType(Link::EDIT);
+  const Link* edit_link = doc.GetLinkByType(Link::LINK_EDIT);
   if (edit_link)
     edit_url_ = edit_link->href();
 
-  const Link* parent_link = doc.GetLinkByType(Link::PARENT);
+  const Link* parent_link = doc.GetLinkByType(Link::LINK_PARENT);
   if (parent_link)
-    parent_resource_id_ = ExtractResourceId(parent_link->href());
+    parent_resource_id_ = util::ExtractResourceIdFromUrl(parent_link->href());
 }
 
 const DriveFile* DriveEntry::AsDriveFileConst() const {
@@ -97,30 +88,14 @@ void DriveEntry::SetParent(DriveDirectory* parent) {
 }
 
 void DriveEntry::SetBaseNameFromTitle() {
-  base_name_ = EscapeUtf8FileName(title_);
-}
-
-// static
-std::string DriveEntry::EscapeUtf8FileName(const std::string& input) {
-  std::string output;
-  if (ReplaceChars(input, kSlash, std::string(kEscapedSlash), &output))
-    return output;
-
-  return input;
-}
-
-// static
-std::string DriveEntry::UnescapeUtf8FileName(const std::string& input) {
-  std::string output = input;
-  ReplaceSubstringsAfterOffset(&output, 0, std::string(kEscapedSlash), kSlash);
-  return output;
+  base_name_ = util::EscapeUtf8FileName(title_);
 }
 
 // DriveFile class implementation.
 
 DriveFile::DriveFile(DriveResourceMetadata* resource_metadata)
     : DriveEntry(resource_metadata),
-      kind_(DocumentEntry::UNKNOWN),
+      kind_(ENTRY_KIND_UNKNOWN),
       is_hosted_document_(false) {
   file_info_.is_directory = false;
 }
@@ -134,7 +109,7 @@ DriveFile* DriveFile::AsDriveFile() {
 
 void DriveFile::SetBaseNameFromTitle() {
   if (is_hosted_document_) {
-    base_name_ = EscapeUtf8FileName(title_ + document_extension_);
+    base_name_ = util::EscapeUtf8FileName(title_ + document_extension_);
   } else {
     DriveEntry::SetBaseNameFromTitle();
   }
@@ -150,7 +125,8 @@ void DriveFile::InitFromDocumentEntry(const DocumentEntry& doc) {
 
     // The resumable-edit-media link should only be present for regular
     // files as hosted documents are not uploadable.
-    const Link* upload_link = doc.GetLinkByType(Link::RESUMABLE_EDIT_MEDIA);
+    const Link* upload_link =
+        doc.GetLinkByType(Link::LINK_RESUMABLE_EDIT_MEDIA);
     if (upload_link)
       upload_url_ = upload_link->href();
   } else {
@@ -171,11 +147,11 @@ void DriveFile::InitFromDocumentEntry(const DocumentEntry& doc) {
   // |is_hosted_document_| and |document_extension_| are set.
   SetBaseNameFromTitle();
 
-  const Link* thumbnail_link = doc.GetLinkByType(Link::THUMBNAIL);
+  const Link* thumbnail_link = doc.GetLinkByType(Link::LINK_THUMBNAIL);
   if (thumbnail_link)
     thumbnail_url_ = thumbnail_link->href();
 
-  const Link* alternate_link = doc.GetLinkByType(Link::ALTERNATE);
+  const Link* alternate_link = doc.GetLinkByType(Link::LINK_ALTERNATE);
   if (alternate_link)
     alternate_url_ = alternate_link->href();
 }
@@ -198,7 +174,8 @@ DriveDirectory* DriveDirectory::AsDriveDirectory() {
 void DriveDirectory::InitFromDocumentEntry(const DocumentEntry& doc) {
   DriveEntry::InitFromDocumentEntry(doc);
 
-  const Link* upload_link = doc.GetLinkByType(Link::RESUMABLE_CREATE_MEDIA);
+  const Link* upload_link =
+      doc.GetLinkByType(Link::LINK_RESUMABLE_CREATE_MEDIA);
   if (upload_link)
     upload_url_ = upload_link->href();
 }
@@ -446,8 +423,8 @@ void DriveFile::ToProto(DriveEntryProto* proto) const {
 }
 
 void DriveDirectory::FromProto(const DriveDirectoryProto& proto) {
-  DCHECK(proto.gdata_entry().file_info().is_directory());
-  DCHECK(!proto.gdata_entry().has_file_specific_info());
+  DCHECK(proto.drive_entry().file_info().is_directory());
+  DCHECK(!proto.drive_entry().has_file_specific_info());
 
   for (int i = 0; i < proto.child_files_size(); ++i) {
     scoped_ptr<DriveFile> file(resource_metadata_->CreateDriveFile());
@@ -462,12 +439,12 @@ void DriveDirectory::FromProto(const DriveDirectoryProto& proto) {
 
   // The states of the directory should be updated after children are
   // handled successfully, so that incomplete states are not left.
-  DriveEntry::FromProto(proto.gdata_entry());
+  DriveEntry::FromProto(proto.drive_entry());
 }
 
 void DriveDirectory::ToProto(DriveDirectoryProto* proto) const {
-  DriveEntry::ToProto(proto->mutable_gdata_entry());
-  DCHECK(proto->gdata_entry().file_info().is_directory());
+  DriveEntry::ToProto(proto->mutable_drive_entry());
+  DCHECK(proto->drive_entry().file_info().is_directory());
 
   for (ChildMap::const_iterator iter = child_files_.begin();
        iter != child_files_.end(); ++iter) {

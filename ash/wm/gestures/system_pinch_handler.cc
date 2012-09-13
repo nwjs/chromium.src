@@ -11,7 +11,7 @@
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace/snap_sizer.h"
 #include "ui/aura/window.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/gestures/gesture_types.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/rect.h"
@@ -95,8 +95,7 @@ SystemGestureStatus SystemPinchHandler::ProcessGestureEvent(
         SnapSizer sizer(target_,
             gfx::Point(),
             event.details().swipe_left() ? internal::SnapSizer::LEFT_EDGE :
-                                           internal::SnapSizer::RIGHT_EDGE,
-            Shell::GetInstance()->GetGridSize());
+                                           internal::SnapSizer::RIGHT_EDGE);
         target_->SetBounds(sizer.GetSnapBounds(target_->bounds()));
       } else if (event.details().swipe_up()) {
         if (!wm::IsWindowMaximized(target_) &&

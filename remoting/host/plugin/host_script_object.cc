@@ -15,10 +15,11 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "net/base/net_util.h"
+#include "remoting/base/auto_thread_task_runner.h"
 #include "remoting/base/auth_token_util.h"
 #include "remoting/host/chromoting_host.h"
 #include "remoting/host/chromoting_host_context.h"
-#include "remoting/host/desktop_environment.h"
+#include "remoting/host/desktop_environment_factory.h"
 #include "remoting/host/host_config.h"
 #include "remoting/host/host_event_logger.h"
 #include "remoting/host/host_key_pair.h"
@@ -92,8 +93,10 @@ HostNPScriptObject::HostNPScriptObject(
       np_thread_id_(base::PlatformThread::CurrentId()),
       plugin_task_runner_(
           new PluginThreadTaskRunner(plugin_thread_delegate)),
+      desktop_environment_factory_(new DesktopEnvironmentFactory()),
       failed_login_attempts_(0),
       disconnected_event_(true, false),
+      stopped_event_(true, false),
       nat_traversal_enabled_(false),
       policy_received_(false),
       daemon_controller_(DaemonController::Create()),
@@ -106,6 +109,10 @@ HostNPScriptObject::~HostNPScriptObject() {
 
   HostLogHandler::UnregisterLoggingScriptObject(this);
 
+  // Stop the message loop. Any attempt to post a task to
+  // |context_.ui_task_runner()| will result in a CHECK() after this point.
+  // TODO(alexeypa): Enable posting messages to |plugin_task_runner_| during
+  // shutdown to avoid this hack.
   plugin_task_runner_->Detach();
 
   // Stop listening for policy updates.
@@ -123,6 +130,8 @@ HostNPScriptObject::~HostNPScriptObject() {
     // is destroyed.
     disconnected_event_.Reset();
     DisconnectInternal();
+
+    // |disconnected_event_| is signalled when the host is completely stopped.
     disconnected_event_.Wait();
 
     // UI needs to be shut down on the UI thread before we destroy the
@@ -132,7 +141,15 @@ HostNPScriptObject::~HostNPScriptObject() {
     // unregister it from this thread).
     it2me_host_user_interface_.reset();
 
-    // Stops all threads.
+    // Release the context's TaskRunner references for the threads, so they can
+    // exit when no objects need them.
+    host_context_->ReleaseTaskRunners();
+
+    // |stopped_event_| is signalled when the last reference to the plugin
+    // thread is dropped.
+    stopped_event_.Wait();
+
+    // Stop all threads.
     host_context_.reset();
   }
 
@@ -143,7 +160,10 @@ bool HostNPScriptObject::Init() {
   DCHECK(plugin_task_runner_->BelongsToCurrentThread());
   VLOG(2) << "Init";
 
-  host_context_.reset(new ChromotingHostContext(plugin_task_runner_));
+  host_context_.reset(new ChromotingHostContext(new AutoThreadTaskRunner(
+      plugin_task_runner_,
+      base::Bind(&base::WaitableEvent::Signal,
+                 base::Unretained(&stopped_event_)))));
   if (!host_context_->Start()) {
     host_context_.reset();
     return false;
@@ -497,43 +517,22 @@ void HostNPScriptObject::ReadPolicyAndConnect(const std::string& uid,
   // Only proceed to FinishConnect() if at least one policy update has been
   // received.
   if (policy_received_) {
-    FinishConnectMainThread(uid, auth_token, auth_service);
+    FinishConnect(uid, auth_token, auth_service);
   } else {
     // Otherwise, create the policy watcher, and thunk the connect.
     pending_connect_ =
-        base::Bind(&HostNPScriptObject::FinishConnectMainThread,
+        base::Bind(&HostNPScriptObject::FinishConnect,
                    base::Unretained(this), uid, auth_token, auth_service);
   }
 }
 
-void HostNPScriptObject::FinishConnectMainThread(
-    const std::string& uid,
-    const std::string& auth_token,
-    const std::string& auth_service) {
-  if (!host_context_->capture_task_runner()->BelongsToCurrentThread()) {
-    host_context_->capture_task_runner()->PostTask(FROM_HERE, base::Bind(
-        &HostNPScriptObject::FinishConnectMainThread, base::Unretained(this),
-        uid, auth_token, auth_service));
-    return;
-  }
-
-  // DesktopEnvironment must be initialized on the capture thread.
-  //
-  // TODO(sergeyu): Fix DesktopEnvironment so that it can be created
-  // on either the UI or the network thread so that we can avoid
-  // jumping to the main thread here.
-  desktop_environment_ = DesktopEnvironment::Create(host_context_.get());
-
-  FinishConnectNetworkThread(uid, auth_token, auth_service);
-}
-
-void HostNPScriptObject::FinishConnectNetworkThread(
+void HostNPScriptObject::FinishConnect(
     const std::string& uid,
     const std::string& auth_token,
     const std::string& auth_service) {
   if (!host_context_->network_task_runner()->BelongsToCurrentThread()) {
     host_context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
-        &HostNPScriptObject::FinishConnectNetworkThread, base::Unretained(this),
+        &HostNPScriptObject::FinishConnect, base::Unretained(this),
         uid, auth_token, auth_service));
     return;
   }
@@ -546,12 +545,6 @@ void HostNPScriptObject::FinishConnectNetworkThread(
   // Check the host domain policy.
   if (!required_host_domain_.empty() &&
       !EndsWith(uid, std::string("@") + required_host_domain_, false)) {
-    SetState(kError);
-    return;
-  }
-
-  // Verify that DesktopEnvironment has been created.
-  if (desktop_environment_.get() == NULL) {
     SetState(kError);
     return;
   }
@@ -589,7 +582,8 @@ void HostNPScriptObject::FinishConnectNetworkThread(
 
   // Create the Host.
   host_ = new ChromotingHost(
-      host_context_.get(), signal_strategy_.get(), desktop_environment_.get(),
+      host_context_.get(), signal_strategy_.get(),
+      desktop_environment_factory_.get(),
       CreateHostSessionManager(network_settings,
                                host_context_->url_request_context_getter()));
   host_->AddStatusObserver(this);

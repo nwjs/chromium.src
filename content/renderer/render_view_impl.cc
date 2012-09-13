@@ -85,7 +85,6 @@
 #include "content/renderer/media/renderer_gpu_video_decoder_factories.h"
 #include "content/renderer/mhtml_generator.h"
 #include "content/renderer/notification_provider.h"
-#include "content/renderer/p2p/socket_dispatcher.h"
 #include "content/renderer/plugin_channel_host.h"
 #include "content/renderer/render_process.h"
 #include "content/renderer/render_thread_impl.h"
@@ -206,6 +205,9 @@
 #include "content/renderer/android/phone_number_detector.h"
 #include "content/renderer/media/stream_texture_factory_impl_android.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebHitTestResult.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebFloatPoint.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebFloatRect.h"
+#include "ui/gfx/rect_f.h"
 #include "webkit/media/android/webmediaplayer_android.h"
 #include "webkit/media/android/webmediaplayer_manager_android.h"
 #elif defined(OS_WIN)
@@ -330,6 +332,8 @@ using content::ContentDetector;
 using content::EmailDetector;
 using content::PhoneNumberDetector;
 using WebKit::WebContentDetectionResult;
+using WebKit::WebFloatPoint;
+using WebKit::WebFloatRect;
 using WebKit::WebHitTestResult;
 #endif
 
@@ -601,7 +605,6 @@ RenderViewImpl::RenderViewImpl(
       device_orientation_dispatcher_(NULL),
       media_stream_dispatcher_(NULL),
       media_stream_impl_(NULL),
-      p2p_socket_dispatcher_(NULL),
       devtools_agent_(NULL),
       accessibility_mode_(AccessibilityModeOff),
       renderer_accessibility_(NULL),
@@ -696,8 +699,6 @@ RenderViewImpl::RenderViewImpl(
   host_window_ = parent_hwnd;
 
 #if defined(ENABLE_WEBRTC)
-  if (!p2p_socket_dispatcher_)
-    p2p_socket_dispatcher_ = new content::P2PSocketDispatcher(this);
   if (!media_stream_dispatcher_)
     media_stream_dispatcher_ = new MediaStreamDispatcher(this);
 #endif
@@ -954,11 +955,25 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_Replace, OnReplace)
     IPC_MESSAGE_HANDLER(ViewMsg_Delete, OnDelete)
     IPC_MESSAGE_HANDLER(ViewMsg_SelectAll, OnSelectAll)
+    IPC_MESSAGE_HANDLER(ViewMsg_ReplaceAll, OnReplaceAll)
+    IPC_MESSAGE_HANDLER(ViewMsg_Unselect, OnUnselect)
+    IPC_MESSAGE_HANDLER(ViewMsg_SetEditableSelectionOffsets,
+                        OnSetEditableSelectionOffsets)
+    IPC_MESSAGE_HANDLER(ViewMsg_SetCompositionFromExistingText,
+                        OnSetCompositionFromExistingText)
+    IPC_MESSAGE_HANDLER(ViewMsg_ExtendSelectionAndDelete,
+                        OnExtendSelectionAndDelete)
     IPC_MESSAGE_HANDLER(ViewMsg_SelectRange, OnSelectRange)
     IPC_MESSAGE_HANDLER(ViewMsg_CopyImageAt, OnCopyImageAt)
     IPC_MESSAGE_HANDLER(ViewMsg_ExecuteEditCommand, OnExecuteEditCommand)
     IPC_MESSAGE_HANDLER(ViewMsg_Find, OnFind)
     IPC_MESSAGE_HANDLER(ViewMsg_StopFinding, OnStopFinding)
+#if defined(OS_ANDROID)
+    IPC_MESSAGE_HANDLER(ViewMsg_ActivateNearestFindResult,
+                        OnActivateNearestFindResult)
+    IPC_MESSAGE_HANDLER(ViewMsg_FindMatchRects,
+                        OnFindMatchRects)
+#endif
     IPC_MESSAGE_HANDLER(ViewMsg_Zoom, OnZoom)
     IPC_MESSAGE_HANDLER(ViewMsg_SetZoomLevel, OnSetZoomLevel)
     IPC_MESSAGE_HANDLER(ViewMsg_ZoomFactor, OnZoomFactor)
@@ -1205,8 +1220,6 @@ void RenderViewImpl::OnNavigate(const ViewMsg_Navigate_Params& params) {
 
   // In case LoadRequest failed before DidCreateDataSource was called.
   pending_navigation_params_.reset();
-
-  UNSHIPPED_TRACE_EVENT_INSTANT0("test_tracing", "RenderViewImpl::OnNavigate");
 }
 
 bool RenderViewImpl::IsBackForwardToStaleEntry(
@@ -1376,6 +1389,40 @@ void RenderViewImpl::OnSelectAll() {
 
   webview()->focusedFrame()->executeCommand(
       WebString::fromUTF8("SelectAll"));
+}
+
+void RenderViewImpl::OnReplaceAll(const string16& text) {
+  WebNode node = GetFocusedNode();
+  if (node.isNull() || !IsEditableNode(node))
+    return;
+
+  OnSelectAll();
+  OnReplace(text);
+}
+
+void RenderViewImpl::OnUnselect() {
+  if (!webview())
+    return;
+
+  webview()->focusedFrame()->executeCommand(WebString::fromUTF8("Unselect"));
+}
+
+void RenderViewImpl::OnSetEditableSelectionOffsets(int start, int end) {
+  webview()->setEditableSelectionOffsets(start, end);
+}
+
+void RenderViewImpl::OnSetCompositionFromExistingText(
+    int start, int end,
+    const std::vector<WebKit::WebCompositionUnderline>& underlines) {
+  if (!webview())
+    return;
+  webview()->setCompositionFromExistingText(start, end, underlines);
+}
+
+void RenderViewImpl::OnExtendSelectionAndDelete(int before, int after) {
+  if (!webview())
+    return;
+  webview()->extendSelectionAndDelete(before, after);
 }
 
 void RenderViewImpl::OnSelectRange(const gfx::Point& start,
@@ -2504,7 +2551,7 @@ WebMediaPlayer* RenderViewImpl::createMediaPlayer(
     collection->GetVideoDecoders()->push_back(new media::GpuVideoDecoder(
         base::Bind(&media::MessageLoopFactory::GetMessageLoop,
                    base::Unretained(message_loop_factory),
-                   media::MessageLoopFactory::kVideoDecoder),
+                   media::MessageLoopFactory::kDecoder),
         factories_loop,
         new RendererGpuVideoDecoderFactories(
             gpu_channel_host, factories_loop, context3d)));
@@ -2987,6 +3034,9 @@ void RenderViewImpl::PopulateDocumentStateFromPending(
 
   document_state->set_referrer_policy(params.referrer.policy);
   document_state->set_is_overriding_user_agent(params.is_overriding_user_agent);
+  document_state->set_must_reset_scroll_and_scale_state(
+      params.navigation_type ==
+          ViewMsg_Navigate_Type::RELOAD_ORIGINAL_REQUEST_URL);
 }
 
 NavigationState* RenderViewImpl::CreateNavigationStateFromPending() {
@@ -3140,10 +3190,6 @@ void RenderViewImpl::didFailProvisionalLoad(WebFrame* frame,
   // from being dumb, WebCore doesn't expect it and it will cause a crash.
   if (error.reason == net::ERR_ABORTED)
     return;
-  // Don't display an error message if the request was handled by an
-  // external protocol handler.
-  if (error.reason == net::ERR_UNKNOWN_URL_SCHEME)
-    return;
 
   // Make sure we never show errors in view source mode.
   frame->enableViewSourceMode(false);
@@ -3202,6 +3248,11 @@ void RenderViewImpl::didCommitProvisionalLoad(WebFrame* frame,
 
   if (document_state->commit_load_time().is_null())
     document_state->set_commit_load_time(Time::Now());
+
+  if (document_state->must_reset_scroll_and_scale_state()) {
+    webview()->resetScrollAndScaleState();
+    document_state->set_must_reset_scroll_and_scale_state(false);
+  }
 
   if (is_new_navigation) {
     // When we perform a new navigation, we need to update the last committed
@@ -3783,9 +3834,6 @@ void RenderViewImpl::EnsureMediaStreamImpl() {
     return;
 
 #if defined(ENABLE_WEBRTC)
-  if (!p2p_socket_dispatcher_)
-    p2p_socket_dispatcher_ = new content::P2PSocketDispatcher(this);
-
   if (!media_stream_dispatcher_)
     media_stream_dispatcher_ = new MediaStreamDispatcher(this);
 
@@ -3795,7 +3843,7 @@ void RenderViewImpl::EnsureMediaStreamImpl() {
     media_stream_impl_ = new MediaStreamImpl(
         this,
         media_stream_dispatcher_,
-        p2p_socket_dispatcher_,
+        RenderThreadImpl::current()->p2p_socket_dispatcher(),
         RenderThreadImpl::current()->video_capture_impl_manager(),
         factory);
   }
@@ -4184,7 +4232,8 @@ WebKit::WebPlugin* RenderViewImpl::CreatePlugin(
         pepper_module.get(), params, pepper_delegate_.AsWeakPtr());
   }
 
-#if defined(USE_AURA)
+
+#if defined(USE_AURA) && !defined(OS_WIN)
   return NULL;
 #else
   return new webkit::npapi::WebPluginImpl(
@@ -4650,6 +4699,56 @@ void RenderViewImpl::OnStopFinding(content::StopFindAction action) {
   }
 }
 
+#if defined(OS_ANDROID)
+void RenderViewImpl::OnActivateNearestFindResult(int request_id,
+                                                 float x, float y) {
+  if (!webview())
+      return;
+
+  WebFrame* main_frame = webview()->mainFrame();
+  WebRect selection_rect;
+  int ordinal = main_frame->selectNearestFindMatch(WebFloatPoint(x, y),
+                                                   &selection_rect);
+  if (ordinal == -1) {
+    // Something went wrong, so send a no-op reply (force the main_frame to
+    // report the current match count) in case the host is waiting for a
+    // response due to rate-limiting).
+    main_frame->increaseMatchCount(0, request_id);
+    return;
+  }
+
+  Send(new ViewHostMsg_Find_Reply(routing_id_,
+                                  request_id,
+                                  -1 /* number_of_matches */,
+                                  selection_rect,
+                                  ordinal,
+                                  true /* final_update */));
+}
+
+void RenderViewImpl::OnFindMatchRects(int current_version) {
+  if (!webview())
+      return;
+
+  WebFrame* main_frame = webview()->mainFrame();
+  std::vector<gfx::RectF> match_rects;
+
+  int rects_version = main_frame->findMatchMarkersVersion();
+  if (current_version != rects_version) {
+    WebVector<WebFloatRect> web_match_rects;
+    main_frame->findMatchRects(web_match_rects);
+    match_rects.reserve(web_match_rects.size());
+    for (size_t i = 0; i < web_match_rects.size(); ++i)
+      match_rects.push_back(gfx::RectF(web_match_rects[i]));
+  }
+
+  gfx::RectF active_rect = main_frame->activeFindMatchRect();
+  Send(new ViewHostMsg_FindMatchRects_Reply(routing_id_,
+                                               rects_version,
+                                               match_rects,
+                                               active_rect));
+}
+#endif
+
 void RenderViewImpl::OnZoom(content::PageZoom zoom) {
   if (!webview())  // Not sure if this can happen, but no harm in being safe.
     return;
@@ -4752,6 +4851,7 @@ void RenderViewImpl::OnScriptEvalRequest(const string16& frame_xpath,
                                          const string16& jscript,
                                          int id,
                                          bool notify_result) {
+  UNSHIPPED_TRACE_EVENT_INSTANT0("test_tracing", "OnScriptEvalRequest");
   EvaluateScript(frame_xpath, jscript, id, notify_result);
 }
 

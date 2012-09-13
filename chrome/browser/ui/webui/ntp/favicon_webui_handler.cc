@@ -103,7 +103,7 @@ void FaviconWebUIHandler::HandleGetFaviconDominantColor(const ListValue* args) {
       StringValue dom_id_value(dom_id);
       scoped_ptr<StringValue> color(
           SkColorToCss(history::kPrepopulatedPages[i].color));
-      web_ui()->CallJavascriptFunction("ntp.setStripeColor",
+      web_ui()->CallJavascriptFunction("ntp.setFaviconDominantColor",
                                        dom_id_value, *color);
       return;
     }
@@ -111,12 +111,13 @@ void FaviconWebUIHandler::HandleGetFaviconDominantColor(const ListValue* args) {
 
   dom_id_map_[id_] = dom_id;
   FaviconService::Handle handle = favicon_service->GetRawFaviconForURL(
-      Profile::FromWebUI(web_ui()),
-      url,
-      history::FAVICON,
-      gfx::kFaviconSize,
+      FaviconService::FaviconForURLParams(
+          Profile::FromWebUI(web_ui()),
+          url,
+          history::FAVICON,
+          gfx::kFaviconSize,
+          &consumer_),
       ui::SCALE_FACTOR_100P,
-      &consumer_,
       base::Bind(&FaviconWebUIHandler::OnFaviconDataAvailable,
                  base::Unretained(this)));
   consumer_.SetClientData(favicon_service, handle, id_++);
@@ -136,7 +137,8 @@ void FaviconWebUIHandler::OnFaviconDataAvailable(
     color_value.reset(new StringValue("#919191"));
 
   StringValue dom_id(dom_id_map_[id]);
-  web_ui()->CallJavascriptFunction("ntp.setStripeColor", dom_id, *color_value);
+  web_ui()->CallJavascriptFunction("ntp.setFaviconDominantColor",
+                                   dom_id, *color_value);
   dom_id_map_.erase(id);
 }
 
@@ -165,5 +167,5 @@ void FaviconWebUIHandler::NotifyAppIconReady(const std::string& extension_id) {
   scoped_ptr<StringValue> color_value(GetDominantColorCssString(bits_mem));
   StringValue id(extension_id);
   web_ui()->CallJavascriptFunction(
-      "ntp.setStripeColor", id, *color_value);
+      "ntp.setFaviconDominantColor", id, *color_value);
 }

@@ -70,6 +70,10 @@ Time Time::Now() {
   struct timezone tz = { 0, 0 };  // UTC
   if (gettimeofday(&tv, &tz) != 0) {
     DCHECK(0) << "Could not determine time of day";
+    LOG_ERRNO(ERROR) << "Call to gettimeofday failed.";
+    // Return null instead of uninitialized |tv| value, which contains random
+    // garbage data. This may result in the crash seen in crbug.com/147570.
+    return Time();
   }
   // Combine seconds and microseconds in a 64-bit field containing microseconds
   // since the epoch.  That's enough for nearly 600 centuries.  Adjust from
@@ -266,6 +270,11 @@ TimeTicks TimeTicks::NowFromSystemTraceTime() {
 Time Time::FromTimeVal(struct timeval t) {
   DCHECK_LT(t.tv_usec, static_cast<int>(Time::kMicrosecondsPerSecond));
   DCHECK_GE(t.tv_usec, 0);
+  if (t.tv_usec == 0 && t.tv_sec == 0)
+    return Time();
+  if (t.tv_usec == static_cast<suseconds_t>(Time::kMicrosecondsPerSecond) - 1 &&
+      t.tv_sec == std::numeric_limits<time_t>::max())
+    return Max();
   return Time(
       (static_cast<int64>(t.tv_sec) * Time::kMicrosecondsPerSecond) +
       t.tv_usec +
@@ -274,6 +283,16 @@ Time Time::FromTimeVal(struct timeval t) {
 
 struct timeval Time::ToTimeVal() const {
   struct timeval result;
+  if (is_null()) {
+    result.tv_sec = 0;
+    result.tv_usec = 0;
+    return result;
+  }
+  if (is_max()) {
+    result.tv_sec = std::numeric_limits<time_t>::max();
+    result.tv_usec = static_cast<suseconds_t>(Time::kMicrosecondsPerSecond) - 1;
+    return result;
+  }
   int64 us = us_ - kTimeTToMicrosecondsOffset;
   result.tv_sec = us / Time::kMicrosecondsPerSecond;
   result.tv_usec = us % Time::kMicrosecondsPerSecond;

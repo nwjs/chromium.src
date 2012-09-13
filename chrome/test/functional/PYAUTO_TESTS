@@ -36,7 +36,10 @@
       'about_plugins_ui.AboutPluginsUITest',
       'apptest',
       'autofill',
+      'chromoting.auth',
       'chromoting.it2me_basic',
+      'chromoting.me2me_connect',
+      'chromoting.me2me_enable',
       'codesign',
       'crash_reporter',
       'downloads',
@@ -52,7 +55,6 @@
       'ntp',
       'omnibox',
       'passwords',
-      'policy',
       'policy_prefs_ui',
       'prefs',
       'prefs_ui',
@@ -66,6 +68,12 @@
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
       # ==================================================
+      # crbug.com/148544
+      '-downloads',
+      '-infobars.InfobarTest.testMultipleDownloadsInfobar',
+      '-instant.InstantTest.testInstantDoesNotDownloadPDFFile',
+      '-instant.InstantTest.testInstantDoesNotDownloadZipFile',
+      '-prefs.PrefsTest.testDownloadDirPref',
       # crbug.com/123396
       '-fullscreen_mouselock.FullscreenMouselockTest.testPatternsForFSAndML',
       # crbug.com/132665
@@ -94,14 +102,6 @@
       '-omnibox.OmniboxTest.testAutoCompleteForNonAsciiSearch',
       # crbug.com/137041
       '-omnibox.OmniboxTest.testDifferentTypesOfResults',
-      # crbug.com/115427
-      '-policy.PolicyTest.testAlwaysAuthorizePlugins',
-      # crbug.com/118054
-      '-policy.PolicyTest.testApplicationLocaleValue',
-      # crbug.com/96896
-      '-policy.PolicyTest.testEnabledPlugins',
-      # crbug.com/118123
-      '-policy.PolicyTest.testExtensionInstallFromForceList',
       # crbug.com/85600
       '-prefs.PrefsTest.testNavigationStateOnSessionRestore',
       # crbug.com/112051
@@ -138,8 +138,6 @@
       '-omnibox.OmniboxTest.testIncognitoAppSearchWithVeryLongAppName',
       # crbug.com/117569
       '-passwords.PasswordTest.testSavedPasswordInTabsAndWindows',
-      # crbug.com/103379
-      '-policy.PolicyTest.testDisable3DAPIs',
       # crbug.com/104227
       '-sync.SyncIntegrationTest',
       # crbug.com/88679
@@ -184,7 +182,6 @@
       # Keychain popups make autofill/password tests difficult: crbug.com/49378
       '-passwords',
       # crbug.com/130094
-      '-policy',
       '-policy_prefs_ui.PolicyPrefsUITest.testToggleUserPolicyTogglesBanner',
       '-policy_prefs_ui.PolicyPrefsUITest.testUserPoliciesShowBanner',
       # crbug.com/69619
@@ -201,6 +198,9 @@
       # ===========================
       # Permanently-disabled tests.
       # ===========================
+      # TODO(yihongg): Me2me test against Linux is not working yet.
+      '-chromoting.me2me_connect',
+      '-chromoting.me2me_enable',
       # crbug.com/104206
       '-notifications.NotificationsTest.testKillNotificationProcess',
       # Several omnibox tests do not show omnibox results when run
@@ -233,8 +233,6 @@
       # ==================================================
       # crbug.com/91033
       '-omnibox.OmniboxTest.testOmniboxSearchHistory',
-      # crbug.com/103379
-      '-policy.PolicyTest.testDisable3DAPIs',
       # Gnome / kwallet popups on linux break sync tests.  crbug.com/80329
       '-sync',
       # crbug.com/66072
@@ -264,7 +262,10 @@
       # Permanently-disabled tests.
       # ===========================
       # ChromeOS doesn't yet support the chromoting host.
+      '-chromoting.auth',
       '-chromoting.it2me_basic',
+      '-chromoting.me2me_connect',
+      '-chromoting.me2me_enable',
       # No codesign verification on ChromeOS.
       '-codesign',
       # Import tests are invalid on ChromeOS since Chrome is the only browser.
@@ -275,9 +276,8 @@
       # Multi-profile doesn't apply to chromeos yet.
       '-multiprofile',
       '-ntp.NTPTest.testDifferentProfileNotAppearInMostVisited',
-      # These require a custom setup on ChromeOS and have their own suite for
-      # this platform.
-      '-policy',
+      # This requires a custom setup on ChromeOS and has its own suite for
+      # that platform.
       '-policy_prefs_ui',
       # You cannot adjust the downloads directory on ChromeOS.
       '-prefs.PrefsTest.testDownloadDirPref',
@@ -408,13 +408,15 @@
       'about_plugins_ui.ChromeAboutPluginsUITest',
       'media.media_basic_playback',
       'nacl_sdk',
-      'youtube',
 
       # ===========================
       # Permanently-disabled tests.
       # ===========================
       # The chromoting webapp isn't currently available when FULL is run.
+      '-chromoting.auth',
       '-chromoting.it2me_basic',
+      '-chromoting.me2me_connect',
+      '-chromoting.me2me_enable',
 
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
@@ -458,9 +460,6 @@
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
       # ==================================================
-      # crbug.com/109035
-      '-youtube.YoutubeTest.testPlayerBytes',
-      '-youtube.YoutubeTest.testPlayerResolution',
 
       # ===========================
       # Permanently-disabled tests.
@@ -495,12 +494,10 @@
       '-extensions.ExtensionsTest.testAllowAccessFileURLs',
       # crbug.com/100365
       '-autofill.AutofillTest.testDisplayLineItemForEntriesWithNoCCNum',
-      # crbug.com/109035
-      '-youtube.YoutubeTest.testPlayerBytes',
-      '-youtube.YoutubeTest.testPlayerResolution',
     ],
 
     'chromeos': [
+      'youtube',
       # ===========================
       # Permanently-disabled tests.
       # ===========================
@@ -644,20 +641,7 @@
       'chromeos_device_policy',
       'chromeos_onc',
       'chromeos_retail_mode',
-      'policy',
       'policy_prefs_ui',
-      # crbug.com/115427
-      '-policy.PolicyTest.testAlwaysAuthorizePlugins',
-      # crbug.com/118054
-      '-policy.PolicyTest.testApplicationLocaleValue',
-      # crbug.com/118123
-      '-policy.PolicyTest.testExtensionInstallFromForceList',
-      '-policy.PolicyTest.testSetDownloadDirectory',
-      # This tests the value "0" for the RestoreOnStartup policy, which is not
-      # supported on ChromeOS.
-      '-policy.PolicyTest.testStartupOptionsHomepage',
-      # crosbug.com/32069
-      '-policy.PolicyTest.testTranslateEnabled',
     ],
   },
 
@@ -724,6 +708,14 @@
     ],
   },
 
+  # WebRTC quality tests. Requires webcam, an audio device and a special setup
+  # where the webcam is playing a barcode-encoded video.
+  'WEBRTC_QUALITY': {
+    'all': [
+      'webrtc_video_quality',
+    ],
+  },
+
   # Trace event tests.
   'TRACING': {
     'all': [
@@ -742,14 +734,12 @@
       '-about_plugins_ui',
       '-autofill',
       '-pyauto_webdriver',
-      '-chromoting_basic',
       '-extensions',
       '-flash',
       '-fullscreen_mouselock',
       '-gtalk.test_basic',
       '-infobars',
       '-multiprofile',
-      '-policy',
       '-prefs',
       '-prefs_ui',
       '-apptest',

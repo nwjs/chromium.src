@@ -9,6 +9,7 @@
 #include "LayerTextureSubImage.h"
 
 #include "CCRendererGL.h" // For the GLC() macro.
+#include "GraphicsContext3D.h"
 #include "Extensions3DChromium.h"
 #include "TraceEvent.h"
 #include <public/WebGraphicsContext3D.h>
@@ -84,12 +85,19 @@ void LayerTextureSubImage::uploadWithMapTexSubImage(const uint8_t* image, const 
         return;
     }
 
-    unsigned int componentsPerPixel;
-    unsigned int bytesPerComponent;
-    if (!GraphicsContext3D::computeFormatAndTypeParameters(format, GraphicsContext3D::UNSIGNED_BYTE, &componentsPerPixel, &bytesPerComponent)) {
+    unsigned int componentsPerPixel = 0;
+    switch (format) {
+    case GraphicsContext3D::RGBA:
+    case Extensions3D::BGRA_EXT:
+        componentsPerPixel = 4;
+        break;
+    case GraphicsContext3D::LUMINANCE:
+        componentsPerPixel = 1;
+        break;
+    default:
         ASSERT_NOT_REACHED();
-        return;
     }
+    unsigned int bytesPerComponent = 1;
 
     if (imageRect.width() == sourceRect.width() && !offset.x())
         memcpy(pixelDest, &image[offset.y() * imageRect.width() * componentsPerPixel * bytesPerComponent], imageRect.width() * sourceRect.height() * componentsPerPixel * bytesPerComponent);

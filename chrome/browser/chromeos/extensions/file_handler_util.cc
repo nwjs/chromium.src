@@ -11,8 +11,8 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/chromeos/gdata/drive_task_executor.h"
 #include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_host.h"
@@ -86,6 +86,18 @@ int ExtractProcessFromExtensionId(const std::string& extension_id,
   content::RenderProcessHost* process = site_instance->GetProcess();
 
   return process->GetID();
+}
+
+bool MatchesAllURLs(const FileBrowserHandler* handler) {
+  const std::set<URLPattern>& patterns =
+      handler->file_url_patterns().patterns();
+  for (std::set<URLPattern>::const_iterator it = patterns.begin();
+       it != patterns.end();
+       ++it) {
+    if (it->match_all_urls())
+      return true;
+  }
+  return false;
 }
 
 const FileBrowserHandler* FindFileBrowserHandler(const Extension* extension,
@@ -393,7 +405,7 @@ bool FindCommonTasks(Profile* profile,
   return true;
 }
 
-bool GetDefaultTask(
+bool GetTaskForURL(
     Profile* profile, const GURL& url, const FileBrowserHandler** handler) {
   std::vector<GURL> file_urls;
   file_urls.push_back(url);
@@ -402,15 +414,30 @@ bool GetDefaultTask(
   FileBrowserHandlerSet common_tasks;
   if (!FindCommonTasks(profile, file_urls, &common_tasks))
     return false;
+
   FindDefaultTasks(profile, file_urls, common_tasks, &default_tasks);
 
   // If there's none, or more than one, then we don't have a canonical default.
-  if (default_tasks.size() != 1)
-    return false;
+  if (!default_tasks.empty()) {
+    // There should not be multiple default tasks for a single URL.
+    DCHECK_EQ(1u, default_tasks.size());
 
-  // Return the one and only default task.
-  *handler = *default_tasks.begin();
-  return true;
+    *handler = *default_tasks.begin();
+    return true;
+  }
+
+  // If there are no default tasks set, try to match one of the builtin tasks
+  // (excluding those that match all urls).
+  for (FileBrowserHandlerSet::const_iterator it = common_tasks.begin();
+       it != common_tasks.end();
+       ++it) {
+     if ((*it)->extension_id() == kFileBrowserDomain && !MatchesAllURLs(*it)) {
+       *handler = *it;
+       return true;
+     }
+   }
+
+  return false;
 }
 
 class ExtensionTaskExecutor : public FileTaskExecutor {
@@ -650,7 +677,7 @@ class ExtensionTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
     FilePath virtual_path = url.virtual_path();
 
     bool is_drive_file = url.type() == fileapi::kFileSystemTypeDrive;
-    DCHECK(!is_drive_file || gdata::util::IsUnderGDataMountPoint(local_path));
+    DCHECK(!is_drive_file || gdata::util::IsUnderDriveMountPoint(local_path));
 
     // If the file is under gdata mount point, there is no actual file to be
     // found on the url.path().
@@ -908,7 +935,7 @@ void ExtensionTaskExecutor::InitHandlerHostFileAccessPermissions(
         iter->absolute_path,
         GetAccessPermissionsForHandler(handler_extension, action_id)));
 
-    if (gdata::util::IsUnderGDataMountPoint(iter->absolute_path))
+    if (gdata::util::IsUnderDriveMountPoint(iter->absolute_path))
       gdata_paths->push_back(iter->virtual_path);
   }
 

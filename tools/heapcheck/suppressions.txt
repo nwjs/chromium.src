@@ -165,6 +165,12 @@
    fun:net::TestRootCerts::*
 }
 {
+   bug_66941_d
+   Heapcheck:Leak
+   fun:sqlite3MemMalloc
+   fun:net::TestRootCerts::Add
+}
+{
    bug_todo_getdelim_lucid
    Heapcheck:Leak
    fun:_IO_getdelim
@@ -177,6 +183,71 @@
    fun:aura::Env::Init
    fun:aura::Env::GetInstance
 }
+{
+   bug_146464_a
+   Heapcheck:Leak
+   fun:get_peer_sock_name
+   fun:base::MessagePumpAuraX11::GetDefaultXDisplay
+}
+{
+   bug_146464_b
+   Heapcheck:Leak
+   fun:add_codeset.isra.10
+   ...
+   fun:RootWindowHostLinux
+   fun:aura::RootWindowHost::Create
+}
+{
+   bug_146464_c
+   Heapcheck:Leak
+   fun:??
+   ...
+   fun:RootWindowHostLinux
+   fun:aura::RootWindowHost::Create
+}
+# leak in OSMesa used to run compositor_unittests in bots.
+{
+   bug_148477_a
+   Heapcheck:Leak
+   ...
+   fun:gfx::GLContextOSMesa::MakeCurrent
+   ...
+   fun:webkit::gpu::WebGraphicsContext3DInProcessImpl::*
+}
+{
+   bug_148477_b
+   Heapcheck:Leak
+   ...
+   fun:webkit::gpu::WebGraphicsContext3DInProcessImpl::compileShader
+   fun:WebCore::ProgramBindingBase::loadShader
+   fun:WebCore::ProgramBindingBase::init
+   fun:WebCore::ProgramBinding::ProgramBinding
+   ...
+   fun:WebCore::CCSingleThreadProxy::commitAndComposite
+   fun:WebCore::CCSingleThreadProxy::compositeImmediately
+   fun:WebCore::CCLayerTreeHost::composite
+   fun:WebKit::WebLayerTreeViewImpl::composite
+}
+{
+   bug_148477_c
+   Heapcheck:Leak
+   ...
+   fun:webkit::gpu::WebGraphicsContext3DInProcessImpl::linkProgram
+   fun:WebCore::ProgramBindingBase::link
+   fun:WebCore::ProgramBinding::initialize
+   ...
+   fun:WebCore::CCRendererGL::drawQuad
+   fun:WebCore::CCDirectRenderer::drawRenderPass
+   fun:WebCore::CCDirectRenderer::drawFrame
+   fun:WebCore::CCLayerTreeHostImpl::drawLayers
+   fun:WebCore::CCSingleThreadProxy::doComposite
+   fun:WebCore::CCSingleThreadProxy::commitAndComposite
+   fun:WebCore::CCSingleThreadProxy::compositeImmediately
+   fun:WebCore::CCLayerTreeHost::composite
+   fun:WebKit::WebLayerTreeViewImpl::composite
+   fun:ui::Compositor::Draw
+}
+
 
 #-----------------------------------------------------------------------
 # 2. intentional unit test errors, or stuff that is somehow a false positive
@@ -1181,11 +1252,33 @@
    fun:GetNumObjects
 }
 {
-   bug_114750
+   bug_114750_a
    Heapcheck:Leak
    fun:::FindBestMatchFontFamilyName
    fun:gfx::PlatformFontPango::PlatformFontPango
    fun:PlatformFontPangoTest_FamilyList_Test::TestBody
+}
+{
+   bug_114750_b
+   Heapcheck:Leak
+   fun:??
+   fun:FindBestMatchFontFamilyName
+   fun:PlatformFontPango
+   fun:gfx::PlatformFont::CreateFromNativeFont
+   fun:Font
+   fun:PlatformFontPango
+   fun:gfx::PlatformFont::CreateDefault
+   fun:Font
+   fun:Label
+   fun:ash::internal::TrayItemView::CreateLabel
+   fun:ash::internal::TrayIME::CreateTrayView
+   fun:ash::SystemTray::AddTrayItem
+   fun:ash::SystemTray::CreateItems
+   fun:ash::SystemTray::Initialize
+   fun:ash::internal::StatusAreaWidget::CreateTrayViews
+   fun:ash::Shell::Init
+   fun:ash::Shell::CreateInstance
+   fun:ash::test::AshTestBase::SetUp
 }
 {
    bug_114758
@@ -1407,7 +1500,7 @@
    Heapcheck:Leak
    ...
    fun:gfx::::LoadDefaults
-   fun:gfx::GetDefaultFontRenderParams
+   fun:gfx::GetDefaultWebKitFontRenderParams
    fun:renderer_preferences_util::UpdateFromSystemSettings
    fun:PrefsTabHelper::PrefsTabHelper
    fun:TabContents::TabContents
@@ -1438,19 +1531,6 @@
    fun:std::basic_string::_Rep::_S_create
    ...
    fun:base::PlatformThread::SetName
-}
-{
-   bug_140628_a
-   Heapcheck:Leak
-   ...
-   fun:ExtensionAction::RunIconAnimation
-   fun:ExtensionAction::SetAppearance
-}
-{
-   bug_140628_b
-   Heapcheck:Leak
-   ...
-   fun:ExtensionAction::GetIconAnimation
 }
 {
    bug_143431
@@ -1511,8 +1591,16 @@
    fun:testing::internal::TestFactoryImpl::CreateTest
 }
 {
-   bug_146222
+   bug_147755_a
    Heapcheck:Leak
    ...
-   fun:content::TestHyphenatorMessageFilter::OnOpenDictionary
+   fun:PluginFinder::GetPluginInstaller
+   fun:PluginPrefs::EnablePluginIfPossibleCallback
+}
+{
+   bug_147755_b
+   Heapcheck:Leak
+   ...
+   fun:ASCIIToUTF16
+   fun:PluginPrefsTest_UnifiedPepperFlashState_Test::TestBody
 }

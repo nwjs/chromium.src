@@ -31,7 +31,7 @@ GDataWapiFeedProcessor::~GDataWapiFeedProcessor() {
 }
 
 DriveFileError GDataWapiFeedProcessor::ApplyFeeds(
-    const std::vector<DocumentFeed*>& feed_list,
+    const ScopedVector<DocumentFeed>& feed_list,
     int64 start_changestamp,
     int64 root_feed_changestamp,
     std::set<FilePath>* changed_dirs) {
@@ -66,21 +66,31 @@ void GDataWapiFeedProcessor::UpdateFileCountUmaHistograms(
     const FeedToFileResourceMapUmaStats& uma_stats) const {
   const int num_total_files =
       uma_stats.num_hosted_documents + uma_stats.num_regular_files;
-  UMA_HISTOGRAM_COUNTS("GData.NumberOfRegularFiles",
+  UMA_HISTOGRAM_COUNTS("Drive.NumberOfRegularFiles",
                        uma_stats.num_regular_files);
-  UMA_HISTOGRAM_COUNTS("GData.NumberOfHostedDocuments",
+  UMA_HISTOGRAM_COUNTS("Drive.NumberOfHostedDocuments",
                        uma_stats.num_hosted_documents);
-  UMA_HISTOGRAM_COUNTS("GData.NumberOfTotalFiles", num_total_files);
-  const std::vector<int> all_entry_kinds = DocumentEntry::GetAllEntryKinds();
+  UMA_HISTOGRAM_COUNTS("Drive.NumberOfTotalFiles", num_total_files);
   for (FeedToFileResourceMapUmaStats::EntryKindToCountMap::const_iterator iter =
            uma_stats.num_files_with_entry_kind.begin();
        iter != uma_stats.num_files_with_entry_kind.end();
        ++iter) {
-    const DocumentEntry::EntryKind kind = iter->first;
+    const DriveEntryKind kind = iter->first;
     const int count = iter->second;
     for (int i = 0; i < count; ++i) {
-      UMA_HISTOGRAM_CUSTOM_ENUMERATION(
-          "GData.EntryKind", kind, all_entry_kinds);
+      UMA_HISTOGRAM_ENUMERATION(
+          "Drive.EntryKind", kind, ENTRY_KIND_MAX_VALUE);
+    }
+  }
+  for (FeedToFileResourceMapUmaStats::FileFormatToCountMap::const_iterator
+           iter = uma_stats.num_files_with_file_format.begin();
+       iter != uma_stats.num_files_with_file_format.end();
+       ++iter) {
+    const DriveFileFormat format = iter->first;
+    const int count = iter->second;
+    for (int i = 0; i < count; ++i) {
+      UMA_HISTOGRAM_ENUMERATION(
+          "Drive.FileFormat", format, FILE_FORMAT_MAX_VALUE);
     }
   }
 }
@@ -240,7 +250,7 @@ DriveDirectory* GDataWapiFeedProcessor::FindDirectoryForNewEntry(
 }
 
 DriveFileError GDataWapiFeedProcessor::FeedToFileResourceMap(
-    const std::vector<DocumentFeed*>& feed_list,
+    const ScopedVector<DocumentFeed>& feed_list,
     FileResourceIdMap* file_map,
     int64* feed_changestamp,
     FeedToFileResourceMapUmaStats* uma_stats) {
@@ -251,6 +261,7 @@ DriveFileError GDataWapiFeedProcessor::FeedToFileResourceMap(
   uma_stats->num_regular_files = 0;
   uma_stats->num_hosted_documents = 0;
   uma_stats->num_files_with_entry_kind.clear();
+  uma_stats->num_files_with_file_format.clear();
   for (size_t i = 0; i < feed_list.size(); ++i) {
     const DocumentFeed* feed = feed_list[i];
 
@@ -258,7 +269,7 @@ DriveFileError GDataWapiFeedProcessor::FeedToFileResourceMap(
     // be handled in GDatadirectory::FromDocumentEntry();
     if (i == 0) {
       const Link* root_feed_upload_link =
-          feed->GetLinkByType(Link::RESUMABLE_CREATE_MEDIA);
+          feed->GetLinkByType(Link::LINK_RESUMABLE_CREATE_MEDIA);
       if (root_feed_upload_link)
         resource_metadata_->root()->set_upload_url(
             root_feed_upload_link->href());
@@ -278,10 +289,15 @@ DriveFileError GDataWapiFeedProcessor::FeedToFileResourceMap(
       // Count the number of files.
       DriveFile* as_file = entry->AsDriveFile();
       if (as_file) {
-        if (as_file->is_hosted_document())
+        if (as_file->is_hosted_document()) {
           ++uma_stats->num_hosted_documents;
-        else
+        } else {
           ++uma_stats->num_regular_files;
+          const FilePath::StringType extension =
+              FilePath(as_file->base_name()).Extension();
+          const DriveFileFormat format = GetDriveFileFormat(extension);
+          ++uma_stats->num_files_with_file_format[format];
+        }
         ++uma_stats->num_files_with_entry_kind[as_file->kind()];
       }
 

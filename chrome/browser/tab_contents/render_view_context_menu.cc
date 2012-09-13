@@ -81,6 +81,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebContextMenuData.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaPlayerAction.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginAction.h"
+#include "ui/base/clipboard/clipboard.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/text/text_elider.h"
 #include "ui/gfx/favicon_size.h"
@@ -938,16 +939,7 @@ void RenderViewContextMenu::AppendSearchProvider() {
        i = printable_selection_text.find('&', i + 2))
     printable_selection_text.insert(i, 1, '&');
 
-  if (match.transition == content::PAGE_TRANSITION_TYPED) {
-    if ((selection_navigation_url_ != params_.link_url) &&
-        ChildProcessSecurityPolicy::GetInstance()->IsWebSafeScheme(
-            selection_navigation_url_.scheme())) {
-      menu_model_.AddItem(
-          IDC_CONTENT_CONTEXT_GOTOURL,
-          l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_GOTOURL,
-                                     printable_selection_text));
-    }
-  } else {
+  if (AutocompleteMatch::IsSearchType(match.type)) {
     const TemplateURL* const default_provider =
         TemplateURLServiceFactory::GetForProfile(profile_)->
         GetDefaultSearchProvider();
@@ -958,6 +950,15 @@ void RenderViewContextMenu::AppendSearchProvider() {
         l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_SEARCHWEBFOR,
                                    default_provider->short_name(),
                                    printable_selection_text));
+  } else {
+    if ((selection_navigation_url_ != params_.link_url) &&
+        ChildProcessSecurityPolicy::GetInstance()->IsWebSafeScheme(
+            selection_navigation_url_.scheme())) {
+      menu_model_.AddItem(
+          IDC_CONTENT_CONTEXT_GOTOURL,
+          l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_GOTOURL,
+                                     printable_selection_text));
+    }
   }
 }
 
@@ -2014,7 +2015,7 @@ void RenderViewContextMenu::WriteURLToClipboard(const GURL& url) {
   chrome_common_net::WriteURLToClipboard(
       url,
       profile_->GetPrefs()->GetString(prefs::kAcceptLanguages),
-      g_browser_process->clipboard());
+      ui::Clipboard::GetForCurrentThread());
 }
 
 void RenderViewContextMenu::MediaPlayerActionAt(

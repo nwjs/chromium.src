@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
+
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/json/json_file_value_serializer.h"
@@ -10,7 +12,7 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
+#include "chrome/browser/chromeos/gdata/drive_test_util.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/common/chrome_paths.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -24,25 +26,6 @@ namespace gdata {
 
 class GDataWAPIParserTest : public testing::Test {
  protected:
-  static Value* LoadJSONFile(const std::string& filename) {
-    FilePath path;
-    std::string error;
-    // Test files for this unit test are located in
-    // src/chrome/test/data/chromeos/gdata/*
-    PathService::Get(chrome::DIR_TEST_DATA, &path);
-    path = path.AppendASCII("chromeos")
-        .AppendASCII("gdata")
-        .AppendASCII(filename.c_str());
-    EXPECT_TRUE(file_util::PathExists(path)) <<
-        "Couldn't find " << path.value();
-
-    JSONFileValueSerializer serializer(path);
-    Value* value = serializer.Deserialize(NULL, &error);
-    EXPECT_TRUE(value) <<
-        "Parse error " << path.value() << ": " << error;
-    return value;
-  }
-
   static DocumentEntry* LoadDocumentEntryFromXml(const std::string& filename) {
     FilePath path;
     std::string error;
@@ -73,7 +56,7 @@ class GDataWAPIParserTest : public testing::Test {
 // Test document feed parsing.
 TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
   std::string error;
-  scoped_ptr<Value> document(LoadJSONFile("basic_feed.json"));
+  scoped_ptr<Value> document(test_util::LoadJSONFile("gdata/basic_feed.json"));
   ASSERT_TRUE(document.get());
   ASSERT_EQ(Value::TYPE_DICTIONARY, document->GetType());
   scoped_ptr<DocumentFeed> feed(DocumentFeed::ExtractAndParse(*document));
@@ -94,14 +77,14 @@ TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
 
   // Check links.
   ASSERT_EQ(6U, feed->links().size());
-  const Link* self_link = feed->GetLinkByType(Link::SELF);
+  const Link* self_link = feed->GetLinkByType(Link::LINK_SELF);
   ASSERT_TRUE(self_link);
   EXPECT_EQ("https://self_link/", self_link->href().spec());
   EXPECT_EQ("application/atom+xml", self_link->mime_type());
 
 
   const Link* resumable_link =
-      feed->GetLinkByType(Link::RESUMABLE_CREATE_MEDIA);
+      feed->GetLinkByType(Link::LINK_RESUMABLE_CREATE_MEDIA);
   ASSERT_TRUE(resumable_link);
   EXPECT_EQ("https://resumable_create_media_link/",
             resumable_link->href().spec());
@@ -113,7 +96,7 @@ TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
   // Check a folder entry.
   const DocumentEntry* folder_entry = feed->entries()[0];
   ASSERT_TRUE(folder_entry);
-  EXPECT_EQ(DocumentEntry::FOLDER, folder_entry->kind());
+  EXPECT_EQ(ENTRY_KIND_FOLDER, folder_entry->kind());
   EXPECT_EQ("\"HhMOFgcNHSt7ImBr\"", folder_entry->etag());
   EXPECT_EQ("folder:sub_sub_directory_folder_id", folder_entry->resource_id());
   EXPECT_EQ("https://1_folder_id", folder_entry->id());
@@ -138,16 +121,16 @@ TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
   ASSERT_EQ(1U, folder_entry->feed_links().size());
   const FeedLink* feed_link = folder_entry->feed_links()[0];
   ASSERT_TRUE(feed_link);
-  ASSERT_EQ(FeedLink::ACL, feed_link->type());
+  ASSERT_EQ(FeedLink::FEED_LINK_ACL, feed_link->type());
 
   const Link* entry1_alternate_link =
-      folder_entry->GetLinkByType(Link::ALTERNATE);
+      folder_entry->GetLinkByType(Link::LINK_ALTERNATE);
   ASSERT_TRUE(entry1_alternate_link);
   EXPECT_EQ("https://1_folder_alternate_link/",
             entry1_alternate_link->href().spec());
   EXPECT_EQ("text/html", entry1_alternate_link->mime_type());
 
-  const Link* entry1_edit_link = folder_entry->GetLinkByType(Link::EDIT);
+  const Link* entry1_edit_link = folder_entry->GetLinkByType(Link::LINK_EDIT);
   ASSERT_TRUE(entry1_edit_link);
   EXPECT_EQ("https://1_edit_link/", entry1_edit_link->href().spec());
   EXPECT_EQ("application/atom+xml", entry1_edit_link->mime_type());
@@ -155,26 +138,26 @@ TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
   // Check a file entry.
   const DocumentEntry* file_entry = feed->entries()[1];
   ASSERT_TRUE(file_entry);
-  EXPECT_EQ(DocumentEntry::FILE, file_entry->kind());
+  EXPECT_EQ(ENTRY_KIND_FILE, file_entry->kind());
   EXPECT_EQ(ASCIIToUTF16("filename.m4a"), file_entry->filename());
   EXPECT_EQ(ASCIIToUTF16("sugg_file_name.m4a"),
             file_entry->suggested_filename());
   EXPECT_EQ("3b4382ebefec6e743578c76bbd0575ce", file_entry->file_md5());
   EXPECT_EQ(892721, file_entry->file_size());
-  const Link* file_parent_link = file_entry->GetLinkByType(Link::PARENT);
+  const Link* file_parent_link = file_entry->GetLinkByType(Link::LINK_PARENT);
   ASSERT_TRUE(file_parent_link);
   EXPECT_EQ("https://file_link_parent/", file_parent_link->href().spec());
   EXPECT_EQ("application/atom+xml", file_parent_link->mime_type());
   EXPECT_EQ(ASCIIToUTF16("Medical"), file_parent_link->title());
   const Link* file_open_with_link =
-    file_entry->GetLinkByType(Link::OPEN_WITH);
+    file_entry->GetLinkByType(Link::LINK_OPEN_WITH);
   ASSERT_TRUE(file_open_with_link);
   EXPECT_EQ("https://xml_file_entry_open_with_link/",
             file_open_with_link->href().spec());
   EXPECT_EQ("application/atom+xml", file_open_with_link->mime_type());
   EXPECT_EQ("the_app_id", file_open_with_link->app_id());
 
-  const Link* file_unknown_link = file_entry->GetLinkByType(Link::UNKNOWN);
+  const Link* file_unknown_link = file_entry->GetLinkByType(Link::LINK_UNKNOWN);
   ASSERT_TRUE(file_unknown_link);
   EXPECT_EQ("https://xml_file_fake_entry_open_with_link/",
             file_unknown_link->href().spec());
@@ -184,7 +167,7 @@ TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
   // Check a file entry.
   const DocumentEntry* document_entry = feed->entries()[2];
   ASSERT_TRUE(document_entry);
-  EXPECT_EQ(DocumentEntry::DOCUMENT, document_entry->kind());
+  EXPECT_EQ(ENTRY_KIND_DOCUMENT, document_entry->kind());
   EXPECT_TRUE(document_entry->is_hosted_document());
   EXPECT_TRUE(document_entry->is_google_document());
   EXPECT_FALSE(document_entry->is_external_document());
@@ -192,7 +175,7 @@ TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
   // Check an external document entry.
   const DocumentEntry* app_entry = feed->entries()[3];
   ASSERT_TRUE(app_entry);
-  EXPECT_EQ(DocumentEntry::EXTERNAL_APP, app_entry->kind());
+  EXPECT_EQ(ENTRY_KIND_EXTERNAL_APP, app_entry->kind());
   EXPECT_TRUE(app_entry->is_hosted_document());
   EXPECT_TRUE(app_entry->is_external_document());
   EXPECT_FALSE(app_entry->is_google_document());
@@ -204,7 +187,7 @@ TEST_F(GDataWAPIParserTest, DocumentEntryXmlParser) {
   scoped_ptr<DocumentEntry> entry(LoadDocumentEntryFromXml("entry.xml"));
   ASSERT_TRUE(entry.get());
 
-  EXPECT_EQ(DocumentEntry::FILE, entry->kind());
+  EXPECT_EQ(ENTRY_KIND_FILE, entry->kind());
   EXPECT_EQ("\"HhMOFgcNHSt7ImBr\"", entry->etag());
   EXPECT_EQ("file:xml_file_resource_id", entry->resource_id());
   EXPECT_EQ("https://xml_file_id", entry->id());
@@ -230,41 +213,43 @@ TEST_F(GDataWAPIParserTest, DocumentEntryXmlParser) {
   ASSERT_EQ(2U, entry->feed_links().size());
   const FeedLink* feed_link_1 = entry->feed_links()[0];
   ASSERT_TRUE(feed_link_1);
-  EXPECT_EQ(FeedLink::ACL, feed_link_1->type());
+  EXPECT_EQ(FeedLink::FEED_LINK_ACL, feed_link_1->type());
 
   const FeedLink* feed_link_2 = entry->feed_links()[1];
   ASSERT_TRUE(feed_link_2);
-  EXPECT_EQ(FeedLink::REVISIONS, feed_link_2->type());
+  EXPECT_EQ(FeedLink::FEED_LINK_REVISIONS, feed_link_2->type());
 
   // Check links.
   ASSERT_EQ(9U, entry->links().size());
-  const Link* entry1_alternate_link = entry->GetLinkByType(Link::ALTERNATE);
+  const Link* entry1_alternate_link =
+      entry->GetLinkByType(Link::LINK_ALTERNATE);
   ASSERT_TRUE(entry1_alternate_link);
   EXPECT_EQ("https://xml_file_entry_id_alternate_link/",
             entry1_alternate_link->href().spec());
   EXPECT_EQ("text/html", entry1_alternate_link->mime_type());
 
-  const Link* entry1_edit_link = entry->GetLinkByType(Link::EDIT_MEDIA);
+  const Link* entry1_edit_link = entry->GetLinkByType(Link::LINK_EDIT_MEDIA);
   ASSERT_TRUE(entry1_edit_link);
   EXPECT_EQ("https://xml_file_entry_id_edit_media_link/",
             entry1_edit_link->href().spec());
   EXPECT_EQ("application/x-tar", entry1_edit_link->mime_type());
 
-  const Link* entry1_self_link = entry->GetLinkByType(Link::SELF);
+  const Link* entry1_self_link = entry->GetLinkByType(Link::LINK_SELF);
   ASSERT_TRUE(entry1_self_link);
   EXPECT_EQ("https://xml_file_entry_id_self_link/",
             entry1_self_link->href().spec());
   EXPECT_EQ("application/atom+xml", entry1_self_link->mime_type());
   EXPECT_EQ("", entry1_self_link->app_id());
 
-  const Link* entry1_open_with_link = entry->GetLinkByType(Link::OPEN_WITH);
+  const Link* entry1_open_with_link =
+      entry->GetLinkByType(Link::LINK_OPEN_WITH);
   ASSERT_TRUE(entry1_open_with_link);
   EXPECT_EQ("https://xml_file_entry_open_with_link/",
             entry1_open_with_link->href().spec());
   EXPECT_EQ("application/atom+xml", entry1_open_with_link->mime_type());
   EXPECT_EQ("the_app_id", entry1_open_with_link->app_id());
 
-  const Link* entry1_unknown_link = entry->GetLinkByType(Link::UNKNOWN);
+  const Link* entry1_unknown_link = entry->GetLinkByType(Link::LINK_UNKNOWN);
   ASSERT_TRUE(entry1_unknown_link);
   EXPECT_EQ("https://xml_file_fake_entry_open_with_link/",
             entry1_unknown_link->href().spec());
@@ -272,7 +257,7 @@ TEST_F(GDataWAPIParserTest, DocumentEntryXmlParser) {
   EXPECT_EQ("", entry1_unknown_link->app_id());
 
   // Check a file properties.
-  EXPECT_EQ(DocumentEntry::FILE, entry->kind());
+  EXPECT_EQ(ENTRY_KIND_FILE, entry->kind());
   EXPECT_EQ(ASCIIToUTF16("Xml Entry File Name.tar"), entry->filename());
   EXPECT_EQ(ASCIIToUTF16("Xml Entry Suggested File Name.tar"),
             entry->suggested_filename());
@@ -281,7 +266,8 @@ TEST_F(GDataWAPIParserTest, DocumentEntryXmlParser) {
 }
 
 TEST_F(GDataWAPIParserTest, AccountMetadataFeedParser) {
-  scoped_ptr<Value> document(LoadJSONFile("account_metadata.json"));
+  scoped_ptr<Value> document(
+      test_util::LoadJSONFile("gdata/account_metadata.json"));
   ASSERT_TRUE(document.get());
   ASSERT_EQ(Value::TYPE_DICTIONARY, document->GetType());
   DictionaryValue* entry_value = NULL;
@@ -323,15 +309,15 @@ TEST_F(GDataWAPIParserTest, AccountMetadataFeedParser) {
   EXPECT_EQ("ext_3", *first_app->secondary_extensions()[0]);
 
   ASSERT_EQ(1U, first_app->app_icons().size());
-  EXPECT_EQ(AppIcon::DOCUMENT, first_app->app_icons()[0]->category());
+  EXPECT_EQ(AppIcon::ICON_DOCUMENT, first_app->app_icons()[0]->category());
   EXPECT_EQ(16, first_app->app_icons()[0]->icon_side_length());
   GURL icon_url = first_app->app_icons()[0]->GetIconURL();
   EXPECT_EQ("https://www.google.com/images/srpr/logo3w.png", icon_url.spec());
   InstalledApp::IconList icons =
-    first_app->GetIconsForCategory(AppIcon::DOCUMENT);
+    first_app->GetIconsForCategory(AppIcon::ICON_DOCUMENT);
   EXPECT_EQ("https://www.google.com/images/srpr/logo3w.png",
             icons[0].second.spec());
-  icons = first_app->GetIconsForCategory(AppIcon::SHARED_DOCUMENT);
+  icons = first_app->GetIconsForCategory(AppIcon::ICON_SHARED_DOCUMENT);
   EXPECT_TRUE(icons.empty());
 
   ASSERT_TRUE(second_app);
@@ -366,6 +352,39 @@ TEST_F(GDataWAPIParserTest, DocumentEntryHasDocumentExtension) {
       FilePath(FILE_PATH_LITERAL("Test"))));
   EXPECT_FALSE(DocumentEntry::HasHostedDocumentExtension(
       FilePath(FILE_PATH_LITERAL(""))));
+}
+
+TEST_F(GDataWAPIParserTest, DocumentEntryClassifyEntryKind) {
+  EXPECT_EQ(DocumentEntry::KIND_OF_NONE,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_UNKNOWN));
+  EXPECT_EQ(DocumentEntry::KIND_OF_NONE,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_ITEM));
+  EXPECT_EQ(DocumentEntry::KIND_OF_NONE,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_SITE));
+  EXPECT_EQ(DocumentEntry::KIND_OF_GOOGLE_DOCUMENT |
+            DocumentEntry::KIND_OF_HOSTED_DOCUMENT,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_DOCUMENT));
+  EXPECT_EQ(DocumentEntry::KIND_OF_GOOGLE_DOCUMENT |
+            DocumentEntry::KIND_OF_HOSTED_DOCUMENT,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_SPREADSHEET));
+  EXPECT_EQ(DocumentEntry::KIND_OF_GOOGLE_DOCUMENT |
+            DocumentEntry::KIND_OF_HOSTED_DOCUMENT,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_PRESENTATION));
+  EXPECT_EQ(DocumentEntry::KIND_OF_GOOGLE_DOCUMENT |
+            DocumentEntry::KIND_OF_HOSTED_DOCUMENT,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_DRAWING));
+  EXPECT_EQ(DocumentEntry::KIND_OF_GOOGLE_DOCUMENT |
+            DocumentEntry::KIND_OF_HOSTED_DOCUMENT,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_TABLE));
+  EXPECT_EQ(DocumentEntry::KIND_OF_EXTERNAL_DOCUMENT |
+            DocumentEntry::KIND_OF_HOSTED_DOCUMENT,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_EXTERNAL_APP));
+  EXPECT_EQ(DocumentEntry::KIND_OF_FOLDER,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_FOLDER));
+  EXPECT_EQ(DocumentEntry::KIND_OF_FILE,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_FILE));
+  EXPECT_EQ(DocumentEntry::KIND_OF_FILE,
+            DocumentEntry::ClassifyEntryKind(ENTRY_KIND_PDF));
 }
 
 }  // namespace gdata

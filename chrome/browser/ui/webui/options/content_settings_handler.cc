@@ -109,30 +109,6 @@ ContentSetting ContentSettingFromString(const std::string& name) {
   return CONTENT_SETTING_DEFAULT;
 }
 
-std::string GeolocationExceptionToString(
-    const ContentSettingsPattern& origin,
-    const ContentSettingsPattern& embedding_origin) {
-  if (origin == embedding_origin)
-    return origin.ToString();
-
-  // TODO(estade): the page needs to use CSS to indent the string.
-  std::string indent(" ");
-
-  if (embedding_origin == ContentSettingsPattern::Wildcard()) {
-    // NOTE: As long as the user cannot add/edit entries from the exceptions
-    // dialog, it's impossible to actually have a non-default setting for some
-    // origin "embedded on any other site", so this row will never appear.  If
-    // we add the ability to add/edit exceptions, we'll need to decide when to
-    // display this and how "removing" it will function.
-    return indent +
-        l10n_util::GetStringUTF8(IDS_EXCEPTIONS_GEOLOCATION_EMBEDDED_ANY_OTHER);
-  }
-
-  return indent + l10n_util::GetStringFUTF8(
-      IDS_EXCEPTIONS_GEOLOCATION_EMBEDDED_ON_HOST,
-      UTF8ToUTF16(embedding_origin.ToString()));
-}
-
 // Create a DictionaryValue* that will act as a data source for a single row
 // in a HostContentSettingsMap-controlled exceptions table (e.g., cookies).
 // Ownership of the pointer is passed to the caller.
@@ -155,8 +131,6 @@ DictionaryValue* GetGeolocationExceptionForPage(
     const ContentSettingsPattern& embedding_origin,
     ContentSetting setting) {
   DictionaryValue* exception = new DictionaryValue();
-  exception->SetString(kDisplayPattern,
-                       GeolocationExceptionToString(origin, embedding_origin));
   exception->SetString(kSetting, ContentSettingToString(setting));
   exception->SetString(kOrigin, origin.ToString());
   exception->SetString(kEmbeddingOrigin, embedding_origin.ToString());
@@ -343,6 +317,7 @@ const ContentSettingsHandler::ExContentSettingsTypeNameEntry
   {CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS, "register-protocol-handler"},
   {EX_CONTENT_SETTINGS_TYPE_PEPPER_FLASH_CAMERAMIC, "pepper-flash-cameramic"},
   {CONTENT_SETTINGS_TYPE_MEDIASTREAM, "media-stream"},
+  {CONTENT_SETTINGS_TYPE_PPAPI_BROKER, "ppapi-broker"},
 };
 
 ContentSettingsHandler::ContentSettingsHandler() {
@@ -362,10 +337,11 @@ void ContentSettingsHandler::GetLocalizedValues(
     { "askException", IDS_EXCEPTIONS_ASK_BUTTON },
     { "otr_exceptions_explanation", IDS_EXCEPTIONS_OTR_LABEL },
     { "addNewExceptionInstructions", IDS_EXCEPTIONS_ADD_NEW_INSTRUCTIONS },
-    { "manage_exceptions", IDS_EXCEPTIONS_MANAGE },
+    { "manageExceptions", IDS_EXCEPTIONS_MANAGE },
     { "manage_handlers", IDS_HANDLERS_MANAGE },
     { "exceptionPatternHeader", IDS_EXCEPTIONS_PATTERN_HEADER },
     { "exceptionBehaviorHeader", IDS_EXCEPTIONS_ACTION_HEADER },
+    { "embeddedOnHost", IDS_EXCEPTIONS_GEOLOCATION_EMBEDDED_ON_HOST },
     // Cookies filter.
     { "cookies_tab_label", IDS_COOKIES_TAB_LABEL },
     { "cookies_header", IDS_COOKIES_HEADER },
@@ -443,6 +419,11 @@ void ContentSettingsHandler::GetLocalizedValues(
     { "media-stream_header", IDS_MEDIA_STREAM_HEADER },
     { "mediaStreamAsk", IDS_MEDIA_STREAM_ASK_RADIO },
     { "mediaStreamBlock", IDS_MEDIA_STREAM_BLOCK_RADIO },
+    // PPAPI broker filter.
+    { "ppapi_broker_tab_label", IDS_PPAPI_BROKER_TAB_LABEL },
+    { "ppapi_broker_allow", IDS_PPAPI_BROKER_ALLOW_RADIO },
+    { "ppapi_broker_ask", IDS_PPAPI_BROKER_ASK_RADIO },
+    { "ppapi_broker_block", IDS_PPAPI_BROKER_BLOCK_RADIO },
   };
 
   RegisterStrings(localized_strings, resources, arraysize(resources));

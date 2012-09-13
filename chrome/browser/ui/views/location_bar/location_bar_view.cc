@@ -37,6 +37,7 @@
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/browser_dialogs.h"
+#include "chrome/browser/ui/views/extensions/extension_popup.h"
 #include "chrome/browser/ui/views/location_bar/action_box_button_view.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
 #include "chrome/browser/ui/views/location_bar/ev_bubble_view.h"
@@ -47,6 +48,7 @@
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
 #include "chrome/browser/ui/views/location_bar/star_view.h"
 #include "chrome/browser/ui/views/location_bar/suggested_text_view.h"
+#include "chrome/browser/ui/views/location_bar/web_intents_button_view.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 #include "chrome/browser/ui/views/location_bar/zoom_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
@@ -62,7 +64,7 @@
 #include "grit/theme_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -155,6 +157,13 @@ static const int kSelectedKeywordBackgroundImages[] = {
   IDR_LOCATION_BAR_SELECTED_KEYWORD_BACKGROUND_R,
 };
 
+// TODO(gbillock): replace these with web-intents images when available.
+static const int kWIBubbleBackgroundImages[] = {
+  IDR_OMNIBOX_WI_BUBBLE_BACKGROUND_L,
+  IDR_OMNIBOX_WI_BUBBLE_BACKGROUND_C,
+  IDR_OMNIBOX_WI_BUBBLE_BACKGROUND_R,
+};
+
 #if defined(USE_AURA)
 LocationBarView::FadeAnimationObserver::FadeAnimationObserver(
     LocationBarView* location_bar_view)
@@ -196,6 +205,7 @@ LocationBarView::LocationBarView(Browser* browser,
       keyword_hint_view_(NULL),
       zoom_view_(NULL),
       star_view_(NULL),
+      web_intents_button_view_(NULL),
       action_box_button_view_(NULL),
       mode_(mode),
       show_focus_rect_(false),
@@ -288,6 +298,10 @@ void LocationBarView::Init(views::View* popup_parent_view) {
   zoom_view_ = new ZoomView(model_, delegate_);
   AddChildView(zoom_view_);
 
+  web_intents_button_view_ =
+      new WebIntentsButtonView(this, kWIBubbleBackgroundImages);
+  AddChildView(web_intents_button_view_);
+
   if (browser_defaults::bookmarks_enabled && (mode_ == NORMAL)) {
     // Note: condition above means that the star icon is hidden in popups and in
     // the app launcher.
@@ -295,7 +309,7 @@ void LocationBarView::Init(views::View* popup_parent_view) {
     AddChildView(star_view_);
     star_view_->SetVisible(true);
   }
-  if (ActionBoxButtonView::IsActionBoxEnabled() && browser_) {
+  if (extensions::switch_utils::IsActionBoxEnabled() && browser_) {
     action_box_button_view_ = new ActionBoxButtonView(browser_);
     AddChildView(action_box_button_view_);
     if (star_view_)
@@ -405,12 +419,13 @@ void LocationBarView::Update(const WebContents* tab_for_state_restoring) {
   ZoomBubbleView::CloseBubble();
   RefreshZoomView();
   RefreshPageActionViews();
+  web_intents_button_view_->Update(GetTabContents());
 
   bool star_enabled = star_view_ && !model_->input_in_progress() &&
                       edit_bookmarks_enabled_.GetValue();
 
   command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, star_enabled);
-  if (star_view_ && !ActionBoxButtonView::IsActionBoxEnabled())
+  if (star_view_ && !extensions::switch_utils::IsActionBoxEnabled())
     star_view_->SetVisible(star_enabled);
 
   ChromeToMobileService* chrome_to_mobile_service =
@@ -459,7 +474,10 @@ void LocationBarView::InvalidatePageActions() {
 }
 
 void LocationBarView::UpdateWebIntentsButton() {
-  // TODO(gbillock): implement this for views
+  web_intents_button_view_->Update(GetTabContents());
+
+  Layout();
+  SchedulePaint();
 }
 
 void LocationBarView::OnFocus() {
@@ -649,7 +667,11 @@ void LocationBarView::Layout() {
       -1 : kBubbleHorizontalPadding;
 
   // Start by reserving the padding at the right edge.
-  int entry_width = width() - kEdgeThickness - GetEdgeItemPadding();
+  int entry_width = width() - kEdgeThickness;
+  // No need for edge item padding with action box as it fills
+  // all the area on the right.
+  if (!action_box_button_view_)
+    entry_width -= GetEdgeItemPadding();
 
   // |location_icon_view_| is visible except when |ev_bubble_view_| or
   // |selected_keyword_view_| are visible.
@@ -676,11 +698,11 @@ void LocationBarView::Layout() {
                     location_icon_width + kItemEditPadding);
   }
 
-  if (star_view_ && star_view_->visible())
-    entry_width -= star_view_->GetPreferredSize().width() + GetItemPadding();
   int action_box_button_width = location_height;
   if (action_box_button_view_)
     entry_width -= action_box_button_width + GetItemPadding();
+  if (star_view_ && star_view_->visible())
+    entry_width -= star_view_->GetPreferredSize().width() + GetItemPadding();
   for (PageActionViews::const_iterator i(page_action_views_.begin());
        i != page_action_views_.end(); ++i) {
     if ((*i)->visible())
@@ -791,6 +813,17 @@ void LocationBarView::Layout() {
                       content_blocked_width, (*i)->GetPreferredSize().height());
       offset -= GetItemPadding() - (*i)->GetBuiltInHorizontalPadding();
     }
+  }
+
+  // Now the web intents button
+  if (web_intents_button_view_->visible()) {
+    offset += web_intents_button_view_->GetBuiltInHorizontalPadding();
+    int width = web_intents_button_view_->GetPreferredSize().width();
+    offset -= width;
+    web_intents_button_view_->SetBounds(
+        offset, location_y, width, location_height);
+    offset -= GetItemPadding() -
+              web_intents_button_view_->GetBuiltInHorizontalPadding();
   }
 
   // Now lay out items to the left of the edit field.
@@ -1118,10 +1151,12 @@ void LocationBarView::RefreshPageActionViews() {
 
   std::vector<ExtensionAction*> new_page_actions;
 
-  TabContents* tab_contents = GetTabContents();
-  if (tab_contents) {
+  WebContents* contents = GetWebContentsFromDelegate(delegate_);
+  if (contents) {
+    extensions::TabHelper* extensions_tab_helper =
+        extensions::TabHelper::FromWebContents(contents);
     extensions::LocationBarController* controller =
-        tab_contents->extension_tab_helper()->location_bar_controller();
+        extensions_tab_helper->location_bar_controller();
     new_page_actions = controller->GetCurrentActions();
   }
 
@@ -1147,7 +1182,6 @@ void LocationBarView::RefreshPageActionViews() {
     }
   }
 
-  WebContents* contents = GetWebContentsFromDelegate(delegate_);
   if (!page_action_views_.empty() && contents) {
     Browser* browser = browser::FindBrowserWithWebContents(contents);
     GURL url = chrome::GetActiveWebContents(browser)->GetURL();
@@ -1412,8 +1446,8 @@ void LocationBarView::TestPageActionPressed(size_t index) {
   for (size_t i = 0; i < page_action_views_.size(); ++i) {
     if (page_action_views_[i]->visible()) {
       if (current == index) {
-        const int kLeftMouseButton = 1;
-        page_action_views_[i]->image_view()->ExecuteAction(kLeftMouseButton);
+        page_action_views_[i]->image_view()->ExecuteAction(
+            ExtensionPopup::SHOW);
         return;
       }
       ++current;
@@ -1445,8 +1479,8 @@ void LocationBarView::Observe(int type,
 
     case chrome::NOTIFICATION_EXTENSION_LOCATION_BAR_UPDATED: {
       // Only update if the updated action box was for the active tab contents.
-      TabContents* target_tab = content::Details<TabContents>(details).ptr();
-      if (target_tab == GetTabContents())
+      WebContents* target_tab = content::Details<WebContents>(details).ptr();
+      if (target_tab == GetTabContents()->web_contents())
         UpdatePageActions();
       break;
     }

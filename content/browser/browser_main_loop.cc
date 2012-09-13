@@ -26,9 +26,7 @@
 #include "content/browser/in_process_webkit/webkit_thread.h"
 #include "content/browser/net/browser_online_state_observer.h"
 #include "content/browser/plugin_service_impl.h"
-#include "content/browser/renderer_host/media/audio_input_device_manager.h"
 #include "content/browser/renderer_host/media/media_stream_manager.h"
-#include "content/browser/renderer_host/media/video_capture_manager.h"
 #include "content/browser/renderer_host/resource_dispatcher_host_impl.h"
 #include "content/browser/speech/speech_recognition_manager_impl.h"
 #include "content/browser/trace_controller_impl.h"
@@ -46,6 +44,7 @@
 #include "net/base/ssl_config_service.h"
 #include "net/socket/client_socket_factory.h"
 #include "net/socket/tcp_client_socket.h"
+#include "ui/base/clipboard/clipboard.h"
 
 #if defined(USE_AURA)
 #include "content/browser/renderer_host/image_transport_factory.h"
@@ -236,6 +235,7 @@ BrowserMainLoop::BrowserMainLoop(const content::MainFunctionParams& parameters)
 
 BrowserMainLoop::~BrowserMainLoop() {
   DCHECK_EQ(this, g_current_browser_main_loop);
+  ui::Clipboard::DestroyClipboardForCurrentThread();
   g_current_browser_main_loop = NULL;
 }
 
@@ -296,6 +296,7 @@ void BrowserMainLoop::EarlyInitialization() {
   if (parsed_command_line_.HasSwitch(switches::kEnableTcpFastOpen))
     net::set_tcp_fastopen_enabled(true);
 
+#if !defined(OS_IOS)
   if (parsed_command_line_.HasSwitch(switches::kRendererProcessLimit)) {
     std::string limit_string = parsed_command_line_.GetSwitchValueASCII(
         switches::kRendererProcessLimit);
@@ -304,6 +305,7 @@ void BrowserMainLoop::EarlyInitialization() {
       content::RenderProcessHost::SetMaxRendererProcessCount(process_limit);
     }
   }
+#endif  // !defined(OS_IOS)
 
   if (parts_.get())
     parts_->PostEarlyInitialization();
@@ -328,34 +330,32 @@ void BrowserMainLoop::MainMessageLoopStart() {
 
   InitializeMainThread();
 
+  system_monitor_.reset(new base::SystemMonitor);
+  hi_res_timer_manager_.reset(new HighResolutionTimerManager);
+  network_change_notifier_.reset(net::NetworkChangeNotifier::Create());
+  audio_manager_.reset(media::AudioManager::Create());
+
+#if !defined(OS_IOS)
   // Start tracing to a file if needed.
   if (base::debug::TraceLog::GetInstance()->IsEnabled()) {
     TraceControllerImpl::GetInstance()->InitStartupTracing(
         parsed_command_line_);
   }
 
-  system_monitor_.reset(new base::SystemMonitor);
-  hi_res_timer_manager_.reset(new HighResolutionTimerManager);
-  network_change_notifier_.reset(net::NetworkChangeNotifier::Create());
-  audio_manager_.reset(media::AudioManager::Create());
   online_state_observer_.reset(new BrowserOnlineStateObserver);
-  scoped_refptr<media_stream::AudioInputDeviceManager>
-      audio_input_device_manager(
-          new media_stream::AudioInputDeviceManager(audio_manager_.get()));
-  scoped_refptr<media_stream::VideoCaptureManager> video_capture_manager(
-      new media_stream::VideoCaptureManager());
-  media_stream_manager_.reset(new media_stream::MediaStreamManager(
-      audio_input_device_manager, video_capture_manager));
-
-#if defined(OS_WIN)
-  system_message_window_.reset(new SystemMessageWindowWin);
-#endif
+  media_stream_manager_.reset(
+      new media_stream::MediaStreamManager(audio_manager_.get()));
 
   // Prior to any processing happening on the io thread, we create the
   // plugin service as it is predominantly used from the io thread,
   // but must be created on the main thread. The service ctor is
   // inexpensive and does not invoke the io_thread() accessor.
   PluginService::GetInstance()->Init();
+#endif  // !defined(OS_IOS)
+
+#if defined(OS_WIN)
+  system_message_window_.reset(new SystemMessageWindowWin);
+#endif
 
   if (parts_.get())
     parts_->PostMainMessageLoopStart();
@@ -428,8 +428,10 @@ void BrowserMainLoop::CreateThreads() {
     BrowserThread::ID id = static_cast<BrowserThread::ID>(thread_id);
 
     if (thread_id == BrowserThread::WEBKIT_DEPRECATED) {
+#if !defined(OS_IOS)
       webkit_thread_.reset(new WebKitThread);
       webkit_thread_->Initialize();
+#endif
     } else if (thread_to_start) {
       (*thread_to_start).reset(new BrowserProcessSubThread(id));
       (*thread_to_start)->StartWithOptions(*options);
@@ -443,6 +445,7 @@ void BrowserMainLoop::CreateThreads() {
   if (parts_.get())
     parts_->PreMainMessageLoopRun();
 
+#if !defined(OS_IOS)
   // When running the GPU thread in-process, avoid optimistically starting it
   // since creating the GPU thread races against creation of the one-and-only
   // ChildProcess instance which is created by the renderer thread.
@@ -458,6 +461,7 @@ void BrowserMainLoop::CreateThreads() {
             GpuProcessHost::GPU_PROCESS_KIND_SANDBOXED,
             content::CAUSE_FOR_GPU_LAUNCH_BROWSER_STARTUP));
   }
+#endif  // !defined(OS_IOS)
 
   // If the UI thread blocks, the whole UI is unresponsive.
   // Do not allow disk IO from the UI thread.
@@ -490,6 +494,7 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
   if (parts_.get())
     parts_->PostMainMessageLoopRun();
 
+#if !defined(OS_IOS)
   // Destroying the GpuProcessHostUIShims on the UI thread posts a task to
   // delete related objects on the GPU thread. This must be done before
   // stopping the GPU thread. The GPU thread will close IPC channels to renderer
@@ -505,8 +510,6 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
 #endif
   BrowserGpuChannelHostFactory::Terminate();
 
-  GamepadService::GetInstance()->Terminate();
-
   // The device monitors are using |system_monitor_| as dependency, so delete
   // them before |system_monitor_| goes away.
   // On Mac and windows, the monitor needs to be destroyed on the same thread
@@ -517,6 +520,7 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
 #elif defined(OS_MACOSX)
   device_monitor_mac_.reset();
 #endif
+#endif  // !defined(OS_IOS)
 
   // Must be size_t so we can subtract from it.
   for (size_t thread_id = BrowserThread::ID_COUNT - 1;
@@ -564,12 +568,14 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
       case BrowserThread::FILE:
         thread_to_stop = &file_thread_;
 
+#if !defined(OS_IOS)
         // Clean up state that lives on or uses the file_thread_ before
         // it goes away.
         if (resource_dispatcher_host_.get()) {
           resource_dispatcher_host_.get()->download_file_manager()->Shutdown();
           resource_dispatcher_host_.get()->save_file_manager()->Shutdown();
         }
+#endif  // !defined(OS_IOS)
         break;
       case BrowserThread::PROCESS_LAUNCHER:
         thread_to_stop = &process_launcher_thread_;
@@ -590,7 +596,9 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
     BrowserThread::ID id = static_cast<BrowserThread::ID>(thread_id);
 
     if (id == BrowserThread::WEBKIT_DEPRECATED) {
+#if !defined(OS_IOS)
       webkit_thread_.reset();
+#endif
     } else if (thread_to_stop) {
       thread_to_stop->reset();
     } else {
@@ -605,6 +613,10 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
   // it here (which will block until required operations are complete) gives
   // more head start for those operations to finish.
   BrowserThreadImpl::ShutdownThreadPool();
+
+  // Must happen after the I/O thread is shutdown since this class lives on the
+  // I/O thread and isn't threadsafe.
+  GamepadService::GetInstance()->Terminate();
 
   if (parts_.get())
     parts_->PostDestroyThreads();
@@ -623,6 +635,7 @@ void BrowserMainLoop::InitializeMainThread() {
 
 
 void BrowserMainLoop::BrowserThreadsStarted() {
+#if !defined(OS_IOS)
   HistogramSynchronizer::GetInstance();
 
   content::BrowserGpuChannelHostFactory::Initialize();
@@ -639,13 +652,26 @@ void BrowserMainLoop::BrowserThreadsStarted() {
   // RDH needs the IO thread to be created.
   resource_dispatcher_host_.reset(new ResourceDispatcherHostImpl());
 
+  // Start the GpuDataManager before we set up the MessageLoops because
+  // otherwise we'll trigger the assertion about doing IO on the UI thread.
+  content::GpuDataManager::GetInstance();
+#endif  // !OS_IOS
+
 #if defined(ENABLE_INPUT_SPEECH)
   speech_recognition_manager_.reset(new speech::SpeechRecognitionManagerImpl());
 #endif
 
-  // Start the GpuDataManager before we set up the MessageLoops because
-  // otherwise we'll trigger the assertion about doing IO on the UI thread.
-  content::GpuDataManager::GetInstance();
+  // Alert the clipboard class to which threads are allowed to access the
+  // clipboard:
+  std::vector<base::PlatformThreadId> allowed_clipboard_threads;
+  // The current thread is the UI thread.
+  allowed_clipboard_threads.push_back(base::PlatformThread::CurrentId());
+#if defined(OS_WIN)
+  // On Windows, clipboards are also used on the File or IO threads.
+  allowed_clipboard_threads.push_back(file_thread_->thread_id());
+  allowed_clipboard_threads.push_back(io_thread_->thread_id());
+#endif
+  ui::Clipboard::SetAllowedThreads(allowed_clipboard_threads);
 }
 
 void BrowserMainLoop::InitializeToolkit() {

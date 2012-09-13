@@ -20,12 +20,17 @@
 
 class CommandLine;
 
+namespace gfx {
+class Size;
+}
+
 namespace content {
 class GpuMessageFilter;
 class RendererMainThread;
 class RenderWidgetHelper;
 class RenderWidgetHost;
 class RenderWidgetHostImpl;
+class StoragePartition;
 class StoragePartitionImpl;
 
 // Implements a concrete RenderProcessHost for the browser process for talking
@@ -76,6 +81,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   virtual base::ProcessHandle GetHandle() OVERRIDE;
   virtual TransportDIB* GetTransportDIB(TransportDIB::Id dib_id) OVERRIDE;
   virtual BrowserContext* GetBrowserContext() const OVERRIDE;
+  virtual bool InSameStoragePartition(
+      StoragePartition* partition) const OVERRIDE;
   virtual int GetID() const OVERRIDE;
   virtual bool HasConnection() const OVERRIDE;
   virtual RenderWidgetHost* GetRenderWidgetHostByID(int routing_id)
@@ -124,8 +131,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   static void RegisterHost(int host_id, RenderProcessHost* host);
   static void UnregisterHost(int host_id);
 
-  // Returns true if the given host is suitable for launching a new view
-  // associated with the given browser context.
+  // Returns true if |host| is suitable for launching a new view with |site_url|
+  // in the given |browser_context|.
   static bool IsSuitableHost(RenderProcessHost* host,
                              BrowserContext* browser_context,
                              const GURL& site_url);
@@ -193,6 +200,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void OnCompositorSurfaceBuffersSwappedNoHost(int32 surface_id,
                                                uint64 surface_handle,
                                                int32 route_id,
+                                               const gfx::Size& size,
                                                int32 gpu_process_host_id);
 
   // Generates a command line to be used to spawn a renderer and appends the

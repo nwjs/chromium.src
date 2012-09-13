@@ -16,7 +16,7 @@
 #include "base/threading/thread.h"
 #include "chrome/browser/sync/glue/backend_data_type_configurer.h"
 #include "chrome/browser/sync/glue/chrome_extensions_activity_monitor.h"
-#include "chrome/common/net/gaia/google_service_auth_error.h"
+#include "google_apis/gaia/google_service_auth_error.h"
 #include "googleurl/src/gurl.h"
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/internal_api/public/configure_reason.h"
@@ -466,12 +466,11 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
       syncer::ModelTypeSet failed_configuration_types);
 
   // syncer::InvalidationHandler-like functions.
-  void HandleNotificationsEnabledOnFrontendLoop();
-  void HandleNotificationsDisabledOnFrontendLoop(
-      syncer::NotificationsDisabledReason reason);
-  void HandleIncomingNotificationOnFrontendLoop(
+  void HandleInvalidatorStateChangeOnFrontendLoop(
+      syncer::InvalidatorState state);
+  void HandleIncomingInvalidationOnFrontendLoop(
       const syncer::ObjectIdStateMap& id_state_map,
-      syncer::IncomingNotificationSource source);
+      syncer::IncomingInvalidationSource source);
 
   // Handles stopping the core's SyncManager, accounting for whether
   // initialization is done yet.

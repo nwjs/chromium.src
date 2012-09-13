@@ -14,10 +14,12 @@ namespace switches {
 
 UI_EXPORT extern const char kEnableBezelTouch[];
 UI_EXPORT extern const char kDisableScalingInImageSkiaOperations[];
-UI_EXPORT extern const char kEnableTextSubpixelPositioning[];
+UI_EXPORT extern const char kEnableBrowserTextSubpixelPositioning[];
 UI_EXPORT extern const char kEnableTouchCalibration[];
+UI_EXPORT extern const char kEnableTouchCalibrationX[];
 UI_EXPORT extern const char kEnableTouchEvents[];
 UI_EXPORT extern const char kEnableViewsTextfield[];
+UI_EXPORT extern const char kEnableWebkitTextSubpixelPositioning[];
 UI_EXPORT extern const char kForceDeviceScaleFactor[];
 UI_EXPORT extern const char kHighlightMissing2xResources[];
 UI_EXPORT extern const char kLang[];

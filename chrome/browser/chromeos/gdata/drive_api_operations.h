@@ -6,9 +6,8 @@
 #define CHROME_BROWSER_CHROMEOS_GDATA_DRIVE_API_OPERATIONS_H_
 
 #include <string>
-#include <vector>
 
-#include "chrome/browser/chromeos/gdata/operations_base.h"
+#include "chrome/browser/google_apis/operations_base.h"
 
 // TODO(kochi): Rename to namespace drive. http://crbug.com/136371
 namespace gdata {

@@ -14,18 +14,27 @@ const char kEnableBezelTouch[] = "enable-bezel-touch";
 const char kDisableScalingInImageSkiaOperations[] =
     "disable-scaling-in-image-skia-operations";
 
-// Let text glyphs have X-positions that aren't snapped to the pixel grid.
-const char kEnableTextSubpixelPositioning[] =
-    "enable-text-subpixel-positioning";
+// Let text glyphs have X-positions that aren't snapped to the pixel grid in
+// the browser UI.
+const char kEnableBrowserTextSubpixelPositioning[] =
+    "enable-browser-text-subpixel-positioning";
 
 // Enable touch screen calibration.
 const char kEnableTouchCalibration[] = "enable-touch-calibration";
+
+// Enable support for touch event calibration in x direction.
+const char kEnableTouchCalibrationX[] = "enable-touch-calibration-x";
 
 // Enable support for touch events.
 const char kEnableTouchEvents[] = "enable-touch-events";
 
 // Enables the Views textfield on Windows.
 const char kEnableViewsTextfield[] = "enable-views-textfield";
+
+// Enable text glyphs to have X-positions that aren't snapped to the pixel grid
+// in webkit renderers.
+const char kEnableWebkitTextSubpixelPositioning[] =
+    "enable-webkit-text-subpixel-positioning";
 
 // Overrides the device scale factor for the browser UI and the
 // contents.

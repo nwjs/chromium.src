@@ -37,10 +37,9 @@ string16 AutocompleteResultAsString(const AutocompleteResult& result) {
   std::string output(base::StringPrintf("{%" PRIuS "} ", result.size()));
   for (size_t i = 0; i < result.size(); ++i) {
     AutocompleteMatch match = result.match_at(i);
-    std::string provider_name = match.provider->name();
     output.append(base::StringPrintf("[\"%s\" by \"%s\"] ",
                                      UTF16ToUTF8(match.contents).c_str(),
-                                     provider_name.c_str()));
+                                     match.provider->GetName()));
   }
   return UTF8ToUTF16(output);
 }
@@ -157,7 +156,7 @@ IN_PROC_BROWSER_TEST_F(AutocompleteBrowserTest, TabAwayRevertSelect) {
       content::NOTIFICATION_LOAD_STOP,
       content::NotificationService::AllSources());
   chrome::AddSelectedTabWithURL(browser(), GURL(chrome::kAboutBlankURL),
-                                content::PAGE_TRANSITION_START_PAGE);
+                                content::PAGE_TRANSITION_AUTO_TOPLEVEL);
   observer.Wait();
   EXPECT_EQ(UTF8ToUTF16(chrome::kAboutBlankURL), location_entry->GetText());
   chrome::CloseTab(browser());

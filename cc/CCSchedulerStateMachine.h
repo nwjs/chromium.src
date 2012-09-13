@@ -5,6 +5,7 @@
 #ifndef CCSchedulerStateMachine_h
 #define CCSchedulerStateMachine_h
 
+#include <string>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
@@ -127,6 +128,8 @@ public:
 
     // Exposed for testing purposes.
     void setMaximumNumberOfFailedDrawsBeforeDrawIsForced(int);
+
+    std::string toString();
 
 protected:
     bool shouldDrawForced() const;

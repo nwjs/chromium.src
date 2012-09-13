@@ -6,7 +6,6 @@
 #define CHROME_BROWSER_CHROMEOS_GDATA_DRIVE_API_PARSER_H_
 
 #include <string>
-#include <vector>
 
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
@@ -98,7 +97,7 @@ class DriveAppIcon {
   IconCategory category() const { return category_; }
 
   // Size in pixels of one side of the icon (icons are always square).
-  const int icon_side_length() const { return icon_side_length_; }
+  int icon_side_length() const { return icon_side_length_; }
 
   // Returns URL for this icon.
   const GURL& icon_url() const { return icon_url_; }
@@ -363,7 +362,7 @@ class FileResource {
   // Returns EntryKind for this file.
   // TODO(kochi): Remove this once FileResource is directly converted to proto.
   // http://crbug.com/142293
-  DocumentEntry::EntryKind GetKind() const;
+  DriveEntryKind GetKind() const;
 
   // Returns file ID.  This is unique in all files in Google Drive.
   const std::string& file_id() const { return file_id_; }

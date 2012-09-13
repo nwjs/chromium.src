@@ -13,6 +13,7 @@
 #include "base/synchronization/lock.h"
 #include "media/base/media_export.h"
 #include "media/audio/audio_parameters.h"
+#include "media/audio/shared_memory_util.h"
 
 class MessageLoop;
 
@@ -36,6 +37,7 @@ class MEDIA_EXPORT AudioDeviceThread {
   class Callback {
    public:
     Callback(const AudioParameters& audio_parameters,
+             int input_channels,
              base::SharedMemoryHandle memory,
              int memory_length);
     virtual ~Callback();
@@ -55,12 +57,10 @@ class MEDIA_EXPORT AudioDeviceThread {
     // The variables are 'const' since values are calculated/set in the
     // constructor and must never change.
     const AudioParameters audio_parameters_;
+    const int input_channels_;
     const int samples_per_ms_;
     const int bytes_per_ms_;
 
-    // Audio buffers that are allocated in InitializeOnAudioThread() based on
-    // info from audio_parameters_.
-    scoped_ptr<AudioBus> audio_bus_;
     base::SharedMemory shared_memory_;
     const int memory_length_;
 

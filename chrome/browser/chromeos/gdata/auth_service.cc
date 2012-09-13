@@ -9,17 +9,16 @@
 
 #include "base/bind.h"
 #include "base/message_loop_proxy.h"
-#include "chrome/browser/chromeos/gdata/operations_base.h"
-#include "chrome/browser/chromeos/gdata/task_util.h"
-#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/google_apis/operations_base.h"
+#include "chrome/browser/google_apis/task_util.h"
 #include "chrome/browser/signin/token_service.h"
 #include "chrome/browser/signin/token_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/net/gaia/gaia_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
+#include "google_apis/gaia/gaia_constants.h"
 
 using content::BrowserThread;
 
@@ -72,7 +71,7 @@ void AuthService::StartAuthentication(OperationRegistry* registry,
                                   callback))));
   } else {
     relay_proxy->PostTask(FROM_HERE,
-        base::Bind(callback, gdata::HTTP_UNAUTHORIZED, std::string()));
+        base::Bind(callback, gdata::GDATA_NOT_READY, std::string()));
   }
 }
 

@@ -33,7 +33,7 @@
 }
 
 .tile-row {
-  -webkit-transition: opacity 200ms ease-in-out;
+  -webkit-transition: opacity 200ms;
   height: 105px;
   text-align: start;
   white-space: nowrap;
@@ -50,7 +50,9 @@
 
 .animate-page-height {
   /* TODO(pedrosimonetti): Confirm the easing function with Marcin. */
-  -webkit-transition: height 200ms ease-in-out;
+  /* TODO(pedrosimonetti): Add a new element so we can animate it without
+   * interfering with the CardSlider. See crbug.com/145337. */
+  -webkit-transition: height 200ms, -webkit-transform 200ms !important;
 }
 
 /* -----------------------------------------------------------------------------
@@ -72,7 +74,7 @@
 ----------------------------------------------------------------------------- */
 
 .animate-grid-width .tile-cell {
-  -webkit-transition: margin 200ms ease-out;
+  -webkit-transition: margin 200ms;
   -webkit-transition-property: margin, opacity, width;
 }
 

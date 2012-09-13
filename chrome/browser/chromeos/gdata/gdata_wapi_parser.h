@@ -14,6 +14,7 @@
 #include "base/memory/scoped_vector.h"
 #include "base/string_piece.h"
 #include "base/time.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "googleurl/src/gurl.h"
 
 class FilePath;
@@ -49,27 +50,27 @@ class FileResource;
 class Link {
  public:
   enum LinkType {
-    UNKNOWN,
-    SELF,
-    NEXT,
-    PARENT,
-    ALTERNATE,
-    EDIT,
-    EDIT_MEDIA,
-    ALT_EDIT_MEDIA,
-    ALT_POST,
-    FEED,
-    POST,
-    BATCH,
-    RESUMABLE_EDIT_MEDIA,
-    RESUMABLE_CREATE_MEDIA,
-    TABLES_FEED,
-    WORKSHEET_FEED,
-    THUMBNAIL,
-    EMBED,
-    PRODUCT,
-    ICON,
-    OPEN_WITH,
+    LINK_UNKNOWN,
+    LINK_SELF,
+    LINK_NEXT,
+    LINK_PARENT,
+    LINK_ALTERNATE,
+    LINK_EDIT,
+    LINK_EDIT_MEDIA,
+    LINK_ALT_EDIT_MEDIA,
+    LINK_ALT_POST,
+    LINK_FEED,
+    LINK_POST,
+    LINK_BATCH,
+    LINK_RESUMABLE_EDIT_MEDIA,
+    LINK_RESUMABLE_CREATE_MEDIA,
+    LINK_TABLES_FEED,
+    LINK_WORKSHEET_FEED,
+    LINK_THUMBNAIL,
+    LINK_EMBED,
+    LINK_PRODUCT,
+    LINK_ICON,
+    LINK_OPEN_WITH,
   };
   Link();
   ~Link();
@@ -123,9 +124,9 @@ class Link {
 class FeedLink {
  public:
   enum FeedLinkType {
-    UNKNOWN,
-    ACL,
-    REVISIONS,
+    FEED_LINK_UNKNOWN,
+    FEED_LINK_ACL,
+    FEED_LINK_REVISIONS,
   };
   FeedLink();
 
@@ -185,10 +186,10 @@ class Author {
 class Category {
  public:
   enum CategoryType {
-    UNKNOWN,
-    ITEM,
-    KIND,
-    LABEL,
+    CATEGORY_UNKNOWN,
+    CATEGORY_ITEM,
+    CATEGORY_KIND,
+    CATEGORY_LABEL,
   };
 
   Category();
@@ -212,7 +213,7 @@ class Category {
  private:
   friend class DocumentEntry;
   // Converts category scheme into CategoryType enum. For example,
-  // http://schemas.google.com/g/2005#kind => Category::KIND
+  // http://schemas.google.com/g/2005#kind => Category::CATEGORY_KIND
   // Returns false and does not change |result| when |scheme| has an
   // unrecognizable value.
   static bool GetCategoryTypeFromScheme(
@@ -254,10 +255,11 @@ class Content {
 class AppIcon {
  public:
   enum IconCategory {
-    UNKNOWN,          // Uninitialized state
-    DOCUMENT,         // Document icon for various MIME types
-    APPLICATION,      // Application icon for various MIME types
-    SHARED_DOCUMENT,  // Icon for documents that are shared from other users.
+    ICON_UNKNOWN,          // Uninitialized state
+    ICON_DOCUMENT,         // Document icon for various MIME types
+    ICON_APPLICATION,      // Application icon for various MIME types
+    ICON_SHARED_DOCUMENT,  // Icon for documents that are shared from other
+                           // users.
   };
 
   AppIcon();
@@ -272,7 +274,7 @@ class AppIcon {
   IconCategory category() const { return category_; }
 
   // Size in pixels of one side of the icon (icons are always square).
-  const int icon_side_length() const { return icon_side_length_; }
+  int icon_side_length() const { return icon_side_length_; }
 
   // Get a list of links available for this AppIcon.
   const ScopedVector<Link>& links() const { return links_; }
@@ -337,26 +339,6 @@ class FeedEntry {
 // Document feed entry.
 class DocumentEntry : public FeedEntry {
  public:
-  // kEntryKindMap should be also updated if you modify EntryKind.
-  enum EntryKind {
-    UNKNOWN       = 0x000000,
-    // Special entries.
-    ITEM          = 0x001001,
-    SITE          = 0x001002,
-    // Hosted Google document.
-    DOCUMENT      = 0x002101,
-    SPREADSHEET   = 0x002102,
-    PRESENTATION  = 0x002103,
-    DRAWING       = 0x002104,
-    TABLE         = 0x002105,
-    // Hosted external application document.
-    EXTERNAL_APP  = 0x002201,
-    // Folders, collections.
-    FOLDER        = 0x004001,
-    // Regular files.
-    FILE          = 0x008001,
-    PDF           = 0x008002,
-  };
   virtual ~DocumentEntry();
 
   // Extracts "entry" dictionary from the JSON value, and parse the contents,
@@ -368,6 +350,8 @@ class DocumentEntry : public FeedEntry {
   //   "entry": { ... },   // This function will extract this and parse.
   //   "version": "1.0"
   // }
+  //
+  // The caller should delete the returned object.
   static DocumentEntry* ExtractAndParse(const base::Value& value);
 
   // Creates document entry from parsed JSON Value.  You should call
@@ -402,9 +386,6 @@ class DocumentEntry : public FeedEntry {
   // Returns true if |file| has one of the hosted document extensions.
   static bool HasHostedDocumentExtension(const FilePath& file);
 
-  // Returns a list of all entry kinds.
-  static std::vector<int> GetAllEntryKinds();
-
   // Document entry resource id.
   const std::string& resource_id() const { return resource_id_; }
 
@@ -412,7 +393,7 @@ class DocumentEntry : public FeedEntry {
   const std::string& id() const { return id_; }
 
   // Document entry kind.
-  EntryKind kind() const { return kind_; }
+  DriveEntryKind kind() const { return kind_; }
 
   // Document entry title.
   const string16& title() const { return title_; }
@@ -456,19 +437,43 @@ class DocumentEntry : public FeedEntry {
   std::string GetHostedDocumentExtension() const;
 
   // True if document entry is remotely hosted.
-  bool is_hosted_document() const { return (kind_ & 0x002000) == 0x002000; }
+  bool is_hosted_document() const {
+    return ClassifyEntryKind(kind_) & KIND_OF_HOSTED_DOCUMENT;
+  }
   // True if document entry hosted by Google Documents.
-  bool is_google_document() const { return (kind_ & 0x002100) == 0x002100; }
+  bool is_google_document() const {
+    return ClassifyEntryKind(kind_) & KIND_OF_GOOGLE_DOCUMENT;
+  }
   // True if document entry is hosted by an external application.
-  bool is_external_document() const { return (kind_ & 0x002200) == 0x002200; }
+  bool is_external_document() const {
+    return ClassifyEntryKind(kind_) & KIND_OF_EXTERNAL_DOCUMENT;
+  }
   // True if document entry is a folder (collection).
-  bool is_folder() const { return (kind_ & 0x004000) != 0; }
+  bool is_folder() const { return ClassifyEntryKind(kind_) & KIND_OF_FOLDER; }
   // True if document entry is regular file.
-  bool is_file() const { return (kind_ & 0x008000) != 0; }
+  bool is_file() const { return ClassifyEntryKind(kind_) & KIND_OF_FILE; }
   // True if document entry can't be mapped to the file system.
   bool is_special() const {
     return !is_file() && !is_folder() && !is_hosted_document();
   }
+
+  // The following constructs are exposed for unit tests.
+
+  // Classes of EntryKind. Used for ClassifyEntryKind().
+  enum EntryKindClass {
+    KIND_OF_NONE = 0,
+    KIND_OF_HOSTED_DOCUMENT = 1,
+    KIND_OF_GOOGLE_DOCUMENT = 1 << 1,
+    KIND_OF_EXTERNAL_DOCUMENT = 1 << 2,
+    KIND_OF_FOLDER = 1 << 3,
+    KIND_OF_FILE = 1 << 4,
+  };
+
+  // Classifies the EntryKind. The returned value is a bitmask of
+  // EntryKindClass. For example, DOCUMENT is classified as
+  // KIND_OF_HOSTED_DOCUMENT and KIND_OF_GOOGLE_DOCUMENT, hence the returned
+  // value is KIND_OF_HOSTED_DOCUMENT | KIND_OF_GOOGLE_DOCUMENT.
+  static int ClassifyEntryKind(DriveEntryKind kind);
 
  private:
   friend class base::internal::RepeatedMessageConverter<DocumentEntry>;
@@ -480,14 +485,14 @@ class DocumentEntry : public FeedEntry {
   // Fills the remaining fields where JSONValueConverter cannot catch.
   void FillRemainingFields();
 
-  // Converts categories.term into EntryKind enum.
-  static EntryKind GetEntryKindFromTerm(const std::string& term);
+  // Converts categories.term into DriveEntryKind enum.
+  static DriveEntryKind GetEntryKindFromTerm(const std::string& term);
   // Converts |kind| into its text identifier equivalent.
-  static const char* GetEntryKindDescription(EntryKind kind);
+  static const char* GetEntryKindDescription(DriveEntryKind kind);
 
   std::string resource_id_;
   std::string id_;
-  EntryKind kind_;
+  DriveEntryKind kind_;
   string16 title_;
   base::Time published_time_;
   std::vector<string16> labels_;

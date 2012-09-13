@@ -12,7 +12,6 @@
 #include "chrome/browser/chromeos/gdata/drive_cache.h"
 #include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
 #include "chrome/browser/chromeos/gdata/gdata_operations.h"
-#include "chrome/browser/chromeos/gdata/gdata_upload_file_info.h"
 
 namespace gdata {
 
@@ -78,7 +77,7 @@ class DriveFileSystemInterface {
   class Observer {
    public:
     // Triggered when a content of a directory has been changed.
-    // |directory_path| is a virtual directory path (/gdata/...) representing
+    // |directory_path| is a virtual directory path (/drive/...) representing
     // changed directory.
     virtual void OnDirectoryChanged(const FilePath& directory_path) {}
 
@@ -108,6 +107,9 @@ class DriveFileSystemInterface {
   // Adds and removes the observer.
   virtual void AddObserver(Observer* observer) = 0;
   virtual void RemoveObserver(Observer* observer) = 0;
+
+  // Starts initial feed fetch from the server.
+  virtual void StartInitialFeedFetch() = 0;
 
   // Starts and stops periodic updates.
   virtual void StartUpdates() = 0;

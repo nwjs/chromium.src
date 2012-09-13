@@ -13,8 +13,8 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/intents/web_intents_registry.h"
 #include "chrome/browser/intents/web_intents_registry_factory.h"
-#include "chrome/browser/media_gallery/media_storage_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/system_monitor/media_storage_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "content/public/browser/web_intents_dispatcher.h"
@@ -102,9 +102,7 @@ void DeviceAttachedIntentSource::OnRemovableStorageAttached(
 
   // Only handle mass storage for now.
   // TODO(kmadhusu): Handle all device types. http://crbug.com/140353.
-  MediaStorageUtil::Type type;
-  MediaStorageUtil::CrackDeviceId(id, &type, NULL);
-  if (type == MediaStorageUtil::MTP_OR_PTP)
+  if (!MediaStorageUtil::IsMassStorageDevice(id))
     return;
   DCHECK(MediaStorageUtil::IsRemovableDevice(id));
 

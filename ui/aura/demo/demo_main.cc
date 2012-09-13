@@ -11,11 +11,11 @@
 #include "ui/aura/client/stacking_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
-#include "ui/aura/single_display_manager.h"
 #include "ui/aura/shared/root_window_capture_client.h"
+#include "ui/aura/single_display_manager.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
@@ -42,9 +42,6 @@ class DemoWindowDelegate : public aura::WindowDelegate {
                                const gfx::Rect& new_bounds) OVERRIDE {}
   virtual void OnFocus(aura::Window* old_focused_window) OVERRIDE {}
   virtual void OnBlur() OVERRIDE {}
-  virtual bool OnKeyEvent(ui::KeyEvent* event) OVERRIDE {
-    return false;
-  }
   virtual gfx::NativeCursor GetCursor(const gfx::Point& point) OVERRIDE {
     return gfx::kNullCursor;
   }
@@ -55,16 +52,6 @@ class DemoWindowDelegate : public aura::WindowDelegate {
       aura::Window* child,
       const gfx::Point& location) OVERRIDE {
     return true;
-  }
-  virtual bool OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
-    return true;
-  }
-  virtual ui::TouchStatus OnTouchEvent(ui::TouchEvent* event) OVERRIDE {
-    return ui::TOUCH_STATUS_END;
-  }
-  virtual ui::GestureStatus OnGestureEvent(
-      ui::GestureEvent* event) OVERRIDE {
-    return ui::GESTURE_STATUS_UNKNOWN;
   }
   virtual bool CanFocus() OVERRIDE { return true; }
   virtual void OnCaptureLost() OVERRIDE {}
@@ -77,6 +64,20 @@ class DemoWindowDelegate : public aura::WindowDelegate {
   virtual void OnWindowTargetVisibilityChanged(bool visible) OVERRIDE {}
   virtual bool HasHitTestMask() const OVERRIDE { return false; }
   virtual void GetHitTestMask(gfx::Path* mask) const OVERRIDE {}
+
+  // Overridden from ui::EventHandler:
+  virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE {
+    return ui::ER_UNHANDLED;
+  }
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
+    return ui::ER_HANDLED;
+  }
+  virtual ui::TouchStatus OnTouchEvent(ui::TouchEvent* event) OVERRIDE {
+    return ui::TOUCH_STATUS_END;
+  }
+  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
+    return ui::ER_UNHANDLED;
+  }
 
  private:
   SkColor color_;

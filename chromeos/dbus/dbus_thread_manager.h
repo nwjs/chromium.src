@@ -33,24 +33,25 @@ class CashewClient;
 class CrosDisksClient;
 class CryptohomeClient;
 class DebugDaemonClient;
-class FlimflamDeviceClient;
-class FlimflamIPConfigClient;
-class FlimflamManagerClient;
-class FlimflamNetworkClient;
-class FlimflamProfileClient;
-class FlimflamServiceClient;
+class ShillDeviceClient;
+class ShillIPConfigClient;
+class ShillManagerClient;
+class ShillNetworkClient;
+class ShillProfileClient;
+class ShillServiceClient;
 class GsmSMSClient;
 class IBusClient;
-class IBusEngineService;
 class IBusEngineFactoryService;
+class IBusEngineService;
 class IBusInputContextClient;
 class ImageBurnerClient;
 class IntrospectableClient;
 class MediaTransferProtocolDaemonClient;
 class ModemMessagingClient;
+class PermissionBrokerClient;
 class PowerManagerClient;
-class SessionManagerClient;
 class SMSClient;
+class SessionManagerClient;
 class SpeechSynthesizerClient;
 class UpdateEngineClient;
 
@@ -155,35 +156,35 @@ class CHROMEOS_EXPORT DBusThreadManager {
   // down.
   virtual DebugDaemonClient* GetDebugDaemonClient() = 0;
 
-  // Returns the Flimflam Device client, owned by DBusThreadManager.
+  // Returns the Shill Device client, owned by DBusThreadManager.
   // Do not cache this pointer and use it after DBusThreadManager is shut
   // down.
-  virtual FlimflamDeviceClient* GetFlimflamDeviceClient() = 0;
+  virtual ShillDeviceClient* GetShillDeviceClient() = 0;
 
-  // Returns the Flimflam IPConfig client, owned by DBusThreadManager.
+  // Returns the Shill IPConfig client, owned by DBusThreadManager.
   // Do not cache this pointer and use it after DBusThreadManager is shut
   // down.
-  virtual FlimflamIPConfigClient* GetFlimflamIPConfigClient() = 0;
+  virtual ShillIPConfigClient* GetShillIPConfigClient() = 0;
 
-  // Returns the Flimflam Manager client, owned by DBusThreadManager.
+  // Returns the Shill Manager client, owned by DBusThreadManager.
   // Do not cache this pointer and use it after DBusThreadManager is shut
   // down.
-  virtual FlimflamManagerClient* GetFlimflamManagerClient() = 0;
+  virtual ShillManagerClient* GetShillManagerClient() = 0;
 
-  // Returns the Flimflam Network client, owned by DBusThreadManager.
+  // Returns the Shill Network client, owned by DBusThreadManager.
   // Do not cache this pointer and use it after DBusThreadManager is shut
   // down.
-  virtual FlimflamNetworkClient* GetFlimflamNetworkClient() = 0;
+  virtual ShillNetworkClient* GetShillNetworkClient() = 0;
 
-  // Returns the Flimflam Profile client, owned by DBusThreadManager.
+  // Returns the Shill Profile client, owned by DBusThreadManager.
   // Do not cache this pointer and use it after DBusThreadManager is shut
   // down.
-  virtual FlimflamProfileClient* GetFlimflamProfileClient() = 0;
+  virtual ShillProfileClient* GetShillProfileClient() = 0;
 
-  // Returns the Flimflam Service client, owned by DBusThreadManager.
+  // Returns the Shill Service client, owned by DBusThreadManager.
   // Do not cache this pointer and use it after DBusThreadManager is shut
   // down.
-  virtual FlimflamServiceClient* GetFlimflamServiceClient() = 0;
+  virtual ShillServiceClient* GetShillServiceClient() = 0;
 
   // Returns the SMS client, owned by DBusThreadManager.
   // Do not cache this pointer and use it after DBusThreadManager is shut
@@ -210,6 +211,10 @@ class CHROMEOS_EXPORT DBusThreadManager {
   // Do not cache this pointer and use it after DBusThreadManager is shut
   // down.
   virtual ModemMessagingClient* GetModemMessagingClient() = 0;
+
+  // Returns the Permission Broker client, owned by DBusThreadManager. Do not
+  // cache this pointer and use it after DBusThreadManager is shut down.
+  virtual PermissionBrokerClient* GetPermissionBrokerClient() = 0;
 
   // Returns the power manager client, owned by DBusThreadManager.
   // See also comments at session_manager_client().

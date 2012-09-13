@@ -40,7 +40,7 @@
 #include "net/base/escape.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #endif
 
 using content::BrowserContext;
@@ -101,7 +101,7 @@ void GetDownloadFilePath(
 
 #if defined (OS_CHROMEOS)
   // Do not use drive for extension downloads.
-  if (gdata::util::IsUnderGDataMountPoint(directory))
+  if (gdata::util::IsUnderDriveMountPoint(directory))
     directory = download_util::GetDefaultDownloadDirectory();
 #endif
 

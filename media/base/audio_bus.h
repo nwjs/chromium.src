@@ -45,6 +45,10 @@ class MEDIA_EXPORT AudioBus {
   // Returns the required memory size to use the WrapMemory() method.
   static int CalculateMemorySize(const AudioParameters& params);
 
+  // Calculates the required size for an AudioBus given the number of channels
+  // and frames.
+  static int CalculateMemorySize(int channels, int frames);
+
   // Helper methods for converting an AudioBus from and to interleaved integer
   // data.  Expects interleaving to be [ch0, ch1, ..., chN, ch0, ch1, ...] with
   // |bytes_per_sample| per value.  Values are scaled and bias corrected during
@@ -66,7 +70,8 @@ class MEDIA_EXPORT AudioBus {
   void CopyTo(AudioBus* dest) const;
 
   // Returns a raw pointer to the requested channel.  Pointer is guaranteed to
-  // have a 16-byte alignment.
+  // have a 16-byte alignment.  Warning: Do not rely on having sane (i.e. not
+  // inf, nan, or between [-1.0, 1.0]) values in the channel data.
   float* channel(int channel) { return channel_data_[channel]; }
   const float* channel(int channel) const { return channel_data_[channel]; }
 

@@ -161,6 +161,9 @@ class AudioRendererHostTest : public testing::Test {
     observer_.reset(new MockMediaObserver());
     host_ = new MockAudioRendererHost(audio_manager_.get(), observer_.get());
 
+    // Expect the audio stream will be deleted.
+    EXPECT_CALL(*observer_, OnDeleteAudioStream(_, kStreamId));
+
     // Simulate IPC channel connected.
     host_->OnChannelConnected(base::GetCurrentProcId());
   }
@@ -204,7 +207,7 @@ class AudioRendererHostTest : public testing::Test {
 
     // Send a create stream message to the audio output stream and wait until
     // we receive the created message.
-    host_->OnCreateStream(kStreamId, params);
+    host_->OnCreateStream(kStreamId, params, 0);
     message_loop_->Run();
   }
 
@@ -258,9 +261,6 @@ class AudioRendererHostTest : public testing::Test {
 
     // Expect an error signal sent through IPC.
     EXPECT_CALL(*host_, OnStreamError(kStreamId));
-
-    // Expect the audio stream will be deleted.
-    EXPECT_CALL(*observer_, OnDeleteAudioStream(_, kStreamId));
 
     // Simulate an error sent from the audio device.
     host_->OnError(controller, 0);

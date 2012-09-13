@@ -33,6 +33,7 @@
 #include "ppapi/c/private/pp_content_decryptor.h"
 #include "ppapi/c/private/ppp_instance_private.h"
 #include "ppapi/shared_impl/ppapi_preferences.h"
+#include "ppapi/shared_impl/ppb_gamepad_shared.h"
 #include "ppapi/shared_impl/ppb_input_event_shared.h"
 #include "ppapi/shared_impl/ppb_url_util_shared.h"
 #include "ppapi/shared_impl/ppb_view_shared.h"
@@ -401,7 +402,8 @@ PluginInstance::GamepadImpl::GamepadImpl(PluginDelegate* delegate)
 void PluginInstance::GamepadImpl::Sample(PP_GamepadsSampleData* data) {
   WebKit::WebGamepads webkit_data;
   delegate_->SampleGamepads(&webkit_data);
-  ConvertWebKitGamepadData(webkit_data, data);
+  ConvertWebKitGamepadData(
+      *reinterpret_cast<const ::ppapi::WebKitGamepads*>(&webkit_data), data);
 }
 
 PluginInstance::PluginInstance(
@@ -484,6 +486,9 @@ PluginInstance::~PluginInstance() {
 
   delegate_->InstanceDeleted(this);
   module_->InstanceDeleted(this);
+  // If we switched from the NaCl plugin module, notify it too.
+  if (original_module_.get())
+    original_module_->InstanceDeleted(this);
 
   HostGlobals::Get()->InstanceDeleted(pp_instance_);
 }
@@ -505,8 +510,8 @@ void PluginInstance::Delete() {
   // If this is a NaCl plugin instance, shut down the NaCl plugin by calling
   // its DidDestroy. Don't call DidDestroy on the untrusted plugin instance,
   // since there is little that it can do at this point.
-  if (nacl_plugin_instance_interface_.get())
-    nacl_plugin_instance_interface_->DidDestroy(pp_instance());
+  if (original_instance_interface_.get())
+    original_instance_interface_->DidDestroy(pp_instance());
   else
     instance_interface_->DidDestroy(pp_instance());
 
@@ -877,7 +882,8 @@ PP_Var PluginInstance::GetInstanceObject() {
 }
 
 void PluginInstance::ViewChanged(const gfx::Rect& position,
-                                 const gfx::Rect& clip) {
+                                 const gfx::Rect& clip,
+                                 const std::vector<gfx::Rect>& cut_outs_rects) {
   // WebKit can give weird (x,y) positions for empty clip rects (since the
   // position technically doesn't matter). But we want to make these
   // consistent since this is given to the plugin, so force everything to 0
@@ -885,6 +891,8 @@ void PluginInstance::ViewChanged(const gfx::Rect& position,
   gfx::Rect new_clip;
   if (!clip.IsEmpty())
     new_clip = clip;
+
+  cut_outs_rects_ = cut_outs_rects;
 
   ViewData previous_view = view_data_;
 
@@ -997,18 +1005,32 @@ bool PluginInstance::GetBitmapForOptimizedPluginPaint(
   // optimized this way.
   if (!image_data->PlatformImage())
     return false;
+
+  gfx::Point plugin_origin = PP_ToGfxPoint(view_data_.rect.point);
+  // Convert |paint_bounds| to be relative to the left-top corner of the plugin.
+  gfx::Rect relative_paint_bounds(paint_bounds);
+  relative_paint_bounds.Offset(-plugin_origin.x(), -plugin_origin.y());
+
   gfx::Rect plugin_backing_store_rect(
-      PP_ToGfxPoint(view_data_.rect.point),
-      gfx::Size(image_data->width(), image_data->height()));
+      0, 0, image_data->width(), image_data->height());
 
   gfx::Rect clip_page = PP_ToGfxRect(view_data_.clip_rect);
-  clip_page.Offset(PP_ToGfxPoint(view_data_.rect.point));
   gfx::Rect plugin_paint_rect = plugin_backing_store_rect.Intersect(clip_page);
-  if (!plugin_paint_rect.Contains(paint_bounds))
+  if (!plugin_paint_rect.Contains(relative_paint_bounds))
     return false;
 
+  // Don't do optimized painting if the area to paint intersects with the
+  // cut-out rects, otherwise we will paint over them.
+  for (std::vector<gfx::Rect>::const_iterator iter = cut_outs_rects_.begin();
+       iter != cut_outs_rects_.end(); ++iter) {
+    if (relative_paint_bounds.Intersects(*iter))
+      return false;
+  }
+
   *dib = image_data->PlatformImage()->GetTransportDIB();
+  plugin_backing_store_rect.Offset(plugin_origin);
   *location = plugin_backing_store_rect;
+  clip_page.Offset(plugin_origin);
   *clip = clip_page;
   *scale_factor = GetBoundGraphics2D()->GetScale();
   return true;
@@ -1486,6 +1508,7 @@ bool PluginInstance::Decrypt(
     return false;
 
   ScopedPPResource encrypted_resource(
+      ScopedPPResource::PassRef(),
       MakeBufferResource(pp_instance(),
                          encrypted_buffer->GetData(),
                          encrypted_buffer->GetDataSize()));
@@ -2215,10 +2238,8 @@ void PluginInstance::DeliverBlock(PP_Instance instance,
                                   PP_Resource decrypted_block,
                                   const PP_DecryptedBlockInfo* block_info) {
   DCHECK(block_info);
-
   DecryptionCBMap::iterator found = pending_decryption_cbs_.find(
       block_info->tracking_info.request_id);
-
   if (found == pending_decryption_cbs_.end())
     return;
   media::Decryptor::DecryptCB decrypt_cb = found->second;
@@ -2232,8 +2253,8 @@ void PluginInstance::DeliverBlock(PP_Instance instance,
     decrypt_cb.Run(media::Decryptor::kError, NULL);
     return;
   }
-  EnterResourceNoLock<PPB_Buffer_API> enter(decrypted_block, true);
 
+  EnterResourceNoLock<PPB_Buffer_API> enter(decrypted_block, true);
   if (!enter.succeeded()) {
     decrypt_cb.Run(media::Decryptor::kError, NULL);
     return;
@@ -2244,6 +2265,8 @@ void PluginInstance::DeliverBlock(PP_Instance instance,
     return;
   }
 
+  // TODO(tomfinegan): Find a way to take ownership of the shared memory
+  // managed by the PPB_Buffer_Dev, and avoid the extra copy.
   scoped_refptr<media::DecoderBuffer> decrypted_buffer(
       media::DecoderBuffer::CopyFrom(
           reinterpret_cast<const uint8*>(mapper.data()), mapper.size()));
@@ -2414,13 +2437,6 @@ void PluginInstance::UnlockMouse(PP_Instance instance) {
   delegate()->UnlockMouse(this);
 }
 
-PP_Bool PluginInstance::GetDefaultPrintSettings(
-    PP_Instance instance,
-    PP_PrintSettings_Dev* print_settings) {
-  // TODO(raymes): Not implemented for in-process.
-  return PP_FALSE;
-}
-
 void PluginInstance::SetTextInputType(PP_Instance instance,
                                       PP_TextInput_Type type) {
   int itype = type;
@@ -2526,10 +2542,15 @@ PP_Var PluginInstance::GetPluginInstanceURL(
                                                         components);
 }
 
-bool PluginInstance::ResetAsProxied() {
+bool PluginInstance::ResetAsProxied(scoped_refptr<PluginModule> module) {
+  // Save the original module and switch over to the new one now that this
+  // plugin is using the IPC-based proxy.
+  original_module_ = module_;
+  module_ = module;
+
   // For NaCl instances, remember the NaCl plugin instance interface, so we
   // can shut it down by calling its DidDestroy in our Delete() method.
-  nacl_plugin_instance_interface_.reset(instance_interface_.release());
+  original_instance_interface_.reset(instance_interface_.release());
 
   base::Callback<const void*(const char*)> get_plugin_interface_func =
       base::Bind(&PluginModule::GetPluginInterface, module_.get());

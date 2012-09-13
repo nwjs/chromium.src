@@ -8,7 +8,7 @@
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/window_animations.h"
-#include "ash/wm/workspace/workspace_event_filter.h"
+#include "ash/wm/workspace/workspace_event_handler.h"
 #include "ash/wm/workspace/workspace_window_resizer.h"
 #include "grit/ui_resources.h"
 #include "ui/aura/client/screen_position_client.h"
@@ -147,12 +147,11 @@ bool MultiWindowResizeController::ResizeWindows::Equals(
       direction == other.direction;
 }
 
-MultiWindowResizeController::MultiWindowResizeController()
-    : resize_widget_(NULL),
-      grid_size_(0) {
+MultiWindowResizeController::MultiWindowResizeController() {
 }
 
 MultiWindowResizeController::~MultiWindowResizeController() {
+  window_resizer_.reset();
   Hide();
 }
 
@@ -161,9 +160,9 @@ void MultiWindowResizeController::Show(Window* window,
                                        const gfx::Point& point_in_window) {
   // When the resize widget is showing we ignore Show() requests. Instead we
   // only care about mouse movements from MouseWatcher. This is necessary as
-  // WorkspaceEventFilter only sees mouse movements over the windows, not all
+  // WorkspaceEventHandler only sees mouse movements over the windows, not all
   // windows or over the desktop.
-  if (resize_widget_)
+  if (resize_widget_.get())
     return;
 
   ResizeWindows windows(DetermineWindows(window, component, point_in_window));
@@ -195,15 +194,14 @@ void MultiWindowResizeController::Hide() {
     return;  // Ignore hides while actively resizing.
 
   show_timer_.Stop();
-  if (!resize_widget_)
+  if (!resize_widget_.get())
     return;
   windows_.window1->RemoveObserver(this);
   windows_.window2->RemoveObserver(this);
   for (size_t i = 0; i < windows_.other_windows.size(); ++i)
     windows_.other_windows[i]->RemoveObserver(this);
   mouse_watcher_.reset();
-  resize_widget_->Close();
-  resize_widget_ = NULL;
+  resize_widget_.reset();
   windows_ = ResizeWindows();
 }
 
@@ -352,10 +350,10 @@ void MultiWindowResizeController::DelayedHide() {
 }
 
 void MultiWindowResizeController::ShowNow() {
-  DCHECK(!resize_widget_);
+  DCHECK(!resize_widget_.get());
   DCHECK(windows_.is_valid());
   show_timer_.Stop();
-  resize_widget_ = new views::Widget;
+  resize_widget_.reset(new views::Widget);
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
   params.transparent = true;
   params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
@@ -364,7 +362,6 @@ void MultiWindowResizeController::ShowNow() {
       internal::kShellWindowId_AlwaysOnTopContainer);
   params.can_activate = false;
   ResizeView* view = new ResizeView(this, windows_.direction);
-  params.delegate = new views::WidgetDelegateView;
   resize_widget_->set_focus_on_creation(false);
   resize_widget_->Init(params);
   SetWindowVisibilityAnimationType(
@@ -386,7 +383,7 @@ void MultiWindowResizeController::ShowNow() {
 }
 
 bool MultiWindowResizeController::IsShowing() const {
-  return resize_widget_ || show_timer_.IsRunning();
+  return resize_widget_.get() || show_timer_.IsRunning();
 }
 
 void MultiWindowResizeController::StartResize(

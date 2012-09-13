@@ -465,7 +465,8 @@ void ExternalTabContainerWin::AddNewContents(WebContents* source,
                                              WebContents* new_contents,
                                              WindowOpenDisposition disposition,
                                              const gfx::Rect& initial_pos,
-                                             bool user_gesture) {
+                                             bool user_gesture,
+                                             bool* was_blocked) {
   if (!automation_) {
     DCHECK(pending_);
     LOG(ERROR) << "Invalid automation provider. Dropping new contents notify";
@@ -1111,7 +1112,7 @@ void ExternalTabContainerWin::Navigate(const GURL& url, const GURL& referrer) {
 
   tab_contents_->web_contents()->GetController().LoadURL(
       url, content::Referrer(referrer, WebKit::WebReferrerPolicyDefault),
-      content::PAGE_TRANSITION_START_PAGE, std::string());
+      content::PAGE_TRANSITION_AUTO_TOPLEVEL, std::string());
 }
 
 bool ExternalTabContainerWin::OnGoToEntryOffset(int offset) {

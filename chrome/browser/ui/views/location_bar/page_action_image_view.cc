@@ -28,7 +28,7 @@
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "ui/base/accessibility/accessible_view_state.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
@@ -49,7 +49,7 @@ PageActionImageView::PageActionImageView(LocationBarView* owner,
       popup_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(scoped_icon_animation_observer_(
           page_action->GetIconAnimation(
-              SessionID::IdForTab(owner->GetTabContents())),
+              SessionID::IdForTab(owner->GetTabContents()->web_contents())),
           this)) {
   const Extension* extension = owner_->profile()->GetExtensionService()->
       GetExtensionById(page_action->extension_id(), false);
@@ -126,21 +126,23 @@ PageActionImageView::~PageActionImageView() {
   HidePopup();
 }
 
-void PageActionImageView::ExecuteAction(int button) {
+void PageActionImageView::ExecuteAction(
+    ExtensionPopup::ShowAction show_action) {
   TabContents* tab_contents = owner_->GetTabContents();
   if (!tab_contents)
     return;
 
+  extensions::TabHelper* extensions_tab_helper =
+      extensions::TabHelper::FromWebContents(tab_contents->web_contents());
   LocationBarController* controller =
-      tab_contents->extension_tab_helper()->location_bar_controller();
+      extensions_tab_helper->location_bar_controller();
 
-  // 1 is left click.
   switch (controller->OnClicked(page_action_->extension_id(), 1)) {
     case LocationBarController::ACTION_NONE:
       break;
 
     case LocationBarController::ACTION_SHOW_POPUP:
-      ShowPopupWithURL(page_action_->GetPopupUrl(current_tab_id_));
+      ShowPopupWithURL(page_action_->GetPopupUrl(current_tab_id_), show_action);
       break;
 
     case LocationBarController::ACTION_SHOW_CONTEXT_MENU:
@@ -152,7 +154,8 @@ void PageActionImageView::ExecuteAction(int button) {
       break;
 
     case LocationBarController::ACTION_SHOW_SCRIPT_POPUP:
-      ShowPopupWithURL(ExtensionInfoUI::GetURL(page_action_->extension_id()));
+      ShowPopupWithURL(ExtensionInfoUI::GetURL(page_action_->extension_id()),
+                       show_action);
       break;
   }
 }
@@ -173,24 +176,19 @@ void PageActionImageView::OnMouseReleased(const ui::MouseEvent& event) {
   if (!HitTestPoint(event.location()))
     return;
 
-  int button = -1;
-  if (event.IsLeftMouseButton()) {
-    button = 1;
-  } else if (event.IsMiddleMouseButton()) {
-    button = 2;
-  } else if (event.IsRightMouseButton()) {
+  if (event.IsRightMouseButton()) {
     // Don't show a menu here, its handled in View::ProcessMouseReleased. We
     // show the context menu by way of being the ContextMenuController.
     return;
   }
 
-  ExecuteAction(button);
+  ExecuteAction(ExtensionPopup::SHOW);
 }
 
 bool PageActionImageView::OnKeyPressed(const ui::KeyEvent& event) {
   if (event.key_code() == ui::VKEY_SPACE ||
       event.key_code() == ui::VKEY_RETURN) {
-    ExecuteAction(1);
+    ExecuteAction(ExtensionPopup::SHOW);
     return true;
   }
   return false;
@@ -227,7 +225,7 @@ void PageActionImageView::ShowContextMenuForView(View* source,
     return;
 
   scoped_refptr<ExtensionContextMenuModel> context_menu_model(
-      new ExtensionContextMenuModel(extension, browser_));
+      new ExtensionContextMenuModel(extension, browser_, this));
   views::MenuModelAdapter menu_model_adapter(context_menu_model.get());
   menu_runner_.reset(new views::MenuRunner(menu_model_adapter.CreateMenu()));
   gfx::Point screen_loc;
@@ -242,7 +240,7 @@ bool PageActionImageView::AcceleratorPressed(
     const ui::Accelerator& accelerator) {
   DCHECK(visible());  // Should not have happened due to CanHandleAccelerator.
 
-  ExecuteAction(1);  // 1 means left-click.
+  ExecuteAction(ExtensionPopup::SHOW);
   return true;
 }
 
@@ -277,6 +275,10 @@ void PageActionImageView::UpdateVisibility(WebContents* contents,
   SetVisible(true);
 }
 
+void PageActionImageView::InspectPopup(ExtensionAction* action) {
+  ExecuteAction(ExtensionPopup::SHOW_AND_INSPECT);
+}
+
 void PageActionImageView::OnWidgetClosing(views::Widget* widget) {
   DCHECK_EQ(popup_->GetWidget(), widget);
   popup_->GetWidget()->RemoveObserver(this);
@@ -293,14 +295,15 @@ void PageActionImageView::Observe(int type,
     owner_->UpdatePageActions();
 }
 
-void PageActionImageView::OnIconChanged(
-    const ExtensionAction::IconAnimation& animation) {
+void PageActionImageView::OnIconChanged() {
   TabContents* tab_contents = owner_->GetTabContents();
   if (tab_contents)
     UpdateVisibility(tab_contents->web_contents(), current_url_);
 }
 
-void PageActionImageView::ShowPopupWithURL(const GURL& popup_url) {
+void PageActionImageView::ShowPopupWithURL(
+    const GURL& popup_url,
+    ExtensionPopup::ShowAction show_action) {
   bool popup_showing = popup_ != NULL;
 
   // Always hide the current popup. Only one popup at a time.
@@ -313,7 +316,8 @@ void PageActionImageView::ShowPopupWithURL(const GURL& popup_url) {
   views::BubbleBorder::ArrowLocation arrow_location = base::i18n::IsRTL() ?
       views::BubbleBorder::TOP_LEFT : views::BubbleBorder::TOP_RIGHT;
 
-  popup_ = ExtensionPopup::ShowPopup(popup_url, browser_, this, arrow_location);
+  popup_ = ExtensionPopup::ShowPopup(popup_url, browser_, this, arrow_location,
+                                     show_action);
   popup_->GetWidget()->AddObserver(this);
 }
 

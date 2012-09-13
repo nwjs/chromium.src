@@ -1299,6 +1299,9 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
           &amp;Show bookmarks bar
         </message>
       </if>
+      <message name="IDS_TOGGLE_REQUEST_TABLET_SITE" desc="The toggle to request tablet site on a touch dev.">
+        Request tablet site
+      </message>
       <if expr="not pp_ifdef('use_titlecase')">
         <message name="IDS_SHOW_HISTORY" desc="The show history menu in the app menu">
           &amp;History
@@ -4291,6 +4294,266 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         Instant: <ph name="INSTANT_PREVIEW_NAME">$1<ex>http://www.google.com/</ex></ph>
       </message>
 
+      <!-- Performance Monitor page -->
+      <!-- Event-Related -->
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSIONS_EVENT_CATEGORY" desc="Text displayed for the Extensions events category title.">
+        Extensions
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSIONS_EVENT_CATEGORY_DESCRIPTION" desc="Text displayed on mouseover of the Extension event category.">
+        Events that are related to any extensions that are (or have been) installed in <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph>
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_INSTALL_EVENT" desc="Text displayed for the Extension Install event title.">
+        Installs
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_INSTALL_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Extension Install event checkbox.">
+        Occurrences when an extension was installed
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_INSTALL_EVENT_MOUSEOVER" desc="Text displayed on mouseover of an Extension Install event.">
+        Extension Installed
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_UNINSTALL_EVENT" desc="Text displayed for the Extension Uninstall event title.">
+        Uninstalls
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_UNINSTALL_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Extension Uninstall event checkbox.">
+        Occurrences when an extension was uninstalled
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_UNINSTALL_EVENT_MOUSEOVER" desc="Text displayed on mouseover of an Extension Uninstall event.">
+        Extension Uninstalled
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_UPDATE_EVENT" desc="Text displayed for the Extension Update event title.">
+        Updates
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_UPDATE_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Extension Update event checkbox.">
+        Occurrences when an extension was updated
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_UPDATE_EVENT_MOUSEOVER" desc="Text displayed on mouseover of an Extension Update event.">
+        Extension Updated
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_ENABLE_EVENT" desc="Text displayed for the Extension Enable event title.">
+        Enables
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_ENABLE_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Extension Enable event checkbox.">
+        Occurrences when an extension was enabled
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_ENABLE_EVENT_MOUSEOVER" desc="Text displayed on mouseover of an Extension Enable event.">
+        Extension Enabled
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_DISABLE_EVENT" desc="Text displayed for the Extension Disable event title.">
+        Disables
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_DISABLE_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Extension Disable event checkbox.">
+        Occurrences when an extension was disabled
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_DISABLE_EVENT_MOUSEOVER" desc="Text displayed on mouseover of an Extension Disable event.">
+        Extension Disabled
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_CHROME_EVENT_CATEGORY" desc="Text displayed for the Chrome/Chromium events category title">
+        <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_CHROME_EVENT_CATEGORY_DESCRIPTION" desc="Text displayed on mouseover of the Chrome event category.">
+        Events that are related to the <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> system.
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_CHROME_UPDATE_EVENT" desc="Text displayed for the Chrome Update event title.">
+        Updates
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_CHROME_UPDATE_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Chrome Update event checkbox.">
+        Occurrences when the version of <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> changed
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_CHROME_UPDATE_EVENT_MOUSEOVER" desc="Text displayed on mouseover of a Chrome Update event.">
+        <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> Updated
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXCEPTIONS_EVENT_CATEGORY" desc="Text displayed for the Exceptions events' category title">
+        Exceptions
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXCEPTIONS_EVENT_CATEGORY_DESCRIPTION" desc="Text displayed on mouseover of the Exceptions event category.">
+        Events relating to <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> crashes and failures
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_FREEZE_EVENT" desc="Text displayed for the Renderer Freeze event title.">
+        Renderer Freezes
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_FREEZE_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Renderer Freeze event checkbox.">
+        Occurrences when a tab became unresponsive
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_FREEZE_EVENT_MOUSEOVER" desc="Text displayed on mouseover of a Renderer Freeze event.">
+        Renderer Froze
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_CRASH_EVENT" desc="Text displayed for the Renderer Crash event title.">
+        Renderer Crashes
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_CRASH_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Renderer Crash event checkbox.">
+        Occurrences when a tab crashed ("<ph name="IDS_SAD_TAB_TITLE">$1<ex>Aw, Snap!</ex></ph>")
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_CRASH_EVENT_MOUSEOVER" desc="Text dispalyed on mouseover of a Renderer Crash event.">
+        Renderer Crashed
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_KILLED_BY_OS_CRASH_EVENT" desc="Text displayed for the Killed By OS Crash event title.">
+        Process Kills
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_KILLED_BY_OS_CRASH_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Killed By OS Crash event checkbox.">
+        Occurrences when the OS killed a tab's process ("<ph name="IDS_KILLED_TAB_TITLE">$1<ex>He's dead, Jim!</ex></ph>")
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_KILLED_BY_OS_CRASH_EVENT_MOUSEOVER" desc="Text displayed on mouseover of a Killed By OS Crash event.">
+        Process Killed
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_UNCLEAN_EXIT_EVENT" desc="Text displayed for the Unclean Exit event title.">
+        Unclean Exits
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_UNCLEAN_EXIT_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Unclean Exit event checkbox.">
+        Occurrences when <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> did not shut down correctly
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_UNCLEAN_EXIT_EVENT_MOUSEOVER" desc="Text displayed on mouseover of an Unclean Exit event.">
+        Unclean Exit
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_ID_MOUSEOVER" desc="Text displayed for the Extension ID field of an event mouseover.">
+        Extension ID
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_NAME_MOUSEOVER" desc="Text displayed for the Extension Name field of an event mouseover.">
+        Extension Name
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_URL_MOUSEOVER" desc="Text displayed for the Extension URL field of an event mouseover.">
+        Extension URL
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_LOCATION_MOUSEOVER" desc="Text displayed for the Extension Location field of an event mouseover.">
+        Extension Location
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_VERSION_MOUSEOVER" desc="Text displayed for the Extension Version field of an event mouseover.">
+        Extension Version
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_DESCRIPTION_MOUSEOVER" desc="Text displayed for the Extension Description field of an event mouseover.">
+        Extension Description
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_PREVIOUS_VERSION_MOUSEOVER" desc="Text displayed for the Previous Version field of an event mouseover.">
+        Previous Version
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_CURRENT_VERSION_MOUSEOVER" desc="Text displayed for the Current Version field of an event mouseover.">
+        Current Version
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_URL_MOUSEOVER" desc="Text displayed for the URL field of an event mouseover.">
+        URL
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_PROFILE_NAME_MOUSEOVER" desc="Text displayed for the Profile Name field of an event mouseover.">
+        Profile Name
+      </message>
+      <!--- Metric-Related -->
+      <message name="IDS_PERFORMANCE_MONITOR_CPU_METRIC_CATEGORY" desc="Text displayed for the CPU metrics' category title">
+        CPU
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_CPU_METRIC_CATEGORY_DESCRIPTION" desc="Text displayed on mouseover of the CPU metric category.">
+        Metrics relating to the effect of <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> on the system's CPU
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_CPU_USAGE_METRIC" desc="Text displayed for the CPU Usage metric title.">
+        CPU Usage
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_CPU_USAGE_METRIC_DESCRIPTION" desc="Text displayed for mouseover of the CPU Usage metric.">
+        The combined CPU usage of all processes related to <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph>
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_MEMORY_METRIC_CATEGORY" desc="Text displayed for the Memory metrics' category title">
+        Memory
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_MEMORY_METRIC_CATEGORY_DESCRIPTION" desc = "Text displayed on mouseover of the Memory metric category.">
+        Metrics relating to the effect of <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> on the system's memory
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_PRIVATE_MEMORY_USAGE_METRIC" desc="Text displayed for the Private Memory Usage metric title.">
+        Private Memory Usage
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_PRIVATE_MEMORY_USAGE_METRIC_DESCRIPTION" desc="Text displayed on mouseover of the Private Memory Usage metric.">
+        The combined private memory usage of all processes related to <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph>
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_SHARED_MEMORY_USAGE_METRIC" desc="Text displayed for the Shared Memory Usage metric title.">
+        Shared Memory Usage
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_SHARED_MEMORY_USAGE_METRIC_DESCRIPTION" desc="Text displayed on mouseover of the Shared Memory Usage metric.">
+        The combined shared memory usage of all processes related to <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph>
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIMING_METRIC_CATEGORY" desc="Text displayed for the Timing metrics' category title">
+        Timing
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIMING_METRIC_CATEGORY_DESCRIPTION" desc="Text displayed on mouseover of the Timing metric category.">
+        Metrics relating to the speed with which <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> performs requested actions
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_STARTUP_TIME_METRIC" desc="Text displayed for the Startup Time metric title.">
+        Startups
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_STARTUP_TIME_METRIC_DESCRIPTION" desc="Text displayed on mouseover of the Startup Time metric.">
+        The time it takes to fully start <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph>
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TEST_STARTUP_TIME_METRIC" desc="Text displayed for the Test Startup Time metric title.">
+        Test Startups
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TEST_STARTUP_TIME_METRIC_DESCRIPTION" desc="Text displayed on mouseover of the Test Startup Time metric.">
+        The time it takes to fully start <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> in a testing environment
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_SESSION_RESTORE_TIME_METRIC" desc="Text displayed for the Session Restore Time metric title.">
+        Session Restores
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_SESSION_RESTORE_TIME_METRIC_DESCRIPTION" desc="Text dispalyed on mouseover of the Session Restore Time metric.">
+        The time it takes to restore a previous browsing session
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_PAGE_LOAD_TIME_METRIC" desc="Text displayed for the Page Load Time metric title.">
+        Page Loads
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_PAGE_LOAD_TIME_METRIC_DESCRIPTION" desc="Text displayed on mouseover of the Page Load Time metric.">
+        The time it takes to load a web page
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_NETWORK_METRIC_CATEGORY" desc="Text displayed for the Network metrics' category title.">
+        Network
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_NETWORK_METRIC_CATEGORY_DESCRIPTION" desc="Text displayed on mouseover of the Network metric category.">
+        Metrics related to the network usage of <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph>
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_NETWORK_BYTES_READ_METRIC" desc="Text displayed for the Network Bytes Read metric title.">
+        Bytes Read
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_NETWORK_BYTES_READ_METRIC_DESCRIPTION" desc="Text displayed on mouseover of the Network Bytes Read metric.">
+        The number of bytes read across the network
+      </message>
+      <!-- Units -->
+      <message name="IDS_PERFORMANCE_MONITOR_BYTES_UNIT" desc="Text displayed for when a unit is in bytes.">
+        Bytes
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_KILOBYTES_UNIT" desc="Text displayed for when a unit is in kilobytes.">
+        Kilobytes
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_MEGABYTES_UNIT" desc="Text displayed for when a unit is in megabytes.">
+        Megabytes
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_GIGABYTES_UNIT" desc="Text displayed for when a unit is in gigabytes.">
+        Gigabytes
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TERABYTES_UNIT" desc="Text displayed for when a unit is in terabytes.">
+        Terabytes
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_MICROSECONDS_UNIT" desc="Text displayed for when a unit is in microseconds.">
+        Microseconds
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_MILLISECONDS_UNIT" desc="Text displayed for when a unit is in milliseconds.">
+        Milliseconds
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_SECONDS_UNIT" desc="Text displayed for when a unit is in seconds.">
+        Seconds
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_MINUTES_UNIT" desc="Text displayed for when a unit is in minutes.">
+        Minutes
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_HOURS_UNIT" desc="Text displayed for when a unit is in hours.">
+        Hours
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_DAYS_UNIT" desc="Text displayed for when a unit is in days.">
+        Days
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_WEEKS_UNIT" desc="Text displayed for when a unit is in weeks.">
+        Weeks
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_MONTHS_UNIT" desc="Text displayed for when a unit is in months.">
+        Months
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_YEARS_UNIT" desc="Text displayed for when a unit is in years.">
+        Years
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_PERCENT_UNIT" desc="Text displayed for when a unit is in percent.">
+        Percent
+      </message>
+
       <!-- Theme preview info bar -->
       <message name="IDS_THEME_INSTALL_INFOBAR_LABEL" desc="Text displayed on an infobar when a theme has been installed.">
         Installed theme "<ph name="THEME_NAME">$1<ex>Snowflake Theme</ex></ph>".
@@ -4354,7 +4617,7 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         The newest version of "<ph name="EXTENSION_NAME">$1<ex>Gmail Checker</ex></ph>" has been disabled because it requires more permissions.
       </message>
       <message name="IDS_EXTENSION_PERMISSIONS_PROMPT_HEADING" desc="First bold line in the content area of the extension or app permissions prompt. Asks the user if they want to grant the permissions to the particular extension or app.">
-        The extension "<ph name="EXTENSION_NAME">$1<ex>Gmail Checker</ex></ph>" has requested additional permissions.
+        "<ph name="EXTENSION_NAME">$1<ex>Gmail Checker</ex></ph>" has requested additional permissions.
       </message>
 
       <!-- Extension alerts. -->
@@ -4555,6 +4818,15 @@ Update checks have repeatedly failed for the extension "<ph name="EXTENSION_NAME
       <message name="IDS_EXTENSION_CANT_DOWNGRADE_VERSION" desc="Error message when a user tries to install an extension with a lower version that a version that it already installed.">
         Attempted to downgrade extension.
       </message>
+      <message name="IDS_EXTENSION_WEBGL_NOT_SUPPORTED" desc="Error message when an extension has a requirement for WebGL that the system does not support.">
+        WebGL is not supported.
+      </message>
+      <message name="IDS_EXTENSION_CSS3D_NOT_SUPPORTED" desc="Error message when an extension has a requirement for CSS3d that the system does not support.">
+        CSS3d is not supported.
+      </message>
+      <message name="IDS_EXTENSION_NPAPI_NOT_SUPPORTED" desc="Error message when an extension has a requirement for plugins that the system does not support.">
+        NPAPI plugins are not supported.
+      </message>
       <message name="IDS_EXTENSION_CANT_INSTALL_BLACKLISTED" desc="Error message when a user tries to install an extension that is blacklisted.">
         This extension is blacklisted.
       </message>
@@ -4706,6 +4978,9 @@ Update checks have repeatedly failed for the extension "<ph name="EXTENSION_NAME
       <message name="IDS_EXTENSION_INSTALLED_MANAGE_INFO_MAC" desc="Text displayed in the InfoBubble with instructions on how to find the chrome://extensions/ management page on MAC OS X">
         Manage your extensions by clicking Extensions in the Window menu.
       </message>
+      <message name="IDS_EXTENSION_INSTALLED_MANAGE_SHORTCUTS" desc="Text for the link in the InfoBubble that opens the chrome://extensions page with the Configure Commands UI visible.">
+        Manage shortcuts
+      </message>      
       <message name="IDS_ACCNAME_INFOBAR_CONTAINER" desc="The accessible name for the infobar container.">
         Infobar Container
       </message>
@@ -5355,12 +5630,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
           Enables a background service that connects the Google Cloud Print service to any printers installed on this computer. Once this lab is enabled, you can turn the Google Cloud Print Connector on by logging in with your Google account in the Under the Hood section of Settings.
         </message>
       </if>
-      <message name="IDS_FLAGS_PRINT_SETTING_RESET_NAME" desc="Discard the last printer and settings on shutdown.">
-        Printer Reset
-      </message>
-      <message name="IDS_FLAGS_PRINT_SETTING_RESET_DESCRIPTION" desc="Description for flag to reset the last printer and settings on browser restart.">
-        Reset the last used printer on restart.  With this enabled, the OS default printer will become the current printer for print preview on each browser start.
-      </message>
       <if expr="is_win">
         <message name="IDS_FLAGS_PRINT_RASTER_NAME" desc="Name of 'Print raster' flag.">
           Print raster
@@ -5389,6 +5658,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_ENABLE_TOUCH_EVENTS_DESCRIPTION" desc="Description of the enable touch-events flag.">
         Enables experimental support for touch screens.
+      </message>
+      <message name="IDS_ENABLE_BACKLOADER_NAME" desc="Title of the enable background loader flag." >
+        Enable background loader component for hosted applications
+      </message>
+      <message name="IDS_ENABLE_BACKLOADER_DESCRIPTION" desc="Description of the enable background loader flag.">
+        Enable background loader component for hosted applications.
       </message>
       <message name="IDS_ENABLE_BEZEL_TOUCH_NAME" desc="Title of the enble bezel touch actions flag." >
         Enable bezel touch actions
@@ -5736,23 +6011,17 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_ASYNC_DNS_DESCRIPTION" desc="Description for the flag to enable asynchronous DNS client.">
         Enable experimental asynchronous DNS client.
       </message>
-      <message name="IDS_FLAGS_ENABLE_VIDEO_TRACK_NAME" desc="Title for the flag to enable the &lt;track&gt; element for &lt;video&gt; elements.">
-        Enable <ph name="TRACK_HTML">&lt;track&gt;</ph> element
-      </message>
-      <message name="IDS_FLAGS_ENABLE_VIDEO_TRACK_DESCRIPTION" desc="Description for the flag to enable the track element for captions on &lt;videos&gt; elements.">
-        Enable the track element (not yet fully functional) for captions, subtitles, chapters, and audio descriptions on video elements.
-      </message>
       <message name="IDS_FLAGS_ENABLE_EXTENSION_ALERTS_NAME" desc="Title for the flag to enable extension alerts.">
         Enable extension alerts
       </message>
       <message name="IDS_FLAGS_ENABLE_EXTENSION_ALERTS_DESCRIPTION" desc="Description for the flag to enable extension alerts.">
         Enable various alerts about changes in extension state.
       </message>
-      <message name="IDS_FLAGS_ENABLE_MEDIA_SOURCE_NAME" desc="Title for the flag to enable the Media Source API on &lt;video&gt; elements.">
-        Enable Media Source API on <ph name="VIDEO_HTML">&lt;video&gt;<ex>&lt;video&gt;</ex></ph> elements.
+      <message name="IDS_FLAGS_DISABLE_MEDIA_SOURCE_NAME" desc="Title for the flag to disable the Media Source API on &lt;video&gt; elements.">
+        Disable Media Source API on <ph name="VIDEO_HTML">&lt;video&gt;<ex>&lt;video&gt;</ex></ph> elements.
       </message>
-      <message name="IDS_FLAGS_ENABLE_MEDIA_SOURCE_DESCRIPTION" desc="Description for the flag to enable the Media Source API on &lt;video&gt; elements.">
-        Enable experimental Media Source API on the video elements. This API allows JavaScript to send media data directly to a video element.
+      <message name="IDS_FLAGS_DISABLE_MEDIA_SOURCE_DESCRIPTION" desc="Description for the flag to disable the Media Source API on &lt;video&gt; elements.">
+        Disable experimental Media Source API on the video elements. This API allows JavaScript to send media data directly to a video element.
       </message>
       <message name="IDS_FLAGS_ENABLE_ENCRYPTED_MEDIA_NAME" desc="Title for the flag to enable the Encrypted Media Extensions on &lt;video&gt; elements.">
         Enable Encrypted Media Extensions on <ph name="VIDEO_HTML">&lt;video&gt;<ex>&lt;video&gt;</ex></ph> elements.
@@ -5783,6 +6052,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_ENABLE_POINTER_LOCK_DESCRIPTION" desc="Description for the flag to enable the mouse lock feature.">
         Web pages may capture the mouse pointer and remove it from the user's control. The mouse movement data is directed solely to the web application. Users can escape by pressing the 'Esc' key.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_WEBAUDIO_INPUT_NAME" desc="Title for the flag to enable the webaudio input feature.">
+        Web Audio Input
+      </message>
+      <message name="IDS_FLAGS_ENABLE_WEBAUDIO_INPUT_DESCRIPTION" desc="Title for the flag to enable the webaudio input feature.">
+        Enables live audio input using getUserMedia() and the Web Audio API.
       </message>
       <message name="IDS_FLAGS_DISABLE_WEBSITE_SETTINGS_NAME" desc="Title for the flag to enable the website settings feature.">
         Disable the Website Settings UI
@@ -5950,11 +6225,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ALLOW_NACL_SOCKET_API_DESCRIPTION" desc="Description for the NaCl Socket API feature.">
         Allows applications to use NaCl Socket API. Use only to test NaCl plugins.
       </message>
-      <message name="IDS_FLAGS_NEW_WALLPAPER_UI_NAME" desc="Name of the flag to enable new wallpaper picker UI in ChromeOS.">
-        The new wallpaper picker UI.
+      <message name="IDS_FLAGS_DISABLE_NEW_WALLPAPER_UI_NAME" desc="Name of the flag to disable new wallpaper picker UI in ChromeOS.">
+        Disable wallpaper picker redesign.
       </message>
-      <message name="IDS_FLAGS_NEW_WALLPAPER_UI_DESCRIPTION" desc="Description of the flag to enable new wallpaper picker UI in ChromeOS.">
-        Enables the new wallpaper picker UI.
+      <message name="IDS_FLAGS_DISABLE_NEW_WALLPAPER_UI_DESCRIPTION" desc="Description of the flag to disable new wallpaper picker UI in ChromeOS.">
+        Disables the new wallpaper picker UI.
       </message>
       <message name="IDS_FLAGS_DISABLE_ASH_NOTIFY_NAME" desc="Name of the flag to enable applist v2 in ash.">
         Disable Ash notifications.
@@ -6030,11 +6305,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
         <message name="IDS_FLAGS_DISABLE_BOOT_ANIMATION_DESCRIPTION" desc="Description for the flag to disable wallpaper boot animation (except for OOBE).">
           Disables wallpaper boot animation (except for OOBE case).
         </message>
-        <message name="IDS_FLAGS_ENABLE_WORKSPACE2" desc="Description for the flag to turn on workspace2.">
-          Enable new window stacking.
+        <message name="IDS_FLAGS_DISABLE_WORKSPACE2" desc="Description for the flag to turn off workspace2.">
+          Disable new window stacking.
         </message>
-        <message name="IDS_FLAGS_ENABLE_WORKSPACE2_DESCRIPTION" desc="Description for the flag to turn on workspace2.">
-          Enable new window stacking.
+        <message name="IDS_FLAGS_DISABLE_WORKSPACE2_DESCRIPTION" desc="Description for the flag to turn off workspace2.">
+          Disable new window stacking.
         </message>
       </if>
 
@@ -6055,6 +6330,18 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_DISABLE_ACCELERATED_VIDEO_DECODE_DESCRIPTION" desc="Description for the flag to disable accelerated video decode where available.">
         Disables hardware-accelerated video decode where available.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_WEBKIT_TEXT_SUBPIXEL_POSITIONING_NAME" desc="Name of the flag to enable subpixel text positioning on web pages.">
+        Enable webpage text sub-pixel positioning.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_WEBKIT_TEXT_SUBPIXEL_POSITIONING_DESCRIPTION" desc="Description for the flag to set when subpixel text positioning is enabled on web pages.">
+        Allows text glyphs on web pages to have X positions which aren't snapped to the pixel grid.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_REQUEST_TABLET_SITE_NAME" desc="Name for the flag to set to enable Request Tablet Site in the wrench menu.">
+        Enables the request tablet site option in the settings menu.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_REQUEST_TABLET_SITE_DESCRIPTION" desc="Description for the flag to set to enable Request Tablet Site in the wrench menu.">
+        Allows the user to request tablet site. Web content is often optimized for tablet devices. When this option is selected the user agent string is changed to indicate a tablet device. Web content optimized for tablets is received there after for the current tab.
       </message>
 
       <!-- Crashes -->
@@ -6295,6 +6582,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
         <message name="IDS_3G_NOTIFICATION_MESSAGE" desc="Text of the 3G data notification telling that 3G data is enabled.">
           Google Chrome will use mobile data if you're not connected to another network.
         </message>
+        
+        <!-- Natural scroll Notifications -->
+        <message name="IDS_NATURAL_SCROLL_NOTIFICATION_MESSAGE" desc="Text of the natural scroll notification saying that natural scroll is now default.">
+          Scrolling just changed directions! Simple scrolling lets you use your touchpad the same way you use a touch screen. You can always change it back in settings.
+        </message>        
 
         <!-- about:system strings -->
         <message name="IDS_ABOUT_SYS_TITLE" desc="about:system page title">
@@ -6475,6 +6767,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
 
       <!-- Omnibox -->
       <if expr="not pp_ifdef('use_titlecase')">
+        <message name="IDS_COPY_URL" desc="The copy url menu option in context menu">
+          Copy URL
+        </message>
         <message name="IDS_PASTE_AND_GO" desc="The text label of the Paste And Go menu item when the clipboard contains a URL">
           Pa&amp;ste and go
         </message>
@@ -6483,6 +6778,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
         </message>
       </if>
       <if expr="pp_ifdef('use_titlecase')">
+        <message name="IDS_COPY_URL" desc="In Title Case: The copy url menu option in context menu">
+          Copy URL
+        </message>
         <message name="IDS_PASTE_AND_GO" desc="In Title Case: The text label of the Paste And Go menu item when the clipboard contains a URL">
           Pa&amp;ste and Go
         </message>
@@ -7309,6 +7607,18 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
           Run protected content (computer restart may be required)
         </message>
       </if>
+      <message name="IDS_PPAPI_BROKER_TAB_LABEL" desc="Label for PPAPI broker tab on Content Settings dialog">
+        Unsandboxed plug-in access
+      </message>
+      <message name="IDS_PPAPI_BROKER_ALLOW_RADIO" desc="A radio button in Content Settings dialog to allow all sites to access the PPAPI broker.">
+        Allow all sites to use a plug-in to access my computer
+      </message>
+      <message name="IDS_PPAPI_BROKER_BLOCK_RADIO" desc="A radio button in Content Settings dialog to deny all sites to access the PPAPI broker.">
+        Do not allow any sites to use a plug-in to access my computer
+      </message>
+      <message name="IDS_PPAPI_BROKER_ASK_RADIO" desc="A radio button in Content Settings dialog to allow site to query the permision to access the PPAPI broker.">
+        Ask me when a site wants to use a plug-in to access my computer (recommended)
+      </message>
 
       <message name="IDS_EXCEPTIONS_MANAGE" desc="The label on the button that launches the exceptions management page for a given content type">
         Manage exceptions...
@@ -8487,8 +8797,8 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
       <message name="IDS_ERRORPAGES_SUMMARY_WEBSITE_CANNOT_HANDLE" desc="Summary in the error page when the server returns a 501 or 505.">
         The website is unable to handle the request for <ph name="URL">&lt;strong jscontent="failedUrl"&gt;&lt;/strong&gt;</ph>.
       </message>
-      <message name="IDS_ERRORPAGES_DETAILS_NOT_IMPLEMENTED" desc="The error message displayed when the server returns a 502.">
-        The server does have the functionality needed to fulfill the request.
+      <message name="IDS_ERRORPAGES_DETAILS_NOT_IMPLEMENTED" desc="The error message displayed when the server returns a 501.">
+        The server does not support the functionality required to fulfill the request.
       </message>
       <message name="IDS_ERRORPAGES_DETAILS_HTTP_VERSION_NOT_SUPPORTED" desc="The error message displayed when the server returns a 505.">
         The server does not support the HTTP version used in the request.
@@ -9103,6 +9413,9 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       </message>
       <message name="IDS_ABOUT_PAGE_CHANNEL_DEVELOPMENT" desc="The development option in the channel select.">
         Dev - Unstable
+      </message>
+      <message name="IDS_ABOUT_PAGE_CHANNEL_CHANGED" desc="The message to confirm that channel has changed.">
+        You have switched to the <ph name="CHANNEL_NAME">$1<ex>Stable</ex></ph> channel.
       </message>
 
       <message name="IDS_OPTIONS_STARTUP_GROUP_NAME" desc="The title of the startup group">
@@ -10096,6 +10409,14 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
          desc="Help message for screenreader users, spoken when navigating to a tile grid for the first time.">
         Use left and right arrow keys to navigate.
       </message>
+      <message name="IDS_NEW_TAB_PAGE_SWITCHER_CHANGE_TITLE"
+         desc="Title for accessibility of the 'page-switcher-start' or 'page-switcher-end' button when switching from one type (determined based on title) of card to another">
+        Go to <ph name="PAGE_TITLE">$1<ex>Apps</ex></ph>
+      </message>
+      <message name="IDS_NEW_TAB_PAGE_SWITCHER_SAME_TITLE"
+         desc="Title for accessibility of the 'page-switcher-start' or 'page-switcher-end' button when switching between pages which have the same title">
+        More <ph name="PAGE_TITLE">$1<ex>Apps</ex></ph>
+      </message>
       <if expr="not pp_ifdef('use_titlecase')">
         <message name="IDS_NEW_TAB_APP_OPTIONS"
                  desc="Text for the context menu item that takes the user to the options of an app. (In sentence case.)">
@@ -10559,7 +10880,7 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         </message>
       </if>
       <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION1" desc="SafeBrowsing Malware HTML v2 description, first line">
-        <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> has blocked access to <ph name="HOST_NAME">$2<ex>www.malware.com</ex></ph>.
+        <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> has blocked access to <ph name="HOST_NAME">$2<ex>www.malware.com</ex></ph> for now.
       </message>
       <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION1_SUBRESOURCE" desc="SafeBrowsing Malware HTML v2 description, first line, when the malware is on a subresource of the page">
         <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> has blocked access to this page on <ph name="HOST_NAME">$2<ex>landing.com</ex></ph>.
@@ -10568,34 +10889,34 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION2" desc="Mobile: SafeBrowsing Malware HTML v2 description, second line">
           Even if you have visited this website safely in the past, visiting it now is very likely to infect your mobile device with malware.
         </message>
-        <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION3_SUBRESOURCE" desc="Mobile: SafeBrowsing Malware HTML v2 description, last line, when the malware is on a subresource of the page">
-          Visiting this web page now is very likely to infect your mobile device with malware. Malware is malicious software that causes things like identity theft, financial loss, and permanent file deletion.
+        <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION2_SUBRESOURCE" desc="Mobile: SafeBrowsing Malware HTML v2 description, second line, when the malware is on a subresource of the page">
+          Content from <ph name="ELEMENTS_HOST_NAME">$1<ex>evil.com</ex></ph>, a known malware distributor, has been inserted into this web page. Visiting this page now is very likely to infect your mobile device with malware.
         </message>
       </if>
       <if expr="is_macosx">
         <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION2" desc="Mac: SafeBrowsing Malware HTML v2 description, second line">
           Even if you have visited this website safely in the past, visiting it now is very likely to infect your Mac with malware.
         </message>
-        <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION3_SUBRESOURCE" desc="Mac: SafeBrowsing Malware HTML v2 description, last line, when the malware is on a subresource of the page">
-          Visiting this web page now is very likely to infect your Mac with malware. Malware is malicious software that causes things like identity theft, financial loss, and permanent file deletion.
+        <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION2_SUBRESOURCE" desc="Mac: SafeBrowsing Malware HTML v2 description, second line, when the malware is on a subresource of the page">
+          Content from <ph name="ELEMENTS_HOST_NAME">$1<ex>evil.com</ex></ph>, a known malware distributor, has been inserted into this web page. Visiting this page now is very likely to infect your Mac with malware.
         </message>
       </if>
       <if expr="not pp_ifdef('android') and not is_macosx">
         <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION2" desc="SafeBrowsing Malware HTML v2 description, second line">
           Even if you have visited this website safely in the past, visiting it now is very likely to infect your computer with malware.
         </message>
-        <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION3_SUBRESOURCE" desc="SafeBrowsing Malware HTML v2 description, last line, when the malware is on a subresource of the page">
-          Visiting this web page now is very likely to infect your computer with malware. Malware is malicious software that causes things like identity theft, financial loss, and permanent file deletion.
+        <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION2_SUBRESOURCE" desc="SafeBrowsing Malware HTML v2 description, second line, when the malware is on a subresource of the page">
+          Content from <ph name="ELEMENTS_HOST_NAME">$1<ex>evil.com</ex></ph>, a known malware distributor, has been inserted into this web page. Visiting this page now is very likely to infect your computer with malware.
         </message>
       </if>
-      <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION2_SUBRESOURCE" desc="SafeBrowsing Malware HTML v2 description, second line, when the malware is on a subresource of the page">
-        Content from a known malware distributor has been inserted into this web page, likely as a result of an attack unknown to its owner.
-      </message>
       <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION3" desc="SafeBrowsing Malware HTML v2 description, last line">
         Malware is malicious software that causes things like identity theft, financial loss, and permanent file deletion.
       </message>
       <message name="IDS_SAFE_BROWSING_MALWARE_PROCEED_LINK" desc="SafeBrowsing Malware HTML description, last line proceed link part.">
         proceed anyway
+      </message>
+      <message name="IDS_SAFE_BROWSING_MALWARE_V2_PROCEED_LINK" desc="SafeBrowsing Malware HTML v2 description, advanced section proceed link part.">
+        Proceed at your own risk
       </message>
       <if expr="pp_ifdef('android')">
         <message name="IDS_SAFE_BROWSING_MALWARE_DESCRIPTION4" desc="Mobile: SafeBrowsing Malware HTML description, first line for case of subresource malicious">
@@ -10610,26 +10931,17 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
       <message name="IDS_SAFE_BROWSING_MALWARE_DESCRIPTION5" desc="SafeBrowsing Malware HTML description, detailed information, click button to span.">
         We have already notified <ph name="HOST_NAME">&lt;strong&gt;$1<ex>evil.com</ex>&lt;/strong&gt;</ph> that we found malware on the site. For more about the problems found on <ph name="HOST_NAME2">$2<ex>www.malware.com</ex></ph>, visit the Google <ph name="DIAGNOSTIC_PAGE">$3<ex>diagnostic page</ex></ph>.
       </message>
-      <message name="IDS_SAFE_BROWSING_MALWARE_V2_SEE_MORE" desc="SafeBrowsing Malware HTML v2 see more dropdown header text">
-        More
-      </message>
-      <message name="IDS_SAFE_BROWSING_MALWARE_V2_SEE_LESS" desc="SafeBrowsing Malware HTML v2 see less dropdown header text">
-        Less
-      </message>
-      <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION4" desc="SafeBrowsing Malware HTML v2 more info text, and proceed link">
-        You should not visit the website ahead even if you trust it or have anti-virus software. Legitimate websites are often compromised without the knowledge of their owners, but the problems are usually resolved quickly. Please check again tomorrow.
-        <ph name="BEGIN_SPAN">&lt;span id="proceed-span" hidden&gt;</ph>If you <ph name="BEGIN_LINK">&lt;a id="proceed" href="#"&gt;</ph>proceed against Google's recommendation<ph name="END_LINK">&lt;/a&gt;</ph>, you will most likely become a victim of malware.<ph name="END_SPAN">&lt;/span&gt;</ph>
-      </message>
-      <message name="IDS_SAFE_BROWSING_MALWARE_V2_DESCRIPTION4_SUBRESOURCE" desc="SafeBrowsing Malware HTML v2 more info text, and proceed link, when the malware is on a subresource of the page">
-        The page ahead has been temporarily compromised to import content from the malware distributor <ph name="ELEMENTS_HOST_NAME">$1<ex>evil.com</ex></ph> (<ph name="BEGIN_LINK">&lt;a id="show-diagnostic-link" href="#"&gt;</ph>info<ph name="END_LINK">&lt;/a&gt;</ph>).
-        <ph name="BEGIN_SPAN">&lt;span id="proceed-span" hidden&gt;</ph>If you <ph name="BEGIN_LINK2">&lt;a id="proceed" href="#"&gt;</ph>proceed against Google's recommendation<ph name="END_LINK2">&lt;/a&gt;</ph>, you'll most likely become a victim of malware even if you have anti-virus software.<ph name="END_SPAN">&lt;/span&gt;</ph>
-        Please check again tomorrow.
+      <message name="IDS_SAFE_BROWSING_MALWARE_V2_SEE_MORE" desc="SafeBrowsing Malware HTML v2 advanced section see more text">
+        Advanced
       </message>
       <message name="IDS_SAFE_BROWSING_MALWARE_V2_LEARN_MORE" desc="SafeBrowsing Malware HTML v2 learn more link text">
-        Learn More about Malware
+        Learn more
       </message>
       <message name="IDS_SAFE_BROWSING_MALWARE_V2_DETAILS" desc="SafeBrowsing Malware HTML v2 more details link text">
-        More Details about Problems on this Website
+        Details about problems on this website
+      </message>
+      <message name="IDS_SAFE_BROWSING_MALWARE_V2_DETAILS_SUBRESOURCE" desc="SafeBrowsing Malware HTML v2 more details link text, when the malware is on a subresource of the page">
+        Details about <ph name="ELEMENTS_HOST_NAME">$1<ex>evil.com</ex></ph>
       </message>
       <message name="IDS_SAFE_BROWSING_MALWARE_BACK_BUTTON" desc="SafeBrowsing Malware, back button">
         Go back
@@ -10641,7 +10953,7 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         Safe Browsing privacy policies
       </message>
       <message name="IDS_SAFE_BROWSING_PRIVACY_POLICY_PAGE_V2" desc="Label for the link to SafeBrowsing Privacy policy page v2">
-        Privacy Policy
+        Privacy policy
       </message>
       <message name="IDS_SAFE_BROWSING_PRIVACY_POLICY_URL" translateable="false">
         http://www.google.com/chrome/intl/[GRITLANGCODE]/privacy.html
@@ -10650,7 +10962,7 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         Help improve detection of malware by sending additional data to Google about sites on which you see this warning. This data will be handled in accordance with the <ph name="PRIVACY_PAGE_LINK">$1</ph>.
       </message>
       <message name="IDS_SAFE_BROWSING_MALWARE_V2_REPORTING_AGREE" desc="SafeBrowsing Malware v2 Details label next to checkbox">
-        Report back to Google to help improve malware detection. <ph name="PRIVACY_PAGE_LINK">$1</ph>.
+        Help detect malware by sending data to Google about sites on which you see this warning. <ph name="PRIVACY_PAGE_LINK">$1</ph>
       </message>
       <message name="IDS_SAFE_BROWSING_PHISHING_TITLE" desc="SafeBrowsing Phishing HTML title">
         Phishing Detected!
@@ -11198,7 +11510,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Slide view
       </message>
       <message name="IDS_FILE_BROWSER_GALLERY_SLIDESHOW" desc="In the Gallery, the title on the button that starts the slide show.">
-        Slide show
+        Slideshow
+      </message>
+      <message name="IDS_FILE_BROWSER_GALLERY_SLIDESHOW_PAUSED" desc="In the Gallery, the message shown when the slideshow is paused.">
+        Paused. Press "Esc" to exit, any other key to resume.
       </message>
       <message name="IDS_FILE_BROWSER_GALLERY_DELETE" desc="In the Gallery, the title on the button that deletes selected images.">
         Delete
@@ -11418,6 +11733,13 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_MOVE_UNEXPECTED_ERROR" desc="File Manager error message.">
         Move failed, unexpected error: $1
+      </message>
+
+      <message name="IDS_FILE_BROWSER_DELETED_MESSAGE_PLURAL" desc="Message informing about deleting multiple items.">
+        Deleted <ph name="COUNT">$1<ex>10</ex></ph> items
+      </message>
+      <message name="IDS_FILE_BROWSER_DELETED_MESSAGE" desc="Message informing about deleting single item.">
+        Deleted "<ph name="FILENAME">$1<ex>photo.jpg</ex></ph>"
       </message>
 
       <message name="IDS_FILE_BROWSER_CANCEL_LABEL" desc="Cancel label.">
@@ -12880,6 +13202,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
         <message name="IDS_COPY_MAC" desc="The Mac menu item for copy in the edit menu.">
           Copy
         </message>
+        <message name="IDS_COPY_URL_MAC" desc="The Mac menu item for copy url in the context menu.">
+          Copy URL
+        </message>
         <message name="IDS_PASTE_MAC" desc="The Mac menu item for paste in the edit menu.">
           Paste
         </message>
@@ -13200,6 +13525,17 @@ Some features may be unavailable.  Please check that the profile exists and you 
     </message>
     <message name="IDS_REGISTER_PROTOCOL_HANDLER_TOOLTIP" desc="Location bar icon tooltip text when a page wants to use registerProtocolHandler.">
       This page wants to install a service handler.
+    </message>
+
+    <!-- PPAPI broker -->
+    <message name="IDS_PPAPI_BROKER_INFOBAR_QUESTION" desc="Question asked on the infobar when a site wan">
+      <ph name="plugin">$1<ex>Flash</ex></ph> on <ph name="site">$2<ex>google.com</ex></ph> wants to access your computer.
+    </message>
+    <message name="IDS_PPAPI_BROKER_ALLOW_BUTTON" desc="A button in the PPAPI broker infobar for allowing access to the PPAPI broker for a given site.">
+      Allow
+    </message>
+    <message name="IDS_PPAPI_BROKER_DENY_BUTTON" desc="A button in the PPAPI broker infobar for allowing access to the PPAPI broker for a given site.">
+      Deny
     </message>
 
     <!-- ProcessSingleton -->
@@ -15344,10 +15680,10 @@ Press any key to continue exploring.
         Touchpad and mouse settings
       </message>
       <message name="IDS_OPTIONS_POINTER_OVERLAY_SECTION_TITLE_TOUCHPAD" desc="The title for 'Touchpad' section of the Pointer Settings overlay.">
-        Touchpad:
+        Touchpad
       </message>
       <message name="IDS_OPTIONS_POINTER_OVERLAY_SECTION_TITLE_MOUSE" desc="The title for 'Mouse' section of the Pointer Settings overlay.">
-        Mouse:
+        Mouse
       </message>
       <message name="IDS_STATUSBAR_ACCESSIBILITY_ENABLED" desc="The tooltip for the status bar button to indicate that accessibility is enabled.">
         Accessibility features are enabled.
@@ -17025,9 +17361,6 @@ Battery full
     <message name="IDS_WEB_INTENTS_ACTION_VIEW" desc="Question asking the user to pick a service for the 'viewing' action.">
       Which service should be used for viewing?
     </message>
-    <message name="IDS_WEB_INTENTS_ACTION_PICK" desc="Question asking the user to pick a service for the 'pick' action.">
-      Which service should be used for picking?
-    </message>
     <message name="IDS_WEB_INTENTS_ACTION_SUBSCRIBE" desc="Question asking the user to pick a service for the 'subscribe' action.">
       Which service should be used for subscribing?
     </message>
@@ -17359,6 +17692,14 @@ Battery full
     <message name="IDS_METRO_DOWNLOAD_COMPLETE_NOTIFICATION_TITLE"
             desc="Title for notification displayed when a download request is completed">
       Download complete notification
+    </message>
+	<message name="IDS_WIN8_DESKTOP_RESTART"
+             desc="Text for the menu item to restart chrome in desktop. Aplies to Windows 8 only">
+      Relaunch Chrome in desktop mode
+    </message>
+	<message name="IDS_WIN8_METRO_RESTART"
+             desc="Text for the menu item to restart chrome in metro. Aplies to Windows 8 only">
+      Relaunch Chrome in Windows 8 mode
     </message>
 
     <!-- Media Galleries. -->

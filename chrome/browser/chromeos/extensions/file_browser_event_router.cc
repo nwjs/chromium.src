@@ -13,9 +13,9 @@
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/extensions/file_browser_notifications.h"
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/drive_system_service.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/login/base_login_display_host.h"
 #include "chrome/browser/chromeos/login/screen_locker.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
@@ -172,7 +172,7 @@ bool FileBrowserEventRouter::AddFileWatch(
   // directory from there in order to be able to pair these events with
   // their change notifications.
   if (gdata::util::GetSpecialRemoteRootPath().IsParent(watch_path)) {
-    watch_path = gdata::util::ExtractGDataPath(watch_path);
+    watch_path = gdata::util::ExtractDrivePath(watch_path);
     is_remote_watch = true;
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
@@ -208,7 +208,7 @@ void FileBrowserEventRouter::RemoveFileWatch(
   // directory from there in order to be able to pair these events with
   // their change notifications.
   if (gdata::util::GetSpecialRemoteRootPath().IsParent(watch_path)) {
-    watch_path = gdata::util::ExtractGDataPath(watch_path);
+    watch_path = gdata::util::ExtractDrivePath(watch_path);
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(&FileBrowserEventRouter::HandleRemoteUpdateRequestOnUIThread,
@@ -253,7 +253,7 @@ void FileBrowserEventRouter::OnAuthenticated(
     error_code = chromeos::MOUNT_ERROR_NOT_AUTHENTICATED;
 
   // Pass back the gdata mount point path as source path.
-  const std::string& gdata_path = gdata::util::GetGDataMountPointPathAsString();
+  const std::string& gdata_path = gdata::util::GetDriveMountPointPathAsString();
   DiskMountManager::MountPointInfo mount_info(
       gdata_path,
       gdata_path,
@@ -392,7 +392,7 @@ void FileBrowserEventRouter::Observe(
     // make it available.
     if (*pref_name == prefs::kExternalStorageDisabled &&
         profile_->GetPrefs()->GetBoolean(prefs::kExternalStorageDisabled)) {
-      DiskMountManager *manager = DiskMountManager::GetInstance();
+      DiskMountManager* manager = DiskMountManager::GetInstance();
       DiskMountManager::MountPointMap mounts(manager->mount_points());
       for (DiskMountManager::MountPointMap::const_iterator it = mounts.begin();
            it != mounts.end(); ++it) {
@@ -459,7 +459,7 @@ void FileBrowserEventRouter::OnFileSystemBeingUnmounted() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // Raise a MountCompleted event to notify the File Manager.
-  const std::string& gdata_path = gdata::util::GetGDataMountPointPathAsString();
+  const std::string& gdata_path = gdata::util::GetDriveMountPointPathAsString();
   DiskMountManager::MountPointInfo mount_info(
       gdata_path,
       gdata_path,
@@ -473,7 +473,7 @@ void FileBrowserEventRouter::OnAuthenticationFailed() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // Raise a MountCompleted event to notify the File Manager.
-  const std::string& gdata_path = gdata::util::GetGDataMountPointPathAsString();
+  const std::string& gdata_path = gdata::util::GetDriveMountPointPathAsString();
   DiskMountManager::MountPointInfo mount_info(
       gdata_path,
       gdata_path,
@@ -861,7 +861,7 @@ FileBrowserEventRouterFactory::BuildServiceInstanceFor(Profile* profile) const {
       new FileBrowserEventRouter(profile));
 }
 
-bool FileBrowserEventRouterFactory::ServiceHasOwnInstanceInIncognito() {
+bool FileBrowserEventRouterFactory::ServiceHasOwnInstanceInIncognito() const {
   // Explicitly and always allow this router in guest login mode.   see
   // chrome/browser/profiles/profile_keyed_base_factory.h comment
   // for the details.

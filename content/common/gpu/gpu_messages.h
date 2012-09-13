@@ -12,6 +12,7 @@
 #include "content/common/content_export.h"
 #include "content/common/gpu/gpu_memory_allocation.h"
 #include "content/common/gpu/gpu_process_launch_causes.h"
+#include "content/common/gpu/gpu_rendering_stats.h"
 #include "content/public/common/common_param_traits.h"
 #include "content/public/common/gpu_info.h"
 #include "content/public/common/gpu_memory_stats.h"
@@ -58,9 +59,8 @@ IPC_STRUCT_BEGIN(GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params)
   IPC_STRUCT_MEMBER(int32, surface_id)
   IPC_STRUCT_MEMBER(uint64, surface_handle)
   IPC_STRUCT_MEMBER(int32, route_id)
-#if defined(OS_WIN)
   IPC_STRUCT_MEMBER(gfx::Size, size)
-#elif defined(OS_MACOSX)
+#if defined(OS_MACOSX)
   IPC_STRUCT_MEMBER(gfx::PluginWindowHandle, window)
 #endif
   IPC_STRUCT_MEMBER(uint32, protection_state_id)
@@ -158,6 +158,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::GPUInfo)
   IPC_STRUCT_TRAITS_MEMBER(gpu_accessible)
   IPC_STRUCT_TRAITS_MEMBER(performance_stats)
   IPC_STRUCT_TRAITS_MEMBER(software_rendering)
+  IPC_STRUCT_TRAITS_MEMBER(sandboxed)
 #if defined(OS_WIN)
   IPC_STRUCT_TRAITS_MEMBER(dx_diagnostics)
 #endif
@@ -193,6 +194,15 @@ IPC_ENUM_TRAITS(gfx::GpuPreference)
 IPC_ENUM_TRAITS(gpu::error::ContextLostReason)
 
 IPC_ENUM_TRAITS(media::VideoCodecProfile)
+
+IPC_STRUCT_TRAITS_BEGIN(content::GpuRenderingStats)
+  IPC_STRUCT_TRAITS_MEMBER(global_texture_upload_count)
+  IPC_STRUCT_TRAITS_MEMBER(global_total_texture_upload_time)
+  IPC_STRUCT_TRAITS_MEMBER(texture_upload_count)
+  IPC_STRUCT_TRAITS_MEMBER(total_texture_upload_time)
+  IPC_STRUCT_TRAITS_MEMBER(global_total_processing_commands_time)
+  IPC_STRUCT_TRAITS_MEMBER(total_processing_commands_time)
+IPC_STRUCT_TRAITS_END()
 
 //------------------------------------------------------------------------------
 // GPU Messages
@@ -378,7 +388,14 @@ IPC_MESSAGE_CONTROL4(GpuChannelMsg_EstablishStreamTexture,
                      /* type */
                      int32, /* primary_id */
                      int32 /* secondary_id */)
+#endif
 
+// Tells the GPU process to collect rendering stats.
+IPC_SYNC_MESSAGE_CONTROL1_1(GpuChannelMsg_CollectRenderingStatsForSurface,
+                            int32 /* surface_id */,
+                            content::GpuRenderingStats /* stats */)
+
+#if defined(OS_ANDROID)
 //------------------------------------------------------------------------------
 // Stream Texture Messages
 // Inform the renderer that a new frame is available.

@@ -9,12 +9,12 @@
 #include <string>
 #include <vector>
 
-#include "base/callback.h"
+#include "base/callback_forward.h"
 #include "base/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time.h"
-#include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
+#include "chrome/browser/google_apis/gdata_errorcode.h"
 
 namespace base {
 class SequencedTaskRunner;
@@ -167,12 +167,20 @@ class DriveResourceMetadata {
                            scoped_ptr<DocumentEntry> doc_entry,
                            const FileMoveCallback& callback);
 
-  // Moves |entry| to |directory_path| asynchronously. Removes entry from
-  // previous parent. Must be called on UI thread. |callback| is called on the
-  // UI thread. |callback| must not be null.
-  void MoveEntryToDirectory(const FilePath& directory_path,
-                            DriveEntry* entry,
+  // Moves entry specified by |file_path| to the directory specified by
+  // |directory_path| and calls the callback asynchronously. Removes the entry
+  // from the previous parent.
+  // |callback| must not be null.
+  void MoveEntryToDirectory(const FilePath& file_path,
+                            const FilePath& directory_path,
                             const FileMoveCallback& callback);
+
+  // Renames entry specified by |file_path| with the new name |new_name| and
+  // calls |callback| asynchronously.
+  // |callback| must not be null.
+  void RenameEntry(const FilePath& file_path,
+                   const FilePath::StringType& new_name,
+                   const FileMoveCallback& callback);
 
   // Removes entry with |resource_id| from its parent. Calls |callback| with the
   // path of the parent directory. |callback| must not be null.
@@ -184,10 +192,6 @@ class DriveResourceMetadata {
 
   // Removes the entry from resource map.
   void RemoveEntryFromResourceMap(const std::string& resource_id);
-
-  // Searches for |file_path| synchronously.
-  // TODO(satorux): Replace this with an async version crbug.com/137160
-  DriveEntry* FindEntryByPathSync(const FilePath& file_path);
 
   // Returns the DriveEntry* with the corresponding |resource_id|.
   // TODO(satorux): Remove this in favor of GetEntryInfoByResourceId()
@@ -246,7 +250,8 @@ class DriveResourceMetadata {
   void SerializeToString(std::string* serialized_proto) const;
   bool ParseFromString(const std::string& serialized_proto);
 
-  // Restores from and saves to database.
+  // Restores from and saves to database, calling |callback| asynchronously.
+  // |callback| must not be null.
   void InitFromDB(const FilePath& db_path,
                   base::SequencedTaskRunner* blocking_task_runner,
                   const FileOperationCallback& callback);
@@ -255,6 +260,7 @@ class DriveResourceMetadata {
  private:
   // Initializes the resource map using serialized_resources fetched from the
   // database.
+  // |callback| must not be null.
   void InitResourceMap(CreateDBParams* create_params,
                        const FileOperationCallback& callback);
 
@@ -283,6 +289,10 @@ class DriveResourceMetadata {
       scoped_ptr<EntryInfoPairResult> result,
       DriveFileError error,
       scoped_ptr<DriveEntryProto> entry_proto);
+
+  // Searches for |file_path| synchronously.
+  // TODO(satorux): Replace this with an async version crbug.com/137160
+  DriveEntry* FindEntryByPathSync(const FilePath& file_path);
 
   // Private data members.
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;

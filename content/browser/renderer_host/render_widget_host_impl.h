@@ -7,6 +7,7 @@
 
 #include <deque>
 #include <map>
+#include <queue>
 #include <string>
 #include <vector>
 
@@ -44,6 +45,12 @@ class WebMouseEvent;
 struct WebCompositionUnderline;
 struct WebScreenInfo;
 }
+
+#if defined(OS_ANDROID)
+namespace WebKit {
+class WebLayer;
+}
+#endif
 
 namespace content {
 class BackingStore;
@@ -396,6 +403,11 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
     allow_privileged_mouse_lock_ = allow;
   }
 
+#if defined(OS_ANDROID)
+  virtual void AttachLayer(WebKit::WebLayer* layer) {}
+  virtual void RemoveLayer(WebKit::WebLayer* layer) {}
+#endif
+
  protected:
   virtual RenderWidgetHostImpl* AsRenderWidgetHostImpl() OVERRIDE;
 
@@ -479,6 +491,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // This value indicates how long to wait before we consider a renderer hung.
   int hung_renderer_delay_ms_;
 
+  std::queue<WebKit::WebInputEvent::Type> in_process_event_types_;
+
  private:
   friend class ::MockRenderWidgetHost;
 
@@ -505,6 +519,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void OnCompositorSurfaceBuffersSwapped(int32 surface_id,
                                          uint64 surface_handle,
                                          int32 route_id,
+                                         const gfx::Size& size,
                                          int32 gpu_process_host_id);
   void OnMsgUpdateRect(const ViewHostMsg_UpdateRect_Params& params);
   void OnMsgUpdateIsDelayed();

@@ -16,7 +16,7 @@
 #include "ui/gfx/display.h"
 
 namespace ash {
-namespace test {
+namespace internal {
 
 using std::vector;
 using std::string;
@@ -42,8 +42,9 @@ class MultiDisplayManagerTest : public test::AshTestBase,
     AshTestBase::TearDown();
   }
 
-  aura::DisplayManager* display_manager() {
-    return aura::Env::GetInstance()->display_manager();
+  MultiDisplayManager* display_manager() {
+    return static_cast<MultiDisplayManager*>(
+        aura::Env::GetInstance()->display_manager());
   }
   const vector<gfx::Display>& changed() const { return changed_; }
   const vector<gfx::Display>& added() const { return added_; }
@@ -195,37 +196,30 @@ TEST_F(MultiDisplayManagerTest, MAYBE_NativeDisplayTest) {
 TEST_F(MultiDisplayManagerTest, MAYBE_EmulatorTest) {
   EXPECT_EQ(1U, display_manager()->GetNumDisplays());
 
-  internal::MultiDisplayManager::AddRemoveDisplay();
+  MultiDisplayManager::CycleDisplay();
   // Update primary and add seconary.
   EXPECT_EQ(2U, display_manager()->GetNumDisplays());
-  EXPECT_EQ("1 1 0", GetCountSummary());
+  EXPECT_EQ("0 1 0", GetCountSummary());
   reset();
 
-  internal::MultiDisplayManager::CycleDisplay();
-  EXPECT_EQ(2U, display_manager()->GetNumDisplays());
-  // Observer gets called twice in this mode because
-  // it gets notified both from |OnNativeDisplayChagned|
-  // and from |RootWindowObserver|, which is the consequence of
-  // |SetHostSize()|.
-  EXPECT_EQ("4 0 0", GetCountSummary());
-  reset();
-
-  internal::MultiDisplayManager::AddRemoveDisplay();
+  MultiDisplayManager::CycleDisplay();
   EXPECT_EQ(1U, display_manager()->GetNumDisplays());
   EXPECT_EQ("0 0 1", GetCountSummary());
   reset();
 
-  internal::MultiDisplayManager::CycleDisplay();
-  EXPECT_EQ(1U, display_manager()->GetNumDisplays());
-  EXPECT_EQ("0 0 0", GetCountSummary());
+  MultiDisplayManager::CycleDisplay();
+  EXPECT_EQ(2U, display_manager()->GetNumDisplays());
+  EXPECT_EQ("0 1 0", GetCountSummary());
   reset();
 }
 
 // TODO(oshima): Device scale factor is supported on chromeos only for now.
 #if defined(OS_CHROMEOS)
 #define MAYBE_TestDeviceScaleOnlyChange TestDeviceScaleOnlyChange
+#define MAYBE_TestNativeDisplaysChanged TestNativeDisplaysChanged
 #else
 #define MAYBE_TestDeviceScaleOnlyChange DISABLED_TestDeviceScaleOnlyChange
+#define MAYBE_TestNativeDisplaysChanged DISABLED_TestNativeDisplaysChanged
 #endif
 
 TEST_F(MultiDisplayManagerTest, MAYBE_TestDeviceScaleOnlyChange) {
@@ -243,5 +237,69 @@ TEST_F(MultiDisplayManagerTest, MAYBE_TestDeviceScaleOnlyChange) {
   aura::DisplayManager::set_use_fullscreen_host_window(false);
 }
 
-}  // namespace test
+TEST_F(MultiDisplayManagerTest, MAYBE_TestNativeDisplaysChanged) {
+  const int64 internal_display_id =
+      display_manager()->EnableInternalDisplayForTest();
+  const gfx::Display native_display(internal_display_id,
+                                    gfx::Rect(0, 0, 500, 500));
+
+  EXPECT_EQ(1U, display_manager()->GetNumDisplays());
+  std::string default_bounds =
+      display_manager()->GetDisplayAt(0)->bounds().ToString();
+
+  std::vector<gfx::Display> displays;
+  // Primary disconnected.
+  display_manager()->OnNativeDisplaysChanged(displays);
+  EXPECT_EQ(1U, display_manager()->GetNumDisplays());
+  EXPECT_EQ(default_bounds,
+            display_manager()->GetDisplayAt(0)->bounds().ToString());
+
+  // External connected while primary was disconnected.
+  displays.push_back(gfx::Display(10, gfx::Rect(1, 1, 100, 100)));
+  display_manager()->OnNativeDisplaysChanged(displays);
+  EXPECT_EQ(2U, display_manager()->GetNumDisplays());
+  EXPECT_EQ(default_bounds,
+            display_manager()->GetDisplayAt(0)->bounds().ToString());
+  EXPECT_EQ("1,1 100x100",
+            display_manager()->GetDisplayAt(1)->bounds_in_pixel().ToString());
+
+  // Primary connected, with different bounds.
+  displays.clear();
+  displays.push_back(native_display);
+  displays.push_back(gfx::Display(10, gfx::Rect(1, 1, 100, 100)));
+  display_manager()->OnNativeDisplaysChanged(displays);
+  EXPECT_EQ(2U, display_manager()->GetNumDisplays());
+  EXPECT_EQ("0,0 500x500",
+            display_manager()->GetDisplayAt(0)->bounds().ToString());
+  EXPECT_EQ("1,1 100x100",
+            display_manager()->GetDisplayAt(1)->bounds_in_pixel().ToString());
+
+  // Turn off primary.
+  displays.clear();
+  displays.push_back(gfx::Display(10, gfx::Rect(1, 1, 100, 100)));
+  display_manager()->OnNativeDisplaysChanged(displays);
+  EXPECT_EQ(2U, display_manager()->GetNumDisplays());
+  EXPECT_EQ("0,0 500x500",
+            display_manager()->GetDisplayAt(0)->bounds().ToString());
+  EXPECT_EQ("1,1 100x100",
+            display_manager()->GetDisplayAt(1)->bounds_in_pixel().ToString());
+
+  // Emulate suspend.
+  displays.clear();
+  display_manager()->OnNativeDisplaysChanged(displays);
+  EXPECT_EQ(2U, display_manager()->GetNumDisplays());
+  EXPECT_EQ("0,0 500x500",
+            display_manager()->GetDisplayAt(0)->bounds().ToString());
+  EXPECT_EQ("1,1 100x100",
+            display_manager()->GetDisplayAt(1)->bounds_in_pixel().ToString());
+
+  // External display has disconnected then resumed.
+  displays.push_back(native_display);
+  display_manager()->OnNativeDisplaysChanged(displays);
+  EXPECT_EQ(1U, display_manager()->GetNumDisplays());
+  EXPECT_EQ("0,0 500x500",
+            display_manager()->GetDisplayAt(0)->bounds().ToString());
+}
+
+}  // namespace internal
 }  // namespace ash

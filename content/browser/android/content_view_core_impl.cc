@@ -34,8 +34,8 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/android/WebInputEventFactory.h"
 #include "ui/gfx/android/java_bitmap.h"
-#include "webkit/glue/user_agent.h"
 #include "webkit/glue/webmenuitem.h"
+#include "webkit/user_agent/user_agent_util.h"
 
 using base::android::AttachCurrentThread;
 using base::android::ConvertJavaStringToUTF16;
@@ -68,29 +68,25 @@ struct ContentViewCoreImpl::JavaObject {
 
 };
 
-// ----------------------------------------------------------------------------
-// Implementation of static ContentViewCore public interfaces
-
-ContentViewCore* ContentViewCore::Create(JNIEnv* env, jobject obj,
-                                         WebContents* web_contents) {
-  return new ContentViewCoreImpl(env, obj, web_contents);
-}
-
 ContentViewCore* ContentViewCore::GetNativeContentViewCore(JNIEnv* env,
                                                            jobject obj) {
   return reinterpret_cast<ContentViewCore*>(
       env->GetIntField(obj, g_native_content_view));
 }
 
-// ----------------------------------------------------------------------------
 
 ContentViewCoreImpl::ContentViewCoreImpl(JNIEnv* env, jobject obj,
+                                         bool hardware_accelerated,
+                                         bool take_ownership_of_web_contents,
                                          WebContents* web_contents)
     : java_ref_(env, obj),
       web_contents_(static_cast<WebContentsImpl*>(web_contents)),
+      owns_web_contents_(take_ownership_of_web_contents),
       tab_crashed_(false) {
   DCHECK(web_contents) <<
       "A ContentViewCoreImpl should be created with a valid WebContents.";
+
+  // TODO(leandrogracia): make use of the hardware_accelerated argument.
 
   InitJNI(env, obj);
 
@@ -274,20 +270,19 @@ jboolean ContentViewCoreImpl::TouchEvent(JNIEnv* env,
   return false;
 }
 
-void ContentViewCoreImpl::SendGestureEvent(WebInputEvent::Type type,
-                                           long time_ms, int x, int y,
-                                           float dx, float dy,
-                                           bool disambiguation_popup_tap) {
-  WebKit::WebGestureEvent event = WebInputEventFactory::gestureEvent(
-      type, time_ms / 1000.0, x, y, dx, dy, 0);
-
+int ContentViewCoreImpl::GetTouchPadding()
+{
   // TODO(trchen): derive a proper padding value from device dpi
-  const int touchPadding = 48;
-  if ((type == WebInputEvent::GestureTap
-      || type == WebInputEvent::GestureLongPress)
-      && !disambiguation_popup_tap)
-    event.boundingBox = WebKit::WebRect(x - touchPadding, y - touchPadding,
-                                        2 * touchPadding, 2 * touchPadding);
+  return 48;
+}
+
+void ContentViewCoreImpl::SendGestureEvent(WebInputEvent::Type type,
+                                           long time_ms, int x, int y) {
+  WebKit::WebGestureEvent event = WebInputEventFactory::gestureEvent(
+      type, time_ms / 1000.0, x, y, 0, 0, 0);
+
+  if (type == WebInputEvent::GestureFlingStart)
+    event.data.flingStart.sourceDevice = WebKit::WebGestureEvent::Touchscreen;
 
   if (GetRenderWidgetHostViewAndroid())
     GetRenderWidgetHostViewAndroid()->GestureEvent(event);
@@ -296,75 +291,113 @@ void ContentViewCoreImpl::SendGestureEvent(WebInputEvent::Type type,
 void ContentViewCoreImpl::ScrollBegin(JNIEnv* env, jobject obj, jlong time_ms,
                                       jint x, jint y) {
   SendGestureEvent(
-      WebInputEvent::GestureScrollBegin, time_ms, x, y, 0, 0, false);
+      WebInputEvent::GestureScrollBegin, time_ms, x, y);
 }
 
 void ContentViewCoreImpl::ScrollEnd(JNIEnv* env, jobject obj, jlong time_ms) {
-  SendGestureEvent(WebInputEvent::GestureScrollEnd, time_ms, 0, 0, 0, 0, false);
+  SendGestureEvent(WebInputEvent::GestureScrollEnd, time_ms, 0, 0);
 }
 
 void ContentViewCoreImpl::ScrollBy(JNIEnv* env, jobject obj, jlong time_ms,
                                    jint x, jint y, jint dx, jint dy) {
-  SendGestureEvent(
-      WebInputEvent::GestureScrollUpdate, time_ms, x, y, -dx, -dy, false);
+  // TODO(rbyers): Stop setting generic deltaX/deltaY, crbug.com/143237
+  WebKit::WebGestureEvent event = WebInputEventFactory::gestureEvent(
+      WebInputEvent::GestureScrollUpdate, time_ms / 1000.0, x, y, -dx, -dy, 0);
+
+  event.data.scrollUpdate.deltaX = -dx;
+  event.data.scrollUpdate.deltaY = -dy;
+
+  if (GetRenderWidgetHostViewAndroid())
+    GetRenderWidgetHostViewAndroid()->GestureEvent(event);
 }
 
 void ContentViewCoreImpl::FlingStart(JNIEnv* env, jobject obj, jlong time_ms,
                                      jint x, jint y, jint vx, jint vy) {
-  SendGestureEvent(
-      WebInputEvent::GestureFlingStart, time_ms, x, y, vx, vy, false);
+  WebKit::WebGestureEvent event = WebInputEventFactory::gestureEvent(
+      WebInputEvent::GestureFlingStart, time_ms / 1000.0, x, y, vx, vy, 0);
+  event.data.flingStart.velocityX = vx;
+  event.data.flingStart.velocityY = vy;
+
+  if (GetRenderWidgetHostViewAndroid())
+    GetRenderWidgetHostViewAndroid()->GestureEvent(event);
 }
 
 void ContentViewCoreImpl::FlingCancel(JNIEnv* env, jobject obj, jlong time_ms) {
-  SendGestureEvent(
-      WebInputEvent::GestureFlingCancel, time_ms, 0, 0, 0, 0, false);
+  SendGestureEvent(WebInputEvent::GestureFlingCancel, time_ms, 0, 0);
 }
 
 void ContentViewCoreImpl::SingleTap(JNIEnv* env, jobject obj, jlong time_ms,
                                     jint x, jint y,
                                     jboolean disambiguation_popup_tap) {
-  SendGestureEvent(
-      WebInputEvent::GestureTap, time_ms, x, y, 0, 0, disambiguation_popup_tap);
+  WebKit::WebGestureEvent event = WebInputEventFactory::gestureEvent(
+      WebInputEvent::GestureTap, time_ms / 1000.0, x, y, 0, 0, 0);
+
+  event.data.tap.tapCount = 1;
+  if (!disambiguation_popup_tap) {
+    int touchPadding = GetTouchPadding();
+    event.data.tap.width = touchPadding;
+    event.data.tap.height = touchPadding;
+  }
+
+  if (GetRenderWidgetHostViewAndroid())
+    GetRenderWidgetHostViewAndroid()->GestureEvent(event);
 }
 
 void ContentViewCoreImpl::ShowPressState(JNIEnv* env, jobject obj,
                                          jlong time_ms,
                                          jint x, jint y) {
-  SendGestureEvent(WebInputEvent::GestureTapDown, time_ms, x, y, 0, 0, false);
+  SendGestureEvent(WebInputEvent::GestureTapDown, time_ms, x, y);
 }
 
 void ContentViewCoreImpl::DoubleTap(JNIEnv* env, jobject obj, jlong time_ms,
                                     jint x, jint y) {
-  SendGestureEvent(WebInputEvent::GestureDoubleTap, time_ms, x, y, 0, 0, false);
+  SendGestureEvent(WebInputEvent::GestureDoubleTap, time_ms, x, y);
 }
 
 void ContentViewCoreImpl::LongPress(JNIEnv* env, jobject obj, jlong time_ms,
                                     jint x, jint y,
                                     jboolean disambiguation_popup_tap) {
-  SendGestureEvent(
-      WebInputEvent::GestureLongPress, time_ms, x, y, 0, 0,
-      disambiguation_popup_tap);
+  WebKit::WebGestureEvent event = WebInputEventFactory::gestureEvent(
+      WebInputEvent::GestureLongPress, time_ms / 1000.0, x, y, 0, 0, 0);
+
+  if (!disambiguation_popup_tap) {
+    int touchPadding = GetTouchPadding();
+    event.data.longPress.width = touchPadding;
+    event.data.longPress.height = touchPadding;
+  }
+
+  if (GetRenderWidgetHostViewAndroid())
+    GetRenderWidgetHostViewAndroid()->GestureEvent(event);
 }
 
 void ContentViewCoreImpl::PinchBegin(JNIEnv* env, jobject obj, jlong time_ms,
                                      jint x, jint y) {
   SendGestureEvent(
-      WebInputEvent::GesturePinchBegin, time_ms, x, y, 0, 0, false);
+      WebInputEvent::GesturePinchBegin, time_ms, x, y);
 }
 
 void ContentViewCoreImpl::PinchEnd(JNIEnv* env, jobject obj, jlong time_ms) {
-  SendGestureEvent(WebInputEvent::GesturePinchEnd, time_ms, 0, 0, 0, 0, false);
+  SendGestureEvent(WebInputEvent::GesturePinchEnd, time_ms, 0, 0);
 }
 
 void ContentViewCoreImpl::PinchBy(JNIEnv* env, jobject obj, jlong time_ms,
                                   jint anchor_x, jint anchor_y, jfloat delta) {
-  SendGestureEvent(WebInputEvent::GesturePinchUpdate,
-                   time_ms,
-                   anchor_x,
-                   anchor_y,
-                   delta,
-                   delta,
-                   false);
+  WebKit::WebGestureEvent event = WebInputEventFactory::gestureEvent(
+      WebInputEvent::GesturePinchUpdate, time_ms / 1000.0, anchor_x, anchor_y,
+      delta, delta, 0);
+  event.data.pinchUpdate.scale = delta;
+
+  if (GetRenderWidgetHostViewAndroid())
+    GetRenderWidgetHostViewAndroid()->GestureEvent(event);
+}
+
+void ContentViewCoreImpl::SelectBetweenCoordinates(JNIEnv* env, jobject obj,
+                                                   jint x1, jint y1,
+                                                   jint x2, jint y2) {
+  if (GetRenderWidgetHostViewAndroid()) {
+    GetRenderWidgetHostViewAndroid()->SelectRange(gfx::Point(x1, y1),
+                                                  gfx::Point(x2, y2));
+  }
 }
 
 jboolean ContentViewCoreImpl::CanGoBack(JNIEnv* env, jobject obj) {
@@ -490,12 +523,7 @@ int ContentViewCoreImpl::GetNativeImeAdapter(JNIEnv* env, jobject obj) {
 void ContentViewCoreImpl::LoadUrl(
     NavigationController::LoadURLParams& params) {
   web_contents()->GetController().LoadURLWithParams(params);
-  PostLoadUrl(params.url);
-}
-
-void ContentViewCoreImpl::PostLoadUrl(const GURL& url) {
   tab_crashed_ = false;
-  // TODO(tedchoc): Update the content view client of the page load request.
 }
 
 // ----------------------------------------------------------------------------
@@ -503,9 +531,13 @@ void ContentViewCoreImpl::PostLoadUrl(const GURL& url) {
 // ----------------------------------------------------------------------------
 
 // This is called for each ContentViewCore.
-jint Init(JNIEnv* env, jobject obj, jint native_web_contents) {
-  ContentViewCore* view = ContentViewCore::Create(
-      env, obj, reinterpret_cast<WebContents*>(native_web_contents));
+jint Init(JNIEnv* env, jobject obj,
+          jboolean hardware_accelerated,
+          jboolean take_ownership_of_web_contents,
+          jint native_web_contents) {
+  ContentViewCoreImpl* view = new ContentViewCoreImpl(
+      env, obj, hardware_accelerated, take_ownership_of_web_contents,
+      reinterpret_cast<WebContents*>(native_web_contents));
   return reinterpret_cast<jint>(view);
 }
 

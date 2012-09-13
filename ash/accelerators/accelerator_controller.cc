@@ -12,14 +12,14 @@
 #include "ash/ash_switches.h"
 #include "ash/caps_lock_delegate.h"
 #include "ash/desktop_background/desktop_background_controller.h"
+#include "ash/display/display_controller.h"
+#include "ash/display/multi_display_manager.h"
 #include "ash/focus_cycler.h"
 #include "ash/ime_control_delegate.h"
 #include "ash/launcher/launcher.h"
 #include "ash/launcher/launcher_delegate.h"
 #include "ash/launcher/launcher_model.h"
 #include "ash/magnifier/magnification_controller.h"
-#include "ash/display/display_controller.h"
-#include "ash/display/multi_display_manager.h"
 #include "ash/root_window_controller.h"
 #include "ash/rotator/screen_rotation.h"
 #include "ash/screenshot_delegate.h"
@@ -38,10 +38,11 @@
 #include "ash/wm/workspace/snap_sizer.h"
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/accelerators/accelerator_manager.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/compositor/debug_utils.h"
 #include "ui/compositor/layer.h"
@@ -53,6 +54,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "ash/display/output_configurator_animation.h"
+#include "base/chromeos/chromeos_version.h"
 #include "chromeos/display/output_configurator.h"
 #endif  // defined(OS_CHROMEOS)
 
@@ -105,7 +107,20 @@ bool HandleToggleSpokenFeedback() {
   Shell::GetInstance()->delegate()->ToggleSpokenFeedback();
   return true;
 }
-#endif
+void HandleCycleDisplayMode() {
+  Shell* shell = Shell::GetInstance();
+  if (!base::chromeos::IsRunningOnChromeOS()) {
+    internal::MultiDisplayManager::CycleDisplay();
+  } else if (shell->output_configurator()->connected_output_count() > 1) {
+    internal::OutputConfiguratorAnimation* animation =
+        shell->output_configurator_animation();
+    animation->StartFadeOutAnimation(base::Bind(
+        base::IgnoreResult(&chromeos::OutputConfigurator::CycleDisplayMode),
+        base::Unretained(shell->output_configurator())));
+  }
+}
+
+#endif  // defined(OS_CHROMEOS)
 
 bool HandleExit() {
   ShellDelegate* delegate = Shell::GetInstance()->delegate();
@@ -440,17 +455,9 @@ bool AcceleratorController::PerformAction(int action,
       if (Shell::GetInstance()->tray_delegate())
         Shell::GetInstance()->tray_delegate()->ToggleWifi();
       return true;
-    case CYCLE_DISPLAY_MODE: {
-      Shell* shell = Shell::GetInstance();
-      if (shell->output_configurator()->connected_output_count() > 1) {
-        internal::OutputConfiguratorAnimation* animation =
-            shell->output_configurator_animation();
-        animation->StartFadeOutAnimation(base::Bind(
-            base::IgnoreResult(&chromeos::OutputConfigurator::CycleDisplayMode),
-            base::Unretained(shell->output_configurator())));
-        return true;
-      }
-    }
+    case CYCLE_DISPLAY_MODE:
+      HandleCycleDisplayMode();
+      return true;
 #endif
     case OPEN_FEEDBACK_PAGE:
       ash::Shell::GetInstance()->delegate()->OpenFeedbackPage();
@@ -609,12 +616,19 @@ bool AcceleratorController::PerformAction(int action,
       internal::SnapSizer sizer(window,
           gfx::Point(),
           action == WINDOW_SNAP_LEFT ? internal::SnapSizer::LEFT_EDGE :
-                                       internal::SnapSizer::RIGHT_EDGE,
-          shell->GetGridSize());
+                                       internal::SnapSizer::RIGHT_EDGE);
       if (wm::IsWindowFullscreen(window) ||
           wm::IsWindowMaximized(window)) {
+        // Before we can set the bounds we need to restore the window.
+        // Restoring the window will set the window to its restored bounds.
+        // To avoid an unnecessary bounds changes (which may have side effects)
+        // we set the restore bounds to the bounds we want, restore the window,
+        // then reset the restore bounds. This way no unnecessary bounds
+        // changes occurs and the original restore bounds is remembered.
+        gfx::Rect restore = *GetRestoreBoundsInScreen(window);
         SetRestoreBoundsInParent(window, sizer.GetSnapBounds(window->bounds()));
         wm::RestoreWindow(window);
+        SetRestoreBoundsInScreen(window, restore);
       } else {
         window->SetBounds(sizer.GetSnapBounds(window->bounds()));
       }
@@ -666,12 +680,6 @@ bool AcceleratorController::PerformAction(int action,
       return HandleToggleDesktopBackgroundMode();
     case TOGGLE_ROOT_WINDOW_FULL_SCREEN:
       return HandleToggleRootWindowFullScreen();
-    case DISPLAY_ADD_REMOVE:
-      internal::MultiDisplayManager::AddRemoveDisplay();
-      return true;
-    case DISPLAY_CYCLE:
-      internal::MultiDisplayManager::CycleDisplay();
-      return true;
     case DISPLAY_TOGGLE_SCALE:
       internal::MultiDisplayManager::ToggleDisplayScale();
       return true;
@@ -685,6 +693,12 @@ bool AcceleratorController::PerformAction(int action,
        return HandleMediaPlayPause();
     case MEDIA_PREV_TRACK:
        return HandleMediaPrevTrack();
+    case POWER_PRESSED:  // fallthrough
+    case POWER_RELEASED:
+       // We don't do anything with these at present, but we consume them to
+       // prevent them from getting passed to apps -- see
+       // http://crbug.com/146609.
+       return true;
 #if !defined(NDEBUG)
     case PRINT_LAYER_HIERARCHY:
       return HandlePrintLayerHierarchy();
@@ -701,7 +715,13 @@ bool AcceleratorController::PerformAction(int action,
 
 void AcceleratorController::SetBrightnessControlDelegate(
     scoped_ptr<BrightnessControlDelegate> brightness_control_delegate) {
-  brightness_control_delegate_.swap(brightness_control_delegate);
+  internal::MultiDisplayManager* display_manager =
+      static_cast<internal::MultiDisplayManager*>(
+          aura::Env::GetInstance()->display_manager());
+  // Install brightness control delegate only when internal
+  // display exists.
+  if (display_manager->HasInternalDisplay())
+    brightness_control_delegate_.swap(brightness_control_delegate);
 }
 
 void AcceleratorController::SetImeControlDelegate(

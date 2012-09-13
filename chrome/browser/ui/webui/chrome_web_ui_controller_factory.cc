@@ -467,7 +467,8 @@ WebUIController* ChromeWebUIControllerFactory::CreateWebUIControllerForURL(
 void ChromeWebUIControllerFactory::GetFaviconForURL(
     Profile* profile,
     FaviconService::GetFaviconRequest* request,
-    const GURL& page_url) const {
+    const GURL& page_url,
+    const std::vector<ui::ScaleFactor>& scale_factors) const {
   // Before determining whether page_url is an extension url, we must handle
   // overrides. This changes urls in |kChromeUIScheme| to extension urls, and
   // allows to use ExtensionWebUI::GetFaviconForURL.
@@ -480,13 +481,16 @@ void ChromeWebUIControllerFactory::GetFaviconForURL(
       url.host() != extension_misc::kBookmarkManagerId) {
     ExtensionWebUI::GetFaviconForURL(profile, request, url);
   } else {
-    scoped_refptr<base::RefCountedMemory> bitmap(GetFaviconResourceBytes(url));
     std::vector<history::FaviconBitmapResult> favicon_bitmap_results;
-    if (bitmap.get() && bitmap->size()) {
-      history::FaviconBitmapResult bitmap_result;
-      bitmap_result.bitmap_data = bitmap;
-      bitmap_result.icon_type = history::FAVICON;
-      favicon_bitmap_results.push_back(bitmap_result);
+    for (size_t i = 0; i < scale_factors.size(); ++i) {
+      scoped_refptr<base::RefCountedMemory> bitmap(GetFaviconResourceBytes(
+            url, scale_factors[i]));
+      if (bitmap.get() && bitmap->size()) {
+        history::FaviconBitmapResult bitmap_result;
+        bitmap_result.bitmap_data = bitmap;
+        bitmap_result.icon_type = history::FAVICON;
+        favicon_bitmap_results.push_back(bitmap_result);
+      }
     }
     request->ForwardResultAsync(request->handle(), favicon_bitmap_results,
                                 history::IconURLSizesMap());
@@ -506,11 +510,11 @@ ChromeWebUIControllerFactory::~ChromeWebUIControllerFactory() {
 }
 
 base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
-    const GURL& page_url) const {
+    const GURL& page_url, ui::ScaleFactor scale_factor) const {
   // The bookmark manager is a chrome extension, so we have to check for it
   // before we check for extension scheme.
   if (page_url.host() == extension_misc::kBookmarkManagerId)
-    return BookmarksUI::GetFaviconResourceBytes();
+    return BookmarksUI::GetFaviconResourceBytes(scale_factor);
 
   // The extension scheme is handled in GetFaviconForURL.
   if (page_url.SchemeIs(chrome::kExtensionScheme)) {
@@ -523,34 +527,34 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
 
 #if defined(OS_WIN)
   if (page_url.host() == chrome::kChromeUIConflictsHost)
-    return ConflictsUI::GetFaviconResourceBytes();
+    return ConflictsUI::GetFaviconResourceBytes(scale_factor);
 #endif
 
   if (page_url.host() == chrome::kChromeUICrashesHost)
-    return CrashesUI::GetFaviconResourceBytes();
+    return CrashesUI::GetFaviconResourceBytes(scale_factor);
 
   if (page_url.host() == chrome::kChromeUIHistoryHost)
-    return HistoryUI::GetFaviconResourceBytes();
+    return HistoryUI::GetFaviconResourceBytes(scale_factor);
 
   if (page_url.host() == chrome::kChromeUIFlashHost)
-    return FlashUI::GetFaviconResourceBytes();
+    return FlashUI::GetFaviconResourceBytes(scale_factor);
 
 #if !defined(OS_ANDROID)
   // Android uses the native download manager.
   if (page_url.host() == chrome::kChromeUIDownloadsHost)
-    return DownloadsUI::GetFaviconResourceBytes();
+    return DownloadsUI::GetFaviconResourceBytes(scale_factor);
 
   // chrome://flags is currently unsupported on Android.
   if (page_url.host() == chrome::kChromeUIFlagsHost)
-    return FlagsUI::GetFaviconResourceBytes();
+    return FlagsUI::GetFaviconResourceBytes(scale_factor);
 
   // Android doesn't use the Options pages.
   if (page_url.host() == chrome::kChromeUISettingsFrameHost)
-    return options::OptionsUI::GetFaviconResourceBytes();
+    return options::OptionsUI::GetFaviconResourceBytes(scale_factor);
 
   // Android doesn't use the plugins pages.
   if (page_url.host() == chrome::kChromeUIPluginsHost)
-    return PluginsUI::GetFaviconResourceBytes();
+    return PluginsUI::GetFaviconResourceBytes(scale_factor);
 #endif
 
   return NULL;

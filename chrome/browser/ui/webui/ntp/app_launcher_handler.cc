@@ -165,7 +165,7 @@ void AppLauncherHandler::CreateAppInfo(
     value->Set("notification", SerializeNotification(*notification));
 
   ExtensionSorting* sorting = prefs->extension_sorting();
-  StringOrdinal page_ordinal = sorting->GetPageOrdinal(extension->id());
+  syncer::StringOrdinal page_ordinal = sorting->GetPageOrdinal(extension->id());
   if (!page_ordinal.IsValid()) {
     // Make sure every app has a page ordinal (some predate the page ordinal).
     // The webstore app should be on the first page.
@@ -177,7 +177,7 @@ void AppLauncherHandler::CreateAppInfo(
   value->SetInteger("page_index",
       sorting->PageStringOrdinalAsInteger(page_ordinal));
 
-  StringOrdinal app_launch_ordinal =
+  syncer::StringOrdinal app_launch_ordinal =
       sorting->GetAppLaunchOrdinal(extension->id());
   if (!app_launch_ordinal.IsValid()) {
     // Make sure every app has a launch ordinal (some predate the launch
@@ -188,7 +188,7 @@ void AppLauncherHandler::CreateAppInfo(
         sorting->CreateNextAppLaunchOrdinal(page_ordinal);
     sorting->SetAppLaunchOrdinal(extension->id(), app_launch_ordinal);
   }
-  value->SetString("app_launch_ordinal", app_launch_ordinal.ToString());
+  value->SetString("app_launch_ordinal", app_launch_ordinal.ToInternalValue());
 }
 
 void AppLauncherHandler::RegisterMessages() {
@@ -652,7 +652,7 @@ void AppLauncherHandler::HandleSetPageIndex(const ListValue* args) {
   double page_index;
   CHECK(args->GetString(0, &extension_id));
   CHECK(args->GetDouble(1, &page_index));
-  const StringOrdinal& page_ordinal =
+  const syncer::StringOrdinal& page_ordinal =
       extension_sorting->PageIntegerAsStringOrdinal(
           static_cast<size_t>(page_index));
 
@@ -687,7 +687,7 @@ void AppLauncherHandler::HandleGenerateAppForLink(const ListValue* args) {
   CHECK(args->GetDouble(2, &page_index));
   ExtensionSorting* extension_sorting =
       extension_service_->extension_prefs()->extension_sorting();
-  const StringOrdinal& page_ordinal =
+  const syncer::StringOrdinal& page_ordinal =
       extension_sorting->PageIntegerAsStringOrdinal(
           static_cast<size_t>(page_index));
 
@@ -706,8 +706,8 @@ void AppLauncherHandler::HandleGenerateAppForLink(const ListValue* args) {
   install_info->page_ordinal = page_ordinal;
 
   FaviconService::Handle h = favicon_service->GetFaviconImageForURL(
-      profile, launch_url, history::FAVICON, gfx::kFaviconSize,
-      &favicon_consumer_,
+      FaviconService::FaviconForURLParams(profile, launch_url, history::FAVICON,
+          gfx::kFaviconSize, &favicon_consumer_),
       base::Bind(&AppLauncherHandler::OnFaviconForApp, base::Unretained(this)));
   favicon_consumer_.SetClientData(favicon_service, h, install_info.release());
 }
@@ -777,6 +777,7 @@ void AppLauncherHandler::OnFaviconForApp(
 
   scoped_refptr<CrxInstaller> installer(
       CrxInstaller::Create(extension_service_, NULL));
+  installer->set_error_on_unsupported_requirements(true);
   installer->set_page_ordinal(install_info->page_ordinal);
   installer->InstallWebApp(*web_app);
   attempted_bookmark_app_install_ = true;

@@ -5,46 +5,29 @@
 #include "ash/wm/workspace/workspace_layout_manager2.h"
 
 #include "ash/ash_switches.h"
-#include "ash/shell.h"
 #include "ash/screen_ash.h"
+#include "ash/shell.h"
 #include "ash/wm/always_on_top_controller.h"
+#include "ash/wm/base_layout_manager.h"
 #include "ash/wm/window_animations.h"
-#include "ash/wm/window_util.h"
 #include "ash/wm/window_properties.h"
+#include "ash/wm/window_util.h"
 #include "ash/wm/workspace/workspace2.h"
 #include "ash/wm/workspace/workspace_manager2.h"
+#include "ash/wm/workspace/workspace_window_resizer.h"
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/ui_base_types.h"
 
 using aura::Window;
 
 namespace ash {
 namespace internal {
-
-namespace {
-
-gfx::Rect BoundsWithScreenEdgeVisible(
-    aura::Window* window,
-    const gfx::Rect& restore_bounds) {
-  // If the restore_bounds are more than 1 grid step away from the size the
-  // window would be when maximized, inset it.
-  int grid_size = ash::Shell::GetInstance()->GetGridSize();
-  gfx::Rect max_bounds = ash::ScreenAsh::GetMaximizedWindowBoundsInParent(
-      window->parent()->parent());
-  max_bounds.Inset(grid_size, grid_size);
-  // TODO(sky): this looks totally wrong!
-  if (restore_bounds.Contains(max_bounds))
-    return max_bounds;
-  return restore_bounds;
-}
-
-}  // namespace
 
 WorkspaceLayoutManager2::WorkspaceLayoutManager2(Workspace2* workspace)
     : root_window_(workspace->window()->GetRootWindow()),
@@ -131,19 +114,27 @@ void WorkspaceLayoutManager2::OnWindowPropertyChanged(Window* window,
     ui::WindowShowState old_state = static_cast<ui::WindowShowState>(old);
     ui::WindowShowState new_state =
         window->GetProperty(aura::client::kShowStateKey);
-    if (old_state == ui::SHOW_STATE_MINIMIZED) {
-      window->layer()->SetOpacity(1.0f);
-      window->layer()->SetTransform(ui::Transform());
-    }
     if (old_state != ui::SHOW_STATE_MINIMIZED &&
         GetRestoreBoundsInScreen(window) == NULL &&
         WorkspaceManager2::IsMaximizedState(new_state) &&
         !WorkspaceManager2::IsMaximizedState(old_state)) {
       SetRestoreBoundsInParent(window, window->bounds());
     }
+    // When restoring from a minimized state, we want to restore to the
+    // previous (maybe L/R maximized) state. Since we do also want to keep the
+    // restore rectangle, we set the restore rectangle to the rectangle we want
+    // to restore to and restore it after we switched so that it is preserved.
+    gfx::Rect restore;
+    if (old_state == ui::SHOW_STATE_MINIMIZED &&
+        (new_state == ui::SHOW_STATE_NORMAL ||
+         new_state == ui::SHOW_STATE_DEFAULT) &&
+        GetRestoreBoundsInScreen(window)) {
+      restore = *GetRestoreBoundsInScreen(window);
+      SetRestoreBoundsInScreen(window, window->bounds());
+    }
 
     // If maximizing or restoring, clone the layer. WorkspaceManager will use it
-    // (and take overship of it) when animating. Ideally we could use that of
+    // (and take ownership of it) when animating. Ideally we could use that of
     // BaseLayoutManager, but that proves problematic. In particular when
     // restoring we need to animate on top of the workspace animating in.
     ui::Layer* cloned_layer = NULL;
@@ -153,10 +144,14 @@ void WorkspaceLayoutManager2::OnWindowPropertyChanged(Window* window,
          (!WorkspaceManager2::IsMaximizedState(new_state) &&
           WorkspaceManager2::IsMaximizedState(old_state) &&
           new_state != ui::SHOW_STATE_MINIMIZED))) {
-      cloned_layer = wm::RecreateWindowLayers(window);
+      cloned_layer = wm::RecreateWindowLayers(window, false);
     }
     UpdateBoundsFromShowState(window);
     ShowStateChanged(window, old_state, cloned_layer);
+
+    // Set the restore rectangle to the previously set restore rectangle.
+    if (!restore.IsEmpty())
+      SetRestoreBoundsInScreen(window, restore);
   }
 
   if (key == aura::client::kAlwaysOnTopKey &&
@@ -237,9 +232,11 @@ void WorkspaceLayoutManager2::UpdateBoundsFromShowState(Window* window) {
         gfx::Rect bounds_in_parent =
             ScreenAsh::ConvertRectFromScreen(window->parent()->parent(),
                                              *restore);
-        SetChildBoundsDirect(window,
-                             BoundsWithScreenEdgeVisible(window,
-                                                         bounds_in_parent));
+        SetChildBoundsDirect(
+            window,
+            BaseLayoutManager::BoundsWithScreenEdgeVisible(
+                window->parent()->parent(),
+                bounds_in_parent));
       }
       window->ClearProperty(aura::client::kRestoreBoundsKey);
       break;

@@ -6,7 +6,7 @@
 
 #include "ash/event_rewriter_delegate.h"
 #include "base/logging.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 
 namespace ash {
 namespace internal {
@@ -63,9 +63,9 @@ ui::TouchStatus EventRewriterEventFilter::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;  // Not handled.
 }
 
-ui::GestureStatus EventRewriterEventFilter::PreHandleGestureEvent(
+ui::EventResult EventRewriterEventFilter::PreHandleGestureEvent(
     aura::Window* target, ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;  // Not handled.
+  return ui::ER_UNHANDLED;  // Not handled.
 }
 
 }  // namespace internal

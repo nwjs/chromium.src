@@ -206,6 +206,8 @@ class Handler(webapp.RequestHandler):
   def _Render(self, files, channel):
     original_response = self.response
     for f in files:
+      if f.endswith('404.html'):
+        continue
       path = channel + f.split(PUBLIC_TEMPLATE_PATH)[-1]
       self.request = _MockRequest(path)
       self.response = _MockResponse()
@@ -281,7 +283,7 @@ class Handler(webapp.RequestHandler):
     return False
 
   def _RedirectBadPaths(self, path, channel_name, default):
-    if '/' in path:
+    if '/' in path or path == '404.html':
       return False
     apps_templates = APPS_COMPILED_FILE_SYSTEM.GetFromFileListing(
         PUBLIC_TEMPLATE_PATH + '/apps')
@@ -327,6 +329,10 @@ class Handler(webapp.RequestHandler):
 
   def get(self):
     path = self.request.path
+    if path == '/favicon.ico' or path == '/robots.txt':
+      self.response.set_status(404)
+      return
+
     if self._RedirectSpecialCases(path):
       return
 

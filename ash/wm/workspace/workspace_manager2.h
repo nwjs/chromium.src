@@ -13,6 +13,7 @@
 #include "ash/wm/workspace/base_workspace_manager.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
+#include "base/memory/weak_ptr.h"
 #include "base/timer.h"
 #include "ui/base/ui_base_types.h"
 
@@ -60,8 +61,6 @@ class ASH_EXPORT WorkspaceManager2 : public BaseWorkspaceManager {
 
   // BaseWorkspaceManager2 overrides:
   virtual bool IsInMaximizedMode() const OVERRIDE;
-  virtual void SetGridSize(int size) OVERRIDE;
-  virtual int GetGridSize() const OVERRIDE;
   virtual WorkspaceWindowState GetWindowState() const OVERRIDE;
   virtual void SetShelf(ShelfLayoutManager* shelf) OVERRIDE;
   virtual void SetActiveWorkspaceByWindow(aura::Window* window) OVERRIDE;
@@ -76,7 +75,7 @@ class ASH_EXPORT WorkspaceManager2 : public BaseWorkspaceManager {
   typedef std::vector<Workspace2*> Workspaces;
 
   // Describes which, if any, of the workspaces should animate. NEW is the
-  // workspace that is becoming active, and OLD the current workspace.
+  // workspace that is becoming active, and OLD the workspace that was active.
   enum AnimateType {
     ANIMATE_NONE,
 
@@ -131,6 +130,9 @@ class ASH_EXPORT WorkspaceManager2 : public BaseWorkspaceManager {
   // Deletes |background_controller_|. Called from |destroy_background_timer_|.
   void DestroySystemBackground();
 
+  // Sets |unminimizing_workspace_| to |workspace|.
+  void SetUnminimizingWorkspace(Workspace2* workspace);
+
   // These methods are forwarded from the LayoutManager installed on the
   // Workspace's window.
   void OnWindowAddedToWorkspace(Workspace2* workspace, aura::Window* child);
@@ -163,9 +165,6 @@ class ASH_EXPORT WorkspaceManager2 : public BaseWorkspaceManager {
   // |workspaces_|.
   std::set<Workspace2*> pending_workspaces_;
 
-  // See description above setter.
-  int grid_size_;
-
   // Owned by the Shell. May be NULL.
   ShelfLayoutManager* shelf_;
 
@@ -182,6 +181,9 @@ class ASH_EXPORT WorkspaceManager2 : public BaseWorkspaceManager {
   std::set<Workspace2*> to_delete_;
   base::OneShotTimer<WorkspaceManager2> delete_timer_;
 
+  // See comments in SetUnminimizingWorkspace() for details.
+  base::WeakPtrFactory<WorkspaceManager2> clear_unminimizing_workspace_factory_;
+
   // Used to show the system level background. Non-null when the background is
   // visible.
   scoped_ptr<SystemBackgroundController> background_controller_;
@@ -189,6 +191,9 @@ class ASH_EXPORT WorkspaceManager2 : public BaseWorkspaceManager {
   // Timer used to destroy the background. We wait to destroy until animations
   // complete.
   base::OneShotTimer<WorkspaceManager2> destroy_background_timer_;
+
+  // See comments in SetUnminimizingWorkspace() for details.
+  Workspace2* unminimizing_workspace_;
 
   DISALLOW_COPY_AND_ASSIGN(WorkspaceManager2);
 };

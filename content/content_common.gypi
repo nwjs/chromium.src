@@ -6,24 +6,13 @@
   'dependencies': [
     '../base/base.gyp:base',
     '../build/temp_gyp/googleurl.gyp:googleurl',
-    '../gpu/gpu.gyp:gles2_implementation',
-    '../gpu/gpu.gyp:gpu_ipc',
-    '../ipc/ipc.gyp:ipc',
     '../media/media.gyp:media',
-    '../media/media.gyp:shared_memory_support',
     '../net/net.gyp:net',
-    '../ppapi/ppapi_internal.gyp:ppapi_shared',
     '../skia/skia.gyp:skia',
     '../third_party/icu/icu.gyp:icuuc',
-    '../third_party/npapi/npapi.gyp:npapi',
-    '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
-    '../ui/gl/gl.gyp:gl',
     '../ui/ui.gyp:ui',
-    '../webkit/support/webkit_support.gyp:appcache',
-    '../webkit/support/webkit_support.gyp:blob',
-    '../webkit/support/webkit_support.gyp:database',
-    '../webkit/support/webkit_support.gyp:fileapi',
-    '../webkit/support/webkit_support.gyp:webkit_base',
+    '../webkit/support/webkit_support.gyp:forms',
+    '../webkit/support/webkit_support.gyp:user_agent',
   ],
   'include_dirs': [
     '..',
@@ -47,6 +36,7 @@
     'public/common/content_switches.h',
     'public/common/context_menu_params.cc',
     'public/common/context_menu_params.h',
+    'public/common/context_menu_source_type.h',
     'public/common/console_message_level.h',
     'public/common/dx_diag_node.cc',
     'public/common/dx_diag_node.h',
@@ -196,6 +186,8 @@
     'common/gamepad_messages.h',
     'common/gamepad_seqlock.cc',
     'common/gamepad_seqlock.h',
+    'common/gamepad_user_gesture.cc',
+    'common/gamepad_user_gesture.h',
     'common/geolocation_messages.h',
     'common/gpu/client/command_buffer_proxy_impl.cc',
     'common/gpu/client/command_buffer_proxy_impl.h',
@@ -222,6 +214,8 @@
     'common/gpu/gpu_memory_tracking.h',
     'common/gpu/gpu_messages.h',
     'common/gpu/gpu_process_launch_causes.h',
+    'common/gpu/gpu_rendering_stats.cc',
+    'common/gpu/gpu_rendering_stats.h',
     'common/gpu/gpu_surface_lookup.h',
     'common/gpu/gpu_surface_lookup.cc',
     'common/gpu/stream_texture_manager_android.cc',
@@ -381,6 +375,41 @@
     'public/common/webkit_param_traits.h',
   ],
   'conditions': [
+    ['OS=="ios"', {
+      'sources/': [
+        # iOS only needs a small portion of content; exclude all the
+        # implementation, and re-include what is used.
+        ['exclude', '\\.(cc|mm)$'],
+        ['include', '_ios\\.(cc|mm)$'],
+        ['include', '^public/common/content_constants\\.cc$'],
+        ['include', '^public/common/content_switches\\.cc$'],
+        ['include', '^public/common/frame_navigate_params\\.cc$'],
+        ['include', '^public/common/page_transition_types\\.cc$'],
+        ['include', '^public/common/speech_recognition_result\\.cc$'],
+        ['include', '^public/common/url_constants\\.cc$'],
+        ['include', '^common/content_paths\\.cc$'],
+        ['include', '^common/net/url_fetcher\\.cc$'],
+        ['include', '^common/net/url_request_user_data\\.cc$'],
+        ['include', '^common/savable_url_schemes\\.cc$'],
+        ['include', '^common/url_schemes\\.cc$'],
+      ],
+    }, {  # OS!="ios"
+      'dependencies': [
+        '../gpu/gpu.gyp:gles2_implementation',
+        '../gpu/gpu.gyp:gpu_ipc',
+        '../ipc/ipc.gyp:ipc',
+        '../media/media.gyp:shared_memory_support',
+        '../ppapi/ppapi_internal.gyp:ppapi_shared',
+        '../third_party/npapi/npapi.gyp:npapi',
+        '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
+        '../ui/gl/gl.gyp:gl',
+        '../webkit/support/webkit_support.gyp:appcache',
+        '../webkit/support/webkit_support.gyp:blob',
+        '../webkit/support/webkit_support.gyp:database',
+        '../webkit/support/webkit_support.gyp:fileapi',
+        '../webkit/support/webkit_support.gyp:webkit_base',
+      ],
+    }],
     ['OS!="win"', {
       'sources!': [
         'common/sandbox_policy.cc',
@@ -521,6 +550,6 @@
         ],
       },
      ]
-    }]
+    }],
   ],
 }

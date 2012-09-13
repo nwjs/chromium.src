@@ -8,8 +8,8 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "ui/aura/aura_export.h"
+#include "ui/base/events/event_constants.h"
 #include "ui/base/events/event_handler.h"
-#include "ui/base/events.h"
 
 namespace ui {
 class GestureEvent;
@@ -57,21 +57,17 @@ class AURA_EXPORT EventFilter : public ui::EventHandler {
   virtual ui::TouchStatus PreHandleTouchEvent(Window* target,
                                               ui::TouchEvent* event);
 
-  // Returns a value other than ui::GESTURE_STATUS_UNKNOWN if the gesture is
+  // Returns a value other than ui::ER_UNHANDLED if the gesture is
   // consumed.
-  virtual ui::GestureStatus PreHandleGestureEvent(Window* target,
-                                                  ui::GestureEvent* event);
+  virtual ui::EventResult PreHandleGestureEvent(Window* target,
+                                                ui::GestureEvent* event);
 
-  virtual ui::EventResult OnKeyEvent(ui::EventTarget* target,
-                                     ui::KeyEvent* event) OVERRIDE;
-  virtual ui::EventResult OnMouseEvent(ui::EventTarget* target,
-                                       ui::MouseEvent* event) OVERRIDE;
-  virtual ui::EventResult OnScrollEvent(ui::EventTarget* target,
-                                        ui::ScrollEvent* event) OVERRIDE;
-  virtual ui::TouchStatus OnTouchEvent(ui::EventTarget* target,
-                                       ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(ui::EventTarget* target,
-                                         ui::GestureEvent* e) OVERRIDE;
+  // Overridden from ui::EventHandler.
+  virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
+  virtual ui::EventResult OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
+  virtual ui::TouchStatus OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
+  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* e) OVERRIDE;
 };
 
 }  // namespace aura

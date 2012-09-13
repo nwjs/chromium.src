@@ -10,7 +10,6 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
-#include <wtf/Threading.h>
 
 namespace WebCore {
 
@@ -58,8 +57,6 @@ public:
     // Attempts to recreate the context and layer renderer after a context lost. Returns false if the renderer couldn't be
     // reinitialized.
     virtual bool recreateContext() = 0;
-
-    virtual int compositorIdentifier() const = 0;
 
     virtual void implSideRenderingStats(CCRenderingStats&) = 0;
 

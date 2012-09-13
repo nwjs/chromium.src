@@ -15,12 +15,12 @@
 #include "chrome/browser/signin/token_service.h"
 #include "chrome/browser/signin/token_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/net/gaia/gaia_constants.h"
-#include "chrome/common/net/gaia/gaia_urls.h"
-#include "chrome/common/net/gaia/oauth2_access_token_fetcher.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
+#include "google_apis/gaia/gaia_constants.h"
+#include "google_apis/gaia/gaia_urls.h"
+#include "google_apis/gaia/oauth2_access_token_fetcher.h"
 
 namespace {
 // TODO(atwilson): Move this once we add OAuth token support to TokenService.
@@ -136,7 +136,7 @@ void UserPolicySigninService::ConfigureUserCloudPolicyManager() {
     // UserCloudPolicyManager and have it initiate a DMToken fetch only once
     // the policy load is complete (http://crbug.com/143187).
     if (!manager_->IsClientRegistered() &&
-        manager_->cloud_policy_service()->store()->is_initialized()) {
+        manager_->cloud_policy_store()->is_initialized()) {
       RegisterCloudPolicyService();
     }
   }

@@ -18,14 +18,15 @@
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/metro.h"
+#include "base/win/text_services_message_filter.h"
 #include "base/win/windows_version.h"
 #include "base/win/wrapped_window_proc.h"
 #include "chrome/browser/browser_util_win.h"
 #include "chrome/browser/first_run/first_run.h"
-#include "chrome/browser/media_gallery/media_device_notifications_window_win.h"
 #include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
 #include "chrome/browser/profiles/profile_shortcut_manager.h"
+#include "chrome/browser/system_monitor/removable_device_notifications_window_win.h"
 #include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/browser/ui/uninstall_browser_prompt.h"
 #include "chrome/common/chrome_constants.h"
@@ -184,8 +185,23 @@ void ChromeBrowserMainPartsWin::PreMainMessageLoopStart() {
     // Make sure that we know how to handle exceptions from the message loop.
     InitializeWindowProcExceptions();
   }
-  media_device_notifications_window_ =
-    new chrome::MediaDeviceNotificationsWindowWin();
+  removable_device_notifications_window_ =
+      new chrome::RemovableDeviceNotificationsWindowWin();
+}
+
+void ChromeBrowserMainPartsWin::PostMainMessageLoopStart() {
+  DCHECK_EQ(MessageLoop::TYPE_UI, MessageLoop::current()->type());
+
+  if (base::win::IsTsfAwareRequired()) {
+    // Create a TSF message filter for the message loop. MessageLoop takes
+    // ownership of the filter.
+    scoped_ptr<base::win::TextServicesMessageFilter> tsf_message_filter(
+      new base::win::TextServicesMessageFilter);
+    if (tsf_message_filter->Init()) {
+      MessageLoopForUI::current()->SetMessageFilter(
+        tsf_message_filter.PassAs<MessageLoopForUI::MessageFilter>());
+    }
+  }
 }
 
 // static

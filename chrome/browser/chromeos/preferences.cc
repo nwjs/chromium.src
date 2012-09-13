@@ -14,7 +14,7 @@
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/display/display_preferences.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
 #include "chrome/browser/chromeos/input_method/xkeyboard.h"
@@ -32,7 +32,7 @@
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "googleurl/src/gurl.h"
-#include "ui/base/events.h"
+#include "ui/base/events/event_constants.h"
 #include "unicode/timezone.h"
 
 namespace chromeos {
@@ -84,7 +84,7 @@ void Preferences::RegisterUserPrefs(PrefService* prefs) {
                              false,
                              PrefService::UNSYNCABLE_PREF);
   prefs->RegisterBooleanPref(prefs::kNaturalScroll,
-                             false,
+                             true,
                              PrefService::SYNCABLE_PREF);
   prefs->RegisterBooleanPref(prefs::kPrimaryMouseButtonRight,
                              false,
@@ -293,10 +293,12 @@ void Preferences::InitUserPrefs(PrefService* prefs) {
   mouse_sensitivity_.Init(prefs::kMouseSensitivity, prefs, this);
   touchpad_sensitivity_.Init(prefs::kTouchpadSensitivity, prefs, this);
   use_24hour_clock_.Init(prefs::kUse24HourClock, prefs, this);
-  disable_gdata_.Init(prefs::kDisableGData, prefs, this);
-  disable_gdata_over_cellular_.Init(prefs::kDisableGDataOverCellular,
+  disable_drive_.Init(prefs::kDisableGData, prefs, this);
+  disable_drive_over_cellular_.Init(prefs::kDisableGDataOverCellular,
                                    prefs, this);
-  disable_gdata_hosted_files_.Init(prefs::kDisableGDataHostedFiles,
+  disable_drive_hosted_files_.Init(prefs::kDisableGDataHostedFiles,
+                                   prefs, this);
+  download_default_directory_.Init(prefs::kDownloadDefaultDirectory,
                                    prefs, this);
   primary_mouse_button_right_.Init(prefs::kPrimaryMouseButtonRight,
                                    prefs, this);
@@ -442,6 +444,18 @@ void Preferences::NotifyPrefChanged(const std::string* pref_name) {
     else
       UMA_HISTOGRAM_BOOLEAN("Mouse.PrimaryButtonRight.Started", right);
   }
+  if (!pref_name || *pref_name == prefs::kDownloadDefaultDirectory) {
+    const bool default_download_to_drive = gdata::util::IsUnderDriveMountPoint(
+        download_default_directory_.GetValue());
+    if (pref_name)
+      UMA_HISTOGRAM_BOOLEAN(
+          "FileBrowser.DownloadDestination.IsGoogleDrive.Changed",
+          default_download_to_drive);
+    else
+      UMA_HISTOGRAM_BOOLEAN(
+          "FileBrowser.DownloadDestination.IsGoogleDrive.Started",
+          default_download_to_drive);
+  }
 
   if (!pref_name || *pref_name == prefs::kLanguagePreferredLanguages) {
     // Unlike kLanguagePreloadEngines and some other input method
@@ -581,10 +595,9 @@ void Preferences::NotifyPrefChanged(const std::string* pref_name) {
   // Change the download directory to the default value if a GData directory is
   // selected and GData is disabled.
   if (!pref_name || *pref_name == prefs::kDisableGData) {
-    if (disable_gdata_.GetValue()) {
-      const FilePath download_path =
-          prefs_->GetFilePath(prefs::kDownloadDefaultDirectory);
-      if (gdata::util::IsUnderGDataMountPoint(download_path)) {
+    if (disable_drive_.GetValue()) {
+      if (gdata::util::IsUnderDriveMountPoint(
+          download_default_directory_.GetValue())) {
         prefs_->SetFilePath(prefs::kDownloadDefaultDirectory,
                             download_util::GetDefaultDownloadDirectory());
       }

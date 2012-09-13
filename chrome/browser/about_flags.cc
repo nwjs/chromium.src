@@ -21,6 +21,7 @@
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/user_metrics.h"
 #include "grit/generated_resources.h"
+#include "media/base/media_switches.h"
 #include "ui/app_list/app_list_switches.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_switches.h"
@@ -223,13 +224,6 @@ const Experiment kExperiments[] = {
     0,
 #endif
     SINGLE_VALUE_TYPE(switches::kEnableCloudPrintProxy)
-  },
-  {
-    "print-setting-reset",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_PRINT_SETTING_RESET_NAME,
-    IDS_FLAGS_PRINT_SETTING_RESET_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kPrintSettingsReset)
   },
 #if defined(OS_WIN)
   {
@@ -530,22 +524,15 @@ const Experiment kExperiments[] = {
     "enable-async-dns",
     IDS_FLAGS_ENABLE_ASYNC_DNS_NAME,
     IDS_FLAGS_ENABLE_ASYNC_DNS_DESCRIPTION,
-    kOsWin | kOsMac | kOsLinux,
+    kOsWin | kOsMac | kOsLinux | kOsCrOS,
     MULTI_VALUE_TYPE(kAsyncDnsChoices)
   },
   {
-    "enable-video-track",
-    IDS_FLAGS_ENABLE_VIDEO_TRACK_NAME,
-    IDS_FLAGS_ENABLE_VIDEO_TRACK_DESCRIPTION,
+    "disable-media-source",
+    IDS_FLAGS_DISABLE_MEDIA_SOURCE_NAME,
+    IDS_FLAGS_DISABLE_MEDIA_SOURCE_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableVideoTrack)
-  },
-  {
-    "enable-media-source",
-    IDS_FLAGS_ENABLE_MEDIA_SOURCE_NAME,
-    IDS_FLAGS_ENABLE_MEDIA_SOURCE_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableMediaSource)
+    SINGLE_VALUE_TYPE(switches::kDisableMediaSource)
   },
   {
     "enable-encrypted-media",
@@ -702,6 +689,13 @@ const Experiment kExperiments[] = {
     MULTI_VALUE_TYPE(kTouchOptimizedUIChoices)
   },
   {
+    "enable-webkit-text-subpixel-positioning",
+    IDS_FLAGS_ENABLE_WEBKIT_TEXT_SUBPIXEL_POSITIONING_NAME,
+    IDS_FLAGS_ENABLE_WEBKIT_TEXT_SUBPIXEL_POSITIONING_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableWebkitTextSubpixelPositioning)
+  },
+  {
     "enable-touch-events",
     IDS_ENABLE_TOUCH_EVENTS_NAME,
     IDS_ENABLE_TOUCH_EVENTS_DESCRIPTION,
@@ -709,6 +703,13 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableTouchEvents)
   },
 #if defined(OS_CHROMEOS)
+  {
+    "enable-background-loader",
+    IDS_ENABLE_BACKLOADER_NAME,
+    IDS_ENABLE_BACKLOADER_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableBackgroundLoader)
+  },
   {
     "enable-bezel-touch",
     IDS_ENABLE_BEZEL_TOUCH_NAME,
@@ -800,11 +801,11 @@ const Experiment kExperiments[] = {
 #endif  // defined(USE_ASH)
 #if defined(OS_CHROMEOS)
   {
-    "new-wallpaper-ui",
-    IDS_FLAGS_NEW_WALLPAPER_UI_NAME,
-    IDS_FLAGS_NEW_WALLPAPER_UI_DESCRIPTION,
+    "disable-new-wallpaper-picker-ui",
+    IDS_FLAGS_DISABLE_NEW_WALLPAPER_UI_NAME,
+    IDS_FLAGS_DISABLE_NEW_WALLPAPER_UI_DESCRIPTION,
     kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kEnableNewWallpaperUI)
+    SINGLE_VALUE_TYPE(switches::kDisableNewWallpaperUI)
   },
   {
     "enable-drive-v2-api",
@@ -842,11 +843,11 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kDisableBootAnimation),
   },
   {
-    "enable-workspace2",
-    IDS_FLAGS_ENABLE_WORKSPACE2,
-    IDS_FLAGS_ENABLE_WORKSPACE2_DESCRIPTION,
+    "disable-workspace2",
+    IDS_FLAGS_DISABLE_WORKSPACE2,
+    IDS_FLAGS_DISABLE_WORKSPACE2_DESCRIPTION,
     kOsCrOS,
-    SINGLE_VALUE_TYPE(ash::switches::kAshEnableWorkspace2),
+    SINGLE_VALUE_TYPE(ash::switches::kAshDisableWorkspace2),
   },
 #endif
   {
@@ -909,6 +910,13 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kDisableWebsiteSettings),
   },
   {
+    "enable-webaudio-input",
+    IDS_FLAGS_ENABLE_WEBAUDIO_INPUT_NAME,
+    IDS_FLAGS_ENABLE_WEBAUDIO_INPUT_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnableWebAudioInput),
+  },
+  {
     "enable-contacts",
     IDS_FLAGS_ENABLE_CONTACTS_NAME,
     IDS_FLAGS_ENABLE_CONTACTS_DESCRIPTION,
@@ -921,6 +929,15 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_ADVANCED_GESTURES_DESCRIPTION,
     kOsCrOS,
     SINGLE_VALUE_TYPE(ash::switches::kAshEnableAdvancedGestures),
+  },
+#endif
+#if defined(OS_CHROMEOS)
+  {
+    "enable-request-tablet-site",
+    IDS_FLAGS_ENABLE_REQUEST_TABLET_SITE_NAME,
+    IDS_FLAGS_ENABLE_REQUEST_TABLET_SITE_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableRequestTabletSite)
   },
 #endif
 };

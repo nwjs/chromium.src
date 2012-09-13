@@ -13,15 +13,16 @@
 
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
+#include "base/memory/scoped_vector.h"
 #include "base/memory/weak_ptr.h"
 #include "base/string16.h"
 #include "base/timer.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/sessions/session_id.h"
-#include "chrome/common/net/gaia/oauth2_access_token_consumer.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "google_apis/gaia/oauth2_access_token_consumer.h"
 #include "googleurl/src/gurl.h"
 #include "net/url_request/url_fetcher_delegate.h"
 #include "sync/notifier/invalidation_handler.h"
@@ -67,6 +68,14 @@ class ChromeToMobileService : public ProfileKeyedService,
     SEND_SUCCESS,           // Cloud print responded with success on send.
     SEND_ERROR,             // Cloud print responded with failure on send.
     LEARN_MORE_CLICKED,     // The "Learn more" help article link was clicked.
+    BAD_TOKEN,              // The cloud print access token could not be minted.
+    BAD_SEARCH_AUTH,        // The cloud print search request failed (auth).
+    BAD_SEARCH_OTHER,       // The cloud print search request failed (other).
+    BAD_SEND_407,           // The cloud print send response was errorCode==407.
+                            // "Print job added but failed to notify printer..."
+    BAD_SEND_ERROR,         // The cloud print send response was errorCode!=407.
+    BAD_SEND_AUTH,          // The cloud print send request failed (auth).
+    BAD_SEND_OTHER,         // The cloud print send request failed (other).
     NUM_METRICS
   };
 
@@ -94,7 +103,11 @@ class ChromeToMobileService : public ProfileKeyedService,
     string16 title;
     FilePath snapshot;
     std::string snapshot_id;
+    std::string snapshot_content;
     JobType type;
+
+   private:
+    DISALLOW_COPY_AND_ASSIGN(JobData);
   };
 
   // Returns whether Chrome To Mobile is enabled (gated on the Action Box UI).
@@ -155,12 +168,11 @@ class ChromeToMobileService : public ProfileKeyedService,
   virtual void OnGetTokenFailure(const GoogleServiceAuthError& error) OVERRIDE;
 
   // syncer::InvalidationHandler implementation.
-  virtual void OnNotificationsEnabled() OVERRIDE;
-  virtual void OnNotificationsDisabled(
-      syncer::NotificationsDisabledReason reason) OVERRIDE;
-  virtual void OnIncomingNotification(
+  virtual void OnInvalidatorStateChange(
+      syncer::InvalidatorState state) OVERRIDE;
+  virtual void OnIncomingInvalidation(
       const syncer::ObjectIdStateMap& id_state_map,
-      syncer::IncomingNotificationSource source) OVERRIDE;
+      syncer::IncomingInvalidationSource source) OVERRIDE;
 
   // Expose access token accessors for test purposes.
   const std::string& GetAccessTokenForTest() const;
@@ -177,17 +189,21 @@ class ChromeToMobileService : public ProfileKeyedService,
   // Alert the observer of failure or generate MHTML with an observer callback.
   void SnapshotFileCreated(base::WeakPtr<Observer> observer,
                            SessionID::id_type browser_id,
-                           const FilePath& path,
-                           bool success);
+                           const FilePath& path);
 
-  // Create a cloud print job submission request for a URL or snapshot.
-  net::URLFetcher* CreateRequest();
+  // Handle the attempted reading of the snapshot file for job submission.
+  // Send valid snapshot contents if available, or log an error.
+  void SnapshotFileRead(base::WeakPtr<Observer> observer,
+                        scoped_ptr<JobData> data);
 
   // Initialize cloud print URLFetcher requests.
   void InitRequest(net::URLFetcher* request);
 
   // Submit a cloud print job request with the requisite data.
-  void SendRequest(net::URLFetcher* request, const JobData& data);
+  void SendJobRequest(base::WeakPtr<Observer> observer, const JobData& data);
+
+  // Clear the cached cloud print auth access token.
+  void ClearAccessToken();
 
   // Send the OAuth2AccessTokenFetcher request.
   // Virtual for unit test mocking.
@@ -218,14 +234,18 @@ class ChromeToMobileService : public ProfileKeyedService,
   // The set of snapshots currently available.
   std::set<FilePath> snapshots_;
 
+  // The list of active URLFetcher requests owned by the service.
+  ScopedVector<net::URLFetcher> url_fetchers_;
+
   // Map URLFetchers to observers for reporting OnSendComplete.
   typedef std::map<const net::URLFetcher*, base::WeakPtr<Observer> >
       RequestObserverMap;
   RequestObserverMap request_observer_map_;
 
-  // The pending OAuth access token request and a timer for retrying on failure.
+  // The pending OAuth access token request and timers for retrying on failure.
   scoped_ptr<OAuth2AccessTokenFetcher> access_token_fetcher_;
   base::OneShotTimer<ChromeToMobileService> auth_retry_timer_;
+  base::OneShotTimer<ChromeToMobileService> search_retry_timer_;
 
   // A queue of tasks to perform after an access token is lazily initialized.
   std::queue<base::Closure> task_queue_;

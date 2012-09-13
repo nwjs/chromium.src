@@ -70,14 +70,6 @@
               'shlwapi.lib',
               'setupapi.lib',
             ],
-            'conditions': [
-              ['MSVS_VERSION=="2005e"', {
-                'AdditionalDependencies': [ # Must explicitly link in VC2005E
-                  'advapi32.lib',
-                  'shell32.lib',
-                ],
-              }],
-            ],
           },
           'VCManifestTool': {
             'AdditionalManifestFiles': [
@@ -279,13 +271,6 @@
           ],
         },
       ],
-    }],
-    [ 'mini_installer_internal_deps == 1 or mini_installer_official_deps == 1', {
-      'target_defaults': {
-        'dependencies': [
-          'mini_installer/support/mini_installer_support.gyp:*',
-        ],
-      },
     }],
     [ 'branding == "Chrome"', {
       'variables': {

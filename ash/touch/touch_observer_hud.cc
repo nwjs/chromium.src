@@ -9,7 +9,7 @@
 #include "base/utf_string_conversions.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkXfermode.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/rect.h"
@@ -213,10 +213,10 @@ ui::TouchStatus TouchObserverHUD::PreHandleTouchEvent(
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
-ui::GestureStatus TouchObserverHUD::PreHandleGestureEvent(
+ui::EventResult TouchObserverHUD::PreHandleGestureEvent(
     aura::Window* target,
     ui::GestureEvent* event) {
-  return ui::GESTURE_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 void TouchObserverHUD::OnWidgetClosing(views::Widget* widget) {

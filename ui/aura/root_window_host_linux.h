@@ -13,7 +13,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "ui/aura/root_window_host.h"
-#include "ui/aura/x11_atom_cache.h"
+#include "ui/base/x/x11_atom_cache.h"
 #include "ui/gfx/rect.h"
 
 namespace ui {
@@ -56,6 +56,7 @@ class RootWindowHostLinux : public RootWindowHost,
       std::vector<unsigned char>* png_representation) OVERRIDE;
   virtual void PostNativeEvent(const base::NativeEvent& event) OVERRIDE;
   virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
+  virtual void PrepareForShutdown() OVERRIDE;
 
   // Returns true if there's an X window manager present... in most cases.  Some
   // window managers (notably, ion3) don't implement enough of ICCCM for us to
@@ -90,6 +91,9 @@ class RootWindowHostLinux : public RootWindowHost,
   // The bounds of |xwindow_|.
   gfx::Rect bounds_;
 
+  // The bounds of |x_root_window_|.
+  gfx::Rect x_root_bounds_;
+
   // True if the window should be focused when the window is shown.
   bool focus_when_shown_;
 
@@ -97,10 +101,7 @@ class RootWindowHostLinux : public RootWindowHost,
 
   scoped_ptr<ui::ViewProp> prop_;
 
-  class ImageCursors;
-  scoped_ptr<ImageCursors> image_cursors_;
-
-  X11AtomCache atom_cache_;
+  ui::X11AtomCache atom_cache_;
 
   DISALLOW_COPY_AND_ASSIGN(RootWindowHostLinux);
 };

@@ -13,8 +13,6 @@
 #include "googleurl/src/gurl.h"
 #include "net/base/net_errors.h"
 
-class FindHelper;
-
 namespace content {
 
 class DownloadItem;
@@ -74,8 +72,6 @@ class ContentViewClient {
                                                           jobject obj);
 
   // Called by ContentView:
-  void OnInternalPageLoadRequest(WebContents* source,
-                                 const GURL& url);
   void OnPageStarted(const GURL& url);
   void OnPageFinished(const GURL& url);
   void OnLoadStarted();

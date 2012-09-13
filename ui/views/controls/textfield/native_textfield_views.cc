@@ -18,7 +18,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/range/range.h"
 #include "ui/compositor/layer.h"
@@ -37,7 +37,6 @@
 #include "ui/views/controls/textfield/textfield_views_model.h"
 #include "ui/views/ime/input_method.h"
 #include "ui/views/metrics.h"
-#include "ui/views/views_delegate.h"
 #include "ui/views/widget/widget.h"
 #include "unicode/uchar.h"
 
@@ -146,10 +145,10 @@ void NativeTextfieldViews::OnMouseReleased(const ui::MouseEvent& event) {
   OnAfterUserAction();
 }
 
-ui::GestureStatus NativeTextfieldViews::OnGestureEvent(
+ui::EventResult NativeTextfieldViews::OnGestureEvent(
     const ui::GestureEvent& event) {
-  ui::GestureStatus status = textfield_->OnGestureEvent(event);
-  if (status != ui::GESTURE_STATUS_UNKNOWN)
+  ui::EventResult status = textfield_->OnGestureEvent(event);
+  if (status != ui::ER_UNHANDLED)
     return status;
 
   switch (event.type()) {
@@ -162,16 +161,16 @@ ui::GestureStatus NativeTextfieldViews::OnGestureEvent(
           MoveCursorTo(event.location(), false))
         SchedulePaint();
       OnAfterUserAction();
-      return ui::GESTURE_STATUS_CONSUMED;
+      return ui::ER_CONSUMED;
     case ui::ET_GESTURE_DOUBLE_TAP:
       SelectAll(false);
-      return ui::GESTURE_STATUS_CONSUMED;
+      return ui::ER_CONSUMED;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       OnBeforeUserAction();
       if (MoveCursorTo(event.location(), true))
         SchedulePaint();
       OnAfterUserAction();
-      return ui::GESTURE_STATUS_CONSUMED;
+      return ui::ER_CONSUMED;
     default:
       break;
   }
@@ -586,8 +585,8 @@ bool NativeTextfieldViews::IsCommandIdEnabled(int command_id) const {
     case IDS_APP_COPY:
       return model_->HasSelection() && !textfield_->IsObscured();
     case IDS_APP_PASTE:
-      ViewsDelegate::views_delegate->GetClipboard()
-          ->ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
+      ui::Clipboard::GetForCurrentThread()->ReadText(
+          ui::Clipboard::BUFFER_STANDARD, &result);
       return editable && !result.empty();
     case IDS_APP_DELETE:
       return editable && model_->HasSelection();

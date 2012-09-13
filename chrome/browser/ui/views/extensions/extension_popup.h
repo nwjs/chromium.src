@@ -7,7 +7,7 @@
 
 #include "base/compiler_specific.h"
 #include "chrome/browser/extensions/extension_host.h"
-#include "chrome/browser/ui/views/extensions/extension_view.h"
+#include "chrome/browser/ui/views/extensions/extension_view_views.h"
 #include "content/public/browser/notification_observer.h"
 #include "googleurl/src/gurl.h"
 #include "ui/views/bubble/bubble_delegate.h"
@@ -16,10 +16,15 @@
 class Browser;
 
 class ExtensionPopup : public views::BubbleDelegateView,
-                       public ExtensionView::Container,
+                       public ExtensionViewViews::Container,
                        public content::NotificationObserver,
                        public views::WidgetFocusChangeListener {
  public:
+  enum ShowAction {
+    SHOW,
+    SHOW_AND_INSPECT
+  };
+
   virtual ~ExtensionPopup();
 
   // Create and show a popup with |url| positioned adjacent to |anchor_view|.
@@ -36,7 +41,8 @@ class ExtensionPopup : public views::BubbleDelegateView,
       const GURL& url,
       Browser* browser,
       views::View* anchor_view,
-      views::BubbleBorder::ArrowLocation arrow_location);
+      views::BubbleBorder::ArrowLocation arrow_location,
+      ShowAction show_action);
 
   extensions::ExtensionHost* host() const { return extension_host_.get(); }
 
@@ -45,8 +51,8 @@ class ExtensionPopup : public views::BubbleDelegateView,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // ExtensionView::Container overrides.
-  virtual void OnExtensionSizeChanged(ExtensionView* view) OVERRIDE;
+  // ExtensionViewViews::Container overrides.
+  virtual void OnExtensionSizeChanged(ExtensionViewViews* view) OVERRIDE;
 
   // views::View overrides.
   virtual gfx::Size GetPreferredSize() OVERRIDE;
@@ -65,7 +71,8 @@ class ExtensionPopup : public views::BubbleDelegateView,
   ExtensionPopup(Browser* browser,
                  extensions::ExtensionHost* host,
                  views::View* anchor_view,
-                 views::BubbleBorder::ArrowLocation arrow_location);
+                 views::BubbleBorder::ArrowLocation arrow_location,
+                 ShowAction show_action);
 
   // Show the bubble, focus on its content, and register listeners.
   void ShowBubble();

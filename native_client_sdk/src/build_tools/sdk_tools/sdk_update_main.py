@@ -11,15 +11,18 @@ import json
 import manifest_util
 import optparse
 import os
-from sdk_update_common import *
+from sdk_update_common import RenameDir, RemoveDir, Error
 import shutil
 import subprocess
 import sys
 import tempfile
+# when pylint runs the third_party module is the one from depot_tools
+# pylint: disable=E0611
 from third_party import fancy_urllib
 import urllib2
 import urlparse
 
+# pylint: disable=C0301
 
 #------------------------------------------------------------------------------
 # Constants
@@ -48,10 +51,10 @@ Example Usage:
   naclsdk help update
   naclsdk sources --list'''
 
-CONFIG_FILENAME='naclsdk_config.json'
-MANIFEST_FILENAME='naclsdk_manifest2.json'
-SDK_TOOLS='sdk_tools'  # the name for this tools directory
-USER_DATA_DIR='sdk_cache'
+CONFIG_FILENAME = 'naclsdk_config.json'
+MANIFEST_FILENAME = 'naclsdk_manifest2.json'
+SDK_TOOLS = 'sdk_tools'  # the name for this tools directory
+USER_DATA_DIR = 'sdk_cache'
 
 HTTP_CONTENT_LENGTH = 'Content-Length'  # HTTP Header field for content length
 
@@ -134,7 +137,8 @@ def ExtractInstaller(installer, outdir):
     curpath = os.getcwd()
     try:
       tar_file = cygtar.CygTar(installer, 'r', verbose=True)
-      if outdir: os.chdir(outdir)
+      if outdir:
+        os.chdir(outdir)
       tar_file.Extract()
     finally:
       if tar_file:
@@ -202,7 +206,8 @@ def DownloadArchiveToFile(archive, dest_path):
                     'Expected %s bytes but got %s' %
                     (archive.url, content_length, size))
     finally:
-      if from_stream: from_stream.close()
+      if from_stream:
+        from_stream.close()
   return sha1, size
 
 
@@ -235,8 +240,7 @@ def LoadManifestFromURLs(urls):
       raise Error('Unable to open %s. [%s]' % (url, e))
 
     manifest_stream = cStringIO.StringIO()
-    sha1, size = manifest_util.DownloadAndComputeHash(url_stream,
-                                                      manifest_stream)
+    manifest_util.DownloadAndComputeHash(url_stream, manifest_stream)
     temp_manifest = manifest_util.SDKManifest()
     temp_manifest.LoadDataFromString(manifest_stream.getvalue())
 
@@ -299,7 +303,7 @@ class SDKConfig(object):
       WarningPrint('source \''+string+'\' already exists in config.')
       return
     try:
-      url_stream = UrlOpen(string)
+      UrlOpen(string)
     except urllib2.URLError:
       WarningPrint('Unable to fetch manifest URL \'%s\'. Exiting...' % string)
       return
@@ -370,7 +374,7 @@ def Info(options, argv, config):
   DebugPrint("Running List command with: %s, %s" %(options, argv))
 
   parser = optparse.OptionParser(usage=Info.__doc__)
-  (info_options, args) = parser.parse_args(argv)
+  (_, args) = parser.parse_args(argv)
 
   if not args:
     parser.print_help()
@@ -435,7 +439,7 @@ def List(options, argv, config):
       '-r', '--revision', dest='revision',
       default=False, action='store_true',
       help='display revision numbers')
-  (list_options, args) = parser.parse_args(argv)
+  (list_options, _) = parser.parse_args(argv)
 
   manifest = LoadManifestFromURLs([options.manifest_url] + config.GetSources())
   manifest_path = os.path.join(options.user_data_dir, options.manifest_filename)
@@ -446,7 +450,6 @@ def List(options, argv, config):
   InfoPrint(' I: installed\n *: update available\n')
   for bundle in manifest.GetBundles():
     local_bundle = local_manifest.GetBundle(bundle.name)
-    installed = local_bundle is not None
     needs_update = local_bundle and local_manifest.BundleNeedsUpdate(bundle)
     if needs_update:
       any_bundles_need_update = True
@@ -491,8 +494,8 @@ def Update(options, argv, config):
     bundle_name: Install/Update only the given bundle
   '''
   DebugPrint("Running Update command with: %s, %s" % (options, argv))
-  ALL='all'  # Update all bundles
-  RECOMMENDED='recommended'  # Only update the bundles with recommended=yes
+  ALL = 'all'  # Update all bundles
+  RECOMMENDED = 'recommended'  # Only update the bundles with recommended=yes
 
   parser = optparse.OptionParser(usage=Update.__doc__)
   parser.add_option(
@@ -536,7 +539,7 @@ def Update(options, argv, config):
     def UpdateBundle():
       '''Helper to install a bundle'''
       archive = bundle.GetHostOSArchive()
-      (scheme, host, path, _, _, _) = urlparse.urlparse(archive['url'])
+      (_, _, path, _, _, _) = urlparse.urlparse(archive['url'])
       dest_filename = os.path.join(options.user_data_dir, path.split('/')[-1])
       sha1, size = DownloadArchiveToFile(archive, dest_filename)
       if sha1 != archive.GetChecksum():
@@ -598,7 +601,7 @@ def Sources(options, argv, config):
       '-l', '--list', dest='do_list',
       default=False, action='store_true',
       help='List additional package sources')
-  (source_options, args) = parser.parse_args(argv)
+  source_options, _ = parser.parse_args(argv)
 
   write_config = False
   if source_options.url_to_add:

@@ -61,12 +61,13 @@ found in the LICENSE file.
       </div>
       <div id="custom-container" hidden>
         <div i18n-content="selectCustomLabel"></div>
-        <input id="file-selector" type="file">
+        <input id="file-selector" type="file" accept="image/jpeg">
         <div i18n-content="positionLabel"></div>
-        <select>
-          <option>Fill Screen</option>
-          <option>Center</option>
-          <option>Stretch</option>
+        <select id="set-wallpaper-layout">
+          <option value="CENTER" i18n-content="centerLayout"></option>
+          <option selected="selected" value="CENTER_CROPPED"
+              i18n-content="centerCroppedLayout"></option>
+          <option value="STRETCH" i18n-content="stretchLayout"></option>
         </select>
         <div i18n-content="previewLabel"></div>
         <img id="preview">

@@ -5,42 +5,33 @@ import os as real_os
 import sys as real_sys
 import subprocess as real_subprocess
 import logging
+import re
 
-import android_browser_backend
-import android_commands as real_android_commands
+import chrome_remote_control.android_browser_backend as android_browser_backend
+import chrome_remote_control.adb_commands as real_adb_commands
 import browser
 import possible_browser
 
 
 """Finds android browsers that can be controlled by chrome_remote_control."""
 
-ALL_BROWSER_TYPES = 'android-content-shell'
-DEFAULT_BROWSER_TYPES_TO_RUN = 'android-content-shell'
-
-# Commmand line
-#  content-shell: /data/local/tmp/content-shell-command-line
-#            or   /data/local/tmp/chrome-command-line
-#  clank:         /data/local/chrome-command-line
-
-# --remote-debugging-port=9222
-# --disable-fre
-
-# Forwarding command:
-#  adb forward tcp:xxxx localabstract:chrome_devtools-remote
-
-# Package names:
-#   org.chromium.content_shell
-#   com.android.chrome # m18 accidentally used this for a while
-#   com.google.android.apps.chrome
+ALL_BROWSER_TYPES = ','.join([
+    'android-content-shell',
+    'android-chrome',
+    'android-jb-system-chrome',
+    ])
 
 CHROME_PACKAGE = 'com.google.android.apps.chrome'
 CHROME_ACTIVITY = '.Main'
 CHROME_COMMAND_LINE = '/data/local/chrome-command-line'
-CHROME_DEVTOOLS_REMOTE_PORT = 'localabstract:chrome_devtools-remote'
+CHROME_DEVTOOLS_REMOTE_PORT = 'localabstract:chrome_devtools_remote'
+
+CHROME_JB_SYSTEM_PACKAGE = 'com.android.chrome'
+CHROME_JB_SYSTEM_DEVTOOLS_REMOTE_PORT = 'localabstract:chrome_devtools_remote'
 
 CONTENT_SHELL_PACKAGE = 'org.chromium.content_shell'
 CONTENT_SHELL_ACTIVITY = '.ContentShellActivity'
-CONTENT_SHELL_COMMAND_LINE = '/data/local/chrome-command-line'
+CONTENT_SHELL_COMMAND_LINE = '/data/local/tmp/content-shell-command-line'
 CONTENT_SHELL_DEVTOOLS_REMOTE_PORT = (
     'localabstract:content_shell_devtools_remote')
 
@@ -67,14 +58,25 @@ class PossibleAndroidBrowser(possible_browser.PossibleBrowser):
 
 def FindAllAvailableBrowsers(options,
                              subprocess = real_subprocess,
-                             android_commands = real_android_commands):
+                             adb_commands = real_adb_commands):
   """Finds all the desktop browsers available on this machine."""
-  browsers = []
+  if not adb_commands.IsAndroidSupported():
+    return []
 
   # See if adb even works.
   try:
     with open(real_os.devnull, 'w') as devnull:
-      subprocess.call('adb', stdout=devnull, stderr=devnull)
+      proc = subprocess.Popen(['adb', 'devices'],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE,
+                              stdin=devnull)
+      stdout, stderr = proc.communicate()
+      if re.search(re.escape("????????????\tno permissions"), stdout) != None:
+        logging.warning(
+            ("adb devices reported a permissions error. Consider "
+            "restarting adb as root:"))
+        logging.warning("  adb kill-server")
+        logging.warning("  sudo `which adb` devices\n\n")
   except OSError:
     logging.info('No adb command found. ' +
                  'Will not try searching for Android browsers.')
@@ -82,7 +84,7 @@ def FindAllAvailableBrowsers(options,
 
   device = None
   if not options.android_device:
-    devices = android_commands.GetAttachedDevices()
+    devices = adb_commands.GetAttachedDevices()
   else:
     devices = []
 
@@ -97,16 +99,53 @@ def FindAllAvailableBrowsers(options,
 
   device = devices[0]
 
-  adb = android_commands.AndroidCommands(device=device)
+  adb = adb_commands.ADBCommands(device=device)
+
+  # See if adb is root
+  if not adb.IsRootEnabled():
+    logging.warn('ADB is not root. Please make it root by doing:')
+    logging.warn(' adb root')
+    return []
 
   packages = adb.RunShellCommand('pm list packages')
+  possible_browsers = []
   if 'package:' + CONTENT_SHELL_PACKAGE in packages:
     b = PossibleAndroidBrowser('android-content-shell',
                                options, adb,
-                               CONTENT_SHELL_PACKAGE,
+                               CONTENT_SHELL_PACKAGE, True,
                                CONTENT_SHELL_COMMAND_LINE,
                                CONTENT_SHELL_ACTIVITY,
                                CONTENT_SHELL_DEVTOOLS_REMOTE_PORT)
-    browsers.append(b)
+    possible_browsers.append(b)
 
-  return browsers
+  if 'package:' + CHROME_PACKAGE in packages:
+    b = PossibleAndroidBrowser('android-chrome',
+                               options, adb,
+                               CHROME_PACKAGE, False,
+                               CHROME_COMMAND_LINE,
+                               CHROME_ACTIVITY,
+                               CHROME_DEVTOOLS_REMOTE_PORT)
+    possible_browsers.append(b)
+
+  if 'package:' + CHROME_JB_SYSTEM_PACKAGE in packages:
+    b = PossibleAndroidBrowser('android-jb-system-chrome',
+                               options, adb,
+                               CHROME_JB_SYSTEM_PACKAGE, False,
+                               CHROME_COMMAND_LINE,
+                               CHROME_ACTIVITY,
+                               CHROME_JB_SYSTEM_DEVTOOLS_REMOTE_PORT)
+    possible_browsers.append(b)
+
+  # See if the "forwarder" is installed -- we need this to host content locally
+  # but make it accessible to the device.
+  if len(possible_browsers) and not adb_commands.HasForwarder(adb):
+    logging.warn("chrome_remote_control detected an android device. However,")
+    logging.warn("Chrome's port-forwarder app was not installed on the device.")
+    logging.warn("To build:")
+    logging.warn("  make -j16 out/$BUILDTYPE/forwarder")
+    logging.warn("And then install it:")
+    logging.warn("  %s" % adb_commands.HowToInstallForwarder())
+    logging.warn("")
+    logging.warn("")
+    return []
+  return possible_browsers

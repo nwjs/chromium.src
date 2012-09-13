@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/api/webstore_private/webstore_private_api.h"
 
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "base/memory/scoped_vector.h"
@@ -28,12 +29,12 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_error_utils.h"
 #include "chrome/common/extensions/extension_l10n_util.h"
-#include "chrome/common/net/gaia/gaia_constants.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/web_contents.h"
+#include "google_apis/gaia/gaia_constants.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -477,7 +478,8 @@ bool SetStoreLoginFunction::RunImpl() {
 GetWebGLStatusFunction::GetWebGLStatusFunction() {
   feature_checker_ = new GPUFeatureChecker(
       content::GPU_FEATURE_TYPE_WEBGL,
-      base::Bind(&GetWebGLStatusFunction::OnFeatureCheck, this));
+      base::Bind(&GetWebGLStatusFunction::OnFeatureCheck,
+          base::Unretained(this)));
 }
 
 GetWebGLStatusFunction::~GetWebGLStatusFunction() {}

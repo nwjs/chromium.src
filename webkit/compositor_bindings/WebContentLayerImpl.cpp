@@ -7,6 +7,7 @@
 
 #include "ContentLayerChromium.h"
 #include "SkMatrix44.h"
+#include "webcore_convert.h"
 #include <public/WebContentLayerClient.h>
 #include <public/WebFloatPoint.h>
 #include <public/WebFloatRect.h>
@@ -44,9 +45,14 @@ void WebContentLayerImpl::setDoubleSided(bool doubleSided)
     m_layer->layer()->setDoubleSided(doubleSided);
 }
 
-void WebContentLayerImpl::setContentsScale(float scale)
+void WebContentLayerImpl::setBoundsContainPageScale(bool boundsContainPageScale)
 {
-    m_layer->layer()->setContentsScale(scale);
+    return m_layer->layer()->setBoundsContainPageScale(boundsContainPageScale);
+}
+
+bool WebContentLayerImpl::boundsContainPageScale() const
+{
+    return m_layer->layer()->boundsContainPageScale();
 }
 
 void WebContentLayerImpl::setUseLCDText(bool enable)
@@ -65,8 +71,8 @@ void WebContentLayerImpl::paintContents(SkCanvas* canvas, const IntRect& clip, F
     if (!m_client)
         return;
     WebFloatRect webOpaque;
-    m_client->paintContents(canvas, WebRect(clip), webOpaque);
-    opaque = webOpaque;
+    m_client->paintContents(canvas, convert(clip), webOpaque);
+    opaque = convert(webOpaque);
 }
 
 } // namespace WebKit

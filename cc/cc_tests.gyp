@@ -40,6 +40,7 @@
       'CCThreadedTest.h',
       'CCTiledLayerImplTest.cpp',
       'CCTimerTest.cpp',
+      'FloatQuadTest.cpp',
     ],
     'cc_tests_support_files': [
       'test/CCAnimationTestCommon.cpp',
@@ -61,6 +62,7 @@
       'test/FakeWebGraphicsContext3D.h',
       'test/FakeWebScrollbarThemeGeometry.h',
       'test/MockCCQuadCuller.h',
+      'test/WebCompositorInitializer.h',
     ],
   },
   'targets': [
@@ -76,13 +78,10 @@
         'test/run_all_unittests.cc',
       ],
       'conditions': [
-        ['use_libcc_for_compositor==1 and component!="shared_library"', {
+        ['use_libcc_for_compositor==1', {
           'dependencies': [
-            '../skia/skia.gyp:skia',
-            # We have to depend on WTF directly to pick up the correct defines for WTF headers - for instance USE_SYSTEM_MALLOC.
             '../third_party/WebKit/Source/WTF/WTF.gyp/WTF.gyp:wtf',
-            '../third_party/WebKit/Source/Platform/Platform.gyp/Platform.gyp:webkit_platform',
-            '../webkit/support/webkit_support.gyp:webkit_support',
+            '../skia/skia.gyp:skia',
             'cc.gyp:cc',
             'cc_test_support',
           ],
@@ -94,6 +93,7 @@
             'stubs',
             'test',
             '.',
+            '../third_party/WebKit/Source/Platform/chromium',
           ],
           'sources': [
             '<@(cc_tests_source_files)',
@@ -103,7 +103,7 @@
     },
   ],
   'conditions': [
-    ['use_libcc_for_compositor==1 and component!="shared_library"', {
+    ['use_libcc_for_compositor==1', {
       'targets': [
         {
           'target_name': 'cc_test_support',
@@ -116,6 +116,7 @@
             'test',
             '.',
             '..',
+            '../third_party/WebKit/Source/Platform/chromium',
           ],
           'dependencies': [
             '../ui/gl/gl.gyp:gl',
@@ -123,7 +124,10 @@
             '../testing/gmock.gyp:gmock',
             '../skia/skia.gyp:skia',
             '../third_party/WebKit/Source/WTF/WTF.gyp/WTF.gyp:wtf',
-            '../third_party/WebKit/Source/Platform/Platform.gyp/Platform.gyp:webkit_platform',
+            '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit_wtf_support',
+            '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit',
+            '../webkit/compositor_bindings/compositor_bindings.gyp:webkit_compositor_support',
+            '../webkit/support/webkit_support.gyp:glue',
           ],
           'sources': [
             '<@(cc_tests_support_files)',

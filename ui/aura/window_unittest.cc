@@ -25,7 +25,7 @@
 #include "ui/aura/window_delegate.h"
 #include "ui/aura/window_observer.h"
 #include "ui/aura/window_property.h"
-#include "ui/base/event.h"
+#include "ui/base/events/event.h"
 #include "ui/base/gestures/gesture_configuration.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/keycodes/keyboard_codes.h"
@@ -165,20 +165,20 @@ class CaptureWindowDelegateImpl : public TestWindowDelegate {
   int touch_event_count() const { return touch_event_count_; }
   int gesture_event_count() const { return gesture_event_count_; }
 
-  virtual bool OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
     if (event->type() == ui::ET_MOUSE_CAPTURE_CHANGED)
       capture_changed_event_count_++;
     mouse_event_count_++;
-    return false;
+    return ui::ER_UNHANDLED;
   }
   virtual ui::TouchStatus OnTouchEvent(ui::TouchEvent* event) OVERRIDE {
     touch_event_count_++;
     return ui::TOUCH_STATUS_UNKNOWN;
   }
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       ui::GestureEvent* event) OVERRIDE {
     gesture_event_count_++;
-    return ui::GESTURE_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   }
   virtual void OnCaptureLost() OVERRIDE {
     capture_lost_count_++;
@@ -218,10 +218,10 @@ class GestureTrackPositionDelegate : public TestWindowDelegate {
  public:
   GestureTrackPositionDelegate() {}
 
-  virtual ui::GestureStatus OnGestureEvent(
+  virtual ui::EventResult OnGestureEvent(
       ui::GestureEvent* event) OVERRIDE {
     position_ = event->location();
-    return ui::GESTURE_STATUS_CONSUMED;
+    return ui::ER_CONSUMED;
   }
 
   const gfx::Point& position() const { return position_; }
@@ -463,7 +463,8 @@ TEST_F(WindowTest, HitTest) {
 }
 
 TEST_F(WindowTest, HitTestMask) {
-  Window w1(new MaskedWindowDelegate(gfx::Rect(5, 6, 20, 30)));
+  MaskedWindowDelegate d1(gfx::Rect(5, 6, 20, 30));
+  Window w1(&d1);
   w1.Init(ui::LAYER_NOT_DRAWN);
   w1.SetBounds(gfx::Rect(10, 20, 50, 60));
   w1.Show();
@@ -926,9 +927,10 @@ TEST_F(WindowTest, TransferCaptureTouchEvents) {
   d1.ResetCounts();
   d2.ResetCounts();
 
-  // Set capture on |w2|, this should send a cancel to |w1| but not |w2|.
+  // Set capture on |w2|, this should send a cancel (TAP_CANCEL, END) to |w1|
+  // but not |w2|.
   w2->SetCapture();
-  EXPECT_EQ(1, d1.gesture_event_count());
+  EXPECT_EQ(2, d1.gesture_event_count());
   EXPECT_EQ(0, d2.gesture_event_count());
   d1.ResetCounts();
   d2.ResetCounts();
@@ -948,8 +950,8 @@ TEST_F(WindowTest, TransferCaptureTouchEvents) {
   root_window()->AsRootWindowHostDelegate()->OnHostTouchEvent(&m3);
   EXPECT_EQ(0, d1.gesture_event_count());
   EXPECT_EQ(0, d2.gesture_event_count());
-  // |w3| gets two events, both scroll related.
-  EXPECT_EQ(2, d3.gesture_event_count());
+  // |w3| gets a TAP_CANCEL and two scroll related events.
+  EXPECT_EQ(3, d3.gesture_event_count());
 }
 
 // Changes capture while capture is already ongoing.
@@ -1032,7 +1034,7 @@ class MouseEnterExitWindowDelegate : public TestWindowDelegate {
  public:
   MouseEnterExitWindowDelegate() : entered_(false), exited_(false) {}
 
-  virtual bool OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
     switch (event->type()) {
       case ui::ET_MOUSE_ENTERED:
         entered_ = true;
@@ -1043,7 +1045,7 @@ class MouseEnterExitWindowDelegate : public TestWindowDelegate {
       default:
         break;
     }
-    return false;
+    return ui::ER_UNHANDLED;
   }
 
   bool entered() const { return entered_; }
