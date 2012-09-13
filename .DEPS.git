@@ -409,22 +409,6 @@ hooks = [
     'action':
          [
     'python',
-<<<<<<< HEAD
-=======
-    'src/build/download_nacl_toolchains.py',
-    '--no-arm-trusted',
-    '--save-downloads-dir',
-    'src/native_client_sdk/src/build_tools/toolchain_archives',
-    '--keep'
-],
-    'pattern':
-         '.'
-},
-    {
-    'action':
-         [
-    'python',
->>>>>>> 69bfc514fb662ef58d1b0b0d87f515ff90cb69f5
     'src/tools/clang/scripts/update.py',
     '--mac-only'
 ],
