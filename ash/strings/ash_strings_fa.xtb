@@ -47,6 +47,7 @@
 <translation id="1895658205118569222">بسته شدن</translation>
 <translation id="4430019312045809116">میزان صدا</translation>
 <translation id="1383876407941801731">جستجو</translation>
+<translation id="2204305834655267233">اطلاعات شبکه</translation>
 <translation id="5980301590375426705">خروج از مهمان</translation>
 <translation id="8308637677604853869">منوی قبلی</translation>
 <translation id="1346748346194534595">راست</translation>
@@ -61,20 +62,28 @@
 <translation id="3784455785234192852">قفل</translation>
 <translation id="2805756323405976993">برنامه‌ها</translation>
 <translation id="2482878487686419369">اعلام ها</translation>
+<translation id="1850504506766569011">Wi-Fi خاموش است.</translation>
 <translation id="2872961005593481000">خاموش کردن</translation>
 <translation id="7052914147756339792">تنظیم کاغذدیواری...</translation>
+<translation id="5746825509052394497">روش ورودی شما به <ph name="INPUT_METHOD_ID"/> تغییر کرد.
+         Shift + Alt را برای تعویض فشار دهید.</translation>
 <translation id="1602076796624386989">فعال کردن اطلاعات تلفن همراه</translation>
 <translation id="3157931365184549694">بازیابی</translation>
 <translation id="8573351908869164327"><ph name="HOUR"/>ساعت <ph name="MINUTE"/>دقیقه مانده است</translation>
 <translation id="7029814467594812963">خروج از جلسه</translation>
+<translation id="8454013096329229812">Wi-Fi روشن است.</translation>
 <translation id="2983818520079887040">تنظیمات...</translation>
 <translation id="2712866615167520691">ویژگی‌های قابلیت دسترسی فعال هستند. برای لغو Ctrl+Alt+Z را فشار دهید.</translation>
-<translation id="8660803626959853127">در حال همگام سازی فایل(های) <ph name="COUNT"/></translation>
+<translation id="8660803626959853127">در حال همگام‌سازی فایل(های) <ph name="COUNT"/></translation>
+<translation id="1837166567415282700">روش ورودی شما به <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>شخص ثالث<ph name="END_LINK"/>) تغییر کرد.
+        برای تعویض Shift + Alt را فشار دهید.</translation>
 <translation id="639644700271529076">CAPS LOCK خاموش است</translation>
 <translation id="4864165860509564259">موقعیت راه‌انداز</translation>
 <translation id="7649070708921625228">راهنما</translation>
 <translation id="397105322502079400">در حال محاسبه…</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">اعلانی ندارید. آرام باشید!</translation>
+<translation id="7457942297256758195">پاک کردن همه</translation>
 <translation id="7871882211137875558">پیوستن به شبکه دیگر…</translation>
 <translation id="3573179567135747900">به &quot;<ph name="FROM_LOCALE"/>&quot; تغییر دهید (به راه‌اندازی دوباره نیاز دارد)</translation>
 <translation id="8103386449138765447">پیامک‌ها: <ph name="MESSAGE_COUNT"/></translation>
@@ -83,6 +92,7 @@
 <translation id="5941711191222866238">کوچک کردن</translation>
 <translation id="9169585155162064169">CAPS LOCK روشن است.
 برای لغو Search را فشار دهید.</translation>
+<translation id="6843725295806269523">بیصداکردن</translation>
 <translation id="412065659894267608"><ph name="HOUR"/>ساعت <ph name="MINUTE"/>دقیقه مانده تا باتری شارژ شود</translation>
 <translation id="4469842253116033348">غیر فعال کردن اعلام های <ph name="SITE"/></translation>
 <translation id="6359806961507272919">پیامک از <ph name="PHONE_NUMBER"/></translation>

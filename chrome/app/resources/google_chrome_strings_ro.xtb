@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Da, ieşiţi din Chrome</translation>
 <translation id="386202838227397562">Închideți toate ferestrele Google Chrome și încercați din nou.</translation>
 <translation id="2770231113462710648">Schimbați browserul prestabilit la:</translation>
+<translation id="741045321678647133">Google Chrome App Host</translation>
 <translation id="7400722733683201933">Despre Google Chrome</translation>
 <translation id="1065672644894730302">Preferinţele dvs. nu pot fi citite. Este posibil ca unele funcţii să nu fie disponibile, iar modificările aduse preferinţelor nu vor fi salvate.</translation>
 <translation id="7781002470561365167">Este disponibilă o nouă versiune a browserului Google Chrome.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Google Chrome nu se mai actualizează, deoarece sistemul de operare este învechit.</translation>
 <translation id="5339639696978861456">Chrome Frame s-a actualizat. Reporniţi browserul. Versiune Google Chrome: <ph name="TODO_0001"/>. Versiune Chrome Frame: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Condiții de furnizare a serviciilor</translation>
+<translation id="5775197990071433230">Acest computer are deja o versiune mai recentă a componentelor Google Chrome. Vă rugăm să folosiţi un program de instalare mai recent.</translation>
 <translation id="8398145039500709259">Utilizaţi acest Cont Google pentru a sincroniza toate elementele din Chrome?</translation>
 <translation id="1779550429052479749">A fost găsită o instalare conflictuală a Google Chrome sau Google Chrome Frame în sistem. Dezinstalaţi-o şi încercaţi din nou.</translation>
 <translation id="3555616473548901994">Dezinstalare finalizată.</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Google Chrome este disponibil într-o versiune nouă şi mai sigură.</translation>
 <translation id="5037239767309817516">Pentru ca această modificare să aibă efect, închideţi toate ferestrele Google Chrome şi reporniţi-l.</translation>
 <translation id="7451721381978275812">Argumentele nu sunt valide. Google Chrome Frame nu poate fi instalat în modul Pregătit fără a instala şi Google Chrome.</translation>
+<translation id="8684521613357479262">Aţi încercat să accesaţi &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, dar serverul a furnizat un certificat care încă nu este valabil. Nu sunt disponibile informaţii care să indice dacă certificatul respectiv este de încredere. Google Chrome nu vă poate garanta în mod sigur că dvs. comunicaţi cu &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, şi nu cu un atacator. Ora computerului dvs. este setată la <ph name="CURRENT_TIME"/>. Credeţi că această setare este corectă? În caz contrar, trebuie să corectaţi eroarea şi să actualizaţi această pagină.</translation>
 <translation id="4585888816441913908">Acest computer are deja o versiune mai recentă de Google Chrome şi Google Chrome Frame. Dacă software-ul nu funcţionează, dezinstalaţi atât Google Chrome, cât şi Google Chrome Frame şi încercaţi din nou.</translation>
 <translation id="6368958679917195344"><ph name="BEGIN_LINK_CROS_OSS"/>Software-ul open source<ph name="END_LINK_CROS_OSS"/> suplimentar a contribuit la Sistemul de operare Chrome.</translation>
 <translation id="7459554271817304652">Configuraţi sincronizarea pentru a salva funcţiile personalizate ale browserului pe web şi accesaţi-le din Google Chrome de pe orice computer.</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">O descărcare este în desfăşurare. Doriţi să ieşiţi din Google Chrome şi să anulaţi descărcarea?</translation>
 <translation id="4273752058983339720">Google Chrome este configurat pentru a se lansa automat când porniţi computerul.</translation>
 <translation id="1104959162601287462">Despre sistemul de operare &amp;Chrome</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Setați Google Chrome ca browser prestabilit</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome vă permite să faceţi clic pe un număr de telefon de pe web pentru a-l apela cu Skype!</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Google Chrome Plug-In Host</translation>
 <translation id="5699533844376998780">Extensia „<ph name="EXTENSION_NAME"/>” a fost adăugată.</translation>
 <translation id="6126631249883707068">Doriți ca Google Chrome să vă salveze parola?</translation>
+<translation id="7773845170078702898">Doriţi ca Google Chrome să salveze parola pentru acest site?</translation>
 <translation id="5046764976540625289">Ieșiți din Chrome</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Google Chrome nu poate crea o comandă rapidă pentru o aplicaţie, deoarece nu poate stabili mediul de desktop curent.</translation>

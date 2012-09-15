@@ -14,6 +14,12 @@
 <translation id="5028012205542821824">Installationen är inte aktiverad.</translation>
 <translation id="1058418043520174283"><ph name="INDEX"/> av <ph name="COUNT"/></translation>
 <translation id="4480627574828695486">Koppla bort kontot ...</translation>
+<translation id="2516632596252643567">&lt;p&gt;
+          Använd flikar som du öppnar på datorn även här.
+          &lt;/p&gt;
+          &lt;p&gt;
+          Du behöver bara öppna Chrome på datorn, öppna menyn och välja Logga in i Chrome ...
+          &lt;/p&gt;</translation>
 <translation id="7040807039050164757">&amp;Kontrollera stavning i det här fältet</translation>
 <translation id="778579833039460630">Inga data har tagits emot</translation>
 <translation id="32279126412636473">Läs in igen (⌘R)</translation>
@@ -47,6 +53,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="8719282907381795632">Få åtkomst till dina data på <ph name="WEBSITE_1"/></translation>
 <translation id="3792890930871100565">Koppla från skrivare</translation>
 <translation id="8395254168074583923"><ph name="PRODUCT_NAME"/> använder mikrofonen.</translation>
+<translation id="6976652535392081960">Visar platser för <ph name="EMAIL"/></translation>
 <translation id="4940047036413029306">Citat</translation>
 <translation id="1497897566809397301">Tillåt att lokala data sparas (rekommenderas)</translation>
 <translation id="3275778913554317645">Öppna som fönster</translation>
@@ -55,6 +62,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="8867568208303837180">Skickar ...</translation>
 <translation id="509988127256758334">Sö&amp;k efter:</translation>
 <translation id="1420684932347524586">Oj! Det gick inte att generera en slumpmässig privat RSA-nyckel.</translation>
+<translation id="7323509342138776962">Senaste synkroniseringen</translation>
 <translation id="2501173422421700905">Certifikatet är avstängt</translation>
 <translation id="7428534988046001922">Följande appar är nu installerade:</translation>
 <translation id="787386463582943251">Ange e-postadress</translation>
@@ -78,6 +86,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="561349411957324076">Klart</translation>
 <translation id="1358267447825621237">Ändra startsida</translation>
 <translation id="1156689104822061371">Tangentbordslayout:</translation>
+<translation id="3046651560707019780">Återställ den senast använda skrivaren vid omstart. När detta är aktiverat blir operativsystemets standardskrivare den aktuella skrivaren för förhandsgranskning av utskrifter när webbläsaren startas.</translation>
 <translation id="4764776831041365478">Webbsidan på <ph name="URL"/> kan ligga nere för tillfället eller kan ha flyttats permanent till en ny webbadress.</translation>
 <translation id="21426568240411732"><ph name="TITLE"/> använder din kamera.</translation>
 <translation id="6156863943908443225">Cacheminne för skript</translation>
@@ -126,6 +135,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="3384773155383850738">Max antal förslag</translation>
 <translation id="8530339740589765688">Välj efter domän</translation>
 <translation id="8677212948402625567">Dölj alla...</translation>
+<translation id="8008366997883261463">Hund</translation>
 <translation id="7600965453749440009">Översätt aldrig från <ph name="LANGUAGE"/></translation>
 <translation id="3208703785962634733">Obekräftade</translation>
 <translation id="620329680124578183">Läs inte in (rekommenderas)</translation>
@@ -137,6 +147,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="7788444488075094252">Språk och inmatning</translation>
 <translation id="6723354935081862304">Skriv ut till Google Dokument och andra platser i molnet. <ph name="BEGIN_LINK"/>Logga in<ph name="END_LINK"/> om du vill skriva ut med hjälp av Google Cloud Print.</translation>
 <translation id="3602290021589620013">Förhandsgranskning</translation>
+<translation id="6257035105556579916">Tillägg kan inte ändras i hanterat läge.</translation>
 <translation id="800602641363855389"><ph name="TITLE"/> använder din mikrofon.</translation>
 <translation id="7082055294850503883">Ignorera Caps Lock och mata in gemener som standard</translation>
 <translation id="4744603770635761495">Sökväg till körbar fil</translation>
@@ -156,6 +167,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="3626281679859535460">Ljusstyrka</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="9056810968620647706">Inga träffar hittades.</translation>
+<translation id="4548003803382223821">$1 objekt överförs.</translation>
 <translation id="2861301611394761800">Systemuppdateringen har slutförts. Starta om systemet.</translation>
 <translation id="4858913220355269194">Fotboll</translation>
 <translation id="2231238007119540260">Om du tar bort ett servercertifikat återställer du de vanliga säkerhetskontrollerna för servern. Därefter måste servern använda ett giltigt certifikat.</translation>
@@ -168,6 +180,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
         kan du ha problem med din Internetanslutning.</translation>
 <translation id="7624154074265342755">Trådlösa nätverk</translation>
 <translation id="3315158641124845231">Dölj <ph name="PRODUCT_NAME"/></translation>
+<translation id="7766807826975222231">Ta en rundtur</translation>
 <translation id="1993139350008738849">Appmeddelanden</translation>
 <translation id="1374844444528092021">Det certifikat som krävs av nätverket <ph name="NETWORK_NAME"/> är inte installerat eller inte längre giltigt. Hämta ett nytt certifikat och försök ansluta igen.</translation>
 <translation id="3496213124478423963">Zooma ut</translation>
@@ -180,6 +193,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="8479177330099037753">Åh nej! Något gick sönder medan Chrome hämtade filen.</translation>
 <translation id="7693221960936265065">tidens början</translation>
 <translation id="3635850706692228477">Sök i hela <ph name="DRIVE_NAME"/></translation>
+<translation id="8892971592584563548">Fäst på startsidan</translation>
 <translation id="4135919689343081631">Innebär att sidor inte sparas som HTML-only eller HTML Complete; innebär att sidor bara sparas som MHTML: en enda textfil som innehåller HTML-koden och alla tillhörande resurser.</translation>
 <translation id="4920887663447894854">Följande webbplatser har förhindrats att spåra din plats på sidan:</translation>
 <translation id="8133676275609324831">&amp;Visa i mapp</translation>
@@ -188,11 +202,14 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="2465741694701051172">Aktiverar det experimentella verktygsfältsgränssnittet Åtgärdsruta.</translation>
 <translation id="4780321648949301421">Spara sida som...</translation>
 <translation id="3866863539038222107">Kontrollera</translation>
+<translation id="4552678318981539154">Köp mer lagringsutrymme</translation>
+<translation id="8806101649440495124">Ta bort mapp</translation>
 <translation id="3011284594919057757">Om Flash</translation>
 <translation id="7377169924702866686">Caps Lock är på.</translation>
 <translation id="2565670301826831948">Hastighet för styrplatta:</translation>
 <translation id="4969785127455456148">Album</translation>
 <translation id="8178665534778830238">Innehåll:</translation>
+<translation id="8022169082416539625">Importera foton</translation>
 <translation id="2610260699262139870">V&amp;erklig storlek</translation>
 <translation id="4535734014498033861">Anslutningen till proxyservern misslyckades.</translation>
 <translation id="558170650521898289">Microsofts Verifiera Windows-maskinvarudrivrutin</translation>
@@ -211,9 +228,11 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="8774934320277480003">Övre marginal</translation>
 <translation id="1390548061267426325">Öppna som en vanlig flik</translation>
 <translation id="7481475534986701730">Nyligen besökta webbplatser</translation>
+<translation id="5081055027309504756">Sandlådan Seccomp-BPF</translation>
 <translation id="2757031529886297178">FPS-mätare</translation>
 <translation id="6657585470893396449">Lösenord</translation>
 <translation id="1776883657531386793"><ph name="OID"/>: <ph name="INFO"/></translation>
+<translation id="9151034842884433218">Välj en bild och ett namn för din nya profil i Chrome.</translation>
 <translation id="1510030919967934016">Sidan har förhindrats från att spåra din plats.</translation>
 <translation id="8848519885565996859">Användardefinierad ram för adresslänk</translation>
 <translation id="4640525840053037973">Logga in med ditt Google-konto</translation>
@@ -298,6 +317,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="3088325635286126843">&amp;Byt namn ...</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6853700448789925482">Aktivera <ph name="TRACK_HTML"/>-element</translation>
+<translation id="3150927491400159470">Hård inläsning</translation>
 <translation id="7531238562312180404">Eftersom <ph name="PRODUCT_NAME"/> inte styr hur tillägg hanterar dina personliga data har alla tillägg inaktiverats för inkognitofönster. Du kan aktivera dem individuellt i 
         <ph name="BEGIN_LINK"/>tilläggshanteraren<ph name="END_LINK"/>.</translation>
 <translation id="5667293444945855280">Skadlig programvara</translation>
@@ -344,6 +364,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="7957054228628133943">Hantera blockering av popup-program...</translation>
 <translation id="179767530217573436">de senaste fyra veckorna</translation>
 <translation id="2279770628980885996">Ett oväntat tillstånd gjorde att servern inte kunde uppfylla begäran.</translation>
+<translation id="210116126541562594">Blockeras som standard</translation>
 <translation id="4372948949327679948">Ett <ph name="VALUE_TYPE"/>-värde förväntades.</translation>
 <translation id="9123413579398459698">FTP-proxy</translation>
 <translation id="1751752860232137596">Aktivera implementeringen av den experimentella jämna rullningen.</translation>
@@ -371,6 +392,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="9050666287014529139">Lösenfras</translation>
 <translation id="5197255632782567636">Internet</translation>
 <translation id="8787254343425541995">Tillåt proxyservrar för delade nätverk</translation>
+<translation id="5654926308251258726">Tillåt alltid att webbplatsen använder den här mikrofonen</translation>
 <translation id="4755860829306298968">Hantera blockering av plugin-program...</translation>
 <translation id="8879284080359814990">&amp;Visa som flik</translation>
 <translation id="7537536606612762813">Obligatorisk</translation>
@@ -406,6 +428,7 @@ Psst! Nästa gång kanske inkognitoläge <ph name="SHORTCUT_KEY"/> kan vara någ
 <translation id="6508261954199872201">App: <ph name="APP_NAME"/></translation>
 <translation id="5585645215698205895">&amp;Ned</translation>
 <translation id="2713008223070811050">Hantera skärmar</translation>
+<translation id="5145331109270917438">Ändrad den</translation>
 <translation id="6596816719288285829">IP-adress</translation>
 <translation id="4508265954913339219">Aktiveringen misslyckades</translation>
 <translation id="1884405719612801980">heuristisk typ: <ph name="HEURISTIC_TYPE"/>
@@ -416,15 +439,19 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="8656768832129462377">Kontrollera inte</translation>
 <translation id="715487527529576698">Det ursprungliga läget för kinesiska är förenklad kinesiska</translation>
 <translation id="6896830120821965585">Aktiverar en bakgrundstjänst som ansluter Google Cloud Print till skrivare som har installerats på den här datorn. När labbet är aktiverat kan du aktivera anslutningen för Google Cloud Print genom att logga in med ditt Google-konto i avsnittet Under huven i Inställningar.</translation>
+<translation id="3999508690854143454">Fråga mig när en webbplats vill komma åt min kamera och mikrofon (rekommenderas)</translation>
 <translation id="1674989413181946727">Datoromfattande SSL-inställningar:</translation>
 <translation id="1531285811424589182">Fel vid borttagning av certifikat</translation>
 <translation id="54609108002486618">Hanterade</translation>
 <translation id="8703575177326907206">Din anslutning till <ph name="DOMAIN"/> är inte krypterad.</translation>
+<translation id="6135622770221372891">Kanal-ID:n</translation>
 <translation id="3042282020249392540">Testa att lägga till <ph name="PRODUCT_NAME"/> som ett behörigt program i inställningarna för brandväggen eller antivirusprogrammet. Om det redan är ett behörigt program testar du att ta bort det från listan med behöriga program och lägga till det igen.</translation>
 <translation id="8472623782143987204">maskinvarustödd</translation>
 <translation id="8545107379349809705">Dölj info ...</translation>
 <translation id="4865571580044923428">Hantera undantag...</translation>
 <translation id="2526619973349913024">Sök efter uppdatering</translation>
+<translation id="3716615839203649375">tillåt</translation>
+<translation id="4559767610552730302">Bokeh</translation>
 <translation id="3874070094967379652">Kryptera mina data med en lösenfras för synkronisering</translation>
 <translation id="6500116422101723010">Servern kan inte hantera begäran just nu.  Koden visar att det är ett tillfälligt fel och servern kommer att vara uppe igen efter ett tag.</translation>
 <translation id="1644574205037202324">Historik</translation>
@@ -439,6 +466,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="5941343993301164315">Logga in på <ph name="TOKEN_NAME"/>.</translation>
 <translation id="1916935104118658523">Dölj det här plugin-programmet</translation>
 <translation id="1046059554679513793">Det här namnet används redan!</translation>
+<translation id="3887847548716051874">Tillåt alltid att webbplatsen använder den här mikrofonen och kameran</translation>
 <translation id="2886862922374605295">Maskinvara:</translation>
 <translation id="4497097279402334319">Det går inte att ansluta till nätverket.</translation>
 <translation id="7342729285348293164">Logga in i <ph name="PRODUCT_NAME"/> med ditt Google-konto om du vill spara dina personliga webbläsarfunktioner på webben. Då kommer du åt dem i <ph name="PRODUCT_NAME"/> på valfri dator. Du kommer också att loggas in automatiskt på dina favorittjänster från Google.</translation>
@@ -598,6 +626,8 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="2149850907588596975">Lösenord och formulär</translation>
 <translation id="1445572445564823378">Detta tillägg gör <ph name="PRODUCT_NAME"/> långsammare. Om du vill utnyttja den fulla prestandan i <ph name="PRODUCT_NAME"/> bör du inaktivera tillägget.</translation>
 <translation id="7500424997253660722">Begränsad pool</translation>
+<translation id="1317109798441252898">Dina uppgifter hanteras på ett annat sätt i Windows 8.
+        <ph name="BEGIN_LINK"/>Läs mer<ph name="END_LINK"/>.</translation>
 <translation id="657402800789773160">&amp;Hämta sidan igen</translation>
 <translation id="6163363155248589649">&amp;Normalt</translation>
 <translation id="2399147786307302860">Avancerade synkroniseringsinställningar ...</translation>
@@ -649,7 +679,9 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="3467848195100883852">Aktivera automatisk rättstavning</translation>
 <translation id="1336254985736398701">Visa sid&amp;info</translation>
 <translation id="5039440886426314758">Vill du installera dessa appar och tillägg?</translation>
+<translation id="5612400071471722862">Pekarlås</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP"/>.html</translation>
+<translation id="4447481707498660822">Ett fel inträffade när Mina bilder skulle öppnas.</translation>
 <translation id="2120194937135899861">Aktivera fönster 4</translation>
 <translation id="6828153365543658583">Begränsa inloggning till följande användare:</translation>
 <translation id="1652965563555864525">&amp;Dämpa</translation>
@@ -668,6 +700,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="5279600392753459966">Blockera alla</translation>
 <translation id="6846298663435243399">Läser in…</translation>
 <translation id="5723508132121499792">Inga bakgrundsprogram körs</translation>
+<translation id="474421578985060416">Blockeras av dig</translation>
 <translation id="7392915005464253525">Ö&amp;ppna ett stängt fönster igen</translation>
 <translation id="7376443945512294291">Aktivera synkronisering av öppna flikar</translation>
 <translation id="6677037229676347494">Förväntat ID <ph name="EXPECTED_ID"/>, men ID:t var <ph name="NEW_ID"/>.</translation>
@@ -684,6 +717,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="6039651071822577588">Ordboken för nätverksegenskaper har felaktigt format</translation>
 <translation id="8772559521634908780">Bekräfta nytt tillägg</translation>
 <translation id="4022426551683927403">&amp;Lägg till i ordlistan</translation>
+<translation id="5639549361331209298">Uppdatera sidan och vänta om du vill se fler alternativ</translation>
 <translation id="8746186801649380860">Ok, synkronisera</translation>
 <translation id="2897878306272793870">Vill du verkligen öppna <ph name="TAB_COUNT"/> flikar?</translation>
 <translation id="312759608736432009">Enhetstillverkare:</translation>
@@ -768,6 +802,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="6535758682390046055">Hämtningen av <ph name="PLUGIN_NAME"/> avbröts.</translation>
 <translation id="7267955541478798371">Aktivera synkronisering av flikfavoritikoner.</translation>
 <translation id="2738771556149464852">Inte efter</translation>
+<translation id="2325650632570794183">Filtypen stöds inte. Besök Chrome Web Store om du vill hitta en app som kan öppna den här filtypen.</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7474889694310679759">Kanadensiskt-engelskt tangentbord</translation>
@@ -778,6 +813,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="6839929833149231406">Område</translation>
 <translation id="9068931793451030927">Sökväg:</translation>
 <translation id="283278805979278081">Ta bild.</translation>
+<translation id="6111974609785983504">Tillåts som standard</translation>
 <translation id="7320906967354320621">Inaktiv</translation>
 <translation id="1407050882688520094">Du har sparade certifikat som identifierar dessa certifikatutfärdare:</translation>
 <translation id="1051694321716046412">Anpassa användare ...</translation>
@@ -792,6 +828,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="8940229512486821554">Kör kommandot <ph name="EXTENSION_NAME"/> för: <ph name="SEARCH_TERMS"/></translation>
 <translation id="7799329977874311193">HTML-dokument</translation>
 <translation id="2232876851878324699">Filen innehöll ett certifikat och det importerades inte:</translation>
+<translation id="8071086933245711894">Kopieringen avbröts.</translation>
 <translation id="2441392884867482684">Sidan visas nu i helskärm och försöker inaktivera muspekaren.</translation>
 <translation id="1422780722984745882">Flera rubriker med Location togs emot. Eftersom vi vill förhindra attacker
         med delade HTTP-svar är detta inte tillåtet.</translation>
@@ -807,6 +844,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="159359590073980872">Cacheminne för bilder</translation>
 <translation id="3395249460272133069">Välj en bild att visa som bakgrund.</translation>
 <translation id="3317459757438853210">Dubbelsidig</translation>
+<translation id="8108127871048035443">Aktivera hög DPI i Chrome PDF-läsaren</translation>
 <translation id="2011110593081822050">Webbtråd: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">Gäst</translation>
 <translation id="7340431621085453413"><ph name="FULLSCREEN_ORIGIN"/> visas nu i helskärm.</translation>
@@ -834,6 +872,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="3798449238516105146">Version</translation>
 <translation id="3608576286259426129">Förhandsgranskning av användarens bild</translation>
 <translation id="5764483294734785780">S&amp;para ljud som...</translation>
+<translation id="2817998304027613260">Aktivera detta och API:n för experimentella tillägg och installera identifierade tillägg om du vill se förslag på länkar på sidan Ny flik.</translation>
 <translation id="5252456968953390977">Roaming</translation>
 <translation id="8744641000906923997">Romaji</translation>
 <translation id="8507996248087185956"><ph name="NUMBER_DEFAULT"/> minuter</translation>
@@ -889,6 +928,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="2560794850818211873">K&amp;opiera videons webbadress</translation>
 <translation id="412730574613779332">Superhjälte</translation>
 <translation id="5302048478445481009">Språk</translation>
+<translation id="6193629380110441726">Inaktiverar experimentell asynkron stavningskontroll. Förhindrar även att en webbtjänst för att få resultat från stavningskontrollen används i Chrome.</translation>
 <translation id="4191334393248735295">Längd</translation>
 <translation id="3619051884944784882">&amp;Avsluta process</translation>
 <translation id="121201262018556460">Du försökte öppna <ph name="DOMAIN"/>, men servern visade ett certifikat som signerats med en svag nyckel. Det innebär att den privata nyckeln som servern visar kan vara en förfalskning och att servern kanske inte är den server du tror (du kanske kommunicerar med en skadlig server).</translation>
@@ -897,6 +937,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="1519704592140256923">Välj placering</translation>
 <translation id="1275018677838892971">Webbplatsen på adressen <ph name="HOST_NAME"/> innehåller komponenter från webbplatser som har rapporterats ägna sig åt lösenordsfiske. Sådana webbplatser lurar användarna att avslöja personliga eller ekonomiska uppgifter, ofta genom att låtsas representera betrodda institutioner som banker.</translation>
 <translation id="7570477672765183">Klicka för att starta</translation>
+<translation id="6166101525540035714">Chromes <ph name="BEGIN_LINK1"/>användarvillkor<ph name="END_LINK1"/> och <ph name="BEGIN_LINK2"/>sekretessmeddelande<ph name="END_LINK2"/> gäller när du använder Chrome.</translation>
 <translation id="702455272205692181"><ph name="EXTENSION_NAME"/></translation>
 <translation id="7170041865419449892">Utanför intervallet</translation>
 <translation id="908263542783690259">Rensa webbhistorik</translation>
@@ -914,6 +955,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="3909791450649380159">&amp;Klipp ut</translation>
 <translation id="2955913368246107853">Stäng sökfältet</translation>
 <translation id="8864170386249720785">SSL-inställningarna för hela den mobila enheten:</translation>
+<translation id="3914942725612686145">Nu är du inloggad i Chrome. Dina öppna flikar, bokmärken och uppgifter från adressfältet synkroniseras med ditt Google-konto.</translation>
 <translation id="5642508497713047">CRL-signerare</translation>
 <translation id="7612302739128412469">Aktivera tillägget genom att klicka på den här ikonen.</translation>
 <translation id="813082847718468539">Visa information om webbplatsen</translation>
@@ -931,6 +973,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="7191454237977785534">Spara filen som</translation>
 <translation id="7241389281993241388">Logga in på <ph name="TOKEN_NAME"/> om du vill importera klientcertifikatet.</translation>
 <translation id="7206693748120342859">Hämtar <ph name="PLUGIN_NAME"/> ...</translation>
+<translation id="4744574733485822359">Hämtningen har slutförts</translation>
 <translation id="2872754556057097683">Flera olika rubriker med &quot;Content-Length&quot; togs emot. Eftersom vi vill förhindra attacker med delade HTTP-svar är detta inte tillåtet.</translation>
 <translation id="4804818685124855865">Koppla från</translation>
 <translation id="1645228020260124617"><ph name="PRECENTAGE"/> %</translation>
@@ -966,9 +1009,12 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="268053382412112343">Hi&amp;storik</translation>
 <translation id="1722567105086139392">Länk</translation>
 <translation id="2620436844016719705">System</translation>
+<translation id="6627583120233659107">Redigera mapp</translation>
 <translation id="5362741141255528695">Välj privat nyckelfil.</translation>
 <translation id="8831623914872394308">Pekarinställningar</translation>
+<translation id="8801228014372571803">Den externa lagringsenheten är inte formaterad.</translation>
 <translation id="4580526846085481512">Vill du ta bort $1 objekt?</translation>
+<translation id="1965340240343412366">Aktivera utökat API för Instant</translation>
 <translation id="5292890015345653304">Sätt i ett SD-kort eller anslut ett USB-minne</translation>
 <translation id="5583370583559395927">Återstående tid: <ph name="TIME_REMAINING"/></translation>
 <translation id="6219717821796422795">Hanyu</translation>
@@ -1000,6 +1046,8 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="8464132254133862871">Det här användarkontot kan inte väljas för denna tjänst.</translation>
 <translation id="6812349420832218321"><ph name="PRODUCT_NAME"/> kan inte köras av en systemadministratör.</translation>
 <translation id="1055216403268280980">Avbildningsdimensioner</translation>
+<translation id="4597972110633667332">Hämta filer</translation>
+<translation id="675782348613606635">Gränssnitt för webbplatsinställningar</translation>
 <translation id="14171126816530869">Identiteten hos <ph name="ORGANIZATION"/> på <ph name="LOCALITY"/> har verifierats av <ph name="ISSUER"/>.</translation>
 <translation id="824902718516184009">Certifikatdata saknas</translation>
 <translation id="7314327919567192532">Begränsa storleksändringsfrekvens för fönster.</translation>
@@ -1034,6 +1082,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="1425975335069981043">Roaming:</translation>
 <translation id="1272079795634619415">Stopp</translation>
 <translation id="5442787703230926158">Synkroniseringsfel...</translation>
+<translation id="4623686308320139074"><ph name="PERMISSION_VALUE"/> av dig</translation>
 <translation id="2462724976360937186">Nyckel-ID för certifikatutfärdare</translation>
 <translation id="981121421437150478">Offline</translation>
 <translation id="2964193600955408481">Inaktivera Wi-Fi</translation>
@@ -1045,8 +1094,10 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="8596540852772265699">Egna filformat</translation>
 <translation id="7017354871202642555">Det går inte att ange läge när fönstret har skapats.</translation>
 <translation id="3101709781009526431">Datum och tid</translation>
+<translation id="7125126245420352372">Var ska bilden importeras?</translation>
 <translation id="3960611155749707703">Aktivera det sista fönstret</translation>
 <translation id="833853299050699606">Det finns ingen abonnemangsinformation.</translation>
+<translation id="4472575034687746823">Kom igång</translation>
 <translation id="1737968601308870607">Rapportera fel</translation>
 <translation id="7326487563595667270">Bubbla för installation av nya appar</translation>
 <translation id="1389297115360905376">Kan endast installeras från <ph name="CHROME_WEB_STORE"/>.</translation>
@@ -1066,6 +1117,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="7952408061263786094">Logga ut och sedan in igen ...</translation>
 <translation id="664271268954513498">Policyvärde</translation>
 <translation id="3368922792935385530">Ansluten</translation>
+<translation id="4999529542784598108">Aktivera identifiering på sidan Ny flik.</translation>
 <translation id="7259332871247091754">Filen blockerades av ett antivirusprogram.</translation>
 <translation id="3866443872548686097">Dina återställningsmedia är klara. Du kan ta bort dem från systemet.</translation>
 <translation id="6824564591481349393">Kopiera &amp;e-postadress</translation>
@@ -1086,6 +1138,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="7791543448312431591">Lägg till</translation>
 <translation id="8569764466147087991">Välj fil att öppna</translation>
 <translation id="5086589117546410981">Ange efternamn</translation>
+<translation id="4275663329226226506">Media</translation>
 <translation id="5449451542704866098">Inget dataabonnemang</translation>
 <translation id="3093853184108622112">Få åtkomst till dina data på <ph name="WEBSITE_1"/> och <ph name="WEBSITE_2"/></translation>
 <translation id="2391593830069336007">Instant: <ph name="INSTANT_PREVIEW_NAME"/></translation>
@@ -1136,6 +1189,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="8502803898357295528">Ditt lösenord har ändrats</translation>
 <translation id="4064488613268730704">Hantera inställningar för Autofyll...</translation>
 <translation id="6830600606572693159">Webbsidan <ph name="URL"/> är inte tillgänglig just nu. Den kan vara överbelastad eller ligga nere för underhåll.</translation>
+<translation id="6776310961830589430">Flytt avbröts.</translation>
 <translation id="4421932782753506458">Misse</translation>
 <translation id="8417944620073548444"><ph name="MEGABYTES"/> MB återstår</translation>
 <translation id="4498419978438799658">Få åtkomst till all text som läses upp med syntetiskt tal</translation>
@@ -1231,6 +1285,7 @@ experiment-ID: <ph name="EXPERIMENT_ID"/></translation>
 <translation id="4830475881783902092">Klient-ID:</translation>
 <translation id="4600958291864306415">genereras ...</translation>
 <translation id="8594787581355215556">Inloggad som <ph name="USER_EMAIL_ADDRESS"/>. Hantera synkroniserade data i <ph name="BEGIN_LINK"/>Google Översikt<ph name="END_LINK"/>.</translation>
+<translation id="4338600611020922010">Lägg till på startsidan</translation>
 <translation id="263325223718984101">Installationen av <ph name="PRODUCT_NAME"/> kunde inte slutföras, men programmet kommer att fortsätta köras från diskavbildningen.</translation>
 <translation id="6186893483313227582">Ikon <ph name="VALUE"/></translation>
 <translation id="4726710629007580002">Varningar aktiverades när tillägget skulle installeras:</translation>
@@ -1267,6 +1322,7 @@ Vill du starta <ph name="CONTROL_PANEL_APPLET_NAME"/>?</translation>
 <translation id="80993596820839389">Starta <ph name="PRODUCT_NAME"/> automatiskt när jag startar min mobila enhet</translation>
 <translation id="6562758426028728553">Ange gammal och ny PIN.</translation>
 <translation id="614161640521680948">Språk:</translation>
+<translation id="6404511346730675251">Redigera bokmärke</translation>
 <translation id="3733127536501031542">SSL-server med uppgradering</translation>
 <translation id="954586097957006897">Efternamn</translation>
 <translation id="7473891865547856676">Nej tack</translation>
@@ -1318,6 +1374,7 @@ Vill du starta <ph name="CONTROL_PANEL_APPLET_NAME"/>?</translation>
 <translation id="2529133382850673012">USA-tangentbord</translation>
 <translation id="4411578466613447185">Kodsigneringscertifikat</translation>
 <translation id="1354868058853714482">Adobe Reader är inte uppdaterat och kan vara osäkert.</translation>
+<translation id="2317808232945809">Kopieringen misslyckades. Objektet finns: $1</translation>
 <translation id="8943392635470173207">Använd <ph name="INTENT_HANDLER_TITLE"/></translation>
 <translation id="6252594924928912846">Anpassa synkroniseringsinställningar</translation>
 <translation id="8425755597197517046">Kl&amp;istra in och sök</translation>
@@ -1325,6 +1382,7 @@ Vill du starta <ph name="CONTROL_PANEL_APPLET_NAME"/>?</translation>
 <translation id="1093148655619282731">Information om det valda certifikatet:</translation>
 <translation id="3003623123441819449">CSS-cacheminne</translation>
 <translation id="2743322561779022895">Aktivering:</translation>
+<translation id="4343903275934242195">Inaktivera asynkron stavningskontroll</translation>
 <translation id="4181898366589410653">Ingen återkallningsmekanism hittades i servercertifikatet.</translation>
 <translation id="6914291514448387591"><ph name="PLUGIN_NAME"/> behöver din tillåtelse att köras.</translation>
 <translation id="8705331520020532516">Serienummer</translation>
@@ -1391,6 +1449,7 @@ Vill du starta <ph name="CONTROL_PANEL_APPLET_NAME"/>?</translation>
 <translation id="1976150099241323601">Logga in på säkerhetsenhet</translation>
 <translation id="4938972461544498524">Inställningar för pekplatta</translation>
 <translation id="4988526792673242964">Sidor</translation>
+<translation id="3302340765592941254">Meddelande om slutförd hämtning</translation>
 <translation id="2175607476662778685">Fältet Snabbstart</translation>
 <translation id="9085376357433234031">Om du vill spara filerna för användning offline ansluter du igen och&lt;br&gt;markerar kryssrutan <ph name="OFFLINE_CHECKBOX_NAME"/> för filerna.</translation>
 <translation id="6434309073475700221">Kasta</translation>
@@ -1493,6 +1552,7 @@ Vill du starta <ph name="CONTROL_PANEL_APPLET_NAME"/>?</translation>
 <translation id="6810193446027958860">Pekarens känslighet:</translation>
 <translation id="5015344424288992913">Tolkar proxy...</translation>
 <translation id="4389091756366370506">Användare <ph name="VALUE"/></translation>
+<translation id="1206845131537514414">Lossa från startsidan</translation>
 <translation id="3850634422834903942">Det gick inte att installera tillägget</translation>
 <translation id="2398703750948514961">Har avbrutits</translation>
 <translation id="4724168406730866204">Eten 26</translation>
@@ -1528,6 +1588,7 @@ Vill du starta <ph name="CONTROL_PANEL_APPLET_NAME"/>?</translation>
 <translation id="4765322846143433260">Uppdaterades senast</translation>
 <translation id="9054208318010838">Tillåt alla webbplatser att spåra min fysiska plats</translation>
 <translation id="3058212636943679650">Om du någon gång skulle behöva återställa datorns operativsystem behöver du ett SD-kort eller USB-minne.</translation>
+<translation id="7252661675567922360">Läs inte in</translation>
 <translation id="2815382244540487333">Följande cookies blockerades:</translation>
 <translation id="8882395288517865445">Inkludera adresser från adressbokskortet</translation>
 <translation id="374530189620960299">Webbplatsens säkerhetscertifikat är inte tillförlitligt!</translation>
@@ -1548,6 +1609,7 @@ Vill du starta <ph name="CONTROL_PANEL_APPLET_NAME"/>?</translation>
 Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <ph name="EXPONENT_HEX_DUMP"/></translation>
 <translation id="3450660100078934250">MasterCard</translation>
+<translation id="2145453745617225127">Appen vill ha följande omfattningar:</translation>
 <translation id="2916073183900451334">Om du trycker på Tabb på en webbsida markeras länkar och formulärfält</translation>
 <translation id="7772127298218883077">Om <ph name="PRODUCT_NAME"/></translation>
 <translation id="1789424019568293108">Aktivera experimentellt gränssnitt som visar en logg för tilläggsaktivitet.</translation>
@@ -1566,6 +1628,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="5350480486488078311">NaCl Socket-API.</translation>
 <translation id="5329858601952122676">&amp;Ta bort</translation>
 <translation id="6100736666660498114">Start-meny</translation>
+<translation id="2706131822305474920">Hoppa mellan öppna flikar</translation>
 <translation id="4402766404187539019">E-post från Google.com</translation>
 <translation id="6275297011664564181">Ingen policy är aktiv för närvarande.</translation>
 <translation id="3994878504415702912">&amp;Zooma in</translation>
@@ -1597,8 +1660,11 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="6556866813142980365">Upprepa</translation>
 <translation id="8824701697284169214">Lägg till si&amp;da ...</translation>
 <translation id="2107287771748948380"><ph name="OBFUSCATED_CC_NUMBER"/>, Exp: <ph name="CC_EXPIRATION_DATE"/></translation>
+<translation id="5881201518994403433">Välj en bild och ett namn för din profil i Chrome.</translation>
 <translation id="7866522434127619318">Aktiverar alternativet ”Klicka för att spela” i inställningarna för plugin-innehåll.</translation>
+<translation id="981210574958082923">Ändra ordning på resultat som ska infogas i HistoryQuickProvider</translation>
 <translation id="6466988389784393586">&amp;Öppna alla bokmärken</translation>
+<translation id="6059764114876442286">Återställ skrivare</translation>
 <translation id="6406506848690869874">Synkronisera</translation>
 <translation id="5288678174502918605">Ö&amp;ppna en stängd flik igen</translation>
 <translation id="7238461040709361198">Lösenordet till ditt Google-konto har ändrats sedan du senast loggade in på den här datorn.</translation>
@@ -1609,7 +1675,9 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="9157595877708044936">Konfigurerar...</translation>
 <translation id="4475552974751346499">Sök i nedladdningar</translation>
 <translation id="6624687053722465643">Sockersöt</translation>
+<translation id="8420296388012619424">USB-enheten är inte formaterad.</translation>
 <translation id="3021256392995617989">Fråga mig om en webbplats försöker spåra min fysiska plats (rekommenderas)</translation>
+<translation id="8083739373364455075">Få 100 GB gratis med Google Drive</translation>
 <translation id="271083069174183365">Inmatningsinställningar för japanska</translation>
 <translation id="1257595095755619623">Om du använder en proxyserver kontrollerar du proxyinställningarna eller
         kontaktar nätverksadministratören för att kontrollera att
@@ -1628,6 +1696,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
         skaffa ett giltigt certifikat någon annanstans.</translation>
 <translation id="6295228342562451544">När du ansluter till en säker webbplats identifierar sig webbplatsservern för webbläsaren genom ett &quot;certifikat&quot;. Certifikatet innehåller identitetsinformation, t.ex. webbplatsens adress, som har verifierats av en tillförlitlig tredje part. Genom att kontrollera att adressen i certifikatet överensstämmer med adressen till webbplatsen kan du kontrollera att du kommunicerar säkert med den avsedda webbplatsen och inte med tredje part, t.ex. en bedragare i nätverket.</translation>
 <translation id="6342069812937806050">Alldeles nyss</translation>
+<translation id="6810544202039995031">Använd en annan tjänst</translation>
 <translation id="4510744228507474176">Stöd för version 1 av manifestet håller på att <ph name="LINK_START_1"/>avvecklas<ph name="LINK_END_1"/>. <ph name="LINK_START_2"/>Uppgradera till version 2<ph name="LINK_END_2"/>.</translation>
 <translation id="5605716740717446121">SIM-kortet inaktiveras permanent om du inte anger rätt PIN-upplåsningsnyckel. Antal försök kvar: <ph name="TRIES_COUNT"/></translation>
 <translation id="8836712291807476944"><ph name="SAVED_BYTES"/> / <ph name="TOTAL_BYTES"/> byte, Avbrutet</translation>
@@ -1665,6 +1734,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="7084579131203911145">Abonnemangsnamn:</translation>
 <translation id="5815645614496570556">X.400-adress</translation>
 <translation id="1223853788495130632">Administratören rekommenderar ett specifikt värde för den här inställningen.</translation>
+<translation id="5379177235542136617">Aktiverar en experimentell ramhantering på vissa dialogrutor.</translation>
 <translation id="3551320343578183772">Stäng flik</translation>
 <translation id="3345886924813989455">Det gick inte att hitta någon webbläsare som stöds</translation>
 <translation id="74354239584446316">Ditt Web Store-konto är <ph name="EMAIL_ADDRESS"/>. Om du loggar in och synkroniserar med ett annat konto leder det till inkompatibilitet.</translation>
@@ -1673,6 +1743,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="5701381305118179107">Centrera</translation>
 <translation id="7926251226597967072"><ph name="PRODUCT_NAME"/> importerar följande objekt från <ph name="IMPORT_BROWSER_NAME"/>:</translation>
 <translation id="4442424173763614572">DNS-sökning misslyckades</translation>
+<translation id="6199801702437275229">Väntar på information om lagringsutrymme ...</translation>
 <translation id="4315903906955301944">Officiell webbsida för ljudfil</translation>
 <translation id="225207911366869382">Värdet är inte längre giltigt för policyn.</translation>
 <translation id="2398753653077538650">Aktivera sidåtgärden Chrome to Mobile, som gör att du kan skicka sidadresser och offlinekopior till Chrome på din mobilenhet.</translation>
@@ -1683,9 +1754,11 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8605503133013456784">Det gick inte att koppla från och ta bort parkopplingen för <ph name="DEVICE_NAME"/>.</translation>
 <translation id="1109977641518209564">Den här inställningen hanteras av ett tillägg.</translation>
 <translation id="2007404777272201486">Rapportera ett problem...</translation>
+<translation id="4366509400410520531">Tillåts av dig</translation>
 <translation id="1783075131180517613">Uppdatera lösenfrasen för synkroniseringen.</translation>
 <translation id="2390045462562521613">Spara inte det här nätverket</translation>
 <translation id="3348038390189153836">Flyttbar enhet upptäckt</translation>
+<translation id="8005540215158006229">Chrome är nästan klar.</translation>
 <translation id="3348217908174891895">En mapp har valts</translation>
 <translation id="1666788816626221136">Du har certifikat i din dator som inte passar i några av de andra kategorierna:</translation>
 <translation id="5698727907125761952">Officiell artist</translation>
@@ -1726,6 +1799,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="1567993339577891801">JavaScript-konsol</translation>
 <translation id="895944840846194039">JavaScript-minne</translation>
 <translation id="4546420444519867841">Installera plugin-program som saknas</translation>
+<translation id="5512030650494444738">Blomma</translation>
 <translation id="6462080265650314920">Apparna måste visas med content-type <ph name="CONTENT_TYPE"/>.</translation>
 <translation id="1559235587769913376">Ange Unicode-tecken</translation>
 <translation id="3297788108165652516">Nätverket delas med andra användare.</translation>
@@ -1771,8 +1845,10 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8898786835233784856">Välj nästa flik</translation>
 <translation id="9111102763498581341">Lås upp</translation>
 <translation id="289695669188700754">Nyckel-ID: <ph name="KEY_ID"/></translation>
+<translation id="4336471305806418015">Använd som standardwebbläsare</translation>
 <translation id="8183644773978894558">En inkognitohämtning pågår. Vill du avsluta inkognitoläget och avbryta hämtningen?</translation>
 <translation id="2181821976797666341">Policyer</translation>
+<translation id="6133373045289694546">Anslutningen använder SSL-komprimeringen <ph name="COMPRESSION"/>.</translation>
 <translation id="8767072502252310690">Användare</translation>
 <translation id="683526731807555621">Lägg till en ny sökmotor</translation>
 <translation id="6871644448911473373">OCSP-svarare: <ph name="LOCATION"/></translation>
@@ -1840,6 +1916,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="1358032944105037487">Japanskt tangentbord</translation>
 <translation id="292638579420016866">Fråga mig när en webbplats vill använda kameran eller mikrofonen (rekommenderas)</translation>
 <translation id="6231782223312638214">Förslag</translation>
+<translation id="3378649245744504729">Nytt album</translation>
 <translation id="8302838426652833913">Öppna
           <ph name="BEGIN_BOLD"/>
           Program &gt; Systeminställningar &gt; Nätverk &gt; Hjälp mig
@@ -1849,7 +1926,9 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8970407809569722516">Firmware:</translation>
 <translation id="13649080186077898">Hantera inställningar för Autofyll</translation>
 <translation id="57646104491463491">Datum ändrad</translation>
+<translation id="3941357410013254652">Kanal-ID</translation>
 <translation id="7266345500930177944">Klicka för att köra <ph name="PLUGIN_NAME"/>.</translation>
+<translation id="6223447490656896591">Anpassad bild:</translation>
 <translation id="6362853299801475928">&amp;Rapportera ett problem...</translation>
 <translation id="5527463195266282916">Försökte nedgradera tillägg.</translation>
 <translation id="3289566588497100676">Enkel symbolinmatning</translation>
@@ -1859,6 +1938,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="7471734499550209360">Välkommen till <ph name="SHORT_PRODUCT_NAME"/></translation>
 <translation id="7460131386973988868">Aktiverar statisk IP-konfiguration. Det kanske inte fungerar.</translation>
 <translation id="749452993132003881">Hiragana</translation>
+<translation id="4302753224935370010">Anslutningen använder inte SSL-komprimering.</translation>
 <translation id="8273972836055206582"><ph name="FULLSCREEN_ORIGIN"/> är nu i helskärmsläge och försöker inaktivera muspekaren.</translation>
 <translation id="5916084858004523819">Aldrig</translation>
 <translation id="1497522201463361063">Det gick inte att byta namn på <ph name="FILE_NAME"/>. <ph name="ERROR_MESSAGE"/></translation>
@@ -1883,6 +1963,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8069732954367771603">Inga tjänster är registrerade för den här åtgärden.</translation>
 <translation id="917450738466192189">Servercertifikatet är ogiltigt.</translation>
 <translation id="2649045351178520408">Base64-kodad ASCII, certifikatkedja</translation>
+<translation id="5656862584067297168">Mottaget från andra enheter</translation>
 <translation id="2615569600992945508">Låt inte någon webbplats inaktivera muspekaren</translation>
 <translation id="7424526482660971538">Välj min egen lösenfras för synkronisering</translation>
 <translation id="7334866548633321642">Undantag till flashkamera och mikrofon</translation>
@@ -1952,6 +2033,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="3328801116991980348">Platsinformation</translation>
 <translation id="7337488620968032387"><ph name="PRODUCT_NAME"/> har problem med att komma åt nätverket. <ph name="LINE_BREAK"/> Det kan bero på att brandväggen eller antivirusprogrammet felaktigt misstänker att <ph name="PRODUCT_NAME"/> har gjort intrång på datorn och blockerar därmed dess anslutning till Internet.</translation>
 <translation id="2065985942032347596">Verifiering krävs</translation>
+<translation id="2563185590376525700">Groda</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME"/> kunde inte ansluta till <ph name="NETWORK_ID"/>. Välj ett annat nätverk eller försök igen.</translation>
 <translation id="2086712242472027775">Kontot fungerar inte på <ph name="PRODUCT_NAME"/>. Kontakta domänadministratören eller logga in med ett vanligt Google-konto.</translation>
 <translation id="1373074393717692190">Logga in på <ph name="PRODUCT_NAME"/> med ditt Google-konto om du vill spara funktionerna för personlig sökning på webben och komma åt dem från <ph name="PRODUCT_NAME"/> på en mobil enhet. Du loggas också in automatiskt på dina favorittjänster från Google.</translation>
@@ -2001,6 +2083,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="4534166495582787863">Aktivera trefingerklick på styrplatta som mittenknapp.</translation>
 <translation id="2190469909648452501">Minska</translation>
 <translation id="7754704193130578113">Fråga var filerna ska sparas före nedladdning</translation>
+<translation id="222949136907494149"><ph name="URL"/> vill använda enhetens platsinfo.</translation>
 <translation id="7654941827281939388">Kontot används redan på den här datorn.</translation>
 <translation id="204914487372604757">Skapa genväg</translation>
 <translation id="696036063053180184">3 Set (No shift)</translation>
@@ -2017,9 +2100,11 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="2423017480076849397">Använd och dela dina skrivare online med <ph name="CLOUD_PRINT_NAME"/></translation>
 <translation id="4018133169783460046">Visa <ph name="PRODUCT_NAME"/> på det här språket</translation>
 <translation id="5110450810124758964">För <ph name="NUMBER_ONE"/> dag sedan</translation>
+<translation id="1503914375822320413">Kopieringen misslyckades. Oväntat fel: $1</translation>
 <translation id="6224995341905622854">Om du ser detta ofta provar du <ph name="HELP_LINK"/>.</translation>
 <translation id="3264544094376351444">Sans serif-teckensnitt</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> sekund</translation>
+<translation id="4288944631342744404">Sök på webben direkt</translation>
 <translation id="1077946062898560804">Konfigurera automatiska uppdateringar för alla användare</translation>
 <translation id="3122496702278727796">Kunde inte skapa datakatalog</translation>
 <translation id="6990081529015358884">Du har slut på utrymme</translation>
@@ -2042,6 +2127,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="9148058034647219655">Avsluta</translation>
 <translation id="2881966438216424900">Senast öppnad:</translation>
 <translation id="630065524203833229">&amp;Avsluta</translation>
+<translation id="6935521024859866267">Uppochned</translation>
 <translation id="4647090755847581616">&amp;Stäng flik</translation>
 <translation id="2649204054376361687"><ph name="CITY"/>, <ph name="COUNTRY"/></translation>
 <translation id="7886758531743562066">Webbplatsen på adressen <ph name="HOST_NAME"/> innehåller komponenter från webbplatser som verkar innehålla skadliga program, dvs. program som kan skada datorn eller köras utan ditt tillstånd. Det kan räcka med att besöka en webbplats med skadliga program för att datorn ska infekteras.</translation>
@@ -2079,6 +2165,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="6374830905869502056">Kodat av</translation>
 <translation id="2230062665678605299">Det går inte att skapa mappen <ph name="FOLDER_NAME"/>. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="2526590354069164005">Skrivbord</translation>
+<translation id="2059205526855036527">Du måste vara online för att komma åt Google Drive för första gången.</translation>
 <translation id="4165738236481494247">Kör det här plugin-programmet</translation>
 <translation id="7983301409776629893">Översätt alltid <ph name="ORIGINAL_LANGUAGE"/> till <ph name="TARGET_LANGUAGE"/></translation>
 <translation id="4890284164788142455">Thailändskt</translation>
@@ -2101,6 +2188,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="3898394061528036117">Vilken tjänst vill du använda?</translation>
 <translation id="5148652308299789060">Inaktivera rastrering för 3D-program</translation>
 <translation id="8382913212082956454">Kopiera &amp;e-postadress</translation>
+<translation id="277784422805254599">Inaktivera ny form för kryssrutor.</translation>
 <translation id="7447930227192971403">Aktivera flik 3</translation>
 <translation id="3010559122411665027">Listposten <ph name="ENTRY_INDEX"/>: <ph name="ERROR"/></translation>
 <translation id="2903493209154104877">Adresser</translation>
@@ -2134,7 +2222,9 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8871696467337989339">Du använder en kommandoradsflagga som inte stöds: <ph name="BAD_FLAG"/>. Detta påverkar stabilitet och säkerhet negativt.</translation>
 <translation id="4767443964295394154">Hämtningsplats</translation>
 <translation id="5031870354684148875">Om Google Översätt</translation>
+<translation id="4266565660628359579">Aktiverar högt DPI-läge för Chrome PDF-läsaren på skärmar med hög DPI.</translation>
 <translation id="5702389759209837579">Tillgång till dina öppna flikar på alla dina enheter.</translation>
+<translation id="3828747136564826513">Öppna alla kända mediefiler på enheten</translation>
 <translation id="720658115504386855">Bokstäver är inte skiftlägeskänsliga</translation>
 <translation id="8263744495942430914"><ph name="FULLSCREEN_ORIGIN"/> har inaktiverat muspekaren.</translation>
 <translation id="6404451368029478467"><ph name="PRODUCT_NAME"/> uppdateras automatiskt så att du alltid har den senaste versionen. När den här hämtningen är klar startas <ph name="PRODUCT_NAME"/> om och sedan är du igång.</translation>
@@ -2153,6 +2243,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="7846924223038347452">Du har inte behörighet att använda den här enheten. Kontakta enhetens ägare om du vill ha behörighet att logga in.</translation>
 <translation id="6521850982405273806">Rapportera ett fel</translation>
 <translation id="736515969993332243">Söker efter nätverk.</translation>
+<translation id="4417828425057753121">Tillåt inte att webbplatser kommer åt min kamera och mikrofon</translation>
 <translation id="7806513705704909664">Aktivera Autofyll och fyll i webbformulär med ett enda klick.</translation>
 <translation id="8026334261755873520">Rensa webbinformation</translation>
 <translation id="605011065011551813">Ett plugin-program (<ph name="PLUGIN_NAME"/>) svarar inte.</translation>
@@ -2164,6 +2255,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8651585100578802546">Tvinga webbläsaren att hämta sidan igen</translation>
 <translation id="1361655923249334273">Oanvänd</translation>
 <translation id="290555789621781773"><ph name="NUMBER_TWO"/> minuter</translation>
+<translation id="4326192123064055915">Kaffe</translation>
 <translation id="5434065355175441495">PKCS #1 RSA-kryptering</translation>
 <translation id="7073704676847768330">Det här är troligen inte den webbplats som du ville besöka!</translation>
 <translation id="8477384620836102176">&amp;Allmänt</translation>
@@ -2189,6 +2281,8 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="3355823806454867987">Ändra proxyinställningar...</translation>
 <translation id="4780374166989101364">Aktiverar tillägg med experimentella programmeringsgränssnitt. Observera att tilläggsgalleriet inte tillåter att du lägger upp tillägg med experimentella programmeringsgränssnitt.</translation>
 <translation id="7117247127439884114">Logga in igen ...</translation>
+<translation id="2893271451009400655">Det gick inte att läsa in bilderna.</translation>
+<translation id="509429900233858213">Det har uppstått ett fel.</translation>
 <translation id="7227780179130368205">Skadlig programvara har upptäckts!</translation>
 <translation id="435243347905038008">Låg datahastighet för <ph name="NETWORK"/></translation>
 <translation id="2489428929217601177">senaste dagen</translation>
@@ -2222,7 +2316,9 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="2151576029659734873">Du har angett ett ogiltigt flikindex.</translation>
 <translation id="1229834829921822263">Ogiltigt serienummer</translation>
 <translation id="1815861158988915678"><ph name="BEGIN_BOLD"/>Varning!<ph name="END_BOLD"/>  De här filerna är tillfälliga och kan tas bort automatiskt för att frigöra utrymme på hårddisken.  <ph name="BEGIN_LINK"/>Läs mer<ph name="END_LINK"/></translation>
+<translation id="5599620772482612321">$1 objekt flyttas.</translation>
 <translation id="5150254825601720210">SSL-servernamn för Netscape-certifikat</translation>
+<translation id="7411144907472643257">Mediegallerier</translation>
 <translation id="6771503742377376720">Är en certifikatutfärdare</translation>
 <translation id="2728812059138274132">Söker efter plugin-program ...</translation>
 <translation id="2471964272749426546">Inmatningsmetod för tamil (Tamil99)</translation>
@@ -2231,6 +2327,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="1128554891575825309">Ta bort användaren <ph name="USER_EMAIL_ADDRESS"/></translation>
 <translation id="8410619858754994443">Bekräfta lösenord:</translation>
 <translation id="3377251335797762771">Fönsterläge</translation>
+<translation id="8161273087013047364"><ph name="FILE_NAME"/> kopieras</translation>
 <translation id="3858678421048828670">Italienskt tangentbord</translation>
 <translation id="1436784010935106834">Borttagna</translation>
 <translation id="3730639321086573427">Lokala platser</translation>
@@ -2246,10 +2343,12 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/> timmar</translation>
 <translation id="5774295353725270860">Appen Öppna filer</translation>
 <translation id="1398853756734560583">Maximera</translation>
+<translation id="1829129547161959350">Pingvin</translation>
 <translation id="8988255471271407508">Webbsidan hittades inte i cachen. Vissa resurser kan endast hämtas säkert från cachen, till exempel sidor som skapats utifrån data som skickats.<ph name="LINE_BREAK"/> Felet kan också orsakas av att cachen skadats vid en felaktig avstängning. <ph name="LINE_BREAK"/> Om problemet kvarstår kan du prova med att rensa cachen.</translation>
 <translation id="1653828314016431939">OK - starta om nu</translation>
 <translation id="8915370057835397490">Läser in förslag</translation>
 <translation id="2138262541062800200">Inaktivera synkronisering av appmeddelanden</translation>
+<translation id="174773101815569257">Lås mus</translation>
 <translation id="2790759706655765283">Officiell webbsida för förlag</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="8342318071240498787">Det finns redan en fil eller en katalog med samma namn.</translation>
@@ -2270,6 +2369,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8250690786522693009">Latin</translation>
 <translation id="2119721408814495896">Anslutningen för <ph name="CLOUD_PRINT_NAME"/> kräver att Microsoft XML Paper Specification Essentials Pack är installerat.</translation>
 <translation id="5829401023154985950">Hantera ...</translation>
+<translation id="6832874810062085277">fråga</translation>
 <translation id="7624267205732106503">Ta bort cookies och andra webbplatsdata när jag stänger webbläsaren</translation>
 <translation id="8401363965527883709">Avmarkerad kryssruta</translation>
 <translation id="7771452384635174008">Layout</translation>
@@ -2277,6 +2377,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="2851981350712094353">Anslutning för Google Cloud Print</translation>
 <translation id="8443621894987748190">Välj bild till ditt konto</translation>
 <translation id="10122177803156699">Visa mig</translation>
+<translation id="935099558325596666">https://support.google.com/chrome/?p=win8_directories</translation>
 <translation id="5260878308685146029"><ph name="NUMBER_TWO"/> minuter kvar</translation>
 <translation id="7374461526650987610">Protokollhanterare</translation>
 <translation id="2192505247865591433">Från:</translation>
@@ -2287,7 +2388,9 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
           <ph name="PRODUCT_NAME"/>
           kan inte ansluta till den.</translation>
 <translation id="671928215901716392">Lås skärmen</translation>
+<translation id="2241468422635044128">Tillåts av tillägget</translation>
 <translation id="3727187387656390258">Kontrollera popup</translation>
+<translation id="361106536627977100">Flash-data</translation>
 <translation id="569068482611873351">Importera...</translation>
 <translation id="6571070086367343653">Redigera kreditkort</translation>
 <translation id="1204242529756846967">Stavningskontrollen utförs på detta språk</translation>
@@ -2299,11 +2402,13 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="3654092442379740616">Synkroniseringsfel. <ph name="PRODUCT_NAME"/> är inaktuellt och behöver uppdateras.</translation>
 <translation id="790040513076446191">Ändra sekretessrelaterade inställningar</translation>
 <translation id="3116361045094675131">Brittiskt tangentbord</translation>
+<translation id="1463985642028688653">blockera</translation>
 <translation id="1715941336038158809">Ogiltigt användarnamn eller lösenord.</translation>
 <translation id="1901303067676059328">Välj &amp;alla</translation>
 <translation id="674375294223700098">Fel - okänt servercertifikat.</translation>
 <translation id="7780428956635859355">Skicka en sparad skärmdump</translation>
 <translation id="2850961597638370327">Utfärdad till: <ph name="NAME"/></translation>
+<translation id="4949653059442022544">Rensa lokalt cacheminne</translation>
 <translation id="2168039046890040389">Page Up</translation>
 <translation id="1767519210550978135">Hsu</translation>
 <translation id="2498539833203011245">Minimera</translation>
@@ -2324,6 +2429,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="6983783921975806247">Registrerat OID</translation>
 <translation id="394984172568887996">Importerat från IE</translation>
 <translation id="5311260548612583999">Privat nyckelfil (valfritt):</translation>
+<translation id="3076813701005923">Programdata...</translation>
 <translation id="8256319818471787266">Ludde</translation>
 <translation id="7363290921156020669"><ph name="NUMBER_ZERO"/> mins</translation>
 <translation id="7568790562536448087">Uppdaterar</translation>
@@ -2355,6 +2461,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="3121147067826817533"><ph name="BEGIN_BOLD"/>Du är i inkognitoläge<ph name="END_BOLD"/>. Sidorna som visar i det här fönstret visas inte i webb- eller sökhistoriken och de lämnar inga spår, t.ex. cookies, på datorn när du har stängt &lt;strong&gt;alla&lt;/strong&gt; öppna inkognitofönster. Alla filer som du hämtar eller bokmärken som du skapar sparas dock.<ph name="LINE_BREAK"/> <ph name="BEGIN_BOLD"/>Inkognitoläget påverkar inte hur andra personer, servrar eller program beter sig. Ha uppsikt på följande: <ph name="END_BOLD"/> <ph name="BEGIN_LIST"/> <ph name="BEGIN_LIST_ITEM"/> Webbplatser som samlar in eller delar information om dig <ph name="END_LIST_ITEM"/> <ph name="BEGIN_LIST_ITEM"/>Internetleverantörer eller arbetsgivare som spårar vilka sidor du besöker <ph name="END_LIST_ITEM"/> <ph name="BEGIN_LIST_ITEM"/>Fientliga program som spårar dina tangenttryckningar i utbyte mot gratis känsloikoner<ph name="END_LIST_ITEM"/> <ph name="BEGIN_LIST_ITEM"/>Övervakning av hemliga agenter <ph name="END_LIST_ITEM"/> <ph name="BEGIN_LIST_ITEM"/>Personer står bakom dig<ph name="END_LIST_ITEM"/> <ph name="END_LIST"/> <ph name="BEGIN_LINK"/>Läs mer<ph name="END_LINK"/> om att surfa inkognito.</translation>
 <translation id="725109152065019550">Administratören har inaktiverat extern lagring för ditt konto.</translation>
 <translation id="19094784437781028">Solo-betalkort</translation>
+<translation id="515594325917491223">Schack</translation>
 <translation id="7347751611463936647">Om du vill använda det här tillägget skriver du ”<ph name="EXTENSION_KEYWORD"/>”, trycker på tabbtangenten och anger kommandot eller sökningen.</translation>
 <translation id="5645845270586517071">Säkerhetsfel</translation>
 <translation id="2912905526406334195"><ph name="HOST"/> försöker använda din mikrofon.</translation>
@@ -2378,14 +2485,17 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 
 <ph name="EXTENSION_FILE"/></translation>
 <translation id="430326050669417502">Joystick (<ph name="ADDRESS"/>)</translation>
+<translation id="7248671827512403053">Program</translation>
 <translation id="1241100329754769291">Med <ph name="CLOUD_PRINT_NAME"/> kan du få åtkomst till den här datorns skrivare från vilken annan dator som helst. Logga in om du vill aktivera funktionen.</translation>
 <translation id="16620462294541761">Det gick inte att verifiera lösenordet. Försök igen.</translation>
 <translation id="3058072209957292419">Experimentell statisk IP-konfiguration</translation>
 <translation id="5017508259293544172">LEAP</translation>
+<translation id="3687463694814266645">Ändra ordning</translation>
 <translation id="1394630846966197578">Det gick inte att ansluta till talservrarna.</translation>
 <translation id="2498765460639677199">Enorm</translation>
 <translation id="2378982052244864789">Välj tilläggets katalog.</translation>
 <translation id="7861215335140947162">&amp;Nedladdade filer</translation>
+<translation id="1358735829858566124">Filen eller katalogen kan inte användas.</translation>
 <translation id="3144135466825225871">Det gick inte att ersätta CRX-filen. Kontrollera om filen används.</translation>
 <translation id="2744221223678373668">Delade</translation>
 <translation id="9064142312330104323">Profilfoto i Google Profiler (läser in)</translation>
@@ -2451,6 +2561,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="7956713633345437162">Bokmärken i mobilen</translation>
 <translation id="7974087985088771286">Aktivera flik 6</translation>
 <translation id="1910721550319506122">Välkommen!</translation>
+<translation id="4259384707950482157">Visa sidan i skrivbordsläge</translation>
 <translation id="4035758313003622889">&amp;Aktivitetshanteraren</translation>
 <translation id="6356936121715252359">Lagringsinställningar för Adobe Flash Player...</translation>
 <translation id="1396529432791646744">När du ansluter till en säker webbplats visar servern som tillhandahåller webbplatsen ett så kallat &quot;certifikat&quot; i webbläsaren för att bekräfta dess identitet. Certifikatet innehåller uppgifter om identiteten, t.ex. webbadressen som verifieras av en tillförlitlig tredje part. När du kontrollerar att adressen i certifikatet överensstämmer med webbadressen kan du bekräfta att du kommunicerar säkert med den webbplats du hade tänkt dig och inte med en tredje part (t.ex. en bedragare i nätverket).</translation>
@@ -2465,6 +2576,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8986267729801483565">Nedladdningsplats:</translation>
 <translation id="2044540568167155862">Teleporterade getter</translation>
 <translation id="1776712937009046120">Lägg till användare</translation>
+<translation id="8954952943849489823">Flytten misslyckades. Oväntat fel: $1</translation>
 <translation id="4322394346347055525">Stäng andra flikar</translation>
 <translation id="2562743677925229011">Inte inloggad i <ph name="SHORT_PRODUCT_NAME"/></translation>
 <translation id="593451978644335626">Tryck Ctrl + Mellanslag om du vill välja föregående inmatningsmetod.</translation>
@@ -2474,6 +2586,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="1408789165795197664">Avancerat ...</translation>
 <translation id="1650709179466243265">Lägg till www. och .com och öppna adressen</translation>
 <translation id="436701661737309601">Utfärdaren ansvarar för att upprätta en &quot;återkallningslista&quot; för certifikat som inte har löpt ut. Om ett certifikat äventyras kan utfärdaren återkalla det genom att lägga till det i återkallningslistan. Det innebär att certifikatet inte längre är tillförlitligt. Återkallningsstatusen för certifikat som har löpt ut behöver inte uppdateras. Det här certifikatet användes tidigare för den aktuella webbplatsen, men det går inte längre att avgöra om certifikatet har äventyrats och återkallats eller om det fortfarande är säkert. Det är därför inte möjligt att avgöra om du kommunicerar med den äkta webbplatsen eller med en bedragare som har tagit över certifikatet.</translation>
+<translation id="7106346894903675391">Köp mer lagringsutrymme ...</translation>
 <translation id="7258264058936813500">Läs in ändå</translation>
 <translation id="994289308992179865">&amp;Repetera</translation>
 <translation id="6654087704052385884">Aktivera dragning av flik i webbläsare</translation>
@@ -2562,9 +2675,12 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="1156185823432343624">Volym: avstängd</translation>
 <translation id="6264365405983206840">Markera &amp;alla</translation>
 <translation id="6615455863669487791">Visa mig</translation>
+<translation id="3543393733900874979">Uppdatering misslyckades (fel: <ph name="ERROR_NUMBER"/>)</translation>
 <translation id="1017280919048282932">&amp;Lägg till i ordlistan</translation>
 <translation id="8036518327127111261">Det gick inte att autentisera med certifikatet som angavs</translation>
+<translation id="7211828883345145708">Aktiverar ytterligare kortkommandon som är användbara vid felsökning av Chromium.</translation>
 <translation id="8319414634934645341">Utökad nyckelanvändning</translation>
+<translation id="6056710589053485679">Normal inläsning</translation>
 <translation id="4563210852471260509">Det ursprungliga inmatningsspråket är kinesiska</translation>
 <translation id="6897140037006041989">Användaragent</translation>
 <translation id="3413122095806433232">CA-utfärdare: <ph name="LOCATION"/></translation>
@@ -2582,6 +2698,12 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="795025003224538582">Starta inte om</translation>
 <translation id="8680787084697685621">Inloggningsuppgifterna för kontot är inte aktuella.</translation>
 <translation id="5664261101798727573">eller använd en annan tjänst ...</translation>
+<translation id="9072684888578654899">{0}&lt;p&gt;{/0}
+          Flikar som du har öppnat i Chrome på andra enheter visas här.
+          {0}&lt;/p&gt;{/0}
+          {0}&lt;a href=&quot;#enablesync&quot;&gt;{/0}
+          Aktivera synkronisering.
+          {0}&lt;/p&gt;{/0}</translation>
 <translation id="889901481107108152">Experimentet finns tyvärr inte på din plattform.</translation>
 <translation id="3228969707346345236">Det gick inte att översätta eftersom sidan redan är på <ph name="LANGUAGE"/>.</translation>
 <translation id="1873879463550486830">SUID-sandlåda</translation>
@@ -2603,6 +2725,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="2702540957532124911">Tangentbord:</translation>
 <translation id="7444983668544353857">Inaktivera <ph name="NETWORKDEVICE"/></translation>
 <translation id="6003177993629630467"><ph name="PRODUCT_NAME"/> kanske inte kan uppdateras automatiskt.</translation>
+<translation id="8923542159871018393"><ph name="EXTENSION_NAME"/> körs på sidan.</translation>
 <translation id="2374898461628345975">Aktiverar 3D CSS och ger ökad prestanda vid sammansättning av webbsidor med GPU-maskinvara (Graphics Processor Unit).</translation>
 <translation id="421577943854572179">inbäddad på en annan webbplats</translation>
 <translation id="580886651983547002"><ph name="PRODUCT_NAME"/>
@@ -2627,6 +2750,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="4384652540891215547">Aktivera tillägget</translation>
 <translation id="3199127022143353223">Servrar:</translation>
 <translation id="408898940369358887">Aktivera experimentell Javascript</translation>
+<translation id="6607831829715835317">Fler verkt&amp;yg</translation>
 <translation id="2805646850212350655">Microsofts krypterande filsystem</translation>
 <translation id="2643698698624765890">Hantera tillägg genom att klicka på Tillägg på menyn Fönster.</translation>
 <translation id="1974060860693918893">Avancerat</translation>
@@ -2634,6 +2758,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="4509017836361568632">Ta bort fotot</translation>
 <translation id="1244303850296295656">Fel i tillägg</translation>
 <translation id="3541661933757219855">Tryck på Ctrl+Alt+/ eller Escape för att dölja</translation>
+<translation id="5357579842739549440">Felsöka kortkommandon</translation>
 <translation id="8891727572606052622">Ogiltigt proxyläge.</translation>
 <translation id="8813873272012220470">Aktiverar en bakgrundskontroll som varnar dig om ett kompatibilitetsproblem uppstår (dvs. om moduler från tredje part kraschar webbläsaren)</translation>
 <translation id="2327273619514674103">Ett virus har upptäckts</translation>
@@ -2680,6 +2805,8 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="8404409224170843728">Tillverkare:</translation>
 <translation id="8267453826113867474">Blockera stötande ord</translation>
 <translation id="7959074893852789871">Filen innehöll flera certifikat och några av dem importerades inte:</translation>
+<translation id="1314681042229332877">Sök efter eller ange en webbadress</translation>
+<translation id="7791536208663663346">Inaktiverar maskinvaruaccelererad videoavkodning där sådan finns.</translation>
 <translation id="87377425248837826">Aktivera paneler</translation>
 <translation id="6736243959894955139">Adress</translation>
 <translation id="2805707493867224476">Tillåt alla webbplatser att visa popup-fönster</translation>
@@ -2705,6 +2832,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="7317938878466090505"><ph name="PROFILE_NAME"/> (aktuell)</translation>
 <translation id="2148999191776934271">Laddar i
 <ph name="HOUR"/>.<ph name="MINUTE"/> tills batteriet är fullt</translation>
+<translation id="6007237601604674381">Flytten misslyckades. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="907841381057066561">Det gick inte att skapa en tillfällig ZIP-fil under packningen.</translation>
 <translation id="1881456419707551346">Anslutningsinformation</translation>
 <translation id="1064912851688322329">Koppla bort Google-kontot</translation>
@@ -2743,6 +2871,9 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="4926049483395192435">Värdet måste anges.</translation>
 <translation id="1470719357688513792">De nya cookie-inställningarna börjar gälla när sidan uppdateras.</translation>
 <translation id="5578327870501192725">Din anslutning till <ph name="DOMAIN"/> är krypterad med <ph name="BIT_COUNT"/>-bitars kryptering.</translation>
+<translation id="3089395242580810162">Öppna i inkognitoflik</translation>
+<translation id="4964383828912709895">Ändra inte ordning</translation>
+<translation id="4336032328163998280">Kopieringen misslyckades. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="5269977353971873915">Det gick inte att skriva ut dokumentet</translation>
 <translation id="3193734264051635522">Hastighet:</translation>
 <translation id="869884720829132584">Programmeny</translation>
@@ -2789,6 +2920,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="4157869833395312646">Microsofts serverstyrda kryptografi</translation>
 <translation id="6660445291081843757">Nytt gränssnitt för hämtningar</translation>
 <translation id="5685236799358487266">Lägg till som &amp;sökmotor...</translation>
+<translation id="4950100687509657457">Skapa profil</translation>
 <translation id="8903921497873541725">Zooma in</translation>
 <translation id="6820687829547641339">Gzip-komprimerat tar-arkiv</translation>
 <translation id="2195729137168608510">E-postskydd</translation>
@@ -2844,11 +2976,13 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="756445078718366910">Öppna webbläsarfönster</translation>
 <translation id="6132383530370527946">Det finstilta</translation>
 <translation id="5088534251099454936">PKCS #1 SHA-512 med RSA-kryptering</translation>
+<translation id="3886175299267931844">Ange som standard</translation>
 <translation id="6392373519963504642">Koreanskt tangentbord</translation>
 <translation id="2028997212275086731">RAR-arkiv</translation>
 <translation id="7887334752153342268">Duplicera</translation>
 <translation id="3624005168026397829">Tillägg, appar och teman kan skada den mobila enheten. Vill du fortsätta?</translation>
 <translation id="9207194316435230304">ATOK</translation>
+<translation id="7788668840732459509">Position:</translation>
 <translation id="778330624322499012">Det gick inte att läsa in <ph name="PLUGIN_NAME"/></translation>
 <translation id="9026731007018893674">hämta</translation>
 <translation id="7646591409235458998">E-post:</translation>
@@ -2859,6 +2993,8 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="4523336217659634227">Ett fel (<ph name="ERROR"/>) inträffade när plugin-programmet skulle hämtas.</translation>
 <translation id="4478664379124702289">Spara l&amp;änk som...</translation>
 <translation id="8725066075913043281">Försök igen</translation>
+<translation id="387784661603993584">Importen misslyckades. Ett fel inträffade.</translation>
+<translation id="4637968436031842307">Aktivera CSS-variabler.</translation>
 <translation id="1887908730460853602">Dialogrutor i Googles stil</translation>
 <translation id="8502249598105294518">Anpassa och kontrollera <ph name="PRODUCT_NAME"/></translation>
 <translation id="3797008485206955964">Visa bakgrundssidor (<ph name="NUM_BACKGROUND_APPS"/>)</translation>
@@ -2894,10 +3030,13 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="3323447499041942178">Textruta</translation>
 <translation id="580571955903695899">Ordna efter titel</translation>
 <translation id="5230516054153933099">Fönster</translation>
+<translation id="921740547845455014">Skriv till filer som du har öppnat i appen</translation>
 <translation id="1799497982892676838">Hantera synkroniserade data i Google Översikt</translation>
+<translation id="951981865514037445"><ph name="URL"/> vill använda enhetens platsinfo.</translation>
 <translation id="7554791636758816595">Ny flik</translation>
 <translation id="3026557130425686673">Inloggningen har avbrutits eftersom en del av enhetens inställningar har skadats.</translation>
 <translation id="6928853950228839340">Sammansätt till struktur</translation>
+<translation id="3630337581925712713"><ph name="PERMISSION_TYPE_LABEL"/>:</translation>
 <translation id="8446084853024828633">Logga in som gäst</translation>
 <translation id="48399750961678818">Byt till <ph name="URL"/></translation>
 <translation id="3330616135759834145">Flera olika rubriker med Content-Disposition togs emot. Eftersom vi vill förhindra
@@ -2906,6 +3045,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="7671576867600624">Teknik:</translation>
 <translation id="1103966635949043187">Öppna webbplatsens startsida:</translation>
 <translation id="4762295713053835808">Personligt</translation>
+<translation id="6374100501221763867">Inaktivera maskinvaruaccelererad videoavkodning.</translation>
 <translation id="7477347901712410606">Om du har glömt lösenfrasen avslutar du och återställer synkroniseringen via <ph name="BEGIN_LINK"/>Google Översikt<ph name="END_LINK"/>.</translation>
 <translation id="6139474630617772623">Aktiverar ett utökat skrivbord där du kan öppna en webbläsare i sekundära bildskärmar.</translation>
 <translation id="2645575947416143543">Om du däremot arbetar inom en organisation som skapar egna certifikat och du försöker ansluta till en intern webbplats inom organisationen med ett sådant certifikat, kanske du kan lösa problemet säkert. Du kan importera organisationens rotcertifikat som ett &quot;rotcertifikat&quot;. Då kommer certifikat som utfärdas och verifieras av din organisation att vara betrodda och den här feltexten visas inte nästa gång du försöker ansluta till en intern webbplats. Kontakta organisationens supportpersonal om du behöver hjälp med att lägga till ett nytt rotcertifikat på din dator.</translation>
@@ -2923,6 +3063,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="1640180200866533862">Användarpolicyer</translation>
 <translation id="7042418530779813870">Kl&amp;istra in och sök</translation>
 <translation id="9110447413660189038">Up&amp;p</translation>
+<translation id="8939748290495592680">Lossa från startsidan</translation>
 <translation id="375403751935624634">Det gick inte att översätta på grund av ett serverfel.</translation>
 <translation id="2101225219012730419">Version:</translation>
 <translation id="2762632611300864971">Gäller för</translation>
@@ -2931,6 +3072,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="571201111803517998">Öppna dialogruta</translation>
 <translation id="8050038245906040378">Microsofts kommersiella kodsignering</translation>
 <translation id="271907111803265074">Du har slut på mobila data. Köp ett annat abonnemang om du vill använda <ph name="NETWORK"/>.</translation>
+<translation id="7299721129597238157">Ta bort bokmärke</translation>
 <translation id="3031557471081358569">Välj objekt att importera:</translation>
 <translation id="1368832886055348810">Vänster till höger</translation>
 <translation id="3627320433825461852">Mindre än 1 minut kvar</translation>
@@ -2975,6 +3117,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="6321196148033717308">Om röstigenkänning</translation>
 <translation id="35228304245394974">Anslut till WiMAX-nätverk</translation>
 <translation id="6582381827060163791">Du är online.</translation>
+<translation id="8195580257099278880">SD-kortet är inte formaterat.</translation>
 <translation id="3412265149091626468">Hoppa till markering</translation>
 <translation id="8167737133281862792">Lägg till certifikat</translation>
 <translation id="2645009827850892485">Ogiltig DMToken</translation>
@@ -3067,6 +3210,7 @@ hanteraren
 <translation id="3527085408025491307">Mapp</translation>
 <translation id="3665842570601375360">Säkerhet:</translation>
 <translation id="8812832766208874265">Fortsätt använda <ph name="CURRENT_GOOGLE_HOST"/></translation>
+<translation id="4522331920508731608">Hantera gallerier</translation>
 <translation id="1430915738399379752">Skriv ut</translation>
 <translation id="7999087758969799248">Standardinmatningsmetod</translation>
 <translation id="2635276683026132559">Signering</translation>
@@ -3136,11 +3280,13 @@ hanteraren
 <translation id="816095449251911490"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/>, <ph name="TIME_REMAINING"/></translation>
 <translation id="774465434535803574">Fel på paketerat tillägg</translation>
 <translation id="8200772114523450471">Återuppta</translation>
+<translation id="5750676294091770309">Blockeras av tillägget</translation>
 <translation id="7865978820218947446">Redigera användare</translation>
 <translation id="73307164865957919">Skickar ..</translation>
 <translation id="523299859570409035">Undantag för meddelanden</translation>
 <translation id="6358975074282722691"><ph name="NUMBER_TWO"/> secs ago</translation>
 <translation id="162177343906927099">Ta inte bort flikar.</translation>
+<translation id="6417065746089514543">Flytten misslyckades. Objektet finns: $1</translation>
 <translation id="5423849171846380976">Aktiverat</translation>
 <translation id="7323391064335160098">Funktioner för VPN</translation>
 <translation id="3929673387302322681">Enhet - Ostabil</translation>
@@ -3170,19 +3316,24 @@ hanteraren
 <translation id="4701488924964507374"><ph name="SENTENCE1"/> <ph name="SENTENCE2"/></translation>
 <translation id="1163931534039071049">&amp;Visa ramkälla</translation>
 <translation id="8770196827482281187">Persisk inmatningsmetod (layouten ISIRI 2901)</translation>
+<translation id="100451557350107889">Var ska dessa $1 bilder importeras?</translation>
 <translation id="6423239382391657905">Öppen VPN</translation>
 <translation id="5642953011762033339">Koppla bort kontot</translation>
 <translation id="7564847347806291057">Avsluta process</translation>
 <translation id="1607220950420093847">Ditt konto kan ha tagits bort eller inaktiverats. Logga ut.</translation>
 <translation id="5613695965848159202">Anonym identitet:</translation>
 <translation id="4331990704689932958"><ph name="PRODUCT_NAME"/> uppdateras automatiskt så att du alltid har den senaste versionen.</translation>
+<translation id="8737893419487554821">Filtypen stöds inte. Besök <ph name="BEGIN_LINK"/>Chrome Web Store<ph name="END_LINK"/> om du vill hitta en app som kan öppna den här typen av fil.
+	      <ph name="BEGIN_LINK"/>Läs mer<ph name="END_LINK"/></translation>
 <translation id="560108005804229228">Synkroniseringsfel: Logga ut och sedan in igen ...</translation>
 <translation id="7063412606254013905">Läs mer om lösenordsfiske.</translation>
 <translation id="7253521419891527137">&amp;Läs mer</translation>
+<translation id="3170312251071695679"><ph name="PERMISSION_VALUE"/> som standard</translation>
 <translation id="8698464937041809063">Ritning i Google Dokument</translation>
 <translation id="7053053706723613360">Inaktivera återställning till bättre session</translation>
 <translation id="5233930340889611108">WebKit</translation>
 <translation id="8260864402787962391">Mus</translation>
+<translation id="8276560076771292512">Tomt cacheminne och hård inläsning</translation>
 <translation id="9076523132036239772">Det gick inte att verifiera e-postadressen eller lösenordet. Anslut till ett nätverk först.</translation>
 <translation id="6965978654500191972">Enhet</translation>
 <translation id="2959872918720987777">Använd rekommendation</translation>
@@ -3232,17 +3383,20 @@ hanteraren
 <translation id="7190251665563814471">Tillåt alltid dessa plugin-program på <ph name="HOST"/></translation>
 <translation id="2043684166640445160"><ph name="PRODUCT_NAME"/> kan inte visa webbsidan eftersom datorn inte är ansluten till Internet.</translation>
 <translation id="5390222677196640946">Visa cookies och webbplatsdata</translation>
+<translation id="3958548648197196644">Kiwi</translation>
 <translation id="1514298457297359873">Tillåter att program använder NaCl Socket-API:t. Använd bara för att testa NaCl-plugin-program.</translation>
 <translation id="8263231521757761563">Aktiva protokollhanterare</translation>
 <translation id="7359657277149375382">Filtyp</translation>
 <translation id="2749756011735116528">Logga in på <ph name="PRODUCT_NAME"/></translation>
 <translation id="2653131220478186612">Detta kan vara skadligt. Kom inte och säg att vi inte varnade dig ...</translation>
+<translation id="8579549103199280730">Fråga som standard</translation>
 <translation id="8925458182817574960">&amp;Inställningar</translation>
 <translation id="6361850914223837199">Information om felet:</translation>
 <translation id="7463946387631958595">Högkontrastläge är aktiverat. Vill du installera högkontrasttillägget och ett mörkt tema?</translation>
 <translation id="8948393169621400698">Tillåt alltid plugin-program på <ph name="HOST"/></translation>
 <translation id="6527303717912515753">Dela</translation>
 <translation id="4285498937028063278">Lossa</translation>
+<translation id="2588322182880276190">Logotypen för Chrome</translation>
 <translation id="8477304033437705374">Försök att ändra inställningar</translation>
 <translation id="8291808604460602261">Tillåt Web Intents om du vill kunna ansluta appar.</translation>
 <translation id="3865082058368813534">Rensa sparad formulärinformation för Autofyll</translation>
@@ -3275,10 +3429,12 @@ hanteraren
 <translation id="8962198349065195967">Det här nätverket har konfigurerats av administratören.</translation>
 <translation id="2143778271340628265">Manuell proxykonfiguration</translation>
 <translation id="2441192698565541088">Om du kopplar bort ditt Google-konto från <ph name="PRODUCT_NAME"/> kommer dataändringar på den här datorn inte längre att synkroniseras med Google-kontot. Data som redan finns lagrade i ditt Google-konto finns kvar där tills du tar bort dem i <ph name="BEGIN_LINK"/>Google Översikt<ph name="END_LINK"/>.</translation>
+<translation id="8888432776533519951">Färg:</translation>
 <translation id="5294529402252479912">Uppdatera Adobe Reader nu</translation>
 <translation id="5263972071113911534"><ph name="NUMBER_MANY"/> days ago</translation>
 <translation id="7461850476009326849">Inaktivera enskilda pluginprogram...</translation>
 <translation id="4097411759948332224">Skicka en aktuell skärmdump</translation>
+<translation id="2312158600294157599">Skapa en genväg till profilen på skrivbordet</translation>
 <translation id="2231990265377706070">Utropstecken</translation>
 <translation id="7199540622786492483"><ph name="PRODUCT_NAME"/> är inaktuellt eftersom det inte har startats om på ett tag. Det finns en uppdatering tillgänglig som tillämpas så snart du startar om.</translation>
 <translation id="2171101176734966184">Du försökte öppna <ph name="DOMAIN"/>, men servern visade ett certifikat som signerats med en svag signaturalgoritm. Det innebär att säkerhetsuppgifterna som servern visar kan vara en förfalskning och att servern kanske inte är den server du tror (du kanske kommunicerar med en skadlig server).</translation>
@@ -3326,6 +3482,7 @@ hanteraren
 <translation id="1038168778161626396">Endast chiffrering</translation>
 <translation id="3924129493187796992">Lägg till ett nytt värdnamnsmönster</translation>
 <translation id="408205643560606197"><ph name="EXTENSION_NAME"/> har börjat spela in ljud för taligenkänning. Leta efter ikonen med mikrofonen om du vill veta när detta sker igen.</translation>
+<translation id="3785625046566918883">Cookies och data för appar</translation>
 <translation id="1377406721062459125">Ställ in sökvägen till felsökaren nacl-gdb. Den kopplas till NaCl-program vid start.</translation>
 <translation id="8765985713192161328">Hantera hanterare</translation>
 <translation id="7179921470347911571">Starta om nu</translation>
@@ -3336,6 +3493,7 @@ hanteraren
 <translation id="1177863135347784049">Anpassad</translation>
 <translation id="4881695831933465202">Öppna</translation>
 <translation id="3593965109698325041">Certifikatnamnsbegränsningar</translation>
+<translation id="3131179947821237419">Inaktiverar nya utseenden och storleksförändringar för kryssrutor och alternativknappar.</translation>
 <translation id="4358697938732213860">Lägg till en adress</translation>
 <translation id="8396532978067103567">Felaktigt lösenord.</translation>
 <translation id="2238086278708809590"><ph name="EXTENSION_NAME"/> aktiverade helskärmsläge.</translation>
@@ -3364,6 +3522,7 @@ hanteraren
 <translation id="494645311413743213"><ph name="NUMBER_TWO"/> sekunder kvar</translation>
 <translation id="1485146213770915382">Infoga <ph name="SEARCH_TERMS_LITERAL"/> i webbadressen där söktermerna ska placeras.</translation>
 <translation id="4839303808932127586">S&amp;para video som...</translation>
+<translation id="317583078218509884">De nya inställningarna för webbplatsbehörighet börjar gälla när sidan uppdateras.</translation>
 <translation id="5626134646977739690">Namn:</translation>
 <translation id="5854409662653665676">Om du får problem ofta kan du försöka lösa problemet med modulen på följande sätt:</translation>
 <translation id="3681007416295224113">Certifikatinformation</translation>
@@ -3374,6 +3533,7 @@ hanteraren
 <translation id="6680028776254050810">Byt användare</translation>
 <translation id="212464871579942993">Webbplatsen på adressen <ph name="HOST_NAME"/> innehåller komponenter från webbplatser som verkar innehålla skadlig programvara, dvs. programvara som kan skada datorn eller köras utan ditt tillstånd. Datorn kan bli smittad bara genom att du besöker en webbplats med skadlig programvara. Webbplatsen innehåller dessutom material från webbplatser som har rapporterats försöka lura information av besökare. Sådana nätfiskeplatser lurar användare att avslöja personliga eller ekonomiska uppgifter, ofta genom att låtsas representera betrodda institutioner som banker.</translation>
 <translation id="9027307872616253016">Hitta tjänster i Chrome Web Store</translation>
+<translation id="887692350334376364">Medieundantag</translation>
 <translation id="8156020606310233796">Listvy</translation>
 <translation id="8002980609684534974">Spårningsnummer</translation>
 <translation id="146000042969587795">Ramen blockerades eftersom den innehåller icke-säkert innehåll.</translation>
@@ -3383,6 +3543,7 @@ hanteraren
 <translation id="3729920814805072072">Hantera sparade lösenord...</translation>
 <translation id="7387829944233909572">Dialogrutan Rensa sökdata</translation>
 <translation id="8023801379949507775">Uppdatera tillägg nu</translation>
+<translation id="6045425183320109397">Av</translation>
 <translation id="1103666958012677467">Du kan inte fortsätta på grund av att operatören för webbplatsen har begärt ökad säkerhet för den här domänen.</translation>
 <translation id="3298789223962368867">Du har angett en ogiltig webbadress.</translation>
 <translation id="2202898655984161076">Ett problem uppstod när skrivare skulle listas. Vissa av dina skrivare kanske inte har registrerats med <ph name="CLOUD_PRINT_NAME"/>.</translation>
@@ -3393,6 +3554,7 @@ hanteraren
 <translation id="5359419173856026110">Visar en sidas faktiska bildhastighet, angett i bildrutor per sekund, när maskinvaruacceleration har aktiverats.</translation>
 <translation id="4104163789986725820">E&amp;xportera...</translation>
 <translation id="2113479184312716848">Öppna fil...</translation>
+<translation id="8405710043622376215">I adressfältet Komplettera automatiskt kan du ändra ordningen på förslag i HistoryQuickProvider så att förslag som kan infogas visas först.</translation>
 <translation id="3314617171364900239">Sökningen efter uppdateringar till tillägget <ph name="EXTENSION_NAME"/> misslyckades.</translation>
 <translation id="4850458635498951714">Lägg till en enhet</translation>
 <translation id="3140353188828248647">Fokusera på adressfältet</translation>
@@ -3439,6 +3601,7 @@ hanteraren
 <translation id="7077176974744385057">Fler förslag</translation>
 <translation id="2024918351532495204">Enheten är offline</translation>
 <translation id="6040143037577758943">Stäng</translation>
+<translation id="1538483505493767575">Lägg till galleri</translation>
 <translation id="5607923769356613853">Öppna
           <ph name="BEGIN_BOLD"/>
           skiftnyckelmenyn &gt;
@@ -3476,6 +3639,7 @@ hanteraren
 <translation id="3423858849633684918">Starta om <ph name="PRODUCT_NAME"/></translation>
 <translation id="1232569758102978740">Namnlös</translation>
 <translation id="2479410451996844060">Ogiltig sökadress.</translation>
+<translation id="3489444618744432220">Tillåts av policyn</translation>
 <translation id="1903219944620007795">Välj ett språk om du vill se vilka inmatningsmetoder som är tillgängliga för textinmatning.</translation>
 <translation id="1850508293116537636">Rotera &amp;medurs</translation>
 <translation id="4362187533051781987">Ort</translation>
@@ -3510,6 +3674,7 @@ hanteraren
 <translation id="3570985609317741174">Webbinnehåll</translation>
 <translation id="3951872452847539732">Nätverksproxyns inställningar hanteras av ett tilläggsprogram.</translation>
 <translation id="6442697326824312960">Lossa flik</translation>
+<translation id="8714406895390098252">Cykel</translation>
 <translation id="6382612843547381371">Giltigt från <ph name="START_DATE_TIME"/> till <ph name="END_DATE_TIME"/></translation>
 <translation id="4707579418881001319">L2TP/IPSec + användarcertifikat</translation>
 <translation id="9086302186042011942">Synkroniserar</translation>
@@ -3521,6 +3686,7 @@ hanteraren
 <translation id="4289300219472526559">Börja tala</translation>
 <translation id="497490572025913070">Sammansatta lagerramar</translation>
 <translation id="9002707937526687073">Skriv &amp;ut...</translation>
+<translation id="7631652846300228749">Okänt datum</translation>
 <translation id="4133237568661345071">Aktivera automatisk inloggning</translation>
 <translation id="3851140433852960970">Det finns inget plugin-program för att visa det här innehållet</translation>
 <translation id="5556459405103347317">Hämta igen</translation>
@@ -3529,6 +3695,7 @@ hanteraren
 <translation id="3958088479270651626">Importera bokmärken och inställningar</translation>
 <translation id="2689915906323125315">Använd lösenordet för Google-kontot</translation>
 <translation id="8518865679229538285">Inmatningsmetod för tamil (Typewriter)</translation>
+<translation id="5257456363153333584">Trollslända</translation>
 <translation id="4557136421275541763">Varning:</translation>
 <translation id="2604243255129603442"><ph name="NAME_OF_EXTENSION"/> har inaktiverats. Om du slutar synkronisera dina bokmärken kan du aktivera det igen på tilläggssidan som du hittar i menyn Verktyg.</translation>
 <translation id="5923417893962158855">Inkognitohämtningar pågår</translation>
@@ -3548,11 +3715,14 @@ hanteraren
 <translation id="3991936620356087075">Du har angett fel PIN-upplåsningsnyckel för många gånger. SIM-kortet är permanent inaktiverat.</translation>
 <translation id="936801553271523408">Systemets diagnostikresultat</translation>
 <translation id="820791781874064845">Den här webbsidan blockerades av ett tillägg</translation>
+<translation id="2649120831653069427">Regnbågsfisk</translation>
+<translation id="4245278692280406123">Förhandsgranskning:</translation>
 <translation id="9009144784540995197">Hantera din skrivare</translation>
 <translation id="3021678814754966447">&amp;Visa ramkälla</translation>
 <translation id="8601206103050338563">TLS WWW-klientautentisering</translation>
 <translation id="1692799361700686467">Cookies från flera webbplatser tillåts.</translation>
 <translation id="5187295959347858724">Du är nu inloggad i <ph name="SHORT_PRODUCT_NAME"/>. Bokmärken, historik och andra inställningar synkroniseras med ditt Google-konto.</translation>
+<translation id="3719415759165722358">Aktiverar gränssnittet för webbplatsinställningar. Gränssnittet för webbplatsinställningarna ersätter bubblan med sidinformation samt utgör ett enkelt sätt att konfigurera webbplatsspecifika inställningar.</translation>
 <translation id="2717190143245689317">Aktiverar ett experimentellt textfält förappgränssnitt. Webbinnehåll påverkas inte.</translation>
 <translation id="529232389703829405">Du köpte <ph name="DATA_AMOUNT"/> data den <ph name="DATE"/></translation>
 <translation id="7419106976560586862">Profilsökväg</translation>
@@ -3560,6 +3730,7 @@ hanteraren
 <translation id="4784330909746505604">PowerPoint-presentation</translation>
 <translation id="4345587454538109430">Konfigurera...</translation>
 <translation id="8148264977957212129">Inmatningsmetoden Pinyin</translation>
+<translation id="2288278176040912387">Skivspelare</translation>
 <translation id="7772032839648071052">Bekräfta lösenfras</translation>
 <translation id="6857811139397017780">Aktivera <ph name="NETWORKSERVICE"/></translation>
 <translation id="3251855518428926750">Lägg till...</translation>
@@ -3593,6 +3764,8 @@ hanteraren
 <translation id="2927657246008729253">Ändra...</translation>
 <translation id="7586781939132793422">Inaktivera talad feedback</translation>
 <translation id="7978412674231730200">Privat nyckel</translation>
+<translation id="7056011739864317578">När funktionen är aktiverad används ClientOAuth för att ansluta en profil till ett Google-konto.  I annat fall används ClientLogin.
+      ClientOAuth tillåter att verifieringskoder används istället för programspecifika lösenord vid verifiering.</translation>
 <translation id="5308380583665731573">Anslut</translation>
 <translation id="9111395131601239814"><ph name="NETWORKDEVICE"/>: <ph name="STATUS"/></translation>
 <translation id="9049981332609050619">Du försökte nå <ph name="DOMAIN"/> men servern angav ett ogiltigt certifikat.</translation>
@@ -3600,6 +3773,7 @@ hanteraren
 <translation id="1693754753824026215">Sidan på <ph name="SITE"/> säger:</translation>
 <translation id="7148804936871729015">Servern för <ph name="URL"/> tog för lång tid på sig att svara.  Den kan vara överbelastad.</translation>
 <translation id="5066173162665203318">Avancerade inställningar ...</translation>
+<translation id="8094802570099763657">$1 objekt kopieras.</translation>
 <translation id="7278870042769914968">Använd temat GTK+</translation>
 <translation id="4501530680793980440">Bekräfta borttagning</translation>
 <translation id="8108473539339615591">XSS Auditor</translation>
@@ -3652,6 +3826,7 @@ hanteraren
 <translation id="668171684555832681">Annan...</translation>
 <translation id="7540972813190816353">Det gick inte att söka efter uppdateringar: <ph name="ERROR"/></translation>
 <translation id="2225024820658613551">Fortsätt inte, &lt;strong&gt;i synnerhet inte&lt;/strong&gt; om  den här varningen aldrig har visats tidigare på webbplatsen.</translation>
+<translation id="4596904276221394120">Aktivera det utökade API:et för Instant.</translation>
 <translation id="2049639323467105390">Den här enheten hanteras av <ph name="DOMAIN"/>.</translation>
 <translation id="1932098463447129402">Inte före</translation>
 <translation id="7845920762538502375"><ph name="PRODUCT_NAME"/> kunde inte synkronisera dina data eftersom det inte gick att ansluta till synkroniseringsservern. Försöker igen...</translation>
@@ -3720,6 +3895,7 @@ hanteraren
 <translation id="3695919544155087829">Ange lösenordet som användes vid krypteringen av certifikatfilen.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2509857212037838238">Installera <ph name="PLUGIN_NAME"/></translation>
+<translation id="7503712332447507470">Tillåt alltid att webbplatsen använder den här kameran</translation>
 <translation id="6308937455967653460">Spara l&amp;änk som...</translation>
 <translation id="5828633471261496623">Skriver ut...</translation>
 <translation id="5421136146218899937">Ta bort webbinformation...</translation>
@@ -3740,11 +3916,13 @@ hanteraren
 <translation id="1255964530203229794">Synkroniserad till <ph name="USER_EMAIL_ADDRESS"/>. Senast synkroniserad: <ph name="LAST_SYNC_TIME"/></translation>
 <translation id="6697308399043041614">Chrome to Mobile</translation>
 <translation id="1122198203221319518">&amp;Verktyg</translation>
+<translation id="3355221513701943639">Sandlådan Seccomp-legacy</translation>
 <translation id="5143151113947480436">Få åtkomst till data du kopierar och klistrar in</translation>
 <translation id="6051028581720248124">När du skriver ut till ett FedEx Office-kontor accepterar du deras <ph name="START_LINK"/>användarvillkor<ph name="END_LINK"/>.</translation>
 <translation id="2760009672169282879">Bulgariskt fonetiskt tangentbord</translation>
 <translation id="6608140561353073361">Alla cookies och webbplatsdata...</translation>
 <translation id="2596602318381383954">Slutför åtgärd med:</translation>
+<translation id="6485131920355264772">Det gick inte att hämta information om lagringsutrymme</translation>
 <translation id="8007030362289124303">Batteriet snart slut</translation>
 <translation id="3790909017043401679">Ange SIM-kortets PIN</translation>
 <translation id="4513946894732546136">Feedback</translation>
@@ -3821,6 +3999,7 @@ hanteraren
 <translation id="8828933418460119530">DNS-namn</translation>
 <translation id="988159990683914416">Utvecklarversion</translation>
 <translation id="1097658378307015415">Aktivera nätverket <ph name="NETWORK_ID"/> genom att logga in som gäst innan du loggar in</translation>
+<translation id="5170477580121653719">Lagringsutrymme som finns kvar i Google Drive: <ph name="SPACE_AVAILABLE"/> .</translation>
 <translation id="4114470632216071239">Lås SIM-kortet (kräver PIN för att använda mobildata)</translation>
 <translation id="5184584788669813359">Delar av det här PDF-dokumentet kunde inte visas. Vill du öppna det i Adobe Reader?</translation>
 <translation id="6581162200855843583">Google Drive-länk</translation>
@@ -3862,6 +4041,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="8859057652521303089">Välj språk:</translation>
 <translation id="3030138564564344289">Försök att hämta igen</translation>
 <translation id="2603463522847370204">Öppna i &amp;inkognitofönster</translation>
+<translation id="2951236788251446349">Manet</translation>
 <translation id="4381091992796011497">Användarnamn:</translation>
 <translation id="4636388769812446016">Mikrofonen används redan.</translation>
 <translation id="5830720307094128296">Spara &amp;sida som...</translation>
@@ -3887,6 +4067,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="9112614144067920641">Välj ny PIN.</translation>
 <translation id="7109926893210135223">Hämtning pågår</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY"/> (<ph name="ENCODING_NAME"/>)</translation>
+<translation id="8379970328220427967"><ph name="SPACE_AVAILABLE"/> kvar</translation>
 <translation id="7773726648746946405">Sessionslagring</translation>
 <translation id="9147392381910171771">&amp;Alternativ</translation>
 <translation id="1803557475693955505">Det gick inte att läsa in bakgrundssidan <ph name="BACKGROUND_PAGE"/>.</translation>
@@ -3942,6 +4123,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="3817519158465675771">Nätverksalternativ ...</translation>
 <translation id="7161508766647573452">Vissa inställningar hanteras av administratören.</translation>
 <translation id="4618990963915449444">Alla filer på <ph name="DEVICE_NAME"/> kommer att tas bort.</translation>
+<translation id="5011739343823725107">Det gick inte att starta serverdelen för synkronisering</translation>
 <translation id="614998064310228828">Enhetsmodell:</translation>
 <translation id="1581962803218266616">Visa i Finder</translation>
 <translation id="9100765901046053179">Avancerade inställningar</translation>
@@ -3984,8 +4166,11 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="6811824796237962267">Inaktiverar ash-meddelanden i statusfältet och aktiverar systemmeddelanden för skrivbord.</translation>
 <translation id="5095208057601539847">Provins</translation>
 <translation id="4085298594534903246">JavaScript är blockerat på den här sidan.</translation>
+<translation id="7825543042214876779">Blockeras av policyn</translation>
 <translation id="4341977339441987045">Förhindra att webbplatser sparar data</translation>
 <translation id="806812017500012252">Ordna efter titel</translation>
+<translation id="1807938677607439181">Alla filer</translation>
+<translation id="2376485338202301051">Sök efter bakgrunder</translation>
 <translation id="9167350110873177156">eller <ph name="IDS_SYNC_CREATE_ACCOUNT"/></translation>
 <translation id="3781751432212184938">Visa fliköversikt...</translation>
 <translation id="2960316970329790041">Stoppa import</translation>
@@ -4076,6 +4261,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="3876481682997626897">Signaturen matchar inte</translation>
 <translation id="8892992092192084762">Installerat tema <ph name="THEME_NAME"/>.</translation>
 <translation id="7427348830195639090">Bakgrundssida: <ph name="BACKGROUND_PAGE_URL"/></translation>
+<translation id="8390029840652165810">Se till att nätverksanslutningen fungerar. Om problemet kvarstår loggar du ut och sedan in igen för att uppdatera  inloggningsuppgifterna.</translation>
 <translation id="5898154795085152510">Servern returnerade ett ogiltigt klientcertifikat. Fel <ph name="ERROR_NUMBER"/> (<ph name="ERROR_NAME"/>).</translation>
 <translation id="2704184184447774363">Microsofts Signering av dokument</translation>
 <translation id="1071139452646369777"><ph name="HANDLER_TITLE"/> används redan för hantering av <ph name="PROTOCOL"/>:-länkar.</translation>
@@ -4158,6 +4344,7 @@ Nyckelfil: <ph name="KEY_FILE"/>
 Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versioner av ditt tillägg.</translation>
 <translation id="2970444815634085254">Inaktivera Chrome to Mobile.</translation>
 <translation id="1846078536247420691">&amp;Ja</translation>
+<translation id="6906389084589171704"><ph name="FILE_NAME"/> flyttas</translation>
 <translation id="2966459079597787514">Svenskt tangentbord</translation>
 <translation id="7685049629764448582">JavaScript-minne</translation>
 <translation id="6398765197997659313">Avsluta helskärmsläge</translation>
@@ -4194,6 +4381,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="5780498354378986900">Det gick inte att ta bort <ph name="FILE_NAME"/>. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="5832830184511718549">Använder en sekundär sida för att utföra sammansättning av webbsidor. Det ger jämnare rullning även om huvudtråden inte svarar.</translation>
 <translation id="3346457130337124365"><ph name="HOST_NAME"/> innehåller skadlig programvara. Den mobila enheten kan få virus om du besöker webbplatsen.</translation>
+<translation id="5926308170227699652">Aktivera experimentella dialogrutor utan ram.</translation>
 <translation id="8203365863660628138">Bekräfta installationen</translation>
 <translation id="406259880812417922">(Sökord: <ph name="KEYWORD"/>)</translation>
 <translation id="4778399030184051458">Skript som ska köras av nacl-gdb vid start.</translation>

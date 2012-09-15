@@ -47,6 +47,7 @@ Nhấn phím Shift + Tìm kiếm để hủy.</translation>
 <translation id="1895658205118569222">Tắt</translation>
 <translation id="4430019312045809116">Âm lượng</translation>
 <translation id="1383876407941801731">Tìm kiếm</translation>
+<translation id="2204305834655267233">Thông tin mạng</translation>
 <translation id="5980301590375426705">Thoát khỏi phiên khách</translation>
 <translation id="8308637677604853869">Trình đơn trước</translation>
 <translation id="1346748346194534595">Phải</translation>
@@ -61,21 +62,29 @@ Nhấn phím Shift + Tìm kiếm để hủy.</translation>
 <translation id="3784455785234192852">Khóa</translation>
 <translation id="2805756323405976993">Ứng dụng</translation>
 <translation id="2482878487686419369">Thông báo</translation>
+<translation id="1850504506766569011">Wi-Fi đang tắt.</translation>
 <translation id="2872961005593481000">Tắt</translation>
 <translation id="7052914147756339792">Đặt hình nền...</translation>
+<translation id="5746825509052394497">Phương thức nhập của bạn đã thay đổi thành <ph name="INPUT_METHOD_ID"/>.
+        Nhấn Shift + Alt để chuyển đổi.</translation>
 <translation id="1602076796624386989">Bật dữ liệu di động</translation>
 <translation id="3157931365184549694">Khôi phục</translation>
 <translation id="8573351908869164327">Còn lại <ph name="HOUR"/>g <ph name="MINUTE"/>p</translation>
 <translation id="7029814467594812963">Thoát khỏi phiên</translation>
+<translation id="8454013096329229812">Wi-Fi đang bật.</translation>
 <translation id="2983818520079887040">Cài đặt...</translation>
 <translation id="2712866615167520691">Các tính năng truy cập đã được bật.
 Nhấn Ctrl+Alt+Z để hủy.</translation>
 <translation id="8660803626959853127">Đang đồng bộ hóa <ph name="COUNT"/> tệp</translation>
+<translation id="1837166567415282700">Phương thức nhập của bạn đã thay đổi thành <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>bên thứ ba<ph name="END_LINK"/>).
+        Nhấn Shift + Alt để chuyển đổi.</translation>
 <translation id="639644700271529076">CAPS LOCK tắt</translation>
 <translation id="4864165860509564259">Vị trí trình khởi chạy</translation>
 <translation id="7649070708921625228">Trợ giúp</translation>
 <translation id="397105322502079400">Đang tính...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Bạn không có thông báo nào. Hãy thư giãn!</translation>
+<translation id="7457942297256758195">Xóa tất cả</translation>
 <translation id="7871882211137875558">Tham gia mạng Wi-Fi khác ...</translation>
 <translation id="3573179567135747900">Thay đổi lại thành &quot;<ph name="FROM_LOCALE"/>&quot; (yêu cầu khởi động lại)</translation>
 <translation id="8103386449138765447">Tin nhắn SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -84,6 +93,7 @@ Nhấn Ctrl+Alt+Z để hủy.</translation>
 <translation id="5941711191222866238">Thu nhỏ</translation>
 <translation id="9169585155162064169">Đang bật CAPS LOCK.
 Nhấn phím Tìm kiếm để hủy.</translation>
+<translation id="6843725295806269523">tắt tiếng</translation>
 <translation id="412065659894267608"><ph name="HOUR"/>g <ph name="MINUTE"/>p cho đến khi đầy</translation>
 <translation id="4469842253116033348">Vô hiệu hóa thông báo từ <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS từ <ph name="PHONE_NUMBER"/></translation>

@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">ההתקנה נכשלה בשל שגיאה לא צפויה. אם Chromium  פועל כעת, סגור אותו ונסה שוב.</translation>
 <translation id="2589479092236095792">הגדרות מילוי אוטומטי של Chromium</translation>
 <translation id="3555616473548901994">הסרת ההתקנה הושלמה.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">אופציונלי: עזור לנו לשפר את Chromium באמצעות שליחת סטטיסטיקת שימוש ודוחות קריסה אל Google באופן אוטומטי.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">ניסית להגיע אל &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, אך האישור שהשרת הציג מכיל שגיאות. Chromium אינו יכול להשתמש באישור שמכיל שגיאות ואינו יכול לאמת את הזהות של האתר שאליו ניסית להתחבר.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">לא נמצאה התקנה של Chromium או Chromium Frame שיש לעדכן.</translation>
 <translation id="3197823471738295152">המכשיר שלך מעודכן.</translation>
 <translation id="8551886023433311834">כמעט מעודכן! הפעל מחדש את המכשיר שלך כדי לסיים את העדכון.</translation>
+<translation id="8353224596138547809">האם אתה מעוניין ש-Chromium ישמור את הסיסמה עבור אתר זה?</translation>
 <translation id="4124681358536363708">ספריית ההתקנה של Chromium נמצאת בשימוש. אתחל את המחשב מחדש ונסה שוב.</translation>
 <translation id="8770560772173120024">Chromium מייבא כעת מועדפים/סימניות.</translation>
 <translation id="6290315939897260265">אינו משמש ב-Chromium. מציין מיקום שנועד לסנכרון מפות משאבים.</translation>
@@ -125,11 +127,14 @@
 <translation id="8616882682724010661">עיין ב<ph name="BEGIN_LINK"/>יתרונות נוספים<ph name="END_LINK"/> של הכניסה ל-Chromium.</translation>
 <translation id="378917192836375108">Chromium מאפשר לך ללחוץ על מספר טלפון באינטרנט ולהתקשר אליו באמצעות Skype!</translation>
 <translation id="8724049448828509830">הורדה מתבצעת כעת. האם ברצונך לצאת מ-Chromium ולבטל את ההורדה?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">מארח הפלאגין של Chromium</translation>
 <translation id="2739631515503418643">הורדות מתבצעות כעת. האם ברצונך לצאת מ-Chromium ולבטל את ההורדות?</translation>
 <translation id="9013262824292842194">להפעלת Chromium יש להשתמש במערכת ההפעלה Windows Vista או Windows XP עם SP2 ואילך.</translation>
 <translation id="1967743265616885482">מודול בעל אותו שם מתנגש עם Chromium.</translation>
 <translation id="4224199872375172890">Chromium‏ מעודכן.</translation>
+<translation id="374481098568514319">במחשב זה כבר קיימת גרסה מתקדמת יותר של רכיבי Chromium. השתמש במתקין עדכני יותר.</translation>
+<translation id="6240281849816458190">ניסית להגיע אל &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, אך השרת הציג אישור שעדיין אינו תקף. אין מידע זמין שיכול לציין אם ניתן לבטוח באישור. Chromium אינו יכול להבטיח באופן מהימן שאתה מתקשר עם &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; ולא עם תוקף. השעון של המחשב מוגדר כעת ל-<ph name="CURRENT_TIME"/>. האם זה נכון? אם לא, עליך לתקן את שעון המערכת ולרענן את דף.</translation>
 <translation id="5498103559159810756">Chromium משתמש במנוע חיפוש המוגדר כברירת מחדל, שמוגדר כרגע ל-<ph name="PAGE_TITLE"/>. האם ברצונך להשאיר את מנוע החיפוש המוגדר כברירת מחדל?</translation>
 <translation id="5862307444128926510">ברוכים הבאים ל-Chromium‏</translation>
 <translation id="1622565934590470080">במחשב זה קיימות כבר גרסאות מתקדמות יותר של Chromium ו-‏Chromium Frame. אם התוכנות אינן פועלות, הסר את ההתקנה של Chromium‏ ושל Chromium Frame ונסה שוב.</translation>

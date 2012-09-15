@@ -47,6 +47,7 @@ stiskněte Shift a vyhledávací tlačítko.</translation>
 <translation id="1895658205118569222">Vypnout počítač</translation>
 <translation id="4430019312045809116">Hlasitost</translation>
 <translation id="1383876407941801731">Vyhledávání</translation>
+<translation id="2204305834655267233">Informace o síti</translation>
 <translation id="5980301590375426705">Odhlásit hosta</translation>
 <translation id="8308637677604853869">Předchozí nabídka</translation>
 <translation id="1346748346194534595">Doprava</translation>
@@ -61,21 +62,29 @@ stiskněte Shift a vyhledávací tlačítko.</translation>
 <translation id="3784455785234192852">Uzamknout</translation>
 <translation id="2805756323405976993">Aplikace</translation>
 <translation id="2482878487686419369">Oznámení</translation>
+<translation id="1850504506766569011">Připojení Wi-Fi je vypnuto.</translation>
 <translation id="2872961005593481000">Vypnout</translation>
 <translation id="7052914147756339792">Nastavení tapety...</translation>
+<translation id="5746825509052394497">Metoda zadávání se změnila na <ph name="INPUT_METHOD_ID"/>.
+        Přepnete ji stisknutím klávesové zkratky Shift + Alt.</translation>
 <translation id="1602076796624386989">Povolit mobilní datové připojení</translation>
 <translation id="3157931365184549694">Obnovit</translation>
 <translation id="8573351908869164327">Zbývá <ph name="HOUR"/> h <ph name="MINUTE"/> min</translation>
 <translation id="7029814467594812963">Ukončit relaci</translation>
+<translation id="8454013096329229812">Připojení Wi-Fi je zapnuto.</translation>
 <translation id="2983818520079887040">Nastavení...</translation>
 <translation id="2712866615167520691">Funkce usnadnění přístupu jsou zapnuty.
 Zrušíte je stisknutím kombinace kláves Ctrl+Alt+Z.</translation>
 <translation id="8660803626959853127">Synchronizace souborů (<ph name="COUNT"/>)</translation>
+<translation id="1837166567415282700">Metoda zadávání se změnila <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>třetí strana<ph name="END_LINK"/>).
+        Přepnete ji stisknutím klávesové zkratky Shift + Alt.</translation>
 <translation id="639644700271529076">CAPS LOCK je vypnutý</translation>
 <translation id="4864165860509564259">Pozice spouštěče</translation>
 <translation id="7649070708921625228">Nápověda</translation>
 <translation id="397105322502079400">Probíhá výpočet…</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Můžete být klidní, nemáte žádná oznámení.</translation>
+<translation id="7457942297256758195">Vymazat vše</translation>
 <translation id="7871882211137875558">Připojit k jiné…</translation>
 <translation id="3573179567135747900">Změnit zpět na jazyk <ph name="FROM_LOCALE"/> (vyžaduje restart)</translation>
 <translation id="8103386449138765447">Zprávy SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -84,6 +93,7 @@ Zrušíte je stisknutím kombinace kláves Ctrl+Alt+Z.</translation>
 <translation id="5941711191222866238">Minimalizovat</translation>
 <translation id="9169585155162064169">CAPS LOCK je zapnutý. 
 Vypnete jej stisknutím vyhledávacího tlačítka.</translation>
+<translation id="6843725295806269523">ztlumit</translation>
 <translation id="412065659894267608"><ph name="HOUR"/> h <ph name="MINUTE"/> min do nabití</translation>
 <translation id="4469842253116033348">Deaktivovat oznámení z webu <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS z čísla <ph name="PHONE_NUMBER"/></translation>

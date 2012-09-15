@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="de">
-<translation id="3595596368722241419">Akku vollständig geladen</translation>
+<translation id="3595596368722241419">Akku voll</translation>
 <translation id="5250713215130379958">Übersicht automatisch ausblenden</translation>
 <translation id="30155388420722288">Überlaufschaltfläche</translation>
 <translation id="5571066253365925590">Bluetooth aktiviert</translation>
@@ -33,7 +33,7 @@ Drücken Sie die Umschalttaste zusammen mit der Suchtaste, um die Aktivierung au
 <translation id="2091132388437059185">Beim Maximieren Übersicht automatisch ausblenden</translation>
 <translation id="2964193600955408481">WLAN deaktivieren</translation>
 <translation id="811680302244032017">Gerät hinzufügen...</translation>
-<translation id="2509468283778169019">Die Feststelltaste ist aktiviert.</translation>
+<translation id="2509468283778169019">Feststelltaste An</translation>
 <translation id="7823564328645135659">Nach der Synchronisierung Ihrer Einstellungen wurde die Sprache von &quot;<ph name="FROM_LOCALE"/>&quot; in &quot;<ph name="TO_LOCALE"/>&quot; geändert.</translation>
 <translation id="1128184993858208824"><ph name="HOUR"/> h, <ph name="MINUTE"/> m</translation>
 <translation id="6426039856985689743">Mobile Daten deaktivieren</translation>
@@ -47,6 +47,7 @@ Drücken Sie die Umschalttaste zusammen mit der Suchtaste, um die Aktivierung au
 <translation id="1895658205118569222">Herunterfahren</translation>
 <translation id="4430019312045809116">Lautstärke</translation>
 <translation id="1383876407941801731">Suche</translation>
+<translation id="2204305834655267233">Netzwerkinformationen</translation>
 <translation id="5980301590375426705">Gastsitzung beenden</translation>
 <translation id="8308637677604853869">Vorheriges Menü</translation>
 <translation id="1346748346194534595">Nach rechts</translation>
@@ -61,20 +62,28 @@ Drücken Sie die Umschalttaste zusammen mit der Suchtaste, um die Aktivierung au
 <translation id="3784455785234192852">Sperren</translation>
 <translation id="2805756323405976993">Apps</translation>
 <translation id="2482878487686419369">Benachrichtigungen</translation>
+<translation id="1850504506766569011">WLAN ist deaktiviert.</translation>
 <translation id="2872961005593481000">Herunterfahren</translation>
 <translation id="7052914147756339792">Hintergrund festlegen</translation>
+<translation id="5746825509052394497">Ihre Eingabemethode hat sich in <ph name="INPUT_METHOD_ID"/> geändert.
+        Drücken Sie zum Wechseln Umschalt+Alt.</translation>
 <translation id="1602076796624386989">Mobile Daten aktivieren</translation>
 <translation id="3157931365184549694">Wiederherstellen</translation>
 <translation id="8573351908869164327">Noch <ph name="HOUR"/> Std. <ph name="MINUTE"/> Min.</translation>
 <translation id="7029814467594812963">Sitzung beenden</translation>
+<translation id="8454013096329229812">WLAN ist aktiviert.</translation>
 <translation id="2983818520079887040">Einstellungen...</translation>
 <translation id="2712866615167520691">Eingabehilfen sind aktiviert. Drücken Sie zum Abbrechen STRG+ALT+Z.</translation>
 <translation id="8660803626959853127"><ph name="COUNT"/> Datei(en) wird bzw. werden synchronisiert.</translation>
-<translation id="639644700271529076">Die Feststelltaste ist deaktiviert.</translation>
+<translation id="1837166567415282700">Ihre Eingabemethode hat sich in <ph name="INPUT_METHOD_ID"/>* geändert (<ph name="BEGIN_LINK"/>Drittanbieter<ph name="END_LINK"/>).
+        Drücken Sie zum Wechseln Umschalt+Alt.</translation>
+<translation id="639644700271529076">Feststelltaste Aus</translation>
 <translation id="4864165860509564259">Position der Übersicht</translation>
 <translation id="7649070708921625228">Hilfe</translation>
 <translation id="397105322502079400">Wird berechnet...</translation>
 <translation id="6362354186508391853">Strg +</translation>
+<translation id="477782898153505579">Sie haben keine Benachrichtigungen.</translation>
+<translation id="7457942297256758195">Alle löschen</translation>
 <translation id="7871882211137875558">Anderes Netzwerk...</translation>
 <translation id="3573179567135747900">Zurücksetzen auf &quot;<ph name="FROM_LOCALE"/>&quot; (Neustart erforderlich)</translation>
 <translation id="8103386449138765447">SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -83,6 +92,7 @@ Drücken Sie die Umschalttaste zusammen mit der Suchtaste, um die Aktivierung au
 <translation id="5941711191222866238">Verkleinern</translation>
 <translation id="9169585155162064169">Die Feststelltaste ist aktiviert.
 Drücken Sie die Suchtaste, um die Aktivierung aufzuheben.</translation>
+<translation id="6843725295806269523">Stumm</translation>
 <translation id="412065659894267608">In <ph name="HOUR"/> Std. <ph name="MINUTE"/> Min. vollständig aufgeladen</translation>
 <translation id="4469842253116033348">Benachrichtigungen von <ph name="SITE"/> deaktivieren</translation>
 <translation id="6359806961507272919">SMS von <ph name="PHONE_NUMBER"/></translation>

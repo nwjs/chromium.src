@@ -24,6 +24,7 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="4285930937574705105">Échec de l'installation suite à une erreur non spécifiée. Si Chromium est en cours d'exécution, veuillez le fermer, puis réessayer.</translation>
 <translation id="2589479092236095792">Paramètres de saisie automatique de Chromium</translation>
 <translation id="3555616473548901994">Désinstallation terminée</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">Facultatif : aidez-nous à améliorer Chromium en envoyant automatiquement des statistiques d'utilisation et des rapports d'erreur à Google.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> – Chromium</translation>
 <translation id="1989424089625731201">Vous avez tenté d'accéder au domaine &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, mais le certificat présenté par le serveur contient des erreurs. Chromium ne peut pas utiliser un certificat contenant des erreurs ni vérifier l'identité du site auquel vous avez tenté de vous connecter.</translation>
@@ -45,6 +46,7 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="6714487516757221107">Aucune installation de Chromium ni de Chromium Frame à mettre à jour.</translation>
 <translation id="3197823471738295152">Votre appareil est à jour.</translation>
 <translation id="8551886023433311834">Mise à jour presque terminée. Pour la finaliser, veuillez redémarrer votre appareil.</translation>
+<translation id="8353224596138547809">Voulez-vous que Chromium enregistre votre mot de passe pour ce site ?</translation>
 <translation id="4124681358536363708">Le répertoire d'installation de Chromium semble être en cours d'utilisation. Veuillez redémarrer votre ordinateur, puis réessayer.</translation>
 <translation id="8770560772173120024">Chromium importe actuellement vos favoris.</translation>
 <translation id="6290315939897260265">Non utilisé dans Chromium. Espace réservé pour conserver la synchronisation des cartes de ressources.</translation>
@@ -128,11 +130,14 @@ Certaines fonctionnalités seront peut-être indisponibles. Veuillez spécifier 
 <translation id="8616882682724010661">Découvrez <ph name="BEGIN_LINK"/>plus d'avantages<ph name="END_LINK"/> sur la connexion à Chromium.</translation>
 <translation id="378917192836375108">Avec Chromium, cliquez sur un numéro de téléphone sur le Web et appelez-le dans Skype !</translation>
 <translation id="8724049448828509830">Un téléchargement est actuellement en cours. Voulez-vous quitter Chromium et annuler le téléchargement ?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Hôte du plug-in Chromium</translation>
 <translation id="2739631515503418643">Des téléchargements sont actuellement en cours. Voulez-vous quitter Chromium et annuler les téléchargements ?</translation>
 <translation id="9013262824292842194">Chromium requiert Windows Vista ou Windows XP avec SP2 ou une version ultérieure.</translation>
 <translation id="1967743265616885482">Nous avons constaté qu'un module du même nom n'est pas compatible avec Chromium.</translation>
 <translation id="4224199872375172890">Chromium est à jour.</translation>
+<translation id="374481098568514319">Cet ordinateur possède déjà une version plus récente des composants Chromium. Veuillez utiliser un programme d'installation plus récent.</translation>
+<translation id="6240281849816458190">Vous avez tenté d'accéder au domaine &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, mais le serveur a présenté un certificat qui n'est pas encore valide. Aucune information n'indique que ce certificat est fiable. Chromium ne peut donc pas garantir que vous communiquez bien avec &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; et non avec un pirate informatique. L'horloge de votre ordinateur indique qu'il est actuellement <ph name="CURRENT_TIME"/>. Est-ce correct ? Si tel n'est pas le cas, veuillez corriger toute erreur, puis actualiser cette page.</translation>
 <translation id="5498103559159810756">Chromium utilise votre moteur de recherche par défaut actuel, à savoir <ph name="PAGE_TITLE"/>. Voulez-vous conserver ce moteur de recherche par défaut ?</translation>
 <translation id="5862307444128926510">Bienvenue dans Chromium</translation>
 <translation id="1622565934590470080">Cet ordinateur dispose déjà d'une version plus récente de Chromium et de Chromium Frame. Si le logiciel ne fonctionne pas, veuillez désinstaller Chromium et Chromium Frame, puis réessayer.</translation>

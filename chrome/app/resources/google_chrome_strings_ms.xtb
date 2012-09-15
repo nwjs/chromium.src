@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Ya, keluar dari Chrome</translation>
 <translation id="386202838227397562">Sila tutup semua tetingkap Google Chrome dan cuba semula.</translation>
 <translation id="2770231113462710648">Tukar penyemak imbas lalai kepada:</translation>
+<translation id="741045321678647133">Hos Apl Google Chrome</translation>
 <translation id="7400722733683201933">Mengenai Google Chrome</translation>
 <translation id="1065672644894730302">Pilihan anda tidak dapat dibaca. Beberapa ciri mungkin tidak tersedia dan perubahan terhadap pilihan tidak akan disimpan.</translation>
 <translation id="7781002470561365167">Terdapat versi Google Chrome baharu yang tersedia.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Google Chrome tidak lagi dikemas kini kerana sistem pengendalian anda usang.</translation>
 <translation id="5339639696978861456">Chrome Frame telah dikemas kini. Sila lancarkan semula penyemak imbas anda. Versi Chrome: <ph name="TODO_0001"/>, Versi Chrome Frame: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Syarat Perkhidmatan</translation>
+<translation id="5775197990071433230">Komputer ini sudah mempunyai versi komponen Google Chrome yang lebih baharu. Sila gunakan pemasang yang lebih baharu.</translation>
 <translation id="8398145039500709259">Gunakan Akaun Google ini untuk menyegerakkan semua barangan Chome anda?</translation>
 <translation id="1779550429052479749">Pemasangan Google Chrome atau Google Chrome Frame yang bercanggah dijumpai pada sistem. Sila nyahpasangnya dan cuba semula.</translation>
 <translation id="3555616473548901994">Selesai nyahpasang.</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Terdapat versi Google Chrome baharu yang lebih selamat tersedia.</translation>
 <translation id="5037239767309817516">Sila tutup semua tetingkap dan lancarkannya semula untuk perubahan ini berkesan.</translation>
 <translation id="7451721381978275812">Argumen tidak sah. Google Chrome Frame tidak dapat dipasang dalam mod sedia tanpa memasang Google Chrome juga.</translation>
+<translation id="8684521613357479262">Anda cuba mencapai &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, tetapi pelayan menyampaikan sijil yang belum lagi sah. Tiada maklumat tersedia yang menunjukkan sama ada sijil tersebut boleh dipercayai. Google Chrome tidak dapat menjamin bahawa anda berkomunikasi dengan &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; dan bukan penyerang. Jam komputer anda pada masa ini ditetapkan pada <ph name="CURRENT_TIME"/>. Adakah itu betul? Jika tidak, anda harus membetulkan jam sistem anda dan kemudian, muatkan semula halaman ini.</translation>
 <translation id="4585888816441913908">Komputer ini mempunyai versi Google Chrome dan Google Chrome Frame lebih baharu. Jika perisian tidak berfungsi, sila nyahpasang kedua-dua Google Chrome dan Google Chrome Frame dan cuba semula.</translation>
 <translation id="6368958679917195344">OS Chrome menjadi kenyataan dengan <ph name="BEGIN_LINK_CROS_OSS"/>perisian sumber terbuka<ph name="END_LINK_CROS_OSS"/> tambahan.</translation>
 <translation id="7459554271817304652">Sediakan Penyegerakan untuk menyimpan ciri penyemak imbas anda yang diperibadikan ke web dan mengaksesnya dari Google Chrome pada mana-mana komputer.</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">Muat turun sedang dijalankan. Adakah anda ingin keluar dari Google Chrome dan membatalkan muat turun?</translation>
 <translation id="4273752058983339720">Google Chrome dikonfigurasi untuk dilancarkan secara automatik apabila anda memulakan komputer anda.</translation>
 <translation id="1104959162601287462">Mengenai &amp;Chrome OS</translation>
+<translation id="5328989068199000832">Perduaan Google Chrome</translation>
 <translation id="5941830788786076944">Jadikan Google Chrome penyemak imbas lalai</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome membolehkan anda mengklik nombor telefon pada web dan menghubunginya dengan Skype!</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Hos Pemalam Google Chrome</translation>
 <translation id="5699533844376998780">Pelanjutan &quot;<ph name="EXTENSION_NAME"/>&quot; telah ditambah.</translation>
 <translation id="6126631249883707068">Adakah anda mahu Google Chrome menyimpan kata laluan anda?</translation>
+<translation id="7773845170078702898">Adakah anda mahu Google Chrome menyimpan kata laluan anda untuk tapak ini?</translation>
 <translation id="5046764976540625289">Keluar Daripada Chrome</translation>
 <translation id="9039578207253536065">Pekerja Google Chrome</translation>
 <translation id="2680623880102270805">Google Chrome tidak dapat membuat pintasan aplikasi kerana ia tidak dapat menentukan persekitaran semasa desktop.</translation>

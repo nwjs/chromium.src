@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Pemasangan gagal disebabkan ralat yang tidak dinyatakan. Jika Chromium sedang dijalankan, sila tutup dan cuba semula.</translation>
 <translation id="2589479092236095792">Tetapan Autoisi Chromium</translation>
 <translation id="3555616473548901994">Selesai nyahpasang.</translation>
+<translation id="3674409928058572366">Hos Apl Chromium</translation>
 <translation id="2886012850691518054">Pilihan: Bantu jadikan Chromium lebih baik dengan menghantar statistik penggunaan dan laporan ranap kepada Google secara automatik.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">Anda cuba mencapai &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, tetapi sijil yang diberikan pelayan mengandungi ralat. Chromium tidak boleh menggunakan sijil yang mengandungi ralat dan tidak dapat mengesahkan identiti tapak yang anda cuba untuk bersambung.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Tiada pemasangan Chromium atau Chromium Frame dijumpai untuk dikemas kini.</translation>
 <translation id="3197823471738295152">Peranti anda telah dikemas kini.</translation>
 <translation id="8551886023433311834">Hampir terkini! Mulakan semula peranti anda untuk melengkapkan pengemaskinian.</translation>
+<translation id="8353224596138547809">Adakah anda mahu Chromium menyimpan kata laluan anda untuk tapak ini?</translation>
 <translation id="4124681358536363708">Direktori pemasangan Chromium nampaknya sedang digunakan. Sila but semula komputer anda dan cuba lagi.</translation>
 <translation id="8770560772173120024">Chromium kini mengimport Kegemaran/Penanda Halaman.</translation>
 <translation id="6290315939897260265">Tidak digunakan dalam Chromium. Pemegang tempat untuk mengekalkan penyegerakan peta sumber.</translation>
@@ -127,11 +129,14 @@ Beberapa ciri mungkin tidak tersedia. Sila nyatakan direktori profil yang berbez
 <translation id="8616882682724010661">Lihat <ph name="BEGIN_LINK"/>lagi faedah<ph name="END_LINK"/> apabila log masuk ke Chromium.</translation>
 <translation id="378917192836375108">Chromium membolehkan anda mengklik nombor telefon pada web dan menghubunginya dengan Skype!</translation>
 <translation id="8724049448828509830">Muat turun sedang dijalankan. Adakah anda ingin keluar dari Chromium dan membatalkan muat turun?</translation>
+<translation id="3360567213983886831">Perduaan Chromium</translation>
 <translation id="7503101070699687603">Hos Pemalam Chromium</translation>
 <translation id="2739631515503418643">Muat turun sedang dijalankan. Adakah anda ingin keluar dari Chromium dan membatalkan muat turun?</translation>
 <translation id="9013262824292842194">Chromium memerlukan Windows Vista atau Windows XP dengan SP2 atau lebih tinggi.</translation>
 <translation id="1967743265616885482">Modul dengan nama yang sama telah diketahui bercanggah dengan Chromium.</translation>
 <translation id="4224199872375172890">Chromium telah dikemas kini</translation>
+<translation id="374481098568514319">Komputer ini sudah mempunyai versi komponen Chromium yang lebih baharu. Sila gunakan pemasang yang lebih baharu.</translation>
+<translation id="6240281849816458190">Anda cuba mencapai &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, tetapi pelayan menyampaikan sijil yang belum lagi sah. Tiada maklumat tersedia yang menunjukkan sama ada sijil tersebut boleh dipercayai. Chromium tidak dapat menjamin bahawa anda berkomunikasi dengan &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; dan bukan penyerang. Jam komputer anda pada masa ini ditetapkan kepada <ph name="CURRENT_TIME"/>. Adakah itu betul? Jika tidak, anda harus membetulkan jam sistem anda dan kemudian, muatkan semula halaman ini.</translation>
 <translation id="5498103559159810756">Chromium menggunakan enjin carian lalai anda, yang kini ditetapkan kepada <ph name="PAGE_TITLE"/>. Adakah anda ingin mengekalkan enjin carian lalai anda?</translation>
 <translation id="5862307444128926510">Selamat datang ke Chromium</translation>
 <translation id="1622565934590470080">Komputer ini telah mempunyai versi Chromium dan Chromium Frame yang lebih baharu. Jika perisian tidak berfungsi, sila nyahpasang Chromium dan Chromium Frame dan cuba lagi.</translation>

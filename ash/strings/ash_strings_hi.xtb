@@ -47,6 +47,7 @@
 <translation id="1895658205118569222">बंद करें</translation>
 <translation id="4430019312045809116">मात्रा</translation>
 <translation id="1383876407941801731">खोज</translation>
+<translation id="2204305834655267233">नेटवर्क जानकारी</translation>
 <translation id="5980301590375426705">अतिथि सत्र से बाहर निकलें</translation>
 <translation id="8308637677604853869">पिछला मेनू</translation>
 <translation id="1346748346194534595">दाएं</translation>
@@ -61,21 +62,29 @@
 <translation id="3784455785234192852">लॉक करें</translation>
 <translation id="2805756323405976993">एप्लिकेशन</translation>
 <translation id="2482878487686419369">अधिसूचनाएं</translation>
+<translation id="1850504506766569011">Wi-Fi बंद है.</translation>
 <translation id="2872961005593481000">शट डाउन करें</translation>
 <translation id="7052914147756339792">वॉलपेपर सेट करें...</translation>
+<translation id="5746825509052394497">आपकी इनपुट विधि <ph name="INPUT_METHOD_ID"/> में बदल गई है.
+        स्विच करने के लिए Shift + Alt दबाएं.</translation>
 <translation id="1602076796624386989">मोबाइल डेटा सक्षम करें</translation>
 <translation id="3157931365184549694">पुनर्स्थापित करें</translation>
 <translation id="8573351908869164327"><ph name="HOUR"/>घं <ph name="MINUTE"/>मि शेष हैं</translation>
 <translation id="7029814467594812963">सत्र से बाहर निकलें</translation>
+<translation id="8454013096329229812">Wi-Fi चालू है.</translation>
 <translation id="2983818520079887040">सेटिंग...</translation>
 <translation id="2712866615167520691">पहुंच-योग्यता विशेषताएं सक्षम हैं.
 रद्द करने के लिए Ctrl+Alt+Z दबाएं.</translation>
 <translation id="8660803626959853127"><ph name="COUNT"/> फ़ाइल/फ़ाइलें समन्वयित हो रही है/हो रही हैं</translation>
+<translation id="1837166567415282700">आपकी इनपुट विधि <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>तृतीय पक्ष<ph name="END_LINK"/>) में बदल गई है.
+        स्विच करने के लिए Shift + Alt दबाएं.</translation>
 <translation id="639644700271529076">CAPS LOCK बंद है</translation>
 <translation id="4864165860509564259">लॉन्चर स्थिति</translation>
 <translation id="7649070708921625228">सहायता</translation>
 <translation id="397105322502079400">गणना की जा रही है...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">आपके पास कोई सूचना नहीं है. धैर्य रखें!</translation>
+<translation id="7457942297256758195">सभी साफ़ करें</translation>
 <translation id="7871882211137875558">अन्य से जुड़ें ...</translation>
 <translation id="3573179567135747900">&quot;<ph name="FROM_LOCALE"/>&quot; में पुन: बदलें (पुनः आरंभ करने की आवश्यकता है)</translation>
 <translation id="8103386449138765447">SMS संदेश: <ph name="MESSAGE_COUNT"/></translation>
@@ -84,6 +93,7 @@
 <translation id="5941711191222866238">छोटा करें</translation>
 <translation id="9169585155162064169">CAPS LOCK चालू है.
 रद्द करने के लिए खोज कुंजी दबाएं.</translation>
+<translation id="6843725295806269523">म्यूट करें</translation>
 <translation id="412065659894267608">पूरी तरह से चार्ज होने में <ph name="HOUR"/>घं <ph name="MINUTE"/>मि शेष</translation>
 <translation id="4469842253116033348"><ph name="SITE"/> से सूचनाएं अक्षम करें</translation>
 <translation id="6359806961507272919"><ph name="PHONE_NUMBER"/> से SMS</translation>

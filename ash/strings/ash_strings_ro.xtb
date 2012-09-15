@@ -47,6 +47,7 @@ Apăsaţi pe tasta Shift + tasta de căutare pentru a anula.</translation>
 <translation id="1895658205118569222">Închideţi</translation>
 <translation id="4430019312045809116">Volum</translation>
 <translation id="1383876407941801731">Căutați</translation>
+<translation id="2204305834655267233">Informaţii despre reţea</translation>
 <translation id="5980301590375426705">Ieșiţi din sesiunea pentru invitaţi</translation>
 <translation id="8308637677604853869">Meniul anterior</translation>
 <translation id="1346748346194534595">Dreapta</translation>
@@ -61,20 +62,28 @@ Apăsaţi pe tasta Shift + tasta de căutare pentru a anula.</translation>
 <translation id="3784455785234192852">Blocaţi</translation>
 <translation id="2805756323405976993">Aplicații</translation>
 <translation id="2482878487686419369">Notificări</translation>
+<translation id="1850504506766569011">Conexiunea Wi-Fi este dezactivată.</translation>
 <translation id="2872961005593481000">Închideţi</translation>
 <translation id="7052914147756339792">Setaţi o imagine de fundal...</translation>
+<translation id="5746825509052394497">Metoda de introducere s-a schimbat la <ph name="INPUT_METHOD_ID"/>.
+        Apăsaţi pe Shift + Alt pentru a comuta.</translation>
 <translation id="1602076796624386989">Activaţi datele mobile</translation>
 <translation id="3157931365184549694">Restabiliți</translation>
 <translation id="8573351908869164327">Au mai rămas <ph name="HOUR"/> h. <ph name="MINUTE"/> min.</translation>
 <translation id="7029814467594812963">Ieșiţi din sesiune</translation>
+<translation id="8454013096329229812">Conexiunea Wi-Fi este activată.</translation>
 <translation id="2983818520079887040">Setări...</translation>
 <translation id="2712866615167520691">Funcţiile de accesibilitate sunt activate. Apăsaţi Ctrl + Alt + Z pentru anulare.</translation>
 <translation id="8660803626959853127">Se sincronizează <ph name="COUNT"/> (de) fişiere</translation>
+<translation id="1837166567415282700">Metoda de introducere s-a schimbat la <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>terţă parte<ph name="END_LINK"/>).
+        Apăsaţi pe Shift + Alt pentru a comuta.</translation>
 <translation id="639644700271529076">Tasta CAPS LOCK este dezactivată</translation>
 <translation id="4864165860509564259">Poziţia lansatorului</translation>
 <translation id="7649070708921625228">Ajutor</translation>
 <translation id="397105322502079400">Se calculează...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Nu aveţi notificări. Relaxaţi-vă!</translation>
+<translation id="7457942297256758195">Ştergeţi-le pe toate</translation>
 <translation id="7871882211137875558">Conectaţi-vă la altă reţea...</translation>
 <translation id="3573179567135747900">Modificaţi înapoi la „<ph name="FROM_LOCALE"/>” (este necesară repornirea)</translation>
 <translation id="8103386449138765447">Mesaje SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -83,6 +92,7 @@ Apăsaţi pe tasta Shift + tasta de căutare pentru a anula.</translation>
 <translation id="5941711191222866238">Minimizați</translation>
 <translation id="9169585155162064169">Tasta CAPS LOCK este activată.
 Apăsaţi pe tasta de căutare pentru a anula.</translation>
+<translation id="6843725295806269523">dezactivaţi sunetul</translation>
 <translation id="412065659894267608"><ph name="HOUR"/> h. <ph name="MINUTE"/> min. până la încărcare completă</translation>
 <translation id="4469842253116033348">Dezactivați notificările de la <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS de la <ph name="PHONE_NUMBER"/></translation>

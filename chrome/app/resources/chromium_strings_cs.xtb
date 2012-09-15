@@ -25,6 +25,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="4285930937574705105">Došlo k nespecifikované chybě, instalace se nezdařila. Pokud je prohlížeč Chromium právě spuštěný, zavřete jej prosím a zkuste to znovu.</translation>
 <translation id="2589479092236095792">Nastavení Automatického vyplňování v prohlížeči Chromium</translation>
 <translation id="3555616473548901994">Odinstalace byla dokončena.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">Volitelné: Pomozte Chromium zlepšit – posílejte automaticky společnosti Google statistiky využití a zprávy o selhání aplikace.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> – Chromium</translation>
 <translation id="1989424089625731201">Pokusili jste se přejít na server &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, ale certifikát, který tento server předložil, obsahuje chyby. Chromium nemůže používat certifikát obsahující chyby a nemůže ověřit totožnost stránek, k nimž se pokoušíte připojit.</translation>
@@ -46,6 +47,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="6714487516757221107">Nebyla nalezena žádná instalace prohlížeče Chromium ani pluginu Chrome Frame k aktualizaci.</translation>
 <translation id="3197823471738295152">Zařízení bylo aktualizováno.</translation>
 <translation id="8551886023433311834">Aktualizace je téměř hotova! Dokončíte ji restartováním zařízení.</translation>
+<translation id="8353224596138547809">Přejete si, aby aplikace Chromium uložila vaše heslo pro tyto stránky?</translation>
 <translation id="4124681358536363708">Instalační adresář prohlížeče Chromium je zřejmě používán. Restartujte počítač a zkuste to znovu.</translation>
 <translation id="8770560772173120024">Chromium právě importuje Oblíbené položky nebo záložky.</translation>
 <translation id="6290315939897260265">V prohlížeči Chromium se nepoužívá. Zástupná položka k zachování synchronizace map zdrojů. </translation>
@@ -129,11 +131,14 @@ Některé funkce mohou být nedostupné. Zadejte prosím jiný adresář profilu
 <translation id="8616882682724010661"><ph name="BEGIN_LINK"/>Další výhody<ph name="END_LINK"/> přihlášení do prohlížeče Chromium.</translation>
 <translation id="378917192836375108">Chromium umožňuje kliknout na telefonní číslo na webu a volat na něj prostřednictvím aplikace Skype.</translation>
 <translation id="8724049448828509830">Probíhá stahování. Chcete Chromium ukončit a stahování zrušit?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="2739631515503418643">Probíhá stahování. Chcete Chromium ukončit a stahování zrušit?</translation>
 <translation id="9013262824292842194">Chromium vyžaduje operační systém Windows Vista nebo Windows XP SP2 nebo vyšší.</translation>
 <translation id="1967743265616885482">O modulu se stejným názvem je známo, že u něj dochází ke konfliktu s prohlížečem Chromium.</translation>
 <translation id="4224199872375172890">Chromium je aktuální.</translation>
+<translation id="374481098568514319">V tomto počítači je již používána novější verze komponent aplikace Chromium. Použijte prosím novější instalátor.</translation>
+<translation id="6240281849816458190">Pokusili jste se přejít na server &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, ale server předložil certifikát, který ještě není platný. Nejsou k dispozici žádné informace, které by naznačovaly, zda je možné certifikátu důvěřovat. Aplikace Chromium nemůže spolehlivě zaručit, že komunikujete se serverem &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, a nikoli s útočníkem. Čas ve vašem počítači je aktuálně nastaven na <ph name="CURRENT_TIME"/>. Je to v pořádku? Pokud ne, měli byste chybu opravit a stránku načíst znovu.</translation>
 <translation id="5498103559159810756">Chromium používá váš výchozí vyhledávač. Aktuálně nastavený výchozí vyhledávač: <ph name="PAGE_TITLE"/>. Chcete zachovat nastavení výchozího vyhledávače?</translation>
 <translation id="5862307444128926510">Vítejte v prohlížeči Chromium</translation>
 <translation id="1622565934590470080">V tomto počítači již jsou nainstalovány novější verze prohlížeče Chromium a pluginu Chromium Frame. Jestliže tento software nefunguje, odinstalujte Chromium i Chromium Frame a zkuste to znovu.</translation>

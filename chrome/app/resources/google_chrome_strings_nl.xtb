@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Ja, Chrome afsluiten</translation>
 <translation id="386202838227397562">Sluit alle Google Chrome-vensters en probeer het opnieuw.</translation>
 <translation id="2770231113462710648">Standaardbrowser wijzigen in:</translation>
+<translation id="741045321678647133">Google Chrome App Host</translation>
 <translation id="7400722733683201933">Over Google Chrome</translation>
 <translation id="1065672644894730302">Uw voorkeuren kunnen niet worden gelezen.
 
@@ -28,6 +29,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="1872436416934435136">Google Chrome wordt niet langer bijgewerkt omdat uw besturingssysteem verouderd is.</translation>
 <translation id="5339639696978861456">Chrome Frame is bijgewerkt. Start uw browser opnieuw. Chrome-versie: <ph name="TODO_0001"/>, Chrome Frame-versie: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Servicevoorwaarden</translation>
+<translation id="5775197990071433230">Deze computer beschikt al over een recentere versie van de Google Chrome-componenten. Gebruik een recenter installatieprogramma.</translation>
 <translation id="8398145039500709259">Wilt u dit Google-account gebruiken voor het synchroniseren van al uw Chrome-gegevens?</translation>
 <translation id="1779550429052479749">Er is een conflicterende installatie van Google Chrome of Google Chrome Frame op het systeem gevonden. Verwijder deze en probeer het opnieuw.</translation>
 <translation id="3555616473548901994">Verwijdering voltooid.</translation>
@@ -58,6 +60,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="3089968997497233615">Er is een nieuwere, veiligere versie van Google Chrome beschikbaar.</translation>
 <translation id="5037239767309817516">Sluit alle Google Chrome-vensters en start Google Chrome opnieuw om deze wijziging door te voeren.</translation>
 <translation id="7451721381978275812">Ongeldige argumenten. Google Chrome Frame kan niet in de ready-modus worden geïnstalleerd zonder dat Google Chrome wordt geïnstalleerd.</translation>
+<translation id="8684521613357479262">U probeert &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; te bereiken, maar de server heeft een certificaat gepresenteerd dat nog niet geldig is. Er is geen informatie beschikbaar om te bepalen of dat certificaat kan worden vertrouwd. Google Chrome kan niet volledig garanderen dat u communiceert met &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; en niet met een aanvaller. De klok van uw computer is momenteel ingesteld op <ph name="CURRENT_TIME"/>. Is dit de correcte tijd? Als dit niet zo is, moet u de klok van het systeem aanpassen en deze pagina vernieuwen.</translation>
 <translation id="4585888816441913908">Deze computer beschikt al over een nieuwere versie van Google Chrome en Google Chrome Frame. Als de software niet werkt, verwijdert u Google Chrome en Google Chrome Frame en probeert u het opnieuw.</translation>
 <translation id="6368958679917195344">Chrome OS wordt mogelijk gemaakt door aanvullende <ph name="BEGIN_LINK_CROS_OSS"/>open source-software<ph name="END_LINK_CROS_OSS"/>.</translation>
 <translation id="7459554271817304652">Stel synchronisatie in om uw persoonlijke browserfuncties online op te slaan en toegang te krijgen tot deze functies via Google Chrome, vanaf elke computer.</translation>
@@ -93,6 +96,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="7062966102157262887">Er wordt momenteel een download uitgevoerd. Wilt u Google Chrome afsluiten en de download annuleren?</translation>
 <translation id="4273752058983339720">Google Chrome is geconfigureerd om automatisch te worden gestart als u uw computer opstart.</translation>
 <translation id="1104959162601287462">Over &amp;Chrome OS</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Google Chrome instellen als mijn standaardbrowser</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Met Google Chrome kunt u klikken op een telefoonnummer op internet om dit via Skype te bellen!</translation>
@@ -114,6 +118,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="5318056482164160049">Invoegtoepassingshost van Google Chrome</translation>
 <translation id="5699533844376998780">De extensie '<ph name="EXTENSION_NAME"/>' is toegevoegd.</translation>
 <translation id="6126631249883707068">Wilt u dat Google Chrome uw wachtwoord opslaat?</translation>
+<translation id="7773845170078702898">Wilt u dat Google Chrome uw wachtwoord voor deze site opslaat?</translation>
 <translation id="5046764976540625289">Chrome sluiten</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Google Chrome kan geen app-snelkoppeling maken omdat de huidige desktopomgeving niet kan worden bepaald.</translation>

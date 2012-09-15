@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Не вдалося встановити через невизначену помилку. Якщо Chromium зараз запущено, закрийте його та повторіть спробу.</translation>
 <translation id="2589479092236095792">Параметри автозаповнення Chromium</translation>
 <translation id="3555616473548901994">Видалення завершено.</translation>
+<translation id="3674409928058572366">Хост програми Chromium</translation>
 <translation id="2886012850691518054">Додатково: допоможіть покращити Chromium,  автоматично надсилаючи статистику використання та звіти про аварійне завершення роботи в Google.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> – Chromium</translation>
 <translation id="1989424089625731201">Ви спробували зв’язатися з доменом &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, але наданий сервером сертифікат містить помилки. Chromium не може використовувати сертифікат із помилками та не може перевірити ідентичність сайту, до якого ви намагалися під’єднатись.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Не знайдено встановлення Chromium або Chromium Frame для оновлення.</translation>
 <translation id="3197823471738295152">Пристрій оновлено.</translation>
 <translation id="8551886023433311834">Майже оновлено! Перезапустіть пристрій, щоб завершити оновлення.</translation>
+<translation id="8353224596138547809">Чи має Chromium зберегти ваш пароль для цього сайту?</translation>
 <translation id="4124681358536363708">Каталог встановлення Chromium зараз використовується. Перезавантажте свій комп’ютер і повторіть спробу.</translation>
 <translation id="8770560772173120024">Зараз Chromium імпортує &quot;Вибране/Закладки&quot;.</translation>
 <translation id="6290315939897260265">Не використовується в Chromium. Заповнювач для синхронізації карт ресурсу.</translation>
@@ -127,11 +129,14 @@
 <translation id="8616882682724010661"><ph name="BEGIN_LINK"/>Інші переваги<ph name="END_LINK"/> входу в Chromium.</translation>
 <translation id="378917192836375108">Chromium дозволяє натиснути номер телефону в Інтернеті та зателефонувати за ним через Skype.</translation>
 <translation id="8724049448828509830">Триває завантаження. Вийти з Chromium і скасувати це завантаження?</translation>
+<translation id="3360567213983886831">Бінарні файли Chromium</translation>
 <translation id="7503101070699687603">Хост плагіна Chromium</translation>
 <translation id="2739631515503418643">Тривають завантаження. Вийти з Chromium і скасувати ці завантаження?</translation>
 <translation id="9013262824292842194">Chromium потребує ОС Windows Vista чи Windows XP із SP2 або новішу версію.</translation>
 <translation id="1967743265616885482">Відомо, що модуль із такою назвою конфліктує з Chromium.</translation>
 <translation id="4224199872375172890">У вас остання версія Chromium.</translation>
+<translation id="374481098568514319">На цьому комп’ютері вже є новіша версія компонентів Chromium. Скористайтеся новішою програмою встановлення.</translation>
+<translation id="6240281849816458190">Ви пробували зв’язатися з доменом &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, але сервер надав сертифікат, який ще не дійсний. Немає доступних даних, які б допомогли визначити, чи можна довіряти цьому сертифікату. Chromium не може повністю гарантувати, що ви обмінюєтеся даними з доменом &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, а не зі зловмисником. Годинник вашого комп’ютера зараз показує: <ph name="CURRENT_TIME"/>. Правильно? Якщо ні, потрібно виправити помилку й оновити цю сторінку.</translation>
 <translation id="5498103559159810756">Chromium використовує вашу пошукову систему за умовчанням, якою на даний момент є <ph name="PAGE_TITLE"/>. Зберегти пошукову систему за умовчанням?</translation>
 <translation id="5862307444128926510">Вітаємо в Chromium</translation>
 <translation id="1622565934590470080">На цьому комп’ютері вже встановлено новіші версії Chromium і Chromium Frame. Якщо програмне забезпечення не працює, видаліть Chromium і Chromium Frame та повторіть спробу.</translation>

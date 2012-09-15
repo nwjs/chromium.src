@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Installeringen mislyktes på grunn av en uspesifisert feil. Lukk Chromium hvis nettleseren kjører, og prøv på nytt.</translation>
 <translation id="2589479092236095792">Chromium-innstillinger for autofyll</translation>
 <translation id="3555616473548901994">Avinstallering fullført.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">Valgfritt: Bidra til å gjøre Chromium bedre ved å sende brukerstatistikk og krasjrapporter automatisk til Google.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> – Chromium</translation>
 <translation id="1989424089625731201">Du prøvde å åpne &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, men sertifikatet som tjeneren oppga, inneholder feil. Chromium kan ikke bruke sertifikater med feil og heller ikke bekrefte identiteten til nettstedet du prøvde å åpne.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Finner ingen versjon av Chromium eller Chromium Frame for oppdatering.</translation>
 <translation id="3197823471738295152">Enheten er oppdatert.</translation>
 <translation id="8551886023433311834">Nesten oppdatert! Start enheten på nytt for å fullføre oppdateringen.</translation>
+<translation id="8353224596138547809">Vil du at Chromium skal lagre passordet du bruker på dette nettstedet?</translation>
 <translation id="4124681358536363708">Det ser ut til at installasjonskatalogen for Chromium er i bruk. Du må starte datamaskinen din på nytt og prøve igjen.</translation>
 <translation id="8770560772173120024">Chromium importerer Favoritter/Bokmerker.</translation>
 <translation id="6290315939897260265">Ikke brukt i Chromium. Plassholder for å holde ressurskart synkroniserte.</translation>
@@ -127,11 +129,14 @@ Det er mulig at enkelte funksjoner ikke er tilgjengelige. Angi en annen profilka
 <translation id="8616882682724010661">Se <ph name="BEGIN_LINK"/>flere fordeler<ph name="END_LINK"/> ved pålogging til Chromium.</translation>
 <translation id="378917192836375108">Med Chromium kan du klikke på et telefonnummer på nettet og ringe til det med Skype.</translation>
 <translation id="8724049448828509830">Du har en aktiv nedlasting. Vil du avslutte Chromium og avbryte nedlastingen?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium-vert for programtillegg</translation>
 <translation id="2739631515503418643">Du har aktive nedlastinger. Vil du avslutte Chromium og avbryte nedlastingene?</translation>
 <translation id="9013262824292842194">Chromium krever Windows Vista eller Windows XP med SP2 eller høyere.</translation>
 <translation id="1967743265616885482">Vi har tidligere lagt merke til at en modul med det samme navnet, har kommet i konflikt med Chromium.</translation>
 <translation id="4224199872375172890">Chromium er oppdatert.</translation>
+<translation id="374481098568514319">Denne datamaskinen har allerede en nyere versjon av Chromium-komponentene. Bruk et nyere installeringsprogram.</translation>
+<translation id="6240281849816458190">Du prøvde å åpne &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, men tjeneren oppga et sertifikat som ikke er gyldig enda. Vi finner ikke tilgjengelig informasjon som kan bekrefte at sertifikatet er pålitelig. Chromium kan ikke med sikkerhet garantere at du kommuniserer med &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, og ikke en angriper. Klokken på datamaskinen din er satt til <ph name="CURRENT_TIME"/>. Er det korrekt? Hvis ikke, må du rette opp feilen og laste inn denne siden på nytt.</translation>
 <translation id="5498103559159810756">Google Chrome bruker søkemotoren du har angitt som standard, som er <ph name="PAGE_TITLE"/>. Vil du beholde denne som standard søkemotor?</translation>
 <translation id="5862307444128926510">Velkommen til Chromium</translation>
 <translation id="1622565934590470080">Denne datamaskinen har allerede en nyere versjon av Chromium og Chromium Frame. Hvis programvarene ikke fungerer, må du avinstallere både Chromium og Chromium Frame og prøve på nytt.</translation>

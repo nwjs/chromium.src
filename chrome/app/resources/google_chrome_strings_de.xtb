@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Ja, Chrome beenden</translation>
 <translation id="386202838227397562">Schließen Sie alle Google Chrome-Fenster und versuchen Sie es erneut.</translation>
 <translation id="2770231113462710648">Standardbrowser ändern in:</translation>
+<translation id="741045321678647133">Google Chrome App Host</translation>
 <translation id="7400722733683201933">Über Google Chrome</translation>
 <translation id="1065672644894730302">Ihre Einstellungen können nicht gelesen werden. Einige Funktionen sind möglicherweise nicht verfügbar und Änderungen an Einstellungen werden nicht gespeichert.</translation>
 <translation id="7781002470561365167">Eine neue Version von Google Chrome ist verfügbar.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Google Chrome wird nicht mehr aktualisiert, weil Ihr Betriebssystem veraltet ist.</translation>
 <translation id="5339639696978861456">Google Chrome Frame wurde aktualisiert. Bitte starten Sie Ihren Browser neu. Google Chrome-Version: <ph name="TODO_0001"/>, Google Chrome Frame-Version: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Nutzungsbedingungen</translation>
+<translation id="5775197990071433230">Dieser Computer verfügt bereits über eine neuere Version der Google Chrome-Komponenten. Bitte verwenden Sie einen neueren Installer.</translation>
 <translation id="8398145039500709259">Alle Ihre Chrome-Inhalte mit diesem Google-Konto synchronisieren?</translation>
 <translation id="1779550429052479749">Auf dem System wurde eine Installation von Google Chrome bzw. Google Chrome Frame gefunden, die einen Konflikt verursacht. Deinstallieren Sie sie und versuchen Sie es erneut.</translation>
 <translation id="3555616473548901994">Deinstallation ist abgeschlossen.</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Es gibt eine neue, sicherere Version von Google Chrome.</translation>
 <translation id="5037239767309817516">Schließen Sie alle Google Chrome-Fenster und starten Sie die Anwendung neu, damit diese Änderung wirksam wird.</translation>
 <translation id="7451721381978275812">Ungültige Argumente. Google Chrome Frame kann nicht im Betriebsmodus installiert werden, ohne dass Google Chrome ebenfalls installiert wird.</translation>
+<translation id="8684521613357479262">Sie haben versucht, auf &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; zuzugreifen, der Server hat sich jedoch mit einem Zertifikat ausgewiesen, das noch nicht gültig ist. Es liegen keine Informationen hinsichtlich der Vertrauenswürdigkeit des Zertifikats vor. Daher kann Google Chrome nicht zuverlässig garantieren, dass Sie mit &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; und nicht mit einem Hacker kommunizieren. Die Uhr Ihres Computers zeigt aktuell <ph name="CURRENT_TIME"/> an. Ist das korrekt? Falls nicht, korrigieren Sie dies bitte und aktualisieren Sie diese Seite.</translation>
 <translation id="4585888816441913908">Auf diesem Computer ist bereits eine neuere Version von Google Chrome und Google Chrome Frame vorhanden. Sollte die Software nicht funktionieren, deinstallieren Sie Google Chrome und Google Chrome Frame und versuchen Sie es erneut.</translation>
 <translation id="6368958679917195344">Chrome OS wird durch zusätzliche <ph name="BEGIN_LINK_CROS_OSS"/>Open-Source-Software<ph name="END_LINK_CROS_OSS"/> möglich gemacht.</translation>
 <translation id="7459554271817304652">Richten Sie die Synchronisierung ein, um Ihre personalisierten Browserfunktionen online zu speichern und über Google Chrome auf jedem Computer darauf zuzugreifen.</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">Momentan wird ein Download durchgeführt. Möchten Sie Google Chrome beenden und den Download abbrechen?</translation>
 <translation id="4273752058983339720">Google Chrome ist so konfiguriert, dass es beim Hochfahren Ihres Computers automatisch gestartet wird.</translation>
 <translation id="1104959162601287462">Über &amp;Chrome OS</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Google Chrome als Standardbrowser festlegen</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">In Google Chrome können Sie auf eine Telefonnummer im Web klicken und diese mit Skype anrufen.</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Google Chrome-Plug-in-Host</translation>
 <translation id="5699533844376998780">Die Erweiterung &quot;<ph name="EXTENSION_NAME"/>&quot; wurde hinzugefügt.</translation>
 <translation id="6126631249883707068">Möchten Sie, dass Ihr Passwort von Google Chrome gespeichert wird?</translation>
+<translation id="7773845170078702898">Soll Google Chrome Ihr Passwort für diese Website speichern?</translation>
 <translation id="5046764976540625289">Google Chrome beenden</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Google Chrome kann keine Anwendungsverknüpfung erstellen, da die aktuelle Desktop-Umgebung nicht erkannt wird.</translation>

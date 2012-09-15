@@ -47,6 +47,7 @@ Peruuta painamalla Shift + Hakunäppäin.</translation>
 <translation id="1895658205118569222">Sulkeminen</translation>
 <translation id="4430019312045809116">Äänenvoimakkuus</translation>
 <translation id="1383876407941801731">Haku</translation>
+<translation id="2204305834655267233">Verkon tiedot</translation>
 <translation id="5980301590375426705">Sulje vierastila</translation>
 <translation id="8308637677604853869">Edellinen valikko</translation>
 <translation id="1346748346194534595">Oikealle</translation>
@@ -61,20 +62,28 @@ Peruuta painamalla Shift + Hakunäppäin.</translation>
 <translation id="3784455785234192852">Lukitse</translation>
 <translation id="2805756323405976993">Sovellukset</translation>
 <translation id="2482878487686419369">Ilmoitukset</translation>
+<translation id="1850504506766569011">Wifi ei ole käytössä.</translation>
 <translation id="2872961005593481000">Sammuta</translation>
 <translation id="7052914147756339792">Aseta taustakuva...</translation>
+<translation id="5746825509052394497">Syöttötapa on vaihtunut. Uusi syöttötapa on <ph name="INPUT_METHOD_ID"/>.
+        Vaihda syöttötapaa painamalla Shift + Alt.</translation>
 <translation id="1602076796624386989">Ota mobiilitiedonsiirto käyttöön</translation>
 <translation id="3157931365184549694">Palauta</translation>
 <translation id="8573351908869164327"><ph name="HOUR"/> t <ph name="MINUTE"/> min jäljellä</translation>
 <translation id="7029814467594812963">Sulje käyttökerta</translation>
+<translation id="8454013096329229812">Wifi on käytössä.</translation>
 <translation id="2983818520079887040">Asetukset...</translation>
 <translation id="2712866615167520691">Esteettömyysasetukset ovat käytössä. Peruuta painamalla Ctrl + Alt + Z .</translation>
 <translation id="8660803626959853127">Synkronoidaan <ph name="COUNT"/> tiedosto(a)</translation>
+<translation id="1837166567415282700">Syöttötapa on vaihtunut. Uusi syöttötapa on <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>kolmas osapuoli<ph name="END_LINK"/>).
+        Vaihda syöttötapaa painamalla Shift + Alt.</translation>
 <translation id="639644700271529076">CAPS LOCK on pois päältä</translation>
 <translation id="4864165860509564259">Käynnistyspalkin sijainti</translation>
 <translation id="7649070708921625228">Ohje</translation>
 <translation id="397105322502079400">Lasketaan...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Ei ilmoituksia. Ei hätää!</translation>
+<translation id="7457942297256758195">Tyhjennä kaikki</translation>
 <translation id="7871882211137875558">Yhdistä toiseen verkkoon...</translation>
 <translation id="3573179567135747900">Vaihda takaisin kieleksi <ph name="FROM_LOCALE"/> (vaatii uudelleenkäynnistyksen)</translation>
 <translation id="8103386449138765447">Tekstiviestit: <ph name="MESSAGE_COUNT"/></translation>
@@ -83,6 +92,7 @@ Peruuta painamalla Shift + Hakunäppäin.</translation>
 <translation id="5941711191222866238">Pienennä</translation>
 <translation id="9169585155162064169">CAPS LOCK on päällä.
 Peruuta painamalla Hakunäppäintä.</translation>
+<translation id="6843725295806269523">äänetön</translation>
 <translation id="412065659894267608">Akku täynnä <ph name="HOUR"/> t <ph name="MINUTE"/> min kuluttua</translation>
 <translation id="4469842253116033348">Poista sivuston <ph name="SITE"/> ilmoitukset käytöstä</translation>
 <translation id="6359806961507272919">Tekstiviesti lähettäjältä <ph name="PHONE_NUMBER"/></translation>

@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Asennus epäonnistui tuntemattoman virheen takia. Jos Chromium on tällä hetkellä käynnissä, sulje se ja yritä uudelleen.</translation>
 <translation id="2589479092236095792">Chromiumin automaattisen täytön asetukset</translation>
 <translation id="3555616473548901994">Poistaminen valmis.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">Valinnainen: Lähetä Googlelle automaattisesti käyttötilastoja ja virheraportteja Chromiumin kehittämiseksi.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">Yritit siirtyä osoitteeseen &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, mutta palvelimen palauttama varmenne on virheellinen. Chromium ei voi käyttää virheellistä varmennetta eikä tunnistaa luotettavasti sivustoa, johon yrität muodostaa yhteyttä.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Päivitettävää Chromiumin tai Chromium-kehyksen asennusta ei löydy.</translation>
 <translation id="3197823471738295152">Laite on ajan tasalla.</translation>
 <translation id="8551886023433311834">Melkein ajan tasalla! Viimeistele päivitys käynnistämällä laite uudelleen.</translation>
+<translation id="8353224596138547809">Haluatko Chromiumin tallentavan tämän sivuston salasanan?</translation>
 <translation id="4124681358536363708">Chromiumin asennushakemisto näyttää olevan käytössä. Käynnistä tietokone uudelleen ja yritä uudestaan.</translation>
 <translation id="8770560772173120024">Chromium tuo suosikkeja/kirjanmerkkejä.</translation>
 <translation id="6290315939897260265">Ei käytössä Chromiumissa. Paikkamerkki resurssikarttojen synkronoimiseksi.</translation>
@@ -127,11 +129,14 @@ Kaikki ominaisuudet eivät ehkä ole käytettävissä. Määritä jokin muu prof
 <translation id="8616882682724010661">Katso, <ph name="BEGIN_LINK"/>mitä muuta hyötyä<ph name="END_LINK"/> Chromiumiin kirjautumisesta on.</translation>
 <translation id="378917192836375108">Chromiumin avulla voit soittaa Skypellä puhelinnumeroon klikkaamalla sitä verkossa!</translation>
 <translation id="8724049448828509830">Lataus on käynnissä. Haluatko sulkea Chromiumin ja peruuttaa latauksen?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="2739631515503418643">Latauksia on käynnissä. Haluatko sulkea Chromiumin ja peruuttaa lataukset?</translation>
 <translation id="9013262824292842194">Chromium edellyttää, että käyttöjärjestelmä on Windows Vista tai Windows XP SP2 tai uudempi.</translation>
 <translation id="1967743265616885482">Samanniminen moduuli on aiheuttanut aiemmin ristiriitoja Chromiumin kanssa.</translation>
 <translation id="4224199872375172890">Chromium on ajan tasalla.</translation>
+<translation id="374481098568514319">Tietokoneessa on jo uudempi Chromium-komponenttien versio. Käytä uudempaa asennusohjelmaa.</translation>
+<translation id="6240281849816458190">Yritit siirtyä osoitteeseen &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, mutta palvelin palautti varmenteen, joka ei ole vielä voimassa. Emme voi selvittää, onko varmenne luotettava. Chromium ei voi taata, että olet yhteydessä sivustoon &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; etkä hyökkäyssivustoon. Tietokoneesi kellon asetus on <ph name="CURRENT_TIME"/>. Jos aika on väärä, korjaa se ja päivitä tämä sivu.</translation>
 <translation id="5498103559159810756">Chromium käyttää oletushakukonettasi, joka on tällä hetkellä <ph name="PAGE_TITLE"/>. Haluatko säilyttää oletushakukoneen samana?</translation>
 <translation id="5862307444128926510">Tervetuloa Chromiumiin</translation>
 <translation id="1622565934590470080">Tälle tietokoneelle on jo asennettu Chromiumin ja Chromium-kehyksen uudempi versio. Jos Chromium ja Chromium-kehys eivät toimi, poista niiden asennus ja yritä uudelleen.</translation>

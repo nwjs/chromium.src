@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Instalarea a eşuat din cauza unei erori necunoscute. Dacă Chromium rulează în acest moment, închideţi-l şi încercaţi din nou.</translation>
 <translation id="2589479092236095792">Setările Completării automate din Chromium</translation>
 <translation id="3555616473548901994">Dezinstalare finalizată.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">Opţional: contribuiţi la îmbunătăţirea Chromium prin trimiterea automată de statistici privind utilizarea şi rapoarte de blocare la Google.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">Aţi încercat să accesaţi &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, dar certificatul furnizat de server conţine erori. Chromium nu poate utiliza un certificat cu erori şi nu poate valida identitatea site-ului la care aţi încercat să vă conectaţi.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Nu s-au găsit instalate versiuni ale aplicaţiilor Chromium sau Chromium Frame pentru a fi actualizate.</translation>
 <translation id="3197823471738295152">Dispozitivul dvs. este actualizat.</translation>
 <translation id="8551886023433311834">Actualizare aproape efectuată! Reporniţi dispozitivul pentru a finaliza actualizarea.</translation>
+<translation id="8353224596138547809">Doriţi ca parola pentru acest site să fie salvată de Chromium?</translation>
 <translation id="4124681358536363708">Directorul de instalare al Chromium pare a fi utilizat. Reporniţi computerul şi încercaţi din nou.</translation>
 <translation id="8770560772173120024">Chromium importă acum Preferinţele/Marcajele.</translation>
 <translation id="6290315939897260265">Nu se utilizează în Chromium. Substituent pentru a păstra hărţile cu resurse sincronizate.</translation>
@@ -127,11 +129,14 @@ Este posibil ca unele funcţii să nu fie disponibile. Specificaţi un director 
 <translation id="8616882682724010661">Aflaţi <ph name="BEGIN_LINK"/>mai multe dintre avantajele<ph name="END_LINK"/> conectării la Chromium.</translation>
 <translation id="378917192836375108">Chromium vă permite să faceţi clic pe un număr de telefon de pe web pentru a-l apela cu Skype!</translation>
 <translation id="8724049448828509830">O descărcare este în desfăşurare. Doriţi să ieşiţi din Chromium şi să anulaţi descărcarea?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="2739631515503418643">Mai multe descărcări sunt în desfăşurare. Doriţi să ieşiţi din Chromium şi să anulaţi descărcările?</translation>
 <translation id="9013262824292842194">Chromium necesită Windows Vista sau Windows XP cu SP2 sau o versiune ulterioară.</translation>
 <translation id="1967743265616885482">Despre un modul cu acelaşi nume se cunoaşte că intră în conflict cu Chromium.</translation>
 <translation id="4224199872375172890">Chromium este actualizat.</translation>
+<translation id="374481098568514319">Acest computer are deja o versiune mai recentă a componentelor Chromium. Vă rugăm să folosiţi un program de instalare mai recent.</translation>
+<translation id="6240281849816458190">Aţi încercat să accesaţi &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, dar serverul a furnizat un certificat care încă nu este valabil. Nu sunt disponibile informaţii care să indice dacă certificatul respectiv este de încredere. Chromium nu vă poate garanta în mod sigur că dvs. comunicaţi cu &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, şi nu cu un atacator. Ora computerului dvs. este setată la <ph name="CURRENT_TIME"/>. Credeţi că această setare este corectă? În caz contrar, trebuie să corectaţi eroarea şi să actualizaţi această pagină.</translation>
 <translation id="5498103559159810756">Chromium utilizează motorul de căutare prestabilit, setat în prezent la <ph name="PAGE_TITLE"/>. Doriţi să păstraţi motorul de căutare prestabilit?</translation>
 <translation id="5862307444128926510">Bun venit la Chromium</translation>
 <translation id="1622565934590470080">Acest computer are deja o versiune mai recentă a aplicaţiilor Chromium şi Chromium Frame. Dacă programele software nu funcţionează, dezinstalaţi atât Chromium, cât şi Chromium Frame şi încercaţi din nou.</translation>

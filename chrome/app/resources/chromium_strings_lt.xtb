@@ -25,6 +25,7 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="4285930937574705105">Diegimas nepavyko dėl nežinomos klaidos. Jei šiuo metu veikia „Chromium“, uždarykite ir pabandykite iš naujo.</translation>
 <translation id="2589479092236095792">„Chromium“ automatinio pildymo nustatymai</translation>
 <translation id="3555616473548901994">Pašalinimas baigtas.</translation>
+<translation id="3674409928058572366">„Chromium“ programos priegloba</translation>
 <translation id="2886012850691518054">Pasirenkama: padėkite tobulinti „Chromium“ automatiškai siųsdami „Google“ naudojimo statistiką ir strigčių ataskaitas.</translation>
 <translation id="3848258323044014972">„<ph name="PAGE_TITLE"/>“ – „Chromium“</translation>
 <translation id="1989424089625731201">Bandėte pasiekti &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, bet serverio pateiktame sertifikate yra klaidų. „Chromium“ negali naudoti sertifikato su klaidomis ir negali patvirtinti svetainės, su kuria bandėte užmegzti ryšį, tapatybės.</translation>
@@ -46,6 +47,7 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="6714487516757221107">Nėra „Chromium ar „Chromium“ rėmelio diegimo, kurį būtų galima atnaujinti.</translation>
 <translation id="3197823471738295152">Įrenginyje naudojate naujausią programinės įrangos versiją.</translation>
 <translation id="8551886023433311834">Beveik įdiegta naujausia versija! Paleiskite įrenginį iš naujo, kad būtų užbaigtas naujinimas.</translation>
+<translation id="8353224596138547809">Ar norite, kad „Chromium“ išsaugotų šios svetainės slaptažodį?</translation>
 <translation id="4124681358536363708">Panašu, kad „Chromium“ diegimo katalogas yra naudojamas. Įkelkite kompiuterio operacinę sistemą iš naujo ir bandykite dar kartą.</translation>
 <translation id="8770560772173120024">„Chromium“ dabar importuoja adresyną / žymes.</translation>
 <translation id="6290315939897260265">Nenaudojama „Chromium“. Rezervuota vieta, skirta sinchronizuotiems išteklių žemėlapiams išlaikyti.</translation>
@@ -129,11 +131,14 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="8616882682724010661">Žr. daugiau prisijungimo prie „Chromium“ <ph name="BEGIN_LINK"/>pranašumų<ph name="END_LINK"/>.</translation>
 <translation id="378917192836375108">Naudodami „Chromium“ galite spustelėti telefono numerį žiniatinklyje ir skambinti juo naudodami „Skype“!</translation>
 <translation id="8724049448828509830">Šiuo metu vykdomas atsisiuntimas. Ar norite išeiti iš „Chromium“ ir atšaukti atsisiuntimą?</translation>
+<translation id="3360567213983886831">„Chromium“ dvejetainės programos</translation>
 <translation id="7503101070699687603">„Chromium“ papildinio priegloba</translation>
 <translation id="2739631515503418643">Šiuo metu vykdomi atsisiuntimai. Ar norite išeiti iš „Chromium“ ir atšaukti atsisiuntimus?</translation>
 <translation id="9013262824292842194">„Chromium“ reikalinga „Windows Vista“ ar „Windows XP“ su SP2 ar naujesne versija.</translation>
 <translation id="1967743265616885482">Modulis tokiu pačiu pavadinimu žinomas kaip prieštaraujantis „Chromium“.</translation>
 <translation id="4224199872375172890">„Chromium“ naujausios versijos.</translation>
+<translation id="374481098568514319">Šiame kompiuteryje jau yra naujesnės versijos „Chromium“ komponentų. Naudokite naujesnę diegimo programą.</translation>
+<translation id="6240281849816458190">Bandėte pasiekti &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, bet serveris pateikė sertifikatą, kuris dar negalioja. Nėra pasiekiamos informacijos, kur būtų nurodyta, ar tas sertifikatas patikimas. „Chromium“ negali patikimai garantuoti, kad susisiekiate su &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, o ne užgrobėju. Kompiuterio laikrodis šiuo metu nustatytas į <ph name="CURRENT_TIME"/>. Ar teisingai? Jei ne, turėtumėte ištaisyti klaidą ir atnaujinti šį puslapį.</translation>
 <translation id="5498103559159810756">„Chromium“ naudoja numatytąjį paieškos variklį, kuris šiuo metu nustatytas į·„<ph name="PAGE_TITLE"/>“. Ar norite išlaikyti numatytąjį paieškos variklį?</translation>
 <translation id="5862307444128926510">Sveiki, tai „Chromium“</translation>
 <translation id="1622565934590470080">Šiame kompiuteryje jau yra naujesnės versijos „Chromium“ ir „Chromium“ rėmelis. Jei programinė įranga neveikia, pašalinkite „Chromium“ ir „Chromium“ rėmelį ir bandykite dar kartą.</translation>

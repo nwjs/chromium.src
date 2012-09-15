@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Sim, sair do Chrome</translation>
 <translation id="386202838227397562">Feche todas as janelas do Google Chrome e tente novamente.</translation>
 <translation id="2770231113462710648">Alterar navegador padrão para:</translation>
+<translation id="741045321678647133">Google Chrome App Host</translation>
 <translation id="7400722733683201933">Sobre o Google Chrome</translation>
 <translation id="1065672644894730302">Não foi possível ler suas preferências. Alguns recursos podem não estar disponíveis e as alterações nas preferências não serão salvas.</translation>
 <translation id="7781002470561365167">Uma nova versão do Google Chrome está disponível.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">O Google Chrome não está mais sendo atualizado porque seu sistema operacional está obsoleto.</translation>
 <translation id="5339639696978861456">O Frame do Google Chrome foi atualizado. Reinicie seu navegador. Versão do Google Chrome: <ph name="TODO_0001"/>, versão do Frame do Google Chrome: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Termos de Serviço</translation>
+<translation id="5775197990071433230">Este computador já possui uma versão mais recente dos componentes do Google Chrome. Use um instalador mais recente.</translation>
 <translation id="8398145039500709259">Usar esta Conta do Google para sincronizar todos os seus dados do Google Chrome?</translation>
 <translation id="1779550429052479749">Foi encontrada uma instalação conflituosa do Frame do Google Chrome ou do Google Chrome no sistema. Desinstale-o e tente novamente.</translation>
 <translation id="3555616473548901994">Desinstalação concluída.</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Há uma versão nova e mais segura do Google Chrome disponível.</translation>
 <translation id="5037239767309817516">Feche todas as janelas do Google Chrome e reinicie-o para que essa alteração entre em vigor.</translation>
 <translation id="7451721381978275812">Argumentos inválidos. O Frame do Google Chrome não pode ser instalado em modo pronto sem a instalação do Google Chrome.</translation>
+<translation id="8684521613357479262">Você tentou acessar &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, mas o servidor apresentou um certificado que ainda não é válido. Nenhuma informação está disponível para indicar se o certificado é confiável. O Google Chrome não pode garantir que você esteja se comunicando com &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; e não com um invasor. O relógio do computador está definido como <ph name="CURRENT_TIME"/> no momento. Isso está correto? Se não estiver, corrija o erro e atualize esta página..</translation>
 <translation id="4585888816441913908">Este computador já possui versões mais recentes do Google Chrome e do Frame do Google Chrome. Caso o software não esteja funcionando, desinstale estes aplicativos e tente novamente.</translation>
 <translation id="6368958679917195344">O sistema operacional do Chrome tornou-se possível graças a um <ph name="BEGIN_LINK_CROS_OSS"/>software de código aberto<ph name="END_LINK_CROS_OSS"/> adicional.</translation>
 <translation id="7459554271817304652">Configure a sincronização para salvar seus recursos de navegador personalizados na web e acessá-los do Google Chrome em qualquer computador.</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">Há um download em andamento. Deseja sair do Google Chrome e cancelar o download?</translation>
 <translation id="4273752058983339720">O Google Chrome está configurado para iniciar automaticamente quando você inicia o computador.</translation>
 <translation id="1104959162601287462">Sobre o Chrome OS</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Fazer do Google Chrome o navegador padrão</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">O Google Chrome permite que você clique em um número de telefone na web e ligue para ele com o Skype!</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Host do plug-in do Google Chrome</translation>
 <translation id="5699533844376998780">A extensão &quot;<ph name="EXTENSION_NAME"/>&quot; foi adicionada.</translation>
 <translation id="6126631249883707068">Deseja que o Google Chrome salve a sua senha?</translation>
+<translation id="7773845170078702898">Deseja que o Google Chrome salve sua senha para este site?</translation>
 <translation id="5046764976540625289">Sair do Chrome</translation>
 <translation id="9039578207253536065">Operador do Google Chrome</translation>
 <translation id="2680623880102270805">O Google Chrome não consegue criar um atalho do aplicativo, porque não é possível determinar o ambiente de computador atual.</translation>

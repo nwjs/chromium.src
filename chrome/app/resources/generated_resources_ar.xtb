@@ -1666,7 +1666,7 @@
 <translation id="2107287771748948380"><ph name="OBFUSCATED_CC_NUMBER"/>، تاريخ انتهاء الصلاحية: <ph name="CC_EXPIRATION_DATE"/></translation>
 <translation id="5881201518994403433">اختر صورة واسمًا لملفك الشخصي في Chrome.</translation>
 <translation id="7866522434127619318">لتمكين خيار &quot;انقر للتشغيل&quot; في إعدادات محتوى المكون الإضافي.</translation>
-<translation id="981210574958082923">نتائج المسجل للاقتراحات المضمنة في HistoryQuickProvider</translation>
+<translation id="981210574958082923">إعادة ترتيب النتائج لتضمينها في HistoryQuickProvider</translation>
 <translation id="6466988389784393586">ف&amp;تح كل الإشارات المرجعية</translation>
 <translation id="6059764114876442286">إعادة تعيين الطابعة</translation>
 <translation id="6406506848690869874">المزامنة</translation>
@@ -3545,7 +3545,7 @@
 <translation id="5359419173856026110">لعرض معدل الإطارات الفعلي للصفحة، من خلال عدد الإطارات في الثانية، عندما يكون تسارع الجهاز نشطًا.</translation>
 <translation id="4104163789986725820">ت&amp;صدير...</translation>
 <translation id="2113479184312716848">فتح &amp;ملف...</translation>
-<translation id="8405710043622376215">في الإكمال التلقائي للمربع متعدد الاستخدامات، اقتراحات المسجل في HistoryQuickProvider لجعل الاقتراح القابل للتضمين يظهر أولاً.</translation>
+<translation id="8405710043622376215">في الإكمال التلقائي للمربع متعدد الاستخدامات، إعادة ترتيب الاقتراحات في HistoryQuickProvider لجعل الاقتراح القابل للتضمين يظهر أولاً.</translation>
 <translation id="3314617171364900239">أخفقت عمليات التحقق من التحديث بشكل متكرر مع الإضافة &quot;<ph name="EXTENSION_NAME"/>&quot;.</translation>
 <translation id="4850458635498951714">إضافة جهاز</translation>
 <translation id="3140353188828248647">تركيز شريط العناوين</translation>
@@ -3745,7 +3745,7 @@
 <translation id="7586781939132793422">تعطيل التعليقات المنطوقة</translation>
 <translation id="7978412674231730200">مفتاح خاص</translation>
 <translation id="7056011739864317578">عندما يتم تمكينه، سيتم استخدام ClientOAuth لربط الملف الشخصي بحساب Google. وإلا يتم استخدام ClientLogin.
-      تتيح ClientOAuth استخدام رموز التحقق بدلاً من ASP أثناء المصادقة.</translation>
+      يتيح ClientOAuth استخدام رموز التحقق بدلاً من ASP أثناء المصادقة.</translation>
 <translation id="5308380583665731573">اتصال</translation>
 <translation id="9111395131601239814"><ph name="NETWORKDEVICE"/>: <ph name="STATUS"/></translation>
 <translation id="9049981332609050619">لقد حاولت الوصول إلى <ph name="DOMAIN"/>, ولكن الخادم قدّم شهادة غير صالحة.</translation>

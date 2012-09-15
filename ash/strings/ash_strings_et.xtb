@@ -47,6 +47,7 @@ Tühistamiseks vajutage korraga tõstuklahvi Shift ja otsinguklahvi.</translatio
 <translation id="1895658205118569222">Sulgemine</translation>
 <translation id="4430019312045809116">Helitugevus</translation>
 <translation id="1383876407941801731">Otsing</translation>
+<translation id="2204305834655267233">Võrguteave</translation>
 <translation id="5980301590375426705">Välju külastajaseansist</translation>
 <translation id="8308637677604853869">Eelmine menüü</translation>
 <translation id="1346748346194534595">Paremale</translation>
@@ -61,21 +62,29 @@ Tühistamiseks vajutage korraga tõstuklahvi Shift ja otsinguklahvi.</translatio
 <translation id="3784455785234192852">Lukusta</translation>
 <translation id="2805756323405976993">Rakendused</translation>
 <translation id="2482878487686419369">Teatised</translation>
+<translation id="1850504506766569011">WiFi on välja lülitatud.</translation>
 <translation id="2872961005593481000">Lülita välja</translation>
 <translation id="7052914147756339792">Määra taustapilt ...</translation>
+<translation id="5746825509052394497">Teie sisestusmeetodiks on nüüd <ph name="INPUT_METHOD_ID"/>.
+        Selle muutmiseks vajutage klahve Shift + Alt.</translation>
 <translation id="1602076796624386989">Luba mobiilne andmeside</translation>
 <translation id="3157931365184549694">Taasta</translation>
 <translation id="8573351908869164327"><ph name="HOUR"/> h <ph name="MINUTE"/> min jäänud</translation>
 <translation id="7029814467594812963">Välju seansist</translation>
+<translation id="8454013096329229812">WiFi on sisse lülitatud.</translation>
 <translation id="2983818520079887040">Seaded...</translation>
 <translation id="2712866615167520691">Juurdepääsufunktsioonid on lubatud.
 Tühistamiseks vajutage klahvikombinatsiooni Ctrl+Alt+Z.</translation>
 <translation id="8660803626959853127"><ph name="COUNT"/> faili sünkroonimine</translation>
+<translation id="1837166567415282700">Teie sisestusmeetodiks on nüüd <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>kolmas osapool<ph name="END_LINK"/>).
+        Selle muutmiseks vajutage klahve Shift + Alt.</translation>
 <translation id="639644700271529076">SUURTÄHELUKK on välja lülitatud</translation>
 <translation id="4864165860509564259">Käiviti positsioon</translation>
 <translation id="7649070708921625228">Abi</translation>
 <translation id="397105322502079400">Arvutamine ...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Teile ei ole märguandeid. Ärge muretsege.</translation>
+<translation id="7457942297256758195">Kustuta kõik</translation>
 <translation id="7871882211137875558">Liitu muu võrguga ...</translation>
 <translation id="3573179567135747900">Muuda tagasi seadele <ph name="FROM_LOCALE"/> (nõuab taaskäivitust)</translation>
 <translation id="8103386449138765447">SMS-id: <ph name="MESSAGE_COUNT"/></translation>
@@ -84,6 +93,7 @@ Tühistamiseks vajutage klahvikombinatsiooni Ctrl+Alt+Z.</translation>
 <translation id="5941711191222866238">Minimeeri</translation>
 <translation id="9169585155162064169">SUURTÄHELUKK on sisse lülitatud.
 Tühistamiseks vajutage otsinguklahvi.</translation>
+<translation id="6843725295806269523">vaigista</translation>
 <translation id="412065659894267608"><ph name="HOUR"/> h <ph name="MINUTE"/> min aku täitumiseni</translation>
 <translation id="4469842253116033348">Keela teated saidilt <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS numbrilt <ph name="PHONE_NUMBER"/></translation>

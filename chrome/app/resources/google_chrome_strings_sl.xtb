@@ -13,6 +13,7 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="3454512769850953877">Da, zapri Google Chrome</translation>
 <translation id="386202838227397562">Zaprite vsa okna brskalnika Google Chrome in poskusite znova.</translation>
 <translation id="2770231113462710648">Spremeni privzeti brskalnik na:</translation>
+<translation id="741045321678647133">Google Chrome App Host</translation>
 <translation id="7400722733683201933">O brskalniku Google Chrome</translation>
 <translation id="1065672644894730302">Nastavitev ni mogoče prebrati.
 
@@ -30,6 +31,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="1872436416934435136">Za Goolgle Chrome ni več posodobitev, ker je operacijski sistem zastarel.</translation>
 <translation id="5339639696978861456">Chrome Frame je bil posodobljen. Znova zaženite brskalnik. Različica Chroma: <ph name="TODO_0001"/>, Različica Chrome Framea: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Pogoji storitve</translation>
+<translation id="5775197990071433230">Ta računalnik že ima novejšo različico komponent Google Chroma. Uporabite novejši namestitveni programi.</translation>
 <translation id="8398145039500709259">Želite uporabiti ta Google Račun za sinhroniziranje vseh nastavitev Google Chroma?</translation>
 <translation id="1779550429052479749">V sistemu je bila odkrita namestitev Google Chroma ali vtičnika Google Chrome Frame, ki je v sporu. Odstranite ga in poskusite znova.</translation>
 <translation id="3555616473548901994">Odstranitev je končana.</translation>
@@ -60,6 +62,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="3089968997497233615">Na voljo je nova, varnejša različica Google Chroma.</translation>
 <translation id="5037239767309817516">Zaprite vsa okna brskalnika Google Chrome in ga znova zaženite, da uveljavite spremembe.</translation>
 <translation id="7451721381978275812">Neveljavni argumenti. Vtičnika Google Chrome Frame ni mogoče namestiti v načinu pripravljenosti brez namestitve Google Chroma.</translation>
+<translation id="8684521613357479262">Poskusili ste odpreti &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, vendar ima strežnik potrdilo, ki še ni veljavno. Ni podatkov, na podlagi katerih bi bilo mogoče ugotoviti, ali je potrdilu mogoče zaupati. Google Chrome ne more zagotoviti, da komunicirate z domeno &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; in z ne napadalcem. Ura v računalniku je trenutno nastavljena na <ph name="CURRENT_TIME"/>. Je to pravilno? Če ni, pravilno nastavite sistemsko uro in osvežite stran.</translation>
 <translation id="4585888816441913908">V tem računalniku je že novejša različica Google Chroma in vtičnika Google Chrome Frame. Če programska oprema ne deluje, odstranite Google Chrome in vtičnik Google Chrome Frame ter poskusite znova.</translation>
 <translation id="6368958679917195344">Sistem Chrome OS uporablja dodatno <ph name="BEGIN_LINK_CROS_OSS"/>odprtokodno programsko opremo<ph name="END_LINK_CROS_OSS"/>.</translation>
 <translation id="7459554271817304652">Nastavite sinhronizacijo, da prilagojene funkcije brskalnika shranite v spletu in do njih v Google Chromu dostopate v katerem koli računalniku.</translation>
@@ -95,6 +98,7 @@ Nekatere funkcije morda ne bodo na voljo. Navedite drug imenik profila ali upora
 <translation id="7062966102157262887">Trenutno poteka prenos. Ali želite zapreti Google Chrome in preklicati prenos?</translation>
 <translation id="4273752058983339720">Google Chrome se samodejno zažene ob zagonu računalnika.</translation>
 <translation id="1104959162601287462">O &amp;sistemu Chrome OS</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Nastavi Google Chrome kot privzeti brskalnik</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome vam omogoča, da na spletu kliknete telefonsko številko in jo pokličete prek Skypa.</translation>
@@ -116,6 +120,7 @@ Nekatere funkcije morda ne bodo na voljo. Navedite drug imenik profila ali upora
 <translation id="5318056482164160049">Gostitelj za vtičnike za Google Chrome</translation>
 <translation id="5699533844376998780">Razširitev »<ph name="EXTENSION_NAME"/>« je dodana.</translation>
 <translation id="6126631249883707068">Ali želite, da Google Chrome shrani vaše geslo?</translation>
+<translation id="7773845170078702898">Ali želite, da Google Chrome shrani vaše geslo za to spletno mesto?</translation>
 <translation id="5046764976540625289">Izhod iz brskalnika Chrome</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Google Chrome ne more ustvariti bližnjice do programa, ker ne more določiti trenutnega okolja namizja.</translation>

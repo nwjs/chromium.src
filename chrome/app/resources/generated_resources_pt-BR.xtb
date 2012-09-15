@@ -14,6 +14,12 @@
 <translation id="5028012205542821824">A instalação não está ativada.</translation>
 <translation id="1058418043520174283"><ph name="INDEX"/> de <ph name="COUNT"/></translation>
 <translation id="4480627574828695486">Desconectar esta conta...</translation>
+<translation id="2516632596252643567">&lt;p&gt;
+         Acesse aqui as guias abertas em seu computador.
+          &lt;/p&gt;
+          &lt;p&gt;
+          Basta abrir o Google Chrome em seu computador, ir para o menu e selecionar &quot;Fazer login no Google Chrome...&quot;
+          &lt;/p&gt;</translation>
 <translation id="7040807039050164757">&amp;Verificar a ortografia neste campo</translation>
 <translation id="778579833039460630">Nenhum dado foi recebido</translation>
 <translation id="32279126412636473">Atualizar (⌘R)</translation>
@@ -47,6 +53,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8719282907381795632">Acessar seus dados em <ph name="WEBSITE_1"/></translation>
 <translation id="3792890930871100565">Desconectar impressoras</translation>
 <translation id="8395254168074583923"><ph name="PRODUCT_NAME"/> está usando seu microfone.</translation>
+<translation id="6976652535392081960">Mostrando destinos para <ph name="EMAIL"/></translation>
 <translation id="4940047036413029306">Aspas</translation>
 <translation id="1497897566809397301">Permitir a configuração de dados locais (recomendado)</translation>
 <translation id="3275778913554317645">Abrir como janela</translation>
@@ -55,6 +62,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8867568208303837180">Enviando...</translation>
 <translation id="509988127256758334">Bu&amp;scar o que:</translation>
 <translation id="1420684932347524586">Ops! Falha ao gerar a chave privada RSA aleatória.</translation>
+<translation id="7323509342138776962">Última sincronização</translation>
 <translation id="2501173422421700905">Certificado em espera</translation>
 <translation id="7428534988046001922">Os seguintes aplicativos foram instalados:</translation>
 <translation id="787386463582943251">Ad. endereço de e-mail</translation>
@@ -78,6 +86,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="561349411957324076">Concluído</translation>
 <translation id="1358267447825621237">Mudar página inicial</translation>
 <translation id="1156689104822061371">Layout do teclado:</translation>
+<translation id="3046651560707019780">Redefina a impressora utilizada pela última vez na reinicialização. Com este recurso ativado, a impressora padrão do sistema operacional torna-se a impressora atual para visualização de impressão toda vez que o navegador é iniciado.</translation>
 <translation id="4764776831041365478">A página da web em <ph name="URL"/> pode estar temporariamente indisponível ou pode ter sido movida permanentemente para um novo endereço da web.</translation>
 <translation id="21426568240411732"><ph name="TITLE"/> está usando sua câmera.</translation>
 <translation id="6156863943908443225">Cache de script</translation>
@@ -126,6 +135,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3384773155383850738">Número máximo de sugestões</translation>
 <translation id="8530339740589765688">Selecionar por domínio</translation>
 <translation id="8677212948402625567">Recolher tudo...</translation>
+<translation id="8008366997883261463">Jack Russell Terrier</translation>
 <translation id="7600965453749440009">Nunca traduzir do <ph name="LANGUAGE"/></translation>
 <translation id="3208703785962634733">Não confirmado</translation>
 <translation id="620329680124578183">Não carregar (recomendado)</translation>
@@ -137,6 +147,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7788444488075094252">Idiomas e entrada</translation>
 <translation id="6723354935081862304">Imprima no Google Docs e outros destinos de nuvem. <ph name="BEGIN_LINK"/>Faça login<ph name="END_LINK"/> para imprimir no Google Cloud Print.</translation>
 <translation id="3602290021589620013">Visualizar</translation>
+<translation id="6257035105556579916">As extensões não podem ser modificados em modo gerenciado.</translation>
 <translation id="800602641363855389"><ph name="TITLE"/> está usando seu microfone.</translation>
 <translation id="7082055294850503883">Ignorar o status do CapsLock e inserir letras minúsculas por padrão</translation>
 <translation id="4744603770635761495">Caminho do executável</translation>
@@ -156,6 +167,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3626281679859535460">Brilho</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="9056810968620647706">Nenhuma correspondência foi encontrada.</translation>
+<translation id="4548003803382223821">Transferindo $1 itens.</translation>
 <translation id="2861301611394761800">A atualização do sistema foi concluída. Reinicie o sistema.</translation>
 <translation id="4858913220355269194">Pelé</translation>
 <translation id="2231238007119540260">Ao excluir um certificado do servidor, você restaura as verificações de segurança normais do servidor e solicita que ele utilize um certificado válido.</translation>
@@ -164,6 +176,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="9134410174832249455">O <ph name="PRODUCT_NAME"/> não pôde carregar a página porque <ph name="HOST_NAME"/> demorou muito para responder. O site está em manutenção ou sua conexão com a Internet não está funcionando.</translation>
 <translation id="7624154074265342755">Redes sem fio</translation>
 <translation id="3315158641124845231">Ocultar <ph name="PRODUCT_NAME"/></translation>
+<translation id="7766807826975222231">Fazer o tour</translation>
 <translation id="1993139350008738849">Notificações de aplicativos</translation>
 <translation id="1374844444528092021">O certificado exigido pela rede &quot;<ph name="NETWORK_NAME"/>&quot; não está instalado ou não é mais válido. Obtenha um novo certificado e tente se conectar novamente.</translation>
 <translation id="3496213124478423963">Afastar</translation>
@@ -176,6 +189,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8479177330099037753">Algo deu errado enquanto o Google Chrome estava fazendo download do arquivo.</translation>
 <translation id="7693221960936265065">desde o começo</translation>
 <translation id="3635850706692228477">Pesquisar <ph name="DRIVE_NAME"/> inteiro</translation>
+<translation id="8892971592584563548">Colocar na tela &quot;Iniciar&quot;</translation>
 <translation id="4135919689343081631">Desativa o salvamento de páginas como somente HTML ou HTML completo; permite salvar páginas somente como MHTML: um único arquivo de texto que contém HTML e todos os sub-recursos.</translation>
 <translation id="4920887663447894854">Os seguintes sites foram impedidos de rastrear o seu local nesta página:</translation>
 <translation id="8133676275609324831">&amp;Mostrar na pasta</translation>
@@ -184,11 +198,14 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="2465741694701051172">Ativa a IU da barra de ferramentas experimental &quot;Caixa de ação&quot;.</translation>
 <translation id="4780321648949301421">Salvar página como...</translation>
 <translation id="3866863539038222107">Inspecionar</translation>
+<translation id="4552678318981539154">Comprar mais espaço</translation>
+<translation id="8806101649440495124">Remover pasta</translation>
 <translation id="3011284594919057757">Sobre o Flash</translation>
 <translation id="7377169924702866686">O Caps Lock está ativado.</translation>
 <translation id="2565670301826831948">Velocidade do touchpad:</translation>
 <translation id="4969785127455456148">Álbum</translation>
 <translation id="8178665534778830238">Conteúdo:</translation>
+<translation id="8022169082416539625">Importar fotos</translation>
 <translation id="2610260699262139870">&amp;Tamanho real</translation>
 <translation id="4535734014498033861">Falha na conexão do servidor proxy.</translation>
 <translation id="558170650521898289">Verificação de driver de hardware do Windows da Microsoft</translation>
@@ -207,9 +224,11 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8774934320277480003">Margem superior</translation>
 <translation id="1390548061267426325">Abrir como guia normal</translation>
 <translation id="7481475534986701730">Sites visitados recentemente</translation>
+<translation id="5081055027309504756">Sandbox do Seccomp-BPF</translation>
 <translation id="2757031529886297178">Contador FPS</translation>
 <translation id="6657585470893396449">Senha</translation>
 <translation id="1776883657531386793"><ph name="OID"/>: <ph name="INFO"/></translation>
+<translation id="9151034842884433218">Escolha uma foto e um nome para seu novo perfil do Google Chrome.</translation>
 <translation id="1510030919967934016">Esta página foi impedida de rastrear o seu local.</translation>
 <translation id="8848519885565996859">Link frame do URL definido pelo usuário</translation>
 <translation id="4640525840053037973">Fazer login com sua Conta do Google</translation>
@@ -283,6 +302,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3088325635286126843">&amp;Renomear...</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6853700448789925482">Ativar elemento <ph name="TRACK_HTML"/></translation>
+<translation id="3150927491400159470">Recarregamento forçado</translation>
 <translation id="7531238562312180404">Como o <ph name="PRODUCT_NAME"/> não controla o modo como as extensões manipulam os seus dados pessoais, todas as extensões foram desativadas nas janelas anônimas. Você pode reativá-las individualmente no 
         <ph name="BEGIN_LINK"/>gerenciador de extensões<ph name="END_LINK"/>.</translation>
 <translation id="5667293444945855280">Malware</translation>
@@ -329,6 +349,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7957054228628133943">Gerenciar o bloqueio de pop-ups...</translation>
 <translation id="179767530217573436">as últimas quatro semanas</translation>
 <translation id="2279770628980885996">Ocorreu uma condição inesperada enquanto o servidor tentava completar a solicitação.</translation>
+<translation id="210116126541562594">Bloqueada por padrão</translation>
 <translation id="4372948949327679948">Valor <ph name="VALUE_TYPE"/> esperado.</translation>
 <translation id="9123413579398459698">Proxy FTP</translation>
 <translation id="1751752860232137596">Habilitar implementação experimental de rolagem suave.</translation>
@@ -356,6 +377,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="9050666287014529139">Senha</translation>
 <translation id="5197255632782567636">Internet</translation>
 <translation id="8787254343425541995">Permitir proxies para redes compartilhadas</translation>
+<translation id="5654926308251258726">Sempre permitir que este site use este microfone</translation>
 <translation id="4755860829306298968">Gerenciar o bloqueio de plug-in...</translation>
 <translation id="8879284080359814990">&amp;Mostrar como guia</translation>
 <translation id="7537536606612762813">Obrigatória</translation>
@@ -390,21 +412,26 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6508261954199872201">Aplicativo: <ph name="APP_NAME"/></translation>
 <translation id="5585645215698205895">Para &amp;baixo</translation>
 <translation id="2713008223070811050">Gerenciar monitores</translation>
+<translation id="5145331109270917438">Data da última modificação</translation>
 <translation id="6596816719288285829">Endereço IP</translation>
 <translation id="4508265954913339219">Falha na ativação</translation>
 <translation id="1884405719612801980">tipo de heurística: <ph name="HEURISTIC_TYPE"/> tipo de servidor: <ph name="SERVER_TYPE"/> assinatura de campo: <ph name="FIELD_SIGNATURE"/> assinatura do formulário: <ph name="FORM_SIGNATURE"/> id do experimento: &quot;<ph name="EXPERIMENT_ID"/>&quot;</translation>
 <translation id="8656768832129462377">Não verificar</translation>
 <translation id="715487527529576698">O modo inicial para chinês é o chinês simplificado</translation>
 <translation id="6896830120821965585">Ativa um serviço de fundo que conecta o serviço Google Cloud Print a todas as impressoras instaladas no computador. Depois que este laboratório for ativado, você poderá ativar o conector do Google Cloud Print fazendo login com sua Conta do Google na seção Configurações avançadas das Configurações.</translation>
+<translation id="3999508690854143454">Perguntar para mim quando um site requisitar acesso à minha câmera e meu microfone (recomendado)</translation>
 <translation id="1674989413181946727">Configurações SSL do computador inteiro:</translation>
 <translation id="1531285811424589182">Erro na exclusão do certificado</translation>
 <translation id="54609108002486618">Gerenciado</translation>
 <translation id="8703575177326907206">Sua conexão com <ph name="DOMAIN"/> não está criptografada.</translation>
+<translation id="6135622770221372891">IDs de canais</translation>
 <translation id="3042282020249392540">Adicione o <ph name="PRODUCT_NAME"/> como um programa permitido nas configurações de seu software de firewall ou antivírus. Se o programa já for permitido, tente excluí-lo da lista de programas permitidos e adicioná-lo novamente.</translation>
 <translation id="8472623782143987204">suportado por hardware</translation>
 <translation id="8545107379349809705">Ocultar informações...</translation>
 <translation id="4865571580044923428">Gerenciar exceções...</translation>
 <translation id="2526619973349913024">Verificar atualizações</translation>
+<translation id="3716615839203649375">permitir</translation>
+<translation id="4559767610552730302">Bokeh</translation>
 <translation id="3874070094967379652">Usar uma senha de sincronização para criptografar meus dados</translation>
 <translation id="6500116422101723010">O servidor não pode manipular a solicitação no momento. O código indica que esta é uma condição temporária e o servidor estará funcionando novamente depois de um atraso.</translation>
 <translation id="1644574205037202324">Histórico</translation>
@@ -418,6 +445,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="5941343993301164315">Faça login em <ph name="TOKEN_NAME"/>.</translation>
 <translation id="1916935104118658523">Ocultar este plug-in</translation>
 <translation id="1046059554679513793">Ops. Este nome já está em uso.</translation>
+<translation id="3887847548716051874">Sempre permitir que este site use este microfone e esta câmera</translation>
 <translation id="2886862922374605295">Hardware:</translation>
 <translation id="4497097279402334319">Falha ao se conectar à rede.</translation>
 <translation id="7342729285348293164">Faça login em <ph name="PRODUCT_NAME"/> com sua Conta do Google para salvar seus recursos de navegação personalizados para a web e acessá-los a partir de <ph name="PRODUCT_NAME"/> em qualquer computador. Você também será conectado automaticamente a seus serviços favoritos do Google.</translation>
@@ -576,6 +604,8 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="2149850907588596975">Senhas e formulários</translation>
 <translation id="1445572445564823378">Esta extensão está deixando <ph name="PRODUCT_NAME"/> mais lento. Você deve desativá-lo para restaurar o desempenho de <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="7500424997253660722">Grupo restrito:</translation>
+<translation id="1317109798441252898">Seus dados são tratados de forma diferente no Windows 8.
+          <ph name="BEGIN_LINK"/>Saiba mais<ph name="END_LINK"/> .</translation>
 <translation id="657402800789773160">&amp;Recarregar esta página</translation>
 <translation id="6163363155248589649">&amp;Normal</translation>
 <translation id="2399147786307302860">Configurações de sincronização avançadas...</translation>
@@ -624,7 +654,9 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3467848195100883852">Ativar o corretor ortográfico automático</translation>
 <translation id="1336254985736398701">Visualizar &amp;informações da página</translation>
 <translation id="5039440886426314758">Instalar estes aplicativos e extensões?</translation>
+<translation id="5612400071471722862">Bloqueio do ponteiro</translation>
 <translation id="7550830279652415241">favoritos_<ph name="DATESTAMP"/>.html</translation>
+<translation id="4447481707498660822">Erro ao acessar &quot;Minhas fotos&quot;.</translation>
 <translation id="2120194937135899861">Ativar janela 4</translation>
 <translation id="6828153365543658583">Restringir o login para os seguintes usuários:</translation>
 <translation id="1652965563555864525">&amp;Remover áudio</translation>
@@ -643,6 +675,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="5279600392753459966">Bloquear todos</translation>
 <translation id="6846298663435243399">Carregando…</translation>
 <translation id="5723508132121499792">Nenhum aplicativo de fundo sendo executado</translation>
+<translation id="474421578985060416">Bloqueada pelo usuário</translation>
 <translation id="7392915005464253525">R&amp;eabrir janela fechada</translation>
 <translation id="7376443945512294291">Permitir a sincronização de guias abertas</translation>
 <translation id="6677037229676347494">ID esperado &quot;<ph name="EXPECTED_ID"/>&quot;, mas era &quot;<ph name="NEW_ID"/>&quot;.</translation>
@@ -659,6 +692,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6039651071822577588">Dicionário de propriedade da rede incorreto</translation>
 <translation id="8772559521634908780">Confirmar nova extensão</translation>
 <translation id="4022426551683927403">&amp;Adicionar ao dicionário</translation>
+<translation id="5639549361331209298">Recarrega esta página; mantenha pressionado para ver mais opções</translation>
 <translation id="8746186801649380860">OK, sincronizar</translation>
 <translation id="2897878306272793870">Você tem certeza de que deseja abrir <ph name="TAB_COUNT"/> guias?</translation>
 <translation id="312759608736432009">Fabricante do dispositivo:</translation>
@@ -743,6 +777,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6535758682390046055">O download do <ph name="PLUGIN_NAME"/> foi cancelado.</translation>
 <translation id="7267955541478798371">Ativar sincronização do favicon da guia.</translation>
 <translation id="2738771556149464852">Não depois</translation>
+<translation id="2325650632570794183">Este tipo de arquivo não é suportado. Visite a Chrome Web Store para encontrar um aplicativo que possa abrir este tipo de arquivo.</translation>
 <translation id="5774515636230743468">Manifesto:</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7474889694310679759">Teclado canadense (inglês)</translation>
@@ -753,6 +788,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6839929833149231406">Área</translation>
 <translation id="9068931793451030927">Caminho:</translation>
 <translation id="283278805979278081">Tirar foto.</translation>
+<translation id="6111974609785983504">Permitida por padrão</translation>
 <translation id="7320906967354320621">Inativo</translation>
 <translation id="1407050882688520094">Você tem certificados no arquivo que identificam estas autoridades de certificação:</translation>
 <translation id="1051694321716046412">Personalizar usuário...</translation>
@@ -767,6 +803,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8940229512486821554">Executar o comando <ph name="EXTENSION_NAME"/>: <ph name="SEARCH_TERMS"/></translation>
 <translation id="7799329977874311193">documento HTML</translation>
 <translation id="2232876851878324699">O arquivo continha um certificado que não foi importado:</translation>
+<translation id="8071086933245711894">Operação de cópia cancelada.</translation>
 <translation id="2441392884867482684">Esta página está agora em modo de tela inteira e deseja desativar o cursor do mouse.</translation>
 <translation id="1422780722984745882">Diversos cabeçalhos de localização foram recebidos. Para garantir proteção contra ataques de divisão de resposta HTTP, o conteúdo foi bloqueado.</translation>
 <translation id="7787129790495067395">Você está usando uma senha. Caso tenha esquecido sua senha, você poderá redefinir a sincronização para limpar seus dados dos servidores do Google usando o Painel de Controle do Google.</translation>
@@ -781,6 +818,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="159359590073980872">Cache de imagem</translation>
 <translation id="3395249460272133069">Escolha uma imagem para exibir em seu plano de fundo.</translation>
 <translation id="3317459757438853210">Frente e verso</translation>
+<translation id="8108127871048035443">Ativar Visualizador de PDF no Google Chrome com alto DPI</translation>
 <translation id="2011110593081822050">Operador da web: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">Visitante</translation>
 <translation id="7340431621085453413"><ph name="FULLSCREEN_ORIGIN"/> está agora no modo de tela inteira.</translation>
@@ -808,6 +846,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3798449238516105146">Versão</translation>
 <translation id="3608576286259426129">Visualização da imagem do usuário</translation>
 <translation id="5764483294734785780">Sal&amp;var áudio como...</translation>
+<translation id="2817998304027613260">Ative esta API e as APIs de extensões experimentais e instale extensões de descoberta para ver alguns links sugeridos na página Nova guia.</translation>
 <translation id="5252456968953390977">Roaming</translation>
 <translation id="8744641000906923997">Romaji</translation>
 <translation id="8507996248087185956"><ph name="NUMBER_DEFAULT"/> minutos</translation>
@@ -863,6 +902,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="2560794850818211873">C&amp;opiar URL do vídeo</translation>
 <translation id="412730574613779332">Mascarado</translation>
 <translation id="5302048478445481009">Idioma</translation>
+<translation id="6193629380110441726">Desativa a verificação ortográfica assíncrona experimental. Isto também proíbe o Google Chrome de usar um serviço da web para obter resultados de verificação ortográfica.</translation>
 <translation id="4191334393248735295">Duração</translation>
 <translation id="3619051884944784882">&amp;Encerrar processo</translation>
 <translation id="121201262018556460">Você tentou acessar <ph name="DOMAIN"/>, mas o servidor apresentou um certificado que contém uma chave fraca. Um invasor pode ter violado a chave privada, e o servidor pode não ser o servidor que você esperava (você pode estar se comunicando com um invasor).</translation>
@@ -871,6 +911,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1519704592140256923">Escolher posição</translation>
 <translation id="1275018677838892971">O site em <ph name="HOST_NAME"/> contém elementos de sites denunciados como sites de &quot;phishing&quot;. Os sites de phishing enganam os usuários para que divulguem informações pessoais ou financeiras, geralmente tentando se passar por instituições confiáveis, como bancos.</translation>
 <translation id="7570477672765183">Clique para iniciar</translation>
+<translation id="6166101525540035714">O uso do Google Chrome está sujeito aos <ph name="BEGIN_LINK1"/>Termos de Serviço<ph name="END_LINK1"/> e ao <ph name="BEGIN_LINK2"/>Aviso de Privacidade<ph name="END_LINK2"/> do Google Chrome.</translation>
 <translation id="702455272205692181"><ph name="EXTENSION_NAME"/></translation>
 <translation id="7170041865419449892">Fora de alcance</translation>
 <translation id="908263542783690259">Limpar dados de navegação</translation>
@@ -888,6 +929,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3909791450649380159">&amp;Recortar</translation>
 <translation id="2955913368246107853">Fechar barra de localização</translation>
 <translation id="8864170386249720785">Configurações SSL do dispositivo móvel:</translation>
+<translation id="3914942725612686145">Agora você está conectado no Google Chrome. Suas guias abertas, seus favoritos e os dados da omnibox estão sendo sincronizados com sua Conta do Google.</translation>
 <translation id="5642508497713047">Signatário de lista de certificados revogados</translation>
 <translation id="7612302739128412469">Ative essa extensão clicando neste ícone.</translation>
 <translation id="813082847718468539">Visualizar informações do site</translation>
@@ -905,6 +947,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7191454237977785534">Salvar arquivo como</translation>
 <translation id="7241389281993241388">Faça login no <ph name="TOKEN_NAME"/> para importar o certificado do cliente.</translation>
 <translation id="7206693748120342859">Fazendo download do <ph name="PLUGIN_NAME"/>...</translation>
+<translation id="4744574733485822359">O download foi concluído</translation>
 <translation id="2872754556057097683">Vários cabeçalhos com conteúdos de diferentes tamanhos recebidos. Para garantir proteção contra ataques de divisão de resposta HTTP, o conteúdo foi boqueado.</translation>
 <translation id="4804818685124855865">Desconectar</translation>
 <translation id="1645228020260124617"><ph name="PRECENTAGE"/>%</translation>
@@ -940,9 +983,12 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="268053382412112343">Hi&amp;stórico</translation>
 <translation id="1722567105086139392">Link</translation>
 <translation id="2620436844016719705">Sistema</translation>
+<translation id="6627583120233659107">Editar pasta</translation>
 <translation id="5362741141255528695">Selecionar arquivo de chave privada.</translation>
 <translation id="8831623914872394308">Configurações do ponteiro</translation>
+<translation id="8801228014372571803">O dispositivo de armazenamento externo não está formatado.</translation>
 <translation id="4580526846085481512">Tem certeza de que deseja excluir $1 itens?</translation>
+<translation id="1965340240343412366">Ativar API estendida do Instant</translation>
 <translation id="5292890015345653304">Insira um cartão SD ou cartão de memória USB</translation>
 <translation id="5583370583559395927">Tempo restante: <ph name="TIME_REMAINING"/></translation>
 <translation id="6219717821796422795">Hanyu</translation>
@@ -965,6 +1011,8 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8464132254133862871">Esta conta de usuário não está qualificada para o serviço.</translation>
 <translation id="6812349420832218321"><ph name="PRODUCT_NAME"/> não pode ser executado como raiz.</translation>
 <translation id="1055216403268280980">Dimensões da imagem</translation>
+<translation id="4597972110633667332">Fazer o download de arquivos</translation>
+<translation id="675782348613606635">Interface do usuário das configurações do site</translation>
 <translation id="14171126816530869">A identidade de <ph name="ORGANIZATION"/> em <ph name="LOCALITY"/> foi confirmada por <ph name="ISSUER"/>.</translation>
 <translation id="824902718516184009">Dados do certificado ausentes</translation>
 <translation id="7314327919567192532">Acelerar a taxa de redimensionamento da janela.</translation>
@@ -998,6 +1046,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1425975335069981043">Roaming:</translation>
 <translation id="1272079795634619415">Parar</translation>
 <translation id="5442787703230926158">Erro de sincronização...</translation>
+<translation id="4623686308320139074"><ph name="PERMISSION_VALUE"/> pelo usuário</translation>
 <translation id="2462724976360937186">ID da chave da autoridade de certificação</translation>
 <translation id="981121421437150478">Off-line</translation>
 <translation id="2964193600955408481">Desativar Wi-Fi</translation>
@@ -1009,8 +1058,10 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8596540852772265699">Arquivos personalizados</translation>
 <translation id="7017354871202642555">Não é possível definir o modo após a definição da janela.</translation>
 <translation id="3101709781009526431">Data e hora</translation>
+<translation id="7125126245420352372">Para onde importar esta foto?</translation>
 <translation id="3960611155749707703">Ativar última janela</translation>
 <translation id="833853299050699606">Informações sobre o plano não estão disponíveis.</translation>
+<translation id="4472575034687746823">Primeiros passos</translation>
 <translation id="1737968601308870607">Bug no arquivo</translation>
 <translation id="7326487563595667270">Balão de instalação de novos aplicativos</translation>
 <translation id="1389297115360905376">Você pode acrescentá-lo somente a partir da <ph name="CHROME_WEB_STORE"/>.</translation>
@@ -1030,6 +1081,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7952408061263786094">Saia e faça login novamente...</translation>
 <translation id="664271268954513498">Valor da política</translation>
 <translation id="3368922792935385530">Conectado</translation>
+<translation id="4999529542784598108">Ativar descoberta na página Nova guia.</translation>
 <translation id="7259332871247091754">Este arquivo foi bloqueado pelo software antivírus.</translation>
 <translation id="3866443872548686097">Sua mídia de recuperação está pronta. Você pode removê-la do seu sistema.</translation>
 <translation id="6824564591481349393">Copiar &amp;endereço de e-mail</translation>
@@ -1050,6 +1102,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7791543448312431591">Adicionar</translation>
 <translation id="8569764466147087991">Selecionar um arquivo para ser aberto</translation>
 <translation id="5086589117546410981">Adicionar sobrenome</translation>
+<translation id="4275663329226226506">Mídia</translation>
 <translation id="5449451542704866098">Não há plano de dados</translation>
 <translation id="3093853184108622112">Acessar seus dados em <ph name="WEBSITE_1"/> e <ph name="WEBSITE_2"/></translation>
 <translation id="2391593830069336007">Instant: <ph name="INSTANT_PREVIEW_NAME"/></translation>
@@ -1100,6 +1153,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8502803898357295528">Sua senha foi alterada</translation>
 <translation id="4064488613268730704">Gerenciar configurações do preenchimento automático...</translation>
 <translation id="6830600606572693159">A página da web <ph name="URL"/> não está disponível no momento. Ela pode estar sobrecarregada ou fora de operação para manutenção.</translation>
+<translation id="6776310961830589430">Transferência cancelada.</translation>
 <translation id="4421932782753506458">Pelúcia</translation>
 <translation id="8417944620073548444"><ph name="MEGABYTES"/> MB restantes</translation>
 <translation id="4498419978438799658">Acessar todo o texto falado com voz sintetizada</translation>
@@ -1191,6 +1245,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4830475881783902092">Id de cliente:</translation>
 <translation id="4600958291864306415">gerando...</translation>
 <translation id="8594787581355215556">Conectado como <ph name="USER_EMAIL_ADDRESS"/>. Gerencie seus dados sincronizados no <ph name="BEGIN_LINK"/>Google Dashboard<ph name="END_LINK"/>.</translation>
+<translation id="4338600611020922010">Adicionar à tela inicial</translation>
 <translation id="263325223718984101">O <ph name="PRODUCT_NAME"/> não conseguiu completar a instalação, mas continuará a ser executado a partir da sua imagem de disco.</translation>
 <translation id="6186893483313227582">Ícone <ph name="VALUE"/></translation>
 <translation id="4726710629007580002">Houve avisos quando você tentou instalar esta extensão:</translation>
@@ -1224,6 +1279,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="80993596820839389">Iniciar o <ph name="PRODUCT_NAME"/> automaticamente quando eu iniciar meu dispositivo móvel</translation>
 <translation id="6562758426028728553">Informe o PIN antigo e o PIN novo.</translation>
 <translation id="614161640521680948">Idioma:</translation>
+<translation id="6404511346730675251">Editar favorito</translation>
 <translation id="3733127536501031542">Servidor SSL com Step-up</translation>
 <translation id="954586097957006897">Sobrenome</translation>
 <translation id="7473891865547856676">Não, obrigado</translation>
@@ -1275,6 +1331,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="2529133382850673012">Teclado americano</translation>
 <translation id="4411578466613447185">Signatário do código</translation>
 <translation id="1354868058853714482">O Adobe Reader está desatualizado e pode oferecer insegurança.</translation>
+<translation id="2317808232945809">Falha na operação de cópia, item existente: &quot;$1&quot;</translation>
 <translation id="8943392635470173207">Utilizar <ph name="INTENT_HANDLER_TITLE"/></translation>
 <translation id="6252594924928912846">Personalizar configurações de sincronização...</translation>
 <translation id="8425755597197517046">&amp;Colar e pesquisar</translation>
@@ -1282,6 +1339,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1093148655619282731">Detalhes do certificado selecionado:</translation>
 <translation id="3003623123441819449">Cache do CSS</translation>
 <translation id="2743322561779022895">Ativação:</translation>
+<translation id="4343903275934242195">Desativar verificação ortográfica assíncrona</translation>
 <translation id="4181898366589410653">Nenhum mecanismo de revogação encontrado no certificado do servidor.</translation>
 <translation id="6914291514448387591">O <ph name="PLUGIN_NAME"/> precisa de sua permissão para ser executado.</translation>
 <translation id="8705331520020532516">Número de série</translation>
@@ -1342,6 +1400,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1976150099241323601">Faça login no dispositivo seguro</translation>
 <translation id="4938972461544498524">Configurações do touchpad</translation>
 <translation id="4988526792673242964">Páginas</translation>
+<translation id="3302340765592941254">Fazer download da notificação completa</translation>
 <translation id="2175607476662778685">Barra de inicialização rápida</translation>
 <translation id="9085376357433234031">Para salvar estes arquivos para uso off-line, conecte-se e&lt;br&gt;marque a caixa de seleção <ph name="OFFLINE_CHECKBOX_NAME"/> dos arquivos.</translation>
 <translation id="6434309073475700221">Descartar</translation>
@@ -1444,6 +1503,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6810193446027958860">Sensibilidade do ponteiro:</translation>
 <translation id="5015344424288992913">Resolvendo proxy...</translation>
 <translation id="4389091756366370506">Usuário <ph name="VALUE"/></translation>
+<translation id="1206845131537514414">Tirar da tela &quot;Iniciar&quot;</translation>
 <translation id="3850634422834903942">Falha na instalação</translation>
 <translation id="2398703750948514961">Cancelado</translation>
 <translation id="4724168406730866204">Eten 26</translation>
@@ -1479,6 +1539,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4765322846143433260">Última atualização</translation>
 <translation id="9054208318010838">Permitir que todos os sites rastreiem o meu local físico</translation>
 <translation id="3058212636943679650">Se alguma vez tiver que restaurar o sistema operacional do seu computador, você precisará de um cartão SD de recuperação ou um cartão de memória USB.</translation>
+<translation id="7252661675567922360">Não carregar</translation>
 <translation id="2815382244540487333">Os seguintes cookies foram bloqueados:</translation>
 <translation id="8882395288517865445">Incluir endereços do cartão da minha Agenda</translation>
 <translation id="374530189620960299">O certificado de segurança do site não é confiável.</translation>
@@ -1495,6 +1556,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8852742364582744935">Os seguintes aplicativos e extensões foram adicionados:</translation>
 <translation id="3489162952150241417">Módulo (<ph name="MODULUS_NUM_BITS"/> bits): <ph name="MODULUS_HEX_DUMP"/> Expoente público (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bits): <ph name="EXPONENT_HEX_DUMP"/></translation>
 <translation id="3450660100078934250">MasterCard</translation>
+<translation id="2145453745617225127">O aplicativo quer estes escopos:</translation>
 <translation id="2916073183900451334">Ao pressionar Tab em uma página da web, os links e os campos de formulário são destacados</translation>
 <translation id="7772127298218883077">Sobre o <ph name="PRODUCT_NAME"/></translation>
 <translation id="1789424019568293108">Ativa a IU experimental que mostra um registro da atividade da extensão.</translation>
@@ -1513,6 +1575,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="5350480486488078311">API de socket NaCI.</translation>
 <translation id="5329858601952122676">&amp;Excluir</translation>
 <translation id="6100736666660498114">Menu &quot;Iniciar&quot;</translation>
+<translation id="2706131822305474920">Alterne entre guias abertas</translation>
 <translation id="4402766404187539019">Mensagens do Google.com</translation>
 <translation id="6275297011664564181">Nenhuma política ativa atualmente.</translation>
 <translation id="3994878504415702912">&amp;Zoom</translation>
@@ -1544,8 +1607,11 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6556866813142980365">Refazer</translation>
 <translation id="8824701697284169214">Adicionar Pá&amp;gina...</translation>
 <translation id="2107287771748948380"><ph name="OBFUSCATED_CC_NUMBER"/>, Expiração: <ph name="CC_EXPIRATION_DATE"/></translation>
+<translation id="5881201518994403433">Escolha uma foto e um nome para seu perfil do Google Chrome.</translation>
 <translation id="7866522434127619318">Ativa a opção &quot;clique para reproduzir&quot; nas configurações de conteúdo dos plug-ins.</translation>
+<translation id="981210574958082923">Reordenar resultados para em linha em HistoryQuickProvider</translation>
 <translation id="6466988389784393586">&amp;Abrir todos os favoritos</translation>
+<translation id="6059764114876442286">Redefinição da impressora</translation>
 <translation id="6406506848690869874">Sincronizar</translation>
 <translation id="5288678174502918605">R&amp;eabrir guia fechada</translation>
 <translation id="7238461040709361198">A senha da sua Conta do Google foi alterada desde a última vez em que você fez login neste computador.</translation>
@@ -1556,7 +1622,9 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="9157595877708044936">Configurando...</translation>
 <translation id="4475552974751346499">Pesquisar downloads</translation>
 <translation id="6624687053722465643">Docinho</translation>
+<translation id="8420296388012619424">O dispositivo USB não está formatado.</translation>
 <translation id="3021256392995617989">Perguntar quando um site tentar rastrear o meu local físico (recomendado)</translation>
+<translation id="8083739373364455075">Ganhe 100 GB de espaço livre com o Google Drive</translation>
 <translation id="271083069174183365">Configurações de entrada em japonês</translation>
 <translation id="1257595095755619623">Se você usa um servidor proxy, verifique suas configurações de proxy ou entre em contato com o administrador da rede para verificar se o servidor proxy está funcionando. Se achar que não deva usar servidor proxy, ajuste suas <ph name="LINK_START"/>configurações de proxy<ph name="LINK_END"/>.</translation>
 <translation id="1640672724030957280">Fazendo download...</translation>
@@ -1572,6 +1640,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
         obter um certificado válido de outro lugar.</translation>
 <translation id="6295228342562451544">Ao estabelecer conexão com um site seguro, o servidor que hospeda o site apresenta ao seu navegador algo chamado &quot;certificado&quot; para confirmar sua identidade. Esse certificado contém informações de identidade, como o endereço do site, que são confirmadas por um terceiro confiável para seu computador. Depois de verificar que o endereço no certificado corresponde ao endereço do site, é possível confirmar que você está se comunicando com segurança com o site desejado e não com terceiros (como um invasor da sua rede).</translation>
 <translation id="6342069812937806050">Neste instante</translation>
+<translation id="6810544202039995031">Usar outro serviço</translation>
 <translation id="4510744228507474176">O suporte para a versão do manifesto 1 está sendo <ph name="LINK_START_1"/>descontinuado<ph name="LINK_END_1"/>. <ph name="LINK_START_2"/>Faça upgrade para a versão 2<ph name="LINK_END_2"/>.</translation>
 <translation id="5605716740717446121">Seu cartão SIM será desativado permanentemente se você não informar a chave correta para desbloqueio de PIN. Tentativas restantes: <ph name="TRIES_COUNT"/></translation>
 <translation id="8836712291807476944"><ph name="SAVED_BYTES"/>/<ph name="TOTAL_BYTES"/> bytes, interrompido</translation>
@@ -1606,6 +1675,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7084579131203911145">Nome do plano:</translation>
 <translation id="5815645614496570556">Endereço X.400</translation>
 <translation id="1223853788495130632">Seu administrador recomenda um valor específico para esta configuração.</translation>
+<translation id="5379177235542136617">Permite um tratamento experimental no frame de certas caixas de diálogo.</translation>
 <translation id="3551320343578183772">Fechar guia</translation>
 <translation id="3345886924813989455">Não foi encontrado um navegador suportado</translation>
 <translation id="74354239584446316">A sua conta da loja da web é <ph name="EMAIL_ADDRESS"/> - fazer login para sincronizar com uma conta diferente resultará em incompatibilidades.</translation>
@@ -1614,6 +1684,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="5701381305118179107">Centralizar</translation>
 <translation id="7926251226597967072">O <ph name="PRODUCT_NAME"/> agora está importando os seguintes itens do <ph name="IMPORT_BROWSER_NAME"/>:</translation>
 <translation id="4442424173763614572">A busca de DNS falhou</translation>
+<translation id="6199801702437275229">Aguardando informações sobre espaço...</translation>
 <translation id="4315903906955301944">Página da web oficial do arquivo de áudio</translation>
 <translation id="225207911366869382">Este valor está obsoleto para esta política.</translation>
 <translation id="2398753653077538650">Ativa a página de ação Chrome para celular, que permite o envio de URLs de páginas e cópias off-line para o Google Chrome em seu dispositivo móvel.</translation>
@@ -1624,9 +1695,11 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8605503133013456784">Falha ao desconectar e desemparelhar de &quot;<ph name="DEVICE_NAME"/>&quot;.</translation>
 <translation id="1109977641518209564">Esta configuração é gerenciada por uma extensão.</translation>
 <translation id="2007404777272201486">Informar um problema...</translation>
+<translation id="4366509400410520531">Permitida pelo usuário</translation>
 <translation id="1783075131180517613">Favor atualizar sua senha de sincronização.</translation>
 <translation id="2390045462562521613">Esquecer esta rede</translation>
 <translation id="3348038390189153836">Dispositivo removível detectado</translation>
+<translation id="8005540215158006229">O Google Chrome está quase pronto.</translation>
 <translation id="3348217908174891895">Uma pasta selecionada</translation>
 <translation id="1666788816626221136">Você tem certificados no arquivo que não se encaixam em nenhuma das outras categorias:</translation>
 <translation id="5698727907125761952">Artista oficial</translation>
@@ -1667,6 +1740,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1567993339577891801">Console JavaScript</translation>
 <translation id="895944840846194039">Memória JavaScript</translation>
 <translation id="4546420444519867841">Instalar plug-in ausente</translation>
+<translation id="5512030650494444738">Gazânia</translation>
 <translation id="6462080265650314920">Os aplicativos devem ser servidos com o tipo de conteúdo &quot;<ph name="CONTENT_TYPE"/>&quot;.</translation>
 <translation id="1559235587769913376">Entrada de caracteres Unicode</translation>
 <translation id="3297788108165652516">Esta rede é compartilhada com outros usuários.</translation>
@@ -1712,8 +1786,10 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8898786835233784856">Selecionar próxima guia</translation>
 <translation id="9111102763498581341">Desbloquear</translation>
 <translation id="289695669188700754">ID da chave: <ph name="KEY_ID"/></translation>
+<translation id="4336471305806418015">Torná-lo meu navegador padrão</translation>
 <translation id="8183644773978894558">Há um download anônimo em andamento. Deseja sair do modo de navegação anônima e cancelar o download?</translation>
 <translation id="2181821976797666341">Políticas</translation>
+<translation id="6133373045289694546">A conexão usa compactação SSL <ph name="COMPRESSION"/>.</translation>
 <translation id="8767072502252310690">Usuários</translation>
 <translation id="683526731807555621">Ad. novo mecanismo de pesquisa</translation>
 <translation id="6871644448911473373">Respondente OCSP: <ph name="LOCATION"/></translation>
@@ -1781,6 +1857,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1358032944105037487">Teclado japonês</translation>
 <translation id="292638579420016866">Perguntar quando um site quiser usar a câmera ou microfone (recomendado)</translation>
 <translation id="6231782223312638214">Sugerido</translation>
+<translation id="3378649245744504729">Novo álbum</translation>
 <translation id="8302838426652833913">Vá para
           <ph name="BEGIN_BOLD"/>
           Applications &gt; System Preferences &gt; Network &gt; Assist me
@@ -1790,7 +1867,9 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8970407809569722516">Firmware:</translation>
 <translation id="13649080186077898">Gerenciar configurações do preenchimento automático</translation>
 <translation id="57646104491463491">Data da modificação</translation>
+<translation id="3941357410013254652">ID do canal</translation>
 <translation id="7266345500930177944">Clique para executar <ph name="PLUGIN_NAME"/>.</translation>
+<translation id="6223447490656896591">Imagem personalizada:</translation>
 <translation id="6362853299801475928">&amp;Informar um problema...</translation>
 <translation id="5527463195266282916">Tentativa de downgrade de extensão.</translation>
 <translation id="3289566588497100676">Entrada de símbolos fácil</translation>
@@ -1800,6 +1879,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7471734499550209360">Bem-vindo ao <ph name="SHORT_PRODUCT_NAME"/></translation>
 <translation id="7460131386973988868">Permite a configuração de IP estático. Pode não funcionar.</translation>
 <translation id="749452993132003881">Hiragana</translation>
+<translation id="4302753224935370010">A conexão não usa compactação SSL.</translation>
 <translation id="8273972836055206582"><ph name="FULLSCREEN_ORIGIN"/> está em modo de tela inteira e deseja desativar o cursor do mouse.</translation>
 <translation id="5916084858004523819">Proibido</translation>
 <translation id="1497522201463361063">Não foi possível renomear &quot;<ph name="FILE_NAME"/>&quot;. <ph name="ERROR_MESSAGE"/></translation>
@@ -1824,6 +1904,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8069732954367771603">Nenhum serviço está inscrito para esta ação.</translation>
 <translation id="917450738466192189">O certificado do servidor é inválido.</translation>
 <translation id="2649045351178520408">ASCII codificado na Base64, cadeia de certificados</translation>
+<translation id="5656862584067297168">Recebidos de outros dispositivos</translation>
 <translation id="2615569600992945508">Impedir que qualquer site desative o cursor do mouse</translation>
 <translation id="7424526482660971538">Escolher minha própria senha</translation>
 <translation id="7334866548633321642">Exceções de câmera Flash e microfone</translation>
@@ -1893,6 +1974,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3328801116991980348">Informações do site</translation>
 <translation id="7337488620968032387">O <ph name="PRODUCT_NAME"/> está com problemas para acessar a rede. <ph name="LINE_BREAK"/> Isso pode estar acontecendo porque seu software de firewall ou antivírus considera erroneamente que <ph name="PRODUCT_NAME"/> é um intruso em seu computador e bloqueia sua conexão de Internet.</translation>
 <translation id="2065985942032347596">Autenticação obrigatória</translation>
+<translation id="2563185590376525700">Rã</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME"/> não pôde se conectar a <ph name="NETWORK_ID"/>. Selecione outra rede ou tente novamente.</translation>
 <translation id="2086712242472027775">Sua conta não funciona com <ph name="PRODUCT_NAME"/>. Entre em contato com o administrador do domínio ou use uma Conta do Google normal para fazer login.</translation>
 <translation id="1373074393717692190">Faça login no <ph name="PRODUCT_NAME"/> com sua Conta do Google para salvar seus recursos personalizados do navegador na web e acessá-los do <ph name="PRODUCT_NAME"/> em qualquer dispositivo móvel. Você também será automaticamente registrado em seus serviços favoritos do Google.</translation>
@@ -1942,6 +2024,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4534166495582787863">Ativa o clique com três dedos no touchpad, que funciona como o botão do meio.</translation>
 <translation id="2190469909648452501">Diminuir</translation>
 <translation id="7754704193130578113">Perguntar onde salvar cada arquivo antes de fazer download</translation>
+<translation id="222949136907494149"><ph name="URL"/> quer usar a localização de seu computador.</translation>
 <translation id="7654941827281939388">Esta conta já está sendo utilizada neste computador.</translation>
 <translation id="204914487372604757">Criar atalho</translation>
 <translation id="696036063053180184">3 Set (No shift)</translation>
@@ -1958,9 +2041,11 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="2423017480076849397">Acesse e compartilhe suas impressoras on-line com o <ph name="CLOUD_PRINT_NAME"/></translation>
 <translation id="4018133169783460046">Exibir <ph name="PRODUCT_NAME"/> neste idioma</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/> dia atrás</translation>
+<translation id="1503914375822320413">Falha na operação de cópia, erro inesperado: $1</translation>
 <translation id="6224995341905622854">Caso veja esta página com frequência, tente <ph name="HELP_LINK"/>.</translation>
 <translation id="3264544094376351444">Fonte Sans-Serif</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/> s</translation>
+<translation id="4288944631342744404">Pesquise diretamente na Web</translation>
 <translation id="1077946062898560804">Configurar atualizações automáticas para todos os usuários</translation>
 <translation id="3122496702278727796">Falha ao criar o diretório de dados</translation>
 <translation id="6990081529015358884">Não há espaço suficiente</translation>
@@ -1983,6 +2068,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="9148058034647219655">Sair</translation>
 <translation id="2881966438216424900">Acessado pela última vez:</translation>
 <translation id="630065524203833229">&amp;Sair</translation>
+<translation id="6935521024859866267">Ponta-cabeça</translation>
 <translation id="4647090755847581616">&amp;Fechar guia</translation>
 <translation id="2649204054376361687"><ph name="CITY"/>, <ph name="COUNTRY"/></translation>
 <translation id="7886758531743562066">O site em <ph name="HOST_NAME"/> contém elementos de sites que parecem hospedar malwares (softwares que podem danificar o seu computador ou podem agir sem o seu consentimento). Uma simples visita a um site que contém malware pode infectar o seu computador.</translation>
@@ -2002,7 +2088,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7814458197256864873">Co&amp;piar</translation>
 <translation id="8186706823560132848">Software</translation>
 <translation id="4692623383562244444">Mecanismos de pesquisa</translation>
-<translation id="567760371929988174">Inserir &amp;métodos</translation>
+<translation id="567760371929988174">Métodos de entrada</translation>
 <translation id="586940690534897885">Manter minhas configurações</translation>
 <translation id="10614374240317010">Nunca salvam</translation>
 <translation id="5116300307302421503">Não foi possível analisar o arquivo.</translation>
@@ -2011,6 +2097,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6374830905869502056">Codificada por</translation>
 <translation id="2230062665678605299">Não é possível criar a pasta &quot;<ph name="FOLDER_NAME"/>&quot;. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="2526590354069164005">Área de trabalho</translation>
+<translation id="2059205526855036527">Você deve estar on-line para acessar o Google Drive pela primeira vez.</translation>
 <translation id="4165738236481494247">Executar este plug-in</translation>
 <translation id="7983301409776629893">Sempre traduzir <ph name="ORIGINAL_LANGUAGE"/> para <ph name="TARGET_LANGUAGE"/></translation>
 <translation id="4890284164788142455">Tailandês</translation>
@@ -2033,6 +2120,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3898394061528036117">Qual serviço você deseja usar?</translation>
 <translation id="5148652308299789060">Desativar rasterizador de software 3D</translation>
 <translation id="8382913212082956454">Copiar &amp;endereço de e-mail</translation>
+<translation id="277784422805254599">Desativar novo estilo de caixa de seleção.</translation>
 <translation id="7447930227192971403">Ativar a guia 3</translation>
 <translation id="3010559122411665027">Entrada de lista &quot;<ph name="ENTRY_INDEX"/>&quot;: <ph name="ERROR"/></translation>
 <translation id="2903493209154104877">Endereços</translation>
@@ -2066,7 +2154,9 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8871696467337989339">Você está usando sinaliz. linha comando não sup.: <ph name="BAD_FLAG"/>. Estabil. e segur. afetadas.</translation>
 <translation id="4767443964295394154">Local do download</translation>
 <translation id="5031870354684148875">Sobre o Google Tradutor</translation>
+<translation id="4266565660628359579">Ativa o modo de alto DPI para o Visualizador de PDF do Google Chrome em monitores com alto DPI.</translation>
 <translation id="5702389759209837579">Acessa as guias abertas em todos os seus dispositivos.</translation>
+<translation id="3828747136564826513">Acessar todos os arquivos de mídia conhecidos em seu dispositivo</translation>
 <translation id="720658115504386855">As letras não diferenciam maiúsculas de minúsculas</translation>
 <translation id="8263744495942430914"><ph name="FULLSCREEN_ORIGIN"/> desativou o cursor do mouse.</translation>
 <translation id="6404451368029478467">O <ph name="PRODUCT_NAME"/> é atualizado automaticamente para que você sempre tenha a versão mais recente. Quando o download estiver concluído, o <ph name="PRODUCT_NAME"/> será reiniciado e você estará pronto.</translation>
@@ -2085,6 +2175,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7846924223038347452">Você não está autorizado a utilizar este dispositivo. Para permissão de login, entre em contato com o proprietário do dispositivo.</translation>
 <translation id="6521850982405273806">Denunciar um erro</translation>
 <translation id="736515969993332243">Verificando redes.</translation>
+<translation id="4417828425057753121">Não permitir que os sites acessem minha câmera e meu microfone</translation>
 <translation id="7806513705704909664">Ative o preenchimento automático para preencher formulários da web com apenas um clique.</translation>
 <translation id="8026334261755873520">Limpar dados de navegação</translation>
 <translation id="605011065011551813">Um plug-in (<ph name="PLUGIN_NAME"/>) não está respondendo.</translation>
@@ -2096,6 +2187,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8651585100578802546">Forçar carregamento desta página</translation>
 <translation id="1361655923249334273">Não utilizado</translation>
 <translation id="290555789621781773"><ph name="NUMBER_TWO"/> minutos</translation>
+<translation id="4326192123064055915">Café</translation>
 <translation id="5434065355175441495">PKCS #1 Criptografia RSA</translation>
 <translation id="7073704676847768330">Este provavelmente não é o site que você está procurando.</translation>
 <translation id="8477384620836102176">&amp;Geral</translation>
@@ -2121,6 +2213,8 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3355823806454867987">Alterar configurações de proxy...</translation>
 <translation id="4780374166989101364">Ativa APIs de extensões experimentais. Observe que a galeria de extensões não permite que você envie extensões que usem APIs experimentais.</translation>
 <translation id="7117247127439884114">Fazer login novamente...</translation>
+<translation id="2893271451009400655">Não é possível ler as fotos.</translation>
+<translation id="509429900233858213">Ocorreu um erro.</translation>
 <translation id="7227780179130368205">Malware detectado.</translation>
 <translation id="435243347905038008">Poucos dados de <ph name="NETWORK"/></translation>
 <translation id="2489428929217601177">o dia anterior</translation>
@@ -2154,7 +2248,9 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="2151576029659734873">Índice de guias inválido inserido.</translation>
 <translation id="1229834829921822263">Número de série inválido</translation>
 <translation id="1815861158988915678"><ph name="BEGIN_BOLD"/>Atenção:<ph name="END_BOLD"/> Estes arquivos são temporários e podem ser excluídos automaticamente para liberar espaço em disco. <ph name="BEGIN_LINK"/>Saiba mais<ph name="END_LINK"/></translation>
+<translation id="5599620772482612321">Transferindo $1 itens.</translation>
 <translation id="5150254825601720210">Nome do servidor SSL do certificado do Netscape</translation>
+<translation id="7411144907472643257">Galerias de mídia</translation>
 <translation id="6771503742377376720">É uma Autoridade de certificação</translation>
 <translation id="2728812059138274132">Procurando plug-in...</translation>
 <translation id="2471964272749426546">Método de entrada Tamil (Tamil99)</translation>
@@ -2163,6 +2259,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1128554891575825309">Remover usuário <ph name="USER_EMAIL_ADDRESS"/></translation>
 <translation id="8410619858754994443">Confirme a senha:</translation>
 <translation id="3377251335797762771">Modo janela</translation>
+<translation id="8161273087013047364">Copiando <ph name="FILE_NAME"/></translation>
 <translation id="3858678421048828670">Teclado italiano</translation>
 <translation id="1436784010935106834">Removido</translation>
 <translation id="3730639321086573427">Destinos locais</translation>
@@ -2178,10 +2275,12 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/> horas</translation>
 <translation id="5774295353725270860">Abrir aplicativo Arquivos</translation>
 <translation id="1398853756734560583">Maximizar</translation>
+<translation id="1829129547161959350">Pinguim</translation>
 <translation id="8988255471271407508">A página da web não foi encontrada no cache. Alguns recursos só podem ser carregados com segurança do cache, como páginas geradas a partir dos dados enviados. <ph name="LINE_BREAK"/> Esse erro também pode ser causado por corrupção no cache devido a um desligamento inadequado. <ph name="LINE_BREAK"/> Se o problema persistir, tente limpar o cache.</translation>
 <translation id="1653828314016431939">OK - Reinicie agora</translation>
 <translation id="8915370057835397490">Carregando sugestão</translation>
 <translation id="2138262541062800200">Desativar a sincronização de notificações de aplicativos</translation>
+<translation id="174773101815569257">Bloqueio do mouse</translation>
 <translation id="2790759706655765283">Página oficial das editoras</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="8342318071240498787">Já existe um arquivo ou diretório com o mesmo nome.</translation>
@@ -2202,6 +2301,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8250690786522693009">latim</translation>
 <translation id="2119721408814495896">O conector <ph name="CLOUD_PRINT_NAME"/> requer que o Microsoft XML Paper Specification Essentials Pack seja instalado.</translation>
 <translation id="5829401023154985950">Gerenciar...</translation>
+<translation id="6832874810062085277">perguntar</translation>
 <translation id="7624267205732106503">Limpar cookies e outros dados do site ao fechar meu navegador</translation>
 <translation id="8401363965527883709">Caixa de seleção desmarcada</translation>
 <translation id="7771452384635174008">Layout</translation>
@@ -2209,6 +2309,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="2851981350712094353">Conector do Google Cloud Print</translation>
 <translation id="8443621894987748190">Escolher a foto para sua conta</translation>
 <translation id="10122177803156699">Mostre-me</translation>
+<translation id="935099558325596666">&quot;https://support.google.com/chrome/?p=win8_directories&quot;</translation>
 <translation id="5260878308685146029"><ph name="NUMBER_TWO"/> minutos restantes</translation>
 <translation id="7374461526650987610">Manipuladores de protocolo</translation>
 <translation id="2192505247865591433">De:</translation>
@@ -2217,7 +2318,9 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7143207342074048698">Conectando</translation>
 <translation id="4212084985543581100">Servidor proxy é um servidor que atua como intermediário entre o dispositivo móvel e outros servidores. Agora o sistema está configurado para usar um proxy, mas o <ph name="PRODUCT_NAME"/> não consegue se conectar a ele.</translation>
 <translation id="671928215901716392">Bloquear tela</translation>
+<translation id="2241468422635044128">Permitida pela extensão</translation>
 <translation id="3727187387656390258">Inspecionar pop-up</translation>
+<translation id="361106536627977100">Dados do Flash</translation>
 <translation id="569068482611873351">Importar...</translation>
 <translation id="6571070086367343653">Editar cartão de crédito</translation>
 <translation id="1204242529756846967">Este idioma está sendo usado no corretor ortográfico</translation>
@@ -2229,11 +2332,13 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3654092442379740616">Erro de sincronização: <ph name="PRODUCT_NAME"/> está desatualizado e precisa ser atualizado.</translation>
 <translation id="790040513076446191">Manipular as configurações relacionadas à privacidade</translation>
 <translation id="3116361045094675131">Teclado do Reino Unido</translation>
+<translation id="1463985642028688653">bloquear</translation>
 <translation id="1715941336038158809">Nome de usuário ou senha inválida.</translation>
 <translation id="1901303067676059328">Selecionar &amp;tudo</translation>
 <translation id="674375294223700098">Erro, certificado de servidor desconhecido.</translation>
 <translation id="7780428956635859355">Enviar uma captura de tela salva</translation>
 <translation id="2850961597638370327">Emitido para: <ph name="NAME"/></translation>
+<translation id="4949653059442022544">Limpar cache local</translation>
 <translation id="2168039046890040389">Página para cima</translation>
 <translation id="1767519210550978135">Hsu</translation>
 <translation id="2498539833203011245">Minimizar</translation>
@@ -2254,6 +2359,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6983783921975806247">OID registrado</translation>
 <translation id="394984172568887996">Importado do IE</translation>
 <translation id="5311260548612583999">Arq. de chave privada (opcional):</translation>
+<translation id="3076813701005923">Dados do aplicativo...</translation>
 <translation id="8256319818471787266">Totó</translation>
 <translation id="7363290921156020669"><ph name="NUMBER_ZERO"/> mins</translation>
 <translation id="7568790562536448087">Atualização</translation>
@@ -2285,6 +2391,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3121147067826817533"><ph name="BEGIN_BOLD"/>Você entrou no modo de navegação anônima<ph name="END_BOLD"/>. As páginas que você visualiza nesta janela não aparecerão no histórico do navegador ou do histórico de pesquisa nem deixarão outros rastros, como cookies, em seu computador depois que você fechar &lt;strong&gt;todas&lt;/strong&gt; as janelas anônimas abertas. No entanto, todos os downloads que você fizer ou favoritos que criar serão preservados. <ph name="LINE_BREAK"/> <ph name="BEGIN_BOLD"/>O modo de navegação anônima não afeta o comportamento de outras pessoas, servidores ou software. Desconfie de:<ph name="END_BOLD"/> <ph name="BEGIN_LIST"/> <ph name="BEGIN_LIST_ITEM"/>Websites que coletam ou compartilham informações sobre você<ph name="END_LIST_ITEM"/> <ph name="BEGIN_LIST_ITEM"/>Provedores de serviços de Internet ou empresas que rastreiam as páginas visitadas<ph name="END_LIST_ITEM"/> <ph name="BEGIN_LIST_ITEM"/>Software malicioso que rastreia as teclas que você digita em troca de smileys gratuitos<ph name="END_LIST_ITEM"/> <ph name="BEGIN_LIST_ITEM"/>Vigilância de agentes secretos<ph name="END_LIST_ITEM"/> <ph name="BEGIN_LIST_ITEM"/>Pessoas que estejam atrás de você<ph name="END_LIST_ITEM"/> <ph name="END_LIST"/> <ph name="BEGIN_LINK"/>Saiba mais<ph name="END_LINK"/> sobre a navegação anônima.</translation>
 <translation id="725109152065019550">Seu administrador desabilitou o armazenamento externo em sua conta.</translation>
 <translation id="19094784437781028">Cartão de débito Solo</translation>
+<translation id="515594325917491223">Xadrez</translation>
 <translation id="7347751611463936647">Para usar esta extensão, digite &quot;<ph name="EXTENSION_KEYWORD"/>&quot; e, em seguida, pressione a tecla TAB e insira seu comando ou termo de pesquisa.</translation>
 <translation id="5645845270586517071">Erro de segurança</translation>
 <translation id="2912905526406334195"><ph name="HOST"/> deseja utilizar seu microfone.</translation>
@@ -2308,14 +2415,17 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 
 <ph name="EXTENSION_FILE"/></translation>
 <translation id="430326050669417502">Joystick (<ph name="ADDRESS"/>​)</translation>
+<translation id="7248671827512403053">Aplicativo</translation>
 <translation id="1241100329754769291">O <ph name="CLOUD_PRINT_NAME"/> permite que você acesse as impressoras deste computador em qualquer lugar. Clique para ativá-lo.</translation>
 <translation id="16620462294541761">Não foi possível confirmar sua senha. Tente novamente.</translation>
 <translation id="3058072209957292419">Configuração de IP estático experimental</translation>
 <translation id="5017508259293544172">LEAP</translation>
+<translation id="3687463694814266645">Reordenar</translation>
 <translation id="1394630846966197578">A conexão com os servidores de voz falhou.</translation>
 <translation id="2498765460639677199">Enorme</translation>
 <translation id="2378982052244864789">Selecionar o diretório da extensão.</translation>
 <translation id="7861215335140947162">&amp;Downloads</translation>
+<translation id="1358735829858566124">O arquivo ou o diretório não é utilizável.</translation>
 <translation id="3144135466825225871">Falha ao substituir arquivo crx. Verifique se o arquivo está em uso.</translation>
 <translation id="2744221223678373668">Compartilhadas</translation>
 <translation id="9064142312330104323">Foto do Perfil do Google (carregando)</translation>
@@ -2381,6 +2491,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7956713633345437162">Favoritos do Google Celular</translation>
 <translation id="7974087985088771286">Ativar a guia 6</translation>
 <translation id="1910721550319506122">Bem-vindo!</translation>
+<translation id="4259384707950482157">Visualizar esta página no modo desktop</translation>
 <translation id="4035758313003622889">&amp;Gerenciador de tarefas</translation>
 <translation id="6356936121715252359">Configurações de armazenamento do Adobe Flash Player...</translation>
 <translation id="1396529432791646744">Quando você se conecta a um website seguro, o servidor que hospeda esse site apresenta ao seu navegador algo chamado &quot;certificado&quot; para confirmar sua identidade. Esse certificado contém informações de identificação, como o endereço do website, que é confirmado por um terceiro em que seu dispositivo móvel confia. Ao verificar que o endereço no certificado corresponde ao endereço do website, é possível confirmar que você está se comunicando com segurança com o website pretendido e não com um terceiro (como um invasor da rede).</translation>
@@ -2395,6 +2506,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8986267729801483565">Local de download:</translation>
 <translation id="2044540568167155862">Cabras teletransportadas</translation>
 <translation id="1776712937009046120">Adicionar usuário</translation>
+<translation id="8954952943849489823">Falha na transferência, erro inesperado: $1</translation>
 <translation id="4322394346347055525">Fechar outras guias</translation>
 <translation id="2562743677925229011">Não conectado a <ph name="SHORT_PRODUCT_NAME"/></translation>
 <translation id="593451978644335626">Pressione Ctrl + espaço para selecionar o método de entrada anterior.</translation>
@@ -2404,6 +2516,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1408789165795197664">Avançado...</translation>
 <translation id="1650709179466243265">Adicionar www. e .com e abrir um endereço</translation>
 <translation id="436701661737309601">No caso de certificados ainda não expirados, o emissor do certificado é responsável pela manutenção de algo chamado &quot;lista de revogação&quot;. Caso um certificado seja comprometido, o emissor pode revogá-lo adicionando-o à lista de revogação e esse certificado não será mais considerado confiável pelo seu navegador. Não é necessário manter o status de revogação para os certificados expirados, pois apesar de esse certificado ter sido válido para o site que você está visitando, atualmente não é possível determinar se o certificado foi comprometido e posteriormente revogado ou se permanece seguro. Dessa forma, é impossível dizer se você está se comunicando com o site legítimo ou se o certificado foi comprometido e está agora em posse de um invasor com quem você está se comunicando.</translation>
+<translation id="7106346894903675391">Adquirir mais espaço de armazenamento...</translation>
 <translation id="7258264058936813500">Carregar mesmo assim</translation>
 <translation id="994289308992179865">&amp;Repetir</translation>
 <translation id="6654087704052385884">Ativar recurso de arrastar guias no navegador</translation>
@@ -2492,9 +2605,12 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1156185823432343624">Volume: Sem som</translation>
 <translation id="6264365405983206840">Selecionar &amp;tudo</translation>
 <translation id="6615455863669487791">Exibir</translation>
+<translation id="3543393733900874979">Falha na atualização (erro: <ph name="ERROR_NUMBER"/>)</translation>
 <translation id="1017280919048282932">&amp;Adicionar ao dicionário</translation>
 <translation id="8036518327127111261">Falha ao autenticar com certificado fornecido</translation>
+<translation id="7211828883345145708">Permite atalhos adicionais do teclado que são úteis para a depuração do Chromium.</translation>
 <translation id="8319414634934645341">Uso estendido de chave</translation>
+<translation id="6056710589053485679">Recarregamento normal</translation>
 <translation id="4563210852471260509">O idioma de entrada inicial é o chinês</translation>
 <translation id="6897140037006041989">Agente do usuário</translation>
 <translation id="3413122095806433232">Emissores de autoridades de certificação: <ph name="LOCATION"/></translation>
@@ -2512,6 +2628,12 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="795025003224538582">Não reiniciar</translation>
 <translation id="8680787084697685621">Os detalhes de login da conta estão desatualizados.</translation>
 <translation id="5664261101798727573">ou use outro serviço...</translation>
+<translation id="9072684888578654899">&lt;p&gt;
+          As guias abertas no Google Chrome em outros dispositivos aparecerão aqui.
+          &lt;/p&gt;
+          &lt;a href=&quot;#enablesync&quot;&gt;
+          Ativar sincronização.
+          &lt;/p&gt;</translation>
 <translation id="889901481107108152">Esta experiência não está disponível na sua plataforma.</translation>
 <translation id="3228969707346345236">A tradução falhou porque a página já está em <ph name="LANGUAGE"/>.</translation>
 <translation id="1873879463550486830">Sandbox de SUID</translation>
@@ -2533,6 +2655,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="2702540957532124911">Teclado:</translation>
 <translation id="7444983668544353857">Desativar <ph name="NETWORKDEVICE"/></translation>
 <translation id="6003177993629630467">Talvez o <ph name="PRODUCT_NAME"/> não consiga se manter atualizado.</translation>
+<translation id="8923542159871018393"><ph name="EXTENSION_NAME"/> está em execução nesta página.</translation>
 <translation id="2374898461628345975">Ativa o CSS em 3D e outras formas de criação de páginas da web de alto desempenho utilizando o hardware GPU (Unidade de processamento gráfico).</translation>
 <translation id="421577943854572179">incorporado em qualquer outro site</translation>
 <translation id="580886651983547002">O <ph name="PRODUCT_NAME"/>
@@ -2557,6 +2680,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4384652540891215547">Ativar a extensão</translation>
 <translation id="3199127022143353223">Servidores</translation>
 <translation id="408898940369358887">Ativar JavaScript experimental</translation>
+<translation id="6607831829715835317">Mais ferramen&amp;tas</translation>
 <translation id="2805646850212350655">Sistema de arquivos com criptografia da Microsoft</translation>
 <translation id="2643698698624765890">Gerencie suas extensões clicando em Extensões no menu Janela.</translation>
 <translation id="1974060860693918893">Avançado</translation>
@@ -2564,6 +2688,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4509017836361568632">Descartar foto</translation>
 <translation id="1244303850296295656">Erro na extensão</translation>
 <translation id="3541661933757219855">Digite Ctrl+Alt+/ ou Esc para ocultar</translation>
+<translation id="5357579842739549440">Atalhos de teclado para depuração</translation>
 <translation id="8891727572606052622">Modo de proxy inválido.</translation>
 <translation id="8813873272012220470">Ativa uma verificação em segundo plano que avisa você quando uma incompatibilidade com software é detectada (por ex., módulos de terceiros que causam falhas no navegador).</translation>
 <translation id="2327273619514674103">Vírus detectado</translation>
@@ -2610,6 +2735,8 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8404409224170843728">Fabricante:</translation>
 <translation id="8267453826113867474">Bloquear palavras ofensivas</translation>
 <translation id="7959074893852789871">O arquivo continha vários certificados e alguns deles não foram importados:</translation>
+<translation id="1314681042229332877">Pesquisar ou digitar um endereço da web</translation>
+<translation id="7791536208663663346">Desativa a decodificação de vídeo acelerada por hardware, quando estiver disponível.</translation>
 <translation id="87377425248837826">Ativar Painéis</translation>
 <translation id="6736243959894955139">Endereço</translation>
 <translation id="2805707493867224476">Permitir que todos os sites exibam pop-ups</translation>
@@ -2634,6 +2761,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6442187272350399447">Simpatia</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME"/> (atual)</translation>
 <translation id="2148999191776934271">Carregamento completo em <ph name="HOUR"/>:<ph name="MINUTE"/></translation>
+<translation id="6007237601604674381">Falha na transferência. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="907841381057066561">Falha ao criar arquivo zip temporário durante a compactação.</translation>
 <translation id="1881456419707551346">Detalhes da conexão</translation>
 <translation id="1064912851688322329">Desconecta sua Conta do Google</translation>
@@ -2672,6 +2800,9 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4926049483395192435">Deve ser especificado.</translation>
 <translation id="1470719357688513792">Novas configurações de cookies entrarão em vigor depois que a página for atualizada.</translation>
 <translation id="5578327870501192725">Sua conexão com <ph name="DOMAIN"/> tem uma criptografia de <ph name="BIT_COUNT"/> bits.</translation>
+<translation id="3089395242580810162">Abrir em guia anônima</translation>
+<translation id="4964383828912709895">Não reordenar</translation>
+<translation id="4336032328163998280">Falha na operação de cópia. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="5269977353971873915">Falha ao imprimir</translation>
 <translation id="3193734264051635522">Velocidade:</translation>
 <translation id="869884720829132584">Menu Aplicativos</translation>
@@ -2718,6 +2849,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4157869833395312646">Criptografia de entrada para servidor da Microsoft </translation>
 <translation id="6660445291081843757">Interface de novos downloads</translation>
 <translation id="5685236799358487266">Adicionar como mecanismo de &amp;pesquisa...</translation>
+<translation id="4950100687509657457">Criar perfil</translation>
 <translation id="8903921497873541725">Aumentar zoom</translation>
 <translation id="6820687829547641339">Arquivo tar comprimido Gzip</translation>
 <translation id="2195729137168608510">Proteção de e-mail</translation>
@@ -2773,11 +2905,13 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="756445078718366910">Abrir janela do navegador</translation>
 <translation id="6132383530370527946">Texto legal</translation>
 <translation id="5088534251099454936">PKCS #1 SHA-512 com criptografia RSA</translation>
+<translation id="3886175299267931844">Definir como padrão</translation>
 <translation id="6392373519963504642">Teclado coreano</translation>
 <translation id="2028997212275086731">Arquivo RAR</translation>
 <translation id="7887334752153342268">Duplicar</translation>
 <translation id="3624005168026397829">Extensões, aplicativos e temas podem danificar seu dispositivo móvel. Tem certeza de que deseja continuar?</translation>
 <translation id="9207194316435230304">ATOK</translation>
+<translation id="7788668840732459509">Posição:</translation>
 <translation id="778330624322499012">Não foi possível carregar <ph name="PLUGIN_NAME"/></translation>
 <translation id="9026731007018893674">download</translation>
 <translation id="7646591409235458998">E-mail:</translation>
@@ -2788,6 +2922,8 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4523336217659634227">Ocorreu um erro (<ph name="ERROR"/>) durante o download do plug-in.</translation>
 <translation id="4478664379124702289">Salvar &amp;link como...</translation>
 <translation id="8725066075913043281">Tentar novamente</translation>
+<translation id="387784661603993584">Não é possível importar. Ocorreu um erro.</translation>
+<translation id="4637968436031842307">Ativar variáveis ​​CSS.</translation>
 <translation id="1887908730460853602">Caixas de diálogo com o estilo do Google</translation>
 <translation id="8502249598105294518">Personalizar e controlar o <ph name="PRODUCT_NAME"/></translation>
 <translation id="3797008485206955964">Visualizar as páginas de fundo (<ph name="NUM_BACKGROUND_APPS"/>)</translation>
@@ -2822,10 +2958,13 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3323447499041942178">Caixa de texto</translation>
 <translation id="580571955903695899">Reordenar por título</translation>
 <translation id="5230516054153933099">Janela</translation>
+<translation id="921740547845455014">Gravar em arquivos que você abriu no aplicativo</translation>
 <translation id="1799497982892676838">Gerenciar seus dados sincronizados no Google Dashboard</translation>
+<translation id="951981865514037445"><ph name="URL"/> quer usar a localização de seu dispositivo.</translation>
 <translation id="7554791636758816595">Nova guia</translation>
 <translation id="3026557130425686673">O login foi cancelado porque algumas configurações do dispositivo foram corrompidas.</translation>
 <translation id="6928853950228839340">Composição para textura</translation>
+<translation id="3630337581925712713"><ph name="PERMISSION_TYPE_LABEL"/>:</translation>
 <translation id="8446084853024828633">Entrar como Visitante</translation>
 <translation id="48399750961678818">Alterar para <ph name="URL"/></translation>
 <translation id="3330616135759834145">Diversos cabeçalhos de disposição de conteúdo foram recebidos. Para garantir proteção contra ataques de divisão de resposta HTTP, o conteúdo foi bloqueado.</translation>
@@ -2833,6 +2972,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7671576867600624">Tecnologia:</translation>
 <translation id="1103966635949043187">Ir até a página inicial do site:</translation>
 <translation id="4762295713053835808">Coisas pessoais</translation>
+<translation id="6374100501221763867">Desativar decodificação de vídeo acelerada por hardware.</translation>
 <translation id="7477347901712410606">Caso tenha esquecido sua senha, pare e reinicie a sincronização através do <ph name="BEGIN_LINK"/>Google Dashboard<ph name="END_LINK"/>.</translation>
 <translation id="6139474630617772623">Ativa a área de trabalho estendida, que permite abrir um navegador em monitores secundários.</translation>
 <translation id="2645575947416143543">No entanto, se você trabalhar em uma organização que gera seus próprios certificados e estiver tentando se conectar a um site interno dessa organização usando um desses certificados, talvez você consiga resolver esse problema com segurança. Você pode importar o certificado raiz da sua organização como um &quot;certificado raiz&quot; e, então, os certificados emitidos ou verificados pela sua organização serão confiáveis e esse erro não aparecerá na próxima vez que você tentar se conectar a um site interno. Entre em contato com a equipe de ajuda da sua organização para obter assistência sobre como adicionar um novo certificado raiz ao seu computador.</translation>
@@ -2850,6 +2990,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1640180200866533862">Políticas de usuário</translation>
 <translation id="7042418530779813870">&amp;Colar e pesquisar</translation>
 <translation id="9110447413660189038">&amp;Para cima</translation>
+<translation id="8939748290495592680">Tirar da tela &quot;Iniciar&quot;</translation>
 <translation id="375403751935624634">A tradução falhou devido a um erro no servidor.</translation>
 <translation id="2101225219012730419">Versão:</translation>
 <translation id="2762632611300864971">Aplicável a</translation>
@@ -2858,6 +2999,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="571201111803517998">Abrir caixa de diálogo</translation>
 <translation id="8050038245906040378">Assinatura do código comercial da Microsoft</translation>
 <translation id="271907111803265074">Seu saldo de dados móveis está esgotado. Recarregue seus créditos ou mude de plano para utilizar <ph name="NETWORK"/>.</translation>
+<translation id="7299721129597238157">Excluir favorito</translation>
 <translation id="3031557471081358569">Selecione os itens que serão importados:</translation>
 <translation id="1368832886055348810">Da esquerda para a direita</translation>
 <translation id="3627320433825461852">Menos de 1 minuto restante</translation>
@@ -2902,6 +3044,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6321196148033717308">Sobre o reconhecimento de voz</translation>
 <translation id="35228304245394974">Entrar para rede Wimax</translation>
 <translation id="6582381827060163791">Você está on-line.</translation>
+<translation id="8195580257099278880">O cartão SD não está formatado.</translation>
 <translation id="3412265149091626468">Ir para a seleção</translation>
 <translation id="8167737133281862792">Adicionar certificado</translation>
 <translation id="2645009827850892485">DMToken incorreto</translation>
@@ -2991,6 +3134,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3527085408025491307">Pasta</translation>
 <translation id="3665842570601375360">Segurança:</translation>
 <translation id="8812832766208874265">Continuar utilizando <ph name="CURRENT_GOOGLE_HOST"/></translation>
+<translation id="4522331920508731608">Gerenciar galerias</translation>
 <translation id="1430915738399379752">Imprimir</translation>
 <translation id="7999087758969799248">Método de entrada padrão</translation>
 <translation id="2635276683026132559">Assinatura</translation>
@@ -3060,11 +3204,13 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="816095449251911490"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/>, <ph name="TIME_REMAINING"/></translation>
 <translation id="774465434535803574">Erro de extensão de pacote</translation>
 <translation id="8200772114523450471">Retomar</translation>
+<translation id="5750676294091770309">Bloqueada pela extensão</translation>
 <translation id="7865978820218947446">Editar usuário</translation>
 <translation id="73307164865957919">Enviando..</translation>
 <translation id="523299859570409035">Exceções de notificações</translation>
 <translation id="6358975074282722691"><ph name="NUMBER_TWO"/> secs ago</translation>
 <translation id="162177343906927099">Não descartar guias.</translation>
+<translation id="6417065746089514543">Falha na transferência, item existente: &quot;$1&quot;</translation>
 <translation id="5423849171846380976">Ativado</translation>
 <translation id="7323391064335160098">Suporte à VPN</translation>
 <translation id="3929673387302322681">Disp - Instável</translation>
@@ -3094,19 +3240,24 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4701488924964507374"><ph name="SENTENCE1"/> <ph name="SENTENCE2"/></translation>
 <translation id="1163931534039071049">&amp;Exibir código fonte do frame</translation>
 <translation id="8770196827482281187">Método de entrada persa (layout ISIRI 2901)</translation>
+<translation id="100451557350107889">Para onde importar estas $1 fotos?</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
 <translation id="5642953011762033339">Desconectar conta</translation>
 <translation id="7564847347806291057">Encerrar processo</translation>
 <translation id="1607220950420093847">Sua conta pode ter sido excluída ou desativada. Você terá que sair do Google.</translation>
 <translation id="5613695965848159202">Identidade anônima:</translation>
 <translation id="4331990704689932958">O <ph name="PRODUCT_NAME"/> é atualizado automaticamente para que você sempre tenha a versão mais recente.</translation>
+<translation id="8737893419487554821">Este tipo de arquivo não é suportado. Visite a <ph name="BEGIN_LINK"/>Chrome Web Store<ph name="END_LINK"/> para encontrar um aplicativo que possa abrir este tipo de arquivo.
+          <ph name="BEGIN_LINK"/>Saiba mais<ph name="END_LINK"/></translation>
 <translation id="560108005804229228">Erro de sincronização: saia e faça login novamente...</translation>
 <translation id="7063412606254013905">Saiba mais sobre os golpes de phishing.</translation>
 <translation id="7253521419891527137">&amp;Saiba mais</translation>
+<translation id="3170312251071695679"><ph name="PERMISSION_VALUE"/> por padrão</translation>
 <translation id="8698464937041809063">Desenho do Google</translation>
 <translation id="7053053706723613360">Desativar Restauração de sessão melhor</translation>
 <translation id="5233930340889611108">WebKit</translation>
 <translation id="8260864402787962391">Mouse</translation>
+<translation id="8276560076771292512">Esvaziar cache e recarregamento forçado</translation>
 <translation id="9076523132036239772">Seu e-mail ou sua senha não pode ser verificado. Tente conectar-se a uma rede.</translation>
 <translation id="6965978654500191972">Dispositivo</translation>
 <translation id="2959872918720987777">Aplicar recomendação</translation>
@@ -3156,17 +3307,20 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7190251665563814471">Sempre permitir estes plug-ins no <ph name="HOST"/></translation>
 <translation id="2043684166640445160">O <ph name="PRODUCT_NAME"/> não pode exibir a página da web porque seu computador não está conectado à Internet.</translation>
 <translation id="5390222677196640946">Mostrar cookies e dados do site</translation>
+<translation id="3958548648197196644">Kiwi</translation>
 <translation id="1514298457297359873">Permite que os aplicativos usem a API de socket NaCl. Use somente para testar plug-ins NaCI.</translation>
 <translation id="8263231521757761563">Manipuladores de protocolo ativos</translation>
 <translation id="7359657277149375382">Tipo de arquivo</translation>
 <translation id="2749756011735116528">Fazer login no <ph name="PRODUCT_NAME"/></translation>
 <translation id="2653131220478186612">Isso pode ser prejudicial. Não diga que não avisamos...</translation>
+<translation id="8579549103199280730">Perguntar por padrão</translation>
 <translation id="8925458182817574960">&amp;Configurações</translation>
 <translation id="6361850914223837199">Detalhes do erro:</translation>
 <translation id="7463946387631958595">O modo de alto contraste está ativado. Gostaria de instalar nossa extensão de alto contraste e um tema escuro?</translation>
 <translation id="8948393169621400698">Sempre permitir plug-ins em <ph name="HOST"/></translation>
 <translation id="6527303717912515753">Compartilhar</translation>
 <translation id="4285498937028063278">Soltar</translation>
+<translation id="2588322182880276190">Logotipo do Google Chrome</translation>
 <translation id="8477304033437705374">Tentativa de alterar configurações</translation>
 <translation id="8291808604460602261">Ativar Intenções da web para que eu possa me conectar a meus aplicativos.</translation>
 <translation id="3865082058368813534">Limpar dados de formulário salvos do preenchimento automático</translation>
@@ -3199,10 +3353,12 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8962198349065195967">Esta rede é configurada por seu administrador.</translation>
 <translation id="2143778271340628265">Configuração manual de proxy</translation>
 <translation id="2441192698565541088">Ao desconectar sua Conta do Google de <ph name="PRODUCT_NAME"/>, alterações nos dados neste computador deixarão de ser sincronizadas com sua Conta do Google. Dados já armazenados em sua Conta do Google permanecerão lá até que você os remova utilizando o <ph name="BEGIN_LINK"/>Google Dashboard<ph name="END_LINK"/>.</translation>
+<translation id="8888432776533519951">Cor:</translation>
 <translation id="5294529402252479912">Atualize o Adobe Reader agora</translation>
 <translation id="5263972071113911534"><ph name="NUMBER_MANY"/> days ago</translation>
 <translation id="7461850476009326849">Desativar plug-ins individuais...</translation>
 <translation id="4097411759948332224">Envie uma captura de tela da página atual</translation>
+<translation id="2312158600294157599">Criar atalho na área de trabalho para este perfil</translation>
 <translation id="2231990265377706070">Ponto de exclamação</translation>
 <translation id="7199540622786492483"><ph name="PRODUCT_NAME"/> está desatualizado porque não foi reiniciado durante algum tempo. Uma atualização está disponível e será aplicada assim que você reiniciá-lo.</translation>
 <translation id="2171101176734966184">Você tentou acessar <ph name="DOMAIN"/>, mas o servidor apresentou um certificado assinado usando um algoritmo de assinatura fraco. Isso significa que as credenciais de segurança apresentadas pelo servidor podem ter sido forjadas, e talvez o servidor não seja o esperado (talvez você esteja se comunicando com um invasor).</translation>
@@ -3250,6 +3406,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1038168778161626396">Somente codificar</translation>
 <translation id="3924129493187796992">Adicionar um novo padrão nome do host</translation>
 <translation id="408205643560606197">&quot;<ph name="EXTENSION_NAME"/>&quot; iniciou a captura de áudio para reconhecimento de fala. Procure o ícone de notificação de microfone para saber quando isso acontecer novamente.</translation>
+<translation id="3785625046566918883">Cookies e dados de aplicativos</translation>
 <translation id="1377406721062459125">Define o caminho para o depurador nacl-gdb. Ele é anexado aos aplicativos NaCl na inicialização.</translation>
 <translation id="8765985713192161328">Gerenciar manipuladores...</translation>
 <translation id="7179921470347911571">Reiniciar agora</translation>
@@ -3260,6 +3417,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1177863135347784049">Personalizado</translation>
 <translation id="4881695831933465202">Abrir</translation>
 <translation id="3593965109698325041">Restrições de nome do certificado</translation>
+<translation id="3131179947821237419">Permite nova aparência e comportamento de dimensionamento para caixas de seleção e botões de opção.</translation>
 <translation id="4358697938732213860">Adicionar um endereço</translation>
 <translation id="8396532978067103567">Senha incorreta.</translation>
 <translation id="2238086278708809590"><ph name="EXTENSION_NAME"/> ativou a tela cheia.</translation>
@@ -3288,6 +3446,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="494645311413743213"><ph name="NUMBER_TWO"/> segundos restantes</translation>
 <translation id="1485146213770915382">Insira <ph name="SEARCH_TERMS_LITERAL"/> no URL onde os termos de pesquisa devem aparecer.</translation>
 <translation id="4839303808932127586">Sal&amp;var vídeo como...</translation>
+<translation id="317583078218509884">As novas configurações de permissões de site entrarão em vigor quando a página for atualizada.</translation>
 <translation id="5626134646977739690">Nome:</translation>
 <translation id="5854409662653665676">Se você está tendo problemas com frequência, pode tentar o seguinte para resolver o problema com este módulo:</translation>
 <translation id="3681007416295224113">Informações do certificado</translation>
@@ -3298,6 +3457,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6680028776254050810">Trocar usuários</translation>
 <translation id="212464871579942993">O site em <ph name="HOST_NAME"/> contém elementos de sites que parecem hospedar malwares (softwares que podem danificar o seu computador ou podem agir sem o seu consentimento). Apenas a visita a um site que contém malware pode infectar o seu computador. O site também hospeda conteúdo de sites denunciados como sites de &quot;phishing&quot;. Os sites de phishing enganam os usuários para que divulguem informações pessoais ou financeiras, geralmente tentando se passar por instituições confiáveis, como bancos.</translation>
 <translation id="9027307872616253016">Encontrar serviços na Chrome Web Store</translation>
+<translation id="887692350334376364">Exceções de mídia</translation>
 <translation id="8156020606310233796">Visualização em lista</translation>
 <translation id="8002980609684534974">Número de rastreamento</translation>
 <translation id="146000042969587795">Este frame foi bloqueado porque contém algum conteúdo não seguro.</translation>
@@ -3307,6 +3467,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3729920814805072072">Gerenciar senhas salvas...</translation>
 <translation id="7387829944233909572">Caixa de diálogo &quot;Limpar dados de navegação&quot;</translation>
 <translation id="8023801379949507775">Atualizar extensões agora</translation>
+<translation id="6045425183320109397">Por</translation>
 <translation id="1103666958012677467">Você não pode continuar, pois o operador do site solicitou segurança reforçada para este domínio.</translation>
 <translation id="3298789223962368867">URL inválido digitado.</translation>
 <translation id="2202898655984161076">Ocorreu um problema na listagem de impressoras. Algumas impressoras podem não ter sido registradas no <ph name="CLOUD_PRINT_NAME"/>.</translation>
@@ -3317,6 +3478,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="5359419173856026110">Mostra a taxa de frames real de uma página, em frames por segundo, quando a aceleração de hardware estiver ativa.</translation>
 <translation id="4104163789986725820">E&amp;xportar...</translation>
 <translation id="2113479184312716848">Abrir &amp;arquivo...</translation>
+<translation id="8405710043622376215">No preenchimento automático da omnibox, reordena sugestões em HistoryQuickProvider para fazer uma sugestão em linha aparecer em primeiro lugar.</translation>
 <translation id="3314617171364900239">Verificações de atualização falharam diversas vezes para a extensão &quot;<ph name="EXTENSION_NAME"/>&quot;.</translation>
 <translation id="4850458635498951714">Adicionar um dispositivo</translation>
 <translation id="3140353188828248647">Foco na barra de endereço</translation>
@@ -3363,6 +3525,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7077176974744385057">Mais sugestões</translation>
 <translation id="2024918351532495204">Seu dispositivo está off-line</translation>
 <translation id="6040143037577758943">Fechar</translation>
+<translation id="1538483505493767575">Adicionar galeria</translation>
 <translation id="5607923769356613853">Acesse <ph name="BEGIN_BOLD"/> o menu de ferramentas &gt; &quot;<ph name="SETTINGS_TITLE"/>&quot; &gt; &quot;<ph name="ADVANCED_TITLE"/>&quot; &gt; &quot;<ph name="PROXIES_TITLE"/>&quot; &gt; &quot;Configurações da LAN&quot; <ph name="END_BOLD"/> e desmarque a caixa de seleção &quot;Usar um servidor proxy para a rede local&quot;.</translation>
 <translation id="5787146423283493983">Acordo de chave</translation>
 <translation id="1101671447232096497"><ph name="NUMBER_MANY"/> mins ago</translation>
@@ -3389,6 +3552,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3423858849633684918">Reinicie <ph name="PRODUCT_NAME"/></translation>
 <translation id="1232569758102978740">Sem título</translation>
 <translation id="2479410451996844060">URL de pesquisa inválido.</translation>
+<translation id="3489444618744432220">Permitida pela política</translation>
 <translation id="1903219944620007795">Para entrada de texto, selecione um idioma para ver os métodos de entrada disponíveis.</translation>
 <translation id="1850508293116537636">Girar no &amp;sentido horário</translation>
 <translation id="4362187533051781987">Cidade</translation>
@@ -3423,6 +3587,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3570985609317741174">Conteúdo da web</translation>
 <translation id="3951872452847539732">As configurações de proxy da sua rede estão sendo gerenciadas por uma extensão.</translation>
 <translation id="6442697326824312960">Liberar guia</translation>
+<translation id="8714406895390098252">Bicicleta</translation>
 <translation id="6382612843547381371">Válido a partir de <ph name="START_DATE_TIME"/> até <ph name="END_DATE_TIME"/></translation>
 <translation id="4707579418881001319">L2TP/IPsec + certificado de usuário</translation>
 <translation id="9086302186042011942">Sincronizando</translation>
@@ -3434,6 +3599,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4289300219472526559">Comece a falar</translation>
 <translation id="497490572025913070">Bordas da camada de renderização composta</translation>
 <translation id="9002707937526687073">Im&amp;primir...</translation>
+<translation id="7631652846300228749">Data desconhecida</translation>
 <translation id="4133237568661345071">Ativar login automático</translation>
 <translation id="3851140433852960970">Não há plug-ins disponíveis para exibir este conteúdo.</translation>
 <translation id="5556459405103347317">Recarregar</translation>
@@ -3442,6 +3608,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3958088479270651626">Importar favoritos e configurações</translation>
 <translation id="2689915906323125315">Usar minha senha da Conta do Google</translation>
 <translation id="8518865679229538285">Método de entrada Tamil (máquina de escrever)</translation>
+<translation id="5257456363153333584">Libélula</translation>
 <translation id="4557136421275541763">Aviso:</translation>
 <translation id="2604243255129603442">A extensão <ph name="NAME_OF_EXTENSION"/> foi desativada. Se você parou de sincronizar seus favoritos, poderá reativá-la na página de extensões, que pode ser acessada por meio do menu Ferramentas.</translation>
 <translation id="5923417893962158855">Downloads anônimos em andamento</translation>
@@ -3460,11 +3627,14 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3991936620356087075">Você informou uma chave incorreta para desbloqueio de PIN muitas vezes. Seu cartão SIM está desativado permanentemente.</translation>
 <translation id="936801553271523408">Dados de diagnóstico do sistema</translation>
 <translation id="820791781874064845">Esta página da web foi bloqueada por uma extensão</translation>
+<translation id="2649120831653069427">Peixe arco-íris</translation>
+<translation id="4245278692280406123">Visualização:</translation>
 <translation id="9009144784540995197">Gerencie sua impressora</translation>
 <translation id="3021678814754966447">&amp;Exibir código fonte do frame</translation>
 <translation id="8601206103050338563">Autenticação do cliente TLS WWW</translation>
 <translation id="1692799361700686467">Cookies de vários sites foram permitidos.</translation>
 <translation id="5187295959347858724">Você está conectado a <ph name="SHORT_PRODUCT_NAME"/>. Seus favoritos, o histórico e outras configurações estão sendo sincronizados com sua Conta do Google.</translation>
+<translation id="3719415759165722358">Ativa a interface do usuário das configurações do site, a qual substitui o balão das informações sobre a página e fornece uma maneira fácil de definir configurações específicas do site.</translation>
 <translation id="2717190143245689317">Ativa um campo de texto experimental para a interface de usuário do aplicativo; não afeta o conteúdo da Web.</translation>
 <translation id="529232389703829405">Você comprou <ph name="DATA_AMOUNT"/> de dados em <ph name="DATE"/></translation>
 <translation id="7419106976560586862">Caminho de perfil</translation>
@@ -3472,6 +3642,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="4784330909746505604">Apresentação do PowerPoint</translation>
 <translation id="4345587454538109430">Configurar...</translation>
 <translation id="8148264977957212129">Método de entrada Pinyin</translation>
+<translation id="2288278176040912387">Gravador</translation>
 <translation id="7772032839648071052">Confirmar senha</translation>
 <translation id="6857811139397017780">Ativar <ph name="NETWORKSERVICE"/></translation>
 <translation id="3251855518428926750">Adicionar...</translation>
@@ -3490,7 +3661,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7737525395960596244">Ajude a melhorar o preenchimento automático: com esta opção habilitada, o Chrome ocasionalmente solicitará o envio de comentários adicionais para a equipe.</translation>
 <translation id="3936390757709632190">&amp;Abrir áudio em uma nova guia</translation>
 <translation id="3955607296752942438">Ativar a Media Source API nos elementos <ph name="VIDEO_HTML"/>.</translation>
-<translation id="7297622089831776169">Inserir &amp;métodos</translation>
+<translation id="7297622089831776169">Métodos de entrada</translation>
 <translation id="6644283850729428850">Esta política foi encerrada.</translation>
 <translation id="1152775729948968688">No entanto, esta página inclui outros recursos que não são seguros. Esses recursos podem ser visualizados por outros enquanto navegam e podem ser modificados por um invasor para alterar o comportamento da página.</translation>
 <translation id="604124094241169006">Automático</translation>
@@ -3505,6 +3676,8 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="2927657246008729253">Alterar...</translation>
 <translation id="7586781939132793422">Desativar comentários de voz</translation>
 <translation id="7978412674231730200">Chave privada</translation>
+<translation id="7056011739864317578">Quando ativada, usará ClientOAuth para conectar um perfil a uma conta do Google. Caso contrário, ClientLogin será usado.
+          ClientOAuth permite usar códigos de verificação em vez de ASPs durante a autenticação.</translation>
 <translation id="5308380583665731573">Conectar</translation>
 <translation id="9111395131601239814"><ph name="NETWORKDEVICE"/>: <ph name="STATUS"/></translation>
 <translation id="9049981332609050619">Você tentou acessar <ph name="DOMAIN"/>, mas o servidor apresentou um certificado inválido.</translation>
@@ -3512,6 +3685,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1693754753824026215">A página em <ph name="SITE"/> diz:</translation>
 <translation id="7148804936871729015">O servidor de <ph name="URL"/> demorou muito para responder. Ele pode estar sobrecarregado.</translation>
 <translation id="5066173162665203318">Configuração avançada...</translation>
+<translation id="8094802570099763657">Copiando $1 itens.</translation>
 <translation id="7278870042769914968">Usar tema GTK+</translation>
 <translation id="4501530680793980440">Confirmar remoção</translation>
 <translation id="8108473539339615591">Auditor XSS</translation>
@@ -3564,6 +3738,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="668171684555832681">Outro...</translation>
 <translation id="7540972813190816353">Ocorreu um erro durante a verificação de atualizações: <ph name="ERROR"/></translation>
 <translation id="2225024820658613551">Você não deve continuar, &lt;strong&gt;principalmente&lt;/strong&gt; se nunca tiver visto este aviso antes neste site.</translation>
+<translation id="4596904276221394120">Ativa a API estendida do Instant.</translation>
 <translation id="2049639323467105390">Este dispositivo é gerenciado por <ph name="DOMAIN"/>.</translation>
 <translation id="1932098463447129402">Não antes</translation>
 <translation id="7845920762538502375">O <ph name="PRODUCT_NAME"/> não pôde sincronizar seus dados porque não conseguiu conectar ao servidor de sincronização. Tentando novamente...</translation>
@@ -3625,6 +3800,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3695919544155087829">Digite a senha utilizada para criptografar este arquivo de certificado.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2509857212037838238">Instalar <ph name="PLUGIN_NAME"/></translation>
+<translation id="7503712332447507470">Sempre permitir que este site use esta câmera</translation>
 <translation id="6308937455967653460">Salvar &amp;link como...</translation>
 <translation id="5828633471261496623">Imprimindo...</translation>
 <translation id="5421136146218899937">Limpar dados de navegação...</translation>
@@ -3645,11 +3821,13 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="1255964530203229794">Sincronizado como <ph name="USER_EMAIL_ADDRESS"/>. Última sincronização: <ph name="LAST_SYNC_TIME"/></translation>
 <translation id="6697308399043041614">Chrome para celular</translation>
 <translation id="1122198203221319518">&amp;Ferramentas</translation>
+<translation id="3355221513701943639">Sandbox do Seccomp-legacy</translation>
 <translation id="5143151113947480436">Acessar dados que você copiar e colar</translation>
 <translation id="6051028581720248124">Ao imprimir no FedEx Office, você aceita os <ph name="START_LINK"/>termos de uso<ph name="END_LINK"/>.</translation>
 <translation id="2760009672169282879">Teclado fonético búlgaro</translation>
 <translation id="6608140561353073361">Todos os dados de cookies e de sites...</translation>
 <translation id="2596602318381383954">Complete a ação utilizando:</translation>
+<translation id="6485131920355264772">Falha ao recuperar informações sobre espaço</translation>
 <translation id="8007030362289124303">Bateria fraca</translation>
 <translation id="3790909017043401679">Insira o PIN do cartão SIM</translation>
 <translation id="4513946894732546136">Comentários</translation>
@@ -3726,6 +3904,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8828933418460119530">Nome DNS</translation>
 <translation id="988159990683914416">Versão do desenvolvedor</translation>
 <translation id="1097658378307015415">Antes de fazer login, entre como Visitante para ativar a rede <ph name="NETWORK_ID"/></translation>
+<translation id="5170477580121653719">Espaço restante no Google Drive: <ph name="SPACE_AVAILABLE"/>.</translation>
 <translation id="4114470632216071239">Bloquear cartão SIM (PIN necessário para o uso de dados móveis)</translation>
 <translation id="5184584788669813359">Não foi possível exibir partes deste documento PDF. Abrir no Adobe Reader?</translation>
 <translation id="6581162200855843583">Link do Google Drive</translation>
@@ -3766,6 +3945,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="8859057652521303089">Selecione o seu idioma:</translation>
 <translation id="3030138564564344289">Tentar fazer o download novamente</translation>
 <translation id="2603463522847370204">Abrir em &amp;janela anônima</translation>
+<translation id="2951236788251446349">Água-viva</translation>
 <translation id="4381091992796011497">Nome de usuário:</translation>
 <translation id="4636388769812446016">Microfone já em uso.</translation>
 <translation id="5830720307094128296">Salvar página &amp;como...</translation>
@@ -3789,6 +3969,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="9112614144067920641">Escolha um novo PIN.</translation>
 <translation id="7109926893210135223">Download em andamento</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY"/> (<ph name="ENCODING_NAME"/>)</translation>
+<translation id="8379970328220427967"><ph name="SPACE_AVAILABLE"/> restantes</translation>
 <translation id="7773726648746946405">Armazenamento da sessão</translation>
 <translation id="9147392381910171771">&amp;Opções</translation>
 <translation id="1803557475693955505">Não foi possível carregar a página de fundo &quot;<ph name="BACKGROUND_PAGE"/>&quot;.</translation>
@@ -3843,6 +4024,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3817519158465675771">Opções de rede...</translation>
 <translation id="7161508766647573452">Algumas configurações são gerenciadas por seu administrador.</translation>
 <translation id="4618990963915449444">Todos os arquivos em <ph name="DEVICE_NAME"/> serão apagados.</translation>
+<translation id="5011739343823725107">Falha ao iniciar o backend de sincronização</translation>
 <translation id="614998064310228828">Modelo do dispositivo:</translation>
 <translation id="1581962803218266616">Mostrar no Finder</translation>
 <translation id="9100765901046053179">Configurações avançadas</translation>
@@ -3885,8 +4067,11 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6811824796237962267">Desativa notificações da bandeja de status do Ash e ativa notificações do sistema na área de trabalho.</translation>
 <translation id="5095208057601539847">Província</translation>
 <translation id="4085298594534903246">O JavaScript foi bloqueado nesta página.</translation>
+<translation id="7825543042214876779">Bloqueada pela política</translation>
 <translation id="4341977339441987045">Bloquear as configurações de quaisquer dados por sites</translation>
 <translation id="806812017500012252">Reordenar por título</translation>
+<translation id="1807938677607439181">Todos os arquivos</translation>
+<translation id="2376485338202301051">Pesquisar planos de fundo</translation>
 <translation id="9167350110873177156">ou <ph name="IDS_SYNC_CREATE_ACCOUNT"/></translation>
 <translation id="3781751432212184938">Mostrar visão geral da guia...</translation>
 <translation id="2960316970329790041">Parar importação</translation>
@@ -3977,6 +4162,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="3876481682997626897">Incompatibilidade de assinatura</translation>
 <translation id="8892992092192084762">Tema &quot;<ph name="THEME_NAME"/>&quot; instalado</translation>
 <translation id="7427348830195639090">Página de plano de fundo: <ph name="BACKGROUND_PAGE_URL"/></translation>
+<translation id="8390029840652165810">Certifique-se de que sua conexão de rede esteja funcionando e, se o problema persistir, saia e faça login novamente para atualizar suas credenciais.</translation>
 <translation id="5898154795085152510">O servidor retornou um certificado de cliente inválido. Erro <ph name="ERROR_NUMBER"/> (<ph name="ERROR_NAME"/>).</translation>
 <translation id="2704184184447774363">Assinatura de documentos da Microsoft</translation>
 <translation id="1071139452646369777"><ph name="HANDLER_TITLE"/> já está sendo usado para trabalhar com os links <ph name="PROTOCOL"/>.</translation>
@@ -4055,6 +4241,7 @@ Chave de arquivo: <ph name="KEY_FILE"/>
 Mantenha a sua chave de arquivo em um local seguro. Você precisará dela para criar novas versões da sua extensão.</translation>
 <translation id="2970444815634085254">Desativar o Chrome para celular.</translation>
 <translation id="1846078536247420691">&amp;Sim</translation>
+<translation id="6906389084589171704">Movendo <ph name="FILE_NAME"/></translation>
 <translation id="2966459079597787514">Teclado sueco</translation>
 <translation id="7685049629764448582">Memória JavaScript</translation>
 <translation id="6398765197997659313">Sair do modo tela cheia</translation>
@@ -4091,6 +4278,7 @@ Mantenha a sua chave de arquivo em um local seguro. Você precisará dela para c
 <translation id="5780498354378986900">Não foi possível excluir &quot;<ph name="FILE_NAME"/>&quot;. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="5832830184511718549">Usa uma thread secundária na composição da página da web. Isso permite uma rolagem suave, mesmo quando a thread principal não responde.</translation>
 <translation id="3346457130337124365">O <ph name="HOST_NAME"/> contém malware. Seu dispositivo móvel pode ser infectado por um vírus se você visitar esse site.</translation>
+<translation id="5926308170227699652">Ativar caixas de diálogo experimentais sem frame.</translation>
 <translation id="8203365863660628138">Confirmar instalação</translation>
 <translation id="406259880812417922">(Palavra-chave: <ph name="KEYWORD"/>)</translation>
 <translation id="4778399030184051458">Script a ser executado por nacl-gdb na inicialização.</translation>

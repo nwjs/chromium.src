@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Die Installation konnte aufgrund eines undefinierten Fehlers nicht abgeschlossen werden. Falls Chromium derzeit ausgeführt wird, schließen Sie es bitte und versuchen Sie es erneut.</translation>
 <translation id="2589479092236095792">AutoFill-Einstellungen für Chromium</translation>
 <translation id="3555616473548901994">Deinstallation ist abgeschlossen.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">Optional: Unterstützen Sie Google bei der Verbesserung von Chromium durch automatisches Senden von Nutzungsstatistiken und Absturzberichten.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">Sie haben versucht, auf &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; zuzugreifen, der Server hat sich jedoch mit einem Zertifikat ausgewiesen, das Fehler enthält. Chromium kann kein Zertifikat mit Fehlern verwenden und die Identität der Website nicht überprüfen, zu der Sie eine Verbindung herstellen wollten.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Keine zu aktualisierende Installation von Chromium oder Chromium Frame gefunden</translation>
 <translation id="3197823471738295152">Ihr Gerät ist auf dem neuesten Stand.</translation>
 <translation id="8551886023433311834">Fast fertig! Starten Sie Ihr Gerät neu, um die Aktualisierung abzuschließen.</translation>
+<translation id="8353224596138547809">Soll Chromium Ihr Passwort für diese Website speichern?</translation>
 <translation id="4124681358536363708">Das Installationsverzeichnis von Chromium scheint bereits verwendet zu werden. Starten Sie bitte Ihren Computer neu und versuchen Sie es erneut.</translation>
 <translation id="8770560772173120024">Chromium importiert jetzt Favoriten/Lesezeichen.</translation>
 <translation id="6290315939897260265">Wird in Chromium nicht verwendet. Platzhalter zur Beibehaltung der Ressourcenzuordnungen bei der Synchronisierung</translation>
@@ -127,11 +129,14 @@ Einige Funktionen stehen möglicherweise nicht zur Verfügung. Geben Sie bitte e
 <translation id="8616882682724010661">Erfahren Sie, welche <ph name="BEGIN_LINK"/>weiteren Vorteile<ph name="END_LINK"/> die Anmeldung in Chromium bietet.</translation>
 <translation id="378917192836375108">In Chromium können Sie auf eine Telefonnummer im Web klicken und diese mit Skype anrufen.</translation>
 <translation id="8724049448828509830">Momentan wird ein Download durchgeführt. Möchten Sie Chromium beenden und den Download abbrechen?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium-Plug-in-Host</translation>
 <translation id="2739631515503418643">Momentan werden Downloads durchgeführt. Möchten Sie Chromium beenden und die Downloads abbrechen?</translation>
 <translation id="9013262824292842194">Für Chromium ist Windows Vista oder Windows XP SP2 oder höher erforderlich.</translation>
 <translation id="1967743265616885482">Es ist bekannt, dass ein Modul mit dem gleichen Namen einen Konflikt mit Chromium verursacht.</translation>
 <translation id="4224199872375172890">Chromium ist auf dem neuesten Stand.</translation>
+<translation id="374481098568514319">Dieser Computer verfügt bereits über eine neuere Version der Chromium-Komponenten. Bitte verwenden Sie einen neueren Installer.</translation>
+<translation id="6240281849816458190">Sie haben versucht, auf &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; zuzugreifen, der Server hat sich jedoch mit einem Zertifikat ausgewiesen, das noch nicht gültig ist. Es liegen keine Informationen hinsichtlich der Vertrauenswürdigkeit des Zertifikats vor. Daher kann Chromium nicht zuverlässig garantieren, dass Sie mit &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; und nicht mit einem Hacker kommunizieren. Die Uhr Ihres Computers zeigt aktuell <ph name="CURRENT_TIME"/> an. Ist das korrekt? Falls nicht, korrigieren Sie dies bitte und aktualisieren Sie diese Seite.</translation>
 <translation id="5498103559159810756">Chromium nutzt Ihre Standardsuchmaschine. Dies ist zurzeit <ph name="PAGE_TITLE"/>. Soll dies weiterhin Ihre Standardsuchmaschine bleiben?</translation>
 <translation id="5862307444128926510">Willkommen bei Chromium</translation>
 <translation id="1622565934590470080">Auf diesem Computer befindet sich bereits eine neuere Version von Chromium und Chromium Frame. Falls die Software nicht funktioniert, deinstallieren Sie bitte sowohl Chromium als auch Chromium Frame und versuchen Sie es erneut.</translation>

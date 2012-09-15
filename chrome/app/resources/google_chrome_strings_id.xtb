@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Ya, keluar dari Chrome</translation>
 <translation id="386202838227397562">Tutup semua jendela Google Chrome, lalu coba lagi.</translation>
 <translation id="2770231113462710648">Ubah browser default ke:</translation>
+<translation id="741045321678647133">Hosting Aplikasi Google Chrome</translation>
 <translation id="7400722733683201933">Tentang Google Chrome</translation>
 <translation id="1065672644894730302">Preferensi Anda tidak dapat dibaca. Beberapa fitur mungkin tidak tersedia dan perubahan pada preferensi tidak akan disimpan.</translation>
 <translation id="7781002470561365167">Tersedia Google Chrome versi baru.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Google Chrome tidak lagi diperbarui karena sistem operasi Anda sudah usang.</translation>
 <translation id="5339639696978861456">Chrome Frame telah diperbarui. Harap luncurkan ulang browser Anda. Versi Chrome: <ph name="TODO_0001"/>, Versi Chrome Frame: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Persyaratan Layanan</translation>
+<translation id="5775197990071433230">Komputer ini telah memiliki versi yang lebih anyar dari komponen Google Chrome. Gunakan pemasang yang lebih anyar.</translation>
 <translation id="8398145039500709259">Gunakan Akun Google ini untuk menyinkronkan semua barang Chrome Anda?</translation>
 <translation id="1779550429052479749">Terjadi konflik pemasangan Google Chrome atau Google Chrome Frame pada sistem. Hapus pemasangan dan coba lagi.</translation>
 <translation id="3555616473548901994">Pencopotan pemasangan selesai.</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Tersedia versi Google Chrome yang baru dan lebih aman.</translation>
 <translation id="5037239767309817516">Harap tutup semua jendela Google Chrome dan luncurkan kembali agar perubahan ini berlaku.</translation>
 <translation id="7451721381978275812">Parameter tidak valid. Google Chrome Frame tidak dapat dipasang dalam mode siap bila Google Chrome belum dipasang.</translation>
+<translation id="8684521613357479262">Anda mencoba menjangkau &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, namun server menampilkan sertifikat yang belum valid. Tidak tersedia informasi yang menunjukkan bahwa sertifikat tersebut dapat dipercaya. Google Chrome tidak dapat menjamin bahwa Anda berkomunikasi dengan &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; dan bukan penyerang. Jam komputer Anda saat ini disetel ke <ph name="CURRENT_TIME"/>. Apakah sudah benar? Jika tidak, Anda perlu mengoreksi jam sistem Anda dan menyegarkan laman ini.</translation>
 <translation id="4585888816441913908">Komputer ini telah memiliki Google Chrome dan Google Chrome Frame versi teranyar. Jika perangkat lunak tidak bekerja, copot pemasangan Google Chrome dan Google Chrome Frame, kemudian coba lagi.</translation>
 <translation id="6368958679917195344">OS Chrome terwujud karena <ph name="BEGIN_LINK_CROS_OSS"/>perangkat lunak sumber terbuka<ph name="END_LINK_CROS_OSS"/> tambahan.</translation>
 <translation id="7459554271817304652">Siapkan Sinkronisasi untuk menyimpan fitur browser hasil personalisasi Anda ke web dan mengaksesnya dari Google Chrome di komputer mana pun.</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">Unduhan saat ini sedang berlangsung. Anda ingin keluar dari Google Chrome dan membatalkan unduhan?</translation>
 <translation id="4273752058983339720">Google Chrome dikonfigurasikan untuk diluncurkan secara otomatis ketika Anda memulai komputer.</translation>
 <translation id="1104959162601287462">Tentang OS &amp;Chrome</translation>
+<translation id="5328989068199000832">Binari Google Chrome</translation>
 <translation id="5941830788786076944">Jadikan Google Chrome sebagai browser default</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome memungkinkan Anda mengeklik nomor telepon pada web dan menghubunginya melalui Skype!</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Host Plugin Google Chrome</translation>
 <translation id="5699533844376998780">Ekstensi &quot;<ph name="EXTENSION_NAME"/>&quot; telah ditambahkan.</translation>
 <translation id="6126631249883707068">Ingin Google Chrome menyimpan sandi Anda?</translation>
+<translation id="7773845170078702898">Ingin Google Chrome menyimpan sandi Anda untuk situs ini?</translation>
 <translation id="5046764976540625289">Keluar dari Chrome</translation>
 <translation id="9039578207253536065">Pekerja Google Chrome</translation>
 <translation id="2680623880102270805">Google Chrome tidak dapat membuat pintasan aplikasi karena tidak dapat menentukan lingkungan desktop saat ini.</translation>

@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Belirlenemeyen bir hata nedeniyle yükleme başarısız oldu. Chromium şu anda çalışır durumdaysa kapatıp yeniden deneyin.</translation>
 <translation id="2589479092236095792">Chromium Otomatik Doldurma ayarları</translation>
 <translation id="3555616473548901994">Kaldırma işlemi tamamlandı.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">İsteğe Bağlı: Kullanıcı istatistiklerini ve kilitlenme raporlarını Google'a otomatik olarak göndererek Chromium'u iyileştirmemize yardımcı olun.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">&lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; alanına ulaşmayı denediniz, ancak sunucunun sunduğu sertifikada hatalar var. Chromium hata içeren bir sertifikayı kullanamaz ve bağlanmak istediğiniz sitenin kimliğini doğrulayamaz.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Chromium veya Chromium Frame'in güncellenecek yüklemesi bulunamadı.</translation>
 <translation id="3197823471738295152">Cihazınız güncel.</translation>
 <translation id="8551886023433311834">Güncelleme neredeyse tamamlandı! Güncellemenin tamamlanması için cihazınızı yeniden başlatın.</translation>
+<translation id="8353224596138547809">Chromium'un bu site için şifrenizi kaydetmesini ister misiniz?</translation>
 <translation id="4124681358536363708">Chromium kurulum dizininin kullanımda olduğu görülüyor. Lütfen bilgisayarınızı yeniden başlatın ve tekrar deneyin.</translation>
 <translation id="8770560772173120024">Chromium şu anda Sık Kullanılanları/Yer İmlerini içe aktarıyor.</translation>
 <translation id="6290315939897260265">Chromium'da kullanılmaz. Kaynak haritaları senkronize halde tutmak için yer tutucu.</translation>
@@ -125,11 +127,14 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="8616882682724010661">Chromium'da oturum açmanın <ph name="BEGIN_LINK"/>diğer faydalarını<ph name="END_LINK"/> öğrenin.</translation>
 <translation id="378917192836375108">Chromium Web'de bir telefon numarasını tıklayarak Skype ile aramanıza olanak sağlar!</translation>
 <translation id="8724049448828509830">Şu anda devam eden bir indirme işlemi var. Chromium'dan çıkmak ve indirme işlemini iptal etmek istiyor musunuz?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium Eklentisi Ana Makinesi</translation>
 <translation id="2739631515503418643">Şu anda devam eden indirme işlemleri var. Chromium'dan çıkmak ve indirme işlemlerini iptal etmek istiyor musunuz?</translation>
 <translation id="9013262824292842194">Chromium; Windows Vista veya Windows XP SP2 ya da daha ileri bir sürümü gerektirir.</translation>
 <translation id="1967743265616885482">Aynı isme sahip bir modülün Chromium'la çakıştığı bilinmektedir.</translation>
 <translation id="4224199872375172890">Chromium güncel durumda.</translation>
+<translation id="374481098568514319">Bu bilgisayar zaten Chromium bileşenlerinin daha yeni bir sürümüne sahip. Lütfen daha yeni bir yükleme programı kullanın.</translation>
+<translation id="6240281849816458190">&lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; alanına ulaşmaya çalıştınız, ancak sunucu henüz geçerli olmayan bir sertifika sundu. Sertifikanın güvenilir olup olmadığı konusunda hiçbir bilgi yok. Chromium, bir saldırganla değil &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; ile iletişim kurduğunuzu garanti edemiyor. Bilgisayarınızın saati <ph name="CURRENT_TIME"/> olarak ayarlı. Bu doğru mu? Değilse, sistem saatinizi düzeltip bu sayfayı yenileyin.</translation>
 <translation id="5498103559159810756">Chromium şu anda <ph name="PAGE_TITLE"/> olarak ayarlanmış olan varsayılan arama motorunuzu kullanıyor. Varsayılan arama motorunuzun aynı kalmasını istiyor musunuz?</translation>
 <translation id="5862307444128926510">Chromium'a Hoş Geldiniz</translation>
 <translation id="1622565934590470080">Bu bilgisayarda, Chromium ve Chromium Frame'in daha yeni bir sürümü de var. Yazılım çalışmıyorsa, Chromium ve Chromium Frame'i kaldırın ve tekrar deneyin.</translation>

@@ -25,6 +25,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="4285930937574705105">Namestitev ni bila izvedena zaradi nedoločene napake. Če se Chromium trenutno izvaja, ga zaprite in poskusite znova.</translation>
 <translation id="2589479092236095792">Nastavitve samodejnega izpolnjevanja v Chromiumu</translation>
 <translation id="3555616473548901994">Odstranitev je končana.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">Izbirno: Pomagajte izboljšati Chromium, tako da Googlu samodejno pošiljate statistične podatke o uporabi in poročila o zrušitvah.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> – Chromium</translation>
 <translation id="1989424089625731201">Poskušali ste odpreti &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, vendar ima potrdilo, ki ga je uporabil strežnik, napake. Chromium ne more uporabiti potrdila z napakami in ne more preveriti identitete spletnega mesta, s katerim ste poskušali vzpostaviti povezavo.</translation>
@@ -46,6 +47,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="6714487516757221107">Najti ni bilo mogoče nobenega Chromiuma ali vtičnika Chromium Frame, ki bi ga bilo mogoče posodobiti.</translation>
 <translation id="3197823471738295152">Naprava ima najnovejšo različico.</translation>
 <translation id="8551886023433311834">Posodobitev je skoraj končana. Znova zaženite napravo.</translation>
+<translation id="8353224596138547809">Želite, da Chromium shrani geslo za to spletno mesto?</translation>
 <translation id="4124681358536363708">Videti je, da se namestitveni imenik za Chromium že uporablja. Znova zaženite računalnik in poskusite znova.</translation>
 <translation id="8770560772173120024">Chromium zdaj uvaža priljubljene/zaznamke.</translation>
 <translation id="6290315939897260265">Ne uporablja se v Chromiumu. Ograda za usklajenost zemljevidov sredstev.</translation>
@@ -129,11 +131,14 @@ Nekatere funkcije morda ne bodo na voljo. Določite drug imenik profila ali upor
 <translation id="8616882682724010661">Oglejte si <ph name="BEGIN_LINK"/>več prednosti<ph name="END_LINK"/> prijave v Chromium.</translation>
 <translation id="378917192836375108">Chromium omogoča, da v spletu kliknete telefonsko številko in jo pokličete prek Skypa.</translation>
 <translation id="8724049448828509830">Trenutno poteka prenos. Ali želite zapreti Chromium in preklicati prenos?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Gostitelj za vtičnike za Chromium</translation>
 <translation id="2739631515503418643">Trenutno potekajo prenosi. Ali želite zapreti Chromium in preklicati prenose?</translation>
 <translation id="9013262824292842194">Za Chromium potrebujete operacijski sistem Windows Vista ali Windows XP s servisnim paketom SP2 ali novejšim.</translation>
 <translation id="1967743265616885482">Modul z istim imenom je že bil v sporu s Chromiumom.</translation>
 <translation id="4224199872375172890">Chromium je posodobljen.</translation>
+<translation id="374481098568514319">Ta računalnik že ima novejšo različico Chromiumovih komponent. Uporabite novejši namestitveni program.</translation>
+<translation id="6240281849816458190">Poskusili ste odpreti &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, vendar ima strežnik potrdilo, ki še ni veljavno. Ni podatkov, na podlagi katerih bi bilo mogoče ugotoviti, ali je potrdilu mogoče zaupati. Google Chrome ne more zagotoviti, da komunicirate z domeno &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; in ne napadalcem. Ura v računalniku je trenutno nastavljena na <ph name="CURRENT_TIME"/>. Je to pravilno? Če ni, pravilno nastavite sistemsko uro in osvežite stran.</translation>
 <translation id="5498103559159810756">Chromium uporablja privzeti iskalnik, ki je trenutno <ph name="PAGE_TITLE"/>. Ali želite obdržati privzet iskalnik?</translation>
 <translation id="5862307444128926510">Pozdravljeni v Chromiumu</translation>
 <translation id="1622565934590470080">Ta računalnik že ima novejši različici Chromiuma in vtičnika Chromium Frame. Če programska oprema ne deluje, odstranite Chromium in vtičnik Chromium Frame ter poskusite znova.</translation>

@@ -25,6 +25,7 @@
 <translation id="4285930937574705105">확인되지 않은 오류로 설치에 실패했습니다. Chromium이 실행 중인 경우 종료한 후 다시 실행하세요.</translation>
 <translation id="2589479092236095792">Chromium 자동완성 설정</translation>
 <translation id="3555616473548901994">제거를 완료했습니다.</translation>
+<translation id="3674409928058572366">Chromium 앱 호스트</translation>
 <translation id="2886012850691518054">선택사항: 사용 통계 및 오류 보고서가 Google로 자동 전송되도록 선택하시면 Chromium을 개선하는 데 도움이 됩니다.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">&lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;에 접속하려 했으나 서버가 전달한 인증서에 오류가 포함되어 있습니다. Chromium은 오류가 있는 인증서를 사용할 수 없으며 사용자가 연결하려던 사이트 주소의 유효성을 입증할 수 없습니다.</translation>
@@ -46,6 +47,7 @@
 <translation id="6714487516757221107">업데이트할 Chromium 또는 Chromium 프레임이 없습니다.</translation>
 <translation id="3197823471738295152">기기가 최신 버전입니다.</translation>
 <translation id="8551886023433311834">업데이트가 거의 완료되었습니다. 업데이트를 완료하려면 기기를 다시 시작하세요.</translation>
+<translation id="8353224596138547809">Chromium이 이 사이트에서 비밀번호를 저장하도록 하시겠습니까?</translation>
 <translation id="4124681358536363708">Chromium 설치 디렉토리가 사용중입니다. 컴퓨터를 재부팅한 다음 다시 시도하세요.</translation>
 <translation id="8770560772173120024">Chromium에서 즐겨찾기/북마크를 가져오고 있습니다.</translation>
 <translation id="6290315939897260265">Chromium에서 사용되지 않았습니다. 자리표시자는 리소스 맵을 동기화 상태로 유지합니다.</translation>
@@ -129,11 +131,14 @@
 <translation id="8616882682724010661">Chromium에 로그인하여 누릴 수 있는 <ph name="BEGIN_LINK"/>더 많은 혜택<ph name="END_LINK"/>을 확인하세요.</translation>
 <translation id="378917192836375108">Chromium을 사용하면 웹에서 전화번호를 클릭하여 Skype로 통화할 수 있습니다.</translation>
 <translation id="8724049448828509830">현재 한 개의 다운로드가 진행 중입니다. Chromium을 종료하고 다운로드를 취소하시겠습니까?</translation>
+<translation id="3360567213983886831">Chromium 바이너리</translation>
 <translation id="7503101070699687603">Chromium 플러그인 호스트</translation>
 <translation id="2739631515503418643">현재 여러 개의 다운로드가 진행 중입니다. Chromium을 종료하고 다운로드를 취소하시겠습니까?</translation>
 <translation id="9013262824292842194">Chromium은 Windows Vista 또는 Windows XP 서비스 팩 2 이상이 설치된 컴퓨터에서 사용하실 수 있습니다.</translation>
 <translation id="1967743265616885482">같은 이름의 모듈이 Chromium과 충돌하는 것으로 알려져 있습니다.</translation>
 <translation id="4224199872375172890">Chromium이 최신 버전입니다.</translation>
+<translation id="374481098568514319">컴퓨터에 이미 최신 버전의 Chromium 구성 요소가 있습니다. 좀더 최신 버전의 설치 프로그램을 사용하세요.</translation>
+<translation id="6240281849816458190">&lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;에 접속하려고 했지만 서버가 유효하지 않은 인증서를 제공했습니다. 인증서가 신뢰할 수 있는지 여부를 알 수 있는 정보가 없습니다. Chromium은 사용자가 &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;와(과) 통신하고 있으며 침입자가 아니라는 것을 확인할 수 없습니다. 컴퓨터 시계가 현재 <ph name="CURRENT_TIME"/>(으)로 설정되어 있습니다. 시간이 정확하지 않으면 시스템 시계를 수정한 뒤 이 페이지를 새로고침하세요.</translation>
 <translation id="5498103559159810756">Chromium은 현재 기본 검색엔진으로 설정된 <ph name="PAGE_TITLE"/> 검색엔진을 사용하고 있습니다. 기본 검색엔진을 계속 사용하시겠습니까?</translation>
 <translation id="5862307444128926510">Chromium에 오신 것을 환영합니다.</translation>
 <translation id="1622565934590470080">컴퓨터에 이미 최신 버전의 Chromium과 Chromium 프레임이 있습니다. 소프트웨어가 작동하지 않으면 Chromium과 Chromium 프레임의 설치를 제거한 뒤 다시 시도하세요.</translation>

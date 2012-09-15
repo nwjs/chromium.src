@@ -47,6 +47,7 @@
 <translation id="1895658205118569222">Изключване</translation>
 <translation id="4430019312045809116">Звук</translation>
 <translation id="1383876407941801731">Търсене</translation>
+<translation id="2204305834655267233">Информация за мрежата</translation>
 <translation id="5980301590375426705">Изход от сесията като гост</translation>
 <translation id="8308637677604853869">Предишно меню</translation>
 <translation id="1346748346194534595">Надясно</translation>
@@ -61,21 +62,29 @@
 <translation id="3784455785234192852">Заключване</translation>
 <translation id="2805756323405976993">Приложения</translation>
 <translation id="2482878487686419369">Известия</translation>
+<translation id="1850504506766569011">Wi-Fi е изключен.</translation>
 <translation id="2872961005593481000">Изключване</translation>
 <translation id="7052914147756339792">Задаване на тапет...</translation>
+<translation id="5746825509052394497">Методът ви на въвеждане се промени на <ph name="INPUT_METHOD_ID"/>.
+Натиснете „Shift + Alt“, за да превключите.</translation>
 <translation id="1602076796624386989">Активиране на мобилните данни</translation>
 <translation id="3157931365184549694">Възстановяване</translation>
 <translation id="8573351908869164327">Остава/т <ph name="HOUR"/> ч <ph name="MINUTE"/> м</translation>
 <translation id="7029814467594812963">Изход от сесията</translation>
+<translation id="8454013096329229812">Wi-Fi е включен.</translation>
 <translation id="2983818520079887040">Настройки...</translation>
 <translation id="2712866615167520691">Функциите за достъпност са активирани.
 Натиснете „Ctrl+Alt+Z“, за да анулирате.</translation>
 <translation id="8660803626959853127">Синхронизира/т се <ph name="COUNT"/> файл/а</translation>
+<translation id="1837166567415282700">Методът ви на въвеждане се промени на <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>трета страна<ph name="END_LINK"/>).
+Натиснете „Shift + Alt“, за да превключите.</translation>
 <translation id="639644700271529076">„CAPS LOCK“ е изключен</translation>
 <translation id="4864165860509564259">Позиция на стартовия панел</translation>
 <translation id="7649070708921625228">Помощ</translation>
 <translation id="397105322502079400">Изчислява се...</translation>
 <translation id="6362354186508391853">„Ctrl“ +</translation>
+<translation id="477782898153505579">Нямате известия. Отпуснете се!</translation>
+<translation id="7457942297256758195">Изчистване на всички</translation>
 <translation id="7871882211137875558">Присъединяване към друга мрежа...</translation>
 <translation id="3573179567135747900">Връщане към „<ph name="FROM_LOCALE"/>“ (изисква рестартиране)</translation>
 <translation id="8103386449138765447">SMS съобщения: <ph name="MESSAGE_COUNT"/></translation>
@@ -84,6 +93,7 @@
 <translation id="5941711191222866238">Намаляване</translation>
 <translation id="9169585155162064169">„CAPS LOCK“ е включен.
 Натиснете клавиша „търсене“, за да анулирате.</translation>
+<translation id="6843725295806269523">заглушаване</translation>
 <translation id="412065659894267608"><ph name="HOUR"/> ч <ph name="MINUTE"/> м до пълно зареждане</translation>
 <translation id="4469842253116033348">Деактивиране на известията от <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS от <ph name="PHONE_NUMBER"/></translation>

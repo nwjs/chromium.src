@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">はい、Chrome を終了します</translation>
 <translation id="386202838227397562">すべての Google Chrome ウィンドウを閉じてからもう一度お試しください。</translation>
 <translation id="2770231113462710648">既定のブラウザを変更:</translation>
+<translation id="741045321678647133">Google Chrome App Host</translation>
 <translation id="7400722733683201933">Google Chrome について</translation>
 <translation id="1065672644894730302">ユーザー設定ファイルを読み込むことができません。一部の機能が利用できない可能性があります。また、設定への変更は保存されません。</translation>
 <translation id="7781002470561365167">Google クロームブラウザの最新バージョンを是非お試しください。</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">お使いのオペレーティング システムはサポートが終了しているため、今後 Google Chrome は更新されません。</translation>
 <translation id="5339639696978861456">Chrome Frame が更新されました。ブラウザを再起動してください。Chrome のバージョン: <ph name="TODO_0001"/>、Chrome Frame のバージョン: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">利用規約</translation>
+<translation id="5775197990071433230">新しいバージョンの Google Chrome コンポーネントが既にインストールされています。最新のインストーラを使用してください。</translation>
 <translation id="8398145039500709259">この Google アカウントを使用してすべての Chrome 設定を同期しますか？</translation>
 <translation id="1779550429052479749">システム上に競合している Google Chrome または Google Chrome Frame が見つかりました。こちらをアンインストールしてからもう一度お試しください。</translation>
 <translation id="3555616473548901994">アンインストールが完了しました。</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Google クロームブラウザがより速く、さらに便利に。いますぐトライ！</translation>
 <translation id="5037239767309817516">この変更を反映するには、すべての Google Chrome ウィンドウを閉じてからもう一度起動してください。</translation>
 <translation id="7451721381978275812">引数が無効です。Google Chrome Frame を準備完了モードでインストールするには、一緒に Google Chrome をインストールする必要があります。</translation>
+<translation id="8684521613357479262">&lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; にアクセスしようとしましたが、サーバーから提示された証明書はまだ有効になっていません。この証明書が信頼できるかどうかについて確認できる情報はありません。Google Chrome では、悪意のあるユーザーでなく &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; と確かに通信していることを保証することはできません。お使いのパソコンの時刻は現在、<ph name="CURRENT_TIME"/> に設定されています。時刻が正しくない場合は、システムの時刻を修正してからこのページを更新してください。</translation>
 <translation id="4585888816441913908">新しいバージョンの Google Chrome と Google Chrome Frame が既にインストールされています。ソフトウェアが動作しない場合は、Google Chrome と Google Chrome Frame の両方をアンインストールしてからもう一度お試しください。</translation>
 <translation id="6368958679917195344">Chrome OS は、<ph name="BEGIN_LINK_CROS_OSS"/>オープンソース ソフトウェア<ph name="END_LINK_CROS_OSS"/>が追加されて実現しました。</translation>
 <translation id="7459554271817304652">同期を設定すると、パーソナライズされたブラウザ機能をウェブ上に保存して、どのパソコンの Google Chrome からでも使用できるようになります。</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">現在ダウンロードを実行中です。ダウンロードがキャンセルされますが、Google Chrome を終了してもよろしいですか？</translation>
 <translation id="4273752058983339720">Google Chrome は、パソコン起動時に自動的に起動されるよう設定されています。</translation>
 <translation id="1104959162601287462">Chrome OS について(&amp;C)</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Google Chrome を既定のブラウザにする</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome では、ウェブサイト上の電話番号をクリックするだけで Skype で通話を発信できます。</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Google Chrome Plug-In Host</translation>
 <translation id="5699533844376998780">拡張機能「<ph name="EXTENSION_NAME"/>」を追加しました。</translation>
 <translation id="6126631249883707068">Google Chrome でパスワードを保存しますか？</translation>
+<translation id="7773845170078702898">Google Chrome でこのサイトのパスワードを保存しますか？</translation>
 <translation id="5046764976540625289">Chrome を終了</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Google Chrome では、現在のデスクトップ環境を特定できないため、アプリケーション ショートカットを作成できません。</translation>

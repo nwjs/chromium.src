@@ -46,6 +46,7 @@
 <translation id="1895658205118569222">Encerramento</translation>
 <translation id="4430019312045809116">Volume</translation>
 <translation id="1383876407941801731">Pesquisa</translation>
+<translation id="2204305834655267233">Informações de rede</translation>
 <translation id="5980301590375426705">Sair da sessão de visitante</translation>
 <translation id="8308637677604853869">Menu anterior</translation>
 <translation id="1346748346194534595">Para a direita</translation>
@@ -60,20 +61,27 @@
 <translation id="3784455785234192852">Bloquear</translation>
 <translation id="2805756323405976993">Aplicativos</translation>
 <translation id="2482878487686419369">Notificações</translation>
+<translation id="1850504506766569011">O Wi-Fi está desligado.</translation>
 <translation id="2872961005593481000">Encerrar</translation>
 <translation id="7052914147756339792">Definir papel de parede...</translation>
+<translation id="5746825509052394497">Seu método de entrada mudou para <ph name="INPUT_METHOD_ID"/>.
+      Pressione Shift + Alt para alternar.</translation>
 <translation id="1602076796624386989">Ativar dados móveis</translation>
 <translation id="3157931365184549694">Restaurar</translation>
 <translation id="8573351908869164327"><ph name="HOUR"/>h<ph name="MINUTE"/>m restantes</translation>
 <translation id="7029814467594812963">Sair da sessão</translation>
+<translation id="8454013096329229812">O Wi-Fi está ligado.</translation>
 <translation id="2983818520079887040">Configurações...</translation>
 <translation id="2712866615167520691">Recursos de acessibilidade ativados. Pressione Ctrl+Alt+Z para cancelar.</translation>
 <translation id="8660803626959853127">Sincronizando <ph name="COUNT"/> arquivos</translation>
+<translation id="1837166567415282700">Seu método de entrada mudou para <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>terceiros<ph name="END_LINK"/>). Pressione Shift + Alt para alternar.</translation>
 <translation id="639644700271529076">CAPS LOCK está desativado</translation>
 <translation id="4864165860509564259">Posição do iniciador</translation>
 <translation id="7649070708921625228">Ajuda</translation>
 <translation id="397105322502079400">Calculando...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Você não tem notificações. Relaxe!</translation>
+<translation id="7457942297256758195">Limpar tudo</translation>
 <translation id="7871882211137875558">Conectar-se a outra...</translation>
 <translation id="3573179567135747900">Voltar a &quot;<ph name="FROM_LOCALE"/>&quot; (exige reinicialização)</translation>
 <translation id="8103386449138765447">Mensagens SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -81,6 +89,7 @@
 <translation id="48607902311828362">Modo avião</translation>
 <translation id="5941711191222866238">Minimizar</translation>
 <translation id="9169585155162064169">CAPS LOCK ativado. Pressione a tecla de pesquisa para cancelar.</translation>
+<translation id="6843725295806269523">sem som</translation>
 <translation id="412065659894267608"><ph name="HOUR"/>h<ph name="MINUTE"/>m até a carga total</translation>
 <translation id="4469842253116033348">Desativar notificações de <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS de <ph name="PHONE_NUMBER"/></translation>

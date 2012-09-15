@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">ใช่ ออกจาก Chrome</translation>
 <translation id="386202838227397562">โปรดปิดหน้าต่าง Google Chrome ทั้งหมดและลองใหม่อีกครั้ง</translation>
 <translation id="2770231113462710648">เปลี่ยนเบราว์เซอร์ที่เป็นค่าเริ่มต้นเป็น:</translation>
+<translation id="741045321678647133">โฮสต์แอปพลิเคชันของ Google Chrome</translation>
 <translation id="7400722733683201933">เกี่ยวกับ Google Chrome</translation>
 <translation id="1065672644894730302">ค่ากำหนดของคุณไม่สามารถอ่านได้ คุณลักษณะบางอย่างอาจใช้ไม่ได้และการเปลี่ยนแปลงค่ากำหนดจะไม่ได้รับการบันทึก</translation>
 <translation id="7781002470561365167">Google Chrome เวอร์ชันใหม่มีให้ได้ลองใช้กันแล้ว</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Google Chrome ไม่มีการอัปเดตอีกต่อไปเนื่องจากระบบปฏิบัติการของคุณล้าสมัยแล้ว</translation>
 <translation id="5339639696978861456">Chrome Frame ได้รับการอัปเดตแล้ว โปรดเริ่มใช้งานเบราว์เซอร์ของคุณอีกครั้ง รุ่นของ Chrome: <ph name="TODO_0001"/>, รุ่นของ Chrome Frame: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">ข้อกำหนดในการให้บริการ</translation>
+<translation id="5775197990071433230">คอมพิวเตอร์เครื่องนี้มีส่วนประกอบของ Google Chrome รุ่นใหม่กว่าอยู่แล้ว โปรดใช้ตัวติดตั้งรุ่นใหม่กว่า</translation>
 <translation id="8398145039500709259">ใช้บัญชี Google นี้เพื่อซิงค์ข้อมูล Chrome ทั้งหมดของคุณหรือไม่</translation>
 <translation id="1779550429052479749">พบข้อขัดแย้งในการติดตั้ง Google Chrome หรือ Google Chrome Frame บนระบบ โปรดถอนการติดตั้งและลองอีกครั้ง</translation>
 <translation id="3555616473548901994">การถอนการติดตั้งเสร็จสมบูรณ์</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Google Chrome มีรุ่นใหม่ที่ปลอดภัยกว่าให้ใช้งานแล้ว</translation>
 <translation id="5037239767309817516">โปรดปิดหน้าต่าง Google Chrome ทั้งหมด แล้วเปิดใหม่อีกครั้งเพื่อให้การเปลี่ยนแปลงนี้มีผล</translation>
 <translation id="7451721381978275812">ข้อโต้แย้งไม่ถูกต้อง คุณไม่สามารถติดตั้ง Google Chrome Frame ในโหมดพร้อมใช้งานโดยไม่ติดตั้ง Google Chrome ได้</translation>
+<translation id="8684521613357479262">คุณพยายามที่จะเข้าถึง &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; แต่เซิร์ฟเวอร์แสดงใบรับรองที่ยังไม่ถูกต้อง ไม่มีข้อมูลที่ระบุได้ว่าใบรับรองนั้นเชื่อถือได้หรือไม่ Google Chrome ไม่สามารถรับประกันได้ว่าคุณกำลังสื่อสารกับ &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; ไม่ใช่กับผู้โจมตี เวลาปัจจุบันในเครื่องคอมพิวเตอร์ของคุณถูกตั้งค่าเป็น <ph name="CURRENT_TIME"/> เวลานี้ถูกต้องหรือไม่ ถ้าไม่ คุณควรจะแก้ไขให้ถูกต้องและรีเฟรชหน้าเว็บนี้</translation>
 <translation id="4585888816441913908">คอมพิวเตอร์เครื่องนี้มี Google Chrome และ Google Chrome Frame รุ่นใหม่กว่าแล้ว หากซอฟต์แวร์ไม่ทำงาน โปรดถอนการติดตั้งทั้ง Google Chrome และ Google Chrome Frame แล้วลองใหม่อีกครั้ง</translation>
 <translation id="6368958679917195344">Chrome OS เกิดขึ้นได้ด้วยการสนับสนุนจาก<ph name="BEGIN_LINK_CROS_OSS"/>ซอฟต์แวร์โอเพนซอร์ส<ph name="END_LINK_CROS_OSS"/>เพิ่มเติม</translation>
 <translation id="7459554271817304652">ตั้งค่าการซิงค์เพื่อบัน​​ทึกคุณลักษณะเบราว์เซอร์ในแบบของคุณไปยังเว็บและเข้าถึงได้จาก Google Chrome บนคอมพิวเตอร์เครื่องใดก็ได้</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">ขณะนี้อยู่ระหว่างการดาวน์โหลดหนึ่งรายการ คุณต้องการออกจาก Google Chrome และยกเลิกการดาวน์โหลดหรือไม่</translation>
 <translation id="4273752058983339720">Google Chrome ได้รับการกำหนดค่าให้เปิดอัตโนมัติเมื่อคุณเริ่มคอมพิวเตอร์ของคุณ</translation>
 <translation id="1104959162601287462">เกี่ยวกับ &amp;Chrome OS</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">ทำให้ Google Chrome เป็นเบราว์เซอร์เริ่มต้น</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome ทำให้คุณสามารถคลิกที่หมายเลขโทรศัพท์บนเว็บแล้วโทรหาด้วย Skype!</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">โฮสต์ปลั๊กอินของ Google Chrome</translation>
 <translation id="5699533844376998780">เพิ่มส่วนขยาย &quot;<ph name="EXTENSION_NAME"/>&quot; แล้ว</translation>
 <translation id="6126631249883707068">คุณต้องการให้ Google Chrome บันทึกรหัสผ่านของคุณหรือไม่</translation>
+<translation id="7773845170078702898">คุณต้องการให้ Google Chrome บันทึกรหัสผ่านของคุณสำหรับไซต์นี้หรือไม่</translation>
 <translation id="5046764976540625289">ออกจาก Chrome</translation>
 <translation id="9039578207253536065">โปรแกรมทำงานของ Google Chrome</translation>
 <translation id="2680623880102270805">Google Chrome ไม่สามารถสร้างทางลัดแอปพลิเคชันได้เนื่องจากไม่ทราบสภาพแวดล้อมของเดสก์ท็อปในปัจจุบัน</translation>

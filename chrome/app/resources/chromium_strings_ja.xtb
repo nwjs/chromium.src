@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">原因不明のエラーによりインストールが失敗しました。実行中の Chromium を終了してからもう一度お試しください。</translation>
 <translation id="2589479092236095792">Chromium 自動入力設定</translation>
 <translation id="3555616473548901994">アンインストールが完了しました。</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">オプション: 使用状況データと障害レポートを Google に自動送信して Chromium の機能向上に役立てる。</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">&lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; にアクセスしようとしましたが、サーバーから提示された証明書にはエラーがあります。Chromium ではエラーのある証明書を使用することはできず、そのサイトが確かに接続しようとしたサイトであるかどうかを検証することはできません。</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">現在、インストールできる Chromium と Chromium Frame のアップデートはありません。</translation>
 <translation id="3197823471738295152">お使いの端末は最新の状態です。</translation>
 <translation id="8551886023433311834">更新を完了するには、端末を再起動してください。</translation>
+<translation id="8353224596138547809">Chromium でこのサイトのパスワードを保存しますか？</translation>
 <translation id="4124681358536363708">Chromium のインストール先ディレクトリが現在使用中です。パソコンを再起動して、もう一度お試しください。</translation>
 <translation id="8770560772173120024">Chromium にお気に入り/ブックマークをインポートしています。</translation>
 <translation id="6290315939897260265">Chromium では使用していません。リソース マップを同期するためのプレースホルダです。</translation>
@@ -127,11 +129,14 @@
 <translation id="8616882682724010661">Chromium にログインするとその他にも<ph name="BEGIN_LINK"/>さまざまなメリット<ph name="END_LINK"/>があります。</translation>
 <translation id="378917192836375108">Chromium では、ウェブサイト上の電話番号をクリックするだけで Skype で通話を発信できます。</translation>
 <translation id="8724049448828509830">現在ダウンロードを実行中です。ダウンロードがキャンセルされますが、Chromium を終了してもよろしいですか？</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="2739631515503418643">現在ダウンロードを実行中です。ダウンロードがキャンセルされますが、Chromium を終了してもよろしいですか？</translation>
 <translation id="9013262824292842194">Chromium のご利用には Windows Vista または Windows XP SP2 以降が必要です。</translation>
 <translation id="1967743265616885482">同じ名前のモジュールは Chromium と競合することがわかっています。</translation>
 <translation id="4224199872375172890">Chromium は最新版です。</translation>
+<translation id="374481098568514319">新しいバージョンの Chromium コンポーネントが既にインストールされています。最新のインストーラを使用してください。</translation>
+<translation id="6240281849816458190">&lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; にアクセスしようとしましたが、サーバーから提示された証明書はまだ有効になっていません。この証明書が信頼できるかどうかについて確認できる情報はありません。Chromium では、悪意のあるユーザーでなく &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; と確かに通信していることを保証することはできません。お使いのパソコンの時刻は現在、<ph name="CURRENT_TIME"/> に設定されています。時刻が正しくない場合は、システムの時刻を修正してからこのページを更新してください。</translation>
 <translation id="5498103559159810756">Chromium は既定の検索エンジンを使用します。現在は <ph name="PAGE_TITLE"/> に設定されています。この検索エンジンを使用しますか？</translation>
 <translation id="5862307444128926510">Chromium へようこそ</translation>
 <translation id="1622565934590470080">新しいバージョンの Chromium と Chromium Frame が既にインストールされています。ソフトウェアが動作しない場合は、Chromium と Chromium Frame をアンインストールしてからもう一度お試しください。</translation>

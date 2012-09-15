@@ -47,6 +47,7 @@ Pritisnite Shift in tipko za iskanje, da jo prekličete.</translation>
 <translation id="1895658205118569222">Zaprt</translation>
 <translation id="4430019312045809116">Glasnost</translation>
 <translation id="1383876407941801731">Iskanje</translation>
+<translation id="2204305834655267233">Podatki o omrežju</translation>
 <translation id="5980301590375426705">Zapusti sejo gosta</translation>
 <translation id="8308637677604853869">Prejšnji meni</translation>
 <translation id="1346748346194534595">V desno</translation>
@@ -61,20 +62,28 @@ Pritisnite Shift in tipko za iskanje, da jo prekličete.</translation>
 <translation id="3784455785234192852">Zakleni</translation>
 <translation id="2805756323405976993">Google Apps</translation>
 <translation id="2482878487686419369">Obvestila</translation>
+<translation id="1850504506766569011">Wi-Fi je izklopljen.</translation>
 <translation id="2872961005593481000">Zaustavitev</translation>
 <translation id="7052914147756339792">Nastavi sliko za ozadje ...</translation>
+<translation id="5746825509052394497">Način vnosa se je spremenil v <ph name="INPUT_METHOD_ID"/>.
+        Pritisnite Shift + Alt, da ga preklopite.</translation>
 <translation id="1602076796624386989">Omogoči mobilno podatkovno povezavo</translation>
 <translation id="3157931365184549694">Obnovi</translation>
 <translation id="8573351908869164327">Še <ph name="HOUR"/> h <ph name="MINUTE"/> min</translation>
 <translation id="7029814467594812963">Zapusti sejo</translation>
+<translation id="8454013096329229812">Wi-Fi je vklopljen.</translation>
 <translation id="2983818520079887040">Nastavitve ...</translation>
 <translation id="2712866615167520691">Funkcije za ljudi s posebnimi potrebami so omogočene. Pritisnite Ctrl + Alt + Z za preklic.</translation>
 <translation id="8660803626959853127">Sinhroniziranje toliko datotek: <ph name="COUNT"/> ...</translation>
+<translation id="1837166567415282700">Način vnosa se je spremenil v <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>drug ponudnik<ph name="END_LINK"/>).
+         Pritisnite Shift + Alt, da ga preklopite.</translation>
 <translation id="639644700271529076">Tipka CAPS LOCK je izklopljena</translation>
 <translation id="4864165860509564259">Položaj zaganjalnika</translation>
 <translation id="7649070708921625228">Pomoč</translation>
 <translation id="397105322502079400">Izračunavanje ...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Ni novih obvestil. Brez skrbi!</translation>
+<translation id="7457942297256758195">Izbriši vse</translation>
 <translation id="7871882211137875558">Pridružite se drugemu ...</translation>
 <translation id="3573179567135747900">Spremeni nazaj v jezik »<ph name="FROM_LOCALE"/>« (potreben vnovični zagon)</translation>
 <translation id="8103386449138765447">Sporočila SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -83,6 +92,7 @@ Pritisnite Shift in tipko za iskanje, da jo prekličete.</translation>
 <translation id="5941711191222866238">Pomanjšajte</translation>
 <translation id="9169585155162064169">Tipka CAPS LOCK je vklopljena.
 Pritisnite tipko za iskanje, da jo prekličete</translation>
+<translation id="6843725295806269523">nemo</translation>
 <translation id="412065659894267608"><ph name="HOUR"/> h <ph name="MINUTE"/> min do napolnjenosti</translation>
 <translation id="4469842253116033348">Onemogoči obvestila spletnega mesta <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS od <ph name="PHONE_NUMBER"/></translation>

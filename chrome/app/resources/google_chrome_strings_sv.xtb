@@ -13,6 +13,7 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="3454512769850953877">Ja, avsluta Chrome</translation>
 <translation id="386202838227397562">Stäng alla Google Chrome-fönster och försök igen.</translation>
 <translation id="2770231113462710648">Ändra standardwebbläsare till:</translation>
+<translation id="741045321678647133">Appvärd för Google Chrome</translation>
 <translation id="7400722733683201933">Om Google Chrome</translation>
 <translation id="1065672644894730302">Det går inte att läsa inställningarna.
 
@@ -30,6 +31,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="1872436416934435136">Google Chrome uppdateras inte längre eftersom operativsystemet är inaktuellt.</translation>
 <translation id="5339639696978861456">Chrome Frame har uppdaterats. Starta om webbläsaren. Version av Chrome: <ph name="TODO_0001"/>, version av Chrome Frame: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Användarvillkor</translation>
+<translation id="5775197990071433230">Datorn har redan en nyare version av komponenterna för Google Chrome. Använd ett nyare installationsprogram.</translation>
 <translation id="8398145039500709259">Vill du synkronisera allt du har i Chrome med det här Google-kontot?</translation>
 <translation id="1779550429052479749">Det finns en annan installation av Google Chrome eller Google Chrome Frame på datorn. Avinstallera den och försök igen.</translation>
 <translation id="3555616473548901994">Avinstallation slutförd.</translation>
@@ -60,6 +62,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="3089968997497233615">Det finns en ny, ännu säkrare version av Google Chrome.</translation>
 <translation id="5037239767309817516">Stäng alla fönster i Google Chrome och starta om så att ändringen genomförs.</translation>
 <translation id="7451721381978275812">Ogiltiga argument. Google Chrome Frame kan inte installeras i klarläge utan att Google Chrome också installeras.</translation>
+<translation id="8684521613357479262">Du försökte öppna &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, men servern visade ett certifikat som inte är giltigt ännu. Det finns ingen information som anger om certifikatet är tillförlitligt. Chromium kan inte garantera att du kommunicerar med &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; och inte en angripare. Datorns klocka är inställd på <ph name="CURRENT_TIME"/>. Ser det rätt ut? Om det inte gör det bör du korrigera klockan och uppdatera sidan.</translation>
 <translation id="4585888816441913908">Datorn har redan en mer aktuell version av Google Chrome och Google Chrome Frame. Om programmet inte fungerar avinstallerar du både Google Chrome och Google Chrome Frame och försöker igen.</translation>
 <translation id="6368958679917195344">Chrome OS fungerar tack vare <ph name="BEGIN_LINK_CROS_OSS"/>öppen källkod<ph name="END_LINK_CROS_OSS"/>.</translation>
 <translation id="7459554271817304652">Ställ in synkronisering och spara dina anpassade webbläsarfunktioner på Internet så att du kan använda dem i Google Chrome på vilken dator som helst.</translation>
@@ -95,6 +98,7 @@ Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog om d
 <translation id="7062966102157262887">En hämtning pågår. Vill du avsluta Google Chrome och avbryta hämtningen?</translation>
 <translation id="4273752058983339720">Google Chrome är konfigurerad för att starta automatiskt när du startar datorn.</translation>
 <translation id="1104959162601287462">Om &amp;Chrome OS</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Använd Google Chrome som standardwebbläsare</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">I Google Chrome kan du klicka på ett telefonnummer på nätet och ringa det med Skype!</translation>
@@ -116,6 +120,7 @@ Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog om d
 <translation id="5318056482164160049">Plugin-värd för Google Chrome</translation>
 <translation id="5699533844376998780">Tillägget <ph name="EXTENSION_NAME"/> har lagts till.</translation>
 <translation id="6126631249883707068">Vill du att Google Chrome ska spara ditt lösenord?</translation>
+<translation id="7773845170078702898">Vill du att Google Chrome sparar lösenordet för den här webbplatsen?</translation>
 <translation id="5046764976540625289">Avsluta Chrome</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Det går inte att skapa en genväg till programmet i Google Chrome eftersom den aktuella skrivbordsmiljön inte kan fastställas.</translation>

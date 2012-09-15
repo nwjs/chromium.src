@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">未知错误导致安装失败。如果 Chromium 正在运行，请将其关闭，然后重试。</translation>
 <translation id="2589479092236095792">Chromium 自动填充设置</translation>
 <translation id="3555616473548901994">卸载已完成。</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">可选：将使用情况统计信息和崩溃报告自动发送给 Google，帮助我们完善 Chromium。</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">您尝试访问的是 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;，但服务器出示的证书包含错误。Chromium 无法使用有错误的证书，也无法验证所尝试连接的网站的身份。</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">未发现所安装的 Chromium 或 Chromium 内嵌框架有任何更新。</translation>
 <translation id="3197823471738295152">您的设备已更新到最新版本。</translation>
 <translation id="8551886023433311834">即将更新到最新版本！请重新启动您的设备，以完成更新。</translation>
+<translation id="8353224596138547809">您希望 Chromium 保存您在此网站上使用的密码吗？</translation>
 <translation id="4124681358536363708">Chromium 的安装目录似乎正在使用中。请重新启动计算机并重试。</translation>
 <translation id="8770560772173120024">Chromium 正在导入收藏夹/书签。</translation>
 <translation id="6290315939897260265">未在 Chromium 中使用。该占位符用于在同步中保留资源映射。</translation>
@@ -127,11 +129,14 @@
 <translation id="8616882682724010661">了解登录 Chromium 的<ph name="BEGIN_LINK"/>更多优势<ph name="END_LINK"/>。</translation>
 <translation id="378917192836375108">您可以在 Chromium 中点击网上的电话号码，然后通过 Skype 拨打！</translation>
 <translation id="8724049448828509830">正在进行一项下载。您希望退出 Chromium 并取消该下载吗？</translation>
+<translation id="3360567213983886831">Chromium 二进制文件</translation>
 <translation id="7503101070699687603">Chromium 插件主程序</translation>
 <translation id="2739631515503418643">正在进行多项下载。您希望退出 Chromium 并取消这些下载吗？</translation>
 <translation id="9013262824292842194">Chromium 要求操作系统为 Windows Vista，或者 Windows XP SP2 或更高版本。</translation>
 <translation id="1967743265616885482">已发现一个同名的模块与 Chromium 存在冲突。</translation>
 <translation id="4224199872375172890">Chromium 已是最新版本。</translation>
+<translation id="374481098568514319">该计算机已经安装了更高版本的 Chromium 组件。请使用更高版本的安装程序。</translation>
+<translation id="6240281849816458190">您尝试访问 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;，但服务器出示的证书尚未生效。没有任何信息可表明该证书是否可信。Chromium 无法准确保证与您通信的是 &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; 而不是攻击者。您计算机时钟的当前时间为 <ph name="CURRENT_TIME"/>。该时间是否准确？如果不准确，您可以更正系统上的时钟并刷新此网页。</translation>
 <translation id="5498103559159810756">Chromium 会使用您的默认搜索引擎（目前设置为<ph name="PAGE_TITLE"/>）。要保留默认搜索引擎吗？</translation>
 <translation id="5862307444128926510">欢迎使用 Chromium</translation>
 <translation id="1622565934590470080">此计算机已安装了更高版本的 Chromium 和 Chromium 内嵌框架。如果软件无法正常运行，请卸载 Chromium 和 Chromium 内嵌框架并重试。</translation>

@@ -47,6 +47,7 @@ Ak ju chcete vypnúť, stlačte kláves Shift + kláves vyhľadávania.</transla
 <translation id="1895658205118569222">Vypnúť</translation>
 <translation id="4430019312045809116">Hlasitosť</translation>
 <translation id="1383876407941801731">Vyhľadávanie</translation>
+<translation id="2204305834655267233">Informácie o sieti</translation>
 <translation id="5980301590375426705">Ukončiť reláciu hosťa</translation>
 <translation id="8308637677604853869">Predchádzajúca ponuka</translation>
 <translation id="1346748346194534595">Doprava</translation>
@@ -61,21 +62,29 @@ Ak ju chcete vypnúť, stlačte kláves Shift + kláves vyhľadávania.</transla
 <translation id="3784455785234192852">Uzamknúť</translation>
 <translation id="2805756323405976993">Aplikácie</translation>
 <translation id="2482878487686419369">Upozornenia</translation>
+<translation id="1850504506766569011">Pripojenie Wi-Fi je vypnuté.</translation>
 <translation id="2872961005593481000">Vypnúť</translation>
 <translation id="7052914147756339792">Nastavenie tapety...</translation>
+<translation id="5746825509052394497">Metóda vstupu sa zmenila na <ph name="INPUT_METHOD_ID"/>.
+        Prepnite ju stlačením klávesov Shift + Alt.</translation>
 <translation id="1602076796624386989">Povoliť mobilné dátové pripojenie</translation>
 <translation id="3157931365184549694">Obnoviť</translation>
 <translation id="8573351908869164327">Zostáva <ph name="HOUR"/>h <ph name="MINUTE"/>min</translation>
 <translation id="7029814467594812963">Ukončiť reláciu</translation>
+<translation id="8454013096329229812">Pripojenie Wi-Fi je zapnuté.</translation>
 <translation id="2983818520079887040">Nastavenia...</translation>
 <translation id="2712866615167520691">Funkcie zjednodušenia ovládania sú povolené.
 Ak ich chcete zrušiť, stlačte kombináciu klávesov Ctrl+Alt+Z.</translation>
 <translation id="8660803626959853127">Synchronizácia súborov (<ph name="COUNT"/>)</translation>
+<translation id="1837166567415282700">Metóda vstupu sa zmenila na <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>tretia strana<ph name="END_LINK"/>).
+        Prepnite ju stlačením klávesov Shift + Alt.</translation>
 <translation id="639644700271529076">CAPS LOCK je vypnutý</translation>
 <translation id="4864165860509564259">Pozícia spúťača</translation>
 <translation id="7649070708921625228">Pomocník</translation>
 <translation id="397105322502079400">Prebieha výpočet...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">V pohode, nemáte žiadne upozornenia.</translation>
+<translation id="7457942297256758195">Vymazať všetky</translation>
 <translation id="7871882211137875558">Pripojiť k ďalšej ...</translation>
 <translation id="3573179567135747900">Zmeniť späť na miestne nastavenie „<ph name="FROM_LOCALE"/>“ (vyžaduje sa reštart)</translation>
 <translation id="8103386449138765447">Správy SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -84,6 +93,7 @@ Ak ich chcete zrušiť, stlačte kombináciu klávesov Ctrl+Alt+Z.</translation>
 <translation id="5941711191222866238">Minimalizovať</translation>
 <translation id="9169585155162064169">Funkcia CAPS LOCK je zapnutá.
 Vypnete ju stlačením klávesu vyhľadávania.</translation>
+<translation id="6843725295806269523">stlmiť</translation>
 <translation id="412065659894267608"><ph name="HOUR"/>h <ph name="MINUTE"/>min do nabitia</translation>
 <translation id="4469842253116033348">Zakázať upozornenia z webových stránok <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS z č. <ph name="PHONE_NUMBER"/></translation>

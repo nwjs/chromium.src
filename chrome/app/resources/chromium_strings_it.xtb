@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Installazione non riuscita a causa di un errore imprecisato. Se Chromium è in esecuzione, chiudilo e riprova.</translation>
 <translation id="2589479092236095792">Impostazioni di Compilazione automatica Chromium</translation>
 <translation id="3555616473548901994">Disinstallazione completa.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">Facoltativo: aiutaci a migliorare Chromium inviando automaticamente a Google statistiche sull'utilizzo e rapporti sugli arresti anomali.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">Hai tentato di visitare &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; ma il certificato presentato dal server contiene degli errori. Chromium non può utilizzare un certificato in cui sono presenti errori e non è in grado di convalidare l'identità del sito a cui hai tentato di accedere.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Impossibile trovare un'installazione di Chromium o Chromium Frame da aggiornare.</translation>
 <translation id="3197823471738295152">Il dispositivo è aggiornato.</translation>
 <translation id="8551886023433311834">Aggiornamento quasi completato. Riavvia il dispositivo per terminare l'aggiornamento.</translation>
+<translation id="8353224596138547809">Vuoi che Chromium salvi la password per questo sito?</translation>
 <translation id="4124681358536363708">Sembra che la directory di installazione di Chromium sia in uso. Riavvia il computer e riprova.</translation>
 <translation id="8770560772173120024">Chromium sta importando i Preferiti/Segnalibri.</translation>
 <translation id="6290315939897260265">Non utilizzato in Chromium. Segnaposto per tenere sincronizzate le mappe delle risorse.</translation>
@@ -127,11 +129,14 @@ Alcune funzioni potrebbero non essere disponibili. Specifica un'altra directory 
 <translation id="8616882682724010661">Scopri <ph name="BEGIN_LINK"/>altri vantaggi<ph name="END_LINK"/> dell'accesso a Chromium.</translation>
 <translation id="378917192836375108">Chromium ti consente di fare clic su un numero di telefono sul Web e di chiamarlo con Skype.</translation>
 <translation id="8724049448828509830">È in corso un download. Vuoi uscire da Chromium e annullare il download?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Host plug-in Chromium</translation>
 <translation id="2739631515503418643">Sono in corso dei download. Vuoi uscire da Chromium e annullare i download?</translation>
 <translation id="9013262824292842194">Chromium richiede Windows Vista o Windows XP con SP2 o versioni successive.</translation>
 <translation id="1967743265616885482">Un modulo con lo stesso nome risulta in conflitto con Chromium.</translation>
 <translation id="4224199872375172890">Chromium è aggiornato.</translation>
+<translation id="374481098568514319">Questo computer ha già una versione più recente dei componenti di Chromium. Utilizza un programma di installazione più recente.</translation>
+<translation id="6240281849816458190">Hai tentato di visitare &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, ma il server ha presentato un certificato non ancora valido. Non sono disponibili informazioni che consentano di stabilire se il certificato può essere considerato attendibile. Chromium non può garantire con certezza che tu stia comunicando con &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; e non con un malintenzionato. Al momento l'orologio del tuo computer è impostato su <ph name="CURRENT_TIME"/>. È giusto? In caso contrario, dovresti correggere l'orologio di sistema e aggiornare la pagina.</translation>
 <translation id="5498103559159810756">Chromium utilizza il tuo motore di ricerca predefinito, che al momento è <ph name="PAGE_TITLE"/>. Vuoi mantenere il motore di ricerca predefinito?</translation>
 <translation id="5862307444128926510">Benvenuto in Chromium</translation>
 <translation id="1622565934590470080">Questo computer ha già una versione più recente di Chromium e Chromium Frame. Se il software non funziona, disinstalla Chromium e Chromium Frame e riprova.</translation>

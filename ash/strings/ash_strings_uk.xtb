@@ -47,6 +47,7 @@
 <translation id="1895658205118569222">Завершення роботи</translation>
 <translation id="4430019312045809116">Гучність</translation>
 <translation id="1383876407941801731">Пошук</translation>
+<translation id="2204305834655267233">Інформація мережі</translation>
 <translation id="5980301590375426705">Завершити сеанс у режимі гостя</translation>
 <translation id="8308637677604853869">Попереднє меню</translation>
 <translation id="1346748346194534595">Праворуч</translation>
@@ -61,20 +62,28 @@
 <translation id="3784455785234192852">Заблокувати</translation>
 <translation id="2805756323405976993">Програми</translation>
 <translation id="2482878487686419369">Сповіщення</translation>
+<translation id="1850504506766569011">Wi-Fi вимкнено.</translation>
 <translation id="2872961005593481000">Завершити роботу</translation>
 <translation id="7052914147756339792">Установити фоновий малюнок...</translation>
+<translation id="5746825509052394497">Метод введення змінено на <ph name="INPUT_METHOD_ID"/>.
+        Натисніть Shift + Alt, щоб переключитися.</translation>
 <translation id="1602076796624386989">Увімкнути передавання мобільних даних</translation>
 <translation id="3157931365184549694">Відновити</translation>
 <translation id="8573351908869164327">Залишилося <ph name="HOUR"/> год. <ph name="MINUTE"/> хв.</translation>
 <translation id="7029814467594812963">Завершити сеанс</translation>
+<translation id="8454013096329229812">Wi-Fi увімкнено.</translation>
 <translation id="2983818520079887040">Налаштування...</translation>
 <translation id="2712866615167520691">Функції доступності ввімкнено. Натисніть Ctrl+Alt+Z, щоб скасувати.</translation>
 <translation id="8660803626959853127">Синхронізація файлів (<ph name="COUNT"/>)</translation>
+<translation id="1837166567415282700">Метод введення змінено на <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>третьої сторони<ph name="END_LINK"/>).
+        Натисніть Shift + Alt, щоб переключитися.</translation>
 <translation id="639644700271529076">Режим CAPS LOCK вимкнено</translation>
 <translation id="4864165860509564259">Положення панелі запуску</translation>
 <translation id="7649070708921625228">Довідка</translation>
 <translation id="397105322502079400">Обчислення...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">У вас немає сповіщень. Зробіть перепочинок!</translation>
+<translation id="7457942297256758195">Очистити все</translation>
 <translation id="7871882211137875558">Під’єднатися до іншої...</translation>
 <translation id="3573179567135747900">Повернутися до мови &quot;<ph name="FROM_LOCALE"/>&quot; (потрібно перезавантажитися)</translation>
 <translation id="8103386449138765447">SMS повідомлень: <ph name="MESSAGE_COUNT"/></translation>
@@ -83,6 +92,7 @@
 <translation id="5941711191222866238">Зменшити</translation>
 <translation id="9169585155162064169">CAPS LOCK увімкнено.
 Натисніть клавішу пошуку, щоб скасувати.</translation>
+<translation id="6843725295806269523">вимкнути звук</translation>
 <translation id="412065659894267608"><ph name="HOUR"/> год. <ph name="MINUTE"/> хв. до повного зарядження</translation>
 <translation id="4469842253116033348">Вимкнути сповіщення від <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS-повідомлення від <ph name="PHONE_NUMBER"/></translation>

@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Có, thoát Chrome</translation>
 <translation id="386202838227397562">Vui lòng đóng tất cả cửa sổ của Google Chrome và thử lại.</translation>
 <translation id="2770231113462710648">Thay đổi trình duyệt mặc định thành:</translation>
+<translation id="741045321678647133">Google Chrome App Host</translation>
 <translation id="7400722733683201933">Giới thiệu về Google Chrome</translation>
 <translation id="1065672644894730302">Không thể đọc tùy chọn của bạn. Một số tính năng có thể không khả dụng và các thay đổi đối với tùy chọn sẽ không được lưu.</translation>
 <translation id="7781002470561365167">Hiện đã có phiên bản mới của Google Chrome.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Google Chrome không còn được cập nhật vì hệ điều hành của bạn đã lỗi thời.</translation>
 <translation id="5339639696978861456">Chrome Frame đã được cập nhật. Vui lòng khởi chạy lại trình duyệt của bạn. Phiên bản Chrome: <ph name="TODO_0001"/>, phiên bản Chrome Frame: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Điều khoản Dịch vụ</translation>
+<translation id="5775197990071433230">Máy tính này đã có phiên bản mới hơn của các cấu phần Google Chrome. Vui lòng sử dụng một trình cài đặt mới hơn.</translation>
 <translation id="8398145039500709259">Sử dụng tài khoản Google này để đồng bộ hóa tất cả nội dung trên Chrome của bạn?</translation>
 <translation id="1779550429052479749">Đã phát hiện cài đặt Google Chrome hoặc Google Chrome Frame xung đột trên hệ thống. Vui lòng gỡ cài đặt và thử lại.</translation>
 <translation id="3555616473548901994">Quá trình gỡ cài đặt đã hoàn tất.</translation>
@@ -56,6 +58,7 @@
 <translation id="3089968997497233615">Đã có phiên bản Google Chrome mới và an toàn hơn.</translation>
 <translation id="5037239767309817516">Hãy đóng tất cả các cửa sổ Google Chrome và khởi chạy lại Google Chrome để thay đổi này có hiệu lực.</translation>
 <translation id="7451721381978275812">Đối số không hợp lệ. Không thể cài đặt Google Chrome Frame ở chế độ sẵn sàng nếu như không đồng thời cài Google Chrome.</translation>
+<translation id="8684521613357479262">Bạn đã cố gắng truy cập vào &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; nhưng máy chủ lại đưa ra một chứng chỉ chưa hợp lệ. Không có thông tin nào có sẵn cho biết liệu chứng chỉ có đáng tin cậy hay không. Google Chrome không thể đảm bảo một cách chắc chắn rằng bạn đang kết nối với &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; chứ không phải với kẻ tấn công. Đồng hồ trên máy tính của bạn hiện được đặt thành <ph name="CURRENT_TIME"/>. Thời gian như vậy có đúng không? Nếu không, bạn phải chỉnh lại đồng hồ của hệ thống, sau đó làm mới trang này.</translation>
 <translation id="4585888816441913908">Máy tính này đã có phiên bản mới hơn của Google Chrome và Google Chrome Frame. Nếu phần mềm này không hoạt động, vui lòng gỡ cài đặt cả Google Chrome và Google Chrome Frame rồi thử lại.</translation>
 <translation id="6368958679917195344">Chrome OS trở nên khả thi là nhờ <ph name="BEGIN_LINK_CROS_OSS"/>phần mềm nguồn mở<ph name="END_LINK_CROS_OSS"/> bổ sung.</translation>
 <translation id="7459554271817304652">Thiết lập đồng bộ hóa để lưu các tính năng trình duyệt được cá nhân hóa của bạn vào web và truy cập chúng từ Google Chrome trên bất kỳ máy tính nào.</translation>
@@ -91,6 +94,7 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="7062966102157262887">Quá trình tải xuống hiện đang diễn ra. Bạn có muốn thoát Google Chrome và hủy tải xuống không?</translation>
 <translation id="4273752058983339720">Google Chrome được định cấu hình để tự động khởi chạy khi bạn khởi động máy tính của mình.</translation>
 <translation id="1104959162601287462">Giới thiệu về &amp;hệ điều hành Chrome</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Chọn Google Chrome làm trình duyệt mặc định</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome cho phép bạn nhấp vào số điện thoại trên web và gọi tới số đó bằng Skype!</translation>
@@ -112,6 +116,7 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="5318056482164160049">Máy chủ lưu trữ Trình cắm của Google Chrome</translation>
 <translation id="5699533844376998780">Đã thêm tiện ích mở rộng &quot;<ph name="EXTENSION_NAME"/>&quot;.</translation>
 <translation id="6126631249883707068">Bạn có muốn Google Chrome lưu mật khẩu không?</translation>
+<translation id="7773845170078702898">Bạn có muốn Google Chrome lưu mật khẩu của bạn cho trang web này không?</translation>
 <translation id="5046764976540625289">Thoát khỏi Chrome</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Google Chrome không thể tạo lối tắt ứng dụng do Google Chrome không thể xác định môi trường màn hình hiện tại.</translation>

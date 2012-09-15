@@ -46,6 +46,7 @@
 <translation id="1895658205118569222">Cierre</translation>
 <translation id="4430019312045809116">Volumen</translation>
 <translation id="1383876407941801731">Buscar</translation>
+<translation id="2204305834655267233">Información de red</translation>
 <translation id="5980301590375426705">Salir de la sesión de invitado</translation>
 <translation id="8308637677604853869">Menú anterior</translation>
 <translation id="1346748346194534595">Derecha</translation>
@@ -58,22 +59,30 @@
 <translation id="8814190375133053267">Wi-Fi</translation>
 <translation id="1398853756734560583">Maximizar</translation>
 <translation id="3784455785234192852">Bloquear</translation>
-<translation id="2805756323405976993">Google Apps</translation>
+<translation id="2805756323405976993">Aplicaciones</translation>
 <translation id="2482878487686419369">Notificaciones</translation>
+<translation id="1850504506766569011">Wi-Fi desactivada</translation>
 <translation id="2872961005593481000">Cerrar</translation>
 <translation id="7052914147756339792">Establecer fondo de pantalla...</translation>
+<translation id="5746825509052394497">Tu método de introducción ha cambiado a <ph name="INPUT_METHOD_ID"/>.
+        Para modificarlo, presiona Shift + Alt.</translation>
 <translation id="1602076796624386989">Habilitar datos de dispositivos móviles</translation>
 <translation id="3157931365184549694">Restaurar</translation>
 <translation id="8573351908869164327"><ph name="HOUR"/> h y <ph name="MINUTE"/> min restantes</translation>
 <translation id="7029814467594812963">Salir de la sesión</translation>
+<translation id="8454013096329229812">Wi-Fi activada</translation>
 <translation id="2983818520079887040">Configuración...</translation>
 <translation id="2712866615167520691">Se habilitaron las funciones de accesibilidad. Presiona Ctrl+Alt+Z para cancelar.</translation>
 <translation id="8660803626959853127">Sincronizando <ph name="COUNT"/> archivo(s)</translation>
+<translation id="1837166567415282700">Tu método de introducción ha cambiado a <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>de un tercero<ph name="END_LINK"/>).
+        Para modificarlo, presiona Shift + Alt.</translation>
 <translation id="639644700271529076">El bloqueo de mayúsculas está desactivado.</translation>
 <translation id="4864165860509564259">Posición del selector</translation>
 <translation id="7649070708921625228">Ayuda</translation>
 <translation id="397105322502079400">Calculando...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">No tienes notificaciones. ¡Relájate!</translation>
+<translation id="7457942297256758195">Borrar todo</translation>
 <translation id="7871882211137875558">Conectarte a otra red...</translation>
 <translation id="3573179567135747900">Volver a &quot;<ph name="FROM_LOCALE"/>&quot; (debes reiniciar).</translation>
 <translation id="8103386449138765447">Mensajes SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -81,6 +90,7 @@
 <translation id="48607902311828362">Modo de avión</translation>
 <translation id="5941711191222866238">Minimizar</translation>
 <translation id="9169585155162064169">BLOQ MAYÚS está activado. Presiona la tecla Buscar para cancelar.</translation>
+<translation id="6843725295806269523">silencio</translation>
 <translation id="412065659894267608"><ph name="HOUR"/>h <ph name="MINUTE"/>min para completar la carga</translation>
 <translation id="4469842253116033348">Inhabilitar las notificaciones desde <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS de <ph name="PHONE_NUMBER"/></translation>

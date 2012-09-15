@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Инсталирането не бе успешно поради неизвестна грешка. Ако Chromium понастоящем се изпълнява, моля, затворете го и опитайте отново.</translation>
 <translation id="2589479092236095792">Настройки за автоматично попълване в Chromium</translation>
 <translation id="3555616473548901994">Деинсталирането завърши.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">По избор: Помогнете ни да подобрим Chromium, като автоматично изпращате на Google статистически данни за използването му и сигнали за сривове.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> – Chromium</translation>
 <translation id="1989424089625731201">Направихте опит да се свържете с/ъс &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, но предоставеният от сървъра сертификат съдържа грешки. Chromium не може да го използва и да потвърди идентичността на сайта, с който се опитахте да се свържете.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Няма намерена инсталация за актуализиране на Chromium или Chromium Frame.</translation>
 <translation id="3197823471738295152">Устройството ви е актуално.</translation>
 <translation id="8551886023433311834">Почти актуално! Рестартирайте устройството си, за да завършите актуализирането.</translation>
+<translation id="8353224596138547809">Искате ли Chromium да запази паролата ви за този сайт?</translation>
 <translation id="4124681358536363708">Изглежда, че директорията за инсталиране на Chromium се използва. Моля, рестартирайте компютъра си и опитайте отново.</translation>
 <translation id="8770560772173120024">Chromium сега импортира „Любими/Отметки“.</translation>
 <translation id="6290315939897260265">Не се използва в Chromium. Заместител, който поддържа ресурсните карти синхронизирани.</translation>
@@ -123,11 +125,14 @@
 <translation id="8616882682724010661">Вижте <ph name="BEGIN_LINK"/>още предимства<ph name="END_LINK"/> от влизането в Chromium.</translation>
 <translation id="378917192836375108">Chromium ви позволява да кликнете върху телефонен номер в мрежата и да се обадите до него със Skype!</translation>
 <translation id="8724049448828509830">Понастоящем се извършва изтегляне. Искате ли да излезете от Chromium и да го анулирате?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="2739631515503418643">Понастоящем се извършват изтегляния. Искате ли да излезете от Chromium и да ги анулирате?</translation>
 <translation id="9013262824292842194">Chromium изисква Windows Vista или Windows XP с SP2 или по-нова версия.</translation>
 <translation id="1967743265616885482">Известно е, че модул със същото име влиза в конфликт с Chromium.</translation>
 <translation id="4224199872375172890">Chromium е актуален.</translation>
+<translation id="374481098568514319">На този компютър вече има по-скорошна версия на компонентите на Chromium. Моля, използвайте по-нова инсталационна програма.</translation>
+<translation id="6240281849816458190">Направихте опит да се свържете с/ъс &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, но сървърът предостави сертификат, който още не е валиден. Няма налична информация дали този сертификат е надежден. Chromium не може да гарантира със сигурност, че комуникирате с/ъс &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, а не с извършител на атака. Понастоящем за часовника на компютъра ви е зададено: <ph name="CURRENT_TIME"/>. Правилно ли изглежда това? В противен случай трябва да поправите часовника на системата си и да опресните страницата.</translation>
 <translation id="5498103559159810756">Chromium използва търсещата ви машина по подразбиране, за която понастоящем е зададено <ph name="PAGE_TITLE"/>. Искате ли да я запазите?</translation>
 <translation id="5862307444128926510">Добре дошли в Chromium</translation>
 <translation id="1622565934590470080">На този компютър вече има по-скорошна версия на Chromium и Chromium Frame. Ако софтуерът не работи, моля, деинсталирайте Chromium и Chromium Frame и опитайте отново.</translation>

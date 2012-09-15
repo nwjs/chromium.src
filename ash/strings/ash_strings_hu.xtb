@@ -46,6 +46,7 @@
 <translation id="1895658205118569222">Kikapcsolás</translation>
 <translation id="4430019312045809116">Hangerő</translation>
 <translation id="1383876407941801731">Keresés</translation>
+<translation id="2204305834655267233">Hálózatinformáció</translation>
 <translation id="5980301590375426705">Kilépés a vendég munkamenetből</translation>
 <translation id="8308637677604853869">Előző menü</translation>
 <translation id="1346748346194534595">Jobbra</translation>
@@ -60,20 +61,28 @@
 <translation id="3784455785234192852">Zárolás</translation>
 <translation id="2805756323405976993">Programok</translation>
 <translation id="2482878487686419369">Értesítések</translation>
+<translation id="1850504506766569011">Wi-Fi kikapcsolva.</translation>
 <translation id="2872961005593481000">Leállítás</translation>
 <translation id="7052914147756339792">Háttérkép beállítása...</translation>
+<translation id="5746825509052394497">A beviteli mód a következőre változott: <ph name="INPUT_METHOD_ID"/>.
+        A váltáshoz nyomja meg a Shift + Alt billentyűkódot.</translation>
 <translation id="1602076796624386989">Mobiladatok engedélyezése</translation>
 <translation id="3157931365184549694">Visszaállítás</translation>
 <translation id="8573351908869164327"><ph name="HOUR"/> ó <ph name="MINUTE"/> p a lemerülésig</translation>
 <translation id="7029814467594812963">Kilépés a munkamenetből</translation>
+<translation id="8454013096329229812">Wi-Fi bekapcsolva.</translation>
 <translation id="2983818520079887040">Beállítások...</translation>
 <translation id="2712866615167520691">A kisegítő lehetőségek engedélyezve vannak. Ennek visszavonásához nyomja le a Ctrl+Alt+Z billentyűkombinációt.</translation>
 <translation id="8660803626959853127"><ph name="COUNT"/> fájl szinkronizálása</translation>
+<translation id="1837166567415282700">A beviteli mód a következőre változott: <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>harmadik fél<ph name="END_LINK"/>).
+        A váltáshoz nyomja meg a Shift + Alt billentyűkódot.</translation>
 <translation id="639644700271529076">A CAPS LOCK ki van kapcsolva</translation>
 <translation id="4864165860509564259">Pozíció az Indítóban</translation>
 <translation id="7649070708921625228">Súgó</translation>
 <translation id="397105322502079400">Számítás…</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Nincsenek értesítések. Lazíthat!</translation>
+<translation id="7457942297256758195">Összes törlése</translation>
 <translation id="7871882211137875558">Csatlakozás másik hálózathoz...</translation>
 <translation id="3573179567135747900">Visszatérés ehhez: &quot;<ph name="FROM_LOCALE"/>&quot; (újraindítás szükséges)</translation>
 <translation id="8103386449138765447">SMS-üzenetek: <ph name="MESSAGE_COUNT"/></translation>
@@ -82,6 +91,7 @@
 <translation id="5941711191222866238">Kicsinyítés</translation>
 <translation id="9169585155162064169">A CAPS LOCK be van kapcsolva.
 A kikapcsoláshoz nyomja meg a keresőgombot.</translation>
+<translation id="6843725295806269523">némítás</translation>
 <translation id="412065659894267608"><ph name="HOUR"/> ó <ph name="MINUTE"/> p a teljes feltöltésig</translation>
 <translation id="4469842253116033348"><ph name="SITE"/> értesítéseinek kikapcsolása</translation>
 <translation id="6359806961507272919">SMS innen: <ph name="PHONE_NUMBER"/></translation>

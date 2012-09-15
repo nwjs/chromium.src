@@ -13,6 +13,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="3454512769850953877">是，結束 Chrome</translation>
 <translation id="386202838227397562">請關閉所有 Google Chrome 視窗，並再試一次</translation>
 <translation id="2770231113462710648">將預設瀏覽器變更為：</translation>
+<translation id="741045321678647133">Google Chrome 應用程式主控中心</translation>
 <translation id="7400722733683201933">關於 Google Chrome</translation>
 <translation id="1065672644894730302">系統無法讀取您的偏好設定。部分功能可能無法使用，且系統也不會儲存任何偏好設定的變更。</translation>
 <translation id="7781002470561365167">Google Chrome 已推出新版。</translation>
@@ -28,6 +29,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="1872436416934435136">您的作業系統版本過舊，因此 Google Chrome 無法繼續更新。</translation>
 <translation id="5339639696978861456">「Chrome 內嵌框架」已更新，請重新啟動瀏覽器。Google Chrome 版本︰<ph name="TODO_0001"/>，Ghrome 內嵌框架版本︰<ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">服務條款</translation>
+<translation id="5775197990071433230">這台電腦已經有更新版本的 Google Chrome 元件，請使用較新的安裝程式。</translation>
 <translation id="8398145039500709259">使用這個 Google 帳戶同步處理所有 Chrome 內容？</translation>
 <translation id="1779550429052479749">系統在安裝 Google Chrome 或「Google Chrome 內嵌框架」時發生衝突問題，請先解除安裝，然後再試一次。</translation>
 <translation id="3555616473548901994">解除安裝已完成。</translation>
@@ -56,6 +58,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="3089968997497233615">Google Chrome 推出全新版本，安全性更勝以往。</translation>
 <translation id="5037239767309817516">為了讓這項變更生效，請關閉所有 Google Chrome 視窗，並重新啟動瀏覽器。</translation>
 <translation id="7451721381978275812">無效的引數。您必須安裝 Google Chrome，才能在就緒模式中安裝「Google Chrome 內嵌框架」。</translation>
+<translation id="8684521613357479262">您嘗試前往 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;&gt;，但伺服器提供了無效的憑證。我們沒有足夠資訊判斷憑證是否可靠，因此 Google Chrome 無法保證您的連線對象是 &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;，而非攻擊者。目前您的電腦時鐘設為 <ph name="CURRENT_TIME"/>，時間正確嗎？如果不正確，請修正錯誤並重新整理網頁。</translation>
 <translation id="4585888816441913908">這台電腦已安裝較新的 Google Chrome 和「Google Chrome 內嵌框架」版本，如果軟體無法順利運作，請解除安裝 Google Chrome 和「Google Chrome 內嵌框架」，然後再試一次。</translation>
 <translation id="6368958679917195344">Chrome 作業系統藉助了其他<ph name="BEGIN_LINK_CROS_OSS"/>開放原始碼軟體<ph name="END_LINK_CROS_OSS"/>的相關技術才得以問世。</translation>
 <translation id="7459554271817304652">設定同步處理功能，即可在網路上儲存您的個人化瀏覽器功能，並且透過任何電腦從 Google Chrome 使用這些功能。</translation>
@@ -89,6 +92,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="7062966102157262887">目前正在進行下載，您要結束 Google Chrome 並取消下載嗎？</translation>
 <translation id="4273752058983339720">已將 Google Chrome 設定為開機時自動啟動。</translation>
 <translation id="1104959162601287462">關於 Chrome 作業系統(&amp;C)</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">使用 Google Chrome 作為我的預設瀏覽器</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome 可讓您按一下網頁上的電話號碼，隨即透過 Skype 撥打電話！</translation>
@@ -110,6 +114,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="5318056482164160049">Google Chrome 外掛程式主控中心</translation>
 <translation id="5699533844376998780">已安裝「<ph name="EXTENSION_NAME"/>」擴充功能。</translation>
 <translation id="6126631249883707068">您希望 Google Chrome 儲存密碼嗎？</translation>
+<translation id="7773845170078702898">您要讓 Google Chrome 儲存您在這個網站的密碼嗎？</translation>
 <translation id="5046764976540625289">結束 Chrome</translation>
 <translation id="9039578207253536065">Google Chrome 作業工具</translation>
 <translation id="2680623880102270805">由於 Google Chrome 無法判斷目前的桌面環境，因此無法建立應用程式捷徑。</translation>

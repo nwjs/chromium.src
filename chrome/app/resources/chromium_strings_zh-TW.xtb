@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">不明錯誤導致安裝失敗。如果目前 Chromium 正在執行，請關閉 Chromium，然後再試一次。</translation>
 <translation id="2589479092236095792">Chromium 自動填入設定</translation>
 <translation id="3555616473548901994">解除安裝已完成。</translation>
+<translation id="3674409928058572366">Chromium 應用程式主控中心</translation>
 <translation id="2886012850691518054">選用：將使用統計資料及當機報告自動傳送給 Google，助我們一臂之力，讓 Chromium 更臻完美。</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">您嘗試前往 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;，但是伺服器提供的憑證含有錯誤資訊。Chromium 無法使用含有錯誤資訊的憑證，也無法驗證您要連結的網站的身分。</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">找不到任何要安裝/更新的 Chromium 或 Chromium 頁框。</translation>
 <translation id="3197823471738295152">您的裝置已更新。</translation>
 <translation id="8551886023433311834">即將完成！請重新啟動裝置以完成更新。</translation>
+<translation id="8353224596138547809">您要讓 Chromium 儲存您在這個網站的密碼嗎？</translation>
 <translation id="4124681358536363708">目前 Chromium 安裝目錄正在使用中，請重新啟動電腦，然後再試一次。</translation>
 <translation id="8770560772173120024">目前 Chromium 正在匯入我的最愛/書籤。</translation>
 <translation id="6290315939897260265">Chromium 不適用本規範。請加入預留位置，確保資源同步對應。</translation>
@@ -127,11 +129,14 @@
 <translation id="8616882682724010661">參閱登入 Chromium 可享用的<ph name="BEGIN_LINK"/>更多好處<ph name="END_LINK"/>。</translation>
 <translation id="378917192836375108">透過 Chromium，您只要按一下網路上的電話號碼，即可用 Skype 打電話！</translation>
 <translation id="8724049448828509830">目前正在進行下載，您要結束 Chromium 並取消下載嗎？</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="2739631515503418643">目前正在進行下載，您要結束 Chromium 並取消下載嗎？</translation>
 <translation id="9013262824292842194">Chromium 僅支援 Windows Vista 或 Windows XP SP2 以上版本。</translation>
 <translation id="1967743265616885482">已知相同名稱的模組會與 Chromium 衝突。</translation>
 <translation id="4224199872375172890">Chromium 目前是最新版本。</translation>
+<translation id="374481098568514319">這台電腦已經有更新版本的 Chromium 元件，請使用較新的安裝程式。</translation>
+<translation id="6240281849816458190">您嘗試前往 &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;，但伺服器提供了無效的憑證。我們沒有足夠資訊判斷憑證是否可信，因此 Chromium 無法保證您的連線對象是 &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;，而非攻擊者。目前您的電腦時鐘設為 <ph name="CURRENT_TIME"/>，時間正確嗎？如果不正確，請修正錯誤並重新整理網頁。</translation>
 <translation id="5498103559159810756">Chromium 使用的是您目前預設的搜尋引擎 (<ph name="PAGE_TITLE"/>)，您要保留預設搜尋引擎嗎?</translation>
 <translation id="5862307444128926510">歡迎使用 Chromium</translation>
 <translation id="1622565934590470080">這台電腦已安裝較新的 Chromium 和 Chromium 頁框版本。如果軟體無法順利運作，請解除安裝 Chromium 和 Chromium 頁框，然後再試一次。</translation>

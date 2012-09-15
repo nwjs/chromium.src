@@ -47,6 +47,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="1895658205118569222">Chiusura</translation>
 <translation id="4430019312045809116">Volume</translation>
 <translation id="1383876407941801731">Ricerca</translation>
+<translation id="2204305834655267233">Informazioni di rete</translation>
 <translation id="5980301590375426705">Esci da sessione Ospite</translation>
 <translation id="8308637677604853869">Menu precedente</translation>
 <translation id="1346748346194534595">Destra</translation>
@@ -61,20 +62,28 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="3784455785234192852">Blocca</translation>
 <translation id="2805756323405976993">Applicazioni</translation>
 <translation id="2482878487686419369">Notifiche</translation>
+<translation id="1850504506766569011">Wi-Fi non attivo.</translation>
 <translation id="2872961005593481000">Spegni</translation>
 <translation id="7052914147756339792">Imposta sfondo...</translation>
+<translation id="5746825509052394497">Il metodo di immissione è stato cambiato in <ph name="INPUT_METHOD_ID"/>.
+        Premi Maiusc+Alt per cambiare metodo.</translation>
 <translation id="1602076796624386989">Attiva dati mobili</translation>
 <translation id="3157931365184549694">Ripristina</translation>
 <translation id="8573351908869164327"><ph name="HOUR"/> ore e <ph name="MINUTE"/> min rimanenti</translation>
 <translation id="7029814467594812963">Esci da sessione</translation>
+<translation id="8454013096329229812">Wi-Fi attivo.</translation>
 <translation id="2983818520079887040">Impostazioni...</translation>
 <translation id="2712866615167520691">Le funzioni di accessibilità sono attive. Premi Ctrl+Alt+Z per annullare.</translation>
 <translation id="8660803626959853127">Sincronizzazione di <ph name="COUNT"/> file in corso</translation>
+<translation id="1837166567415282700">Il metodo di immissione è stato cambiato in <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>3a parte<ph name="END_LINK"/>).
+        Premi Maiusc+Alt per cambiare metodo.</translation>
 <translation id="639644700271529076">Funzione BLOC MAIUSC non attiva</translation>
 <translation id="4864165860509564259">Posizione Avvio applicazioni</translation>
 <translation id="7649070708921625228">Guida</translation>
 <translation id="397105322502079400">Calcolo in corso...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Non ci sono notifiche. Puoi rilassarti.</translation>
+<translation id="7457942297256758195">Cancella tutto</translation>
 <translation id="7871882211137875558">Connetti a un'altra...</translation>
 <translation id="3573179567135747900">Torna a &quot;<ph name="FROM_LOCALE"/>&quot; (è necessario riavviare)</translation>
 <translation id="8103386449138765447">Messaggi SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -83,6 +92,7 @@ Premi Maiusc + tasto per la ricerca per annullare.</translation>
 <translation id="5941711191222866238">Riduci a icona</translation>
 <translation id="9169585155162064169">La funzione BLOC MAIUSC è attiva.
 Premi il tasto Cerca per annullare.</translation>
+<translation id="6843725295806269523">disattiva audio</translation>
 <translation id="412065659894267608"><ph name="HOUR"/> ore e <ph name="MINUTE"/> min rimanenti al completamento della ricarica</translation>
 <translation id="4469842253116033348">Disabilita notifiche da <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS da <ph name="PHONE_NUMBER"/></translation>

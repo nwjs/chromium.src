@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Ja, afslut Chrome</translation>
 <translation id="386202838227397562">Luk alle Google Chrome-vinduer, og prøv igen.</translation>
 <translation id="2770231113462710648">Skift standardbrowser til:</translation>
+<translation id="741045321678647133">Google Chrome App Host</translation>
 <translation id="7400722733683201933">Om Google Chrome</translation>
 <translation id="1065672644894730302">Dine præferencer kan ikke læses. Visse funktioner er muligvis ikke tilgængelige, og ændringer af præferencer gemmes ikke.</translation>
 <translation id="7781002470561365167">Der er en ny version af Google Chrome til rådighed.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Google Chrome opdateres ikke længere, fordi dit operativsystem er forældet.</translation>
 <translation id="5339639696978861456">Chrome Frame er blevet opdateret. Genstart din browser. Chrome version: <ph name="TODO_0001"/>, Chrome Frame version: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Servicevilkår</translation>
+<translation id="5775197990071433230">Denne computer har allerede en nyere version af Google Chrome-komponenterne. Brug et nyere installationsprogram.</translation>
 <translation id="8398145039500709259">Vil du bruge denne Google-konto til at synkronisere alle dine ting i Chrome?</translation>
 <translation id="1779550429052479749">Der er registreret en modstridende installation af Google Chrome eller Google Chrome Frame i dit system. Du skal afinstallere denne og prøve igen.</translation>
 <translation id="3555616473548901994">Afinstallationen blev fuldført.</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Der findes en ny, sikker version af Google Chrome.</translation>
 <translation id="5037239767309817516">Luk alle vinduer i Google Chrome, og genstart, så denne ændring kan træde i kraft.</translation>
 <translation id="7451721381978275812">Ugyldige argumenter. Google Chrome Frame kan ikke installeres i klar tilstand uden installation af Google Chrome.</translation>
+<translation id="8684521613357479262">Du forsøgte at besøge &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, men serveren viste et certifikat, der endnu ikke er gyldigt. Der er ingen tilgængelige oplysninger, der indikerer, om certifikatet stammer fra en kilde, der er tillid til. Google Chrome kan ikke med sikkerhed garantere, at du kommunikerer med &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; og ikke en angriber. Uret på din computer viser i øjeblikket <ph name="CURRENT_TIME"/>. Ser det rigtigt ud? Hvis ikke, bør du rette systemuret og derefter opdatere siden.</translation>
 <translation id="4585888816441913908">Denne computer har allerede en nyere version af Google Chrome og Google Chrome Frame. Hvis softwaren ikke fungerer, skal du afinstallere både Google Chrome og Google Chrome Frame og prøve igen.</translation>
 <translation id="6368958679917195344">Chrome OS er lavet ved hjælp af <ph name="BEGIN_LINK_CROS_OSS"/>open source-software<ph name="END_LINK_CROS_OSS"/>.</translation>
 <translation id="7459554271817304652">Konfigurer synkroniseringen til at gemme dine personlige browserfunktioner på nettet, og få adgang til dem i Google Chrome på en hvilken som helst computer.</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">En download er i øjeblikket i gang. Vil du afslutte Google Chrome og annullere downloaden?</translation>
 <translation id="4273752058983339720">Google Chrome er konfigureret til at åbne automatisk, når du starter computeren.</translation>
 <translation id="1104959162601287462">Om &amp;Chrome OS</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Gør Google Chrome til din standardbrowser</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Med Google Chrome kan du klikke på et telefonnummer på nettet og ringe op til det via Skype!</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Plugin-host til Google Chrome</translation>
 <translation id="5699533844376998780">Udvidelsen &quot;<ph name="EXTENSION_NAME"/>&quot; er tilføjet.</translation>
 <translation id="6126631249883707068">Er du sikker på, at du vil have Google Chrome til at gemme din adgangskode?</translation>
+<translation id="7773845170078702898">Skal Google Chrome gemme din adgangskode til dette website?</translation>
 <translation id="5046764976540625289">Afslut Chrome</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Google Chrome kan ikke oprette en genvej til en applikation, fordi det aktuelle computermiljø ikke kan fastslås.</translation>

@@ -47,6 +47,7 @@
 <translation id="1895658205118569222">종료</translation>
 <translation id="4430019312045809116">볼륨</translation>
 <translation id="1383876407941801731">검색</translation>
+<translation id="2204305834655267233">네트워크 정보</translation>
 <translation id="5980301590375426705">손님 세션 종료</translation>
 <translation id="8308637677604853869">이전 메뉴</translation>
 <translation id="1346748346194534595">오른쪽</translation>
@@ -61,21 +62,29 @@
 <translation id="3784455785234192852">잠금</translation>
 <translation id="2805756323405976993">애플리케이션</translation>
 <translation id="2482878487686419369">알림</translation>
+<translation id="1850504506766569011">Wi-Fi가 꺼져 있습니다.</translation>
 <translation id="2872961005593481000">종료</translation>
 <translation id="7052914147756339792">배경화면 설정...</translation>
+<translation id="5746825509052394497">입력 방법이 <ph name="INPUT_METHOD_ID"/>(으)로 변경되었습니다.
+        Shift+Alt를 눌러 전환합니다.</translation>
 <translation id="1602076796624386989">모바일 데이터 사용</translation>
 <translation id="3157931365184549694">복구</translation>
 <translation id="8573351908869164327">배터리 잔여 용량 <ph name="HOUR"/>시간 <ph name="MINUTE"/>분 남음</translation>
 <translation id="7029814467594812963">세션 종료</translation>
+<translation id="8454013096329229812">Wi-Fi가 켜져 있습니다.</translation>
 <translation id="2983818520079887040">설정...</translation>
 <translation id="2712866615167520691">접근성 기능이 사용하도록 설정되었습니다.
 취소하려면 Ctrl+Alt+Z 키를 누르세요.</translation>
 <translation id="8660803626959853127">파일 <ph name="COUNT"/>개를 동기화 중</translation>
+<translation id="1837166567415282700">입력 방법이 <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>타사<ph name="END_LINK"/>)(으)로 변경되었습니다.
+        Shift+Alt를 눌러 전환합니다.</translation>
 <translation id="639644700271529076">CAPS LOCK이 꺼져 있음</translation>
 <translation id="4864165860509564259">실행기 위치</translation>
 <translation id="7649070708921625228">도움말</translation>
 <translation id="397105322502079400">계산 중...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">알림이 없습니다.</translation>
+<translation id="7457942297256758195">모두 지우기</translation>
 <translation id="7871882211137875558">다른 네트워크에 연결...</translation>
 <translation id="3573179567135747900">'<ph name="FROM_LOCALE"/>'(으)로 다시 변경(다시 시작해야 함)</translation>
 <translation id="8103386449138765447">SMS 메시지: <ph name="MESSAGE_COUNT"/>개</translation>
@@ -84,6 +93,7 @@
 <translation id="5941711191222866238">최소화</translation>
 <translation id="9169585155162064169">CAPS LOCK이 켜져 있습니다.
 취소하려면 검색 키를 누르세요.</translation>
+<translation id="6843725295806269523">음소거</translation>
 <translation id="412065659894267608">충전 완료까지 <ph name="HOUR"/>시간 <ph name="MINUTE"/>분 남음</translation>
 <translation id="4469842253116033348"><ph name="SITE"/>의 알림을 표시 안함</translation>
 <translation id="6359806961507272919"><ph name="PHONE_NUMBER"/>에서 전송된 SMS</translation>

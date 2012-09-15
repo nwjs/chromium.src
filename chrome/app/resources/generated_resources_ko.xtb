@@ -14,6 +14,12 @@
 <translation id="5028012205542821824">설치하도록 설정되어 있지 않습니다.</translation>
 <translation id="1058418043520174283"><ph name="INDEX"/>/<ph name="COUNT"/></translation>
 <translation id="4480627574828695486">계정 연결 해제...</translation>
+<translation id="2516632596252643567">&lt;p&gt;
+          여기에서 곧바로 컴퓨터에서 열어 둔 탭에 액세스할 수 있습니다.
+          &lt;/p&gt;
+          &lt;p&gt;
+          컴퓨터에서 Chrome을 열고 메뉴로 이동하여 'Chrome에 로그인...'을 선택하기만 하면 됩니다.
+          &lt;/p&gt;</translation>
 <translation id="7040807039050164757">이 입력란에서 맞춤법 검사(&amp;C)</translation>
 <translation id="778579833039460630">수신된 데이터 없음</translation>
 <translation id="32279126412636473">새로고침(⌘R)</translation>
@@ -47,6 +53,7 @@
 <translation id="8719282907381795632"><ph name="WEBSITE_1"/>의 데이터에 액세스</translation>
 <translation id="3792890930871100565">프린터 연결 해제</translation>
 <translation id="8395254168074583923"><ph name="PRODUCT_NAME"/>에서 마이크를 사용 중입니다.</translation>
+<translation id="6976652535392081960"><ph name="EMAIL"/>의 대상 표시</translation>
 <translation id="4940047036413029306">인용</translation>
 <translation id="1497897566809397301">로컬 데이터 설정 허용(권장)</translation>
 <translation id="3275778913554317645">창으로 열기</translation>
@@ -55,6 +62,7 @@
 <translation id="8867568208303837180">보내는 중...</translation>
 <translation id="509988127256758334">찾는 대상(&amp;N):</translation>
 <translation id="1420684932347524586">임의의 RSA 비공개 키를 생성하지 못했습니다.</translation>
+<translation id="7323509342138776962">마지막 동기화 시간</translation>
 <translation id="2501173422421700905">인증서 보류</translation>
 <translation id="7428534988046001922">현재 설치되어 있는 앱:</translation>
 <translation id="787386463582943251">이메일 주소 추가</translation>
@@ -78,6 +86,7 @@
 <translation id="561349411957324076">완료</translation>
 <translation id="1358267447825621237">홈페이지 변경</translation>
 <translation id="1156689104822061371">키보드 레이아웃:</translation>
+<translation id="3046651560707019780">다시 시작할 때 마지막에 사용한 프린터를 재설정합니다. 그러면 현재 프린터가 각 브라우저를 시작할 때 인쇄 미리보기를 할 수 있는 OS 기본 프린터로 바뀝니다.</translation>
 <translation id="4764776831041365478"><ph name="URL"/>의 웹페이지가 일시적으로 다운되었거나 새 웹 주소로 완전히 이동했을 수 있습니다.</translation>
 <translation id="21426568240411732"><ph name="TITLE"/>이(가) 카메라를 사용 중입니다.</translation>
 <translation id="6156863943908443225">스크립트 캐시</translation>
@@ -126,6 +135,7 @@
 <translation id="3384773155383850738">최대 제안사항 수</translation>
 <translation id="8530339740589765688">도메인을 기준으로 선택</translation>
 <translation id="8677212948402625567">모두 접기...</translation>
+<translation id="8008366997883261463">개</translation>
 <translation id="7600965453749440009"><ph name="LANGUAGE"/> 번역 안함</translation>
 <translation id="3208703785962634733">미확인</translation>
 <translation id="620329680124578183">로드하지 않음(권장)</translation>
@@ -137,6 +147,7 @@
 <translation id="7788444488075094252">언어 및 입력</translation>
 <translation id="6723354935081862304">Google 문서도구 또는 기타 클라우드 목적지로 인쇄합니다. Google 클라우드 프린트로 인쇄하려면 <ph name="BEGIN_LINK"/>로그인<ph name="END_LINK"/>하세요.</translation>
 <translation id="3602290021589620013">미리보기</translation>
+<translation id="6257035105556579916">관리 모드에서는 확장 프로그램을 수정할 수 없습니다.</translation>
 <translation id="800602641363855389"><ph name="TITLE"/>이(가) 마이크를 사용 중입니다.</translation>
 <translation id="7082055294850503883">기본적으로 CapsLock 상태를 무시하고 소문자 입력</translation>
 <translation id="4744603770635761495">실행 가능 경로</translation>
@@ -156,6 +167,7 @@
 <translation id="3626281679859535460">밝기</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="9056810968620647706">일치하는 항목이 없습니다.</translation>
+<translation id="4548003803382223821">$1 항목을 전송 중입니다.</translation>
 <translation id="2861301611394761800">시스템 업데이트가 완료되었습니다. 시스템을 다시 시작하세요.</translation>
 <translation id="4858913220355269194">축구왕</translation>
 <translation id="2231238007119540260">서버 인증서를 삭제하려면 해당 서버에 대해 일반적인 보안 확인을 복원하고 유효한 인증서를 사용해야 합니다.</translation>
@@ -164,6 +176,7 @@
 <translation id="9134410174832249455"><ph name="HOST_NAME"/>이(가) 응답하는 데 시간이 너무 오래 걸려 <ph name="PRODUCT_NAME"/>을(를) 로드할 수 없습니다. 웹사이트가 다운되었거나 인터넷 연결에 문제가 발생했을 수 있습니다.</translation>
 <translation id="7624154074265342755">무선 네트워크</translation>
 <translation id="3315158641124845231"><ph name="PRODUCT_NAME"/> 숨기기</translation>
+<translation id="7766807826975222231">둘러보기</translation>
 <translation id="1993139350008738849">앱 알림</translation>
 <translation id="1374844444528092021">네트워크 '<ph name="NETWORK_NAME"/>'에 필요한 인증서가 설치되지 않았거나 더 이상 유효하지 않습니다. 새로운 인증서를 받아 다시 연결하세요.</translation>
 <translation id="3496213124478423963">축소</translation>
@@ -176,6 +189,7 @@
 <translation id="8479177330099037753">Chrome이 파일을 다운로드하는 중에 문제가 발생했습니다.</translation>
 <translation id="7693221960936265065">전체</translation>
 <translation id="3635850706692228477">모든 <ph name="DRIVE_NAME"/>을(를) 검색</translation>
+<translation id="8892971592584563548">시작 화면에 고정</translation>
 <translation id="4135919689343081631">페이지를 HTML 전용 또는 HTML 완료로 저장할 수 없도록 설정하고, 페이지를 MHTML(HTML 및 모든 하위 리소스를 포함하는 단일 텍스트 파일)로만 저장할 수 있도록 설정합니다.</translation>
 <translation id="4920887663447894854">이 페이지에서 사용자 위치 추적이 차단된 사이트는 다음과 같습니다.</translation>
 <translation id="8133676275609324831">폴더 열기(&amp;S)</translation>
@@ -184,11 +198,14 @@
 <translation id="2465741694701051172">'작업 상자' 실험적 툴바 UI를 사용하도록 설정합니다.</translation>
 <translation id="4780321648949301421">페이지를 다른 이름으로 저장...</translation>
 <translation id="3866863539038222107">검사</translation>
+<translation id="4552678318981539154">추가 저장용량 구입</translation>
+<translation id="8806101649440495124">폴더 삭제</translation>
 <translation id="3011284594919057757">플래시 정보</translation>
 <translation id="7377169924702866686">Caps Lock이 켜져 있습니다.</translation>
 <translation id="2565670301826831948">터치패드 속도:</translation>
 <translation id="4969785127455456148">앨범</translation>
 <translation id="8178665534778830238">콘텐츠:</translation>
+<translation id="8022169082416539625">사진 가져오기</translation>
 <translation id="2610260699262139870">실제 크기(&amp;C)</translation>
 <translation id="4535734014498033861">프록시 서버가 연결에 실패했습니다.</translation>
 <translation id="558170650521898289">Microsoft Windows Hardware Driver Verification</translation>
@@ -207,9 +224,11 @@
 <translation id="8774934320277480003">상단 여백</translation>
 <translation id="1390548061267426325">일반 탭으로 열기</translation>
 <translation id="7481475534986701730">최근 방문한 사이트</translation>
+<translation id="5081055027309504756">Seccomp-BPF 샌드박스</translation>
 <translation id="2757031529886297178">FPS 카운터</translation>
 <translation id="6657585470893396449">비밀번호</translation>
 <translation id="1776883657531386793"><ph name="OID"/>: <ph name="INFO"/></translation>
+<translation id="9151034842884433218">새로운 Chrome 프로필용 사진 및 이름을 선택하세요.</translation>
 <translation id="1510030919967934016">이 페이지는 위치 추적이 차단되었습니다.</translation>
 <translation id="8848519885565996859">사용자 정의 URL 링크 프레임</translation>
 <translation id="4640525840053037973">Google 계정으로 로그인</translation>
@@ -293,6 +312,7 @@
 <translation id="3088325635286126843">이름 바꾸기(&amp;R)...</translation>
 <translation id="6979158407327259162">Google 문서함</translation>
 <translation id="6853700448789925482"><ph name="TRACK_HTML"/> 요소 사용</translation>
+<translation id="3150927491400159470">강력 새로고침</translation>
 <translation id="7531238562312180404"><ph name="PRODUCT_NAME"/>에서 확장 프로그램이 개인 데이터를 처리하는 방식을 제어하지 않기 때문에 시크릿 모드에서 모든 확장 프로그램이 사용 중지되었습니다. 개별적으로 <ph name="BEGIN_LINK"/>확장 프로그램 관리자<ph name="END_LINK"/>에 액세스하여 사용하도록 선택할 수 있습니다. .</translation>
 <translation id="5667293444945855280">악성 코드</translation>
 <translation id="8707481173455612936">공식 오디오 소스 웹페이지</translation>
@@ -340,6 +360,7 @@
 <translation id="7957054228628133943">팝업 차단 관리...</translation>
 <translation id="179767530217573436">지난 4주</translation>
 <translation id="2279770628980885996">서버가 요청을 수행하는 동안 예상치 못한 상황이 발생했습니다.</translation>
+<translation id="210116126541562594">기본적으로 차단</translation>
 <translation id="4372948949327679948">예상 <ph name="VALUE_TYPE"/> 값입니다.</translation>
 <translation id="9123413579398459698">FTP 프록시</translation>
 <translation id="1751752860232137596">실험용 부드러운 스크롤 구현을 사용합니다.</translation>
@@ -367,6 +388,7 @@
 <translation id="9050666287014529139">암호</translation>
 <translation id="5197255632782567636">인터넷</translation>
 <translation id="8787254343425541995">공유 네트워크에서 프록시 허용</translation>
+<translation id="5654926308251258726">이 사이트가 마이크를 사용하도록 허용합니다.</translation>
 <translation id="4755860829306298968">플러그인 차단 관리...</translation>
 <translation id="8879284080359814990">탭으로 표시(&amp;S)</translation>
 <translation id="7537536606612762813">필수</translation>
@@ -406,6 +428,7 @@
 <translation id="6508261954199872201">애플리케이션:<ph name="APP_NAME"/></translation>
 <translation id="5585645215698205895">아래로(&amp;D)</translation>
 <translation id="2713008223070811050">디스플레이 관리</translation>
+<translation id="5145331109270917438">수정된 날짜</translation>
 <translation id="6596816719288285829">IP 주소</translation>
 <translation id="4508265954913339219">활성화 실패</translation>
 <translation id="1884405719612801980">경험적 유형: <ph name="HEURISTIC_TYPE"/>
@@ -416,15 +439,19 @@
 <translation id="8656768832129462377">확인 안함</translation>
 <translation id="715487527529576698">중국어 간체를 초기 중국어 모드로 설정</translation>
 <translation id="6896830120821965585">Google 클라우드 프린트 서비스를 이 컴퓨터에 설치된 모든 프린터에 연결하는 백그라운드 서비스를 사용하도록 설정합니다. 이 실험실 기능을 사용하면 Google 계정으로 로그인하여 설정의 고급 설정 섹션에서 Google 클라우드 프린트 커넥터를 사용하도록 설정할 수 있습니다.</translation>
+<translation id="3999508690854143454">내 카메라 및 마이크에 사이트가 액세스할 때 확인(권장)</translation>
 <translation id="1674989413181946727">컴퓨터 전체 SSL 설정:</translation>
 <translation id="1531285811424589182">인증서 삭제 오류가 발생했습니다.</translation>
 <translation id="54609108002486618">관리</translation>
 <translation id="8703575177326907206"><ph name="DOMAIN"/>로의 연결은 암호화되지 않습니다.</translation>
+<translation id="6135622770221372891">채널 ID</translation>
 <translation id="3042282020249392540"><ph name="PRODUCT_NAME"/>(을)를 방화벽 또는 바이러스 백신 소프트웨어 설정에서 허용 프로그램으로 추가해 보세요. 이미 허용된 프로그램인 경우 허용 프로그램 목록에서 삭제한 다음 다시 추가하세요.</translation>
 <translation id="8472623782143987204">하드웨어 지원</translation>
 <translation id="8545107379349809705">정보 숨기기</translation>
 <translation id="4865571580044923428">예외 관리...</translation>
 <translation id="2526619973349913024">업데이트 상태 확인</translation>
+<translation id="3716615839203649375">허용</translation>
+<translation id="4559767610552730302">흐리게 처리</translation>
 <translation id="3874070094967379652">동기화 암호를 사용하여 내 데이터 암호화</translation>
 <translation id="6500116422101723010">서버에서 현재 요청을 처리할 수 없습니다. 이 코드는 이 문제가 임시로 발생했으며 잠시 뒤에 복구된다는 것을 나타냅니다.</translation>
 <translation id="1644574205037202324">방문 기록</translation>
@@ -438,6 +465,7 @@
 <translation id="5941343993301164315"><ph name="TOKEN_NAME"/>에 로그인하세요.</translation>
 <translation id="1916935104118658523">이 플러그인 숨기기</translation>
 <translation id="1046059554679513793">이미 사용 중인 이름입니다.</translation>
+<translation id="3887847548716051874">이 사이트가 마이크와 카메라를 사용하도록 허용합니다.</translation>
 <translation id="2886862922374605295">하드웨어:</translation>
 <translation id="4497097279402334319">네트워크에 연결하지 못했습니다.</translation>
 <translation id="7342729285348293164">Google 계정으로 <ph name="PRODUCT_NAME"/>에 로그인하면 맞춤설정된 브라우저 기능을 웹에 저장하고 어느 컴퓨터에서나 <ph name="PRODUCT_NAME"/>에서 해당 기능에 액세스할 수 있습니다. 또한 자동으로 즐겨찾는 Google 서비스로 로그인됩니다.</translation>
@@ -597,6 +625,8 @@
 <translation id="2149850907588596975">비밀번호 및 양식</translation>
 <translation id="1445572445564823378">이 확장 프로그램은 <ph name="PRODUCT_NAME"/>의 성능을 저하시킵니다. <ph name="PRODUCT_NAME"/>의 성능을 복원하려면 확장 프로그램을 사용중지해야 합니다.</translation>
 <translation id="7500424997253660722">제한된 풀</translation>
+<translation id="1317109798441252898">데이터가 Windows 8에서는 다르게 처리됩니다.
+        <ph name="BEGIN_LINK"/>자세히 알아보기<ph name="END_LINK"/></translation>
 <translation id="657402800789773160">페이지 새로고침(&amp;R)</translation>
 <translation id="6163363155248589649">보통(&amp;N)</translation>
 <translation id="2399147786307302860">고급 동기화 설정...</translation>
@@ -648,7 +678,9 @@
 <translation id="3467848195100883852">자동 맞춤법 검사 사용</translation>
 <translation id="1336254985736398701">페이지 정보 보기(&amp;I)</translation>
 <translation id="5039440886426314758">이 앱과 확장 프로그램을 설치하시겠습니까?</translation>
+<translation id="5612400071471722862">포인터 잠금</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP"/>.html</translation>
+<translation id="4447481707498660822">'내 사진'에 액세스하는 중에 오류가 발생했습니다.</translation>
 <translation id="2120194937135899861">창 4 활성화</translation>
 <translation id="6828153365543658583">로그인할 수 있는 사용자 설정:</translation>
 <translation id="1652965563555864525">음소거(&amp;M)</translation>
@@ -667,6 +699,7 @@
 <translation id="5279600392753459966">모두 차단</translation>
 <translation id="6846298663435243399">로드 중...</translation>
 <translation id="5723508132121499792">실행 중인 백그라운드 앱 없음</translation>
+<translation id="474421578985060416">사용자에 의해 차단</translation>
 <translation id="7392915005464253525">닫은 탭 다시 열기(&amp;E)</translation>
 <translation id="7376443945512294291">열린 탭 동기화 사용</translation>
 <translation id="6677037229676347494">ID로 '<ph name="EXPECTED_ID"/>'을(를) 예상했으나 '<ph name="NEW_ID"/>'이(가) 표시되었습니다.</translation>
@@ -683,6 +716,7 @@
 <translation id="6039651071822577588">네트워크 속성 사전 형식이 잘못되었습니다.</translation>
 <translation id="8772559521634908780">새 확장 프로그램 확인</translation>
 <translation id="4022426551683927403">사전에 추가(&amp;A)</translation>
+<translation id="5639549361331209298">옵션을 더 보려면 이 페이지를 새로고친 다음 누르기</translation>
 <translation id="8746186801649380860">예, 동기화합니다.</translation>
 <translation id="2897878306272793870"><ph name="TAB_COUNT"/>개 탭을 여시겠습니까?</translation>
 <translation id="312759608736432009">기기 제조업체:</translation>
@@ -767,6 +801,7 @@
 <translation id="6535758682390046055"><ph name="PLUGIN_NAME"/> 다운로드가 취소되었습니다.</translation>
 <translation id="7267955541478798371">탭 파비콘 동기화를 사용하도록 설정합니다.</translation>
 <translation id="2738771556149464852">만료:</translation>
+<translation id="2325650632570794183">이 파일 형식은 지원되지 않습니다. Chrome 웹 스토어에서 이 파일 형식을 열 수 있는 앱을 검색하세요.</translation>
 <translation id="5774515636230743468">매니페스트:</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7474889694310679759">캐나다 영어 키보드</translation>
@@ -777,6 +812,7 @@
 <translation id="6839929833149231406">지역</translation>
 <translation id="9068931793451030927">경로:</translation>
 <translation id="283278805979278081">사진 찍기</translation>
+<translation id="6111974609785983504">기본적으로 허용</translation>
 <translation id="7320906967354320621">대기</translation>
 <translation id="1407050882688520094">다음 인증기관을 식별하는 인증서가 등록되어 있습니다.</translation>
 <translation id="1051694321716046412">사용자 맞춤설정...</translation>
@@ -791,6 +827,7 @@
 <translation id="8940229512486821554"><ph name="EXTENSION_NAME"/> 명령어 실행: <ph name="SEARCH_TERMS"/></translation>
 <translation id="7799329977874311193">HTML 문서</translation>
 <translation id="2232876851878324699">파일에 하나의 인증서가 있지만 이 인증서를 가져올 수 없습니다.</translation>
+<translation id="8071086933245711894">복사 작업이 취소되었습니다.</translation>
 <translation id="2441392884867482684">페이지가 현재 전체화면으로 전환되었으며 마우스 커서를 사용 중지하려고 합니다.</translation>
 <translation id="1422780722984745882">여러 다른 위치 헤더를 수신했으나 HTTP 응답 분할 공격으로부터 보호하기 위해
         차단되었습니다.</translation>
@@ -806,6 +843,7 @@
 <translation id="159359590073980872">이미지 캐시</translation>
 <translation id="3395249460272133069">배경화면에 표시할 사진을 선택합니다.</translation>
 <translation id="3317459757438853210">양면</translation>
+<translation id="8108127871048035443">높은 DPI Chrome PDF 뷰어를 사용합니다.</translation>
 <translation id="2011110593081822050">웹 작업자: <ph name="WORKER_NAME"/></translation>
 <translation id="3294437725009624529">손님</translation>
 <translation id="7340431621085453413"><ph name="FULLSCREEN_ORIGIN"/>이(가) 이제 전체화면으로 표시됩니다.</translation>
@@ -833,6 +871,7 @@
 <translation id="3798449238516105146">버전</translation>
 <translation id="3608576286259426129">사용자 이미지 미리보기</translation>
 <translation id="5764483294734785780">오디오를 다른 이름으로 저장...(&amp;V)</translation>
+<translation id="2817998304027613260">검색과 실험용 확장 프로그램 API를 사용하고 검색 확장 프로그램을 설치하면 새 탭 페이지에 추천 링크가 표시됩니다.</translation>
 <translation id="5252456968953390977">로밍</translation>
 <translation id="8744641000906923997">로마자(Romaji)</translation>
 <translation id="8507996248087185956"><ph name="NUMBER_DEFAULT"/>분</translation>
@@ -889,6 +928,7 @@
 <translation id="2560794850818211873">동영상 URL 복사(&amp;O)</translation>
 <translation id="412730574613779332">스판덱스</translation>
 <translation id="5302048478445481009">언어</translation>
+<translation id="6193629380110441726">실험용 비동기 맞춤법 검사를 사용 중지합니다. 이렇게 하면 Chrome이 웹 서비스를 사용하여 맞춤법 검사 결과를 확인할 수 없습니다.</translation>
 <translation id="4191334393248735295">길이</translation>
 <translation id="3619051884944784882">프로세스 종료(&amp;E)</translation>
 <translation id="121201262018556460"><ph name="DOMAIN"/>에 접속하려 했으나 서버가 안전성이 낮은 키가 포함된 인증서를 전달했습니다. 공격자가 비공개 키를 손상시켰을 수 있으며 서버를 가장한 공격자와 통신 중일 수 있습니다.</translation>
@@ -897,6 +937,7 @@
 <translation id="1519704592140256923">위치 선택</translation>
 <translation id="1275018677838892971">웹사이트(<ph name="HOST_NAME"/>)에 '피싱' 사이트로 신고된 사이트에서 유입된 콘텐츠가 포함되어 있습니다. 피싱 사이트는 속임수를 통해 개인정보 및 금융정보를 몰래 빼내기 위해 만들어진 사이트로 종종 은행과 같은 공식기관을 사칭하기도 합니다.</translation>
 <translation id="7570477672765183">시작하려면 클릭하세요.</translation>
+<translation id="6166101525540035714">Chrome의 사용에는 Chrome <ph name="BEGIN_LINK1"/>서비스 약관<ph name="END_LINK1"/> 및 <ph name="BEGIN_LINK2"/>개인정보 보호정책 고지<ph name="END_LINK2"/>가 적용됩니다.</translation>
 <translation id="702455272205692181"><ph name="EXTENSION_NAME"/></translation>
 <translation id="7170041865419449892">범위를 벗어났습니다.</translation>
 <translation id="908263542783690259">인터넷 사용정보 삭제</translation>
@@ -914,6 +955,7 @@
 <translation id="3909791450649380159">잘라내기(&amp;T)</translation>
 <translation id="2955913368246107853">검색 바 닫기</translation>
 <translation id="8864170386249720785">휴대기기 전체 SSL 설정:</translation>
+<translation id="3914942725612686145">이제 Chrome에 로그인되었습니다. 열린 탭, 북마크 및 검색주소창 데이터가 내 Google 계정과 동기화되고 있습니다.</translation>
 <translation id="5642508497713047">CRL 서명자</translation>
 <translation id="7612302739128412469">이 아이콘을 클릭하여 확장 프로그램을 활성화합니다.</translation>
 <translation id="813082847718468539">사이트 정보 보기</translation>
@@ -931,6 +973,7 @@
 <translation id="7191454237977785534">다른 이름으로 저장</translation>
 <translation id="7241389281993241388"><ph name="TOKEN_NAME"/>에 로그인하여 클라이언트 인증서를 가져오세요.</translation>
 <translation id="7206693748120342859"><ph name="PLUGIN_NAME"/>을(를) 다운로드 중...</translation>
+<translation id="4744574733485822359">다운로드가 완료되었습니다.</translation>
 <translation id="2872754556057097683">여러 다른 콘텐츠 길이 헤더를 수신했습니다. 이는 HTTP 응답
         분할 공격으로부터 보호하기 위해 금지되었습니다.</translation>
 <translation id="4804818685124855865">연결 해제</translation>
@@ -967,9 +1010,12 @@
 <translation id="268053382412112343">내역(&amp;S)</translation>
 <translation id="1722567105086139392">링크</translation>
 <translation id="2620436844016719705">시스템</translation>
+<translation id="6627583120233659107">폴더 수정</translation>
 <translation id="5362741141255528695">비공개 키 파일을 선택합니다.</translation>
 <translation id="8831623914872394308">포인터 설정</translation>
+<translation id="8801228014372571803">외부 저장 장치가 포맷되지 않았습니다.</translation>
 <translation id="4580526846085481512">선택한 $1개의 항목을 삭제하시겠습니까?</translation>
+<translation id="1965340240343412366">순간 검색 확장 API 사용</translation>
 <translation id="5292890015345653304">SD 카드나 USB 메모리를 삽입하세요.</translation>
 <translation id="5583370583559395927">남은 시간: <ph name="TIME_REMAINING"/></translation>
 <translation id="6219717821796422795">한어(Hanyu)</translation>
@@ -1001,6 +1047,8 @@
 <translation id="8464132254133862871">서비스를 받을 수 없는 사용자 계정입니다.</translation>
 <translation id="6812349420832218321"><ph name="PRODUCT_NAME"/>은(는) 루트로 실행할 수 없습니다.</translation>
 <translation id="1055216403268280980">이미지 크기</translation>
+<translation id="4597972110633667332">파일 다운로드</translation>
+<translation id="675782348613606635">웹사이트 설정 UI</translation>
 <translation id="14171126816530869"><ph name="LOCALITY"/>에 위치한 <ph name="ORGANIZATION"/>의 주소를 <ph name="ISSUER"/>이(가) 확인했습니다.</translation>
 <translation id="824902718516184009">인증서 데이터가 없습니다.</translation>
 <translation id="7314327919567192532">창 크기 조정 비율을 조절합니다.</translation>
@@ -1051,6 +1099,7 @@
 <translation id="1425975335069981043">로밍</translation>
 <translation id="1272079795634619415">중지</translation>
 <translation id="5442787703230926158">동기화 오류...</translation>
+<translation id="4623686308320139074">사용자에 의해 <ph name="PERMISSION_VALUE"/></translation>
 <translation id="2462724976360937186">인증 기관 키 ID</translation>
 <translation id="981121421437150478">오프라인</translation>
 <translation id="2964193600955408481">Wi-Fi 사용 안 함</translation>
@@ -1062,8 +1111,10 @@
 <translation id="8596540852772265699">사용자 지정 파일</translation>
 <translation id="7017354871202642555">창이 설정된 후에는 모드를 설정할 수 없습니다.</translation>
 <translation id="3101709781009526431">날짜 및 시간</translation>
+<translation id="7125126245420352372">사진을 가져올 위치를 선택하세요.</translation>
 <translation id="3960611155749707703">마지막 창 활성화</translation>
 <translation id="833853299050699606">요금제 정보가 없습니다.</translation>
+<translation id="4472575034687746823">시작하기</translation>
 <translation id="1737968601308870607">버그 신고</translation>
 <translation id="7326487563595667270">새 앱 설치 풍선</translation>
 <translation id="1389297115360905376">이 프로그램은 <ph name="CHROME_WEB_STORE"/>에서만 추가할 수 있습니다.</translation>
@@ -1083,6 +1134,7 @@
 <translation id="7952408061263786094">로그아웃한 다음 다시 로그인하세요...</translation>
 <translation id="664271268954513498">정책 값</translation>
 <translation id="3368922792935385530">연결됨</translation>
+<translation id="4999529542784598108">새 탭 페이지에서 검색을 사용합니다.</translation>
 <translation id="7259332871247091754">이 파일은 바이러스 백신 소프트웨어에 의해 차단되었습니다.</translation>
 <translation id="3866443872548686097">복구 미디어를 사용할 준비가 되었습니다. 시스템에서 제거해도 됩니다.</translation>
 <translation id="6824564591481349393">이메일 주소 복사(&amp;E)</translation>
@@ -1103,6 +1155,7 @@
 <translation id="7791543448312431591">추가</translation>
 <translation id="8569764466147087991">열려는 파일 선택</translation>
 <translation id="5086589117546410981">성 추가</translation>
+<translation id="4275663329226226506">미디어</translation>
 <translation id="5449451542704866098">데이터 요금제 없음</translation>
 <translation id="3093853184108622112"><ph name="WEBSITE_1"/> 및 <ph name="WEBSITE_2"/>의 데이터에 액세스</translation>
 <translation id="2391593830069336007">인스턴트: <ph name="INSTANT_PREVIEW_NAME"/></translation>
@@ -1153,6 +1206,7 @@
 <translation id="8502803898357295528">비밀번호가 변경됨</translation>
 <translation id="4064488613268730704">자동완성 설정 관리...</translation>
 <translation id="6830600606572693159"><ph name="URL"/>의 웹페이지는 현재 사용할 수 없습니다.  웹페이지가 오버로드되었거나 유지보수를 위해 다운되었을 수 있습니다.</translation>
+<translation id="6776310961830589430">이동이 취소되었습니다.</translation>
 <translation id="4421932782753506458">복실이</translation>
 <translation id="8417944620073548444"><ph name="MEGABYTES"/>MB 남음</translation>
 <translation id="4498419978438799658">음성 출력 기능을 사용한 모든 음성 텍스트에 액세스</translation>
@@ -1248,6 +1302,7 @@
 <translation id="4830475881783902092">클라이언트 ID:</translation>
 <translation id="4600958291864306415">생성 중...</translation>
 <translation id="8594787581355215556"><ph name="USER_EMAIL_ADDRESS"/>(으)로 로그인되었습니다. <ph name="BEGIN_LINK"/>Google 대시보드<ph name="END_LINK"/>에서 동기화된 데이터를 관리합니다.</translation>
+<translation id="4338600611020922010">홈 화면에 추가</translation>
 <translation id="263325223718984101"><ph name="PRODUCT_NAME"/>에서 설치를 완료하지 못했지만 디스크 이미지에서 계속 실행됩니다.</translation>
 <translation id="6186893483313227582">아이콘 <ph name="VALUE"/></translation>
 <translation id="4726710629007580002">확장 프로그램을 설치하는 중에 다음과 같은 경고가 표시되었습니다.</translation>
@@ -1284,6 +1339,7 @@
 <translation id="80993596820839389">휴대기기를 시작하면 자동으로 <ph name="PRODUCT_NAME"/>을(를) 실행합니다.</translation>
 <translation id="6562758426028728553">이전 PIN과 새 PIN을 입력하세요.</translation>
 <translation id="614161640521680948">언어:</translation>
+<translation id="6404511346730675251">북마크 수정</translation>
 <translation id="3733127536501031542">SSL 서버(Step-up 사용)</translation>
 <translation id="954586097957006897">성</translation>
 <translation id="7473891865547856676">건너뛰기</translation>
@@ -1335,6 +1391,7 @@
 <translation id="2529133382850673012">영어(미국식) 키보드</translation>
 <translation id="4411578466613447185">코드 서명자</translation>
 <translation id="1354868058853714482">Adobe Reader가 오래되어 보안에 문제가 있을 수 있습니다.</translation>
+<translation id="2317808232945809">복사 작업에 실패했습니다. 존재하는 항목: '$1'</translation>
 <translation id="8943392635470173207"><ph name="INTENT_HANDLER_TITLE"/> 사용</translation>
 <translation id="6252594924928912846">동기화 설정 맞춤설정...</translation>
 <translation id="8425755597197517046">붙여넣어 검색하기(&amp;S)</translation>
@@ -1342,6 +1399,7 @@
 <translation id="1093148655619282731">선택한 인증서 세부정보:</translation>
 <translation id="3003623123441819449">CSS 캐시</translation>
 <translation id="2743322561779022895">활성화:</translation>
+<translation id="4343903275934242195">비동기 맞춤법 검사 사용 중지</translation>
 <translation id="4181898366589410653">서버 인증서에서 폐기 매커니즘을 발견하지 못했습니다.</translation>
 <translation id="6914291514448387591"><ph name="PLUGIN_NAME"/>에 실행 권한이 필요합니다.</translation>
 <translation id="8705331520020532516">일련번호</translation>
@@ -1411,6 +1469,7 @@
 <translation id="1976150099241323601">보안 장치 로그인</translation>
 <translation id="4938972461544498524">터치패드 설정</translation>
 <translation id="4988526792673242964">페이지</translation>
+<translation id="3302340765592941254">다운로드 완료 알림</translation>
 <translation id="2175607476662778685">빠른 실행 표시줄</translation>
 <translation id="9085376357433234031">오프라인 사용을 위해 해당 파일들을 저장하려면 온라인 상태에서 파일에 대한 &lt;br&gt;<ph name="OFFLINE_CHECKBOX_NAME"/> 확인란을 선택합니다.</translation>
 <translation id="6434309073475700221">중지</translation>
@@ -1517,6 +1576,7 @@
 <translation id="6810193446027958860">포인터 감도:</translation>
 <translation id="5015344424288992913">프록시 알아내는 중...</translation>
 <translation id="4389091756366370506">사용자 <ph name="VALUE"/></translation>
+<translation id="1206845131537514414">시작 화면에서 고정 해제</translation>
 <translation id="3850634422834903942">설치 실패</translation>
 <translation id="2398703750948514961">취소</translation>
 <translation id="4724168406730866204">Eten 26</translation>
@@ -1552,6 +1612,7 @@
 <translation id="4765322846143433260">최종 업데이트</translation>
 <translation id="9054208318010838">전체 사이트에서 내 실제 위치를 추적하도록 허용</translation>
 <translation id="3058212636943679650">컴퓨터의 운영체제를 복구해야 하는 경우, 복구 SD 카드 또는 USB 메모리가 필요합니다.</translation>
+<translation id="7252661675567922360">로드하지 마세요.</translation>
 <translation id="2815382244540487333">다음 쿠키가 차단됨:</translation>
 <translation id="8882395288517865445">내 주소록 카드의 주소 포함</translation>
 <translation id="374530189620960299">이 사이트의 보안 인증서는 신뢰할 수 없습니다.</translation>
@@ -1572,6 +1633,7 @@
 Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <ph name="EXPONENT_HEX_DUMP"/></translation>
 <translation id="3450660100078934250">MasterCard</translation>
+<translation id="2145453745617225127">앱이 허용하는 범위:</translation>
 <translation id="2916073183900451334">웹페이지에서 Tab 키를 누르면 링크 뿐 아니라 양식 입력란도 강조표시됩니다.</translation>
 <translation id="7772127298218883077"><ph name="PRODUCT_NAME"/> 정보</translation>
 <translation id="1789424019568293108">실험용 UI를 사용하여 확장 프로그램 활동 로그를 표시합니다.</translation>
@@ -1590,6 +1652,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="5350480486488078311">NaCl 소켓 API</translation>
 <translation id="5329858601952122676">삭제(&amp;D)</translation>
 <translation id="6100736666660498114">시작 메뉴</translation>
+<translation id="2706131822305474920">열린 탭 간에 전환</translation>
 <translation id="4402766404187539019">Google.com 메일</translation>
 <translation id="6275297011664564181">현재 활성 상태인 정책이 없습니다.</translation>
 <translation id="3994878504415702912">글꼴 크기(&amp;Z)</translation>
@@ -1624,8 +1687,11 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="6556866813142980365">다시실행</translation>
 <translation id="8824701697284169214">페이지 추가(&amp;G)...</translation>
 <translation id="2107287771748948380"><ph name="OBFUSCATED_CC_NUMBER"/>, 만료일: <ph name="CC_EXPIRATION_DATE"/></translation>
+<translation id="5881201518994403433">Chrome 프로필용 사진 및 이름을 선택하세요.</translation>
 <translation id="7866522434127619318">플러그인 콘텐츠 설정에서 '재생하려면 클릭' 옵션을 사용합니다.</translation>
+<translation id="981210574958082923">HistoryQuickProvider 인라인 결과 다시 정렬</translation>
 <translation id="6466988389784393586">모든 북마크 열기(&amp;O)</translation>
+<translation id="6059764114876442286">프린터 재설정</translation>
 <translation id="6406506848690869874">동기화</translation>
 <translation id="5288678174502918605">닫은 탭 다시 열기(&amp;E)</translation>
 <translation id="7238461040709361198">이 컴퓨터에 마지막으로 로그인한 이후 Google 계정 비밀번호가 변경되었습니다.</translation>
@@ -1636,7 +1702,9 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="9157595877708044936">설정 중...</translation>
 <translation id="4475552974751346499">다운로드 검색</translation>
 <translation id="6624687053722465643">달콤</translation>
+<translation id="8420296388012619424">USB 장치가 포맷되지 않았습니다.</translation>
 <translation id="3021256392995617989">사이트에서 내 실제 위치를 추적할 때 확인(권장)</translation>
+<translation id="8083739373364455075">Google 드라이브에서 100GB의 공간을 무료로 사용하세요.</translation>
 <translation id="271083069174183365">일본어 입력 설정</translation>
 <translation id="1257595095755619623">프록시 서버를 사용하는 경우 프록시 설정을 확인하거나
         네트워크 관리자에게 문의하여 프록시 서버가 작동하는지
@@ -1652,6 +1720,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="2320435940785160168">이 서버의 인증을 받으려면 인증서가 필요하며 서버가 브라우저에서 보낸 인증서를 수락하지 않았습니다. 인증서가 만료되었거나 서버가 발행기관을 신뢰하지 않기 때문일 수 있습니다. 다른 인증서를 사용하여 다시 시도하세요. 그렇지 않으면 다른 곳에서 유효한 인증서를 가져와야 할 수 있습니다.</translation>
 <translation id="6295228342562451544">보안 웹사이트에 연결할 경우 해당 사이트를 호스팅하는 서버는 주소 확인을 위해 '인증서'를 브라우저에 제공합니다. 해당 인증서에는 웹사이트 주소와 같은 주소 정보가 포함되어 있는데, 컴퓨터가 신뢰하는 제3자가 이를 확인합니다. 인증서 주소와 웹사이트 주소의 일치를 확인함으로써 제3자(예: 사용자의 네트워크에 침입한 해커)가 아닌 사용자가 도달하려던 웹사이트와 안전하게 통신하고 있음을 확인할 수 있습니다.</translation>
 <translation id="6342069812937806050">완료됨</translation>
+<translation id="6810544202039995031">다른 서비스 이용</translation>
 <translation id="4510744228507474176">매니페스트 버전 1은 <ph name="LINK_START_1"/>단계적으로 지원을 중단<ph name="LINK_END_1"/>합니다. <ph name="LINK_START_2"/>버전 2로 업그레이드<ph name="LINK_END_2"/>하시기 바랍니다.</translation>
 <translation id="5605716740717446121">정확한 PIN 잠금해제 키를 입력하지 않으면 SIM 카드가 영구적으로 사용중지됩니다. 남은 횟수: <ph name="TRIES_COUNT"/></translation>
 <translation id="8836712291807476944"><ph name="SAVED_BYTES"/>/<ph name="TOTAL_BYTES"/>바이트, 중단됨</translation>
@@ -1686,6 +1755,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="7084579131203911145">요금제 이름:</translation>
 <translation id="5815645614496570556">X.400 주소</translation>
 <translation id="1223853788495130632">관리자가 이 설정에 대해 특정 값을 추천합니다.</translation>
+<translation id="5379177235542136617">특정 대화상자에서 실험용 프레임 표시 기능을 사용합니다.</translation>
 <translation id="3551320343578183772">탭 닫기</translation>
 <translation id="3345886924813989455">지원되는 브라우저를 찾을 수 없습니다.</translation>
 <translation id="74354239584446316">웹 스토어 계정이 <ph name="EMAIL_ADDRESS"/>입니다. 다른 계정과 동기화하기 위해 로그인하면 호환할 수 없게 됩니다.</translation>
@@ -1694,6 +1764,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="5701381305118179107">가운데</translation>
 <translation id="7926251226597967072"><ph name="PRODUCT_NAME"/>이 <ph name="IMPORT_BROWSER_NAME"/>에서 다음 항목을 가져오는 중입니다.</translation>
 <translation id="4442424173763614572">DNS 조회 실패</translation>
+<translation id="6199801702437275229">공간 정보를 기다리는 중...</translation>
 <translation id="4315903906955301944">공식 오디오 파일 웹페이지</translation>
 <translation id="225207911366869382">이 값은 이 정책에 사용되지 않습니다.</translation>
 <translation id="2398753653077538650">페이지 URL과 오프라인 사본을 휴대기기의 Chrome에 전송할 수 있는 Chrome To Mobile 페이지 작업을 사용합니다.</translation>
@@ -1704,9 +1775,11 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8605503133013456784">'<ph name="DEVICE_NAME"/>'에서 연결을 끊고 페어링을 해제하지 못했습니다.</translation>
 <translation id="1109977641518209564">이 설정은 확장 프로그램에서 관리합니다.</translation>
 <translation id="2007404777272201486">문제 신고...</translation>
+<translation id="4366509400410520531">사용자에 의해 허용</translation>
 <translation id="1783075131180517613">동기화 암호를 업데이트하세요.</translation>
 <translation id="2390045462562521613">네트워크 저장 안함</translation>
 <translation id="3348038390189153836">이동식 기기가 검색됨</translation>
+<translation id="8005540215158006229">Chrome을 사용할 준비가 되었습니다.</translation>
 <translation id="3348217908174891895">1개의 폴더가 선택됨</translation>
 <translation id="1666788816626221136">기타 인증서가 등록되어 있습니다.</translation>
 <translation id="5698727907125761952">공식 아티스트</translation>
@@ -1747,6 +1820,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1567993339577891801">자바스크립트 콘솔</translation>
 <translation id="895944840846194039">자바스크립트 메모리</translation>
 <translation id="4546420444519867841">누락된 플러그인 설치</translation>
+<translation id="5512030650494444738">꽃</translation>
 <translation id="6462080265650314920">앱은 '<ph name="CONTENT_TYPE"/>' 콘텐츠 유형으로 제공되어야 합니다.</translation>
 <translation id="1559235587769913376">유니코드 문자 입력</translation>
 <translation id="3297788108165652516">다른 사용자와 공유 중인 네트워크입니다.</translation>
@@ -1792,8 +1866,10 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8898786835233784856">다음 탭 선택</translation>
 <translation id="9111102763498581341">잠금 해제</translation>
 <translation id="289695669188700754">키 ID: <ph name="KEY_ID"/></translation>
+<translation id="4336471305806418015">기본 브라우저로 설정</translation>
 <translation id="8183644773978894558">현재 시크릿 모드에서 한 개의 다운로드가 진행 중입니다. 시크릿 모드를 종료하고 다운로드를 취소하시겠습니까?</translation>
 <translation id="2181821976797666341">정책</translation>
+<translation id="6133373045289694546">연결에 <ph name="COMPRESSION"/> SSL 압축을 사용합니다.</translation>
 <translation id="8767072502252310690">사용자</translation>
 <translation id="683526731807555621">새 검색엔진 추가</translation>
 <translation id="6871644448911473373">OCSP 응답자: <ph name="LOCATION"/></translation>
@@ -1861,12 +1937,15 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1358032944105037487">일본어 키보드</translation>
 <translation id="292638579420016866">사이트에서 카메라 또는 마이크를 사용하려 할 때 문의(권장사항)</translation>
 <translation id="6231782223312638214">추천</translation>
+<translation id="3378649245744504729">새 앨범</translation>
 <translation id="8302838426652833913"><ph name="BEGIN_BOLD"/>애플리케이션 &gt; 시스템 환경설정 &gt; 네트워크 &gt; 도와주세요<ph name="END_BOLD"/>로 이동한 다음 연결을 테스트합니다.</translation>
 <translation id="8664389313780386848">페이지 소스 보기(&amp;V)</translation>
 <translation id="8970407809569722516">펌웨어:</translation>
 <translation id="13649080186077898">자동완성 설정 관리</translation>
 <translation id="57646104491463491">수정된 날짜</translation>
+<translation id="3941357410013254652">채널 ID</translation>
 <translation id="7266345500930177944"><ph name="PLUGIN_NAME"/>을(를) 실행하려면 클릭합니다.</translation>
+<translation id="6223447490656896591">맞춤 이미지:</translation>
 <translation id="6362853299801475928">문제 신고하기(&amp;R)...</translation>
 <translation id="5527463195266282916">확장 프로그램을 다운그레이드하려고 했습니다.</translation>
 <translation id="3289566588497100676">쉬운 기호 입력</translation>
@@ -1876,6 +1955,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="7471734499550209360"><ph name="SHORT_PRODUCT_NAME"/>에 오신 것을 환영합니다.</translation>
 <translation id="7460131386973988868">정적 IP 설정을 사용합니다. 작동하지 않을 수 있습니다.</translation>
 <translation id="749452993132003881">히라가나</translation>
+<translation id="4302753224935370010">연결에 SSL 압축을 사용하지 않습니다.</translation>
 <translation id="8273972836055206582"><ph name="FULLSCREEN_ORIGIN"/>이(가) 현재 전체화면으로 전환되었으며 마우스 커서를 사용 중지하려고 합니다.</translation>
 <translation id="5916084858004523819">금지됨</translation>
 <translation id="1497522201463361063">'<ph name="FILE_NAME"/>'의 이름을 변경할 수 없습니다. <ph name="ERROR_MESSAGE"/></translation>
@@ -1900,6 +1980,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8069732954367771603">이 작업에 등록된 서비스가 없습니다.</translation>
 <translation id="917450738466192189">서버의 인증서가 유효하지 않습니다.</translation>
 <translation id="2649045351178520408">Base64-인코딩 ASCII, 인증서 체인</translation>
+<translation id="5656862584067297168">다른 기기에서 수신</translation>
 <translation id="2615569600992945508">모든 사이트에서 마우스 커서 사용 중지 허용 안함</translation>
 <translation id="7424526482660971538">나만의 암호 선택</translation>
 <translation id="7334866548633321642">플래시 카메라 및 마이크 예외사항</translation>
@@ -1973,6 +2054,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
           <ph name="PRODUCT_NAME"/>
           (이)가 사용자의 컴퓨터에 침입하여 인터넷 연결을 차단하고 있다고 잘못 인식했기 때문일 수 있습니다.</translation>
 <translation id="2065985942032347596">인증 필요</translation>
+<translation id="2563185590376525700">개구리</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME"/>에서 <ph name="NETWORK_ID"/>에 연결할 수 없습니다. 다른 네트워크를 선택하거나 다시 시도하세요.</translation>
 <translation id="2086712242472027775">계정이 <ph name="PRODUCT_NAME"/>에서 작동하지 않습니다. 도메인 관리자와 상의하거나 일반 Google 계정을 사용하여 로그인하세요.</translation>
 <translation id="1373074393717692190">Google 계정으로 <ph name="PRODUCT_NAME"/>에 로그인하여 맞춤설정한 브라우저 기능을 웹에 저장하고 어떤 휴대기기를 통해서든지 <ph name="PRODUCT_NAME"/>에서 액세스하세요. 즐겨찾는 Google 서비스에 자동으로 로그인할 수도 있습니다.</translation>
@@ -2025,6 +2107,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4534166495582787863">손가락 세 개로 터치패드를 클릭하여 가운데 버튼으로 사용하도록 설정합니다.</translation>
 <translation id="2190469909648452501">감소</translation>
 <translation id="7754704193130578113">다운로드 전에 각 파일의 저장 위치 확인</translation>
+<translation id="222949136907494149"><ph name="URL"/>에서 내 컴퓨터의 위치에 액세스하려고 합니다.</translation>
 <translation id="7654941827281939388">이 계정은 이미 이 컴퓨터에서 사용되고 있습니다.</translation>
 <translation id="204914487372604757">바로가기 만들기</translation>
 <translation id="696036063053180184">세벌식(shift 없음)</translation>
@@ -2041,9 +2124,11 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="2423017480076849397"><ph name="CLOUD_PRINT_NAME"/>을(를) 사용하여 프린터를 온라인으로 공유 및 액세스</translation>
 <translation id="4018133169783460046">이 언어로 <ph name="PRODUCT_NAME"/> 사용하기</translation>
 <translation id="5110450810124758964"><ph name="NUMBER_ONE"/>일 전</translation>
+<translation id="1503914375822320413">복사 작업에 실패했습니다. 예상치 않은 오류: $1</translation>
 <translation id="6224995341905622854">자주 표시되는 경우 다음을 시도해 보세요. <ph name="HELP_LINK"/></translation>
 <translation id="3264544094376351444">Sans-serif</translation>
 <translation id="2820806154655529776"><ph name="NUMBER_ONE"/>초</translation>
+<translation id="4288944631342744404">웹에서 직접 검색</translation>
 <translation id="1077946062898560804">모든 사용자에 대해 자동 업데이트 설정</translation>
 <translation id="3122496702278727796">데이터 디렉토리 만들기 실패</translation>
 <translation id="6990081529015358884">저장 공간이 부족합니다.</translation>
@@ -2066,6 +2151,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="9148058034647219655">나가기</translation>
 <translation id="2881966438216424900">마지막 액세스 날짜:</translation>
 <translation id="630065524203833229">종료(&amp;X)</translation>
+<translation id="6935521024859866267">180도 회전</translation>
 <translation id="4647090755847581616">탭 닫기(&amp;C)</translation>
 <translation id="2649204054376361687"><ph name="COUNTRY"/>, <ph name="CITY"/></translation>
 <translation id="7886758531743562066">웹사이트(<ph name="HOST_NAME"/>)에 악성 코드를 호스팅하는 것으로 추정되는 사이트에서 유입된 요소가 포함되어 있습니다. 악성 코드는 컴퓨터에 손상을 입히거나 사용자의 동의 없이 작동하는 소프트웨어입니다. 악성 코드가 설치된 사이트에 방문하는 것만으로도 사용자의 컴퓨터가 감염될 수 있습니다.</translation>
@@ -2094,6 +2180,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="6374830905869502056">인코딩 수행:</translation>
 <translation id="2230062665678605299">'<ph name="FOLDER_NAME"/>' 폴더를 생성할 수 없습니다. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="2526590354069164005">데스크톱</translation>
+<translation id="2059205526855036527">Google 드라이브에 처음 액세스하려면 온라인 상태여야 합니다.</translation>
 <translation id="4165738236481494247">이 플러그인 실행</translation>
 <translation id="7983301409776629893"><ph name="ORIGINAL_LANGUAGE"/>를 항상 <ph name="TARGET_LANGUAGE"/>로 번역</translation>
 <translation id="4890284164788142455">태국어</translation>
@@ -2116,6 +2203,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3898394061528036117">어떤 서비스를 사용하고 싶으십니까?</translation>
 <translation id="5148652308299789060">3D 소프트웨어 래스터라이저 사용 안함</translation>
 <translation id="8382913212082956454">이메일 주소 복사(&amp;E)</translation>
+<translation id="277784422805254599">새로운 확인란 유형을 사용 중지합니다.</translation>
 <translation id="7447930227192971403">탭 3 활성화</translation>
 <translation id="3010559122411665027">목록 항목 '<ph name="ENTRY_INDEX"/>': <ph name="ERROR"/></translation>
 <translation id="2903493209154104877">주소</translation>
@@ -2149,7 +2237,9 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8871696467337989339">지원되지 않는 명령줄 플래그(<ph name="BAD_FLAG"/>)를 사용 중이므로 안정성과 보안에 문제가 발생합니다.</translation>
 <translation id="4767443964295394154">다운로드 위치</translation>
 <translation id="5031870354684148875">Google 번역 정보</translation>
+<translation id="4266565660628359579">높은 DPI 디스플레이에서 Chrome PDF 뷰어용으로 높은 DPI 모드를 사용합니다.</translation>
 <translation id="5702389759209837579">모든 기기의 열린 탭에 액세스합니다.</translation>
+<translation id="3828747136564826513">장치에서 알려진 모든 미디어 파일에 액세스</translation>
 <translation id="720658115504386855">대소문자를 구분하지 않습니다.</translation>
 <translation id="8263744495942430914"><ph name="FULLSCREEN_ORIGIN"/>에서 마우스 커서를 사용 중지했습니다.</translation>
 <translation id="6404451368029478467"><ph name="PRODUCT_NAME"/>의 업데이트가 자동으로 수행되므로 항상 최신 버전을 사용할 수 있습니다. 이 다운로드가 종료되면 <ph name="PRODUCT_NAME"/>이(가) 재시작되며 계속 작업할 수 있습니다.</translation>
@@ -2168,6 +2258,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="7846924223038347452">더 이상 이 기기를 사용할 권한이 없습니다. 로그인 권한은 기기 소유자에게 문의하세요.</translation>
 <translation id="6521850982405273806">오류 신고하기</translation>
 <translation id="736515969993332243">네트워크를 검색 중입니다.</translation>
+<translation id="4417828425057753121">내 카메라 및 마이크에 대한 모든 사이트의 액세스를 허용 안함</translation>
 <translation id="7806513705704909664">클릭 한 번으로 웹 양식을 작성하는 자동완성 사용</translation>
 <translation id="8026334261755873520">인터넷 사용정보 삭제</translation>
 <translation id="605011065011551813">플러그인(<ph name="PLUGIN_NAME"/>)이 응답하지 않습니다.</translation>
@@ -2179,6 +2270,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8651585100578802546">캐시를 무시하고 페이지 새로고침</translation>
 <translation id="1361655923249334273">사용되지 않음</translation>
 <translation id="290555789621781773"><ph name="NUMBER_TWO"/>분</translation>
+<translation id="4326192123064055915">커피</translation>
 <translation id="5434065355175441495">PKCS #1 RSA 암호화</translation>
 <translation id="7073704676847768330">찾고 있는 사이트가 아닐 수 있습니다.</translation>
 <translation id="8477384620836102176">일반(&amp;G)</translation>
@@ -2204,6 +2296,8 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3355823806454867987">프록시 설정 변경...</translation>
 <translation id="4780374166989101364">실험실 확장 프로그램 API를 사용합니다. 확장 프로그램 갤러리에서는 실험실 API를 사용하는 확장 프로그램을 업로드할 수 없습니다.</translation>
 <translation id="7117247127439884114">다시 로그인...</translation>
+<translation id="2893271451009400655">사진을 가져올 수 없습니다.</translation>
+<translation id="509429900233858213">오류가 발생했습니다.</translation>
 <translation id="7227780179130368205">악성코드가 감지되었습니다.</translation>
 <translation id="435243347905038008"><ph name="NETWORK"/> 데이터 부족</translation>
 <translation id="2489428929217601177">지난 1일</translation>
@@ -2237,7 +2331,9 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="2151576029659734873">잘못된 탭 색인을 입력했습니다.</translation>
 <translation id="1229834829921822263">일련 번호가 잘못되었습니다.</translation>
 <translation id="1815861158988915678"><ph name="BEGIN_BOLD"/>주의:<ph name="END_BOLD"/> 이 파일은 임시 파일이며 디스크 여유 공간을 확보하기 위해 자동으로 삭제될 수 있습니다. <ph name="BEGIN_LINK"/>자세히 알아보기<ph name="END_LINK"/></translation>
+<translation id="5599620772482612321">$1 항목을 이동 중입니다.</translation>
 <translation id="5150254825601720210">Netscape Certificate SSL Server Name</translation>
+<translation id="7411144907472643257">미디어 갤러리</translation>
 <translation id="6771503742377376720">인증 기관임</translation>
 <translation id="2728812059138274132">플러그인 검색 중...</translation>
 <translation id="2471964272749426546">타밀어 입력 방법(Tamil99)</translation>
@@ -2246,6 +2342,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1128554891575825309">사용자 <ph name="USER_EMAIL_ADDRESS"/> 삭제</translation>
 <translation id="8410619858754994443">비밀번호 확인:</translation>
 <translation id="3377251335797762771">창 모드</translation>
+<translation id="8161273087013047364"><ph name="FILE_NAME"/> 복사 중</translation>
 <translation id="3858678421048828670">이탈리아어 키보드</translation>
 <translation id="1436784010935106834">삭제됨</translation>
 <translation id="3730639321086573427">로컬 목적지</translation>
@@ -2261,10 +2358,12 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8112886015144590373"><ph name="NUMBER_FEW"/>시간</translation>
 <translation id="5774295353725270860">파일 열기 앱</translation>
 <translation id="1398853756734560583">최대화</translation>
+<translation id="1829129547161959350">펭귄</translation>
 <translation id="8988255471271407508">캐시에 웹페이지가 없습니다. 일부 리소스는 캐시에서만 안전하게 로드될 수 있습니다(예: 제출한 데이터에서 생성된 페이지). <ph name="LINE_BREAK"/> 이 오류는 잘못된 종료로 인해 캐시가 손상된 경우에도 발생할 수 있습니다. <ph name="LINE_BREAK"/> 문제가 계속되면 캐시를 삭제해 보세요.</translation>
 <translation id="1653828314016431939">확인 - 지금 다시 시작</translation>
 <translation id="8915370057835397490">추천 단어 로드 중...</translation>
 <translation id="2138262541062800200">앱 알림 동기화 사용 안함</translation>
+<translation id="174773101815569257">마우스 잠금</translation>
 <translation id="2790759706655765283">게시자 공식 웹페이지</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="8342318071240498787">같은 이름을 가진 파일 또는 디렉토리가 이미 존재합니다.</translation>
@@ -2285,6 +2384,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8250690786522693009">라틴어</translation>
 <translation id="2119721408814495896"><ph name="CLOUD_PRINT_NAME"/> 커넥터는 Microsoft XPS Essentials Pack을 설치해야 합니다.</translation>
 <translation id="5829401023154985950">관리...</translation>
+<translation id="6832874810062085277">확인</translation>
 <translation id="7624267205732106503">브라우저를 닫을 때 쿠키 및 기타 사이트 데이터 삭제</translation>
 <translation id="8401363965527883709">확인란 선택 안함</translation>
 <translation id="7771452384635174008">레이아웃</translation>
@@ -2292,6 +2392,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="2851981350712094353">클라우드 프린트 커넥터</translation>
 <translation id="8443621894987748190">계정 사진 선택</translation>
 <translation id="10122177803156699">표시하기</translation>
+<translation id="935099558325596666">'https://support.google.com/chrome/?p=win8_directories'</translation>
 <translation id="5260878308685146029"><ph name="NUMBER_TWO"/>분 남음</translation>
 <translation id="7374461526650987610">프로토콜 핸들러</translation>
 <translation id="2192505247865591433">웹 브라우저</translation>
@@ -2301,7 +2402,9 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4212084985543581100">프록시 서버는 휴대기기와 다른 서버 사이의 중개자 역할을 하는 서버입니다. 현재 시스템이 프록시를 사용하도록 설정되어 있지만 
           <ph name="PRODUCT_NAME"/>에서 프록시에 연결할 수 없습니다.</translation>
 <translation id="671928215901716392">화면 잠금</translation>
+<translation id="2241468422635044128">확장 프로그램에 의해 허용</translation>
 <translation id="3727187387656390258">팝업 검사</translation>
+<translation id="361106536627977100">Flash 데이터</translation>
 <translation id="569068482611873351">가져오기...</translation>
 <translation id="6571070086367343653">신용카드 수정</translation>
 <translation id="1204242529756846967">맞춤법 검사를 사용할 수 있는 언어입니다.</translation>
@@ -2313,11 +2416,13 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3654092442379740616">동기화 오류: <ph name="PRODUCT_NAME"/>이(가) 오래되어 업데이트해야 합니다.</translation>
 <translation id="790040513076446191">개인정보 보호 관련 설정 조정</translation>
 <translation id="3116361045094675131">영어(영국식) 키보드</translation>
+<translation id="1463985642028688653">차단</translation>
 <translation id="1715941336038158809">사용자 이름 또는 비밀번호가 잘못되었습니다.</translation>
 <translation id="1901303067676059328">전체 선택(&amp;A)</translation>
 <translation id="674375294223700098">알 수 없는 서버 인증서 오류입니다.</translation>
 <translation id="7780428956635859355">저장한 캡쳐화면 보내기</translation>
 <translation id="2850961597638370327">발급 대상: <ph name="NAME"/></translation>
+<translation id="4949653059442022544">로컬 캐시 지우기</translation>
 <translation id="2168039046890040389">페이지 위로</translation>
 <translation id="1767519210550978135">슈(Hsu)</translation>
 <translation id="2498539833203011245">최소화</translation>
@@ -2339,6 +2444,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="6983783921975806247">등록된 OID</translation>
 <translation id="394984172568887996">IE에서 가져온 북마크</translation>
 <translation id="5311260548612583999">비공개 키 파일(선택사항):</translation>
+<translation id="3076813701005923">애플리케이션 데이터...</translation>
 <translation id="8256319818471787266">멍멍이</translation>
 <translation id="7363290921156020669"><ph name="NUMBER_ZERO"/> mins</translation>
 <translation id="7568790562536448087">업데이트</translation>
@@ -2380,6 +2486,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
           시크릿 브라우징에 대해 <ph name="BEGIN_LINK"/>자세히 알아보세요<ph name="END_LINK"/>.</translation>
 <translation id="725109152065019550">관리자가 계정에서 외부 저장소를 사용 중지했습니다.</translation>
 <translation id="19094784437781028">Solo 직불카드</translation>
+<translation id="515594325917491223">체스</translation>
 <translation id="7347751611463936647">이 확장 프로그램을 사용하려면 '<ph name="EXTENSION_KEYWORD"/>'(을)를 입력하고 TAB을 누른 다음 명령어 또는 검색어를 입력하세요.</translation>
 <translation id="5645845270586517071">보안 오류</translation>
 <translation id="2912905526406334195"><ph name="HOST"/>에서 사용자의 마이크를 사용하려고 합니다.</translation>
@@ -2401,14 +2508,17 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8970721300630048025">본인의 사진을 찍어 계정 사진으로 설정하세요.</translation>
 <translation id="4087089424473531098">확장 프로그램(파일: <ph name="EXTENSION_FILE"/>)을 만들었습니다.</translation>
 <translation id="430326050669417502">조이스틱(<ph name="ADDRESS"/>)</translation>
+<translation id="7248671827512403053">애플리케이션</translation>
 <translation id="1241100329754769291"><ph name="CLOUD_PRINT_NAME"/>을(를) 통해 어디에서나 컴퓨터의 프린터에 액세스할 수 있습니다. 사용하려면 클릭하세요.</translation>
 <translation id="16620462294541761">비밀번호가 일치하지 않습니다. 다시 시도해 주세요.</translation>
 <translation id="3058072209957292419">실험용 정적 IP 설정</translation>
 <translation id="5017508259293544172">LEAP</translation>
+<translation id="3687463694814266645">다시 정렬</translation>
 <translation id="1394630846966197578">음성 서버에 연결하지 못했습니다.</translation>
 <translation id="2498765460639677199">아주 크게</translation>
 <translation id="2378982052244864789">확장 프로그램 디렉토리를 선택합니다.</translation>
 <translation id="7861215335140947162">다운로드(&amp;D)</translation>
+<translation id="1358735829858566124">파일 또는 디렉토리를 사용할 수 없습니다.</translation>
 <translation id="3144135466825225871">crx 파일을 대체하지 못했습니다. 파일을 사용 중인지 확인하세요.</translation>
 <translation id="2744221223678373668">공유</translation>
 <translation id="9064142312330104323">Google 프로필 사진(로드 중)</translation>
@@ -2474,6 +2584,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="7956713633345437162">모바일 북마크</translation>
 <translation id="7974087985088771286">탭 6 활성화</translation>
 <translation id="1910721550319506122">반갑습니다!</translation>
+<translation id="4259384707950482157">바탕화면 모드로 이 페이지 표시</translation>
 <translation id="4035758313003622889">작업 관리자(&amp;T)</translation>
 <translation id="6356936121715252359">Adobe Flash Player 저장공간 설정...</translation>
 <translation id="1396529432791646744">보안 웹사이트에 연결할 경우 해당 사이트를 호스팅하는 서버는 사용자 브라우저에 사이트 주소 확인을 위해 필요한 '인증서'라는 것을 제공합니다. 이 인증서에는 사용자 휴대기기에서 신뢰하는 타 인증기관이 인증한 웹사이트 주소 등의 ID 정보가 들어 있습니다. 인증서에 있는 주소가 웹사이트 주소와 일치하는지 확인함으로써, 네트워크 공격자와 같은 제3자가 아닌 사용자가 의도한 웹사이트와 안전하게 통신하고 있음을 확인할 수 있습니다.</translation>
@@ -2488,6 +2599,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8986267729801483565">다운로드 위치:</translation>
 <translation id="2044540568167155862">Goats teleported</translation>
 <translation id="1776712937009046120">사용자 추가</translation>
+<translation id="8954952943849489823">이동에 실패했습니다. 예기치 않은 오류: $1</translation>
 <translation id="4322394346347055525">다른 탭 닫기</translation>
 <translation id="2562743677925229011"><ph name="SHORT_PRODUCT_NAME"/>에 로그인되어 있지 않습니다.</translation>
 <translation id="593451978644335626">이전 입력 방식을 선택하려면 ctrl+space를 누릅니다.</translation>
@@ -2497,6 +2609,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1408789165795197664">고급...</translation>
 <translation id="1650709179466243265">www.와 .com을 추가하여 주소 열기</translation>
 <translation id="436701661737309601">만료되지 않은 인증서의 경우 인증서 발행기관이 '해지 목록'이라는 것을 관리할 책임이 있습니다. 인증서가 손상된 경우 발행기관에서 해지 목록에 해당 인증서를 추가하여 폐기할 수 있습니다. 이렇게 하면 브라우저에서 더 이상 이 인증서를 신뢰하지 않습니다. 만료된 인증서의 경우 폐기 상태가 관리될 필요가 없으므로 이 인증서가 방문 중인 웹사이트에서 유효한 적이 있었더라도, 현재로서는 인증서가 손상되어 취소되었는지 여부 또는 안전한 상태로 유지되고 있는지 여부를 확인할 수 없습니다. 따라서 합법적인 웹사이트와 통신하고 있는지 또는 인증서가 손상되어 현재 통신하고 있는 공격자가 소유하고 있는지 여부를 알 수 없습니다.</translation>
+<translation id="7106346894903675391">추가 저장용량 구입...</translation>
 <translation id="7258264058936813500">계속 로드</translation>
 <translation id="994289308992179865">루프(&amp;L)</translation>
 <translation id="6654087704052385884">탭 브라우저 드래그 사용</translation>
@@ -2585,9 +2698,12 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1156185823432343624">볼륨: 음소거</translation>
 <translation id="6264365405983206840">모두 선택(&amp;A)</translation>
 <translation id="6615455863669487791">표시</translation>
+<translation id="3543393733900874979">업데이트 실패(오류: <ph name="ERROR_NUMBER"/>)</translation>
 <translation id="1017280919048282932">사전에 추가(&amp;A)</translation>
 <translation id="8036518327127111261">제공된 인증서로 인증하지 못했습니다.</translation>
+<translation id="7211828883345145708">Chromium 디버깅에 유용한 추가 키보드 단축키를 사용합니다.</translation>
 <translation id="8319414634934645341">확장된 키 사용</translation>
+<translation id="6056710589053485679">일반 새로고침</translation>
 <translation id="4563210852471260509">중국어를 초기 입력 언어로 설정</translation>
 <translation id="6897140037006041989">사용자 에이전트</translation>
 <translation id="3413122095806433232">CA 발행기관: <ph name="LOCATION"/></translation>
@@ -2605,6 +2721,12 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="795025003224538582">다시 시작 안함</translation>
 <translation id="8680787084697685621">계정 로그인 세부정보의 유효기간이 만료되었습니다.</translation>
 <translation id="5664261101798727573">또는 다른 서비스를 이용</translation>
+<translation id="9072684888578654899">&lt;p&gt;
+          다른 기기에서 Chrome으로 연 탭이 여기에 표시됩니다.
+          &lt;/p&gt;
+          &lt;a href=&quot;#enablesync&quot;&gt;
+          동기화를 설정하세요.
+          &lt;/p&gt;</translation>
 <translation id="889901481107108152">죄송합니다. 현재 플랫폼에서 사용할 수 없는 실험실 기능입니다.</translation>
 <translation id="3228969707346345236">페이지가 <ph name="LANGUAGE"/>(으)로 되어 있으므로 번역하지 못했습니다.</translation>
 <translation id="1873879463550486830">SUID 샌드박스</translation>
@@ -2626,6 +2748,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="2702540957532124911">키보드:</translation>
 <translation id="7444983668544353857"><ph name="NETWORKDEVICE"/> 사용 중지</translation>
 <translation id="6003177993629630467"><ph name="PRODUCT_NAME"/>에서 자동 업데이트를 수행하지 못할 수 있습니다.</translation>
+<translation id="8923542159871018393">이 페이지에서 <ph name="EXTENSION_NAME"/>이(가) 실행 중입니다.</translation>
 <translation id="2374898461628345975">GPU(그래픽 처리 장치) 하드웨어를 사용하여 3D CSS 및 향상된 성능의 웹페이지 합성을 가능하게 합니다.</translation>
 <translation id="421577943854572179">기타 사이트에 삽입됨</translation>
 <translation id="580886651983547002"><ph name="PRODUCT_NAME"/>에서
@@ -2650,6 +2773,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4384652540891215547">확장 프로그램 활성화</translation>
 <translation id="3199127022143353223">서버</translation>
 <translation id="408898940369358887">실험용 자바스크립트 사용</translation>
+<translation id="6607831829715835317">도구 더보기</translation>
 <translation id="2805646850212350655">Microsoft Encrypting File System</translation>
 <translation id="2643698698624765890">창 메뉴에서 확장 프로그램을 클릭하여 확장 프로그램을 관리할 수 있습니다.</translation>
 <translation id="1974060860693918893">고급</translation>
@@ -2657,6 +2781,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4509017836361568632">사진 삭제</translation>
 <translation id="1244303850296295656">확장 프로그램 오류</translation>
 <translation id="3541661933757219855">숨기려면 Ctrl+Alt+/ 또는 Esc를 누릅니다.</translation>
+<translation id="5357579842739549440">키보드 단축키 디버깅</translation>
 <translation id="8891727572606052622">프록시 모드가 잘못되었습니다.</translation>
 <translation id="8813873272012220470">소프트웨어 비호환성이 감지되면(예: 브라우저와 충돌하는 타사 모듈) 사용자에게 경고하는 백그라운드 확인 기능을 사용합니다.</translation>
 <translation id="2327273619514674103">바이러스가 발견됨</translation>
@@ -2703,6 +2828,8 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8404409224170843728">제조업체:</translation>
 <translation id="8267453826113867474">불쾌감을 주는 단어 차단</translation>
 <translation id="7959074893852789871">파일에 여러 인증서가 있지만 그 중 일부를 가져올 수 없습니다.</translation>
+<translation id="1314681042229332877">웹 주소 검색 또는 입력</translation>
+<translation id="7791536208663663346">하드웨어 가속을 통한 동영상 디코딩을 사용 중지할 수 있습니다.</translation>
 <translation id="87377425248837826">패널 사용</translation>
 <translation id="6736243959894955139">주소</translation>
 <translation id="2805707493867224476">모든 사이트에서 팝업 표시 허용</translation>
@@ -2728,6 +2855,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="7317938878466090505"><ph name="PROFILE_NAME"/>(현재)</translation>
 <translation id="2148999191776934271">충전 완료까지
 <ph name="HOUR"/>:<ph name="MINUTE"/> 남음</translation>
+<translation id="6007237601604674381">이동에 실패했습니다. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="907841381057066561">압축하는 동안 임시 zip 파일을 만들지 못했습니다.</translation>
 <translation id="1881456419707551346">연결 세부정보</translation>
 <translation id="1064912851688322329">Google 계정 연결 해제</translation>
@@ -2765,6 +2893,9 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4926049483395192435">지정해야 합니다.</translation>
 <translation id="1470719357688513792">새 쿠키 설정은 페이지를 새로고침한 다음에 적용됩니다.</translation>
 <translation id="5578327870501192725"><ph name="DOMAIN"/>에 대한 연결은 <ph name="BIT_COUNT"/>비트 암호로 암호화됩니다.</translation>
+<translation id="3089395242580810162">시크릿 탭에서 열기</translation>
+<translation id="4964383828912709895">다시 정렬 안함</translation>
+<translation id="4336032328163998280">복사 작업에 실패했습니다. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="5269977353971873915">인쇄 실패</translation>
 <translation id="3193734264051635522">속도:</translation>
 <translation id="869884720829132584">애플리케이션 메뉴</translation>
@@ -2811,6 +2942,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4157869833395312646">Microsoft Server Gated Cryptography</translation>
 <translation id="6660445291081843757">새 다운로드 UI</translation>
 <translation id="5685236799358487266">검색엔진으로 추가(&amp;G)...</translation>
+<translation id="4950100687509657457">프로필 만들기</translation>
 <translation id="8903921497873541725">확대</translation>
 <translation id="6820687829547641339">Gzip으로 압축된 tar 압축 파일</translation>
 <translation id="2195729137168608510">이메일 보호</translation>
@@ -2866,11 +2998,13 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="756445078718366910">브라우저 창 열기</translation>
 <translation id="6132383530370527946">이용약관</translation>
 <translation id="5088534251099454936">PKCS #1 SHA-512(RSA 암호화 사용)</translation>
+<translation id="3886175299267931844">기본으로 설정</translation>
 <translation id="6392373519963504642">한국어 키보드</translation>
 <translation id="2028997212275086731">RAR 압축 파일</translation>
 <translation id="7887334752153342268">새 탭에서 보기</translation>
 <translation id="3624005168026397829">확장 프로그램, 앱 및 테마는 휴대기기를 손상시킬 수 있습니다. 계속하시겠습니까?</translation>
 <translation id="9207194316435230304">ATOK</translation>
+<translation id="7788668840732459509">위치:</translation>
 <translation id="778330624322499012"><ph name="PLUGIN_NAME"/>을 로드하지 못함</translation>
 <translation id="9026731007018893674">다운로드</translation>
 <translation id="7646591409235458998">이메일:</translation>
@@ -2881,6 +3015,8 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4523336217659634227">플러그인을 다운로드하는 중에 오류(<ph name="ERROR"/>)가 발생했습니다.</translation>
 <translation id="4478664379124702289">다른 이름으로 링크 저장(&amp;K)...</translation>
 <translation id="8725066075913043281">다시 시도하세요</translation>
+<translation id="387784661603993584">오류가 발생하여 가져올 수 없습니다.</translation>
+<translation id="4637968436031842307">CSS 변수를 사용합니다.</translation>
 <translation id="1887908730460853602">Google 스타일 대화상자</translation>
 <translation id="8502249598105294518"><ph name="PRODUCT_NAME"/> 설정 및 관리</translation>
 <translation id="3797008485206955964">백그라운드 페이지 보기(<ph name="NUM_BACKGROUND_APPS"/>)</translation>
@@ -2915,10 +3051,13 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3323447499041942178">입력란</translation>
 <translation id="580571955903695899">제목순으로 다시 정렬</translation>
 <translation id="5230516054153933099">창</translation>
+<translation id="921740547845455014">애플리케이션에서 연 파일에 쓰기</translation>
 <translation id="1799497982892676838">Google 대시보드에서 동기화된 데이터 관리</translation>
+<translation id="951981865514037445"><ph name="URL"/>에서 내 기기의 위치에 액세스하려고 합니다.</translation>
 <translation id="7554791636758816595">새 탭</translation>
 <translation id="3026557130425686673">일부 기기 설정이 손상되어 로그인이 취소되었습니다.</translation>
 <translation id="6928853950228839340">텍스처에 합성</translation>
+<translation id="3630337581925712713"><ph name="PERMISSION_TYPE_LABEL"/>:</translation>
 <translation id="8446084853024828633">손님으로 로그인</translation>
 <translation id="48399750961678818"><ph name="URL"/>(으)로 변경</translation>
 <translation id="3330616135759834145">여러 콘텐츠 배치 헤더를 수신했으나 HTTP 응답 분할 공격으로부터 보호하기 위해
@@ -2927,6 +3066,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="7671576867600624">기술:</translation>
 <translation id="1103966635949043187">다음 사이트 홈페이지로 이동:</translation>
 <translation id="4762295713053835808">환경설정</translation>
+<translation id="6374100501221763867">하드웨어 가속을 통한 동영상 디코딩을 사용 중지합니다.</translation>
 <translation id="7477347901712410606">암호가 생각나지 않으면 <ph name="BEGIN_LINK"/>Google 대시보드<ph name="END_LINK"/>를 통해 동기화를 중지하고 재설정합니다.</translation>
 <translation id="6139474630617772623">확장된 데스크톱 지원을 사용하여 보조 디스플레이에서 브라우저를 열 수 있습니다.</translation>
 <translation id="2645575947416143543">하지만 인증서를 자체적으로 만드는 조직에서 근무하고 있으며 그러한 인증서를 사용하여 해당 조직의 내부 웹사이트에 연결하려는 경우 이 문제를 안전하게 해결할 수 있습니다. 조직의 루트 인증서를 '루트 인증서'로 가져오고 조직에서 인증서를 발행하고 확인하면 인증서가 신뢰를 받게 되므로 다음 번에 내부 웹사이트에 연결하려 할 때 이러한 오류가 표시되지 않습니다. 컴퓨터에 새 루트 인증서를 추가하는 방법에 대한 자세한 내용은 조직의 담당 직원에게 문의하시기 바랍니다.</translation>
@@ -2944,6 +3084,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1640180200866533862">사용자 정책</translation>
 <translation id="7042418530779813870">붙여넣어 검색하기(&amp;S)</translation>
 <translation id="9110447413660189038">위로(&amp;U)</translation>
+<translation id="8939748290495592680">시작 화면에서 고정 해제</translation>
 <translation id="375403751935624634">서버 오류가 발생하여 번역하지 못했습니다.</translation>
 <translation id="2101225219012730419">버전:</translation>
 <translation id="2762632611300864971">적용 대상</translation>
@@ -2952,6 +3093,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="571201111803517998">대화상자 열기</translation>
 <translation id="8050038245906040378">Microsoft Commercial Code Signing</translation>
 <translation id="271907111803265074">모바일 데이터를 다 썼습니다. <ph name="NETWORK"/>을(를) 사용하려면 다른 요금제를 구매하세요.</translation>
+<translation id="7299721129597238157">북마크 삭제</translation>
 <translation id="3031557471081358569">가져올 항목 선택:</translation>
 <translation id="1368832886055348810">왼쪽에서 오른쪽으로</translation>
 <translation id="3627320433825461852">1분 미만 남음</translation>
@@ -2996,6 +3138,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="6321196148033717308">음성 인식 정보</translation>
 <translation id="35228304245394974">Wimax 네트워크에 참여</translation>
 <translation id="6582381827060163791">온라인 상태입니다.</translation>
+<translation id="8195580257099278880">SD 카드가 포맷되지 않았습니다.</translation>
 <translation id="3412265149091626468">선택 부분으로 이동</translation>
 <translation id="8167737133281862792">인증서 추가</translation>
 <translation id="2645009827850892485">잘못된 DMToken</translation>
@@ -3085,6 +3228,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3527085408025491307">폴더</translation>
 <translation id="3665842570601375360">보안:</translation>
 <translation id="8812832766208874265"><ph name="CURRENT_GOOGLE_HOST"/> 계속 사용</translation>
+<translation id="4522331920508731608">갤러리 관리</translation>
 <translation id="1430915738399379752">인쇄</translation>
 <translation id="7999087758969799248">표준 입력 방법</translation>
 <translation id="2635276683026132559">서명</translation>
@@ -3159,11 +3303,13 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="816095449251911490"><ph name="SPEED"/> - <ph name="RECEIVED_AMOUNT"/>, <ph name="TIME_REMAINING"/></translation>
 <translation id="774465434535803574">확장 프로그램 패키지 오류</translation>
 <translation id="8200772114523450471">다시 시작</translation>
+<translation id="5750676294091770309">확장 프로그램에 의해 차단</translation>
 <translation id="7865978820218947446">사용자 수정</translation>
 <translation id="73307164865957919">보내는 중...</translation>
 <translation id="523299859570409035">알림 예외</translation>
 <translation id="6358975074282722691"><ph name="NUMBER_TWO"/>초 전</translation>
 <translation id="162177343906927099">탭을 삭제하지 마세요.</translation>
+<translation id="6417065746089514543">이동에 실패했습니다. 존재하는 항목: '$1'</translation>
 <translation id="5423849171846380976">활성화됨</translation>
 <translation id="7323391064335160098">VPN 지원</translation>
 <translation id="3929673387302322681">개발 - 불안정</translation>
@@ -3197,19 +3343,24 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4701488924964507374"><ph name="SENTENCE1"/> <ph name="SENTENCE2"/></translation>
 <translation id="1163931534039071049">프레임 소스 보기(&amp;V)</translation>
 <translation id="8770196827482281187">페르시아어 입력 방법(ISIRI 2901 배열)</translation>
+<translation id="100451557350107889">$1 사진을 가져올 위치를 선택합니다.</translation>
 <translation id="6423239382391657905">공개 VPN</translation>
 <translation id="5642953011762033339">계정 연결 해제</translation>
 <translation id="7564847347806291057">프로세스 종료</translation>
 <translation id="1607220950420093847">삭제되었거나 사용 중지된 계정입니다. 로그아웃하시기 바랍니다.</translation>
 <translation id="5613695965848159202">익명 ID:</translation>
 <translation id="4331990704689932958"><ph name="PRODUCT_NAME"/>의 업데이트가 자동으로 수행되므로 항상 최신 버전을 사용할 수 있습니다.</translation>
+<translation id="8737893419487554821">이 파일 형식은 지원되지 않습니다. <ph name="BEGIN_LINK"/>Chrome 웹 스토어<ph name="END_LINK"/>에서 이 파일 형식을 열 수 있는 앱을 검색하세요.
+	      <ph name="BEGIN_LINK"/>자세히 알아보기<ph name="END_LINK"/></translation>
 <translation id="560108005804229228">동기화 오류: 로그아웃한 다음 다시 로그인하세요...</translation>
 <translation id="7063412606254013905">피싱 수법에 대해 자세히 알아보세요.</translation>
 <translation id="7253521419891527137">자세히 알아보기(&amp;L)</translation>
+<translation id="3170312251071695679">기본적으로 <ph name="PERMISSION_VALUE"/></translation>
 <translation id="8698464937041809063">Google 그림</translation>
 <translation id="7053053706723613360">세션 복원력 향상 사용 중지</translation>
 <translation id="5233930340889611108">WebKit</translation>
 <translation id="8260864402787962391">마우스</translation>
+<translation id="8276560076771292512">캐시 비우기 및 강력 새로고침</translation>
 <translation id="9076523132036239772">이메일이나 비밀번호를 확인할 수 없습니다. 먼저 네트워크에 연결해 주세요.</translation>
 <translation id="6965978654500191972">기기</translation>
 <translation id="2959872918720987777">권장사항 적용</translation>
@@ -3259,17 +3410,20 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="7190251665563814471"><ph name="HOST"/>에서 이러한 플러그인을 항상 허용</translation>
 <translation id="2043684166640445160"><ph name="PRODUCT_NAME"/>에서 웹페이지를 표시할 수 없습니다. 컴퓨터가 인터넷에 연결되지 않았습니다.</translation>
 <translation id="5390222677196640946">쿠키 및 기타 사이트 데이터 표시</translation>
+<translation id="3958548648197196644">키위</translation>
 <translation id="1514298457297359873">애플리케이션이 NaCl 소켓 API를 사용할 수 있도록 합니다. NaCl 플러그인을 테스트하는 목적으로만 사용합니다.</translation>
 <translation id="8263231521757761563">활성 프로토콜 핸들러</translation>
 <translation id="7359657277149375382">파일 형식</translation>
 <translation id="2749756011735116528"><ph name="PRODUCT_NAME"/>에 로그인</translation>
 <translation id="2653131220478186612">위험할 수 있으니 다운로드하지 마세요.</translation>
+<translation id="8579549103199280730">기본적으로 확인</translation>
 <translation id="8925458182817574960">설정(&amp;S)</translation>
 <translation id="6361850914223837199">오류 세부정보:</translation>
 <translation id="7463946387631958595">고대비 모드를 사용하도록 설정했습니다. 고대비 확장 프로그램과 다크 테마를 설치하시겠습니까?</translation>
 <translation id="8948393169621400698"><ph name="HOST"/>에서 플러그인 항상 허용</translation>
 <translation id="6527303717912515753">공유</translation>
 <translation id="4285498937028063278">고정 해제</translation>
+<translation id="2588322182880276190">Chrome 로고</translation>
 <translation id="8477304033437705374">설정 변경 시도</translation>
 <translation id="8291808604460602261">애플리케이션에 연결할 수 있도록 웹 인텐트를 허용합니다.</translation>
 <translation id="3865082058368813534">저장된 자동완성 양식 데이터 삭제</translation>
@@ -3302,10 +3456,12 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8962198349065195967">관리자가 구성한 네트워크입니다.</translation>
 <translation id="2143778271340628265">수동 프록시 설정</translation>
 <translation id="2441192698565541088"><ph name="PRODUCT_NAME"/>에서 Google 계정의 연결을 해제하면 이 컴퓨터의 데이터에 대한 변경사항이 더 이상 Google 계정에 동기화되지 않습니다. Google 계정에 이미 저장된 데이터는 <ph name="BEGIN_LINK"/>Google 대시보드<ph name="END_LINK"/>를 사용하여 삭제할 때까지 보관됩니다.</translation>
+<translation id="8888432776533519951">색상:</translation>
 <translation id="5294529402252479912">지금 Adobe Reader 업데이트</translation>
 <translation id="5263972071113911534"><ph name="NUMBER_MANY"/>일 전</translation>
 <translation id="7461850476009326849">개별 플러그인 사용 중지...</translation>
 <translation id="4097411759948332224">현재 페이지 캡쳐화면 보내기</translation>
+<translation id="2312158600294157599">이 프로필에 대한 바탕화면 바로가기 만들기</translation>
 <translation id="2231990265377706070">느낌표</translation>
 <translation id="7199540622786492483">한동안 사용하지 않아 <ph name="PRODUCT_NAME"/>의 버전이 오래되었습니다. 업데이트를 사용할 수 있으며 다시 시작하면 바로 업데이트됩니다.</translation>
 <translation id="2171101176734966184"><ph name="DOMAIN"/>에 접속하려 했으나 서버에서 안전성이 낮은 서명 알고리즘을 사용하여 서명된 인증서를 전달했습니다. 이는 서버에서 전달한 보안 자격증명 정보가 위조되었을 수 있으며 서버를 가장한 공격자와 통신 중일 수 있음을 의미합니다.</translation>
@@ -3355,6 +3511,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1038168778161626396">암호화만</translation>
 <translation id="3924129493187796992">새로운 호스트 이름 패턴 추가</translation>
 <translation id="408205643560606197">'<ph name="EXTENSION_NAME"/>'에서 음성 인식을 위해 오디오를 녹음을 시작했습니다. 녹음이 언제 다시 시작되는지 확인하려면 마이크 알림 아이콘을 찾아보세요.</translation>
+<translation id="3785625046566918883">앱 쿠키 및 데이터</translation>
 <translation id="1377406721062459125">nacl-gdb 디버거에 대한 경로를 설정합니다. 시작 시 NaCl 애플리케이션에 첨부됩니다.</translation>
 <translation id="8765985713192161328">핸들러 관리...</translation>
 <translation id="7179921470347911571">지금 다시 시작</translation>
@@ -3365,6 +3522,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1177863135347784049">맞춤</translation>
 <translation id="4881695831933465202">열기</translation>
 <translation id="3593965109698325041">인증서 이름 제약조건</translation>
+<translation id="3131179947821237419">확인란과 버튼에 대한 새로운 모양 및 크기 조정 방식을 사용 중지합니다.</translation>
 <translation id="4358697938732213860">주소 추가</translation>
 <translation id="8396532978067103567">비밀번호가 정확하지 않습니다.</translation>
 <translation id="2238086278708809590"><ph name="EXTENSION_NAME"/>이(가) 전체 화면을 실행합니다.</translation>
@@ -3393,6 +3551,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="494645311413743213"><ph name="NUMBER_TWO"/>초 남음</translation>
 <translation id="1485146213770915382">검색어가 표시되는 URL에 <ph name="SEARCH_TERMS_LITERAL"/>을(를) 삽입합니다.</translation>
 <translation id="4839303808932127586">동영상을 다른 이름으로 저장...(&amp;V)</translation>
+<translation id="317583078218509884">새 사이트 권한 설정은 페이지를 새로고침한 다음에 적용됩니다.</translation>
 <translation id="5626134646977739690">이름:</translation>
 <translation id="5854409662653665676">문제가 자주 발생할 경우 다음 단계에 따라 모듈 문제를 해결할 수 있습니다.</translation>
 <translation id="3681007416295224113">인증서 정보</translation>
@@ -3403,6 +3562,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="6680028776254050810">사용자 전환</translation>
 <translation id="212464871579942993">웹사이트(<ph name="HOST_NAME"/>)에 악성 코드를 호스팅하는 것으로 추정되는 사이트에서 유입된 요소가 포함되어 있습니다. 악성 코드는 컴퓨터에 손상을 입히거나 사용자의 동의 없이 작동하는 소프트웨어입니다. 악성 코드가 설치된 사이트에 방문하는 것만으로도 사용자의 컴퓨터가 감염될 수 있습니다. 이 웹사이트에서는 '피싱' 사이트로 신고된 사이트에서 유입된 콘텐츠도 호스팅되고 있습니다. 피싱 사이트는 속임수를 통해 개인정보 및 금융정보를 몰래 빼내기 위해 만들어진 사이트로 종종 은행과 같은 공식기관을 사칭하기도 합니다.</translation>
 <translation id="9027307872616253016">Chrome 웹 스토어에서 서비스 찾기</translation>
+<translation id="887692350334376364">미디어 예외</translation>
 <translation id="8156020606310233796">목록 보기</translation>
 <translation id="8002980609684534974">번호 추적</translation>
 <translation id="146000042969587795">안전하지 않은 콘텐츠가 포함되어 이 프레임을 차단했습니다.</translation>
@@ -3412,6 +3572,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3729920814805072072">저장된 비밀번호 관리...</translation>
 <translation id="7387829944233909572">'인터넷 사용정보 삭제' 대화상자</translation>
 <translation id="8023801379949507775">지금 확장 프로그램 업데이트</translation>
+<translation id="6045425183320109397">제작자</translation>
 <translation id="1103666958012677467">웹사이트 운영자가 이 도메인에 대한 보안을 강화했으므로 더 이상 진행할 수 없습니다.</translation>
 <translation id="3298789223962368867">잘못된 URL을 입력했습니다.</translation>
 <translation id="2202898655984161076">프린터를 나열하는 데 문제가 발생했습니다. <ph name="CLOUD_PRINT_NAME"/>에 성공적으로 등록되지 못한 프린터가 있을 수 있습니다.</translation>
@@ -3422,6 +3583,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="5359419173856026110">하드웨어 가속을 사용 중인 경우 페이지의 실제 프레임 속도를 초당 프레임으로 표시합니다.</translation>
 <translation id="4104163789986725820">내보내기(&amp;X)...</translation>
 <translation id="2113479184312716848">파일 열기(&amp;F)...</translation>
+<translation id="8405710043622376215">검색주소창 자동 완성에서 HistoryQuickProvider 추천을 다시 정렬하면 인라인할 수 있는 항목이 먼저 표시됩니다.</translation>
 <translation id="3314617171364900239">확장 프로그램('<ph name="EXTENSION_NAME"/>')에 대한 업데이트 확인을 계속 실패했습니다.</translation>
 <translation id="4850458635498951714">기기 추가</translation>
 <translation id="3140353188828248647">주소 표시줄로 이동</translation>
@@ -3471,6 +3633,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="7077176974744385057">추천 앱 더보기</translation>
 <translation id="2024918351532495204">오프라인 상태입니다.</translation>
 <translation id="6040143037577758943">닫기</translation>
+<translation id="1538483505493767575">갤러리 추가</translation>
 <translation id="5607923769356613853"><ph name="BEGIN_BOLD"/>공구모양 메뉴&gt; <ph name="SETTINGS_TITLE"/> &gt; <ph name="ADVANCED_TITLE"/> &gt; <ph name="PROXIES_TITLE"/> &gt; LAN 설정 <ph name="END_BOLD"/>으로 이동하여 '사용자 LAN에 프록시 서버 사용'을 선택 취소합니다.</translation>
 <translation id="5787146423283493983">키 계약</translation>
 <translation id="1101671447232096497"><ph name="NUMBER_MANY"/>분 전</translation>
@@ -3497,6 +3660,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3423858849633684918"><ph name="PRODUCT_NAME"/>을(를) 다시 시작하세요.</translation>
 <translation id="1232569758102978740">제목 없음</translation>
 <translation id="2479410451996844060">검색 URL이 잘못됨</translation>
+<translation id="3489444618744432220">정책에 의해 허용</translation>
 <translation id="1903219944620007795">텍스트를 입력할 때 사용 가능한 입력 방법을 보려면 언어를 선택하세요.</translation>
 <translation id="1850508293116537636">시계 방향으로 회전(&amp;C)</translation>
 <translation id="4362187533051781987">구/군</translation>
@@ -3534,6 +3698,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3570985609317741174">웹 콘텐츠</translation>
 <translation id="3951872452847539732">네트워크 프록시 설정이 확장 프로그램에서 관리되고 있습니다.</translation>
 <translation id="6442697326824312960">탭 고정 해제</translation>
+<translation id="8714406895390098252">자전거</translation>
 <translation id="6382612843547381371">유효 기간: <ph name="START_DATE_TIME"/> - <ph name="END_DATE_TIME"/></translation>
 <translation id="4707579418881001319">L2TP/IPSec + 사용자 인증서</translation>
 <translation id="9086302186042011942">동기화 중</translation>
@@ -3545,6 +3710,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4289300219472526559">말하기 시작</translation>
 <translation id="497490572025913070">합성된 렌더 레이어 테두리</translation>
 <translation id="9002707937526687073">인쇄(&amp;R)...</translation>
+<translation id="7631652846300228749">알 수 없는 날짜</translation>
 <translation id="4133237568661345071">자동 로그인 사용</translation>
 <translation id="3851140433852960970">이 콘텐츠를 표시하는 데 사용할 플러그인이 없습니다.</translation>
 <translation id="5556459405103347317">새로고침</translation>
@@ -3553,6 +3719,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3958088479270651626">북마크 및 설정 가져오기</translation>
 <translation id="2689915906323125315">내 Google 계정 비밀번호 사용</translation>
 <translation id="8518865679229538285">타밀어 입력 방법(타자기)</translation>
+<translation id="5257456363153333584">잠자리</translation>
 <translation id="4557136421275541763">경고:</translation>
 <translation id="2604243255129603442"><ph name="NAME_OF_EXTENSION"/>이(가) 사용 중지되었습니다. 북마크 동기화를 사용 중지하면 확장 프로그램 페이지에서 이 기능을 다시 사용하도록 설정할 수 있습니다. 확장 프로그램 페이지는 도구 메뉴에서 액세스할 수 있습니다.</translation>
 <translation id="5923417893962158855">시크릿 모드에서 다운로드 진행 중</translation>
@@ -3572,11 +3739,14 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3991936620356087075">잘못된 PIN 잠금해제 키를 너무 많이 입력했습니다. SIM 카드가 영구적으로 사용 중지되었습니다.</translation>
 <translation id="936801553271523408">시스템 진단 데이터</translation>
 <translation id="820791781874064845">이 웹페이지는 확장 프로그램에 의해 차단되었습니다.</translation>
+<translation id="2649120831653069427">구피</translation>
+<translation id="4245278692280406123">미리보기:</translation>
 <translation id="9009144784540995197">프린터 관리</translation>
 <translation id="3021678814754966447">프레임 소스 보기(&amp;V)</translation>
 <translation id="8601206103050338563">TLS WWW 클라이언트 인증</translation>
 <translation id="1692799361700686467">여러 사이트의 쿠키를 허용했습니다.</translation>
 <translation id="5187295959347858724">이제 <ph name="SHORT_PRODUCT_NAME"/>에 로그인되었으며 북마크와 방문기록, 기타 설정이 내 Google 계정과 동기화됩니다.</translation>
+<translation id="3719415759165722358">웹사이트 설정 UI를 사용합니다. 웹사이트 설정 UI는 페이지 도움말 풍선을 대체하고 사이트별 설정을 구성할 수 있는 간단한 방법을 제공합니다.</translation>
 <translation id="2717190143245689317">실험적 애플리케이션 UI용 Textfield를 사용합니다. 웹 콘텐츠에는 영향을 주지 않습니다.</translation>
 <translation id="529232389703829405"><ph name="DATE"/>에 <ph name="DATA_AMOUNT"/>의 데이터를 구입했습니다.</translation>
 <translation id="7419106976560586862">프로필 경로</translation>
@@ -3584,6 +3754,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="4784330909746505604">PowerPoint 프리젠테이션</translation>
 <translation id="4345587454538109430">설정...</translation>
 <translation id="8148264977957212129">병음 입력 방법</translation>
+<translation id="2288278176040912387">레코드 플레이어</translation>
 <translation id="7772032839648071052">암호 확인</translation>
 <translation id="6857811139397017780"><ph name="NETWORKSERVICE"/> 활성화</translation>
 <translation id="3251855518428926750">추가...</translation>
@@ -3617,6 +3788,8 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="2927657246008729253">변경...</translation>
 <translation id="7586781939132793422">음성 피드백 사용 안함</translation>
 <translation id="7978412674231730200">비공개 키</translation>
+<translation id="7056011739864317578">이 설정을 사용하면 ClientOAuth를 사용하여 프로필을 Google 계정에 연결합니다.  그렇지 않으면 ClientLogin을 사용합니다.
+      ClientOAuth는 인증 시 ASP 대신 인증 코드를 사용할 수 있습니다.</translation>
 <translation id="5308380583665731573">연결</translation>
 <translation id="9111395131601239814"><ph name="NETWORKDEVICE"/>: <ph name="STATUS"/></translation>
 <translation id="9049981332609050619"><ph name="DOMAIN"/>에 접속하려 했지만 서버가 잘못된 인증서를 전달했습니다.</translation>
@@ -3624,6 +3797,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1693754753824026215"><ph name="SITE"/>의 페이지 내용:</translation>
 <translation id="7148804936871729015"><ph name="URL"/>의 서버가 응답하는 데 시간이 너무 오래 걸립니다. 오버로드되었을 수 있습니다.</translation>
 <translation id="5066173162665203318">고급 설정...</translation>
+<translation id="8094802570099763657">$1 항목을 복사 중입니다.</translation>
 <translation id="7278870042769914968">GTK+ 테마 사용</translation>
 <translation id="4501530680793980440">삭제 확인</translation>
 <translation id="8108473539339615591">XSS Auditor</translation>
@@ -3677,6 +3851,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="668171684555832681">기타...</translation>
 <translation id="7540972813190816353">업데이트를 확인하는 동안 오류가 발생했습니다. <ph name="ERROR"/></translation>
 <translation id="2225024820658613551">더 이상 진행하지 않는 것이 안전하며, &lt;strong&gt;특히&lt;/strong&gt; 해당 사이트에서 이 경고를 처음 보는 것이라면 더욱 주의해야 합니다.</translation>
+<translation id="4596904276221394120">순간 검색 확장 API를 사용합니다.</translation>
 <translation id="2049639323467105390">기기는 <ph name="DOMAIN"/>에서 관리합니다.</translation>
 <translation id="1932098463447129402">시작:</translation>
 <translation id="7845920762538502375">동기화 서버에 연결할 수 없기 때문에 <ph name="PRODUCT_NAME"/>이(가) 데이터를 동기화할 수 없습니다. 다시 시도하는 중...</translation>
@@ -3745,6 +3920,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3695919544155087829">인증서 파일을 암호화할 때 사용한 비밀번호를 입력하세요.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2509857212037838238"><ph name="PLUGIN_NAME"/> 설치</translation>
+<translation id="7503712332447507470">이 사이트가 카메라를 사용하도록 허용합니다.</translation>
 <translation id="6308937455967653460">다른 이름으로 링크 저장(&amp;K)...</translation>
 <translation id="5828633471261496623">인쇄 중...</translation>
 <translation id="5421136146218899937">인터넷 사용정보 삭제...</translation>
@@ -3765,11 +3941,13 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="1255964530203229794"><ph name="USER_EMAIL_ADDRESS"/>(으)로 동기화되었습니다. 마지막 동기화 시간: <ph name="LAST_SYNC_TIME"/></translation>
 <translation id="6697308399043041614">Chrome to Mobile</translation>
 <translation id="1122198203221319518">도구(&amp;T)</translation>
+<translation id="3355221513701943639">Seccomp-legacy 샌드박스</translation>
 <translation id="5143151113947480436">복사하여 붙여넣은 데이터에 액세스</translation>
 <translation id="6051028581720248124">FedEx Office로 인쇄하면 해당 회사의 <ph name="START_LINK"/>이용약관<ph name="END_LINK"/>에 동의하게 됩니다.</translation>
 <translation id="2760009672169282879">불가리아어 음성 키보드</translation>
 <translation id="6608140561353073361">모든 쿠키 및 사이트 데이터...</translation>
 <translation id="2596602318381383954">다음 핸들러로 작업 완료:</translation>
+<translation id="6485131920355264772">공간 정보를 찾지 못했습니다.</translation>
 <translation id="8007030362289124303">배터리 부족</translation>
 <translation id="3790909017043401679">SIM 카드 PIN 입력</translation>
 <translation id="4513946894732546136">문제 신고</translation>
@@ -3852,6 +4030,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8828933418460119530">DNS 이름</translation>
 <translation id="988159990683914416">개발자 빌드</translation>
 <translation id="1097658378307015415">로그인하기 전에 손님으로 로그인하여 <ph name="NETWORK_ID"/> 네트워크를 활성화하세요.</translation>
+<translation id="5170477580121653719">Google 드라이브에 남은 공간: <ph name="SPACE_AVAILABLE"/>.</translation>
 <translation id="4114470632216071239">SIM 카드 잠금(모바일 데이터를 사용하려면 PIN 필요)</translation>
 <translation id="5184584788669813359">이 PDF 문서의 일부를 표시할 수 없습니다. Adobe Reader에서 여시겠습니까?</translation>
 <translation id="6581162200855843583">Google 드라이브 링크</translation>
@@ -3893,6 +4072,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="8859057652521303089">언어 선택:</translation>
 <translation id="3030138564564344289">다운로드 다시 시도</translation>
 <translation id="2603463522847370204">시크릿 창에서 열기(&amp;I)</translation>
+<translation id="2951236788251446349">해파리</translation>
 <translation id="4381091992796011497">사용자 이름:</translation>
 <translation id="4636388769812446016">마이크가 이미 사용 중입니다.</translation>
 <translation id="5830720307094128296">페이지를 다른 이름으로 저장(&amp;A)...</translation>
@@ -3918,6 +4098,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="9112614144067920641">새 PIN을 선택하세요.</translation>
 <translation id="7109926893210135223">다운로드 진행 중</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY"/>(<ph name="ENCODING_NAME"/>)</translation>
+<translation id="8379970328220427967">남은 공간: <ph name="SPACE_AVAILABLE"/></translation>
 <translation id="7773726648746946405">세션 저장소</translation>
 <translation id="9147392381910171771">옵션(&amp;O)</translation>
 <translation id="1803557475693955505">배경 페이지('<ph name="BACKGROUND_PAGE"/>')를 로드하지 못했습니다.</translation>
@@ -3973,6 +4154,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3817519158465675771">네트워크 옵션</translation>
 <translation id="7161508766647573452">일부 설정은 관리자가 관리합니다.</translation>
 <translation id="4618990963915449444"><ph name="DEVICE_NAME"/>에 있는 모든 파일이 지워집니다.</translation>
+<translation id="5011739343823725107">동기화 백엔드를 시작하지 못했습니다.</translation>
 <translation id="614998064310228828">기기 모델:</translation>
 <translation id="1581962803218266616">Finder에서 보기</translation>
 <translation id="9100765901046053179">고급 설정</translation>
@@ -4015,8 +4197,11 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="6811824796237962267">Ash 상태 표시줄 알림을 사용 중지하고 데스크톱 시스템 알림을 사용합니다.</translation>
 <translation id="5095208057601539847">주/도</translation>
 <translation id="4085298594534903246">이 페이지에서 자바스크립트가 차단되었습니다.</translation>
+<translation id="7825543042214876779">정책에 의해 차단</translation>
 <translation id="4341977339441987045">사이트에서 데이터를 설정하지 못하도록 차단</translation>
 <translation id="806812017500012252">제목순으로 다시 정렬</translation>
+<translation id="1807938677607439181">모든 파일</translation>
+<translation id="2376485338202301051">백그라운드 검색</translation>
 <translation id="9167350110873177156">또는 <ph name="IDS_SYNC_CREATE_ACCOUNT"/></translation>
 <translation id="3781751432212184938">탭 개요 표시...</translation>
 <translation id="2960316970329790041">가져오기 중지</translation>
@@ -4107,6 +4292,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="3876481682997626897">서명 불일치</translation>
 <translation id="8892992092192084762">테마('<ph name="THEME_NAME"/>')를 설치했습니다.</translation>
 <translation id="7427348830195639090">백그라운드 페이지: <ph name="BACKGROUND_PAGE_URL"/></translation>
+<translation id="8390029840652165810">네트워크 연결이 작동 중인지 확인하시기 바랍니다. 문제가 계속되면 로그아웃한 뒤 다시 로그인하여 자격증명 정보를 새로고침하세요.</translation>
 <translation id="5898154795085152510">서버에서 잘못된 클라이언트 인증서를 반환했습니다. 오류 <ph name="ERROR_NUMBER"/>(<ph name="ERROR_NAME"/>).</translation>
 <translation id="2704184184447774363">Microsoft Document Signing</translation>
 <translation id="1071139452646369777"><ph name="HANDLER_TITLE"/>은(는) 이미 <ph name="PROTOCOL"/> 링크 처리에 사용 중입니다.</translation>
@@ -4185,6 +4371,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 키 파일은 확장 프로그램의 새 버전을 만드는 데 필요하므로 안전한 장소에 보관하시기 바랍니다.</translation>
 <translation id="2970444815634085254">Chrome to Mobile을 사용하지 않습니다.</translation>
 <translation id="1846078536247420691">예(&amp;Y)</translation>
+<translation id="6906389084589171704"><ph name="FILE_NAME"/> 이동 중</translation>
 <translation id="2966459079597787514">스웨덴어 키보드</translation>
 <translation id="7685049629764448582">자바스크립트 메모리</translation>
 <translation id="6398765197997659313">전체화면 닫기</translation>
@@ -4221,6 +4408,7 @@ Public Exponent(<ph name="PUBLIC_EXPONENT_NUM_BITS"/>비트):
 <translation id="5780498354378986900">'<ph name="FILE_NAME"/>'을(를) 삭제할 수 없습니다. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="5832830184511718549">웹 페이지 합성을 수행하는 보조 스레드를 사용합니다. 기본 스레드가 응답하지 않을 때도 원활한 스크롤이 허용됩니다.</translation>
 <translation id="3346457130337124365"><ph name="HOST_NAME"/>에 악성코드가 포함되어 있습니다. 이 사이트를 방문하면 휴대기기가 바이러스에 감염될 수 있습니다.</translation>
+<translation id="5926308170227699652">실험용 노프레임 대화상자를 사용합니다.</translation>
 <translation id="8203365863660628138">설치 확인</translation>
 <translation id="406259880812417922">(키워드: <ph name="KEYWORD"/>)</translation>
 <translation id="4778399030184051458">시작 시 스크립트가 nacl-gdb에 의해 실행됩니다.</translation>

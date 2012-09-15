@@ -47,6 +47,7 @@ Druk tegelijk op Shift en de zoektoets om te annuleren.</translation>
 <translation id="1895658205118569222">Uitschakeling</translation>
 <translation id="4430019312045809116">Volume</translation>
 <translation id="1383876407941801731">Zoeken</translation>
+<translation id="2204305834655267233">Netwerkinfo</translation>
 <translation id="5980301590375426705">Gastsessie sluiten</translation>
 <translation id="8308637677604853869">Vorig menu</translation>
 <translation id="1346748346194534595">Rechts</translation>
@@ -61,21 +62,29 @@ Druk tegelijk op Shift en de zoektoets om te annuleren.</translation>
 <translation id="3784455785234192852">Vergrendelen</translation>
 <translation id="2805756323405976993">Applicaties</translation>
 <translation id="2482878487686419369">Meldingen</translation>
+<translation id="1850504506766569011">Wifi is uitgeschakeld.</translation>
 <translation id="2872961005593481000">Afsluiten</translation>
 <translation id="7052914147756339792">Achtergrond instellen...</translation>
+<translation id="5746825509052394497">Uw invoermethode is gewijzigd in <ph name="INPUT_METHOD_ID"/>.
+        Druk op Shift + Alt om te schakelen.</translation>
 <translation id="1602076796624386989">Mobiele gegevens inschakelen</translation>
 <translation id="3157931365184549694">Herstellen</translation>
 <translation id="8573351908869164327"><ph name="HOUR"/>u <ph name="MINUTE"/>m resterend</translation>
 <translation id="7029814467594812963">Sessie sluiten</translation>
+<translation id="8454013096329229812">Wifi is ingeschakeld.</translation>
 <translation id="2983818520079887040">Instellingen...</translation>
 <translation id="2712866615167520691">Toegankelijkheidsfuncties zijn ingeschakeld.
 Druk op Ctrl+Alt+Z om te annuleren.</translation>
 <translation id="8660803626959853127"><ph name="COUNT"/> bestand(en) synchroniseren</translation>
+<translation id="1837166567415282700">Uw invoermethode is gewijzigd in <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>derden<ph name="END_LINK"/>).
+        Druk op Shift + Alt om te schakelen.</translation>
 <translation id="639644700271529076">CAPS LOCK is uitgeschakeld</translation>
 <translation id="4864165860509564259">Positie van launcher</translation>
 <translation id="7649070708921625228">Help</translation>
 <translation id="397105322502079400">Berekenen...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">U heeft geen meldingen. Doe het rustig aan!</translation>
+<translation id="7457942297256758195">Alles wissen</translation>
 <translation id="7871882211137875558">Verbinding met ander ...</translation>
 <translation id="3573179567135747900">Teruggaan naar '<ph name="FROM_LOCALE"/>' (opnieuw starten vereist)</translation>
 <translation id="8103386449138765447">SMS-berichten: <ph name="MESSAGE_COUNT"/></translation>
@@ -84,6 +93,7 @@ Druk op Ctrl+Alt+Z om te annuleren.</translation>
 <translation id="5941711191222866238">Minimaliseren</translation>
 <translation id="9169585155162064169">CAPS LOCK is ingeschakeld.
 Druk op de zoektoets om te annuleren.</translation>
+<translation id="6843725295806269523">dempen</translation>
 <translation id="412065659894267608"><ph name="HOUR"/>u <ph name="MINUTE"/>m tot volledig opgeladen</translation>
 <translation id="4469842253116033348">Meldingen van <ph name="SITE"/> uitschakelen</translation>
 <translation id="6359806961507272919">Sms van <ph name="PHONE_NUMBER"/></translation>

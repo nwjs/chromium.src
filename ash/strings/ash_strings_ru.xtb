@@ -47,6 +47,7 @@
 <translation id="1895658205118569222">Завершение работы</translation>
 <translation id="4430019312045809116">Объем</translation>
 <translation id="1383876407941801731">Поиск</translation>
+<translation id="2204305834655267233">Информация о сети</translation>
 <translation id="5980301590375426705">Завершить гостевой сеанс</translation>
 <translation id="8308637677604853869">Предыдущее меню</translation>
 <translation id="1346748346194534595">Вправо</translation>
@@ -61,20 +62,28 @@
 <translation id="3784455785234192852">Заблокировать</translation>
 <translation id="2805756323405976993">Приложения</translation>
 <translation id="2482878487686419369">Оповещения</translation>
+<translation id="1850504506766569011">Wi-Fi отключен</translation>
 <translation id="2872961005593481000">Завершить работу</translation>
 <translation id="7052914147756339792">Установка обоев…</translation>
+<translation id="5746825509052394497">Способ ввода изменен на <ph name="INPUT_METHOD_ID"/>.
+        Для переключения нажмите Shift + Alt.</translation>
 <translation id="1602076796624386989">Включить мобильную передачу данных</translation>
 <translation id="3157931365184549694">Восстановить</translation>
 <translation id="8573351908869164327">Заряда осталось на <ph name="HOUR"/> ч <ph name="MINUTE"/> мин</translation>
 <translation id="7029814467594812963">Завершить сеанс</translation>
+<translation id="8454013096329229812">Wi-Fi включен</translation>
 <translation id="2983818520079887040">Настройки...</translation>
 <translation id="2712866615167520691">Включены функции специальных возможностей. Чтобы отключить их, нажмите Ctrl+Alt+Z.</translation>
 <translation id="8660803626959853127">Синхронизация файлов (<ph name="COUNT"/>)</translation>
+<translation id="1837166567415282700">Способ ввода изменен на <ph name="INPUT_METHOD_ID"/>* (<ph name="BEGIN_LINK"/>независимый разработчик<ph name="END_LINK"/>).
+        Для переключения нажмите Shift + Alt.</translation>
 <translation id="639644700271529076">CAPS LOCK отключен</translation>
 <translation id="4864165860509564259">Положение панели запуска</translation>
 <translation id="7649070708921625228">Справка</translation>
 <translation id="397105322502079400">Вычисление…</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Новых оповещений нет.</translation>
+<translation id="7457942297256758195">Очистить все</translation>
 <translation id="7871882211137875558">Подключиться к другой сети…</translation>
 <translation id="3573179567135747900">Вернуться к языку: &quot;<ph name="FROM_LOCALE"/>&quot; (потребуется перезагрузка)</translation>
 <translation id="8103386449138765447">SMS: <ph name="MESSAGE_COUNT"/></translation>
@@ -83,6 +92,7 @@
 <translation id="5941711191222866238">Свернуть</translation>
 <translation id="9169585155162064169">Включен режим CAPS LOCK.
 Чтобы отключить его, нажмите клавишу &quot;Поиск&quot;.</translation>
+<translation id="6843725295806269523">отключить звук</translation>
 <translation id="412065659894267608">До полной зарядки: <ph name="HOUR"/> ч <ph name="MINUTE"/> мин</translation>
 <translation id="4469842253116033348">Отключить уведомления с этого адреса: <ph name="SITE"/></translation>
 <translation id="6359806961507272919">SMS от <ph name="PHONE_NUMBER"/></translation>

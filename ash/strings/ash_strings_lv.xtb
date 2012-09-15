@@ -46,6 +46,7 @@
 <translation id="1895658205118569222">Izslēgšana</translation>
 <translation id="4430019312045809116">Skaļums</translation>
 <translation id="1383876407941801731">Meklēšana</translation>
+<translation id="2204305834655267233">Tīkla informācija</translation>
 <translation id="5980301590375426705">Aizvērt viesa sesiju</translation>
 <translation id="8308637677604853869">Iepriekšējā izvēlne</translation>
 <translation id="1346748346194534595">Pa labi</translation>
@@ -60,21 +61,29 @@
 <translation id="3784455785234192852">Bloķēt</translation>
 <translation id="2805756323405976993">Lietotnes</translation>
 <translation id="2482878487686419369">Paziņojumi</translation>
+<translation id="1850504506766569011">Wi-Fi tīkls ir izslēgts.</translation>
 <translation id="2872961005593481000">Beidzēt</translation>
 <translation id="7052914147756339792">Iestatīt fona tapeti...</translation>
+<translation id="5746825509052394497">Jūsu ievades metode ir mainīta uz <ph name="INPUT_METHOD_ID"/>.
+        Lai to pārslēgtu, nospiediet Shift+Alt.</translation>
 <translation id="1602076796624386989">Iespējot mobilo datu pārraidi</translation>
 <translation id="3157931365184549694">Atjaunot</translation>
 <translation id="8573351908869164327">Atlikušais laiks: <ph name="HOUR"/> h <ph name="MINUTE"/> min</translation>
 <translation id="7029814467594812963">Iziet no sesijas</translation>
+<translation id="8454013096329229812">Wi-Fi tīkls ir ieslēgts.</translation>
 <translation id="2983818520079887040">Iestatījumi...</translation>
 <translation id="2712866615167520691">Ir iespējotas pieejamības funkcijas.
 Lai tās atceltu, nospiediet Ctrl+Alt+Z.</translation>
 <translation id="8660803626959853127">Notiek <ph name="COUNT"/> faila(-u) sinhronizēšana</translation>
+<translation id="1837166567415282700">Jūsu ievades metode ir mainīta uz <ph name="INPUT_METHOD_ID"/>*(<ph name="BEGIN_LINK"/>trešā puse<ph name="END_LINK"/>).
+        Lai to pārslēgtu, nospiediet Shift+Alt.</translation>
 <translation id="639644700271529076">Funkcija CAPS LOCK ir izslēgta.</translation>
 <translation id="4864165860509564259">Palaidēja novietojums</translation>
 <translation id="7649070708921625228">Palīdzība</translation>
 <translation id="397105322502079400">Notiek aprēķināšana...</translation>
 <translation id="6362354186508391853">Ctrl +</translation>
+<translation id="477782898153505579">Jums nav neviena paziņojuma. Atpūtieties!</translation>
+<translation id="7457942297256758195">Notīrīt visu</translation>
 <translation id="7871882211137875558">Pievienoties citiem...</translation>
 <translation id="3573179567135747900">Mainīt atpakaļ uz <ph name="FROM_LOCALE"/> (nepieciešama restartēšana)</translation>
 <translation id="8103386449138765447">Īsziņas: <ph name="MESSAGE_COUNT"/></translation>
@@ -82,6 +91,7 @@ Lai tās atceltu, nospiediet Ctrl+Alt+Z.</translation>
 <translation id="48607902311828362">Lidmašīnas režīms</translation>
 <translation id="5941711191222866238">Minimizēt</translation>
 <translation id="9169585155162064169">Funkcija CAPS LOCK ir ieslēgta. Lai to atceltu, nospiediet meklēšanas taustiņu.</translation>
+<translation id="6843725295806269523">izslēgt skaņu</translation>
 <translation id="412065659894267608">Līdz pilnīgai uzlādei atlikušais laiks: <ph name="HOUR"/> h <ph name="MINUTE"/> min</translation>
 <translation id="4469842253116033348">Atspējot vietnes <ph name="SITE"/> paziņojumus</translation>
 <translation id="6359806961507272919">SMS no <ph name="PHONE_NUMBER"/></translation>

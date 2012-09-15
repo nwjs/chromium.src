@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">به دلیل خطای نامشخص نصب ناموفق بود. اگر Chromium در حال اجرا است، لطفاً آن را ببندید و دوباره سعی کنید.</translation>
 <translation id="2589479092236095792">تنظیمات تکمیل خودکار Chromium</translation>
 <translation id="3555616473548901994">حذف نصب انجام شد.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">اختیاری: با ارسال خودکار آمار کاربرد و گزارش‌های خرابی برنامه به Chromium، به پیشرفت Chrome کمک کنید.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> - Chromium</translation>
 <translation id="1989424089625731201">شما سعی داشتید به &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; دسترسی پیدا کنید، اما گواهی ارائه شده از سوی سرور دارای خطا است. Chromium نمی‌تواند از گواهی دارای خطا استفاده کند و نمی‌تواند هویت سایتی را تعیین کند که می‌خواهید به آن وصل شوید.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">هیچ نصبی از Chromium یا Chromium Frame برای به‌روزرسانی یافت نشد.</translation>
 <translation id="3197823471738295152">دستگاه شما به‌روزرسانی شده است.</translation>
 <translation id="8551886023433311834">تقریباً به‌روزرسانی شده است! دستگاه خود را دوباره راه‌اندازی کنید تا به‌روزرسانی تمام شود.</translation>
+<translation id="8353224596138547809">آیا می‌خواهید Chromium گذرواژه این سایت را ذخیره کند؟</translation>
 <translation id="4124681358536363708">دایرکتوری نصب Chromium در حال استفاده است. لطفاً رایانهٔ خود را مجدداً را‌ه‌اندازی کنید و دوباره سعی کنید.</translation>
 <translation id="8770560772173120024">اکنون Chromium در حال وارد کردن نشانک‌ها/موارد دلخواه است.</translation>
 <translation id="6290315939897260265">در Chromium استفاده نمی‌شود. نگهدارنده مکان برای نگهداری نقشه‌های منبع به صورت همگام‌سازی.</translation>
@@ -126,11 +128,14 @@
 <translation id="8616882682724010661"><ph name="BEGIN_LINK"/>مزایای بیشتر<ph name="END_LINK"/> ورود به سیستم Chromium را مشاهده کنید.</translation>
 <translation id="378917192836375108">Chromium به شما اجازه می‌دهد بر روی شماره تلفن روی وب کلیک کرده و از طریق Skype تماس بگیرید!</translation>
 <translation id="8724049448828509830">دانلود اکنون در حال انجام است. آیا می‌خواهید از Chromium خارج شوید و دانلود را لغو کنید.</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">میزبان افزونه Chromium </translation>
 <translation id="2739631515503418643">دانلودهایی اکنون در حال انجام هستند. آیا می‌خواهید از Chromium خارج شوید و دانلودها را لغو کنید؟</translation>
 <translation id="9013262824292842194">Chromium به Windows Vista یا Windows XP دارای SP2 یا بالاتر نیاز دارد.</translation>
 <translation id="1967743265616885482">یک مدول همنام با Chromium تداخل دارد.</translation>
 <translation id="4224199872375172890">Chromium به‌روز است.</translation>
+<translation id="374481098568514319">این رایانه نسخه جدیدتری از مؤلفه‌های Chromium را دارد. لطفاً از نصب کننده جدیدتری استفاده کنید.</translation>
+<translation id="6240281849816458190">شما تلاش کردید به &lt;strong&gt;<ph name="DOMAIN"/>&lt;strong&gt; دسترسی پیدا کنید، اما سرور یک گواهی را ارائه کرد که تا این زمان معتبر نیست. هیچ اطلاعاتی مبنی بر قابل اطمینان بودن این گواهی در دست نیست. Chromium نمی‌تواند با اطمینان ضمانت کند که شما با &lt;strong&gt;<ph name="DOMAIN2"/>&lt;strong&gt; و نه با یک مهاجم ارتباط برقرار می‌کنید. ساعت رایانهٔ شما در حال حاضر روی <ph name="CURRENT_TIME"/> تنظیم شده است. آیا این درست است؟ اگر درست نیست، باید خطا را اصلاح کنید و این صفحه را بازخوانی کنید.</translation>
 <translation id="5498103559159810756">Chromium از موتور جستجوی پیش‌فرض شما استفاده می‌کند، که اکنون روی <ph name="PAGE_TITLE"/> تنظیم شده است. آیا می‌خواهید موتور جستجوی پیش‌فرض خود را حفظ کنید؟</translation>
 <translation id="5862307444128926510">به Chromium خوش آمدید</translation>
 <translation id="1622565934590470080">این رایانه در حال حاضر دارای یک نسخه جدیدتر از Chromium  و Chromium Frame است. در صورتی که نرم‌افزار کار نمی‌کند، لطفاً هر دو Chromium و Chromium Frame را حذف نصب کنید و دوباره سعی کنید.</translation>

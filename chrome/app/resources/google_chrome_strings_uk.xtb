@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Так, вийти з Chrome</translation>
 <translation id="386202838227397562">Закрийте всі вікна Google Chrome і повторіть спробу.</translation>
 <translation id="2770231113462710648">Змінити веб-переглядач за умовчанням на:</translation>
+<translation id="741045321678647133">Хост програми Google Chrome</translation>
 <translation id="7400722733683201933">Про Google Chrome</translation>
 <translation id="1065672644894730302">Не вдається розпізнати налаштування. Деякі функції можуть бути не доступні, а зміни в налаштуваннях не зберігатимуться.</translation>
 <translation id="7781002470561365167">Доступна нова версія Google Chrome.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Google Chrome більше не оновлюється, оскільки ваша операційна система застаріла.</translation>
 <translation id="5339639696978861456">Chrome Frame оновлено. Перезапустіть свій веб-переглядач. Версія Chrome: <ph name="TODO_0001"/>, версія Chrome Frame: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Умови використання</translation>
+<translation id="5775197990071433230">На цьому комп’ютері вже є новіші версії компонентів Google Chrome. Скористайтеся новішою програмою встановлення.</translation>
 <translation id="8398145039500709259">Використовувати цей обліковий запис Google для синхронізації всіх ваших матеріалів із Chrome?</translation>
 <translation id="1779550429052479749">У системі виявлено конфліктуюче встановлення Google Chrome або Google Chrome Frame. Видаліть його та повторіть спробу.</translation>
 <translation id="3555616473548901994">Видалення завершено.</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Доступна нова, безпечніша версія Google Chrome.</translation>
 <translation id="5037239767309817516">Щоб зміна почала діяти, закрийте всі вікна Google Chrome і перезапустіть веб-переглядач.</translation>
 <translation id="7451721381978275812">Недійсні аргументи. Google Chrome Frame неможливо встановити в режимі готовності, не встановивши при цьому Google Chrome.</translation>
+<translation id="8684521613357479262">Ви пробували зв’язатися з доменом &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, але сервер надав сертифікат, який ще не дійсний. Немає доступних даних, які б допомогли визначити, чи можна довіряти цьому сертифікату. Google Chrome не може повністю гарантувати, що ви обмінюєтеся даними з доменом &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, а не зі зловмисником. Годинник вашого комп’ютера зараз показує: <ph name="CURRENT_TIME"/>. Правильно? Якщо ні, потрібно виправити помилку й оновити цю сторінку.</translation>
 <translation id="4585888816441913908">На цьому комп’ютері вже встановлено новішу версію Google Chrome і Google Chrome Frame. Якщо це програмне забезпечення не працює, видаліть Google Chrome і Google Chrome Frame і повторіть спробу.</translation>
 <translation id="6368958679917195344">ОС Chrome стала можливою завдяки додатковому <ph name="BEGIN_LINK_CROS_OSS"/>програмному забезпеченню з відкритим кодом<ph name="END_LINK_CROS_OSS"/>.</translation>
 <translation id="7459554271817304652">Налаштуйте синхронізацію, щоб зберегти свої персоналізовані функції веб-переглядача в Інтернеті й мати до них доступ із Google Chrome на будь-якому комп’ютері.</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">Триває завантаження. Вийти з Google Chrome і скасувати це завантаження?</translation>
 <translation id="4273752058983339720">Google Chrome налаштовано на автоматичний запуск після ввімкнення комп’ютера.</translation>
 <translation id="1104959162601287462">Про &amp;ОС Chrome</translation>
+<translation id="5328989068199000832">Бінарні файли Google Chrome</translation>
 <translation id="5941830788786076944">Зробити Google Chrome переглядачем за промовчанням</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome дозволяє натиснути номер телефону в Інтернеті та здійснити виклик через Skype.</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Хост модуля Google Chrome</translation>
 <translation id="5699533844376998780">Розширення &quot;<ph name="EXTENSION_NAME"/>&quot; додано.</translation>
 <translation id="6126631249883707068">Зберігати ваш пароль у Google Chrome?</translation>
+<translation id="7773845170078702898">Чи має Google Chrome зберегти ваш пароль для цього сайту?</translation>
 <translation id="5046764976540625289">Вийти з Chrome</translation>
 <translation id="9039578207253536065">Виконавець Google Chrome</translation>
 <translation id="2680623880102270805">Google Chrome не може створити ярлик програми, оскільки не може визначити  поточне середовище робочого столу.</translation>

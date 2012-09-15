@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Sí, surt de Chrome</translation>
 <translation id="386202838227397562">Tanqueu totes les finestres de Google Chrome i torneu-ho a provar.</translation>
 <translation id="2770231113462710648">Canvia el navegador predeterminat a:</translation>
+<translation id="741045321678647133">Amfitrió de l'aplicació Google Chrome</translation>
 <translation id="7400722733683201933">Quant a Google Chrome</translation>
 <translation id="1065672644894730302">No es poden llegir les vostres preferències. És possible que algunes funcions no estiguin disponibles i que els canvis a les preferències no es desin.</translation>
 <translation id="7781002470561365167">Hi ha disponible una versió nova de Google Chrome.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Google Chrome ja no s'actualitza perquè el sistema operatiu està obsolet.</translation>
 <translation id="5339639696978861456">Chrome Frame s'ha actualitzat. Torneu a iniciar el navegador. Versió de Chrome: <ph name="TODO_0001"/>; versió de Chrome Frame: <ph name="TODO_0002"/></translation>
 <translation id="4281844954008187215">Condicions d'ús</translation>
+<translation id="5775197990071433230">Aquest equip ja disposa d'una versió més recent dels components de Google Chrome. Feu servir un instal·lador més recent.</translation>
 <translation id="8398145039500709259">Voleu fer servir aquest compte de Google per sincronitzar totes les vostres coses de Chrome?</translation>
 <translation id="1779550429052479749">S'ha trobat una instal·lació conflictiva de Google Chrome o de Google Chrome Frame al sistema. Desinstal·leu l'aplicació i torneu-ho a provar.</translation>
 <translation id="3555616473548901994">S'ha completat la desinstal·lació.</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Hi ha disponible una nova versió més segura de Google Chrome.</translation>
 <translation id="5037239767309817516">Tanqueu totes les finestres de Google Chrome i torneu a iniciar el programa perquè aquest canvi tingui efecte.</translation>
 <translation id="7451721381978275812">Arguments no vàlids. Google Chrome Frame no es pot instal·lar en mode preparat sense instal·lar també Google Chrome.</translation>
+<translation id="8684521613357479262">Heu provat d'accedir a &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, però el servidor ha presentat un certificat que indica que encara no és vàlid. No hi ha cap informació disponible que indiqui si el certificat és de confiança. Google Chrome no pot garantir amb seguretat que us estigueu comunicant amb &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; i no amb un atacant. Actualment, el rellotge del vostre equip està definit a <ph name="CURRENT_TIME"/>. És l'hora correcta? Si no, hauríeu de corregir l'error i actualitzar aquesta pàgina.</translation>
 <translation id="4585888816441913908">Aquest equip ja té una versió més recent de Google Chrome i de Google Chrome Frame. Si el programari no funciona, desinstal·leu Google Chrome i Google Chrome Frame i torneu-ho a provar.</translation>
 <translation id="6368958679917195344">Chrome OS és possible gràcies a <ph name="BEGIN_LINK_CROS_OSS"/>programari addicional de codi obert<ph name="END_LINK_CROS_OSS"/>.</translation>
 <translation id="7459554271817304652">Configureu la sincronització per desar al web les funcions personalitzades del navegador i per accedir-hi des de qualsevol equip mitjançant Google Chrome.</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">En aquests moments hi ha una baixada en curs. Voleu sortir de Google Chrome i cancel·lar la baixada?</translation>
 <translation id="4273752058983339720">Google Chrome està configurat per iniciar-se automàticament cada vegada que inicieu l'equip.</translation>
 <translation id="1104959162601287462">Quant a &amp;SO Chrome</translation>
+<translation id="5328989068199000832">Binaris Google Chrome</translation>
 <translation id="5941830788786076944">Estableix Google Chrome com el navegador per defecte</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="4561051373932531560">Google Chrome us permet fer clic en un número de telèfon al web i trucar-hi amb Skype!</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Amfitrió del connector de Google Chrome</translation>
 <translation id="5699533844376998780">S'ha afegit l'extensió &quot;<ph name="EXTENSION_NAME"/>&quot;.</translation>
 <translation id="6126631249883707068">Voleu que Google Chrome desi la vostra contrasenya?</translation>
+<translation id="7773845170078702898">Voleu que Google Chrome desi la vostra contrasenya per a aquest lloc?</translation>
 <translation id="5046764976540625289">Surt de Chrome</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Google Chrome no pot crear una drecera a l'aplicació perquè no pot determinar l'entorn actual de l'escriptori.</translation>

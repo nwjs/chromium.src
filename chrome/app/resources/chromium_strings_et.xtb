@@ -23,6 +23,7 @@
 <translation id="4285930937574705105">Installimine ebaõnnestus tundmatu vea tõttu. Kui Chromium praegu töötab, siis sulgege see ja proovige uuesti.</translation>
 <translation id="2589479092236095792">Chromiumi automaatse täitmise seaded</translation>
 <translation id="3555616473548901994">Desinstallimine on lõpetatud.</translation>
+<translation id="3674409928058572366">Chromium App Host</translation>
 <translation id="2886012850691518054">Valikuline: aidake muuta Chromiumi paremaks, saates Google'ile automaatselt kasutusstatistikat ja krahhiaruandeid.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE"/> – Chromium</translation>
 <translation id="1989424089625731201">Üritasite jõuda aadressile &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, kuid serveri esitatud sertifikaat sisaldab vigu. Chromium ei saa kasutada vigadega sertifikaati ega tuvastada soovitud saidi identiteeti.</translation>
@@ -44,6 +45,7 @@
 <translation id="6714487516757221107">Ei leitud Chromiumi või Chromium Frame'i installi, mida värskendada.</translation>
 <translation id="3197823471738295152">Teie seade on ajakohane.</translation>
 <translation id="8551886023433311834">Seade on peaaegu ajakohane. Täienduse lõpuleviimiseks taaskäivitage seade.</translation>
+<translation id="8353224596138547809">Kas soovite, et Chromium salvestaks parooli, mida selle saidi jaoks kasutate?</translation>
 <translation id="4124681358536363708">Chromiumi installikataloog paistab olevat kasutusel. Taaskäivitage arvuti ja proovige uuesti.</translation>
 <translation id="8770560772173120024">Chromium impordib nüüd lemmikud/järjehoidjad.</translation>
 <translation id="6290315939897260265">Seda ei kasutata Chromiumis. See on kohatäide, mis sünkroonib ressursikaarte.</translation>
@@ -127,11 +129,14 @@ On võimalik, et mõni funktsioon ei ole saadaval. Määrake muu profiilikataloo
 <translation id="8616882682724010661">Vaadake Chromiumi sisselogimise <ph name="BEGIN_LINK"/>muid eeliseid<ph name="END_LINK"/>.</translation>
 <translation id="378917192836375108">Chromium võimaldab teil veebis telefoninumbril klõpsata ja sellele Skype'i kaudu helistada!</translation>
 <translation id="8724049448828509830">Allalaadimine on pooleli. Kas soovite Chromiumist väljuda ja allalaadimise tühistada?</translation>
+<translation id="3360567213983886831">Chromium Binaries</translation>
 <translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="2739631515503418643">Allalaadimised on pooleli. Kas soovite Chromiumist väljuda ja allalaadimised tühistada?</translation>
 <translation id="9013262824292842194">Chromium nõuab Windows Vistat või Windows XP-d vähemalt hoolduspaketiga SP2.</translation>
 <translation id="1967743265616885482">Samanimeline moodul põhjustab teadaolevalt Chromiumiga vastuolusid.</translation>
 <translation id="4224199872375172890">Chromium on ajakohane.</translation>
+<translation id="374481098568514319">Selles arvutis on juba Chromiumi komponentide uuem versioon. Kasutage uuemat installerit.</translation>
+<translation id="6240281849816458190">Proovisite jõuda domeenile &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, kuid server esitas sertifikaadi, mis veel ei kehti. Saadaval ei ole teavet, mis näitaks, kas sertifikaat on usaldusväärne. Chromium ei saa tagada, et suhtlete domeeniga &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, mitte ründajaga. Teie arvuti kell on praegu <ph name="CURRENT_TIME"/>. Kas see on õige? Muul juhul muutke süsteemi kellaaega ja värskendage lehte.</translation>
 <translation id="5498103559159810756">Chromium kasutab teie vaikeotsingumootorit (praegu <ph name="PAGE_TITLE"/>). Kas soovite vaikeotsingumootori säilitada?</translation>
 <translation id="5862307444128926510">Tere tulemast Chromiumi</translation>
 <translation id="1622565934590470080">Arvutis on juba Chromiumi ja Chromium Frame'i uuem versioon. Kui tarkvara ei tööta, siis desinstallige nii Chromium kui ka Chromium Frame ja proovige uuesti.</translation>

@@ -11,6 +11,7 @@
 <translation id="3454512769850953877">Да, закрыть Chrome</translation>
 <translation id="386202838227397562">Закройте все окна Chrome и повторите попытку снова.</translation>
 <translation id="2770231113462710648">Назначить браузером по умолчанию:</translation>
+<translation id="741045321678647133">Google Chrome App Host</translation>
 <translation id="7400722733683201933">О браузере Google Chrome</translation>
 <translation id="1065672644894730302">Не удается получить настройки. Некоторые функции могут быть недоступны, а изменения настроек не будут сохраняться.</translation>
 <translation id="7781002470561365167">Доступна новая версия Google Chrome.</translation>
@@ -26,6 +27,7 @@
 <translation id="1872436416934435136">Обновление Google Chrome невозможно, поскольку ваша операционная система устарела.</translation>
 <translation id="5339639696978861456">Установлено обновление для Chrome Frame. Перезапустите браузер. Версия Chrome: <ph name="TODO_0001"/>; версия Chrome Frame: <ph name="TODO_0002"/>.</translation>
 <translation id="4281844954008187215">Условия использования</translation>
+<translation id="5775197990071433230">На компьютере уже есть более новые компоненты Google Chrome. Используйте более новую версию установщика.</translation>
 <translation id="8398145039500709259">Использовать этот аккаунт Google для синхронизации данных из Chrome?</translation>
 <translation id="1779550429052479749">В системе установлена конфликтующая версия Google Chrome или Google Chrome Frame. Удалите ее и повторите попытку.</translation>
 <translation id="3555616473548901994">Удаление завершено.</translation>
@@ -54,6 +56,7 @@
 <translation id="3089968997497233615">Доступна новая, более безопасная версия Google Chrome.</translation>
 <translation id="5037239767309817516">Чтобы изменения вступили в силу, закройте все окна Google Chrome и перезапустите браузер.</translation>
 <translation id="7451721381978275812">Недопустимые аргументы. Чтобы установить в режиме готовности Google Chrome Frame, необходимо также установить Google Chrome.</translation>
+<translation id="8684521613357479262">Вы пытаетесь войти в &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, однако сервер предоставил сертификат, который ещё не действителен. Получить информацию о безопасности этого сертификата невозможно. Chromium не может гарантировать, что вы будете обмениваться данными именно с &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, а не с сайтом злоумышленников. На вашем компьютере установлены следующие дата и время: <ph name="CURRENT_TIME"/>. Если эти данные неверны, укажите правильные и обновите страницу.</translation>
 <translation id="4585888816441913908">На компьютере уже установлены последние версии Google Chrome и Google Chrome Frame. Если они не работают, удалите их и установите снова.</translation>
 <translation id="6368958679917195344">Своим появлением Chrome OS обязана дополнительному <ph name="BEGIN_LINK_CROS_OSS"/>программному обеспечению с открытым исходным кодом<ph name="END_LINK_CROS_OSS"/>.</translation>
 <translation id="7459554271817304652">Чтобы сохранить персонализированные функции для работы в Интернете и получить доступ к ним из Google Chrome на любом компьютере, необходимо настроить синхронизацию.</translation>
@@ -87,6 +90,7 @@
 <translation id="7062966102157262887">Идет загрузка. Отменить ее и закрыть Google Chrome?</translation>
 <translation id="4273752058983339720">Настроен автоматический запуск Google Chrome при загрузке компьютера.</translation>
 <translation id="1104959162601287462">О &amp;Chrome OS</translation>
+<translation id="5328989068199000832">Google Chrome Binaries</translation>
 <translation id="5941830788786076944">Назначить Google Chrome браузером по умолчанию</translation>
 <translation id="4990567037958725628">Google Chrome – Канарейка</translation>
 <translation id="4561051373932531560">В Google Chrome вы можете нажать на любой номер телефона и позвонить на него через Skype!</translation>
@@ -108,6 +112,7 @@
 <translation id="5318056482164160049">Хост подключаемых модулей Google Chrome</translation>
 <translation id="5699533844376998780">Расширение <ph name="EXTENSION_NAME"/> успешно добавлено.</translation>
 <translation id="6126631249883707068">Сохранить пароль в Google Chrome?</translation>
+<translation id="7773845170078702898">Сохранить пароль для этого сайта в Google Chrome?</translation>
 <translation id="5046764976540625289">Закрыть Chrome</translation>
 <translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="2680623880102270805">Google Chrome не удается создать ярлык приложения, поскольку невозможно определить текущее окружение рабочего стола.</translation>

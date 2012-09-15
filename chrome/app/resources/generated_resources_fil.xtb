@@ -2821,7 +2821,7 @@ Pampublikong Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> (na) bit):
 <translation id="8267453826113867474">I-block ang mga Nakakasakit na Salita</translation>
 <translation id="7959074893852789871">Naglaman ang file ng maramihang certificate, ilan sa mga ito ang na-import:</translation>
 <translation id="1314681042229332877">Maghanap o mag-type ng web address</translation>
-<translation id="7791536208663663346">Pinapagana ang pag-decode ng video na pinabilis ng hardware kung saan available.</translation>
+<translation id="7791536208663663346">Huwag pinapagana ang pag-decode ng video na pinabilis ng hardware kung saan available.</translation>
 <translation id="87377425248837826">Paganahin ang Mga Panel</translation>
 <translation id="6736243959894955139">Address</translation>
 <translation id="2805707493867224476">Payagang magpakita ng mga pop-up ang lahat ng mga site</translation>
@@ -3581,7 +3581,7 @@ Pampublikong Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> (na) bit):
 <translation id="5359419173856026110">Nagpapakita ng aktwal na frame rate ng isang pahina, sa mga frame sa bawat segundo, kapag aktibo ang pagpapabilis ng hardware.</translation>
 <translation id="4104163789986725820">I-e&amp;xport...</translation>
 <translation id="2113479184312716848">Buksan ang &amp;File...</translation>
-<translation id="8405710043622376215">Sa omnibox autocomplete, baguhin ang ayos ng mga suehstiyon sa HistoryQuickProvider upang unang palabasin ang isang inlineable.</translation>
+<translation id="8405710043622376215">Sa omnibox autocomplete, baguhin ang ayos ng mga suhestiyon sa HistoryQuickProvider upang unang palabasin ang isang inlineable.</translation>
 <translation id="3314617171364900239">Paulit-ulit na na nabigo para sa extension na &quot;<ph name="EXTENSION_NAME"/>&quot; ang mga pagsusuri para sa update.</translation>
 <translation id="4850458635498951714">Magdagdag ng device</translation>
 <translation id="3140353188828248647">Address bar sa pagtuon</translation>
@@ -3746,7 +3746,7 @@ Pampublikong Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> (na) bit):
 <translation id="8601206103050338563">Pagpapatotoo ng Client sa TLS WWW</translation>
 <translation id="1692799361700686467">Pinayagan ang cookies mula sa maraming site.</translation>
 <translation id="5187295959347858724">Naka-sign in ka na ngayon sa <ph name="SHORT_PRODUCT_NAME"/>. Ang iyong mga bookmark, kasaysayan, at ibang mga setting ay sini-sync sa iyong Google Account.</translation>
-<translation id="3719415759165722358">Pinapagana ang UI ng Mga Setting ng Website. Pinapalitan ng UI ng Mga Setting ng Website sa bubble ng impormasyon ng pahina at nagbibigay ito ng madaling paraan upang mag-configure ng mga setting na tukoy sa site.</translation>
+<translation id="3719415759165722358">Pinapagana ang UI ng Mga Setting ng Website. Pinapalitan ng UI ng Mga Setting ng Website ang bubble ng impormasyon ng pahina at nagbibigay ito ng madaling paraan upang mag-configure ng mga setting na tukoy sa site.</translation>
 <translation id="2717190143245689317">Pinapagana ang isang pang-eksperimentong textfield para sa UI ng application; hindi nakakaapekto sa nilalaman ng web.</translation>
 <translation id="529232389703829405">Bumili ka ng <ph name="DATA_AMOUNT"/> ng data noong <ph name="DATE"/></translation>
 <translation id="7419106976560586862">Path ng Profile</translation>
