@@ -55,14 +55,35 @@
 <pre>script-src 'self'; object-src 'self'</pre>
 
 <p>
-  This policy adds security by limiting extensions and applications in two ways:
+  This policy adds security by limiting extensions and applications in three 
+  ways:
 </p>
+
+<h3 id="JSEval">Eval and related functions are disabled</h3>
+
+<p>Code like the following does not work:</p>
+
+<pre>
+alert(eval("foo.bar.baz"));
+window.setTimeout("alert('hi')", 10);
+window.setInteral("alert('hi')", 10);
+new Function("return foo.bar.baz");
+</pre>
+
+<p>Evaluating strings of JavaScript like this is a common XSS attack vector.
+Instead, you should write code like:
+
+<pre>
+alert(foo && foo.bar && foo.bar.baz);
+window.setTimeout(function() { alert('hi'); }, 10);
+window.setInterval(function() { alert('hi'); }, 10);
+function() { return foo && foo.bar && foo.bar.baz };
+</pre>
 
 <h3 id="JSExecution">Inline JavaScript will not be executed</h3>
 
 <p>
-  Inline JavaScript, as well as dangerous string-to-JavaScript methods like
- <code>eval</code>, will not be executed. This restriction bans both inline
+  Inline JavaScript will not be executed. This restriction bans both inline
  <code>&lt;script&gt;</code> blocks <strong>and</strong> inline event handlers
  (e.g. <code>&lt;button onclick="..."&gt;</code>).
 </p>
@@ -219,7 +240,8 @@ popup.html:
 <p>
   There is no mechanism for relaxing the restriction against executing inline
   JavaScript. In particular, setting a script policy that includes
-  <code>unsafe-inline</code> will have no effect. This is intentional.
+  <code>unsafe-inline</code> will have no effect. This is
+  intentional.
 </p>
 
 <p>
@@ -234,6 +256,29 @@ popup.html:
   not be accepted. Currently, we allow whitelisting origins with the following
   schemes: <code>HTTPS</code>, <code>chrome-extension</code>, and
   <code>chrome-extension-resource</code>.
+</p>
+
+<p>
+  The policy against <code>eval</code> can also be relaxed by adding
+  <code>unsafe-eval</code> to your policy. However we strongly recommend
+  against doing this. The <code>eval</code> function and its relatives like
+  <code>setTimeout(String)</code>, <code>setInterval(String)</code>, and
+  <code>new Function(String)</code> are notorious XSS attack vectors.
+</p>
+
+<p>
+  To ease development, we're also allowing the whitelisting of resources loaded
+  over HTTP from servers on your local machine. You may whitelist script and
+  object sources on any port of either <code>http://127.0.0.1</code> or
+  <code>http://localhost</code>.
+</p>
+
+<p class="note">
+  The restriction against resources loaded over HTTP applies only to those
+  resources which are directly executed. You're still free, for example, to
+  make XMLHTTPRequest connections to any origin you like; the default policy
+  doesn't restrict <code>connect-src</code> or any of the other CSP directives
+  in any way.
 </p>
 
 <p>

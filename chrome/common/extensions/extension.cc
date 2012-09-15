@@ -2720,7 +2720,7 @@ bool Extension::LoadContentSecurityPolicy(string16* error) {
       return false;
     }
     if (manifest_version_ >= 2 &&
-        !ContentSecurityPolicyIsSecure(content_security_policy)) {
+        !ContentSecurityPolicyIsSecure(content_security_policy, GetType())) {
       *error = ASCIIToUTF16(errors::kInvalidContentSecurityPolicy);
       return false;
     }
@@ -2733,7 +2733,7 @@ bool Extension::LoadContentSecurityPolicy(string16* error) {
     content_security_policy_ = is_platform_app() ?
         kDefaultPlatformAppContentSecurityPolicy :
         kDefaultContentSecurityPolicy;
-    CHECK(ContentSecurityPolicyIsSecure(content_security_policy_));
+    CHECK(ContentSecurityPolicyIsSecure(content_security_policy_, GetType()));
   }
   return true;
 }
