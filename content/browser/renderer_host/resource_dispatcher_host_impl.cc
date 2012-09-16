@@ -163,11 +163,11 @@ bool ShouldServiceRequest(ProcessType process_type,
       ChildProcessSecurityPolicyImpl::GetInstance();
 
   // Check if the renderer is permitted to request the requested URL.
-  // if (!policy->CanRequestURL(child_id, request_data.url)) {
-  //   VLOG(1) << "Denied unauthorized request for "
-  //           << request_data.url.possibly_invalid_spec();
-  //   return false;
-  // }
+  if (!policy->CanRequestURL(child_id, request_data.url)) {
+    VLOG(1) << "Denied unauthorized request for "
+            << request_data.url.possibly_invalid_spec();
+    return false;
+  }
 
   // Check if the renderer is permitted to upload the requested files.
   if (request_data.request_body) {

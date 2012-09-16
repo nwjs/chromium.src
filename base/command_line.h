@@ -85,9 +85,6 @@ class BASE_EXPORT CommandLine {
   // Returns the original command line string as a vector of strings.
   const StringVector& argv() const { return argv_; }
 
-  int argc() const { return _argc; }
-  char** argv_c() const { return (char**)_argv; }
-
   // Get and Set the program part of the command line string (the first item).
   FilePath GetProgram() const;
   void SetProgram(const FilePath& program);
@@ -164,9 +161,6 @@ class BASE_EXPORT CommandLine {
 
   // The index after the program and switches, any arguments start here.
   size_t begin_args_;
-
-  int _argc;
-  const CharType* const* _argv;
 };
 
 #endif  // BASE_COMMAND_LINE_H_

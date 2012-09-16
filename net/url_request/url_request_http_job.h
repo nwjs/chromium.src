@@ -28,7 +28,7 @@ class URLRequestContext;
 
 // A URLRequestJob subclass that is built on top of HttpTransaction.  It
 // provides an implementation for both HTTP and HTTPS.
-class NET_EXPORT URLRequestHttpJob : public URLRequestJob {
+class URLRequestHttpJob : public URLRequestJob {
  public:
   static URLRequestJob* Factory(URLRequest* request,
                                 NetworkDelegate* network_delegate,

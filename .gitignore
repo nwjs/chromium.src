@@ -260,7 +260,4 @@ v8.log
 /x86-generic_out/
 /xcodebuild
 # Dependencies of the node-webkit project
-/third_party/libuv
-/third_party/nwebkit
 /third_party/node
-/cef

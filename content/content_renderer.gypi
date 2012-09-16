@@ -27,9 +27,6 @@
   'include_dirs': [
     '..',
   ],
-  'defines' : [
-    #'COMPONENT_BUILD',
-  ],
   'sources': [
     'public/renderer/content_renderer_client.cc',
     'public/renderer/content_renderer_client.h',

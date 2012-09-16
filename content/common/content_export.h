@@ -26,16 +26,4 @@
 #define CONTENT_EXPORT
 #endif
 
-#if defined(WIN32)
-
-#if defined(CONTENT_IMPLEMENTATION)
-#define CONTENT_EXPORTED __declspec(dllexport)
-#else
-#define CONTENT_EXPORTED __declspec(dllimport)
-#endif  // defined(CONTENT_IMPLEMENTATION)
-
-#else // defined(WIN32)
-#define CONTENT_EXPORTED __attribute__((visibility("default")))
-#endif
-
 #endif  // CONTENT_COMMON_CONTENT_EXPORT_H_

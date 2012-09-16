@@ -687,9 +687,6 @@ extern const char kFlingTapSuppressMaxGap[] = "fling-tap-suppress-max-gap";
 extern const char kTestCompositor[]         = "test-compositor";
 #endif
 
-// Pass arguments for node
-extern const char kNodeArgs[]               = "node-args";
-
 // Sets the tile size used by composited layers.
 const char kDefaultTileWidth[]              = "default-tile-width";
 const char kDefaultTileHeight[]             = "default-tile-height";

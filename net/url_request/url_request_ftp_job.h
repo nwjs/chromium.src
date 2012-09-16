@@ -22,7 +22,7 @@ class FtpAuthCache;
 
 // A URLRequestJob subclass that is built on top of FtpTransaction. It
 // provides an implementation for FTP.
-class NET_EXPORT URLRequestFtpJob : public URLRequestJob {
+class URLRequestFtpJob : public URLRequestJob {
  public:
   URLRequestFtpJob(URLRequest* request,
                    NetworkDelegate* network_delegate,

@@ -48,7 +48,7 @@ def macho_archs(macho):
                  "bundle"]
   macho_types_re = "Mach-O (?:64-bit )?(?:" + "|".join(macho_types) + ")"
 
-  file_cmd = subprocess.Popen(["/usr/bin/file", "-b", "-L", "--", macho],
+  file_cmd = subprocess.Popen(["/usr/bin/file", "-b", "--", macho],
                               stdout=subprocess.PIPE)
 
   archs = []

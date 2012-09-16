@@ -31,17 +31,4 @@
 #define BASE_EXPORT_PRIVATE
 #endif
 
-#if defined(WIN32)
-
-#if defined(BASE_IMPLEMENTATION)
-#define BASE_EXPORTED __declspec(dllexport)
-#else
-#define BASE_EXPORTED __declspec(dllimport)
-#endif  // defined(BASE_IMPLEMENTATION)
-
-#else  // defined(WIN32)
-#define BASE_EXPORTED __attribute__((visibility("default")))
-#endif
-
-
 #endif  // BASE_BASE_EXPORT_H_

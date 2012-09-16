@@ -9,9 +9,6 @@
   # Variables expected to be overriden on the GYP command line (-D) or by
   # ~/.gyp/include.gypi.
   'variables': {
-    # Directory for CEF source files. This will be set by cef.gypi.
-    'cef_directory%' : '',
-
     # Putting a variables dict inside another variables dict looks kind of
     # weird.  This is done so that 'host_arch', 'chromeos', etc are defined as
     # variables within the outer variables dict here.  This is necessary
@@ -700,7 +697,7 @@
     #  'win_use_allocator_shim': 0,
     #  'win_release_RuntimeLibrary': 2
     # to ~/.gyp/include.gypi, gclient runhooks --force, and do a release build.
-    'win_use_allocator_shim%': 0, # 1 = shim allocator via libcmt; 0 = msvcrt
+    'win_use_allocator_shim%': 1, # 1 = shim allocator via libcmt; 0 = msvcrt
 
     # Whether usage of OpenMAX is enabled.
     'enable_openmax%': 0,

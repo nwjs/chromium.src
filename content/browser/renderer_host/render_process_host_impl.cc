@@ -839,7 +839,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kVideoThreads,
     switches::kVModule,
     switches::kWebCoreLogChannels,
-    switches::kNodeArgs,
   };
   renderer_cmd->CopySwitchesFrom(browser_cmd, kSwitchNames,
                                  arraysize(kSwitchNames));

@@ -118,17 +118,7 @@
     {
       'target_name': 'ssl',
       'type': 'none',
-      'toolsets': [ 'host', 'target'],
       'conditions': [
-        ['_toolset=="host"', {
-          'conditions': [
-            ['use_openssl==1', {
-              'dependencies': [
-                '../../third_party/node/deps/openssl/openssl.gyp:openssl',
-              ],
-            }],
-          ],
-        }],
         ['_toolset=="target"', {
           'conditions': [
             ['use_openssl==1', {

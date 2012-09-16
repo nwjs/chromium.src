@@ -194,7 +194,7 @@ class GpuProcessHost : public content::BrowserChildProcessHostDelegate,
   // Master switch for enabling/disabling GPU acceleration for the current
   // browser session. It does not change the acceleration settings for
   // existing tabs, just the future ones.
-  CONTENT_EXPORT static bool gpu_enabled_;
+  static bool gpu_enabled_;
 
   static bool hardware_gpu_enabled_;
 
