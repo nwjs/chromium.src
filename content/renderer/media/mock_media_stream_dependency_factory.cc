@@ -28,7 +28,7 @@ class MockMediaStreamTrackList
   virtual ~MockMediaStreamTrackList() {}
 
  private:
-  std::vector<talk_base::scoped_refptr<TrackType> > tracks_;
+  std::vector<scoped_refptr<TrackType> > tracks_;
 };
 
 typedef MockMediaStreamTrackList<AudioTrackInterface> MockAudioTracks;
@@ -73,8 +73,8 @@ class MockLocalMediaStream : public LocalMediaStreamInterface {
 
  private:
   std::string label_;
-  talk_base::scoped_refptr<MockAudioTracks> audio_tracks_;
-  talk_base::scoped_refptr<MockVideoTracks> video_tracks_;
+  scoped_refptr<MockAudioTracks> audio_tracks_;
+  scoped_refptr<MockVideoTracks> video_tracks_;
 };
 
 cricket::VideoCapturer* MockLocalVideoTrack::GetVideoCapture() {
@@ -166,8 +166,10 @@ void MockLocalAudioTrack::UnregisterObserver(ObserverInterface* observer) {
 
 class MockSessionDescription : public SessionDescriptionInterface {
  public:
-  MockSessionDescription(const std::string& sdp)
-      : sdp_(sdp) {
+  MockSessionDescription(const std::string& type,
+                         const std::string& sdp)
+      : type_(type),
+        sdp_(sdp) {
   }
   virtual ~MockSessionDescription() {}
   virtual const cricket::SessionDescription* description() const OVERRIDE {
@@ -183,8 +185,7 @@ class MockSessionDescription : public SessionDescriptionInterface {
     return "";
   }
   virtual std::string type() const OVERRIDE {
-    NOTIMPLEMENTED();
-    return "";
+    return type_;
   }
   virtual bool AddCandidate(const IceCandidateInterface* candidate) OVERRIDE {
     NOTIMPLEMENTED();
@@ -206,6 +207,7 @@ class MockSessionDescription : public SessionDescriptionInterface {
   }
 
  private:
+  std::string type_;
   std::string sdp_;
 };
 
@@ -245,33 +247,19 @@ class MockIceCandidate : public IceCandidateInterface {
 
 }  // namespace webrtc
 
-MockMediaStreamDependencyFactory::MockMediaStreamDependencyFactory(
-    VideoCaptureImplManager* vc_manager)
-    : MediaStreamDependencyFactory(vc_manager),
+MockMediaStreamDependencyFactory::MockMediaStreamDependencyFactory()
+    : MediaStreamDependencyFactory(NULL, NULL),
       mock_pc_factory_created_(false) {
 }
 
 MockMediaStreamDependencyFactory::~MockMediaStreamDependencyFactory() {}
 
-bool MockMediaStreamDependencyFactory::CreatePeerConnectionFactory(
-    talk_base::Thread* worker_thread,
-    talk_base::Thread* signaling_thread,
-    content::P2PSocketDispatcher* socket_dispatcher,
-    talk_base::NetworkManager* network_manager,
-    talk_base::PacketSocketFactory* socket_factory) {
+bool MockMediaStreamDependencyFactory::EnsurePeerConnectionFactory() {
   mock_pc_factory_created_ = true;
   return true;
 }
 
-void MockMediaStreamDependencyFactory::ReleasePeerConnectionFactory() {
-  mock_pc_factory_created_ = false;
-}
-
-bool MockMediaStreamDependencyFactory::PeerConnectionFactoryCreated() {
-  return mock_pc_factory_created_;
-}
-
-talk_base::scoped_refptr<webrtc::PeerConnectionInterface>
+scoped_refptr<webrtc::PeerConnectionInterface>
 MockMediaStreamDependencyFactory::CreatePeerConnection(
     const std::string& config,
     webrtc::PeerConnectionObserver* observer) {
@@ -279,28 +267,39 @@ MockMediaStreamDependencyFactory::CreatePeerConnection(
   return new talk_base::RefCountedObject<webrtc::MockPeerConnectionImpl>(this);
 }
 
-talk_base::scoped_refptr<webrtc::LocalMediaStreamInterface>
-MockMediaStreamDependencyFactory::CreateLocalMediaStream(
-    const std::string& label) {
-  talk_base::scoped_refptr<webrtc::LocalMediaStreamInterface> stream(
-      new talk_base::RefCountedObject<webrtc::MockLocalMediaStream>(label));
-  return stream;
+scoped_refptr<webrtc::PeerConnectionInterface>
+MockMediaStreamDependencyFactory::CreatePeerConnection(
+    const webrtc::JsepInterface::IceServers& ice_servers,
+    const webrtc::MediaConstraintsInterface* constraints,
+    webrtc::PeerConnectionObserver* observer) {
+  DCHECK(mock_pc_factory_created_);
+  return new talk_base::RefCountedObject<webrtc::MockPeerConnectionImpl>(this);
 }
 
-talk_base::scoped_refptr<webrtc::LocalVideoTrackInterface>
+scoped_refptr<webrtc::LocalMediaStreamInterface>
+MockMediaStreamDependencyFactory::CreateLocalMediaStream(
+    const std::string& label) {
+  DCHECK(mock_pc_factory_created_);
+  return
+      new talk_base::RefCountedObject<webrtc::MockLocalMediaStream>(label);
+}
+
+scoped_refptr<webrtc::LocalVideoTrackInterface>
 MockMediaStreamDependencyFactory::CreateLocalVideoTrack(
     const std::string& label,
     int video_session_id) {
-  talk_base::scoped_refptr<webrtc::LocalVideoTrackInterface> track(
+  DCHECK(mock_pc_factory_created_);
+  scoped_refptr<webrtc::LocalVideoTrackInterface> track(
       new talk_base::RefCountedObject<webrtc::MockLocalVideoTrack>(label));
   return track;
 }
 
-talk_base::scoped_refptr<webrtc::LocalAudioTrackInterface>
+scoped_refptr<webrtc::LocalAudioTrackInterface>
 MockMediaStreamDependencyFactory::CreateLocalAudioTrack(
     const std::string& label,
     webrtc::AudioDeviceModule* audio_device) {
-  talk_base::scoped_refptr<webrtc::LocalAudioTrackInterface> track(
+  DCHECK(mock_pc_factory_created_);
+  scoped_refptr<webrtc::LocalAudioTrackInterface> track(
       new talk_base::RefCountedObject<webrtc::MockLocalAudioTrack>(label));
   return track;
 }
@@ -308,7 +307,14 @@ MockMediaStreamDependencyFactory::CreateLocalAudioTrack(
 webrtc::SessionDescriptionInterface*
 MockMediaStreamDependencyFactory::CreateSessionDescription(
     const std::string& sdp) {
-  return new webrtc::MockSessionDescription(sdp);
+  return CreateSessionDescription ("unknown", sdp);
+}
+
+webrtc::SessionDescriptionInterface*
+MockMediaStreamDependencyFactory::CreateSessionDescription(
+      const std::string& type,
+      const std::string& sdp) {
+  return new webrtc::MockSessionDescription(type, sdp);
 }
 
 webrtc::IceCandidateInterface*

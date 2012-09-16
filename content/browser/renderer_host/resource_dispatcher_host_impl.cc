@@ -34,7 +34,6 @@
 #include "content/browser/renderer_host/async_resource_handler.h"
 #include "content/browser/renderer_host/buffered_resource_handler.h"
 #include "content/browser/renderer_host/cross_site_resource_handler.h"
-#include "content/browser/renderer_host/duplicate_content_resource_handler.h"
 #include "content/browser/renderer_host/redirect_to_file_resource_handler.h"
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
@@ -958,7 +957,7 @@ void ResourceDispatcherHostImpl::BeginRequest(
   if (request_data.request_body) {
     request->set_upload(
         request_data.request_body->ResolveElementsAndCreateUploadData(
-            GetBlobStorageControllerForResourceContext(resource_context)));
+            filter_->blob_storage_context()->controller()));
   }
 
   bool allow_download = request_data.allow_download &&
@@ -988,15 +987,14 @@ void ResourceDispatcherHostImpl::BeginRequest(
   if (request->url().SchemeIs(chrome::kBlobScheme)) {
     // Hang on to a reference to ensure the blob is not released prior
     // to the job being started.
-    webkit_blob::BlobStorageController* controller =
-        GetBlobStorageControllerForResourceContext(resource_context);
     extra_info->set_requested_blob_data(
-        controller->GetBlobDataFromUrl(request->url()));
+        filter_->blob_storage_context()->controller()->
+            GetBlobDataFromUrl(request->url()));
   }
 
   // Have the appcache associate its extra info with the request.
   appcache::AppCacheInterceptor::SetExtraRequestInfo(
-      request, ResourceContext::GetAppCacheService(resource_context), child_id,
+      request, filter_->appcache_service(), child_id,
       request_data.appcache_host_id, request_data.resource_type);
 
   // Construct the IPC resource handler.
@@ -1033,16 +1031,6 @@ void ResourceDispatcherHostImpl::BeginRequest(
   handler.reset(
       new BufferedResourceHandler(handler.Pass(), this, request));
 
-  // This is an experiment that observes resources and observes how many are
-  // duplicated and how many of those duplicated resources are from the same
-  // and different URLs by storing the hash of the resource and the hash of the
-  // resource with the URL.
-  // TODO(frankwang, gavinp): Clean up this experiment.
-  handler.reset(
-      new DuplicateContentResourceHandler(handler.Pass(),
-                                          request_data.resource_type,
-                                          request));
-
   ScopedVector<ResourceThrottle> throttles;
   if (delegate_) {
     bool is_continuation_of_transferred_request =
@@ -1050,6 +1038,7 @@ void ResourceDispatcherHostImpl::BeginRequest(
 
     delegate_->RequestBeginning(request,
                                 resource_context,
+                                filter_->appcache_service(),
                                 request_data.resource_type,
                                 child_id,
                                 route_id,

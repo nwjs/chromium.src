@@ -92,24 +92,11 @@ class HistoryBackendTestDelegate : public HistoryBackend::Delegate {
   DISALLOW_COPY_AND_ASSIGN(HistoryBackendTestDelegate);
 };
 
-class HistoryBackendCancelableRequest : public CancelableRequestProvider,
-                                       public CancelableRequestConsumerBase {
+class HistoryBackendCancelableRequest
+    : public CancelableRequestProvider,
+      public CancelableRequestConsumerTSimple<int> {
  public:
   HistoryBackendCancelableRequest() {}
-
-  // CancelableRequestConsumerBase overrides:
-  virtual void OnRequestAdded(
-      CancelableRequestProvider* provider,
-      CancelableRequestProvider::Handle handle) OVERRIDE {}
-  virtual void OnRequestRemoved(
-      CancelableRequestProvider* provider,
-      CancelableRequestProvider::Handle handle) OVERRIDE {}
-  virtual void WillExecute(
-      CancelableRequestProvider* provider,
-      CancelableRequestProvider::Handle handle) OVERRIDE {}
-  virtual void DidExecute(
-      CancelableRequestProvider* provider,
-      CancelableRequestProvider::Handle handle) OVERRIDE {}
 
   template<class RequestType>
   CancelableRequestProvider::Handle MockScheduleOfRequest(
@@ -121,7 +108,12 @@ class HistoryBackendCancelableRequest : public CancelableRequestProvider,
 
 class HistoryBackendTest : public testing::Test {
  public:
-  HistoryBackendTest() : bookmark_model_(NULL), loaded_(false) {}
+  HistoryBackendTest()
+      : bookmark_model_(NULL),
+        loaded_(false),
+        num_broadcasted_notifications_(0) {
+  }
+
   virtual ~HistoryBackendTest() {
   }
 
@@ -150,6 +142,10 @@ class HistoryBackendTest : public testing::Test {
 
   const history::FilteredURLList& get_filtered_list() const {
     return filtered_list_;
+  }
+
+  int num_broadcasted_notifications() const {
+    return num_broadcasted_notifications_;
   }
 
  protected:
@@ -397,6 +393,8 @@ class HistoryBackendTest : public testing::Test {
 
   void BroadcastNotifications(int type,
                               HistoryDetails* details) {
+    ++num_broadcasted_notifications_;
+
     // Send the notifications directly to the in-memory database.
     content::Details<HistoryDetails> det(details);
     mem_backend_->Observe(type, content::Source<HistoryBackendTest>(NULL), det);
@@ -404,6 +402,9 @@ class HistoryBackendTest : public testing::Test {
     // The backend passes ownership of the details pointer to us.
     delete details;
   }
+
+  // The number of notifications which were broadcasted.
+  int num_broadcasted_notifications_;
 
   MessageLoop message_loop_;
   FilePath test_dir_;
@@ -1347,6 +1348,9 @@ TEST_F(HistoryBackendTest, SetFaviconMappingsForPageAndRedirects) {
                         two_icon_url_sizes);
   EXPECT_EQ(1u, NumIconMappingsForPageURL(url1, TOUCH_ICON));
   EXPECT_EQ(2u, NumIconMappingsForPageURL(url1, FAVICON));
+
+  // A notification should have been broadcasted for each call to SetFavicons().
+  EXPECT_EQ(6, num_broadcasted_notifications());
 }
 
 // Test that there is no churn in icon mappings from calling
@@ -1360,6 +1364,8 @@ TEST_F(HistoryBackendTest, SetFaviconMappingsForPageDuplicates) {
   icon_url_sizes[icon_url] = GetSizesSmallAndLarge();
 
   backend_->SetFavicons(url, FAVICON, favicon_bitmap_data, icon_url_sizes);
+
+  EXPECT_EQ(1, num_broadcasted_notifications());
 
   std::vector<IconMapping> icon_mappings;
   EXPECT_TRUE(backend_->thumbnail_db_->GetIconMappingsForPageURL(
@@ -1377,6 +1383,10 @@ TEST_F(HistoryBackendTest, SetFaviconMappingsForPageDuplicates) {
   // The same row in the icon_mapping table should be used for the mapping as
   // before.
   EXPECT_EQ(mapping_id, icon_mappings[0].mapping_id);
+
+  // No notification should have been broadcasted as none of the icon mappings,
+  // favicons or favicon bitmaps were added or removed.
+  EXPECT_EQ(1, num_broadcasted_notifications());
 }
 
 // Test that setting favicons for a page which already has data does the
@@ -1454,6 +1464,10 @@ TEST_F(HistoryBackendTest, SetFavicons) {
   EXPECT_TRUE(BitmapDataEqual('c', favicon_bitmaps[1].bitmap_data));
   EXPECT_EQ(kLargeSize, favicon_bitmaps[1].pixel_size);
 
+  // A notification should have been broadcasted for both calls to
+  // SetFavicons().
+  EXPECT_EQ(2, num_broadcasted_notifications());
+
   // Change the sizes for which the favicon at icon_url1 is available at from
   // the web. Verify that all the data remains valid.
   icon_url_sizes[icon_url1] = GetSizesTinySmallAndLarge();
@@ -1488,6 +1502,10 @@ TEST_F(HistoryBackendTest, SetFavicons) {
   EXPECT_TRUE(backend_->thumbnail_db_->GetFaviconBitmaps(
       icon_mappings[1].icon_id, &favicon_bitmaps));
   EXPECT_EQ(2u, favicon_bitmaps.size());
+
+  // No new notification should have been broadcasted as only the favicon sizes
+  // changed as a result of the last call to SetFavicons().
+  EXPECT_EQ(2, num_broadcasted_notifications());
 }
 
 // Test that changing the sizes that a favicon is available at from the web
@@ -1540,6 +1558,9 @@ TEST_F(HistoryBackendTest, SetFaviconsDeleteBitmaps) {
   EXPECT_EQ(0, backend_->thumbnail_db_->GetFaviconIDForFaviconURL(
       icon_url, FAVICON, NULL));
   EXPECT_FALSE(backend_->thumbnail_db_->GetFaviconBitmaps(favicon_id, NULL));
+
+  // A notification should have been broadcasted for each call to SetFavicons().
+  EXPECT_EQ(3, num_broadcasted_notifications());
 }
 
 // Test updating a single favicon bitmap's data via SetFavicons.
@@ -1574,6 +1595,8 @@ TEST_F(HistoryBackendTest, SetFaviconsReplaceBitmapData) {
       GetOnlyFaviconBitmap(original_favicon_id, &original_favicon_bitmap));
   EXPECT_TRUE(BitmapDataEqual('a', original_favicon_bitmap.bitmap_data));
 
+  EXPECT_EQ(1, num_broadcasted_notifications());
+
   // SetFavicons with identical data but a different bitmap.
   std::vector<unsigned char> updated_data;
   updated_data.push_back('b');
@@ -1595,6 +1618,10 @@ TEST_F(HistoryBackendTest, SetFaviconsReplaceBitmapData) {
   EXPECT_EQ(original_favicon_bitmap.icon_id, updated_favicon_bitmap.icon_id);
   EXPECT_EQ(original_favicon_bitmap.bitmap_id,
             updated_favicon_bitmap.bitmap_id);
+
+  // No new notification should have been broadcasted as only the favicon
+  // bitmap data changed. No favicon bitmap was added or removed.
+  EXPECT_EQ(1, num_broadcasted_notifications());
 }
 
 // Test that if two pages share the same FaviconID, changing the favicon for
@@ -1673,6 +1700,10 @@ TEST_F(HistoryBackendTest, SetFaviconsSameFaviconURLForTwoPages) {
   EXPECT_TRUE(backend_->thumbnail_db_->GetFaviconBitmaps(favicon_id,
                                                          &favicon_bitmaps));
   EXPECT_EQ(2u, favicon_bitmaps.size());
+
+  // A notification should have been broadcast for each call to SetFavicons()
+  // and UpdateFaviconMappingsAndFetch().
+  EXPECT_EQ(3, num_broadcasted_notifications());
 }
 
 // Test repeatedly calling MergeFavicon(). |page_url| is initially not known
@@ -1706,6 +1737,8 @@ TEST_F(HistoryBackendTest, MergeFaviconPageURLNotInDB) {
   EXPECT_TRUE(BitmapDataEqual('a', favicon_bitmap.bitmap_data));
   EXPECT_EQ(kSmallSize, favicon_bitmap.pixel_size);
 
+  EXPECT_EQ(1, num_broadcasted_notifications());
+
   data[0] = 'b';
   bitmap_data = new base::RefCountedBytes(data);
   backend_->MergeFavicon(page_url, icon_url, FAVICON, bitmap_data, kSmallSize);
@@ -1725,6 +1758,10 @@ TEST_F(HistoryBackendTest, MergeFaviconPageURLNotInDB) {
 
   EXPECT_TRUE(GetOnlyFaviconBitmap(icon_mappings[0].icon_id, &favicon_bitmap));
   EXPECT_TRUE(BitmapDataEqual('b', favicon_bitmap.bitmap_data));
+
+  // No new notification should have been broadcasted as only the favicon
+  // bitmap data changed. No favicon bitmap was added or removed.
+  EXPECT_EQ(1, num_broadcasted_notifications());
 }
 
 // Test calling MergeFavicon() when |page_url| is known to the database.
@@ -1843,6 +1880,10 @@ TEST_F(HistoryBackendTest, MergeFaviconPageURLInDB) {
   EXPECT_TRUE(backend_->thumbnail_db_->GetFaviconBitmaps(
       icon_mappings[1].icon_id, &favicon_bitmaps));
   EXPECT_EQ(1u, favicon_bitmaps.size());
+
+  // A notification should have been broadcast for each call to SetFavicons()
+  // and MergeFavicon().
+  EXPECT_EQ(4, num_broadcasted_notifications());
 }
 
 // Test calling MergeFavicon() when |page_url| is not known to the database,
@@ -1887,6 +1928,10 @@ TEST_F(HistoryBackendTest, MergeFaviconIconURLInDB) {
       &icon_mappings));
   EXPECT_EQ(1u, icon_mappings.size());
   EXPECT_EQ(icon_id, icon_mappings[0].icon_id);
+
+  // A notification should have been broadcast for each call to SetFavicons()
+  // and MergeFavicon().
+  EXPECT_EQ(2, num_broadcasted_notifications());
 }
 
 // Test that MergeFavicon() does not map more than |kMaxFaviconsPerPage| to a
@@ -2189,6 +2234,33 @@ TEST_F(HistoryBackendTest, GetFaviconsFromDBExpired) {
 
   EXPECT_EQ(1u, bitmap_results_out.size());
   EXPECT_TRUE(bitmap_results_out[0].expired);
+}
+
+// Check that GetFaviconsForURL() and UpdateFaviconMappingsAndFetch() call back
+// to the UI when there is no valid thumbnail database.
+TEST_F(HistoryBackendTest, GetFaviconsNoDB) {
+  // Make the thumbnail database invalid.
+  backend_->thumbnail_db_.reset();
+
+  HistoryBackendCancelableRequest cancellable_request;
+
+  scoped_refptr<GetFaviconRequest> request1(new GetFaviconRequest(
+      base::Bind(&HistoryBackendTest::OnFaviconResults,
+                 base::Unretained(this))));
+  cancellable_request.MockScheduleOfRequest<GetFaviconRequest>(request1);
+  EXPECT_TRUE(cancellable_request.HasPendingRequests());
+  backend_->UpdateFaviconMappingsAndFetch(request1, GURL(), std::vector<GURL>(),
+      FAVICON, kSmallSize.width(), GetScaleFactors1x2x());
+  EXPECT_FALSE(cancellable_request.HasPendingRequests());
+
+  scoped_refptr<GetFaviconRequest> request2(new GetFaviconRequest(
+      base::Bind(&HistoryBackendTest::OnFaviconResults,
+                 base::Unretained(this))));
+  cancellable_request.MockScheduleOfRequest<GetFaviconRequest>(request2);
+  EXPECT_TRUE(cancellable_request.HasPendingRequests());
+  backend_->GetFaviconsForURL(request2, GURL(), FAVICON, kSmallSize.width(),
+                              GetScaleFactors1x2x());
+  EXPECT_FALSE(cancellable_request.HasPendingRequests());
 }
 
 TEST_F(HistoryBackendTest, CloneFaviconIsRestrictedToSameDomain) {

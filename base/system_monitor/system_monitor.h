@@ -13,6 +13,7 @@
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/string16.h"
+#include "base/synchronization/lock.h"
 #include "build/build_config.h"
 
 // Windows HiRes timers drain the battery faster so we need to know the battery
@@ -159,6 +160,10 @@ class BASE_EXPORT SystemMonitor {
   void RemovePowerObserver(PowerObserver* obs);
   void RemoveDevicesChangedObserver(DevicesChangedObserver* obs);
 
+  // The ProcessFoo() style methods are a broken pattern and should not
+  // be copied. Any significant addition to this class is blocked on
+  // refactoring to improve the state of affairs. See http://crbug.com/149059
+
 #if defined(OS_WIN)
   // Windows-specific handling of a WM_POWERBROADCAST message.
   // Embedders of this API should hook their top-level window
@@ -219,6 +224,8 @@ class BASE_EXPORT SystemMonitor {
   std::vector<id> notification_observers_;
 #endif
 
+  // For manipulating removable_storage_map_ structure.
+  mutable base::Lock removable_storage_lock_;
   // Map of all the attached removable storage devices.
   RemovableStorageMap removable_storage_map_;
 

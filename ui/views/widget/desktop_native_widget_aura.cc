@@ -117,23 +117,26 @@ bool DesktopNativeWidgetAura::HasCapture() const {
 }
 
 InputMethod* DesktopNativeWidgetAura::CreateInputMethod() {
-  return NULL;
+  return desktop_root_window_host_->CreateInputMethod();
 }
 
 internal::InputMethodDelegate*
     DesktopNativeWidgetAura::GetInputMethodDelegate() {
-  return NULL;
+  return desktop_root_window_host_->GetInputMethodDelegate();
 }
 
 void DesktopNativeWidgetAura::CenterWindow(const gfx::Size& size) {
+  desktop_root_window_host_->CenterWindow(size);
 }
 
 void DesktopNativeWidgetAura::GetWindowPlacement(
       gfx::Rect* bounds,
       ui::WindowShowState* maximized) const {
+  desktop_root_window_host_->GetWindowPlacement(bounds, maximized);
 }
 
 void DesktopNativeWidgetAura::SetWindowTitle(const string16& title) {
+  desktop_root_window_host_->SetWindowTitle(title);
 }
 
 void DesktopNativeWidgetAura::SetWindowIcons(const gfx::ImageSkia& window_icon,
@@ -155,7 +158,7 @@ void DesktopNativeWidgetAura::InitModalType(ui::ModalType modal_type) {
 }
 
 gfx::Rect DesktopNativeWidgetAura::GetWindowBoundsInScreen() const {
-  return gfx::Rect(100, 100);
+  return desktop_root_window_host_->GetWindowBoundsInScreen();
 }
 
 gfx::Rect DesktopNativeWidgetAura::GetClientAreaBoundsInScreen() const {
@@ -163,13 +166,15 @@ gfx::Rect DesktopNativeWidgetAura::GetClientAreaBoundsInScreen() const {
 }
 
 gfx::Rect DesktopNativeWidgetAura::GetRestoredBounds() const {
-  return gfx::Rect(100, 100);
+  return desktop_root_window_host_->GetRestoredBounds();
 }
 
 void DesktopNativeWidgetAura::SetBounds(const gfx::Rect& bounds) {
+  desktop_root_window_host_->AsRootWindowHost()->SetBounds(bounds);
 }
 
 void DesktopNativeWidgetAura::SetSize(const gfx::Size& size) {
+  desktop_root_window_host_->SetSize(size);
 }
 
 void DesktopNativeWidgetAura::StackAbove(gfx::NativeView native_view) {
@@ -202,6 +207,7 @@ void DesktopNativeWidgetAura::Hide() {
 
 void DesktopNativeWidgetAura::ShowMaximizedWithBounds(
       const gfx::Rect& restored_bounds) {
+  desktop_root_window_host_->ShowMaximizedWithBounds(restored_bounds);
 }
 
 void DesktopNativeWidgetAura::ShowWithWindowState(ui::WindowShowState state) {
@@ -213,33 +219,39 @@ bool DesktopNativeWidgetAura::IsVisible() const {
 }
 
 void DesktopNativeWidgetAura::Activate() {
+  desktop_root_window_host_->Activate();
 }
 
 void DesktopNativeWidgetAura::Deactivate() {
+  desktop_root_window_host_->Deactivate();
 }
 
 bool DesktopNativeWidgetAura::IsActive() const {
-  return true;
+  return desktop_root_window_host_->IsActive();
 }
 
 void DesktopNativeWidgetAura::SetAlwaysOnTop(bool always_on_top) {
+  desktop_root_window_host_->SetAlwaysOnTop(always_on_top);
 }
 
 void DesktopNativeWidgetAura::Maximize() {
+  desktop_root_window_host_->Maximize();
 }
 
 void DesktopNativeWidgetAura::Minimize() {
+  desktop_root_window_host_->Minimize();
 }
 
 bool DesktopNativeWidgetAura::IsMaximized() const {
-  return false;
+  return desktop_root_window_host_->IsMaximized();
 }
 
 bool DesktopNativeWidgetAura::IsMinimized() const {
-  return false;
+  return desktop_root_window_host_->IsMinimized();
 }
 
 void DesktopNativeWidgetAura::Restore() {
+  desktop_root_window_host_->Restore();
 }
 
 void DesktopNativeWidgetAura::SetFullscreen(bool fullscreen) {
@@ -369,11 +381,19 @@ bool DesktopNativeWidgetAura::HasHitTestMask() const {
 void DesktopNativeWidgetAura::GetHitTestMask(gfx::Path* mask) const {
 }
 
+scoped_refptr<ui::Texture> DesktopNativeWidgetAura::CopyTexture() {
+  // The layer we create doesn't have an external texture, so this should never
+  // get invoked.
+  NOTREACHED();
+  return scoped_refptr<ui::Texture>();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // DesktopNativeWidgetAura, ui::EventHandler implementation:
 
 ui::EventResult DesktopNativeWidgetAura::OnKeyEvent(ui::KeyEvent* event) {
-  return ui::ER_UNHANDLED;
+  return native_widget_delegate_->OnKeyEvent(*event) ? ui::ER_HANDLED :
+      ui::ER_UNHANDLED;
 }
 
 ui::EventResult DesktopNativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {

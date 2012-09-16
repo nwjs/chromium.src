@@ -11,8 +11,8 @@
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_views.h"
 #include "base/utf_string_conversions.h"
+#include "grit/ash_resources.h"
 #include "grit/ash_strings.h"
-#include "grit/ui_resources.h"
 #include "ui/aura/display_manager.h"
 #include "ui/aura/env.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -136,6 +136,10 @@ views::View* TrayDisplay::CreateDefaultView(user::LoginStatus status) {
   default_ = new DisplayView(status);
 #endif
   return default_;
+}
+
+void TrayDisplay::DestroyDefaultView() {
+  default_ = NULL;
 }
 
 void TrayDisplay::OnDisplayBoundsChanged(const gfx::Display& display) {

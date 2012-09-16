@@ -50,6 +50,20 @@ cr.define('ntp', function() {
   var shouldShowLoginBubble = false;
 
   /**
+   * The total number of thumbnails that were hovered over.
+   * @type {number}
+   * @private
+   */
+  var hoveredThumbnailCount = 0;
+
+  /**
+   * The time when all sections are ready.
+   * @type {number|undefined}
+   * @private
+   */
+  var startTime;
+
+  /**
    * The time in milliseconds for most transitions.  This should match what's
    * in new_tab.css.  Unfortunately there's no better way to try to time
    * something to occur until after a transition has completed.
@@ -676,11 +690,11 @@ cr.define('ntp', function() {
     if (loadTimeData.getString('login_status_message')) {
       loginBubble = new cr.ui.Bubble;
       loginBubble.anchorNode = $('login-container');
-      loginBubble.setArrowLocation(cr.ui.ArrowLocation.TOP_END);
+      loginBubble.arrowLocation = cr.ui.ArrowLocation.TOP_END;
       loginBubble.bubbleAlignment =
           cr.ui.BubbleAlignment.BUBBLE_EDGE_TO_ANCHOR_EDGE;
       loginBubble.deactivateToDismissDelay = 2000;
-      loginBubble.setCloseButtonVisible(false);
+      loginBubble.closeButtonVisible = false;
 
       $('login-status-advanced').onclick = function() {
         chrome.send('showAdvancedLoginUI');
@@ -723,6 +737,8 @@ cr.define('ntp', function() {
 
       cr.dispatchSimpleEvent(document, 'ntpLoaded', true, true);
       document.documentElement.classList.remove('starting-up');
+
+      startTime = Date.now();
     });
   }
 
@@ -848,10 +864,9 @@ cr.define('ntp', function() {
     document.addEventListener('dragstart', closeFunc);
 
     notificationContainer.hidden = false;
-    showNotificationOnCurrentPage();
-
-    newTabView.cardSlider.frame.addEventListener(
-        'cardSlider:card_change_ended', onCardChangeEnded);
+    window.setTimeout(function() {
+      notificationContainer.classList.remove('inactive');
+    }, 0);
 
     var timeout = opt_timeout || 10000;
     notificationTimeout = window.setTimeout(hideNotification, timeout);
@@ -862,47 +877,6 @@ cr.define('ntp', function() {
    */
   function hideNotification() {
     notificationContainer.classList.add('inactive');
-
-    newTabView.cardSlider.frame.removeEventListener(
-        'cardSlider:card_change_ended', onCardChangeEnded);
-  }
-
-  /**
-   * Happens when 1 or more consecutive card changes end.
-   * @param {Event} e The cardSlider:card_change_ended event.
-   */
-  function onCardChangeEnded(e) {
-    // If we ended on the same page as we started, ignore.
-    if (newTabView.cardSlider.currentCardValue.notification)
-      return;
-
-    // Hide the notification the old page.
-    notificationContainer.classList.add('card-changed');
-
-    showNotificationOnCurrentPage();
-  }
-
-  /**
-   * Move and show the notification on the current page.
-   */
-  function showNotificationOnCurrentPage() {
-    var page = newTabView.cardSlider.currentCardValue;
-    doWhenAllSectionsReady(function() {
-      if (page != newTabView.cardSlider.currentCardValue)
-        return;
-
-      // NOTE: This moves the notification to inside of the current page.
-      page.notification = notificationContainer;
-
-      // Reveal the notification and instruct it to hide itself if ignored.
-      notificationContainer.classList.remove('inactive');
-
-      // Gives the browser time to apply this rule before we remove it (causing
-      // a transition).
-      window.setTimeout(function() {
-        notificationContainer.classList.remove('card-changed');
-      }, 0);
-    });
   }
 
   /**
@@ -916,11 +890,11 @@ cr.define('ntp', function() {
   }
 
   function setRecentlyClosedTabs(data) {
-    newTabView.recentlyClosedPage.data = data;
+    newTabView.recentlyClosedPage.setData(data);
   }
 
   function setMostVisitedPages(data, hasBlacklistedUrls) {
-    newTabView.mostVisitedPage.data = data;
+    newTabView.mostVisitedPage.setData(data);
     cr.dispatchSimpleEvent(document, 'sectionready', true, true);
   }
 
@@ -973,6 +947,28 @@ cr.define('ntp', function() {
     var rect = e.currentTarget.getBoundingClientRect();
     chrome.send('showSyncLoginUI',
                 [rect.left, rect.top, rect.width, rect.height]);
+  }
+
+  /**
+   * Increments the parameter used to log the total number of thumbnail hovered
+   * over.
+   */
+  function incrementHoveredThumbnailCount() {
+    hoveredThumbnailCount++;
+  }
+
+  /**
+   * Logs the time to click for the specified item and the total number of
+   * thumbnails hovered over.
+   * @param {string} item The item to log the time-to-click.
+   */
+  function logTimeToClickAndHoverCount(item) {
+    var timeToClick = Date.now() - startTime;
+    chrome.send('logTimeToClick',
+        ['ExtendedNewTabPage.TimeToClick' + item, timeToClick]);
+    chrome.send('metricsHandler:recordInHistogram',
+        ['ExtendedNewTabPage.hoveredThumbnailCount',
+         hoveredThumbnailCount, 40]);
   }
 
   /**
@@ -1029,6 +1025,8 @@ cr.define('ntp', function() {
     getAppsPageIndex: getAppsPageIndex,
     getCardSlider: getCardSlider,
     getThumbnailUrl: getThumbnailUrl,
+    incrementHoveredThumbnailCount: incrementHoveredThumbnailCount,
+    logTimeToClickAndHoverCount: logTimeToClickAndHoverCount,
     onLoad: onLoad,
     NtpFollowAction: NtpFollowAction,
     setAppToBeHighlighted: setAppToBeHighlighted,

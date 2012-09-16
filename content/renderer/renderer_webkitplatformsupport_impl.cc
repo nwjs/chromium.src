@@ -27,6 +27,7 @@
 #include "content/renderer/gamepad_shared_memory_reader.h"
 #include "content/renderer/hyphenator/hyphenator.h"
 #include "content/renderer/media/audio_hardware.h"
+#include "content/renderer/media/media_stream_dependency_factory.h"
 #include "content/renderer/media/renderer_webaudiodevice_impl.h"
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/render_view_impl.h"
@@ -42,8 +43,6 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBFactory.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebMediaStreamCenter.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebMediaStreamCenterClient.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPeerConnectionHandler.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPeerConnectionHandlerClient.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebRuntimeFeatures.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURL.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebVector.h"
@@ -90,8 +89,8 @@ using WebKit::WebMediaStreamCenter;
 using WebKit::WebMediaStreamCenterClient;
 using WebKit::WebPeerConnection00Handler;
 using WebKit::WebPeerConnection00HandlerClient;
-using WebKit::WebPeerConnectionHandler;
-using WebKit::WebPeerConnectionHandlerClient;
+using WebKit::WebRTCPeerConnectionHandler;
+using WebKit::WebRTCPeerConnectionHandlerClient;
 using WebKit::WebStorageNamespace;
 using WebKit::WebString;
 using WebKit::WebURL;
@@ -676,13 +675,33 @@ void RendererWebKitPlatformSupportImpl::GetPlugins(
 WebPeerConnection00Handler*
 RendererWebKitPlatformSupportImpl::createPeerConnection00Handler(
     WebPeerConnection00HandlerClient* client) {
-  WebFrame* web_frame = WebFrame::frameForCurrentContext();
-  if (!web_frame)
+  RenderThreadImpl* render_thread = RenderThreadImpl::current();
+  DCHECK(render_thread);
+  if (!render_thread)
     return NULL;
-  RenderViewImpl* render_view = RenderViewImpl::FromWebView(web_frame->view());
-  if (!render_view)
+#if defined(ENABLE_WEBRTC)
+  MediaStreamDependencyFactory* rtc_dependency_factory =
+      render_thread->GetMediaStreamDependencyFactory();
+  return rtc_dependency_factory->CreatePeerConnectionHandlerJsep(client);
+#else
+  return NULL;
+#endif  // defined(ENABLE_WEBRTC)
+}
+
+WebRTCPeerConnectionHandler*
+RendererWebKitPlatformSupportImpl::createRTCPeerConnectionHandler(
+    WebRTCPeerConnectionHandlerClient* client) {
+  RenderThreadImpl* render_thread = RenderThreadImpl::current();
+  DCHECK(render_thread);
+  if (!render_thread)
     return NULL;
-  return render_view->CreatePeerConnectionHandlerJsep(client);
+#if defined(ENABLE_WEBRTC)
+  MediaStreamDependencyFactory* rtc_dependency_factory =
+      render_thread->GetMediaStreamDependencyFactory();
+  return rtc_dependency_factory->CreateRTCPeerConnectionHandler(client);
+#else
+  return NULL;
+#endif  // defined(ENABLE_WEBRTC)
 }
 
 //------------------------------------------------------------------------------

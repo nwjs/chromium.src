@@ -116,9 +116,6 @@ const char kDisableFlashStage3d[]           = "disable-flash-stage3d";
 // Suppresses support for the Geolocation javascript API.
 const char kDisableGeolocation[]            = "disable-geolocation";
 
-// Disable Gesture Tap Highlight
-const char kDisableGestureTapHighlight[]    = "disable-gesture-tap-highlight";
-
 // Disable GL multisampling.
 const char kDisableGLMultisampling[]        = "disable-gl-multisampling";
 
@@ -257,17 +254,8 @@ const char kEnableAccessibilityLogging[]    = "enable-accessibility-logging";
 const char kEnableCompositingForFixedPosition[] =
      "enable-fixed-position-compositing";
 
-// Enables CSS3 exclusions
-const char kEnableCssExclusions[]           = "enable-css-exclusions";
-
-// Enables CSS3 regions
-const char kEnableCssRegions[]              = "enable-css-regions";
-
 // Enables CSS3 custom filters
 const char kEnableCssShaders[]              = "enable-css-shaders";
-
-// Enables CSS variables
-const char kEnableCssVariables[]            = "enable-css-variables";
 
 // Enables device motion events.
 const char kEnableDeviceMotion[]            = "enable-device-motion";
@@ -275,6 +263,10 @@ const char kEnableDeviceMotion[]            = "enable-device-motion";
 // Enables support for encrypted media. Current implementation is
 // incomplete and this flag is used for development and testing.
 const char kEnableEncryptedMedia[]          = "enable-encrypted-media";
+
+// Enables WebKit features that are in development.
+const char kEnableExperimentalWebKitFeatures[] =
+    "enable-experimental-webkit-features";
 
 // Enables the fastback page cache.
 const char kEnableFastback[]                = "enable-fastback";
@@ -292,7 +284,10 @@ const char kEnablePointerLock[]             = "enable-pointer-lock";
 
 // Enable Text Service Framework(TSF) for text inputting instead of IMM32. This
 // flag is ignored on Metro environment.
-const char kEnableTextServiceFramework[] = "enable-text-service-framework";
+const char kEnableTextServicesFramework[] = "enable-text-services-framework";
+
+// Enable Gesture Tap Highlight
+const char kEnableGestureTapHighlight[]    = "enable-gesture-tap-highlight";
 
 // Enables the GPU benchmarking extension
 const char kEnableGpuBenchmarking[]         = "enable-gpu-benchmarking";
@@ -343,12 +338,6 @@ const char kEnableSandboxLogging[]          = "enable-sandbox-logging";
 
 // Enable the seccomp sandbox (Linux only)
 const char kEnableSeccompSandbox[]          = "enable-seccomp-sandbox";
-
-// Enable shadow DOM API
-const char kEnableShadowDOM[]          = "enable-shadow-dom";
-
-// Enable <style scoped>
-const char kEnableStyleScoped[]             = "enable-style-scoped";
 
 // On platforms that support it, enables smooth scroll animation.
 const char kEnableSmoothScrolling[]         = "enable-smooth-scrolling";
@@ -638,13 +627,6 @@ const char kWaitForDebuggerChildren[]       = "wait-for-debugger-children";
 // Choose which logging channels in WebCore to activate.  See
 // Logging.cpp in WebKit's WebCore for a list of available channels.
 const char kWebCoreLogChannels[]            = "webcore-log-channels";
-
-// Causes the worker process allocation to use as many processes as cores.
-const char kWebWorkerProcessPerCore[]       = "web-worker-process-per-core";
-
-// Causes workers to run together in one process, depending on their domains.
-// Note this is duplicated in webworkerclient_impl.cc
-const char kWebWorkerShareProcesses[]       = "web-worker-share-processes";
 
 // Causes the process to run as a worker subprocess.
 const char kWorkerProcess[]                 = "worker";

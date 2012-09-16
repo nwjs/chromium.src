@@ -65,7 +65,24 @@ const int kDRMIdentifierSize = (256 / 8) * 2;
 // The path to the file containing the DRM ID.
 // It is mirrored from
 //   chrome/browser/chromeos/system/drm_settings.cc
+// TODO(brettw) remove this when we remove the sync Device ID getter in
+// preference for the async one.
 const char kDRMIdentifierFile[] = "Pepper DRM ID.0";
+
+void CreateNetAddressListFromAddressList(
+    const net::AddressList& list,
+    std::vector<PP_NetAddress_Private>* net_address_list) {
+  PP_NetAddress_Private address;
+  for (size_t i = 0; i < list.size(); ++i) {
+    if (!NetAddressPrivateImpl::IPEndPointToNetAddress(list[i].address(),
+                                                       list[i].port(),
+                                                       &address)) {
+      net_address_list->clear();
+      return;
+    }
+    net_address_list->push_back(address);
+  }
+}
 
 }  // namespace
 
@@ -107,8 +124,7 @@ void PepperMessageFilter::OverrideThreadForMessage(
       message.type() == PpapiHostMsg_PPBTCPServerSocket_Listen::ID ||
       message.type() == PpapiHostMsg_PPBHostResolver_Resolve::ID) {
     *thread = BrowserThread::UI;
-  } else if (message.type() == PepperMsg_GetDeviceID::ID ||
-             message.type() == PpapiHostMsg_PPBFlashDeviceID_Get::ID) {
+  } else if (message.type() == PepperMsg_GetDeviceID::ID) {
     *thread = BrowserThread::FILE;
   }
 }
@@ -166,7 +182,6 @@ bool PepperMessageFilter::OnMessageReceived(const IPC::Message& msg,
     // Flash messages.
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_UpdateActivity, OnUpdateActivity)
     IPC_MESSAGE_HANDLER(PepperMsg_GetDeviceID, OnGetDeviceID)
-    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlashDeviceID_Get, OnGetDeviceIDAsync)
     IPC_MESSAGE_HANDLER(PepperMsg_GetLocalDataRestrictions,
                         OnGetLocalDataRestrictions)
 
@@ -615,9 +630,9 @@ void PepperMessageFilter::OnHostResolverResolveLookupFinished(
                                     bound_info.host_resolver_id);
   } else {
     const std::string& canonical_name = addresses.canonical_name();
-    scoped_ptr<ppapi::NetAddressList> net_address_list(
-        ppapi::CreateNetAddressListFromAddressList(addresses));
-    if (!net_address_list.get()) {
+    std::vector<PP_NetAddress_Private> net_address_list;
+    CreateNetAddressListFromAddressList(addresses, &net_address_list);
+    if (net_address_list.size() == 0) {
       SendHostResolverResolveACKError(bound_info.routing_id,
                                       bound_info.plugin_dispatcher_id,
                                       bound_info.host_resolver_id);
@@ -628,7 +643,7 @@ void PepperMessageFilter::OnHostResolverResolveLookupFinished(
           bound_info.host_resolver_id,
           true,
           canonical_name,
-          *net_address_list.get()));
+          net_address_list));
     }
   }
 }
@@ -643,7 +658,7 @@ bool PepperMessageFilter::SendHostResolverResolveACKError(
       host_resolver_id,
       false,
       "",
-      ppapi::NetAddressList()));
+      std::vector<PP_NetAddress_Private>()));
 }
 
 void PepperMessageFilter::OnNetworkMonitorStart(uint32 plugin_dispatcher_id) {
@@ -686,6 +701,8 @@ void PepperMessageFilter::OnUpdateActivity() {
 #endif
 }
 
+// TODO(brettw) remove this when we remove the sync Device ID getter in
+// preference for the async one.
 void PepperMessageFilter::OnGetDeviceID(std::string* id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   id->clear();
@@ -718,17 +735,6 @@ void PepperMessageFilter::OnGetDeviceID(std::string* id) {
     return;
   }
   id->assign(id_buf, kDRMIdentifierSize);
-}
-
-void PepperMessageFilter::OnGetDeviceIDAsync(int32_t routing_id,
-                                             PP_Resource resource) {
-  std::string result;
-  OnGetDeviceID(&result);
-  Send(new PpapiMsg_PPBFlashDeviceID_GetReply(ppapi::API_ID_PPB_FLASH_DEVICE_ID,
-                                              routing_id, resource,
-                                              result.empty() ? PP_ERROR_FAILED
-                                                             : PP_OK,
-                                              result));
 }
 
 void PepperMessageFilter::OnGetLocalDataRestrictions(
@@ -861,7 +867,7 @@ void PepperMessageFilter::SendNetworkList(
 
     network_copy.addresses.resize(1, NetAddressPrivateImpl::kInvalidNetAddress);
     bool result = NetAddressPrivateImpl::IPEndPointToNetAddress(
-        net::IPEndPoint(network.address, 0), &(network_copy.addresses[0]));
+        network.address, 0, &(network_copy.addresses[0]));
     DCHECK(result);
 
     // TODO(sergeyu): Currently net::NetworkInterfaceList provides

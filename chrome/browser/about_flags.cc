@@ -343,18 +343,11 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableNaClExceptionHandling)
   },
   {
-    "nacl-gdb",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_NACL_GDB_NAME,
-    IDS_FLAGS_NACL_GDB_DESCRIPTION,
-    kOsWin,
-    SINGLE_VALUE_TYPE(switches::kNaClGdb)
-  },
-  {
-    "nacl-gdb-script",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_NACL_GDB_SCRIPT_NAME,
-    IDS_FLAGS_NACL_GDB_SCRIPT_DESCRIPTION,
+    "enable-nacl-debug",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_ENABLE_NACL_DEBUG_NAME,
+    IDS_FLAGS_ENABLE_NACL_DEBUG_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kNaClGdbScript)
+    SINGLE_VALUE_TYPE(switches::kEnableNaClDebug)
   },
   {
     "enable-pnacl",  // FLAGS:RECORD_UMA
@@ -362,6 +355,13 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_PNACL_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnablePnacl)
+  },
+  {
+    "enable-scripted-speech",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_ENABLE_SCRIPTED_SPEECH_NAME,
+    IDS_FLAGS_ENABLE_SCRIPTED_SPEECH_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnableScriptedSpeech)
   },
   {
     "extension-apis",  // FLAGS:RECORD_UMA
@@ -453,6 +453,13 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_SYNC_APP_NOTIFICATIONS_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kDisableSyncAppNotifications)
+  },
+  {
+    "enable-gesture-tap-highlight",
+    IDS_FLAGS_ENABLE_GESTURE_TAP_HIGHLIGHTING_NAME,
+    IDS_FLAGS_ENABLE_GESTURE_TAP_HIGHLIGHTING_DESCRIPTION,
+    kOsLinux | kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableGestureTapHighlight)
   },
   {
     "enable-smooth-scrolling",  // FLAGS:RECORD_UMA
@@ -601,32 +608,18 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kDisableSoftwareRasterizer)
   },
   {
-    "enable-shadow-dom",
-    IDS_FLAGS_SHADOW_DOM_NAME,
-    IDS_FLAGS_SHADOW_DOM_DESCRIPTION,
+    "enable-experimental-webkit-features",
+    IDS_FLAGS_EXPERIMENTAL_WEBKIT_FEATURES_NAME,
+    IDS_FLAGS_EXPERIMENTAL_WEBKIT_FEATURES_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableShadowDOM)
+    SINGLE_VALUE_TYPE(switches::kEnableExperimentalWebKitFeatures)
   },
   {
-    "enable-style-scoped",
-    IDS_FLAGS_STYLE_SCOPED_NAME,
-    IDS_FLAGS_STYLE_SCOPED_DESCRIPTION,
+    "enable-css-shaders",
+    IDS_FLAGS_CSS_SHADERS_NAME,
+    IDS_FLAGS_CSS_SHADERS_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableStyleScoped)
-  },
-  {
-    "enable-css-regions",
-    IDS_FLAGS_CSS_REGIONS_NAME,
-    IDS_FLAGS_CSS_REGIONS_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableCssRegions)
-  },
-  {
-    "enable-css-variables",
-    IDS_FLAGS_CSS_VARIABLES_NAME,
-    IDS_FLAGS_CSS_VARIABLES_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableCssVariables)
+    SINGLE_VALUE_TYPE(switches::kEnableCssShaders)
   },
   {
     "enable-extension-activity-ui",

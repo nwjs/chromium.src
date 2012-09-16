@@ -404,8 +404,12 @@ Browser::Browser(const CreateParams& params)
                              profile_->GetPrefs(), NULL);
 
   instant_controller_.reset(new chrome::BrowserInstantController(this));
+
+#if 0
+  // Disabled for M22. See http://crbug.com/144326.
   device_attached_intent_source_.reset(
       new DeviceAttachedIntentSource(this, (this)));
+#endif
 
   UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_INIT);
 
@@ -810,9 +814,11 @@ void Browser::OpenFile() {
 
   // TODO(beng): figure out how to juggle this.
   gfx::NativeWindow parent_window = window_->GetNativeWindow();
+  ui::SelectFileDialog::FileTypeInfo file_types;
+  file_types.support_gdata = true;
   select_file_dialog_->SelectFile(ui::SelectFileDialog::SELECT_OPEN_FILE,
                                   string16(), directory,
-                                  NULL, 0, FILE_PATH_LITERAL(""),
+                                  &file_types, 0, FILE_PATH_LITERAL(""),
                                   parent_window, NULL);
 }
 

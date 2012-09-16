@@ -360,6 +360,8 @@ void Pipeline::OnAudioTimeUpdate(TimeDelta time, TimeDelta max_time) {
   if (waiting_for_clock_update_ && time < clock_->Elapsed())
     return;
 
+  // TODO(scherkus): |state_| should only be accessed on pipeline thread, see
+  // http://crbug.com/137973
   if (state_ == kSeeking)
     return;
 
@@ -374,6 +376,8 @@ void Pipeline::OnVideoTimeUpdate(TimeDelta max_time) {
   if (has_audio_)
     return;
 
+  // TODO(scherkus): |state_| should only be accessed on pipeline thread, see
+  // http://crbug.com/137973
   if (state_ == kSeeking)
     return;
 
@@ -723,11 +727,6 @@ void Pipeline::StopTask(const base::Closure& stop_cb) {
     stop_cb.Run();
     return;
   }
-
-  // TODO(scherkus): Remove after pipeline state machine refactoring has some
-  // time to bake http://crbug.com/110228
-  if (video_renderer_)
-    video_renderer_->PrepareForShutdownHack();
 
   SetState(kStopping);
   pending_callbacks_.reset();

@@ -278,7 +278,18 @@ void RenderWidgetHostViewAura::InitAsFullscreen(
   window_->Init(ui::LAYER_TEXTURED);
   window_->SetName("RenderWidgetHostViewAura");
   window_->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_FULLSCREEN);
-  window_->SetParent(NULL);
+  aura::Window* parent = NULL;
+  if (reference_host_view) {
+    aura::Window* reference_window =
+        static_cast<RenderWidgetHostViewAura*>(reference_host_view)->window_;
+    gfx::Display display =
+        gfx::Screen::GetDisplayNearestWindow(reference_window);
+    aura::client::StackingClient* stacking_client =
+        aura::client::GetStackingClient();
+    if (stacking_client)
+      parent = stacking_client->GetDefaultParent(window_, display.bounds());
+  }
+  window_->SetParent(parent);
   Show();
   Focus();
 }
@@ -355,6 +366,12 @@ void RenderWidgetHostViewAura::MovePluginWindows(
     const gfx::Point& scroll_offset,
     const std::vector<webkit::npapi::WebPluginGeometry>& plugin_window_moves) {
 #if defined(OS_WIN)
+  // We need to clip the rectangle to the tab's viewport, otherwise we will draw
+  // over the browser UI.
+  if (!window_->GetRootWindow()) {
+    DCHECK(plugin_window_moves.empty());
+    return;
+  }
   HWND parent = window_->GetRootWindow()->GetAcceleratedWidget();
   gfx::Rect view_bounds = window_->GetBoundsInRootWindow();
   std::vector<webkit::npapi::WebPluginGeometry> moves = plugin_window_moves;
@@ -1153,6 +1170,13 @@ bool RenderWidgetHostViewAura::ChangeTextDirectionAndLayoutAlignment(
   return true;
 }
 
+void RenderWidgetHostViewAura::ExtendSelectionAndDelete(
+    size_t before, size_t after) {
+  // TODO(horo): implement this method if it is required.
+  // http://crbug.com/149155
+  NOTIMPLEMENTED();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostViewAura, aura::WindowDelegate implementation:
 
@@ -1254,6 +1278,12 @@ void RenderWidgetHostViewAura::OnDeviceScaleFactorChanged(
 }
 
 void RenderWidgetHostViewAura::OnWindowDestroying() {
+#if defined(OS_WIN)
+  if (window_->GetRootWindow()) {
+    HWND parent = window_->GetRootWindow()->GetAcceleratedWidget();
+    DetachPluginsHelper(parent);
+  }
+#endif
 }
 
 void RenderWidgetHostViewAura::OnWindowDestroyed() {
@@ -1269,6 +1299,31 @@ bool RenderWidgetHostViewAura::HasHitTestMask() const {
 }
 
 void RenderWidgetHostViewAura::GetHitTestMask(gfx::Path* mask) const {
+}
+
+scoped_refptr<ui::Texture> RenderWidgetHostViewAura::CopyTexture() {
+  if (!host_->is_accelerated_compositing_active())
+    return scoped_refptr<ui::Texture>();
+
+  ImageTransportFactory* factory = ImageTransportFactory::GetInstance();
+  GLHelper* gl_helper = factory->GetGLHelper();
+  if (!gl_helper)
+    return scoped_refptr<ui::Texture>();
+
+  std::map<uint64, scoped_refptr<ui::Texture> >::iterator it =
+      image_transport_clients_.find(current_surface_);
+  if (it == image_transport_clients_.end())
+    return scoped_refptr<ui::Texture>();
+
+  ui::Texture* container = it->second;
+  DCHECK(container);
+  WebKit::WebGLId texture_id =
+      gl_helper->CopyTexture(container->texture_id(), container->size());
+  if (!texture_id)
+    return scoped_refptr<ui::Texture>();
+
+  return scoped_refptr<ui::Texture>(
+      factory->CreateOwnedTexture(container->size(), texture_id));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

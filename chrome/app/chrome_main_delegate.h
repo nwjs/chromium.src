@@ -16,7 +16,7 @@ class ChromeMainDelegate : public content::ContentMainDelegate {
   ChromeMainDelegate();
   virtual ~ChromeMainDelegate();
 
- private:
+ protected:
   // content::ContentMainDelegate implementation:
   virtual bool BasicStartupComplete(int* exit_code) OVERRIDE;
   virtual void PreSandboxStartup() OVERRIDE;
@@ -31,7 +31,7 @@ class ChromeMainDelegate : public content::ContentMainDelegate {
   virtual bool ShouldSendMachPort(const std::string& process_type) OVERRIDE;
   virtual bool DelaySandboxInitialization(
       const std::string& process_type) OVERRIDE;
-#elif defined(OS_POSIX)
+#elif defined(OS_POSIX) && !defined(OS_ANDROID)
   virtual content::ZygoteForkDelegate* ZygoteStarting() OVERRIDE;
   virtual void ZygoteForked() OVERRIDE;
 #endif

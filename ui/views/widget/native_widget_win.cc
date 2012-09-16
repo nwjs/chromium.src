@@ -255,7 +255,7 @@ InputMethod* NativeWidgetWin::CreateInputMethod() {
   if (!command_line->HasSwitch(switches::kEnableViewsTextfield))
     return NULL;
 #endif
-  return new InputMethodWin(GetMessageHandler());
+  return new InputMethodWin(GetMessageHandler(), GetMessageHandler()->hwnd());
 }
 
 internal::InputMethodDelegate* NativeWidgetWin::GetInputMethodDelegate() {
@@ -747,7 +747,8 @@ void NativeWidgetWin::HandleClientSizeChanged(const gfx::Size& new_size) {
 }
 
 void NativeWidgetWin::HandleFrameChanged() {
-  GetWidget()->non_client_view()->UpdateFrame();
+  // Replace the frame and layout the contents.
+  GetWidget()->non_client_view()->UpdateFrame(true);
 }
 
 void NativeWidgetWin::HandleNativeFocus(HWND last_focused_window) {

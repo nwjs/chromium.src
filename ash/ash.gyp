@@ -7,7 +7,9 @@
     'chromium_code': 1,
     'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)/chrome',
   },
-
+  'includes': [
+    'ash_resources.gypi',
+  ],
   'targets': [
     {
       'target_name': 'ash',
@@ -32,10 +34,11 @@
         '../ui/oak/oak.gyp:oak',
         '../ui/ui.gyp:ui',
         '../ui/ui.gyp:ui_resources',
-        '../ui/ui.gyp:ui_resources_wallpapers',
         '../ui/views/controls/webview/webview.gyp:webview',
         '../ui/views/views.gyp:views',
         '../ui/web_dialogs/web_dialogs.gyp:web_dialogs',
+        'ash_resources',
+        'ash_wallpaper_resources',
       ],
       'defines': [
         'ASH_IMPLEMENTATION',
@@ -441,6 +444,7 @@
         '../ui/views/views.gyp:views_examples_with_content_lib',
         '../ui/views/views.gyp:test_support_views',
         'ash',
+        'ash_resources',
       ],
       'sources': [
         '../ui/views/test/test_views_delegate.cc',
@@ -582,6 +586,7 @@
         '../ui/views/views.gyp:views_examples_with_content_lib',
         '../ui/views/views.gyp:test_support_views',
         'ash',
+        'ash_resources',
       ],
       'sources': [
         'shell/app_list.cc',

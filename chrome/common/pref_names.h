@@ -176,6 +176,7 @@ extern const char kUrlWhitelist[];
 extern const char kInstantAnimationScaleFactor[];
 extern const char kInstantConfirmDialogShown[];
 extern const char kInstantEnabled[];
+extern const char kExperimentalZeroSuggestUrlPrefix[];
 extern const char kMultipleProfilePrefMigration[];
 extern const char kNetworkPredictionEnabled[];
 extern const char kDefaultAppsInstallState[];
@@ -349,6 +350,7 @@ extern const char kPinnedTabs[];
 extern const char kDisable3DAPIs[];
 extern const char kEnableHyperlinkAuditing[];
 extern const char kEnableReferrers[];
+extern const char kEnableDoNotTrack[];
 
 extern const char kImportBookmarks[];
 extern const char kImportHistory[];
@@ -664,6 +666,8 @@ extern const char kExternalStorageDisabled[];
 extern const char kUsersWallpaperInfo[];
 extern const char kAudioOutputAllowed[];
 extern const char kAudioCaptureAllowed[];
+extern const char kOwnerPrimaryMouseButtonRight[];
+extern const char kOwnerTapToClickEnabled[];
 #endif
 
 extern const char kClearPluginLSODataEnabled[];

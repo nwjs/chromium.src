@@ -22,6 +22,7 @@
 #include "chrome/browser/net/predictor.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
 #include "chrome/browser/safe_browsing/safe_browsing_blocking_page.h"
+#include "chrome/browser/ui/sync/one_click_signin_helper.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/metrics/variations/variations_util.h"
@@ -127,8 +128,10 @@ void ChromeBrowserFieldTrials::SetupFieldTrials(bool proxy_policy_is_set) {
   AutocompleteFieldTrial::Activate();
   DisableNewTabFieldTrialIfNecesssary();
   SetUpSafeBrowsingInterstitialFieldTrial();
-  SetUpChannelIDFieldTrial();
   SetUpInfiniteCacheFieldTrial();
+#if defined(ENABLE_ONE_CLICK_SIGNIN)
+  OneClickSigninHelper::InitializeFieldTrial();
+#endif
 }
 
 // This is an A/B test for the maximum number of persistent connections per
@@ -542,38 +545,22 @@ void ChromeBrowserFieldTrials::SetUpSafeBrowsingInterstitialFieldTrial() {
   trial->AppendGroup("V2", kVersion2Probability);
 }
 
-void ChromeBrowserFieldTrials::SetUpChannelIDFieldTrial() {
-  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
-  if (channel == chrome::VersionInfo::CHANNEL_CANARY) {
-    net::SSLConfigService::EnableChannelIDTrial();
-  } else if (channel == chrome::VersionInfo::CHANNEL_DEV &&
-             base::FieldTrialList::IsOneTimeRandomizationEnabled()) {
-    const base::FieldTrial::Probability kDivisor = 100;
-    // 10% probability of being in the enabled group.
-    const base::FieldTrial::Probability kEnableProbability = 10;
-    scoped_refptr<base::FieldTrial> trial =
-        base::FieldTrialList::FactoryGetFieldTrial(
-            "ChannelID", kDivisor, "disable", 2012, 11, 5, NULL);
-    trial->UseOneTimeRandomization();
-    int enable_group = trial->AppendGroup("enable", kEnableProbability);
-    if (trial->group() == enable_group)
-      net::SSLConfigService::EnableChannelIDTrial();
-  }
-}
-
 void ChromeBrowserFieldTrials::SetUpInfiniteCacheFieldTrial() {
   const base::FieldTrial::Probability kDivisor = 100;
 
 #if (defined(OS_CHROMEOS) || defined(OS_ANDROID) || defined(OS_IOS))
-  const base::FieldTrial::Probability kInfiniteCacheProbability = 0;
+  base::FieldTrial::Probability infinite_cache_probability = 0;
 #else
-  const base::FieldTrial::Probability kInfiniteCacheProbability = 1;
+  base::FieldTrial::Probability infinite_cache_probability = 1;
 #endif
+
+  if (parsed_command_line_.HasSwitch(switches::kDisableInfiniteCache))
+    infinite_cache_probability = 0;
 
   scoped_refptr<base::FieldTrial> trial(
       base::FieldTrialList::FactoryGetFieldTrial("InfiniteCache", kDivisor,
                                                  "No", 2013, 12, 31, NULL));
   trial->UseOneTimeRandomization();
-  trial->AppendGroup("Yes", kInfiniteCacheProbability);
-  trial->AppendGroup("Control", kInfiniteCacheProbability);
+  trial->AppendGroup("Yes", infinite_cache_probability);
+  trial->AppendGroup("Control", infinite_cache_probability);
 }

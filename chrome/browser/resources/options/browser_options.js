@@ -282,6 +282,13 @@ cr.define('options', function() {
               [String(event.target.checked)]);
         };
       }
+      $('do-not-track-enabled').customChangeHandler = function(event) {
+        if (this.checked) {
+          OptionsPage.showPageByName('doNotTrackConfirm', false);
+          return true;
+        }
+        return false;
+      };
 
       // Bluetooth (CrOS only).
       if (cr.isChromeOS) {
@@ -705,8 +712,10 @@ cr.define('options', function() {
      * @param {Event} event The preference change event.
      */
     onHomePageIsNtpChanged_: function(event) {
-      $('home-page-url').hidden = event.value.value;
-      $('home-page-ntp').hidden = !event.value.value;
+      if (!event.value.uncommitted) {
+        $('home-page-url').hidden = event.value.value;
+        $('home-page-ntp').hidden = !event.value.value;
+      }
     },
 
     /**
@@ -715,7 +724,8 @@ cr.define('options', function() {
      * @param {Event} event The preference change event.
      */
     onHomePageChanged_: function(event) {
-      $('home-page-url').textContent = this.stripHttp_(event.value.value);
+      if (!event.value.uncommitted)
+        $('home-page-url').textContent = this.stripHttp_(event.value.value);
     },
 
     /**
@@ -820,7 +830,7 @@ cr.define('options', function() {
       var defaultIndex = -1;
       for (var i = 0; i < engineCount; i++) {
         var engine = engines[i];
-        var option = new Option(engine['name'], engine['index']);
+        var option = new Option(engine.name, engine.index);
         if (defaultValue == option.value)
           defaultIndex = i;
         engineSelect.appendChild(option);

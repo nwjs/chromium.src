@@ -19,7 +19,7 @@ enum Permission {
 
   // Allows ability to bypass user-gesture checks for showing things like
   // file select dialogs.
-  PERMISSION_BYPASS_USER_GESTURE = 1 << 3
+  PERMISSION_BYPASS_USER_GESTURE = 1 << 3,
 
   // NOTE: If you add stuff be sure to update AllPermissions().
 };
@@ -39,6 +39,10 @@ class PPAPI_SHARED_EXPORT PpapiPermissions {
   static PpapiPermissions AllPermissions();
 
   bool HasPermission(Permission perm) const;
+
+  // TODO(brettw) bug 147507: Remove this when we fix the permissions bug
+  // (this was added for logging).
+  uint32 GetBits() const { return permissions_; }
 
  private:
   uint32 permissions_;

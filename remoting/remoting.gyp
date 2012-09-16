@@ -8,7 +8,6 @@
     # duplicated from chrome.gyp
     'chromium_code': 1,
 
-    'remoting_audio%': 1,
     'remoting_multi_process%': 0,
 
     # The version is composed from major & minor versions specific to remoting
@@ -199,11 +198,6 @@
       '..',  # Root of Chrome checkout
     ],
     'conditions': [
-      ['remoting_audio == 1', {
-        'defines': [
-          'ENABLE_REMOTING_AUDIO',
-        ],
-      }],
       ['remoting_multi_process != 0', {
         'defines': [
           'REMOTING_MULTI_PROCESS',
@@ -1398,7 +1392,8 @@
               '-lXdamage',
               '-lXfixes',
               '-lXtst',
-              '-lXext'
+              '-lXext',
+              '-lXi'
             ],
           },
         }],

@@ -203,8 +203,9 @@ void BrowserActionButton::ShowContextMenuForView(View* source,
   gfx::Point screen_loc;
   views::View::ConvertPointToScreen(this, &screen_loc);
   if (menu_runner_->RunMenuAt(GetWidget(), NULL, gfx::Rect(screen_loc, size()),
-          views::MenuItemView::TOPLEFT, views::MenuRunner::HAS_MNEMONICS) ==
-          views::MenuRunner::MENU_DELETED) {
+          views::MenuItemView::TOPLEFT, views::MenuRunner::HAS_MNEMONICS |
+          views::MenuRunner::CONTEXT_MENU) ==
+      views::MenuRunner::MENU_DELETED) {
     return;
   }
 
@@ -216,7 +217,7 @@ void BrowserActionButton::ShowContextMenuForView(View* source,
 void BrowserActionButton::OnImageLoaded(const gfx::Image& image,
                                         const std::string& extension_id,
                                         int index) {
-  browser_action_->CacheIcon(browser_action_->default_icon_path(), image);
+  browser_action_->CacheIcon(image);
 
   // Call back to UpdateState() because a more specific icon might have been set
   // while the load was outstanding.

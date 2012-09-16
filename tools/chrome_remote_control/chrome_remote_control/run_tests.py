@@ -2,24 +2,30 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import fnmatch
+import functools
 import logging
 import os
-import sys
 import traceback
 import unittest
 
-import browser_options
+from chrome_remote_control import browser_options
 
-def Discover(start_dir, pattern = "test*.py", top_level_dir = None):
+def RequiresBrowserOfType(*types):
+  def wrap(func):
+    func._requires_browser_types = types
+    return func
+  return wrap
+
+def Discover(start_dir, pattern = 'test*.py', top_level_dir = None):
   if hasattr(unittest.defaultTestLoader, 'discover'):
     return unittest.defaultTestLoader.discover(start_dir,
                                                pattern,
                                                top_level_dir)
 
   modules = []
-  for (dirpath, dirnames, filenames) in os.walk(start_dir):
+  for dirpath, _, filenames in os.walk(start_dir):
     for filename in filenames:
-      if not filename.endswith(".py"):
+      if not filename.endswith('.py'):
         continue
 
       if not fnmatch.fnmatch(filename, pattern):
@@ -27,7 +33,7 @@ def Discover(start_dir, pattern = "test*.py", top_level_dir = None):
 
       if filename.startswith('.') or filename.startswith('_'):
         continue
-      name,ext = os.path.splitext(filename)
+      name, _ = os.path.splitext(filename)
 
       relpath = os.path.relpath(dirpath, top_level_dir)
       fqn = relpath.replace('/', '.') + '.' + name
@@ -36,7 +42,7 @@ def Discover(start_dir, pattern = "test*.py", top_level_dir = None):
       try:
         module = __import__(fqn, fromlist=[True])
       except:
-        print "While importing [%s]\n" % fqn
+        print 'While importing [%s]\n' % fqn
         traceback.print_exc()
         continue
       modules.append(module)
@@ -70,15 +76,27 @@ def FilterSuite(suite, predicate):
   return new_suite
 
 def DiscoverAndRunTests(dir_name, args, top_level_dir):
-  suite = Discover(dir_name, "*_unittest.py", top_level_dir)
+  suite = Discover(dir_name, '*_unittest.py', top_level_dir)
 
   def IsTestSelected(test):
-    if len(args) == 0:
-      return True
-    for name in args:
-      if str(test).find(name) != -1:
-        return True
-    return False
+    if len(args) != 0:
+      found = False
+      for name in args:
+        if name in test.id():
+          found = True
+      if not found:
+        return False
+
+    if hasattr(test, '_testMethodName'):
+      method = getattr(test, test._testMethodName)
+      if hasattr(method, '_requires_browser_types'):
+        types = method._requires_browser_types
+        if browser_options.browser_type_for_unittests not in types:
+          logging.debug('Skipping test %s because it requires %s' %
+                        (test.id(), types))
+          return False
+
+    return True
 
   filtered_suite = FilterSuite(suite, IsTestSelected)
   runner = unittest.TextTestRunner(verbosity = 2)
@@ -90,24 +108,28 @@ def Main(args, start_dir, top_level_dir):
   default_options = browser_options.BrowserOptions()
   default_options.browser_type = 'any'
 
-  parser = default_options.CreateParser("run_tests [options] [test names]")
+  parser = default_options.CreateParser('run_tests [options] [test names]')
   parser.add_option('--repeat-count', dest='run_test_repeat_count',
                     type='int', default=1,
-                    help="Repeats each a provided number of times.")
+                    help='Repeats each a provided number of times.')
 
   _, args = parser.parse_args(args)
 
-  import browser_finder
-  if browser_finder.FindBrowser(default_options) == None:
-    logging.error("No browser found. Cannot run tests.\n")
+  from chrome_remote_control import browser_finder
+  browser_to_create = browser_finder.FindBrowser(default_options)
+  if browser_to_create == None:
+    logging.error('No browser found of type %s. Cannot run tests.',
+                  default_options.browser_type)
+    logging.error('Re-run with --browser=list to see available browser types.')
     return 1
 
   browser_options.options_for_unittests = default_options
+  browser_options.browser_type_for_unittests = browser_to_create.browser_type
   olddir = os.getcwd()
   num_errors = 0
   try:
     os.chdir(top_level_dir)
-    for i in range(default_options.run_test_repeat_count):
+    for _ in range(default_options.run_test_repeat_count):
       num_errors += DiscoverAndRunTests(start_dir, args, top_level_dir)
   finally:
     os.chdir(olddir)

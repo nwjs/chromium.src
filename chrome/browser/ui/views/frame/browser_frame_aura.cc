@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/frame/browser_frame_aura.h"
 
+#include "base/command_line.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/system_menu_model_delegate.h"
@@ -19,9 +20,14 @@
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/view.h"
+#include "ui/views/views_switches.h"
 
 #if defined(USE_ASH)
 #include "ash/wm/property_util.h"
+#endif
+
+#if !defined(OS_CHROMEOS)
+#include "chrome/browser/ui/views/frame/desktop_browser_frame_aura.h"
 #endif
 
 using aura::Window;
@@ -44,8 +50,13 @@ class BrowserFrameAura::WindowPropertyWatcher : public aura::WindowObserver {
 
     // Allow the frame to be replaced when maximizing an app.
     if (browser_frame_->non_client_view() &&
-        browser_frame_aura_->browser_view()->browser()->is_app())
-      browser_frame_->non_client_view()->UpdateFrame();
+        browser_frame_aura_->browser_view()->browser()->is_app()) {
+      // Defer frame layout when replacing the frame. Layout will occur when the
+      // window's bounds are updated. The window maximize/restore animations
+      // clone the window's layers and rely on the subsequent layout to set
+      // the layer sizes.
+      browser_frame_->non_client_view()->UpdateFrame(false);
+    }
   }
 
   virtual void OnWindowBoundsChanged(aura::Window* window,
@@ -85,14 +96,6 @@ BrowserFrameAura::BrowserFrameAura(BrowserFrame* browser_frame,
         GetNativeWindow(),
         ash::WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_NO);
   }
-  // HACK: Don't animate app windows. They delete and rebuild their frame on
-  // maximize, which breaks the layer animations. We probably shouldn't rebuild
-  // the frame view on this transition.
-  // TODO(jamescook): Fix app window animation.  http://crbug.com/131293
-  if (browser_view->browser()->is_app()) {
-    Window* window = GetNativeWindow();
-    window->SetProperty(aura::client::kAnimationsDisabledKey, true);
-  }
 #endif
 }
 
@@ -122,7 +125,7 @@ void BrowserFrameAura::ShowContextMenuForView(views::View* source,
 
     if (menu_runner_->RunMenuAt(source->GetWidget(), NULL,
           gfx::Rect(p, gfx::Size(0,0)), views::MenuItemView::TOPLEFT,
-          views::MenuRunner::HAS_MNEMONICS) ==
+          views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU) ==
         views::MenuRunner::MENU_DELETED)
       return;
   }
@@ -190,6 +193,11 @@ const gfx::Font& BrowserFrame::GetTitleFont() {
 NativeBrowserFrame* NativeBrowserFrame::CreateNativeBrowserFrame(
     BrowserFrame* browser_frame,
     BrowserView* browser_view) {
+#if !defined(OS_CHROMEOS)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+        views::switches::kDesktopAura))
+    return new DesktopBrowserFrameAura(browser_frame, browser_view);
+#endif
   return new BrowserFrameAura(browser_frame, browser_view);
 }
 

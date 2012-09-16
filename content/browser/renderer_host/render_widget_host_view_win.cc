@@ -122,16 +122,6 @@ BOOL CALLBACK DismissOwnedPopups(HWND window, LPARAM arg) {
   return TRUE;
 }
 
-// Windows callback for OnDestroy to detach the plugin windows.
-BOOL CALLBACK DetachPluginWindowsCallback(HWND window, LPARAM param) {
-  if (webkit::npapi::WebPluginDelegateImpl::IsPluginDelegateWindow(window) &&
-      !IsHungAppWindow(window)) {
-    ::ShowWindow(window, SW_HIDE);
-    SetParent(window, NULL);
-  }
-  return TRUE;
-}
-
 void SendToGpuProcessHost(int gpu_host_id, scoped_ptr<IPC::Message> message) {
   GpuProcessHost* gpu_process_host = GpuProcessHost::FromID(gpu_host_id);
   if (!gpu_process_host)
@@ -1243,6 +1233,18 @@ bool RenderWidgetHostViewWin::ChangeTextDirectionAndLayoutAlignment(
   return false;
 }
 
+void RenderWidgetHostViewWin::ExtendSelectionAndDelete(
+    size_t before,
+    size_t after) {
+  if (!base::win::IsTsfAwareRequired()) {
+    NOTREACHED();
+    return;
+  }
+  if (!render_widget_host_)
+    return;
+  render_widget_host_->ExtendSelectionAndDelete(before, after);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostViewWin, private:
 
@@ -1262,8 +1264,6 @@ LRESULT RenderWidgetHostViewWin::OnCreate(CREATESTRUCT* create_struct) {
   else
     SetToGestureMode();
 
-  if (base::win::IsTsfAwareRequired())
-    ui::TsfBridge::GetInstance()->AssociateFocus(m_hWnd);
   UpdateIMEState();
 
   return 0;
@@ -1283,20 +1283,7 @@ void RenderWidgetHostViewWin::OnActivate(UINT action, BOOL minimized,
 
 void RenderWidgetHostViewWin::OnDestroy() {
   TRACE_EVENT0("browser", "RenderWidgetHostViewWin::OnDestroy");
-  // When a tab is closed all its child plugin windows are destroyed
-  // automatically. This happens before plugins get any notification that its
-  // instances are tearing down.
-  //
-  // Plugins like Quicktime assume that their windows will remain valid as long
-  // as they have plugin instances active. Quicktime crashes in this case
-  // because its windowing code cleans up an internal data structure that the
-  // handler for NPP_DestroyStream relies on.
-  //
-  // The fix is to detach plugin windows from web contents when it is going
-  // away. This will prevent the plugin windows from getting destroyed
-  // automatically. The detached plugin windows will get cleaned up in proper
-  // sequence as part of the usual cleanup when the plugin instance goes away.
-  EnumChildWindows(m_hWnd, DetachPluginWindowsCallback, NULL);
+  DetachPluginsHelper(m_hWnd);
 
   props_.clear();
 
@@ -3069,19 +3056,15 @@ LRESULT RenderWidgetHostViewWin::OnQueryCharPosition(
 }
 
 void RenderWidgetHostViewWin::UpdateIMEState() {
+  if (base::win::IsTsfAwareRequired()) {
+    ui::TsfBridge::GetInstance()->OnTextInputTypeChanged(this);
+    return;
+  }
   if (text_input_type_ != ui::TEXT_INPUT_TYPE_NONE &&
       text_input_type_ != ui::TEXT_INPUT_TYPE_PASSWORD) {
-    if (base::win::IsTsfAwareRequired()) {
-      ui::TsfBridge::GetInstance()->EnableIME();
-    } else {
-      ime_input_.EnableIME(m_hWnd);
-    }
+    ime_input_.EnableIME(m_hWnd);
   } else {
-    if (base::win::IsTsfAwareRequired()) {
-      ui::TsfBridge::GetInstance()->DisableIME();
-    } else {
-      ime_input_.DisableIME(m_hWnd);
-    }
+    ime_input_.DisableIME(m_hWnd);
   }
 }
 

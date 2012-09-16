@@ -215,6 +215,14 @@ const char kCrashOnHangThreads[]            = "crash-on-hang-threads";
 //                          other threads are not responsive.
 const char kCrashOnLive[]                   = "crash-on-live";
 
+// Some platforms like ChromeOS default to empty desktop.
+// Browser tests may need to add this switch so that at least one browser
+// instance is created on startup.
+// TODO(nkostylev): Investigate if this switch could be removed.
+// (http://crbug.com/148675)
+const char kCreateBrowserOnStartupForTests[] =
+    "create-browser-on-startup-for-tests";
+
 // Path to the inspector files on disk (allows reloading of devtool files
 // without having to restart the browser).
 const char kDebugDevToolsFrontend[]         = "debug-devtools-frontend";
@@ -320,6 +328,9 @@ const char kDisableImprovedDownloadProtection[] =
 // need to update thumbnails.
 const char kDisableInBrowserThumbnailing[]  = "disable-in-browser-thumbnailing";
 
+// Disable the Infinite Cache.
+const char kDisableInfiniteCache[]          = "disable-infinite-cache";
+
 // Disable the internal Flash Player.
 const char kDisableInternalFlash[]          = "disable-internal-flash";
 
@@ -408,6 +419,9 @@ const char kDisableSyncTypedUrls[]          = "disable-sync-typed-urls";
 // browser testing (e.g. Selenium/WebDriver). Normal browser users should
 // disable translate with the preference.
 const char kDisableTranslate[]              = "disable-translate";
+
+// Disables TLS Channel ID extension.
+const char kDisableTLSChannelID[]           = "disable-tls-channel-id";
 
 // Disables the backend service for web resources.
 const char kDisableWebResources[]           = "disable-web-resources";
@@ -586,10 +600,6 @@ const char kEnableNpn[]                     = "enable-npn";
 // HTTP is still used for all requests.
 const char kEnableNpnHttpOnly[]             = "enable-npn-http";
 
-// Enables TLS Channel ID extension.  (The switch is still called
-// "enable-origin-bound-certs" for backwards compatability.)
-const char kEnableOriginBoundCerts[]        = "enable-origin-bound-certs";
-
 // Enables panels (always on-top docked pop-up windows).
 const char kEnablePanels[]                  = "enable-panels";
 
@@ -665,11 +675,6 @@ const char kEnableWebSocketOverSpdy[]       = "enable-websocket-over-spdy";
 // TODO(sidchat): Implement the above features to work under this flag.
 const char kExperimentalSpellcheckerFeatures[] =
     "experimental-spellchecker-features";
-
-// If nonempty, fetch experimental zero-suggest suggestions by appending to
-// this prefix of a URL.
-const char kExperimentalZeroSuggestURLPrefix[] =
-    "experimental-zero-suggest-url-prefix";
 
 // Explicitly allows additional ports using a comma-separated list of port
 // numbers.

@@ -11,7 +11,7 @@
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/logging.h"  // DCHECK
-#include "grit/ui_resources.h"
+#include "grit/ash_resources.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPaint.h"
@@ -37,9 +37,9 @@ namespace {
 // the web content and may need to be built into the shadow layers instead.
 const int kBorderThickness = 0;
 // Space between left edge of window and popup window icon.
-const int kIconOffsetX = 4;
+const int kIconOffsetX = 9;
 // Space between top of window and popup window icon.
-const int kIconOffsetY = 6;
+const int kIconOffsetY = 9;
 // Height and width of window icon.
 const int kIconSize = 16;
 // Space between the title text and the caption buttons.
@@ -49,7 +49,7 @@ const int kTitleIconOffsetX = 4;
 // Space between window edge and title text, when there is no icon.
 const int kTitleNoIconOffsetX = 8;
 // Space between title text and top of window.
-const int kTitleOffsetY = 7;
+const int kTitleOffsetY = 10;
 // Color for the title text.
 const SkColor kTitleTextColor = SkColorSetRGB(40, 40, 40);
 // Size of header/content separator line below the header image.
@@ -378,8 +378,10 @@ void FramePainter::PaintHeader(views::NonClientFrameView* view,
 
   // Separator between the maximize and close buttons.  It overlaps the left
   // edge of the close button.
+  gfx::Rect divider(close_button_->x(), close_button_->y(),
+                    button_separator_->width(), close_button_->height());
   canvas->DrawImageInt(*button_separator_,
-                       close_button_->x(),
+                       view->GetMirroredXForRect(divider),
                        close_button_->y());
 
   // We don't need the extra lightness in the edges when we're at the top edge
@@ -470,10 +472,10 @@ void FramePainter::PaintTitleBar(views::NonClientFrameView* view,
 }
 
 void FramePainter::LayoutHeader(views::NonClientFrameView* view,
-                                bool maximized_layout) {
-  // The maximized layout uses shorter buttons.
-  if (maximized_layout &&
-      internal::WorkspaceController::IsWorkspace2Enabled()) {
+                                bool shorter_layout) {
+  // The new assets only make sense if the window is actually maximized.
+  if (internal::WorkspaceController::IsWorkspace2Enabled() &&
+      shorter_layout && frame_->IsMaximized()) {
     SetButtonImages(close_button_,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE2,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE2_H,
@@ -486,7 +488,7 @@ void FramePainter::LayoutHeader(views::NonClientFrameView* view,
                     IDR_AURA_WINDOW_MAXIMIZED_RESTORE2,
                     IDR_AURA_WINDOW_MAXIMIZED_RESTORE2_H,
                     IDR_AURA_WINDOW_MAXIMIZED_RESTORE2_P);
-  } else if (maximized_layout) {
+  } else if (shorter_layout) {
     SetButtonImages(close_button_,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE_H,

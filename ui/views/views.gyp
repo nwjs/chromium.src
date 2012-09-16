@@ -303,6 +303,8 @@
         'view_model.h',
         'view_model_utils.cc',
         'view_model_utils.h',
+        'views_switches.cc',
+        'views_switches.h',
         'view_text_utils.cc',
         'view_text_utils.h',
         'view_win.cc',
@@ -422,6 +424,8 @@
             }],
             ['OS=="win"', {
               'sources/': [
+                ['include', 'ime/input_method_win.cc'],
+                ['include', 'ime/input_method_win.h'],
                 ['include', 'widget/desktop_root_window_host_win.cc'],
                 ['include', 'widget/desktop_root_window_host_win.h'],
                 ['include', 'widget/desktop_capture_client.cc'],

@@ -10,6 +10,7 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/message_loop.h"
+#include "base/metrics/histogram.h"
 #include "base/path_service.h"
 #include "base/string_number_conversions.h"
 #include "base/string_split.h"
@@ -40,6 +41,7 @@
 #include "ipc/ipc_switches.h"
 #include "native_client/src/shared/imc/nacl_imc.h"
 #include "net/base/net_util.h"
+#include "net/base/tcp_listen_socket.h"
 #include "ppapi/proxy/ppapi_messages.h"
 
 #if defined(OS_POSIX)
@@ -214,6 +216,16 @@ void NaClProcessHost::EarlyStartup() {
   // under us by autoupdate.
   NaClBrowser::GetInstance()->EnsureIrtAvailable();
 #endif
+  CommandLine* cmd = CommandLine::ForCurrentProcess();
+  UMA_HISTOGRAM_BOOLEAN(
+      "NaCl.nacl-gdb",
+      !cmd->GetSwitchValuePath(switches::kNaClGdb).empty());
+  UMA_HISTOGRAM_BOOLEAN(
+      "NaCl.nacl-gdb-script",
+      !cmd->GetSwitchValuePath(switches::kNaClGdbScript).empty());
+  UMA_HISTOGRAM_BOOLEAN(
+      "NaCl.enable-nacl-debug",
+      cmd->HasSwitch(switches::kEnableNaClDebug));
 }
 
 void NaClProcessHost::Launch(
@@ -634,6 +646,21 @@ bool NaClProcessHost::ReplyToRenderer(
   return true;
 }
 
+// TCP port we chose for NaCl debug stub. It can be any other number.
+static const int kDebugStubPort = 4014;
+
+#if defined(OS_POSIX)
+SocketDescriptor NaClProcessHost::GetDebugStubSocketHandle() {
+  SocketDescriptor s = net::TCPListenSocket::CreateAndBind("127.0.0.1",
+                                                           kDebugStubPort);
+  if (listen(s, 1)) {
+    LOG(ERROR) << "listen() failed on debug stub socket";
+    return net::TCPListenSocket::kInvalidSocket;
+  }
+  return s;
+}
+#endif
+
 bool NaClProcessHost::StartNaClExecution() {
   NaClBrowser* nacl_browser = NaClBrowser::GetInstance();
 
@@ -682,6 +709,16 @@ bool NaClProcessHost::StartNaClExecution() {
   }
   memory_fd.auto_close = true;
   params.handles.push_back(memory_fd);
+#endif
+
+#if defined(OS_POSIX)
+  if (enable_debug_stub_) {
+    SocketDescriptor server_bound_socket = GetDebugStubSocketHandle();
+    if (server_bound_socket != net::TCPListenSocket::kInvalidSocket) {
+      params.debug_stub_server_bound_socket =
+          nacl::FileDescriptor(server_bound_socket, true);
+    }
+  }
 #endif
 
   process_->Send(new NaClProcessMsg_Start(params));

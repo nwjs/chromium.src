@@ -270,7 +270,6 @@
         '<(DEPTH)/net/net.gyp:net_resources',
         '<(DEPTH)/ui/base/strings/ui_strings.gyp:ui_strings',
         '<(DEPTH)/ui/ui.gyp:ui_resources',
-        '<(DEPTH)/ui/ui.gyp:ui_resources_wallpapers',
         '<(DEPTH)/webkit/support/webkit_support.gyp:webkit_resources',
         '<(DEPTH)/webkit/support/webkit_support.gyp:webkit_strings',
       ],
@@ -301,6 +300,12 @@
         },
       ],
       'conditions': [
+        ['use_aura==1', {
+          'dependencies': [
+             '<(DEPTH)/ash/ash.gyp:ash_resources',
+             '<(DEPTH)/ash/ash.gyp:ash_wallpaper_resources',
+          ],
+        }],
         ['OS != "mac"', {
           # Copy pak files to the product directory. These files will be picked
           # up by the following installer scripts:

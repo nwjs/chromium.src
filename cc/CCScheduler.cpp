@@ -8,12 +8,12 @@
 
 #include "TraceEvent.h"
 
-namespace WebCore {
+namespace cc {
 
 CCScheduler::CCScheduler(CCSchedulerClient* client, PassOwnPtr<CCFrameRateController> frameRateController)
     : m_client(client)
     , m_frameRateController(frameRateController)
-    , m_updateMoreResourcesPending(false)
+    , m_updateResourcesCompletePending(false)
 {
     ASSERT(m_client);
     m_frameRateController->setClient(this);
@@ -77,10 +77,10 @@ void CCScheduler::setMainThreadNeedsLayerTextures()
     processScheduledActions();
 }
 
-void CCScheduler::beginFrameComplete()
+void CCScheduler::beginFrameComplete(bool hasResourceUpdates)
 {
     TRACE_EVENT0("cc", "CCScheduler::beginFrameComplete");
-    m_stateMachine.beginFrameComplete();
+    m_stateMachine.beginFrameComplete(hasResourceUpdates);
     processScheduledActions();
 }
 
@@ -129,15 +129,22 @@ void CCScheduler::setTimebaseAndInterval(double timebase, double intervalSeconds
 
 void CCScheduler::vsyncTick()
 {
-    if (m_updateMoreResourcesPending) {
-        m_updateMoreResourcesPending = false;
-        m_stateMachine.beginUpdateMoreResourcesComplete(m_client->hasMoreResourceUpdates());
-    }
     TRACE_EVENT0("cc", "CCScheduler::vsyncTick");
-
     m_stateMachine.didEnterVSync();
     processScheduledActions();
     m_stateMachine.didLeaveVSync();
+
+    // Allow resource updates until next vsync tick.
+    if (m_updateResourcesCompletePending)
+        m_client->scheduledActionUpdateMoreResources(m_frameRateController->nextTickTimeIfActivated());
+}
+
+void CCScheduler::updateResourcesComplete()
+{
+    TRACE_EVENT0("cc", "CCScheduler::updateResourcesComplete");
+    m_stateMachine.updateResourcesComplete();
+    m_updateResourcesCompletePending = false;
+    processScheduledActions();
 }
 
 void CCScheduler::processScheduledActions()
@@ -162,12 +169,10 @@ void CCScheduler::processScheduledActions()
         case CCSchedulerStateMachine::ACTION_BEGIN_FRAME:
             m_client->scheduledActionBeginFrame();
             break;
-        case CCSchedulerStateMachine::ACTION_BEGIN_UPDATE_MORE_RESOURCES:
-            if (m_client->hasMoreResourceUpdates()) {
-                m_client->scheduledActionUpdateMoreResources(m_frameRateController->nextTickTimeIfActivated());
-                m_updateMoreResourcesPending = true;
-            } else
-                m_stateMachine.beginUpdateMoreResourcesComplete(false);
+        case CCSchedulerStateMachine::ACTION_BEGIN_UPDATE_RESOURCES:
+            ASSERT(!m_updateResourcesCompletePending);
+            m_client->scheduledActionUpdateMoreResources(m_frameRateController->nextTickTimeIfActivated());
+            m_updateResourcesCompletePending = true;
             break;
         case CCSchedulerStateMachine::ACTION_COMMIT:
             m_client->scheduledActionCommit();

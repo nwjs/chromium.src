@@ -103,10 +103,6 @@
     "channel": "beta",
     "extension_types": ["extension", "packaged_app"]
   },
-  "dns": {
-    "channel": "stable",
-    "extension_types": ["platform_app"]
-  },
   "downloads": {
     "channel": "dev",
     "extension_types": [
@@ -132,13 +128,9 @@
     "channel": "stable",
     "extension_types": ["platform_app"]
   },
-  "fileSystemWrite": {
-    "channel": "stable",
-    "extension_types": ["platform_app"]
-  },
   "fontSettings": {
     "channel": "stable",
-    "extension_types": ["extension", "packaged_app", "platform_app"]
+    "extension_types": ["extension", "packaged_app"]
   },
   "geolocation": {
     "channel": "stable",
@@ -231,7 +223,7 @@
   },
   "pushMessaging": {
     "channel": "dev",
-    "extension_types": ["platform_app"]
+    "extension_types": ["extension", "platform_app"]
   },
   "rtcPrivate": {
     "channel": "stable",

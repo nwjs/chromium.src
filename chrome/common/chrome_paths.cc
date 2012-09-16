@@ -75,7 +75,7 @@ const FilePath::CharType kGTalkPluginFileName[] =
 
 #endif  // defined(OS_POSIX) && !defined(OS_MACOSX)
 
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+#if defined(OS_LINUX)
 // The path to the external extension <id>.json files.
 // /usr/share seems like a good choice, see: http://www.pathname.com/fhs/
 const char kFilepathSinglePrefExtensions[] =
@@ -84,7 +84,7 @@ const char kFilepathSinglePrefExtensions[] =
 #else
     FILE_PATH_LITERAL("/usr/share/chromium/extensions");
 #endif  // defined(GOOGLE_CHROME_BUILD)
-#endif  // defined(OS_LINUX) && !defined(OS_CHROMEOS)
+#endif  // defined(OS_LINUX)
 
 }  // namespace
 
@@ -167,8 +167,16 @@ bool PathProvider(int key, FilePath* result) {
         return false;
       create_dir = true;
       break;
+    case chrome::DIR_USER_MUSIC:
+      if (!GetUserMusicDirectory(&cur))
+        return false;
+      break;
     case chrome::DIR_USER_PICTURES:
       if (!GetUserPicturesDirectory(&cur))
+        return false;
+      break;
+    case chrome::DIR_USER_VIDEOS:
+      if (!GetUserVideosDirectory(&cur))
         return false;
       break;
     case chrome::DIR_DEFAULT_DOWNLOADS_SAFE:
@@ -408,7 +416,7 @@ bool PathProvider(int key, FilePath* result) {
       break;
     }
 #endif
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+#if defined(OS_LINUX)
     case chrome::DIR_STANDALONE_EXTERNAL_EXTENSIONS: {
       cur = FilePath(FILE_PATH_LITERAL(kFilepathSinglePrefExtensions));
       break;

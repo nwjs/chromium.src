@@ -32,16 +32,19 @@ const char kUsePulseAudio[] = "use-pulseaudio";
 const char kEnableExclusiveAudio[] = "enable-exclusive-audio";
 #endif
 
-// Set number of threads to use for video decoding.
-const char kVideoThreads[] = "video-threads";
+// Disable automatic fallback from low latency to high latency path.
+const char kDisableAudioFallback[] = "disable-audio-fallback";
+
+// Disable AudioOutputResampler for automatic audio resampling and rebuffering.
+const char kDisableAudioOutputResampler[] = "disable-audio-output-resampler";
 
 // Enable browser-side audio mixer.
 const char kEnableAudioMixer[] = "enable-audio-mixer";
 
-// Enable AudioOutputResampler for automatic audio resampling and rebuffering.
-const char kEnableAudioOutputResampler[] = "enable-audio-output-resampler";
-
 // Enable live audio input with getUserMedia() and the Web Audio API.
 const char kEnableWebAudioInput[] = "enable-webaudio-input";
+
+// Set number of threads to use for video decoding.
+const char kVideoThreads[] = "video-threads";
 
 }  // namespace switches

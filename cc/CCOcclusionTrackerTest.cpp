@@ -23,7 +23,7 @@
 #include <public/WebFilterOperations.h>
 #include <public/WebTransformationMatrix.h>
 
-using namespace WebCore;
+using namespace cc;
 using namespace WebKit;
 using namespace WebKitTests;
 
@@ -1483,7 +1483,8 @@ protected:
     }
 };
 
-ALL_CCOCCLUSIONTRACKER_TEST(CCOcclusionTrackerTestViewportRectOverChild);
+// Test is flaky on xp bots. http://crbug.com/148906.
+// ALL_CCOCCLUSIONTRACKER_TEST(CCOcclusionTrackerTestViewportRectOverChild);
 
 template<class Types, bool opaqueLayers>
 class CCOcclusionTrackerTestLayerClipRectPartlyOverChild : public CCOcclusionTrackerTest<Types, opaqueLayers> {

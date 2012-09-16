@@ -66,40 +66,39 @@ class MockLocalAudioTrack : public LocalAudioTrackInterface {
 
 }  //  namespace webrtc
 
-// A mock factory for creating different objects for MediaStreamImpl.
+// A mock factory for creating different objects for
+// RTC MediaStreams and PeerConnections.
 class MockMediaStreamDependencyFactory : public MediaStreamDependencyFactory {
  public:
-  MockMediaStreamDependencyFactory(VideoCaptureImplManager* vc_manager);
+  MockMediaStreamDependencyFactory();
   virtual ~MockMediaStreamDependencyFactory();
 
-  virtual bool CreatePeerConnectionFactory(
-      talk_base::Thread* worker_thread,
-      talk_base::Thread* signaling_thread,
-      content::P2PSocketDispatcher* socket_dispatcher,
-      talk_base::NetworkManager* network_manager,
-      talk_base::PacketSocketFactory* socket_factory) OVERRIDE;
-  virtual void ReleasePeerConnectionFactory() OVERRIDE;
-  virtual bool PeerConnectionFactoryCreated() OVERRIDE;
-  virtual talk_base::scoped_refptr<webrtc::PeerConnectionInterface>
-      CreatePeerConnection(
-          const std::string& config,
-          webrtc::PeerConnectionObserver* observer) OVERRIDE;
-  virtual talk_base::scoped_refptr<webrtc::LocalMediaStreamInterface>
+  virtual scoped_refptr<webrtc::PeerConnectionInterface>
+      CreatePeerConnection(const std::string& config,
+                           webrtc::PeerConnectionObserver* observer) OVERRIDE;
+  virtual scoped_refptr<webrtc::PeerConnectionInterface>
+      CreatePeerConnection(const webrtc::JsepInterface::IceServers& ice_servers,
+                           const webrtc::MediaConstraintsInterface* constraints,
+                           webrtc::PeerConnectionObserver* observer) OVERRIDE;
+  virtual scoped_refptr<webrtc::LocalMediaStreamInterface>
       CreateLocalMediaStream(const std::string& label) OVERRIDE;
-  virtual talk_base::scoped_refptr<webrtc::LocalVideoTrackInterface>
-      CreateLocalVideoTrack(
-          const std::string& label,
-          int video_session_id) OVERRIDE;
-  virtual talk_base::scoped_refptr<webrtc::LocalAudioTrackInterface>
-      CreateLocalAudioTrack(
-          const std::string& label,
-          webrtc::AudioDeviceModule* audio_device) OVERRIDE;
+  virtual scoped_refptr<webrtc::LocalVideoTrackInterface>
+      CreateLocalVideoTrack(const std::string& label,
+                            int video_session_id) OVERRIDE;
+  virtual scoped_refptr<webrtc::LocalAudioTrackInterface>
+      CreateLocalAudioTrack(const std::string& label,
+                            webrtc::AudioDeviceModule* audio_device) OVERRIDE;
   virtual webrtc::SessionDescriptionInterface* CreateSessionDescription(
+      const std::string& sdp) OVERRIDE;
+  virtual webrtc::SessionDescriptionInterface* CreateSessionDescription(
+      const std::string& type,
       const std::string& sdp) OVERRIDE;
   virtual webrtc::IceCandidateInterface* CreateIceCandidate(
       const std::string& sdp_mid,
       int sdp_mline_index,
       const std::string& sdp) OVERRIDE;
+
+  virtual bool EnsurePeerConnectionFactory() OVERRIDE;
   virtual void SetAudioDeviceSessionId(int session_id) OVERRIDE;
 
  private:

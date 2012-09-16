@@ -20,7 +20,7 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   explicit DesktopNativeWidgetAura(internal::NativeWidgetDelegate* delegate);
   virtual ~DesktopNativeWidgetAura();
 
- private:
+ protected:
   // Overridden from internal::NativeWidgetPrivate:
   virtual void InitNativeWidget(const Widget::InitParams& params) OVERRIDE;
   virtual NonClientFrameView* CreateNonClientFrameView() OVERRIDE;
@@ -127,6 +127,7 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   virtual void OnWindowTargetVisibilityChanged(bool visible) OVERRIDE;
   virtual bool HasHitTestMask() const OVERRIDE;
   virtual void GetHitTestMask(gfx::Path* mask) const OVERRIDE;
+  virtual scoped_refptr<ui::Texture> CopyTexture() OVERRIDE;
 
   // Overridden from ui::EventHandler:
   virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
@@ -134,6 +135,7 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   virtual ui::TouchStatus OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
   virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
+ private:
   scoped_ptr<DesktopRootWindowHost> desktop_root_window_host_;
   aura::Window* window_;
   Widget::InitParams::Ownership ownership_;

@@ -125,7 +125,7 @@ bool MediaGalleriesPermission::FromValue(const base::Value* value) {
     return false;
 
   const base::ListValue* list = NULL;
-  if (!value->GetAsList(&list) && list->GetSize() == 0)
+  if (!value->GetAsList(&list) || list->GetSize() == 0)
     return false;
 
   for (size_t i = 0; i < list->GetSize(); ++i) {

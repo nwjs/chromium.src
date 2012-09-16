@@ -9,10 +9,12 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/metrics/histogram.h"
 #include "base/utf_string_conversions.h"
 #include "media/audio/audio_util.h"
 #include "media/audio/win/audio_manager_win.h"
 #include "media/audio/win/avrt_wrapper_win.h"
+#include "media/base/limits.h"
 #include "media/base/media_switches.h"
 
 using base::win::ScopedComPtr;
@@ -211,6 +213,18 @@ static ChannelLayout ChannelConfigToChannelLayout(ChannelConfig config) {
   }
 }
 
+// Record UMA statistics when a low latency Open() call fails.
+// TODO(dalecurtis): This should be done by AudioOutputResampler() once it
+// supports channel remixing.  http://crbug.com/138762
+static void RecordFallbackStats() {
+  UMA_HISTOGRAM_ENUMERATION(
+    "Media.FallbackHardwareAudioChannelLayout",
+    WASAPIAudioOutputStream::HardwareChannelLayout(), CHANNEL_LAYOUT_MAX);
+  UMA_HISTOGRAM_ENUMERATION(
+    "Media.FallbackHardwareAudioChannelCount",
+    WASAPIAudioOutputStream::HardwareChannelCount(), limits::kMaxChannels);
+}
+
 // mono/stereo -> N.1 up-mixing where N=out_channels-1.
 // See http://www.w3.org/TR/webaudio/#UpMix-sub for details.
 // TODO(henrika): try to reduce the size of this function.
@@ -315,6 +329,52 @@ static int ChannelUpMix(void* input,
   return 0;
 }
 
+// 2->1 downmixing.
+static int ChannelDownMix(const void* input,
+                          void* output,
+                          int in_channels,
+                          int out_channels,
+                          size_t number_of_input_bytes,
+                          int bytes_per_sample) {
+  DCHECK(input);
+  DCHECK(output);
+  DCHECK_GT(in_channels, out_channels);
+  DCHECK_EQ(bytes_per_sample, 2);
+
+  if (bytes_per_sample != 2) {
+    LOG(ERROR) << "Only 16-bit samples are supported.";
+    return 0;
+  }
+
+  // 2 -> 1
+  if (in_channels == 2 && out_channels == 1) {
+    const LayoutStereo_16bit* in =
+        reinterpret_cast<const LayoutStereo_16bit*>(input);
+    LayoutMono_16bit* out = reinterpret_cast<LayoutMono_16bit*>(output);
+    size_t number_of_input_stereo_samples = (number_of_input_bytes / 4);
+
+    DCHECK_EQ(0u, number_of_input_stereo_samples % 4);
+    for (size_t i = 0; i < number_of_input_stereo_samples; ++i) {
+      int32 sum =
+        (static_cast<int32>(in->left) + static_cast<int32>(in->right)) / 2;
+      if (sum > 32767)
+        sum = 32767;
+      else if (sum < -32768)
+        sum = -32768;
+      out->center = static_cast<int16>(sum);
+      in++;
+      out++;
+    }
+
+    return ((out_channels / static_cast<double> (in_channels)) *
+        number_of_input_bytes);
+  }
+
+  LOG(ERROR) << "Down-mixing " << out_channels << "->"
+             << in_channels << " is not supported.";
+  return 0;
+}
+
 // static
 AUDCLNT_SHAREMODE WASAPIAudioOutputStream::GetShareMode() {
   const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
@@ -351,6 +411,15 @@ WASAPIAudioOutputStream::WASAPIAudioOutputStream(AudioManagerWin* manager,
     VLOG(1) << ">> Note that EXCLUSIVE MODE is enabled <<";
   }
 
+  // TODO(dalecurtis): This should be done by AudioOutputResampler() once it
+  // supports channel remixing.  http://crbug.com/138762
+  UMA_HISTOGRAM_ENUMERATION(
+    "Media.HardwareAudioChannelLayout", HardwareChannelLayout(),
+    CHANNEL_LAYOUT_MAX);
+  UMA_HISTOGRAM_ENUMERATION(
+    "Media.HardwareAudioChannelCount", HardwareChannelCount(),
+    limits::kMaxChannels);
+
   // Set up the desired render format specified by the client. We use the
   // WAVE_FORMAT_EXTENSIBLE structure to ensure that multiple channel ordering
   // and high precision data can be supported.
@@ -384,20 +453,24 @@ WASAPIAudioOutputStream::WASAPIAudioOutputStream(AudioManagerWin* manager,
   // the audio stream is opened up in 7.1 surround mode but the source only
   // provides a stereo signal as input, i.e., a stereo up-mix (2 -> 7.1) will
   // take place before sending the stream to the audio driver.
+  // We also support down mixing for the 2->1 case.
+  // TODO(henrika): extend down-mixing support.
   DVLOG(1) << "Channel mixing " << client_channel_count_ << "->"
            << endpoint_channel_count() << " is requested.";
-  LOG_IF(ERROR, channel_factor() < 1)
+  LOG_IF(ERROR, channel_factor() < 1 && channel_factor() != 0.5f)
       << "Channel mixing " << client_channel_count_ << "->"
       << endpoint_channel_count() << " is not supported.";
 
   // Store size (in different units) of audio packets which we expect to
   // get from the audio endpoint device in each render event.
-  packet_size_frames_ =
-      (channel_factor() * params.GetBytesPerBuffer()) / format->nBlockAlign;
-  packet_size_bytes_ = channel_factor() * params.GetBytesPerBuffer();
+  packet_size_frames_ =(channel_factor() * params.GetBytesPerBuffer() + 0.5) /
+      format->nBlockAlign;
+  packet_size_bytes_ = channel_factor() * params.GetBytesPerBuffer() + 0.5;
   packet_size_ms_ = (1000.0 * packet_size_frames_) / params.sample_rate();
+  DVLOG(1) << "channel ratio (in/out)           : " << channel_factor();
   DVLOG(1) << "Number of bytes per audio frame  : " << frame_size_;
   DVLOG(1) << "Number of audio frames per packet: " << packet_size_frames_;
+  DVLOG(1) << "Number of bytes per packet       : " << packet_size_bytes_;
   DVLOG(1) << "Number of milliseconds per packet: " << packet_size_ms_;
 
   // All events are auto-reset events and non-signaled initially.
@@ -427,14 +500,16 @@ bool WASAPIAudioOutputStream::Open() {
   // by the audio source must be less than or equal to the number of native
   // channels (given by endpoint_channel_count()) which is the channel count
   // used when opening the default endpoint device.
-  if (channel_factor() < 1) {
+  if (channel_factor() < 1 && channel_factor() != 0.5f) {
     LOG(ERROR) << "Channel down-mixing is not supported";
+    RecordFallbackStats();
     return false;
   }
 
   // Only 16-bit audio is supported in combination with channel up-mixing.
   if (channel_factor() > 1 && (format_.Format.wBitsPerSample != 16)) {
     LOG(ERROR) << "16-bit audio is required when channel up-mixing is active.";
+    RecordFallbackStats();
     return false;
   }
 
@@ -443,6 +518,7 @@ bool WASAPIAudioOutputStream::Open() {
   // specified role.
   HRESULT hr = SetRenderDevice();
   if (FAILED(hr)) {
+    RecordFallbackStats();
     return false;
   }
 
@@ -450,6 +526,7 @@ bool WASAPIAudioOutputStream::Open() {
   // an audio stream between an audio application and the audio engine.
   hr = ActivateRenderDevice();
   if (FAILED(hr)) {
+    RecordFallbackStats();
     return false;
   }
 
@@ -461,6 +538,7 @@ bool WASAPIAudioOutputStream::Open() {
   // engine (or a format that is similar to the mix format). The audio engine's
   // input streams and the output mix from the engine are all in this format.
   if (!DesiredFormatIsSupported()) {
+    RecordFallbackStats();
     return false;
   }
 
@@ -469,6 +547,7 @@ bool WASAPIAudioOutputStream::Open() {
   // We will enter different code paths depending on the specified share mode.
   hr = InitializeAudioEngine();
   if (FAILED(hr)) {
+    RecordFallbackStats();
     return false;
   }
 
@@ -476,6 +555,8 @@ bool WASAPIAudioOutputStream::Open() {
   // Only OnDefaultDeviceChanged() and OnDeviceStateChanged() and are
   // non-trivial.
   hr = device_enumerator_->RegisterEndpointNotificationCallback(this);
+  if (FAILED(hr))
+    RecordFallbackStats();
 
   opened_ = true;
   return SUCCEEDED(hr);
@@ -820,7 +901,7 @@ void WASAPIAudioOutputStream::Run() {
             uint32 num_filled_bytes = 0;
             const int bytes_per_sample = format_.Format.wBitsPerSample >> 3;
 
-            if (channel_factor() == 1) {
+            if (channel_factor() == 1.0f) {
               // Case I: no up-mixing.
               int frames_filled = source_->OnMoreData(
                   audio_bus_.get(), AudioBuffersState(0, audio_delay_bytes));
@@ -832,9 +913,9 @@ void WASAPIAudioOutputStream::Run() {
               audio_bus_->ToInterleaved(
                   frames_filled, bytes_per_sample, audio_data);
             } else {
-              // Case II: up-mixing.
+              // Case II: up-mixing or down-mix 2->1
               const int audio_source_size_bytes =
-                  packet_size_bytes_ / channel_factor();
+                  (packet_size_bytes_ / channel_factor()) + 0.5;
               scoped_array<uint8> buffer;
               buffer.reset(new uint8[audio_source_size_bytes]);
 
@@ -850,13 +931,24 @@ void WASAPIAudioOutputStream::Run() {
               audio_bus_->ToInterleaved(
                   frames_filled, bytes_per_sample, buffer.get());
 
-              // Do channel up-mixing on 16-bit PCM samples.
-              num_filled_bytes = ChannelUpMix(buffer.get(),
-                                              &audio_data[0],
-                                              client_channel_count_,
-                                              endpoint_channel_count(),
-                                              num_filled_bytes,
-                                              bytes_per_sample);
+              if (channel_factor() > 1.0f) {
+                // Do channel up-mixing on 16-bit PCM samples.
+                num_filled_bytes = ChannelUpMix(buffer.get(),
+                                                &audio_data[0],
+                                                client_channel_count_,
+                                                endpoint_channel_count(),
+                                                num_filled_bytes,
+                                                bytes_per_sample);
+              } else if (channel_factor() == 0.5f) {
+                // TODO(henrika): this can be done in the float domain before
+                // AudioBus::ToInterleaved() to avoid saturation logic.
+                num_filled_bytes = ChannelDownMix(buffer.get(),
+                                                  &audio_data[0],
+                                                  client_channel_count_,
+                                                  endpoint_channel_count(),
+                                                  num_filled_bytes,
+                                                  bytes_per_sample);
+              }
             }
 
             // Perform in-place, software-volume adjustments.

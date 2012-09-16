@@ -17,12 +17,13 @@
     "unlimitedStorage",
     "chrome://extension-icon/",
     "chrome://resources/",
+    "chrome://theme/",
     "tabs",
     "clipboardWrite",
     "clipboardRead",
     "https://*.googleusercontent.com/"
   ],
-  "content_security_policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self' about:; img-src 'self' chrome://resources data: https://docs.google.com https://*.googleusercontent.com chrome://extension-icon; media-src 'self' https://*.googleusercontent.com;",
+  "content_security_policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self' about:; img-src 'self' chrome://resources chrome://theme data: https://docs.google.com https://*.googleusercontent.com chrome://extension-icon; media-src 'self' https://*.googleusercontent.com;",
   "app": {
     "launch": {
       "container": "panel",
@@ -135,23 +136,36 @@
       ]
     },
     {
-      "id": "open-hosted",
+      "id": "open-hosted-generic",
       "default_title": "__MSG_HOSTED__",
       "default_icon": "images/filetype_generic.png",
       "file_filters": [
-        "filesystem:*.gdoc",
-        "filesystem:*.gsheet",
-        "filesystem:*.gslides",
         "filesystem:*.gdraw",
         "filesystem:*.gtable"
       ]
     },
     {
-      "id": "send-to-drive",
-      "default_title": "__MSG_SEND_TO_DRIVE__",
-      "default_icon": "images/files/ui/gdrive_logo_small.png",
+      "id": "open-hosted-gdoc",
+      "default_title": "__MSG_HOSTED__",
+      "default_icon": "images/filetype_generic.png",
       "file_filters": [
-          "filesystem:*.*"
+        "filesystem:*.gdoc"
+      ]
+    },
+    {
+      "id": "open-hosted-gsheet",
+      "default_title": "__MSG_HOSTED__",
+      "default_icon": "images/filetype_generic.png",
+      "file_filters": [
+        "filesystem:*.gsheet"
+      ]
+    },
+    {
+      "id": "open-hosted-gslides",
+      "default_title": "__MSG_HOSTED__",
+      "default_icon": "images/filetype_generic.png",
+      "file_filters": [
+        "filesystem:*.gslides"
       ]
     }
   ],

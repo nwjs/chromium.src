@@ -148,6 +148,7 @@ WorkspaceWindowState WorkspaceManager2::GetWindowState() const {
   if (!shelf_)
     return WORKSPACE_WINDOW_STATE_DEFAULT;
 
+  const bool is_active_maximized = active_workspace_->is_maximized();
   const gfx::Rect shelf_bounds(shelf_->GetIdealBounds());
   const Window::Windows& windows(active_workspace_->window()->children());
   bool window_overlaps_launcher = false;
@@ -159,12 +160,18 @@ WorkspaceWindowState WorkspaceManager2::GetWindowState() const {
     ui::Layer* layer = (*i)->layer();
     if (!layer->GetTargetVisibility() || layer->GetTargetOpacity() == 0.0f)
       continue;
-    if (wm::IsWindowMaximized(*i)) {
-      // An untracked window may still be fullscreen so we keep iterating when
-      // we hit a maximized window.
-      has_maximized_window = true;
-    } else if (wm::IsWindowFullscreen(*i)) {
-      return WORKSPACE_WINDOW_STATE_FULL_SCREEN;
+    // Ignore maximized/fullscreen windows if we're in the desktop. Such a state
+    // is transitory and means we haven't yet switched. If we did consider such
+    // windows we'll return the wrong thing, which can lead to prematurely
+    // changing the launcher state and clobbering restore bounds.
+    if (is_active_maximized) {
+      if (wm::IsWindowMaximized(*i)) {
+        // An untracked window may still be fullscreen so we keep iterating when
+        // we hit a maximized window.
+        has_maximized_window = true;
+      } else if (wm::IsWindowFullscreen(*i)) {
+        return WORKSPACE_WINDOW_STATE_FULL_SCREEN;
+      }
     }
     if (!window_overlaps_launcher && (*i)->bounds().Intersects(shelf_bounds))
       window_overlaps_launcher = true;
@@ -252,6 +259,11 @@ void WorkspaceManager2::SetActiveWorkspace(Workspace2* workspace,
   Workspace2* last_active = active_workspace_;
   active_workspace_ = workspace;
 
+  // The display work-area may have changed while |workspace| was not the active
+  // workspace. Give it a chance to adjust its state for the new work-area.
+  active_workspace_->workspace_layout_manager()->
+      OnDisplayWorkAreaInsetsChanged();
+
   const bool is_unminimizing_maximized_window =
       unminimizing_workspace_ && unminimizing_workspace_ == active_workspace_ &&
       active_workspace_->is_maximized();
@@ -314,9 +326,7 @@ WorkspaceManager2::FindWorkspace(Workspace2* workspace)  {
 }
 
 Workspace2* WorkspaceManager2::CreateWorkspace(bool maximized) {
-  Workspace2* workspace = new Workspace2(this, contents_view_, maximized);
-  workspace->window()->SetLayoutManager(new WorkspaceLayoutManager2(workspace));
-  return workspace;
+  return new Workspace2(this, contents_view_, maximized);
 }
 
 void WorkspaceManager2::MoveWorkspaceToPendingOrDelete(

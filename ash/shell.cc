@@ -67,7 +67,6 @@
 #include "ash/wm/workspace_controller.h"
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "grit/ui_resources.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/user_action_client.h"
 #include "ui/aura/display_manager.h"
@@ -478,13 +477,14 @@ void Shell::Init() {
     shadow_controller_.reset(new internal::ShadowController());
   }
 
+  // Launcher must be created after secondary displays are initialized.
+  display_controller_->InitSecondaryDisplays();
+
   if (!delegate_.get() || delegate_->IsUserLoggedIn())
     CreateLauncher();
 
   // Force Layout
   root_window_controller->root_window_layout()->OnWindowResized();
-
-  display_controller_->InitSecondaryDisplays();
 
   // It needs to be created after OnWindowResized has been called, otherwise the
   // widget will not paint when restoring after a browser crash.  Also it needs

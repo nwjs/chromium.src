@@ -18,9 +18,9 @@
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar_view.h"
 #include "content/public/browser/web_contents.h"
+#include "grit/ash_resources.h"
 #include "grit/generated_resources.h"  // Accessibility names
 #include "grit/theme_resources.h"
-#include "grit/ui_resources.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/window.h"
 #include "ui/base/accessibility/accessible_view_state.h"
@@ -444,13 +444,9 @@ int BrowserNonClientFrameViewAsh::NonClientTopBorderHeight(
 }
 
 bool BrowserNonClientFrameViewAsh::UseShortHeader() const {
-  // Window at top of screen -> short header
-  if (frame()->GetWindowBoundsInScreen().y() == 0)
-    return true;
   // Restored browser -> tall header
   // Maximized browser -> short header
-  // App window -> tall header
-  // Popup window -> short header
+  // Popup&App window -> tall header
   // Panel -> short header
   // Dialogs use short header and are handled via CustomFrameViewAsh.
   Browser* browser = browser_view()->browser();
@@ -458,7 +454,7 @@ bool BrowserNonClientFrameViewAsh::UseShortHeader() const {
     case Browser::TYPE_TABBED:
       return frame()->IsMaximized();
     case Browser::TYPE_POPUP:
-      return !browser->is_app();
+      return false;
     case Browser::TYPE_PANEL:
       return true;
     default:

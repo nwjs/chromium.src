@@ -205,6 +205,9 @@ const int kMaxOomScore = 1000;
 // translate the given value into [0, 15].  Some aliasing of values
 // may occur in that case, of course.
 BASE_EXPORT bool AdjustOOMScore(ProcessId process, int score);
+
+// /proc/self/exe refers to the current executable.
+BASE_EXPORT extern const char kProcSelfExe[];
 #endif  // defined(OS_LINUX) || defined(OS_ANDROID)
 
 #if defined(OS_POSIX)
@@ -233,7 +236,8 @@ struct LaunchOptions {
   LaunchOptions() : wait(false),
 #if defined(OS_WIN)
                     start_hidden(false), inherit_handles(false), as_user(NULL),
-                    empty_desktop_name(false), job_handle(NULL)
+                    empty_desktop_name(false), job_handle(NULL),
+                    force_breakaway_from_job_(false)
 #else
                     environ(NULL), fds_to_remap(NULL), maximize_rlimits(NULL),
                     new_process_group(false)
@@ -274,6 +278,11 @@ struct LaunchOptions {
   // be terminated immediately and LaunchProcess() will fail if assignment to
   // the job object fails.
   HANDLE job_handle;
+
+  // If set to true, ensures that the child process is launched with the
+  // CREATE_BREAKAWAY_FROM_JOB flag which allows it to breakout of the parent
+  // job if any.
+  bool force_breakaway_from_job_;
 #else
   // If non-NULL, set/unset environment variables.
   // See documentation of AlterEnvironment().
@@ -700,6 +709,8 @@ class BASE_EXPORT ProcessMetrics {
 #else
   class PortProvider {
    public:
+    virtual ~PortProvider() {}
+
     // Should return the mach task for |process| if possible, or else
     // |MACH_PORT_NULL|. Only processes that this returns tasks for will have
     // metrics on OS X (except for the current process, which always gets

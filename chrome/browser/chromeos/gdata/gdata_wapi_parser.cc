@@ -604,7 +604,7 @@ bool DocumentEntry::HasFieldPresent(const base::Value* value,
 // static
 void DocumentEntry::RegisterJSONConverter(
     base::JSONValueConverter<DocumentEntry>* converter) {
-  // inheritant the parent registrations.
+  // Inherit the parent registrations.
   FeedEntry::RegisterJSONConverter(
       reinterpret_cast<base::JSONValueConverter<FeedEntry>*>(converter));
   converter->RegisterStringField(
@@ -649,7 +649,11 @@ std::string DocumentEntry::GetHostedDocumentExtension() const {
 
 // static
 bool DocumentEntry::HasHostedDocumentExtension(const FilePath& file) {
-  FilePath::StringType file_extension = file.Extension();
+#if defined(OS_WIN)
+  std::string file_extension = WideToUTF8(file.Extension());
+#else
+  std::string file_extension = file.Extension();
+#endif
   for (size_t i = 0; i < arraysize(kEntryKindMap); ++i) {
     const char* document_extension = kEntryKindMap[i].extension;
     if (document_extension && file_extension == document_extension)

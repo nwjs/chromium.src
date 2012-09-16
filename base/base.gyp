@@ -968,7 +968,7 @@
           'type': 'none',
           'variables': {
             'package_name': 'base',
-            'java_in_dir': 'android/java',
+            'java_in_dir': '../base/android/java',
           },
           'includes': [ '../build/java.gypi' ],
         },
@@ -980,7 +980,7 @@
           ],
           'variables': {
             'package_name': 'base_javatests',
-            'java_in_dir': 'android/javatests',
+            'java_in_dir': '../base/android/javatests',
           },
           'includes': [ '../build/java.gypi' ],
         },

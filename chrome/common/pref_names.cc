@@ -468,6 +468,10 @@ const char kInstantConfirmDialogShown[] = "instant.confirm_dialog_shown";
 // Boolean pref indicating if instant is enabled.
 const char kInstantEnabled[] = "instant.enabled";
 
+// Prefix URL for the (experimental) ZeroSuggest provider.
+const char kExperimentalZeroSuggestUrlPrefix[] =
+    "instant.experimental_zero_suggest_url_prefix";
+
 // Used to migrate preferences from local state to user preferences to
 // enable multiple profiles.
 // BITMASK with possible values (see browser_prefs.cc for enum):
@@ -1000,6 +1004,9 @@ const char kEnableHyperlinkAuditing[] = "enable_a_ping";
 
 // Whether to enable sending referrers.
 const char kEnableReferrers[] = "enable_referrers";
+
+// Whether to send the DNT header.
+const char kEnableDoNotTrack[] = "enable_do_not_track";
 
 // Boolean to enable reporting memory info to page.
 const char kEnableMemoryInfo[] = "enable_memory_info";
@@ -1799,6 +1806,12 @@ const char kAudioCaptureAllowed[] = "hardware.audio_capture_enabled";
 
 // A dictionary that maps usernames to wallpaper properties.
 const char kUsersWallpaperInfo[] = "user_wallpaper_info";
+
+// Copy of owner swap mouse buttons option to use on login screen.
+const char kOwnerPrimaryMouseButtonRight[] = "owner.mouse.primary_right";
+
+// Copy of owner tap-to-click option to use on login screen.
+const char kOwnerTapToClickEnabled[] = "owner.touchpad.enable_tap_to_click";
 #endif
 
 // Whether there is a Flash version installed that supports clearing LSO data.

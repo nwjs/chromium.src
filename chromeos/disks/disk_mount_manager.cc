@@ -82,6 +82,7 @@ class DiskMountManagerImpl : public DiskMountManager {
 
   // DiskMountManager override.
   virtual void UnmountPath(const std::string& mount_path) OVERRIDE {
+    UnmountChildMounts(mount_path);
     cros_disks_client_->Unmount(mount_path,
                                 base::Bind(&DiskMountManagerImpl::OnUnmountPath,
                                            weak_ptr_factory_.GetWeakPtr()),
@@ -228,6 +229,24 @@ class DiskMountManagerImpl : public DiskMountManager {
     }
   };
 
+  // Unmounts all mount points whose source path is transitively parented by
+  // |mount_path|.
+  void UnmountChildMounts(const std::string& mount_path_in) {
+    std::string mount_path = mount_path_in;
+    // Let's make sure mount path has trailing slash.
+    if (mount_path[mount_path.length() - 1] != '/')
+      mount_path += '/';
+
+    for (MountPointMap::iterator it = mount_points_.begin();
+         it != mount_points_.end();
+         ++it) {
+      if (StartsWithASCII(it->second.source_path, mount_path,
+                          true /*case sensitive*/)) {
+        UnmountPath(it->second.mount_path);
+      }
+    }
+  }
+
   // Callback for UnmountDeviceRecursive.
   void OnUnmountDeviceRecursive(UnmountDeviceRecursiveCallbackData* cb_data,
                                 bool success,
@@ -355,6 +374,10 @@ class DiskMountManagerImpl : public DiskMountManager {
                           disk_info.file_path(),
                           disk_info.label(),
                           disk_info.drive_label(),
+                          disk_info.vendor_id(),
+                          disk_info.vendor_name(),
+                          disk_info.product_id(),
+                          disk_info.product_name(),
                           disk_info.uuid(),
                           FindSystemPathPrefix(disk_info.system_path()),
                           disk_info.device_type(),
@@ -543,6 +566,10 @@ DiskMountManager::Disk::Disk(const std::string& device_path,
                              const std::string& file_path,
                              const std::string& device_label,
                              const std::string& drive_label,
+                             const std::string& vendor_id,
+                             const std::string& vendor_name,
+                             const std::string& product_id,
+                             const std::string& product_name,
                              const std::string& fs_uuid,
                              const std::string& system_path_prefix,
                              DeviceType device_type,
@@ -558,6 +585,10 @@ DiskMountManager::Disk::Disk(const std::string& device_path,
       file_path_(file_path),
       device_label_(device_label),
       drive_label_(drive_label),
+      vendor_id_(vendor_id),
+      vendor_name_(vendor_name),
+      product_id_(product_id),
+      product_name_(product_name),
       fs_uuid_(fs_uuid),
       system_path_prefix_(system_path_prefix),
       device_type_(device_type),

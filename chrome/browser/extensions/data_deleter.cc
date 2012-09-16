@@ -54,8 +54,7 @@ void DataDeleter::StartDeleting(Profile* profile,
       BrowserThread::WEBKIT_DEPRECATED, FROM_HERE,
       base::Bind(
           &DataDeleter::DeleteIndexedDBOnWebkitThread,
-          deleter,
-          make_scoped_refptr(BrowserContext::GetIndexedDBContext(profile))));
+          deleter));
 
   BrowserThread::PostTask(
       BrowserThread::FILE, FROM_HERE,
@@ -88,17 +87,23 @@ DataDeleter::DataDeleter(
       GetDatabaseTracker();
   // Pick the right request context depending on whether it's an extension,
   // isolated app, or regular app.
+  content::StoragePartition* storage_partition =
+      BrowserContext::GetDefaultStoragePartition(profile);
   if (storage_origin.SchemeIs(chrome::kExtensionScheme)) {
     extension_request_context_ = profile->GetRequestContextForExtensions();
   } else if (is_storage_isolated) {
     extension_request_context_ =
         profile->GetRequestContextForIsolatedApp(extension_id);
-    isolated_app_path_ = profile->GetPath().
-        Append(content::kStoragePartitionDirname).AppendASCII(extension_id);
+    isolated_app_path_ =
+        profile->GetPath().Append(
+            content::StoragePartition::GetPartitionPath(extension_id));
   } else {
     extension_request_context_ = profile->GetRequestContext();
   }
+
   file_system_context_ = BrowserContext::GetFileSystemContext(profile);
+  indexed_db_context_ = storage_partition->GetIndexedDBContext();
+
   storage_origin_ = storage_origin;
   origin_id_ =
       webkit_database::DatabaseUtil::GetOriginIdentifier(storage_origin_);
@@ -124,10 +129,9 @@ void DataDeleter::DeleteDatabaseOnFileThread() {
   DCHECK(rv == net::OK || rv == net::ERR_IO_PENDING);
 }
 
-void DataDeleter::DeleteIndexedDBOnWebkitThread(
-    scoped_refptr<IndexedDBContext> indexed_db_context) {
+void DataDeleter::DeleteIndexedDBOnWebkitThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::WEBKIT_DEPRECATED));
-  indexed_db_context->DeleteForOrigin(storage_origin_);
+  indexed_db_context_->DeleteForOrigin(storage_origin_);
 }
 
 void DataDeleter::DeleteFileSystemOnFileThread() {

@@ -23,6 +23,7 @@ _EXCLUDED_PATHS = (
     r".*MakeFile$",
     r".+_autogen\.h$",
     r"^cc[\\\/].*",
+    r"^webkit[\\\/]compositor_bindings[\\\/].*",
     r".+[\\\/]pnacl_shim\.c$",
 )
 
@@ -585,10 +586,10 @@ def GetPreferredTrySlaves(project, change):
   if all(re.search('(^|[/_])win[/_.]', f) for f in files):
     return ['win_rel']
   if all(re.search('(^|[/_])android[/_.]', f) for f in files):
-    return ['android']
+    return ['android_dbg']
 
   trybots = ['win_rel', 'linux_rel', 'mac_rel', 'linux_clang:compile',
-             'linux_chromeos', 'android', 'linux_asan', 'mac_asan']
+             'linux_chromeos', 'android_dbg', 'linux_asan', 'mac_asan']
 
   # Match things like path/aura/file.cc and path/file_aura.cc.
   # Same for ash and chromeos.

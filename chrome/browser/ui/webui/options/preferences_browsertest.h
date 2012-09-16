@@ -12,7 +12,7 @@
 #include "base/compiler_specific.h"
 #include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/policy/mock_configuration_policy_provider.h"
-#include "chrome/browser/policy/policy_constants.h"
+#include "chrome/browser/policy/policy_types.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/browser/notification_observer.h"
@@ -76,7 +76,8 @@ class PreferencesBrowserTest : public InProcessBrowserTest,
                   const std::string& name,
                   const base::Value* value,
                   const std::string& controlledBy,
-                  bool disabled);
+                  bool disabled,
+                  bool uncommitted);
   // Verifies that a notification received from the JavaScript Preferences
   // class contains a given pref and that its value has been decorated
   // correctly.
@@ -84,7 +85,8 @@ class PreferencesBrowserTest : public InProcessBrowserTest,
                           const std::string& name,
                           const base::Value* value,
                           const std::string& controlledBy,
-                          bool disabled);
+                          bool disabled,
+                          bool uncommitted);
   // Verifies that notifications received from the JavaScript Preferences class
   // contain the given prefs and that their values have been decorated
   // correctly.
@@ -92,7 +94,8 @@ class PreferencesBrowserTest : public InProcessBrowserTest,
                            const std::vector<std::string>& names,
                            const std::vector<base::Value*>& values,
                            const std::string& controlledBy,
-                           bool disabled);
+                           bool disabled,
+                           bool uncommitted);
 
   // Sets up the expectation that the JavaScript Preferences class will make no
   // change to a user-modified pref value in the C++ backend.

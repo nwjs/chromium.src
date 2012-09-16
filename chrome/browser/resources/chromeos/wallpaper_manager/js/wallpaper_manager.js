@@ -17,7 +17,7 @@ function WallpaperManager(dialogDom) {
   this.dialogDom_ = dialogDom;
   this.document_ = dialogDom.ownerDocument;
   this.selectedCategory = null;
-  this.currentButter_ = null;
+  this.butterBar_ = new ButterBar(this.dialogDom_);
   this.customWallpaperData_ = null;
   this.fetchManifest_();
   this.initDom_();
@@ -30,7 +30,7 @@ function WallpaperManager(dialogDom) {
   /**
    * Base URL of the manifest file.
    */
-  /** @const */ var ManifestBaseURL = 'http://commondatastorage.googleapis.' +
+  /** @const */ var ManifestBaseURL = 'https://commondatastorage.googleapis.' +
       'com/chromeos-wallpaper-public/manifest_';
 
   /**
@@ -71,7 +71,7 @@ function WallpaperManager(dialogDom) {
     try {
       this.manifest_ = JSON.parse(response);
     } catch (e) {
-      // TODO(bshe): Shows an error butter bar to notify json parse exception.
+      this.butterBar_.showError_('Failed to parse manifest.');
       this.manifest_ = {};
     }
   };
@@ -88,12 +88,15 @@ function WallpaperManager(dialogDom) {
     // components may want to use it (i.e. screen saver).
     if (xhr.status === 200) {
       this.parseManifest_(xhr.responseText);
-    } else if (xhr.status === 404) {
+    } else {
       // Fall back to en locale if current locale is not supported.
       xhr.open('GET', ManifestBaseURL + 'en.json', false);
       xhr.send(null);
       if (xhr.status === 200) {
         this.parseManifest_(xhr.responseText);
+      } else {
+        this.manifest_ = {};
+        this.butterBar_.showError_('Failed to download manifest.');
       }
     }
 
@@ -109,8 +112,24 @@ function WallpaperManager(dialogDom) {
     this.initCategoriesList_();
     this.initThumbnailsGrid_();
 
-    // Selects the first category in the list as default.
-    this.categoriesList_.selectionModel.selectedIndex = 0;
+    var selectedWallpaper = str('selectedWallpaper');
+    if (selectedWallpaper == 'CUSTOM') {
+      // Custom is the last one in the categories list.
+      this.categoriesList_.selectionModel.selectedIndex =
+          this.categoriesList_.dataModel.length - 1;
+    } else {
+      // Selects the first category in the categories list of current wallpaper
+      // as the default selected category when showing wallpaper picker UI.
+      var firstCategory = 0;
+      for (var key in this.manifest_.wallpaper_list) {
+        var url = this.manifest_.wallpaper_list[key].base_url +
+            HighResolutionSuffix;
+        if (url.indexOf(selectedWallpaper) != -1) {
+          firstCategory = this.manifest_.wallpaper_list[key].categories[0];
+        }
+      }
+      this.categoriesList_.selectionModel.selectedIndex = firstCategory;
+    }
 
     $('file-selector').addEventListener(
         'change', this.onFileSelectorChanged_.bind(this));
@@ -160,13 +179,14 @@ function WallpaperManager(dialogDom) {
    */
   WallpaperManager.prototype.onThumbnailClicked_ = function() {
     var selectedItem = this.wallpaperGrid_.selectedItem;
-    if (selectedItem && selectedItem.dynamicURL &&
-        !this.wallpaperGrid_.inProgramSelection) {
-      // TODO(bshe): Only download one high resolution wallpaper from server.
-      // Resize the high resolution wallpaper to screen sized wallpaper for
-      // devices with small screen.
-      var wallpaperURL = selectedItem.baseURL + HighResolutionSuffix;
-    }
+    if (!selectedItem || !selectedItem.dynamicURL ||
+        this.wallpaperGrid_.inProgramSelection)
+      return;
+
+    // TODO(bshe): Only download one high resolution wallpaper from server.
+    // Resize the high resolution wallpaper to screen sized wallpaper for
+    // devices with small screen.
+    var wallpaperURL = selectedItem.baseURL + HighResolutionSuffix;
 
     if (this.wallpaperRequest_)
       this.wallpaperRequest_.abort();
@@ -177,14 +197,17 @@ function WallpaperManager(dialogDom) {
     this.wallpaperRequest_.open('GET', wallpaperURL, true);
     this.wallpaperRequest_.responseType = 'arraybuffer';
     this.wallpaperRequest_.send(null);
+    this.butterBar_.setRequest(this.wallpaperRequest_);
     var self = this;
     this.wallpaperRequest_.addEventListener('load', function(e) {
-      //TODO(bshe): Add error handling code.
       if (self.wallpaperRequest_.status === 200) {
         var image = self.wallpaperRequest_.response;
         chrome.wallpaperPrivate.setWallpaper(image,
                                              selectedItem.layout,
                                              wallpaperURL);
+      } else {
+        // Displays the error text in butter bar.
+        self.butterBar_.showError_(self.wallpaperRequest_.statusText);
       }
       self.wallpaperRequest_ = null;
     });
@@ -204,8 +227,10 @@ function WallpaperManager(dialogDom) {
       $('author-name').textContent = selectedItem.author;
       $('author-website').textContent = $('author-website').href =
           selectedItem.authorWebsite;
+      $('wallpaper-attribute').hidden = false;
       return;
     }
+    $('wallpaper-attribute').hidden = true;
     $('author-name').textContent = '';
     $('author-website').textContent = $('author-website').href = '';
   };
@@ -224,6 +249,12 @@ function WallpaperManager(dialogDom) {
   WallpaperManager.prototype.initCategoriesList_ = function() {
     this.categoriesList_ = $('categories-list');
     cr.ui.List.decorate(this.categoriesList_);
+    // cr.ui.list calculates items in view port based on client height and item
+    // height. However, categories list is displayed horizontally. So we should
+    // not calculate visible items here. Sets autoExpands to true to show every
+    // item in the list.
+    // TODO(bshe): Use ul to replace cr.ui.list for category list.
+    this.categoriesList_.autoExpands = true;
 
     var self = this;
     this.categoriesList_.itemConstructor = function(entry) {
@@ -336,6 +367,7 @@ function WallpaperManager(dialogDom) {
       this.showCustomContainer_(true);
     } else {
       this.showCustomContainer_(false);
+      var selectedItem;
       var wallpapersDataModel = new cr.ui.ArrayDataModel([]);
       for (var key in this.manifest_.wallpaper_list) {
         if (this.manifest_.wallpaper_list[key].categories.
@@ -348,9 +380,15 @@ function WallpaperManager(dialogDom) {
             authorWebsite: this.manifest_.wallpaper_list[key].author_website
           };
           wallpapersDataModel.push(wallpaperInfo);
+          var url = this.manifest_.wallpaper_list[key].base_url +
+              HighResolutionSuffix;
+          if (url == str('selectedWallpaper')) {
+            selectedItem = wallpaperInfo;
+          }
         }
       }
       this.wallpaperGrid_.dataModel = wallpapersDataModel;
+      this.wallpaperGrid_.selectedItem = selectedItem;
     }
   };
 

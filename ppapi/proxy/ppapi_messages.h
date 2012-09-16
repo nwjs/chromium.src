@@ -706,7 +706,7 @@ IPC_MESSAGE_ROUTED5(PpapiMsg_PPBHostResolver_ResolveACK,
                     uint32 /* host_resolver_id */,
                     bool /* succeeded */,
                     std::string /* canonical_name */,
-                    ppapi::NetAddressList /* net_address_list */)
+                    std::vector<PP_NetAddress_Private> /* net_address_list */)
 
 #if !defined(OS_NACL) && !defined(NACL_WIN64)
 // PPP_Instance_Private.
@@ -1548,6 +1548,12 @@ IPC_MESSAGE_CONTROL4(PpapiHostMsg_FileChooser_Show,
                      std::vector<std::string> /* accept_mime_types */)
 IPC_MESSAGE_CONTROL1(PpapiPluginMsg_FileChooser_ShowReply,
                      std::vector<ppapi::PPB_FileRef_CreateInfo> /* files */)
+
+// Flash device ID.
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_FlashDeviceID_Create)
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_FlashDeviceID_GetDeviceID)
+IPC_MESSAGE_CONTROL1(PpapiPluginMsg_FlashDeviceID_GetDeviceIDReply,
+                     std::string /* id */)
 
 // Gamepad.
 IPC_MESSAGE_CONTROL0(PpapiHostMsg_Gamepad_Create)

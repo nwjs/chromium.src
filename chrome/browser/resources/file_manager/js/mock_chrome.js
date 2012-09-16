@@ -159,13 +159,13 @@ chrome.fileBrowserPrivate = {
         taskId: 'fake-extension-id|fake-item',
         title: 'External action',
         regexp: /\.(bmp|gif|jpe?g|png|webp|3gp|avi|m4v|mov|mp4|mpeg4?|mpg4?|ogm|ogv|ogx|webm)$/i,
-        iconUrl: 'images/files/file_types/generic.png'
+        iconUrl: 'chrome://theme/IDR_FILE_MANAGER_IMG_FILETYPE_GENERIC'
       },
       {
         taskId: 'fake-extension-id|upload',
         title: 'Upload video',
         regexp: /\.(3gp|avi|m4v|mov|mp4|mpeg4?|mpg4?|ogm|ogv|ogx|webm)$/i,
-        iconUrl: 'images/files/file_types/video.png'
+        iconUrl: 'chrome://theme/IDR_FILE_MANAGER_IMG_FILETYPE_VIDEO'
       },
       {
         taskId: extensionId + '|view-in-browser',
@@ -575,6 +575,7 @@ chrome.fileBrowserPrivate = {
       GDATA_WAITING_FOR_SPACE_INFO: 'Waiting for space info...',
       GDATA_FAILED_SPACE_INFO: 'Failed to retrieve space info',
       GDATA_BUY_MORE_SPACE: 'Buy more storage...',
+      GDATA_VISIT_DRIVE_GOOGLE_COM: 'Go to drive.google.com...',
       GDATA_SPACE_AVAILABLE: '$1 left',
 
       GDATA_BUY_MORE_SPACE_LINK: 'Buy more storage',

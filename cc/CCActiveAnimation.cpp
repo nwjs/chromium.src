@@ -8,6 +8,9 @@
 
 #include "CCAnimationCurve.h"
 #include "TraceEvent.h"
+#ifdef LOG
+#undef LOG
+#endif
 #include "base/string_util.h"
 #include <cmath>
 #include <wtf/Assertions.h>
@@ -27,7 +30,7 @@ static const char* const s_runStateNames[] = {
     "Aborted"
 };
 
-COMPILE_ASSERT(static_cast<int>(WebCore::CCActiveAnimation::RunStateEnumSize) == WTF_ARRAY_LENGTH(s_runStateNames), RunState_names_match_enum);
+COMPILE_ASSERT(static_cast<int>(cc::CCActiveAnimation::RunStateEnumSize) == WTF_ARRAY_LENGTH(s_runStateNames), RunState_names_match_enum);
 
 // This should match the TargetProperty enum.
 static const char* const s_targetPropertyNames[] = {
@@ -35,11 +38,11 @@ static const char* const s_targetPropertyNames[] = {
     "Opacity"
 };
 
-COMPILE_ASSERT(static_cast<int>(WebCore::CCActiveAnimation::TargetPropertyEnumSize) == WTF_ARRAY_LENGTH(s_targetPropertyNames), TargetProperty_names_match_enum);
+COMPILE_ASSERT(static_cast<int>(cc::CCActiveAnimation::TargetPropertyEnumSize) == WTF_ARRAY_LENGTH(s_targetPropertyNames), TargetProperty_names_match_enum);
 
 } // namespace
 
-namespace WebCore {
+namespace cc {
 
 PassOwnPtr<CCActiveAnimation> CCActiveAnimation::create(PassOwnPtr<CCAnimationCurve> curve, int animationId, int groupId, TargetProperty targetProperty)
 {
@@ -204,4 +207,4 @@ void CCActiveAnimation::pushPropertiesTo(CCActiveAnimation* other) const
     }
 }
 
-} // namespace WebCore
+} // namespace cc

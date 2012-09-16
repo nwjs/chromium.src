@@ -314,7 +314,8 @@ void NativeTextfieldViews::ShowContextMenuForView(View* source,
   UpdateContextMenu();
   if (context_menu_runner_->RunMenuAt(GetWidget(), NULL,
           gfx::Rect(point, gfx::Size()), views::MenuItemView::TOPLEFT,
-          MenuRunner::HAS_MNEMONICS) == MenuRunner::MENU_DELETED)
+          MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU) ==
+      MenuRunner::MENU_DELETED)
     return;
 }
 
@@ -851,6 +852,14 @@ bool NativeTextfieldViews::ChangeTextDirectionAndLayoutAlignment(
     base::i18n::TextDirection direction) {
   NOTIMPLEMENTED();
   return false;
+}
+
+void NativeTextfieldViews::ExtendSelectionAndDelete(
+    size_t before,
+    size_t after) {
+  // TODO(horo): implement this method if it is required.
+  // http://crbug.com/149155
+  NOTIMPLEMENTED();
 }
 
 void NativeTextfieldViews::OnCompositionTextConfirmedOrCleared() {

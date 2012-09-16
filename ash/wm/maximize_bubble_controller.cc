@@ -9,8 +9,8 @@
 #include "ash/wm/window_animations.h"
 #include "ash/wm/workspace/frame_maximize_button.h"
 #include "base/timer.h"
+#include "grit/ash_resources.h"
 #include "grit/ash_strings.h"
-#include "grit/ui_resources.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/aura/focus_manager.h"
 #include "ui/aura/window.h"
@@ -307,6 +307,11 @@ class BubbleContentsButtonRow : public views::View,
   MaximizeBubbleController::Bubble* bubble() { return bubble_; }
 
  private:
+  // Functions to add the left and right maximize / restore buttons.
+  void AddMaximizeLeftButton();
+  void AddMaximizeRightButton();
+  void AddMinimizeButton();
+
   // The owning object which gets notifications.
   MaximizeBubbleController::Bubble* bubble_;
 
@@ -569,36 +574,14 @@ BubbleContentsButtonRow::BubbleContentsButtonRow(
   set_background(
       views::Background::CreateSolidBackground(kBubbleBackgroundColor));
 
-  if (bubble_->controller()->maximize_type() == FRAME_STATE_SNAP_LEFT) {
-    left_button_ = new BubbleDialogButton(
-        this,
-        IDR_AURA_WINDOW_POSITION_LEFT_RESTORE,
-        IDR_AURA_WINDOW_POSITION_LEFT_RESTORE_H,
-        IDR_AURA_WINDOW_POSITION_LEFT_RESTORE_P);
+  if (base::i18n::IsRTL()) {
+    AddMaximizeRightButton();
+    AddMinimizeButton();
+    AddMaximizeLeftButton();
   } else {
-    left_button_ = new BubbleDialogButton(
-        this,
-        IDR_AURA_WINDOW_POSITION_LEFT,
-        IDR_AURA_WINDOW_POSITION_LEFT_H,
-        IDR_AURA_WINDOW_POSITION_LEFT_P);
-  }
-  minimize_button_ = new BubbleDialogButton(
-      this,
-      IDR_AURA_WINDOW_POSITION_MIDDLE,
-      IDR_AURA_WINDOW_POSITION_MIDDLE_H,
-      IDR_AURA_WINDOW_POSITION_MIDDLE_P);
-  if (bubble_->controller()->maximize_type() == FRAME_STATE_SNAP_RIGHT) {
-    right_button_ = new BubbleDialogButton(
-        this,
-        IDR_AURA_WINDOW_POSITION_RIGHT_RESTORE,
-        IDR_AURA_WINDOW_POSITION_RIGHT_RESTORE_H,
-        IDR_AURA_WINDOW_POSITION_RIGHT_RESTORE_P);
-  } else {
-    right_button_ = new BubbleDialogButton(
-        this,
-        IDR_AURA_WINDOW_POSITION_RIGHT,
-        IDR_AURA_WINDOW_POSITION_RIGHT_H,
-        IDR_AURA_WINDOW_POSITION_RIGHT_P);
+    AddMaximizeLeftButton();
+    AddMinimizeButton();
+    AddMaximizeRightButton();
   }
 }
 
@@ -654,6 +637,46 @@ views::CustomButton* BubbleContentsButtonRow::GetButtonForUnitTest(
       NOTREACHED();
       return NULL;
   }
+}
+
+void BubbleContentsButtonRow::AddMaximizeLeftButton() {
+  if (bubble_->controller()->maximize_type() == FRAME_STATE_SNAP_LEFT) {
+    left_button_ = new BubbleDialogButton(
+        this,
+        IDR_AURA_WINDOW_POSITION_LEFT_RESTORE,
+        IDR_AURA_WINDOW_POSITION_LEFT_RESTORE_H,
+        IDR_AURA_WINDOW_POSITION_LEFT_RESTORE_P);
+  } else {
+    left_button_ = new BubbleDialogButton(
+        this,
+        IDR_AURA_WINDOW_POSITION_LEFT,
+        IDR_AURA_WINDOW_POSITION_LEFT_H,
+        IDR_AURA_WINDOW_POSITION_LEFT_P);
+  }
+}
+
+void BubbleContentsButtonRow::AddMaximizeRightButton() {
+  if (bubble_->controller()->maximize_type() == FRAME_STATE_SNAP_RIGHT) {
+    right_button_ = new BubbleDialogButton(
+        this,
+        IDR_AURA_WINDOW_POSITION_RIGHT_RESTORE,
+        IDR_AURA_WINDOW_POSITION_RIGHT_RESTORE_H,
+        IDR_AURA_WINDOW_POSITION_RIGHT_RESTORE_P);
+  } else {
+    right_button_ = new BubbleDialogButton(
+        this,
+        IDR_AURA_WINDOW_POSITION_RIGHT,
+        IDR_AURA_WINDOW_POSITION_RIGHT_H,
+        IDR_AURA_WINDOW_POSITION_RIGHT_P);
+  }
+}
+
+void BubbleContentsButtonRow::AddMinimizeButton() {
+  minimize_button_ = new BubbleDialogButton(
+      this,
+      IDR_AURA_WINDOW_POSITION_MIDDLE,
+      IDR_AURA_WINDOW_POSITION_MIDDLE_H,
+      IDR_AURA_WINDOW_POSITION_MIDDLE_P);
 }
 
 BubbleContentsView::BubbleContentsView(

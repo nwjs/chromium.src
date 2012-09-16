@@ -10,7 +10,6 @@
 #include "base/sys_string_conversions.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/ui/cocoa/event_utils.h"
-#include "chrome/browser/ui/cocoa/image_utils.h"
 #include "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
@@ -22,8 +21,6 @@
 #include "ui/base/text/text_elider.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
-
-namespace {
 
 // The size delta between the font used for the edit and the result
 // rows.
@@ -70,6 +67,8 @@ const CGFloat kFieldVisualInset = 1.0;
 // borders.
 const CGFloat kWindowBorderWidth = 1.0;
 
+namespace {
+
 // Background colors for different states of the popup elements.
 NSColor* BackgroundColor() {
   return [[NSColor controlBackgroundColor] colorWithAlphaComponent:kPopupAlpha];
@@ -81,15 +80,16 @@ NSColor* HoveredBackgroundColor() {
   return [[NSColor controlHighlightColor] colorWithAlphaComponent:kPopupAlpha];
 }
 
-static NSColor* ContentTextColor() {
+NSColor* ContentTextColor() {
   return [NSColor blackColor];
 }
-static NSColor* DimContentTextColor() {
+NSColor* DimContentTextColor() {
   return [NSColor darkGrayColor];
 }
-static NSColor* URLTextColor() {
+NSColor* URLTextColor() {
   return [NSColor colorWithCalibratedRed:0.0 green:0.55 blue:0.0 alpha:1.0];
 }
+
 }  // namespace
 
 // Helper for MatchText() to allow sharing code between the contents
@@ -342,17 +342,15 @@ void OmniboxPopupViewMac::PositionPopup(const CGFloat matrixHeight) {
   popupFrame.origin = [[field_ window] convertBaseToScreen:popupFrame.origin];
 
   // Size to fit the matrix, and shift down by the size plus the top
-  // window border.  Would prefer -convertSize:fromView: to
-  // -userSpaceScaleFactor for the scale conversion, but until the
-  // window is on-screen that doesn't work right (bug?).
-  popupFrame.size.height = matrixHeight * [popup_ userSpaceScaleFactor];
+  // window border.
+  popupFrame.size.height = matrixHeight;
   popupFrame.origin.y -= NSHeight(popupFrame) + kWindowBorderWidth;
 
   // Inset to account for the horizontal border drawn by the window.
   popupFrame = NSInsetRect(popupFrame, kWindowBorderWidth, 0.0);
 
   // Leave a gap between the popup and the field.
-  popupFrame.origin.y -= kPopupFieldGap * [popup_ userSpaceScaleFactor];
+  popupFrame.origin.y -= kPopupFieldGap;
 
   // Do nothing if the popup is already animating to the given |frame|.
   if (NSEqualRects(popupFrame, targetPopupFrame_))
@@ -439,13 +437,11 @@ void OmniboxPopupViewMac::UpdatePopupAppearance() {
   AutocompleteMatrix* matrix = [popup_ contentView];
 
   // Calculate the width of the matrix based on backing out the
-  // popup's border from the width of the field.  Would prefer to use
-  // [matrix convertSize:fromView:] for converting from screen size,
-  // but that doesn't work until the popup is on-screen (bug?).
+  // popup's border from the width of the field.
   const NSRect fieldRectBase = [field_ convertRect:[field_ bounds] toView:nil];
   const CGFloat popupWidth = NSWidth(fieldRectBase) - 2 * kWindowBorderWidth;
   DCHECK_GT(popupWidth, 0.0);
-  const CGFloat matrixWidth = popupWidth / [popup_ userSpaceScaleFactor];
+  const CGFloat matrixWidth = popupWidth;
 
   // Load the results into the popup's matrix.
   const size_t rows = model_->result().size();
@@ -556,7 +552,8 @@ void OmniboxPopupViewMac::OpenURLForRow(int row, bool force_background) {
              fromRect:NSZeroRect  // Entire image
             operation:NSCompositeSourceOver
              fraction:1.0
-         neverFlipped:YES];
+       respectFlipped:YES
+                hints:nil];
   }
 
   // Adjust the title position to be lined up under the field's text.

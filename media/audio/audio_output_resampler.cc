@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/message_loop.h"
 #include "base/metrics/histogram.h"
@@ -17,6 +18,7 @@
 #include "media/audio/sample_rates.h"
 #include "media/base/audio_pull_fifo.h"
 #include "media/base/limits.h"
+#include "media/base/media_switches.h"
 #include "media/base/multi_channel_resampler.h"
 
 namespace media {
@@ -26,12 +28,18 @@ static void RecordStats(const AudioParameters& output_params) {
   UMA_HISTOGRAM_ENUMERATION(
       "Media.HardwareAudioBitsPerChannel", output_params.bits_per_sample(),
       limits::kMaxBitsPerSample);
+// WASAPIAudioOutputStream will record this information for us.
+// TODO(dalecurtis): This should go away when we support channel mixing and will
+// receive the actual hardware channel parameters via |output_params|.  See
+// http://crbug.com/138762
+#if !defined(OS_WIN)
   UMA_HISTOGRAM_ENUMERATION(
       "Media.HardwareAudioChannelLayout", output_params.channel_layout(),
       CHANNEL_LAYOUT_MAX);
   UMA_HISTOGRAM_ENUMERATION(
       "Media.HardwareAudioChannelCount", output_params.channels(),
       limits::kMaxChannels);
+#endif
 
   AudioSampleRate asr = media::AsAudioSampleRate(output_params.sample_rate());
   if (asr != kUnexpectedAudioSampleRate) {
@@ -49,12 +57,18 @@ static void RecordFallbackStats(const AudioParameters& output_params) {
   UMA_HISTOGRAM_ENUMERATION(
       "Media.FallbackHardwareAudioBitsPerChannel",
       output_params.bits_per_sample(), limits::kMaxBitsPerSample);
+// WASAPIAudioOutputStream will record this information for us.
+// TODO(dalecurtis): This should go away when we support channel mixing and will
+// receive the actual hardware channel parameters via |output_params|.  See
+// http://crbug.com/138762
+#if !defined(OS_WIN)
   UMA_HISTOGRAM_ENUMERATION(
       "Media.FallbackHardwareAudioChannelLayout",
       output_params.channel_layout(), CHANNEL_LAYOUT_MAX);
   UMA_HISTOGRAM_ENUMERATION(
       "Media.FallbackHardwareAudioChannelCount",
       output_params.channels(), limits::kMaxChannels);
+#endif
 
   AudioSampleRate asr = media::AsAudioSampleRate(output_params.sample_rate());
   if (asr != kUnexpectedAudioSampleRate) {
@@ -78,6 +92,7 @@ AudioOutputResampler::AudioOutputResampler(AudioManager* audio_manager,
       close_delay_(close_delay),
       outstanding_audio_bytes_(0),
       output_params_(output_params) {
+  DCHECK_EQ(output_params_.format(), AudioParameters::AUDIO_PCM_LOW_LATENCY);
   Initialize();
   // Record UMA statistics for the hardware configuration.
   RecordStats(output_params_);
@@ -131,6 +146,8 @@ void AudioOutputResampler::Initialize() {
     }
 
     DVLOG(1) << "I/O ratio is " << io_ratio_;
+  } else {
+    DVLOG(1) << "Input and output params are the same; in pass-through mode.";
   }
 
   // TODO(dalecurtis): All this code should be merged into AudioOutputMixer once
@@ -150,6 +167,13 @@ bool AudioOutputResampler::OpenStream() {
   if (output_params_.format() == AudioParameters::AUDIO_PCM_LINEAR)
     return false;
 
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableAudioFallback)) {
+    LOG(ERROR) << "Open failed and automatic fallback to high latency audio "
+               << "path is disabled, aborting.";
+    return false;
+  }
+
   DLOG(ERROR) << "Unable to open audio device in low latency mode.  Falling "
               << "back to high latency audio output.";
 
@@ -162,8 +186,8 @@ bool AudioOutputResampler::OpenStream() {
   // a new high latency appropriate buffer size.  |kMinLowLatencyFrameSize| is
   // arbitrarily based on Pepper Flash's MAXIMUM frame size for low latency.
   static const int kMinLowLatencyFrameSize = 2048;
-  int frames_per_buffer = std::max(
-      std::min(params_.frames_per_buffer(), kMinLowLatencyFrameSize),
+  int frames_per_buffer = std::min(
+      std::max(params_.frames_per_buffer(), kMinLowLatencyFrameSize),
       static_cast<int>(GetHighLatencyOutputBufferSize(params_.sample_rate())));
 
   output_params_ = AudioParameters(

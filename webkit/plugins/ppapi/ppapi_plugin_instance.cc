@@ -1011,8 +1011,11 @@ bool PluginInstance::GetBitmapForOptimizedPluginPaint(
   gfx::Rect relative_paint_bounds(paint_bounds);
   relative_paint_bounds.Offset(-plugin_origin.x(), -plugin_origin.y());
 
-  gfx::Rect plugin_backing_store_rect(
+  gfx::Rect pixel_plugin_backing_store_rect(
       0, 0, image_data->width(), image_data->height());
+  float scale = GetBoundGraphics2D()->GetScale();
+  gfx::Rect plugin_backing_store_rect =
+    pixel_plugin_backing_store_rect.Scale(scale);
 
   gfx::Rect clip_page = PP_ToGfxRect(view_data_.clip_rect);
   gfx::Rect plugin_paint_rect = plugin_backing_store_rect.Intersect(clip_page);
@@ -1032,7 +1035,9 @@ bool PluginInstance::GetBitmapForOptimizedPluginPaint(
   *location = plugin_backing_store_rect;
   clip_page.Offset(plugin_origin);
   *clip = clip_page;
-  *scale_factor = GetBoundGraphics2D()->GetScale();
+  // The plugin scale factor is inverted, e.g. for a device scale factor of 2x
+  // the plugin scale factor is 0.5.
+  *scale_factor = 1.0 / scale;
   return true;
 }
 
@@ -1466,10 +1471,11 @@ bool PluginInstance::GenerateKeyRequest(const std::string& key_system,
       PpapiGlobals::Get()->GetVarTracker()->MakeArrayBufferPPVar(
           init_data.size(), init_data.data());
 
-  return PP_ToBool(plugin_decryption_interface_->GenerateKeyRequest(
+  plugin_decryption_interface_->GenerateKeyRequest(
       pp_instance(),
       StringVar::StringToPPVar(key_system),
-      init_data_array));
+      init_data_array);
+  return true;
 }
 
 bool PluginInstance::AddKey(const std::string& session_id,
@@ -1485,20 +1491,21 @@ bool PluginInstance::AddKey(const std::string& session_id,
           init_data.size(),
           init_data.data());
 
-  return PP_ToBool(plugin_decryption_interface_->AddKey(
+  plugin_decryption_interface_->AddKey(
       pp_instance(),
       StringVar::StringToPPVar(session_id),
       key_array,
-      init_data_array));
+      init_data_array);
+  return true;
 }
 
 bool PluginInstance::CancelKeyRequest(const std::string& session_id) {
   if (!LoadContentDecryptorInterface())
     return false;
-
-  return PP_ToBool(plugin_decryption_interface_->CancelKeyRequest(
+  plugin_decryption_interface_->CancelKeyRequest(
       pp_instance(),
-      StringVar::StringToPPVar(session_id)));
+      StringVar::StringToPPVar(session_id));
+  return true;
 }
 
 bool PluginInstance::Decrypt(
@@ -1529,9 +1536,10 @@ bool PluginInstance::Decrypt(
   DCHECK(!ContainsKey(pending_decryption_cbs_, request_id));
   pending_decryption_cbs_.insert(std::make_pair(request_id, decrypt_cb));
 
-  return PP_ToBool(plugin_decryption_interface_->Decrypt(pp_instance(),
-                                                         encrypted_resource,
-                                                         &block_info));
+  plugin_decryption_interface_->Decrypt(pp_instance(),
+                                        encrypted_resource,
+                                        &block_info);
+  return true;
 }
 
 bool PluginInstance::DecryptAndDecode(
@@ -1550,10 +1558,10 @@ bool PluginInstance::DecryptAndDecode(
   PP_EncryptedBlockInfo block_info;
 
   // TODO(tomfinegan): Store callback and ID in a map, and pass ID to decryptor.
-  return PP_ToBool(
-      plugin_decryption_interface_->DecryptAndDecode(pp_instance(),
-                                                     encrypted_resource,
-                                                     &block_info));
+  plugin_decryption_interface_->DecryptAndDecode(pp_instance(),
+                                                 encrypted_resource,
+                                                 &block_info);
+  return true;
 }
 
 bool PluginInstance::FlashIsFullscreenOrPending() {

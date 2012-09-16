@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/panels/panel_manager.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/web_contents_view.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/path.h"
 #include "ui/gfx/screen.h"
@@ -163,11 +164,19 @@ NativePanel* Panel::CreateNativePanel(Panel* panel, const gfx::Rect& bounds) {
   return new PanelView(panel, bounds);
 }
 
+// The panel window has to be created as always-on-top. We cannot create it
+// as non-always-on-top and then change it to always-on-top because Windows
+// system might deny making a window always-on-top if the application is not
+// a foreground application. In addition, we do not know if the panel should
+// be created as always-on-top at its creation time. To solve this issue,
+// always_on_top_ is default to true because we can always change from
+// always-on-top to not always-on-top but not the other way around.
 PanelView::PanelView(Panel* panel, const gfx::Rect& bounds)
     : panel_(panel),
       bounds_(bounds),
       window_(NULL),
       web_view_(NULL),
+      always_on_top_(true),
       focused_(false),
       mouse_pressed_(false),
       mouse_dragging_state_(NO_DRAGGING),
@@ -216,6 +225,12 @@ PanelView::~PanelView() {
 void PanelView::ShowPanel() {
   ShowPanelInactive();
   ActivatePanel();
+
+  // Give web contents view a chance to set focus to the appropriate element
+  // when it is created for the first time.
+  content::WebContents* web_contents = panel_->GetWebContents();
+  if (web_contents)
+    web_contents->GetView()->RestoreFocus();
 }
 
 void PanelView::ShowPanelInactive() {
@@ -377,7 +392,15 @@ void PanelView::FullScreenModeChanged(bool is_full_screen) {
   }
 }
 
+bool PanelView::IsPanelAlwaysOnTop() const {
+  return always_on_top_;
+}
+
 void PanelView::SetPanelAlwaysOnTop(bool on_top) {
+  if (always_on_top_ == on_top)
+    return;
+  always_on_top_ = on_top;
+
   window_->SetAlwaysOnTop(on_top);
   window_->non_client_view()->Layout();
   window_->client_view()->Layout();
@@ -583,8 +606,7 @@ void PanelView::OnWidgetActivationChanged(views::Widget* widget, bool active) {
 #if defined(OS_WIN) && !defined(USE_AURA)
   // The panel window is in focus (actually accepting keystrokes) if it is
   // active and belongs to a foreground application.
-  bool focused = active &&
-      GetFrameView()->GetWidget()->GetNativeView() == ::GetForegroundWindow();
+  bool focused = active && widget->GetNativeWindow() == ::GetForegroundWindow();
 #else
   NOTIMPLEMENTED();
   bool focused = active;

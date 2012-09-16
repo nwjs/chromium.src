@@ -873,6 +873,7 @@
             ],
           },
           'sources': [
+            'app/app_host_exe.ver',
             'app/chrome_exe.ver',
             'app/chrome_dll.ver',
             'app/nacl64_exe.ver',
@@ -1090,9 +1091,14 @@
             'package_name': 'chrome',
             'java_in_dir': '../chrome/android/java',
           },
-          'includes': [ '../build/java.gypi' ],
+          'includes': [
+            '../build/java.gypi',
+          ],
         },
-      ]}, # 'targets'
+      ], # 'targets'
+      'includes': [
+        'chrome_android.gypi',
+      ]}, # 'includes'
     ],  # OS=="android"
   ],  # 'conditions'
 }

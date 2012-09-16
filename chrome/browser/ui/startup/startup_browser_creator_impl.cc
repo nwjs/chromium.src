@@ -23,6 +23,8 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
 #include "chrome/browser/defaults.h"
+#include "chrome/browser/extensions/app_restore_service.h"
+#include "chrome/browser/extensions/app_restore_service_factory.h"
 #include "chrome/browser/extensions/extension_creator.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/pack_extension_job.h"
@@ -341,8 +343,7 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
   // Special case is when app switches are passed but we do want to restore
   // session. In that case open app window + focus it after session is restored.
   content::WebContents* app_contents = NULL;
-  if (OpenApplicationWindow(profile, &app_contents) &&
-      !browser_defaults::kAppRestoreSession) {
+  if (OpenApplicationWindow(profile, &app_contents)) {
     RecordLaunchModeHistogram(LM_AS_WEBAPP);
   } else {
     RecordLaunchModeHistogram(urls_to_open.empty() ?
@@ -352,22 +353,11 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
     // affecting browser startup have been detected.
     CheckPreferencesBackup(profile);
 
-    // Watch for |app_contents| closing since ProcessLaunchURLs might run a
-    // synchronous session restore which has a nested message loop and could
-    // close |app_contents|.
-    WebContentsCloseObserver app_contents_observer;
-    if (browser_defaults::kAppRestoreSession && app_contents)
-      app_contents_observer.SetContents(app_contents);
-
     ProcessLaunchURLs(process_startup, urls_to_open);
 
     // If this is an app launch, but we didn't open an app window, it may
     // be an app tab.
     OpenApplicationTab(profile);
-
-    // In case of app mode + session restore we want to focus that app.
-    if (app_contents_observer.contents())
-      app_contents_observer.contents()->GetView()->SetInitialFocus();
 
     if (process_startup) {
       if (browser_defaults::kOSSupportsOtherBrowsers &&
@@ -577,13 +567,15 @@ void StartupBrowserCreatorImpl::ProcessLaunchURLs(
   }
 
   // Session startup didn't occur, open the urls.
-
   Browser* browser = NULL;
   std::vector<GURL> adjust_urls = urls_to_open;
-  if (adjust_urls.empty())
+  if (adjust_urls.empty()) {
     AddStartupURLs(&adjust_urls);
-  else if (!command_line_.HasSwitch(switches::kOpenInNewWindow))
-    browser = browser::FindLastActiveWithProfile(profile_);
+  } else if (!command_line_.HasSwitch(switches::kOpenInNewWindow)) {
+    // Always open a list of urls in a window on the native desktop.
+    browser = browser::FindBrowserWithProfile(profile_,
+                                              chrome::HOST_DESKTOP_TYPE_NATIVE);
+  }
 
   // This will launch a browser; prevent session restore.
   in_synchronous_profile_launch = true;
@@ -604,6 +596,11 @@ bool StartupBrowserCreatorImpl::ProcessStartupURLs(
   else if (pref.type == SessionStartupPref::DEFAULT)
     VLOG(1) << "Pref: default";
 
+  // The only time apps get restored is when the browser process is restarted.
+  if (StartupBrowserCreator::WasRestarted())
+    extensions::AppRestoreServiceFactory::GetForProfile(profile_)->
+        RestoreApps();
+
   if (pref.type == SessionStartupPref::LAST) {
     if (!profile_->DidLastSessionExitCleanly() &&
         !command_line_.HasSwitch(switches::kRestoreLastSession)) {
@@ -615,8 +612,13 @@ bool StartupBrowserCreatorImpl::ProcessStartupURLs(
       return false;
     }
 
-    uint32 restore_behavior = SessionRestore::SYNCHRONOUS |
-                              SessionRestore::ALWAYS_CREATE_TABBED_BROWSER;
+    uint32 restore_behavior = SessionRestore::SYNCHRONOUS;
+    if (browser_defaults::kAlwaysCreateTabbedBrowserOnSessionRestore ||
+        CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kCreateBrowserOnStartupForTests)) {
+      restore_behavior |= SessionRestore::ALWAYS_CREATE_TABBED_BROWSER;
+    }
+
 #if defined(OS_MACOSX)
     // On Mac, when restoring a session with no windows, suppress the creation
     // of a new window in the case where the system is launching Chrome via a

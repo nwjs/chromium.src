@@ -20,7 +20,7 @@
 using namespace std;
 using WebKit::WebTransformationMatrix;
 
-namespace WebCore {
+namespace cc {
 
 static int s_nextLayerId = 1;
 
@@ -638,6 +638,12 @@ void LayerChromium::setTransformFromAnimation(const WebTransformationMatrix& tra
 
 bool LayerChromium::addAnimation(PassOwnPtr<CCActiveAnimation> animation)
 {
+    // WebCore currently assumes that accelerated animations will start soon
+    // after the animation is added. However we cannot guarantee that if we do
+    // not have a layerTreeHost that will setNeedsCommit().
+    if (!m_layerTreeHost)
+        return false;
+
     if (!CCSettings::acceleratedAnimationEnabled())
         return false;
 

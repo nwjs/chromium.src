@@ -17,6 +17,11 @@
 
 namespace media {
 
+// Maximum number of concurrent VDA::Decode() operations GVD will maintain.
+// Higher values allow better pipelining in the GPU, but also require more
+// resources.
+enum { kMaxInFlightDecodes = 4 };
+
 GpuVideoDecoder::Factories::~Factories() {}
 
 // Size of shared-memory segments we allocate.  Since we reuse them we let them
@@ -56,7 +61,6 @@ GpuVideoDecoder::GpuVideoDecoder(
       decoder_texture_target_(0),
       next_picture_buffer_id_(0),
       next_bitstream_buffer_id_(0),
-      shutting_down_(false),
       error_occured_(false) {
   DCHECK(!message_loop_factory_cb_.is_null());
   DCHECK(factories_);
@@ -86,14 +90,7 @@ void GpuVideoDecoder::Reset(const base::Closure& closure)  {
   if (!pending_read_cb_.is_null())
     EnqueueFrameAndTriggerFrameDelivery(VideoFrame::CreateEmptyFrame());
 
-  if (shutting_down_) {
-    // Immediately fire the callback instead of waiting for the reset to
-    // complete (which will happen after PipelineImpl::Stop() completes).
-    gvd_loop_proxy_->PostTask(FROM_HERE, closure);
-  } else {
-    pending_reset_cb_ = closure;
-  }
-
+  pending_reset_cb_ = closure;
   vda_loop_proxy_->PostTask(FROM_HERE, base::Bind(
       &VideoDecodeAccelerator::Reset, weak_vda_));
 }
@@ -262,6 +259,9 @@ void GpuVideoDecoder::RequestBufferDecode(
     return;
   }
 
+  if (!pending_reset_cb_.is_null())
+    return;
+
   size_t size = buffer->GetDataSize();
   SHMBuffer* shm_buffer = GetSHM(size);
   memcpy(shm_buffer->shm->memory(), buffer->GetData(), size);
@@ -274,6 +274,9 @@ void GpuVideoDecoder::RequestBufferDecode(
 
   vda_loop_proxy_->PostTask(FROM_HERE, base::Bind(
       &VideoDecodeAccelerator::Decode, weak_vda_, bitstream_buffer));
+
+  if (bitstream_buffers_in_decoder_.size() < kMaxInFlightDecodes)
+    EnsureDemuxOrDecode();
 }
 
 void GpuVideoDecoder::RecordBufferData(
@@ -307,15 +310,6 @@ void GpuVideoDecoder::GetBufferData(int32 id, base::TimeDelta* timestamp,
 
 bool GpuVideoDecoder::HasAlpha() const {
   return true;
-}
-
-void GpuVideoDecoder::PrepareForShutdownHack() {
-  if (!gvd_loop_proxy_->BelongsToCurrentThread()) {
-    gvd_loop_proxy_->PostTask(FROM_HERE, base::Bind(
-        &GpuVideoDecoder::PrepareForShutdownHack, this));
-    return;
-  }
-  shutting_down_ = true;
 }
 
 void GpuVideoDecoder::NotifyInitializeDone() {
@@ -480,10 +474,8 @@ void GpuVideoDecoder::NotifyEndOfBitstreamBuffer(int32 id) {
   }
   bitstream_buffers_in_decoder_.erase(it);
 
-  if (!pending_read_cb_.is_null() && pending_reset_cb_.is_null() &&
-      state_ != kDrainingDecoder &&
-      bitstream_buffers_in_decoder_.empty()) {
-    DCHECK(ready_video_frames_.empty());
+  if (pending_reset_cb_.is_null() && state_ != kDrainingDecoder &&
+      bitstream_buffers_in_decoder_.size() < kMaxInFlightDecodes) {
     EnsureDemuxOrDecode();
   }
 }

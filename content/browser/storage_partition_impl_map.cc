@@ -15,6 +15,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_constants.h"
+#include "net/url_request/url_request_context_getter.h"
 
 namespace content {
 
@@ -37,19 +38,17 @@ StoragePartitionImpl* StoragePartitionImplMap::Get(
     return it->second;
 
   // There was no previous partition, so let's make a new one.
-  FilePath partition_path = browser_context_->GetPath();
-  if (!partition_id.empty()) {
-    // TODO(ajwong): This should check the path is valid?
-    CHECK(IsStringASCII(partition_id));
-    partition_path = partition_path.Append(kStoragePartitionDirname)
-        .AppendASCII(partition_id);
-  }
-
   StoragePartitionImpl* storage_partition =
-      StoragePartitionImpl::Create(browser_context_, partition_path);
+      StoragePartitionImpl::Create(browser_context_,
+                                   partition_id,
+                                   browser_context_->GetPath());
   partitions_[partition_id] = storage_partition;
 
-  PostCreateInitialization(storage_partition, partition_path);
+  net::URLRequestContextGetter* request_context = partition_id.empty() ?
+      browser_context_->GetRequestContext() :
+      browser_context_->GetRequestContextForStoragePartition(partition_id);
+
+  PostCreateInitialization(storage_partition, request_context);
 
   // TODO(ajwong): We need to remove this conditional by making
   // InitializeResourceContext() understand having different partition data
@@ -73,7 +72,7 @@ void StoragePartitionImplMap::ForEach(
 
 void StoragePartitionImplMap::PostCreateInitialization(
     StoragePartitionImpl* partition,
-    const FilePath& partition_path) {
+    net::URLRequestContextGetter* request_context_getter) {
   // Check first to avoid memory leak in unittests.
   if (BrowserThread::IsMessageLoopValid(BrowserThread::IO)) {
     BrowserThread::PostTask(
@@ -81,12 +80,9 @@ void StoragePartitionImplMap::PostCreateInitialization(
         base::Bind(&ChromeAppCacheService::InitializeOnIOThread,
                    partition->GetAppCacheService(),
                    browser_context_->IsOffTheRecord() ? FilePath() :
-                       partition_path.Append(kAppCacheDirname),
-                       // TODO(michaeln): This is not right, appcache will be
-                       // using the cookies and cache of a the default
-                       // partition when populating the cache.
-                       // http://crbug.com/85121
-                       browser_context_->GetResourceContext(),
+                       partition->GetPath().Append(kAppCacheDirname),
+                   browser_context_->GetResourceContext(),
+                   make_scoped_refptr(request_context_getter),
                    make_scoped_refptr(
                        browser_context_->GetSpecialStoragePolicy())));
   }

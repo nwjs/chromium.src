@@ -101,12 +101,21 @@ FileTasks.prototype.processTasks_ = function(tasks) {
       } else if (task_parts[1] == 'watch') {
         task.iconType = 'video';
         task.title = loadTimeData.getString('ACTION_WATCH');
-      } else if (task_parts[1] == 'open-hosted') {
+      } else if (task_parts[1] == 'open-hosted-generic') {
         if (this.urls_.length > 1)
           task.iconType = 'generic';
         else // Use specific icon.
           task.iconType = FileType.getIcon(this.urls_[0]);
         task.title = loadTimeData.getString('ACTION_OPEN');
+      } else if (task_parts[1] == 'open-hosted-gdoc') {
+        task.iconType = 'gdoc';
+        task.title = loadTimeData.getString('ACTION_OPEN_GDOC');
+      } else if (task_parts[1] == 'open-hosted-gsheet') {
+        task.iconType = 'gsheet';
+        task.title = loadTimeData.getString('ACTION_OPEN_GSHEET');
+      } else if (task_parts[1] == 'open-hosted-gslides') {
+        task.iconType = 'gslides';
+        task.title = loadTimeData.getString('ACTION_OPEN_GSLIDES');
       } else if (task_parts[1] == 'view-pdf') {
         // Do not render this task if disabled.
         if (!loadTimeData.getBoolean('PDF_VIEW_ENABLED'))
@@ -119,12 +128,6 @@ FileTasks.prototype.processTasks_ = function(tasks) {
       } else if (task_parts[1] == 'install-crx') {
         task.iconType = 'generic';
         task.title = loadTimeData.getString('INSTALL_CRX');
-      } else if (task_parts[1] == 'send-to-drive') {
-        if (!this.fileManager_.fileTransferController_ ||
-            this.fileManager_.isOnGData())
-          continue;
-        task.iconType = 'drive';
-        task.title = loadTimeData.getString('SEND_TO_DRIVE');
       }
     }
 
@@ -304,27 +307,11 @@ FileTasks.prototype.executeInternalTask_ = function(id, urls) {
   }
 
   if (id == 'view-pdf' || id == 'view-in-browser' ||
-      id == 'install-crx' || id == 'open-hosted' || id == 'watch') {
+      id == 'install-crx' || id.match(/^open-hosted-/) || id == 'watch') {
     chrome.fileBrowserPrivate.viewFiles(urls, id, function(success) {
       if (!success)
         console.error('chrome.fileBrowserPrivate.viewFiles failed', urls);
     });
-    return;
-  }
-
-  if (id == 'send-to-drive') {
-    var files = urls.map(function(url) {
-      return util.extractFilePath(url) || '';
-    }).join('\n');
-    var operationInfo = {
-      isCut: false,
-      isOnGData: false,
-      sourceDir: null,
-      directories: '',
-      files: files
-    };
-    this.fileManager_.copyManager_.paste(
-        operationInfo, RootDirectory.GDATA, true);
     return;
   }
 };
@@ -464,7 +451,7 @@ FileTasks.prototype.createItems_ = function() {
   var items = [];
   var title = this.defaultTask_.title + ' ' +
               loadTimeData.getString('DEFAULT_ACTION_LABEL');
-  items.push(this.createCombobuttonItem_(this.defaultTask_, title));
+  items.push(this.createCombobuttonItem_(this.defaultTask_, title, true));
 
   for (var index = 0; index < this.tasks_.length; index++) {
     var task = this.tasks_[index];
@@ -492,15 +479,18 @@ FileTasks.prototype.updateMenuItem_ = function() {
  * Creates combobutton item based on task.
  * @param {Object} task Task to convert.
  * @param {string=} opt_title Title.
+ * @param {boolean} opt_bold Make a menu item bold.
  * @return {Object} Item appendable to combobutton drop-down list.
  * @private
  */
-FileTasks.prototype.createCombobuttonItem_ = function(task, opt_title) {
+FileTasks.prototype.createCombobuttonItem_ = function(task, opt_title,
+                                                      opt_bold) {
   return {
     label: opt_title || task.title,
     iconUrl: task.iconUrl,
     iconType: task.iconType,
-    task: task
+    task: task,
+    bold: opt_bold || false
   };
 };
 

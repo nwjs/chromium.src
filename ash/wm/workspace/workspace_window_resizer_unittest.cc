@@ -4,6 +4,7 @@
 
 #include "ash/wm/workspace/workspace_window_resizer.h"
 
+#include "ash/display/display_controller.h"
 #include "ash/display/mouse_cursor_event_filter.h"
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
@@ -141,11 +142,13 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
 #define MAYBE_WindowDragWithMultiDisplaysRightToLeft \
   DISABLED_WindowDragWithMultiDisplaysRightToLeft
 #define MAYBE_PhantomStyle DISABLED_PhantomStyle
+#define MAYBE_CancelSnapPhantom DISABLED_CancelSnapPhantom
 #else
 #define MAYBE_WindowDragWithMultiDisplays WindowDragWithMultiDisplays
 #define MAYBE_WindowDragWithMultiDisplaysRightToLeft \
   WindowDragWithMultiDisplaysRightToLeft
 #define MAYBE_PhantomStyle PhantomStyle
+#define MAYBE_CancelSnapPhantom CancelSnapPhantom
 #endif
 
 // Assertions around attached window resize dragging from the right with 2
@@ -635,6 +638,46 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
   }
 }
 
+// Verifies the style of the drag phantom window is correct.
+TEST_F(WorkspaceWindowResizerTest, MAYBE_CancelSnapPhantom) {
+  UpdateDisplay("800x600,800x600");
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  ASSERT_EQ(2U, root_windows.size());
+
+  window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
+                             gfx::Screen::GetPrimaryDisplay());
+  EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+  EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
+    EXPECT_FALSE(resizer->drag_phantom_window_controller_.get());
+    EXPECT_EQ(WorkspaceWindowResizer::SNAP_NONE, resizer->snap_type_);
+
+    // The pointer is on the edge but not shared.  Both controllers should be
+    // non-NULL.
+    resizer->Drag(CalculateDragPoint(*resizer, 799, 0), 0);
+    EXPECT_TRUE(resizer->snap_phantom_window_controller_.get());
+    EXPECT_EQ(WorkspaceWindowResizer::SNAP_RIGHT_EDGE, resizer->snap_type_);
+    PhantomWindowController* controller =
+        resizer->drag_phantom_window_controller_.get();
+    ASSERT_TRUE(controller);
+    EXPECT_EQ(PhantomWindowController::STYLE_DRAGGING, controller->style());
+
+    // Move the cursor across the edge.  Now the snap phantom controller
+    // should be canceled.
+    resizer->Drag(CalculateDragPoint(*resizer, 800, 0), 0);
+    EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
+    EXPECT_EQ(WorkspaceWindowResizer::SNAP_NONE, resizer->snap_type_);
+    controller =
+        resizer->drag_phantom_window_controller_.get();
+    ASSERT_TRUE(controller);
+    EXPECT_EQ(PhantomWindowController::STYLE_DRAGGING, controller->style());
+  }
+}
+
 // Verifies if the resizer sets and resets
 // MouseCursorEventFilter::mouse_warp_mode_ as expected.
 TEST_F(WorkspaceWindowResizerTest, WarpMousePointer) {
@@ -737,6 +780,45 @@ TEST_F(WorkspaceWindowResizerTest, DontDragOffBottom) {
       kRootHeight - WorkspaceWindowResizer::kMinOnscreenHeight - 10;
   EXPECT_EQ("100," + base::IntToString(expected_y) + " 300x400",
             window_->bounds().ToString());
+}
+
+// Makes sure we don't allow dragging on the work area with multidisplay.
+TEST_F(WorkspaceWindowResizerTest, DontDragOffBottomWithMultiDisplay) {
+  UpdateDisplay("800x600,800x600");
+  ASSERT_EQ(2, gfx::Screen::GetNumDisplays());
+
+  Shell::GetInstance()->SetDisplayWorkAreaInsets(
+      Shell::GetPrimaryRootWindow(), gfx::Insets(0, 0, 10, 0));
+
+  // Positions the secondary display at the bottom the primary display.
+  ash::DisplayLayout display_layout(ash::DisplayLayout::BOTTOM, 0);
+  Shell::GetInstance()->display_controller()->SetDefaultDisplayLayout(
+      display_layout);
+
+  {
+    window_->SetBounds(gfx::Rect(100, 200, 300, 400));
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 400), 0);
+    int expected_y =
+        kRootHeight - WorkspaceWindowResizer::kMinOnscreenHeight - 10;
+    // When the mouse cursor is in the primary display, the window cannot move
+    // on non-work area with kMinOnscreenHeight margin.
+    EXPECT_EQ("100," + base::IntToString(expected_y) + " 300x400",
+              window_->bounds().ToString());
+  }
+
+  {
+    window_->SetBounds(gfx::Rect(100, 200, 300, 400));
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 600), 0);
+    // The window can move to the secondary display beyond non-work area of
+    // the primary display.
+    EXPECT_EQ("100,800 300x400", window_->bounds().ToString());
+  }
 }
 
 // Makes sure we don't allow dragging off the top of the work area.

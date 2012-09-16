@@ -12,7 +12,7 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/browser/chromeos/gdata/drive_test_util.h"
+#include "chrome/browser/chromeos/gdata/gdata_test_util.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/common/chrome_paths.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -23,10 +23,13 @@ using base::ListValue;
 
 namespace gdata {
 
+// TODO(nhiroki): Make it possible to run these tests on any platforms after
+// moving json files to out of 'chromeos' directory (http://crbug.com/149788).
+#if defined(OS_CHROMEOS)
 // Test about resource parsing.
 TEST(DriveAPIParserTest, AboutResourceParser) {
   std::string error;
-  scoped_ptr<Value> document(test_util::LoadJSONFile("drive/about.json"));
+  scoped_ptr<Value> document = test_util::LoadJSONFile("drive/about.json");
   ASSERT_TRUE(document.get());
 
   ASSERT_EQ(Value::TYPE_DICTIONARY, document->GetType());
@@ -42,7 +45,7 @@ TEST(DriveAPIParserTest, AboutResourceParser) {
 // Test app list parsing.
 TEST(DriveAPIParserTest, AppListParser) {
   std::string error;
-  scoped_ptr<Value> document(test_util::LoadJSONFile("drive/applist.json"));
+  scoped_ptr<Value> document = test_util::LoadJSONFile("drive/applist.json");
   ASSERT_TRUE(document.get());
 
   ASSERT_EQ(Value::TYPE_DICTIONARY, document->GetType());
@@ -123,7 +126,7 @@ TEST(DriveAPIParserTest, AppListParser) {
 // Test file list parsing.
 TEST(DriveAPIParserTest, FileListParser) {
   std::string error;
-  scoped_ptr<Value> document(test_util::LoadJSONFile("drive/filelist.json"));
+  scoped_ptr<Value> document = test_util::LoadJSONFile("drive/filelist.json");
   ASSERT_TRUE(document.get());
 
   ASSERT_EQ(Value::TYPE_DICTIONARY, document->GetType());
@@ -227,7 +230,8 @@ TEST(DriveAPIParserTest, FileListParser) {
 // Test change list parsing.
 TEST(DriveAPIParserTest, ChangeListParser) {
   std::string error;
-  scoped_ptr<Value> document(test_util::LoadJSONFile("drive/changelist.json"));
+  scoped_ptr<Value> document =
+      test_util::LoadJSONFile("drive/changelist.json");
   ASSERT_TRUE(document.get());
 
   ASSERT_EQ(Value::TYPE_DICTIONARY, document->GetType());
@@ -257,5 +261,6 @@ TEST(DriveAPIParserTest, ChangeListParser) {
   EXPECT_FALSE(change3.is_deleted());
   EXPECT_EQ(change3.file_id(), change3.file().file_id());
 }
+#endif  // OS_CHROMEOS
 
 }  // namespace gdata

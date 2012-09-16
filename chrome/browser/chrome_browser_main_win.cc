@@ -133,7 +133,7 @@ int DoUninstallTasks(bool chrome_still_running) {
             dist, ShellUtil::CURRENT_USER, ShellUtil::SHORTCUT_NO_OPTIONS)) {
       VLOG(1) << "Failed to delete desktop shortcut.";
     }
-    // TODO(hallielaine): Cleanup profiles shortcuts.
+    // TODO(rlp): Cleanup profiles shortcuts.
     if (!ShellUtil::RemoveChromeQuickLaunchShortcut(dist,
                                                     ShellUtil::CURRENT_USER)) {
       VLOG(1) << "Failed to delete quick launch shortcut.";
@@ -157,11 +157,14 @@ ChromeBrowserMainPartsWin::ChromeBrowserMainPartsWin(
     GetMetroSwitches metro_switches_proc = reinterpret_cast<GetMetroSwitches>(
         GetProcAddress(base::win::GetMetroModule(),
                        "GetMetroCommandLineSwitches"));
-    string16 metro_switches = (*metro_switches_proc)();
-    if (!metro_switches.empty()) {
-      CommandLine extra_switches(CommandLine::NO_PROGRAM);
-      extra_switches.ParseFromString(metro_switches);
-      CommandLine::ForCurrentProcess()->AppendArguments(extra_switches, false);
+    if (metro_switches_proc) {
+      string16 metro_switches = (*metro_switches_proc)();
+      if (!metro_switches.empty()) {
+        CommandLine extra_switches(CommandLine::NO_PROGRAM);
+        extra_switches.ParseFromString(metro_switches);
+        CommandLine::ForCurrentProcess()->AppendArguments(extra_switches,
+                                                          false);
+      }
     }
   }
 }

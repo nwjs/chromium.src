@@ -16,20 +16,25 @@
 #include "chrome/browser/autofill/autofill_profile.h"
 #include "chrome/browser/autofill/credit_card.h"
 #include "chrome/browser/autofill/field_types.h"
+#include "chrome/browser/api/webdata/autofill_web_data_service.h"
+#include "chrome/browser/api/webdata/web_data_service_consumer.h"
+
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/sync/profile_sync_service_observer.h"
-#include "chrome/browser/webdata/web_data_service.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
 class AutofillMetrics;
 class FormStructure;
 class PersonalDataManagerObserver;
-class Profile;
 
 namespace autofill_helper {
 void SetProfiles(int, std::vector<AutofillProfile>*);
 void SetCreditCards(int, std::vector<CreditCard>*);
+}
+
+namespace content {
+class BrowserContext;
 }
 
 // Handles loading and saving Autofill profile information to the web database.
@@ -43,7 +48,7 @@ class PersonalDataManager
  public:
   // WebDataServiceConsumer:
   virtual void OnWebDataServiceRequestDone(
-      WebDataService::Handle h,
+      WebDataServiceBase::Handle h,
       const WDTypedResult* result) OVERRIDE;
 
   // Sets the listener to be notified of PersonalDataManager events.
@@ -56,13 +61,13 @@ class PersonalDataManager
   virtual void OnStateChanged() OVERRIDE;
 
   // ProfileKeyedService:
-  // Cancels any pending requests to WebDataService and stops listening for Sync
-  // notifications.
+  // Cancels any pending requests to WebDataServiceBase and stops
+  // listening for Sync notifications.
   virtual void Shutdown() OVERRIDE;
 
   // content::NotificationObserver:
   // Observes "batch" changes made by Sync and refreshes data from the
-  // WebDataService in response.
+  // WebDataServiceBase in response.
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
@@ -189,17 +194,17 @@ class PersonalDataManager
 
   // Receives the loaded profiles from the web data service and stores them in
   // |credit_cards_|.
-  void ReceiveLoadedProfiles(WebDataService::Handle h,
+  void ReceiveLoadedProfiles(WebDataServiceBase::Handle h,
                              const WDTypedResult* result);
 
   // Receives the loaded credit cards from the web data service and stores them
   // in |credit_cards_|.
-  void ReceiveLoadedCreditCards(WebDataService::Handle h,
+  void ReceiveLoadedCreditCards(WebDataServiceBase::Handle h,
                                 const WDTypedResult* result);
 
   // Cancels a pending query to the web database.  |handle| is a pointer to the
   // query handle.
-  void CancelPendingQuery(WebDataService::Handle* handle);
+  void CancelPendingQuery(WebDataServiceBase::Handle* handle);
 
   // Saves |imported_profile| to the WebDB if it exists.
   virtual void SaveImportedProfile(const AutofillProfile& imported_profile);
@@ -218,8 +223,8 @@ class PersonalDataManager
   const AutofillMetrics* metric_logger() const;
   void set_metric_logger(const AutofillMetrics* metric_logger);
 
-  // The profile hosting this PersonalDataManager.
-  Profile* profile_;
+  // The browser context this PersonalDataManager is in.
+  content::BrowserContext* browser_context_;
 
   // True if personal data has been loaded from the web database.
   bool is_data_loaded_;
@@ -237,19 +242,19 @@ class PersonalDataManager
   // The loaded credit cards.
   ScopedVector<CreditCard> credit_cards_;
 
-  // When the manager makes a request from WebDataService, the database
+  // When the manager makes a request from WebDataServiceBase, the database
   // is queried on another thread, we record the query handle until we
   // get called back.  We store handles for both profile and credit card queries
   // so they can be loaded at the same time.
-  WebDataService::Handle pending_profiles_query_;
-  WebDataService::Handle pending_creditcards_query_;
+  WebDataServiceBase::Handle pending_profiles_query_;
+  WebDataServiceBase::Handle pending_creditcards_query_;
 
   // The observers.
   ObserverList<PersonalDataManagerObserver> observers_;
 
  private:
   // Kicks off asynchronous loading of profiles and credit cards.
-  void Init(Profile* profile);
+  void Init(content::BrowserContext* context);
 
   // For logging UMA metrics. Overridden by metrics tests.
   scoped_ptr<const AutofillMetrics> metric_logger_;

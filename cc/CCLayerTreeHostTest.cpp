@@ -25,7 +25,7 @@
 #include <public/WebSize.h>
 #include <wtf/OwnArrayPtr.h>
 
-using namespace WebCore;
+using namespace cc;
 using namespace WebKit;
 using namespace WebKitTests;
 
@@ -2442,7 +2442,7 @@ private:
         if (m_texture.get())
             return;
         m_texture = EvictionTrackingTexture::create(CCPrioritizedTexture::create(layerTreeHost()->contentsTextureManager()));
-        m_texture->texture()->setDimensions(WebCore::IntSize(10, 10), WebCore::GraphicsContext3D::RGBA);
+        m_texture->texture()->setDimensions(IntSize(10, 10), cc::GraphicsContext3D::RGBA);
     }
 
     OwnPtr<EvictionTrackingTexture> m_texture;
@@ -2756,9 +2756,9 @@ public:
     }
     virtual void getQueryObjectuivEXT(WebGLId, GC3Denum pname, GC3Duint* params)
     {
-        // Context is lost. Result will never be available.
+        // Context is lost. We need to behave as if result is available.
         if (pname == Extensions3DChromium::QUERY_RESULT_AVAILABLE_EXT)
-            *params = 0;
+            *params = 1;
     }
 
 private:

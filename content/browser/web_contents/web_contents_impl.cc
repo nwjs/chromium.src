@@ -523,11 +523,11 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
   prefs.fullscreen_enabled =
       !command_line.HasSwitch(switches::kDisableFullScreen);
   prefs.css_regions_enabled =
-      command_line.HasSwitch(switches::kEnableCssRegions);
+      command_line.HasSwitch(switches::kEnableExperimentalWebKitFeatures);
   prefs.css_shaders_enabled =
       command_line.HasSwitch(switches::kEnableCssShaders);
   prefs.css_variables_enabled =
-      command_line.HasSwitch(switches::kEnableCssVariables);
+      command_line.HasSwitch(switches::kEnableExperimentalWebKitFeatures);
 #if defined(USE_AURA) && defined(USE_X11)
   prefs.device_supports_touch |=
       ui::TouchFactory::GetInstance()->IsTouchDevicePresent();
@@ -622,8 +622,8 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
   prefs.fixed_position_creates_stacking_context = !command_line.HasSwitch(
       switches::kDisableFixedPositionCreatesStackingContext);
 
-  prefs.gesture_tap_highlight_enabled = !command_line.HasSwitch(
-      switches::kDisableGestureTapHighlight);
+  prefs.gesture_tap_highlight_enabled = command_line.HasSwitch(
+      switches::kEnableGestureTapHighlight);
 
   prefs.number_of_cpu_cores = base::SysInfo::NumberOfProcessors();
 

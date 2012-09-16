@@ -12,7 +12,7 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/browser/chromeos/gdata/drive_test_util.h"
+#include "chrome/browser/chromeos/gdata/gdata_test_util.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/common/chrome_paths.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -53,10 +53,14 @@ class GDataWAPIParserTest : public testing::Test {
   }
 };
 
+// TODO(nhiroki): Make it possible to run these tests on any platforms after
+// moving json files to out of 'chromeos' directory (http://crbug.com/149788).
+#if defined(OS_CHROMEOS)
 // Test document feed parsing.
 TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
   std::string error;
-  scoped_ptr<Value> document(test_util::LoadJSONFile("gdata/basic_feed.json"));
+  scoped_ptr<Value> document =
+      test_util::LoadJSONFile("gdata/basic_feed.json");
   ASSERT_TRUE(document.get());
   ASSERT_EQ(Value::TYPE_DICTIONARY, document->GetType());
   scoped_ptr<DocumentFeed> feed(DocumentFeed::ExtractAndParse(*document));
@@ -266,8 +270,8 @@ TEST_F(GDataWAPIParserTest, DocumentEntryXmlParser) {
 }
 
 TEST_F(GDataWAPIParserTest, AccountMetadataFeedParser) {
-  scoped_ptr<Value> document(
-      test_util::LoadJSONFile("gdata/account_metadata.json"));
+  scoped_ptr<Value> document =
+      test_util::LoadJSONFile("gdata/account_metadata.json");
   ASSERT_TRUE(document.get());
   ASSERT_EQ(Value::TYPE_DICTIONARY, document->GetType());
   DictionaryValue* entry_value = NULL;
@@ -331,6 +335,7 @@ TEST_F(GDataWAPIParserTest, AccountMetadataFeedParser) {
   EXPECT_EQ(1U, second_app->primary_extensions().size());
   EXPECT_EQ(0U, second_app->secondary_extensions().size());
 }
+#endif  // OS_CHROMEOS
 
 // Test file extension checking in DocumentEntry::HasDocumentExtension().
 TEST_F(GDataWAPIParserTest, DocumentEntryHasDocumentExtension) {
