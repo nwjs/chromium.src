@@ -28,8 +28,6 @@
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/renderer_main_platform_delegate.h"
 #include "ui/base/ui_base_switches.h"
-#include "third_party/node/src/node.h"
-#include "third_party/node/src/req_wrap.h"
 #include "webkit/plugins/ppapi/ppapi_interface_factory.h"
 
 #if defined(OS_MACOSX)
@@ -224,32 +222,16 @@ int RendererMain(const content::MainFunctionParams& parameters) {
 
     startup_timer.Stop();  // End of Startup Time Measurement.
 
-    v8::V8::Initialize();
-    {
-      v8::Locker locker;
-      v8::HandleScope scope;
-
-      node::g_context = v8::Context::New();
-      v8::Context::Scope context_scope(node::g_context);
-
-      int argc = 1;
-      char* argv[] = { (char*)"node", NULL };
-      node::SetupContext(argc, argv, node::g_context->Global());
-
-      if (run_loop) {
+    if (run_loop) {
 #if defined(OS_MACOSX)
-        if (pool)
-          pool->Recycle();
+      if (pool)
+        pool->Recycle();
 #endif
-        TRACE_EVENT_BEGIN_ETW("RendererMain.START_MSG_LOOP", 0, 0);
-        MessageLoop::current()->Run();
-        TRACE_EVENT_END_ETW("RendererMain.START_MSG_LOOP", 0, 0);
-      }
+      TRACE_EVENT_BEGIN_ETW("RendererMain.START_MSG_LOOP", 0, 0);
+      MessageLoop::current()->Run();
+      TRACE_EVENT_END_ETW("RendererMain.START_MSG_LOOP", 0, 0);
     }
-
-    node::Shutdown();
   }
-
   platform.PlatformUninitialize();
   TRACE_EVENT_END_ETW("RendererMain", 0, "");
   return 0;

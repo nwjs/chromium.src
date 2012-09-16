@@ -211,7 +211,7 @@ class RenderViewImpl : public RenderWidget,
   // responsible for creating this RenderView (corresponding to parent_hwnd).
   // |counter| is either a currently initialized counter, or NULL (in which case
   // we treat this RenderView as a top level window).
-  CONTENT_EXPORTED static RenderViewImpl* Create(
+  CONTENT_EXPORT static RenderViewImpl* Create(
       gfx::NativeViewId parent_hwnd,
       int32 opener_id,
       const content::RendererPreferences& renderer_prefs,
@@ -229,10 +229,10 @@ class RenderViewImpl : public RenderWidget,
       AccessibilityMode accessibility_mode);
 
   // Returns the RenderViewImpl containing the given WebView.
-  CONTENT_EXPORTED static RenderViewImpl* FromWebView(WebKit::WebView* webview);
+  CONTENT_EXPORT static RenderViewImpl* FromWebView(WebKit::WebView* webview);
 
   // May return NULL when the view is closing.
-  CONTENT_EXPORTED WebKit::WebView* webview() const;
+  CONTENT_EXPORT WebKit::WebView* webview() const;
 
   // WebGraphicsContext3DSwapBuffersClient implementation.
 
@@ -834,7 +834,7 @@ class RenderViewImpl : public RenderWidget,
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, ZoomLimit);
 
   typedef std::map<GURL, double> HostZoomLevels;
-  typedef void (*update_url_cb_t)();
+
   enum ErrorPageType {
     DNS_ERROR,
     HTTP_404,
@@ -884,7 +884,7 @@ class RenderViewImpl : public RenderWidget,
                       const std::string& encoding_name);
 
  public:
-  CONTENT_EXPORTED void OpenURL(WebKit::WebFrame* frame,
+  void OpenURL(WebKit::WebFrame* frame,
                const GURL& url,
                const content::Referrer& referrer,
                WebKit::WebNavigationPolicy policy);

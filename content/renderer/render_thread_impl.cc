@@ -77,7 +77,6 @@
 #include "media/base/media.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
-#include "third_party/node/src/node.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/Platform.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorSupport.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebString.h"
@@ -566,7 +565,6 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   if (webkit_platform_support_.get())
     return;
 
-  // Start webkit(including V8)
   webkit_platform_support_.reset(new RendererWebKitPlatformSupportImpl);
   WebKit::initialize(webkit_platform_support_.get());
 
