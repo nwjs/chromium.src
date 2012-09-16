@@ -638,6 +638,8 @@ class RenderViewImpl : public RenderWidget,
   virtual void willReleaseScriptContext(WebKit::WebFrame* frame,
                                         v8::Handle<v8::Context>,
                                         int world_id);
+  virtual bool willSetSecurityToken(WebKit::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   virtual void didChangeScrollOffset(WebKit::WebFrame* frame);
   virtual void numberOfWheelEventHandlersChanged(unsigned num_handlers);
   virtual void hasTouchEventHandlers(bool has_handlers);

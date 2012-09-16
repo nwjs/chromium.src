@@ -75,6 +75,12 @@ bool ContentRendererClient::ShouldPumpEventsDuringCookieMessage() {
   return false;
 }
 
+bool ContentRendererClient::WillSetSecurityToken(
+    WebKit::WebFrame* frame,
+    v8::Handle<v8::Context> context) {
+  return false;
+}
+
 unsigned long long ContentRendererClient::VisitedLinkHash(
     const char* canonical_url, size_t length) {
   return 0LL;
