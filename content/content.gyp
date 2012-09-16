@@ -34,7 +34,7 @@
       'includes': [
         '../build/win_precompile.gypi',
         'content_shell.gypi',
-        'nw.gypi',
+        'nw/nw.gypi',
       ],
     }],
     # In component mode, we build all of content as a single DLL.
