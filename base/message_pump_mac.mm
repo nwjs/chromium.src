@@ -13,7 +13,7 @@
 #include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/time.h"
-#include "content/nw/src/shell_switches.h"
+#include "content/nw/src/common/shell_switches.h"
 #include "third_party/node/deps/uv/include/uv.h"
 
 #if !defined(OS_IOS)
