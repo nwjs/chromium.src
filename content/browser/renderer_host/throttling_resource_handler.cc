@@ -96,7 +96,9 @@ void ThrottlingResourceHandler::Cancel() {
 }
 
 void ThrottlingResourceHandler::Resume() {
-  switch (deferred_stage_) {
+  DeferredStage last_deferred_stage = deferred_stage_;
+  deferred_stage_ = DEFERRED_NONE;
+  switch (last_deferred_stage) {
     case DEFERRED_NONE:
       NOTREACHED();
       break;
@@ -110,7 +112,6 @@ void ThrottlingResourceHandler::Resume() {
       ResumeResponse();
       break;
   }
-  deferred_stage_ = DEFERRED_NONE;
 }
 
 void ThrottlingResourceHandler::ResumeStart() {
