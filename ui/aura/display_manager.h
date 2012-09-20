@@ -67,9 +67,7 @@ class AURA_EXPORT DisplayManager {
   virtual RootWindow* CreateRootWindowForDisplay(
       const gfx::Display& display) = 0;
 
-  // Obsoleted: Do not use in new code.
-  // Returns the display at |index|. The display at 0 is
-  // no longer considered "primary".
+  // Returns the display at |index|. The display at 0 is considered "primary".
   virtual gfx::Display* GetDisplayAt(size_t index) = 0;
 
   virtual size_t GetNumDisplays() const = 0;
@@ -86,8 +84,8 @@ class AURA_EXPORT DisplayManager {
   virtual const gfx::Display& GetDisplayMatching(
       const gfx::Rect& match_rect) const = 0;
 
-  // Returns the human-readable name for the display specified by |display|.
-  virtual std::string GetDisplayNameFor(const gfx::Display& display) = 0;
+  // Returns the human-readable name for the display specified by |index|.
+  virtual std::string GetDisplayNameAt(size_t index) = 0;
 
  protected:
   // Calls observers' OnDisplayBoundsChanged methods.

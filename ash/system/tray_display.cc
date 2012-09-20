@@ -5,7 +5,6 @@
 #include "ash/system/tray_display.h"
 
 #include "ash/display/display_controller.h"
-#include "ash/screen_ash.h"
 #include "ash/shell.h"
 #include "ash/system/tray/system_tray.h"
 #include "ash/system/tray/system_tray_delegate.h"
@@ -86,8 +85,7 @@ class DisplayView : public ash::internal::ActionableView {
         if (display_manager->GetNumDisplays() > 1) {
           label_->SetText(l10n_util::GetStringFUTF16(
               IDS_ASH_STATUS_TRAY_DISPLAY_EXTENDED,
-              UTF8ToUTF16(display_manager->GetDisplayNameFor(
-                  ScreenAsh::GetSecondaryDisplay()))));
+              UTF8ToUTF16(display_manager->GetDisplayNameAt(1))));
           SetVisible(true);
         } else {
           SetVisible(false);

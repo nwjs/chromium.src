@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "ash/display/display_controller.h"
-#include "ash/shell.h"
 #include "base/command_line.h"
 #include "base/stl_util.h"
 #include "base/string_split.h"
@@ -19,7 +18,6 @@
 #include "ui/aura/root_window_host.h"
 #include "ui/aura/window_property.h"
 #include "ui/gfx/display.h"
-#include "ui/gfx/screen.h"
 #include "ui/gfx/rect.h"
 
 #if defined(USE_X11)
@@ -32,32 +30,15 @@
 #endif
 
 DECLARE_WINDOW_PROPERTY_TYPE(int64);
-typedef std::vector<gfx::Display> DisplayList;
 
 namespace ash {
 namespace internal {
 namespace {
 
-struct DisplaySortFunctor {
-  bool operator()(const gfx::Display& a, const gfx::Display& b) {
-    return a.id() < b.id();
-  }
-};
-
 gfx::Display& GetInvalidDisplay() {
   static gfx::Display* invalid_display = new gfx::Display();
   return *invalid_display;
 }
-
-#if defined(OS_CHROMEOS)
-int64 GetDisplayIdForOutput(XID output) {
-  uint16 manufacturer_id = 0;
-  uint32 serial_number = 0;
-  ui::GetOutputDeviceData(
-      output, &manufacturer_id, &serial_number, NULL);
-  return gfx::Display::GetID(manufacturer_id, serial_number);
-}
-#endif
 
 }  // namespace
 
@@ -70,8 +51,7 @@ DEFINE_WINDOW_PROPERTY_KEY(int64, kDisplayIdKey,
                            gfx::Display::kInvalidDisplayID);
 
 MultiDisplayManager::MultiDisplayManager() :
-    internal_display_id_(gfx::Display::kInvalidDisplayID),
-    force_bounds_changed_(false) {
+    internal_display_id_(gfx::Display::kInvalidDisplayID) {
   Init();
 }
 
@@ -92,21 +72,31 @@ void MultiDisplayManager::ToggleDisplayScale() {
   manager->ScaleDisplayImpl();
 }
 
-bool MultiDisplayManager::IsActiveDisplay(const gfx::Display& display) const {
-  for (DisplayList::const_iterator iter = displays_.begin();
-       iter != displays_.end(); ++iter) {
-    if ((*iter).id() == display.id())
-      return true;
+void MultiDisplayManager::InitInternalDisplayInfo() {
+#if defined(OS_CHROMEOS)
+  if (!base::chromeos::IsRunningOnChromeOS())
+    return;
+  std::vector<XID> outputs;
+  ui::GetOutputDeviceHandles(&outputs);
+  std::vector<std::string> output_names = ui::GetOutputNames(outputs);
+  for (size_t i = 0; i < output_names.size(); ++i) {
+    if (chromeos::OutputConfigurator::IsInternalOutputName(
+            output_names[i])) {
+      XID internal_output = outputs[i];
+      uint16 manufacturer_id = 0;
+      uint32 serial_number = 0;
+      ui::GetOutputDeviceData(
+          internal_output, &manufacturer_id, &serial_number, NULL);
+      internal_display_id_ =
+          gfx::Display::GetID(manufacturer_id, serial_number);
+      return;
+    }
   }
-  return false;
+#endif
 }
 
 bool MultiDisplayManager::HasInternalDisplay() const {
   return internal_display_id_ != gfx::Display::kInvalidDisplayID;
-}
-
-bool MultiDisplayManager::IsInternalDisplayId(int64 id) const {
-  return internal_display_id_ == id;
 }
 
 bool MultiDisplayManager::UpdateWorkAreaOfDisplayNearestWindow(
@@ -121,7 +111,7 @@ bool MultiDisplayManager::UpdateWorkAreaOfDisplayNearestWindow(
 
 const gfx::Display& MultiDisplayManager::FindDisplayContainingPoint(
     const gfx::Point& point_in_screen) const {
-  for (DisplayList::const_iterator iter = displays_.begin();
+  for (std::vector<gfx::Display>::const_iterator iter = displays_.begin();
        iter != displays_.end(); ++iter) {
     const gfx::Display& display = *iter;
     if (display.bounds().Contains(point_in_screen))
@@ -132,7 +122,7 @@ const gfx::Display& MultiDisplayManager::FindDisplayContainingPoint(
 
 void MultiDisplayManager::OnNativeDisplaysChanged(
     const std::vector<gfx::Display>& updated_displays) {
-  if (updated_displays.empty()) {
+  if (updated_displays.size() == 0) {
     // Don't update the displays when all displays are disconnected.
     // This happens when:
     // - the device is idle and powerd requested to turn off all displays.
@@ -145,10 +135,10 @@ void MultiDisplayManager::OnNativeDisplaysChanged(
     // display list will be updated correctly.
     return;
   }
-  DisplayList new_displays = updated_displays;
+  std::vector<gfx::Display> new_displays;
   if (internal_display_id_ != gfx::Display::kInvalidDisplayID) {
     bool internal_display_connected = false;
-    for (DisplayList::const_iterator iter = updated_displays.begin();
+    for (Displays::const_iterator iter = updated_displays.begin();
          iter != updated_displays.end(); ++iter) {
       if ((*iter).id() == internal_display_id_) {
         internal_display_connected = true;
@@ -159,88 +149,50 @@ void MultiDisplayManager::OnNativeDisplaysChanged(
       }
     }
     // If the internal display wasn't connected, use the cached value.
-    if (!internal_display_connected) {
-      // Internal display may be reported as disconnect during startup time.
-      if (!internal_display_.get()) {
-        internal_display_.reset(new gfx::Display(internal_display_id_,
-                                                 gfx::Rect(800, 600)));
-      }
+    if (!internal_display_connected)
       new_displays.push_back(*internal_display_.get());
-    }
+    new_displays.insert(
+        new_displays.end(), updated_displays.begin(), updated_displays.end());
   } else {
     new_displays = updated_displays;
   }
 
-  std::sort(displays_.begin(), displays_.end(), DisplaySortFunctor());
-  std::sort(new_displays.begin(), new_displays.end(), DisplaySortFunctor());
-  DisplayList removed_displays;
-  std::vector<size_t> changed_display_indices;
-  std::vector<size_t> added_display_indices;
-  gfx::Display current_primary;
-  if (Shell::HasInstance())
-    current_primary = gfx::Screen::GetPrimaryDisplay();
+  size_t min = std::min(displays_.size(), new_displays.size());
 
-  for (DisplayList::iterator curr_iter = displays_.begin(),
-       new_iter = new_displays.begin();
-       curr_iter != displays_.end() || new_iter != new_displays.end();) {
-    if (curr_iter == displays_.end()) {
-      // more displays in new list.
-      added_display_indices.push_back(new_iter - new_displays.begin());
-      ++new_iter;
-    } else if (new_iter == new_displays.end()) {
-      // more displays in current list.
-      removed_displays.push_back(*curr_iter);
-      ++curr_iter;
-    } else if ((*curr_iter).id() == (*new_iter).id()) {
-      const gfx::Display& current_display = *curr_iter;
-      gfx::Display& new_display = *new_iter;
-      if (force_bounds_changed_ ||
-          current_display.bounds_in_pixel() != new_display.bounds_in_pixel() ||
-          current_display.device_scale_factor() !=
-          new_display.device_scale_factor()) {
-        changed_display_indices.push_back(new_iter - new_displays.begin());
-      }
-      // TODO(oshima): This is ugly. Simplify these operations.
-      new_display.SetScaleAndBounds(
-          new_display.device_scale_factor(),
-          new_display.bounds_in_pixel());
-      // If the display is primary, then simpy use 0,0. Otherwise,
-      // use the origin currently used.
-      if ((*new_iter).id() != current_primary.id()) {
-        new_display.set_bounds(gfx::Rect(current_display.bounds().origin(),
-                                         new_display.bounds().size()));
-      }
-      new_display.UpdateWorkAreaFromInsets(current_display.GetWorkAreaInsets());
-      ++curr_iter;
-      ++new_iter;
-    } else if ((*curr_iter).id() < (*new_iter).id()) {
-      // more displays in current list between ids, which means it is deleted.
-      removed_displays.push_back(*curr_iter);
-      ++curr_iter;
-    } else {
-      // more displays in new list between ids, which means it is added.
-      added_display_indices.push_back(new_iter - new_displays.begin());
-      ++new_iter;
+  // TODO(oshima): Fix this so that we can differentiate outputs
+  // and keep a content on one display stays on the same display
+  // when a display is added or removed.
+  for (size_t i = 0; i < min; ++i) {
+    gfx::Display& current_display = displays_[i];
+    const gfx::Display& new_display = new_displays[i];
+    if (current_display.bounds_in_pixel() != new_display.bounds_in_pixel() ||
+        current_display.device_scale_factor() !=
+        new_display.device_scale_factor()) {
+      current_display.SetScaleAndBounds(new_display.device_scale_factor(),
+                                        new_display.bounds_in_pixel());
+      NotifyBoundsChanged(current_display);
     }
   }
-  displays_ = new_displays;
-  // Temporarily add displays to be removed because display object
-  // being removed are accessed during shutting down the root.
-  displays_.insert(displays_.end(), removed_displays.begin(),
-                   removed_displays.end());
-  for (std::vector<size_t>::iterator iter = changed_display_indices.begin();
-       iter != changed_display_indices.end(); ++iter) {
-    NotifyBoundsChanged(displays_[*iter]);
-  }
-  for (std::vector<size_t>::iterator iter = added_display_indices.begin();
-       iter != added_display_indices.end(); ++iter) {
-    NotifyDisplayAdded(displays_[*iter]);
-  }
 
-  for (DisplayList::const_reverse_iterator iter = removed_displays.rbegin();
-       iter != removed_displays.rend(); ++iter) {
-    NotifyDisplayRemoved(displays_.back());
-    displays_.pop_back();
+  if (displays_.size() < new_displays.size()) {
+    // New displays added
+    for (size_t i = min; i < new_displays.size(); ++i) {
+      const gfx::Display& new_display = new_displays[i];
+      displays_.push_back(gfx::Display(new_display.id()));
+      gfx::Display& display = displays_.back();
+      display.SetScaleAndBounds(new_display.device_scale_factor(),
+                                new_display.bounds_in_pixel());
+      NotifyDisplayAdded(display);
+    }
+  } else {
+    // Displays are removed. We keep the display for the primary
+    // display (at index 0) because it needs the display information
+    // even if it doesn't exit.
+    while (displays_.size() > new_displays.size() && displays_.size() > 1) {
+      Displays::reverse_iterator iter = displays_.rbegin();
+      NotifyDisplayRemoved(*iter);
+      displays_.erase(iter.base() - 1);
+    }
   }
 }
 
@@ -302,11 +254,11 @@ const gfx::Display& MultiDisplayManager::GetDisplayMatching(
   return matching ? *matching : displays_[0];
 }
 
-std::string MultiDisplayManager::GetDisplayNameFor(
-    const gfx::Display& display) {
+std::string MultiDisplayManager::GetDisplayNameAt(size_t index) {
 #if defined(USE_X11)
+  gfx::Display* display = GetDisplayAt(index);
   std::vector<XID> outputs;
-  if (display.id() != gfx::Display::kInvalidDisplayID &&
+  if (display && display->id() != gfx::Display::kInvalidDisplayID &&
       ui::GetOutputDeviceHandles(&outputs)) {
     for (size_t i = 0; i < outputs.size(); ++i) {
       uint16 manufacturer_id = 0;
@@ -314,14 +266,15 @@ std::string MultiDisplayManager::GetDisplayNameFor(
       std::string name;
       if (ui::GetOutputDeviceData(
               outputs[i], &manufacturer_id, &serial_number, &name) &&
-          display.id() ==
+          display->id() ==
           gfx::Display::GetID(manufacturer_id, serial_number)) {
         return name;
       }
     }
   }
 #endif
-  return base::StringPrintf("Display %d", static_cast<int>(display.id()));
+
+  return base::StringPrintf("Display %d", static_cast<int>(index + 1));
 }
 
 void MultiDisplayManager::OnRootWindowResized(const aura::RootWindow* root,
@@ -336,21 +289,6 @@ void MultiDisplayManager::OnRootWindowResized(const aura::RootWindow* root,
 }
 
 void MultiDisplayManager::Init() {
-#if defined(OS_CHROMEOS)
-  if (base::chromeos::IsRunningOnChromeOS()) {
-    std::vector<XID> outputs;
-    ui::GetOutputDeviceHandles(&outputs);
-    std::vector<std::string> output_names = ui::GetOutputNames(outputs);
-    for (size_t i = 0; i < output_names.size(); ++i) {
-      if (chromeos::OutputConfigurator::IsInternalOutputName(
-              output_names[i])) {
-        internal_display_id_ = GetDisplayIdForOutput(outputs[i]);
-        break;
-      }
-    }
-  }
-#endif
-
   // TODO(oshima): Move this logic to DisplayChangeObserver.
   const string size_str = CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
       switches::kAuraHostWindowSize);
@@ -369,10 +307,8 @@ void MultiDisplayManager::CycleDisplayImpl() {
   if (displays_.size() > 1) {
     // Remove if there is more than one display.
     int count = displays_.size() - 1;
-    for (DisplayList::const_iterator iter = displays_.begin();
-         count-- > 0; ++iter) {
+    for (Displays::const_iterator iter = displays_.begin(); count-- > 0; ++iter)
       new_displays.push_back(*iter);
-    }
   } else {
     // Add if there is only one display.
     new_displays.push_back(displays_[0]);
@@ -385,7 +321,7 @@ void MultiDisplayManager::CycleDisplayImpl() {
 void MultiDisplayManager::ScaleDisplayImpl() {
   if (displays_.size() > 0) {
     std::vector<gfx::Display> new_displays;
-    for (DisplayList::const_iterator iter = displays_.begin();
+    for (Displays::const_iterator iter = displays_.begin();
          iter != displays_.end(); ++iter) {
       gfx::Display display = *iter;
       float factor = display.device_scale_factor() == 1.0f ? 2.0f : 1.0f;
@@ -403,16 +339,12 @@ gfx::Display& MultiDisplayManager::FindDisplayForRootWindow(
   int64 id = root_window->GetProperty(kDisplayIdKey);
   // if id is |kInvaildDisplayID|, it's being deleted.
   DCHECK(id != gfx::Display::kInvalidDisplayID);
-  return FindDisplayForId(id);
-}
-
-gfx::Display& MultiDisplayManager::FindDisplayForId(int64 id) {
-  for (DisplayList::iterator iter = displays_.begin();
+  for (Displays::iterator iter = displays_.begin();
        iter != displays_.end(); ++iter) {
     if ((*iter).id() == id)
       return *iter;
   }
-  DLOG(FATAL) << "Could not find display:" << id;
+  DLOG(FATAL) << "Could not find display by id:" << id;
   return GetInvalidDisplay();
 }
 
@@ -426,20 +358,12 @@ void MultiDisplayManager::AddDisplayFromSpec(const std::string& spec) {
   displays_.push_back(display);
 }
 
-int64 MultiDisplayManager::SetFirstDisplayAsInternalDisplayForTest() {
-  internal_display_id_ = displays_[0].id();
-  internal_display_.reset(new gfx::Display);
-  *internal_display_ = displays_[0];
-  return internal_display_id_;
-}
-
-void MultiDisplayManager::SetDisplayIdsForTest(DisplayList* to_update) const {
-  DisplayList::iterator iter_to_update = to_update->begin();
-  DisplayList::const_iterator iter = displays_.begin();
-  for (; iter != displays_.end() && iter_to_update != to_update->end();
-       ++iter, ++iter_to_update) {
-    (*iter_to_update).set_id((*iter).id());
-  }
+int64 MultiDisplayManager::EnableInternalDisplayForTest() {
+  const int64 kInternalDisplayIdForTest = 9999;
+  internal_display_id_ = kInternalDisplayIdForTest;
+  internal_display_.reset(new gfx::Display(internal_display_id_,
+                                           gfx::Rect(800, 600)));
+  return kInternalDisplayIdForTest;
 }
 
 }  // namespace internal

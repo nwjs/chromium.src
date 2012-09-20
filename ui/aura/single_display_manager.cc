@@ -77,8 +77,7 @@ const gfx::Display& SingleDisplayManager::GetDisplayMatching(
   return display_;
 }
 
-std::string SingleDisplayManager::GetDisplayNameFor(
-    const gfx::Display& display) {
+std::string SingleDisplayManager::GetDisplayNameAt(size_t index) {
   return "Display";
 }
 

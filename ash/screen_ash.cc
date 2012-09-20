@@ -4,7 +4,6 @@
 
 #include "ash/screen_ash.h"
 
-#include "ash/display/display_controller.h"
 #include "ash/display/multi_display_manager.h"
 #include "ash/shell.h"
 #include "ash/wm/coordinate_conversion.h"
@@ -86,11 +85,6 @@ gfx::Rect ScreenAsh::ConvertRectFromScreen(aura::Window* window,
   return gfx::Rect(point, rect.size());
 }
 
-// static
-const gfx::Display& ScreenAsh::GetSecondaryDisplay() {
-  return *(Shell::GetInstance()->display_controller()->GetSecondaryDisplay());
-}
-
 gfx::Point ScreenAsh::GetCursorScreenPoint() {
   return aura::Env::GetInstance()->last_mouse_location();
 }
@@ -117,7 +111,7 @@ gfx::Display ScreenAsh::GetDisplayMatching(const gfx::Rect& match_rect) const {
 }
 
 gfx::Display ScreenAsh::GetPrimaryDisplay() const {
-  return Shell::GetInstance()->display_controller()->primary_display();
+  return *GetDisplayManager()->GetDisplayAt(0);
 }
 
 }  // namespace ash

@@ -15,7 +15,6 @@
 #include "base/observer_list.h"
 #include "ui/aura/display_observer.h"
 #include "ui/aura/display_manager.h"
-#include "ui/gfx/display.h"
 
 namespace aura {
 class Display;
@@ -44,9 +43,6 @@ struct ASH_EXPORT DisplayLayout {
   DisplayLayout();
   DisplayLayout(Position position, int offset);
 
-  // Returns an inverted display layout.
-  DisplayLayout Invert() const WARN_UNUSED_RESULT;
-
   // Converter functions to/from base::Value.
   static bool ConvertFromValue(const base::Value& value, DisplayLayout* layout);
   static bool ConvertToValue(const DisplayLayout& layout, base::Value* value);
@@ -61,9 +57,6 @@ struct ASH_EXPORT DisplayLayout {
   // The offset of the position of the secondary display.  The offset is
   // based on the top/left edge of the primary display.
   int offset;
-
-  // Returns string representation of the layout for debugging/testing.
-  std::string ToString() const;
 };
 
 // DisplayController owns and maintains RootWindows for each attached
@@ -99,15 +92,6 @@ class ASH_EXPORT DisplayController : public aura::DisplayObserver {
   // Returns the root window for |display_id|.
   aura::RootWindow* GetRootWindowForDisplayId(int64 id);
 
-  // Sets/Gets primary display.
-  const gfx::Display& primary_display() const {
-    return primary_display_;
-  }
-  void SetPrimaryDisplay(const gfx::Display& display);
-
-  // Returns the secondary display.
-  gfx::Display* GetSecondaryDisplay();
-
   // Closes all child windows in the all root windows.
   void CloseChildWindows();
 
@@ -124,15 +108,11 @@ class ASH_EXPORT DisplayController : public aura::DisplayObserver {
   }
   void SetDefaultDisplayLayout(const DisplayLayout& layout);
 
-  // Sets/gets the display layout for the specified display or display
-  // name.  Getter returns the default value in case it doesn't have
-  // its own layout yet.
+  // Sets/gets the display layout for the specified display name.  Getter
+  // returns the default value in case it doesn't have its own layout yet.
   void SetLayoutForDisplayName(const std::string& name,
                                const DisplayLayout& layout);
-  const DisplayLayout& GetLayoutForDisplay(const gfx::Display& display) const;
-
-  // Returns the display layout used for current secondary display.
-  const DisplayLayout& GetCurrentDisplayLayout() const;
+  const DisplayLayout& GetLayoutForDisplayName(const std::string& name);
 
   // aura::DisplayObserver overrides:
   virtual void OnDisplayBoundsChanged(
@@ -159,8 +139,6 @@ class ASH_EXPORT DisplayController : public aura::DisplayObserver {
   std::map<std::string, DisplayLayout> secondary_layouts_;
 
   ObserverList<Observer> observers_;
-
-  gfx::Display primary_display_;
 
   DISALLOW_COPY_AND_ASSIGN(DisplayController);
 };

@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "ash/display/display_controller.h"
-#include "ash/display/multi_display_manager.h"
 #include "ash/shell.h"
 #include "ash/test/test_shell_delegate.h"
 #include "base/run_loop.h"
@@ -59,10 +58,7 @@ void AshTestBase::SetUp() {
   TestShellDelegate* delegate = new TestShellDelegate;
   ash::Shell::CreateInstance(delegate);
   Shell::GetPrimaryRootWindow()->Show();
-  // Move the mouse cursor to far away so that native events doesn't
-  // interfere test expectations.
-  Shell::GetPrimaryRootWindow()->MoveCursorTo(gfx::Point(-1000, -1000));
-  UpdateDisplay("800x600");
+  Shell::GetPrimaryRootWindow()->SetHostSize(gfx::Size(800, 600));
   Shell::GetInstance()->cursor_manager()->ShowCursor(true);
 
   // Disable animations during tests.
@@ -91,11 +87,8 @@ void AshTestBase::ChangeDisplayConfig(float scale,
 
 void AshTestBase::UpdateDisplay(const std::string& display_specs) {
   std::vector<gfx::Display> displays = CreateDisplaysFromString(display_specs);
-  internal::MultiDisplayManager* display_manager =
-      static_cast<internal::MultiDisplayManager*>(
-          aura::Env::GetInstance()->display_manager());
-  display_manager->SetDisplayIdsForTest(&displays);
-  display_manager->OnNativeDisplaysChanged(displays);
+  aura::Env::GetInstance()->display_manager()->
+      OnNativeDisplaysChanged(displays);
 
   // On non-testing environment, when a secondary display is connected, a new
   // native (i.e. X) window for the display is always created below the previous

@@ -6,7 +6,6 @@
 
 #include "ash/display/display_controller.h"
 #include "ash/display/shared_display_edge_indicator.h"
-#include "ash/screen_ash.h"
 #include "ash/shell.h"
 #include "ash/wm/coordinate_conversion.h"
 #include "ash/wm/cursor_manager.h"
@@ -57,7 +56,7 @@ void MouseCursorEventFilter::ShowSharedEdgeIndicator(
   drag_source_root_ = from;
 
   DisplayLayout::Position position = Shell::GetInstance()->
-      display_controller()->GetCurrentDisplayLayout().position;
+      display_controller()->default_display_layout().position;
   if (position == DisplayLayout::TOP || position == DisplayLayout::BOTTOM)
     UpdateHorizontalIndicatorWindowBounds();
   else
@@ -164,10 +163,13 @@ bool MouseCursorEventFilter::WarpMouseCursorIfNecessary(
 void MouseCursorEventFilter::UpdateHorizontalIndicatorWindowBounds() {
   bool from_primary = Shell::GetPrimaryRootWindow() == drag_source_root_;
 
-  const gfx::Rect& primary_bounds = gfx::Screen::GetPrimaryDisplay().bounds();
-  const gfx::Rect& secondary_bounds = ScreenAsh::GetSecondaryDisplay().bounds();
+  aura::DisplayManager* display_manager =
+      aura::Env::GetInstance()->display_manager();
+  const gfx::Rect& primary_bounds = display_manager->GetDisplayAt(0)->bounds();
+  const gfx::Rect& secondary_bounds =
+      display_manager->GetDisplayAt(1)->bounds();
   DisplayLayout::Position position = Shell::GetInstance()->
-      display_controller()->GetCurrentDisplayLayout().position;
+      display_controller()->default_display_layout().position;
 
   src_indicator_bounds_.set_x(
       std::max(primary_bounds.x(), secondary_bounds.x()));
@@ -190,11 +192,13 @@ void MouseCursorEventFilter::UpdateHorizontalIndicatorWindowBounds() {
 
 void MouseCursorEventFilter::UpdateVerticalIndicatorWindowBounds() {
   bool in_primary = Shell::GetPrimaryRootWindow() == drag_source_root_;
-
-  const gfx::Rect& primary_bounds = gfx::Screen::GetPrimaryDisplay().bounds();
-  const gfx::Rect& secondary_bounds = ScreenAsh::GetSecondaryDisplay().bounds();
+  aura::DisplayManager* display_manager =
+      aura::Env::GetInstance()->display_manager();
+  const gfx::Rect& primary_bounds = display_manager->GetDisplayAt(0)->bounds();
+  const gfx::Rect& secondary_bounds =
+      display_manager->GetDisplayAt(1)->bounds();
   DisplayLayout::Position position = Shell::GetInstance()->
-      display_controller()->GetCurrentDisplayLayout().position;
+      display_controller()->default_display_layout().position;
 
   int upper_shared_y = std::max(primary_bounds.y(), secondary_bounds.y());
   int lower_shared_y = std::min(primary_bounds.bottom(),
