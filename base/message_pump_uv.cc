@@ -20,7 +20,6 @@ static void wakeup_callback(uv_async_t* handle, int status) {
 }
 
 static void timer_callback(uv_timer_t* timer, int status) {
-  uv_timer_stop(timer);
 }
 
 }
@@ -75,6 +74,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
         uv_timer_start(&delay_timer, (uv_timer_cb)timer_callback,
                        delay.InMilliseconds(), 0);
         uv_run_once(uv_default_loop());
+        uv_timer_stop(&delay_timer);
       } else {
         // It looks like delayed_work_time_ indicates a time in the past, so we
         // need to call DoDelayedWork now.
