@@ -2047,7 +2047,11 @@
       'target_defaults': {
         'target_conditions': [
           ['_target_name=="v8" or _target_name=="v8_snapshot" or _target_name=="v8_base" or _target_name=="uv" or _target_name=="node" or _target_name=="openssl" or _target_name=="zlib"', {
-            'cflags!': ['-fvisibility=hidden'],
+            'cflags!': [
+              '-fvisibility=hidden',
+              '-fdata-sections',
+              '-ffunction-sections',
+            ],
             'cflags_cc!': ['-fvisibility-inlines-hidden'],
           }],
         ],
