@@ -50,7 +50,7 @@ const double kMinProgressStep = 1e-3;
 
 // Smooth factor that is used for the average downloading speed
 // estimation.
-const double kDownloadSpeedSmoothFactor = 0.005;
+const double kDownloadSpeedSmoothFactor = 0.1;
 
 // Minumum allowed value for the average downloading speed.
 const double kDownloadAverageSpeedDropBound = 1e-8;
