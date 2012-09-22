@@ -239,6 +239,28 @@ class MessagePumpNSRunLoop : public MessagePumpCFRunLoopBase {
   DISALLOW_COPY_AND_ASSIGN(MessagePumpNSRunLoop);
 };
 
+class MessagePumpUVRunLoop : public MessagePumpCFRunLoopBase {
+ public:
+  BASE_EXPORT MessagePumpUVRunLoop();
+
+  virtual void DoRun(Delegate* delegate) OVERRIDE;
+  virtual void Quit() OVERRIDE;
+
+ protected:
+  virtual ~MessagePumpUVRunLoop();
+
+ private:
+  // A source that doesn't do anything but provide something signalable
+  // attached to the run loop.  This source will be signalled when Quit
+  // is called, to cause the loop to wake up so that it can stop.
+  CFRunLoopSourceRef quit_source_;
+
+  // False after Quit is called.
+  bool keep_running_;
+
+  DISALLOW_COPY_AND_ASSIGN(MessagePumpUVRunLoop);
+};
+
 #if defined(OS_IOS)
 // This is a fake message pump.  It attaches sources to the main thread's
 // CFRunLoop, so PostTask() will work, but it is unable to drive the loop
@@ -266,7 +288,7 @@ class MessagePumpUIApplication : public MessagePumpCFRunLoopBase {
 
 class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
  public:
-  MessagePumpNSApplication(bool forNode = false);
+  MessagePumpNSApplication();
 
   virtual void DoRun(Delegate* delegate) OVERRIDE;
   virtual void Quit() OVERRIDE;
@@ -284,13 +306,12 @@ class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
   // in DoRun.
   bool running_own_loop_;
 
-  bool for_node_;
   DISALLOW_COPY_AND_ASSIGN(MessagePumpNSApplication);
 };
 
 class MessagePumpCrApplication : public MessagePumpNSApplication {
  public:
-  MessagePumpCrApplication(bool forNode = false);
+  MessagePumpCrApplication();
 
  protected:
   virtual ~MessagePumpCrApplication() {}
@@ -314,7 +335,7 @@ class MessagePumpMac {
   //
   // Otherwise creates an instance of MessagePumpNSApplication using a
   // default NSApplication.
-  static MessagePump* Create(bool forNode = false);
+  static MessagePump* Create(bool withUv = false);
 
 #if !defined(OS_IOS)
   // If a pump is created before the required CrAppProtocol is
