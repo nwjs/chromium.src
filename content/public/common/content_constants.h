@@ -57,6 +57,10 @@ CONTENT_EXPORT extern const char kGpuCompositingFieldTrialName[];
 CONTENT_EXPORT extern const char kGpuCompositingFieldTrialEnabledName[];
 CONTENT_EXPORT extern const char kGpuCompositingFieldTrialThreadEnabledName[];
 
+CONTENT_EXPORT extern const char kStage3DFieldTrialName[];
+CONTENT_EXPORT extern const char kStage3DFieldTrialBlacklistedName[];
+CONTENT_EXPORT extern const char kStage3DFieldTrialEnabledName[];
+
 }  // namespace content
 
 #endif  // CONTENT_PUBLIC_COMMON_CONTENT_CONSTANTS_H_
