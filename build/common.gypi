@@ -737,7 +737,7 @@
     # flag allows us to have warnings as errors in general to prevent
     # regressions in most modules, while working on the bits that are
     # remaining.
-    'win_third_party_warn_as_error%': 'true',
+    'win_third_party_warn_as_error%': 'false',
 
     # This is the location of the sandbox binary. Chrome looks for this before
     # running the zygote process. If found, and SUID, it will be used to
@@ -3168,6 +3168,8 @@
           'CERT_CHAIN_PARA_HAS_EXTRA_FIELDS',
           'WIN32_LEAN_AND_MEAN',
           '_ATL_NO_OPENGL',
+          'BUILDING_V8_SHARED=1',
+          'BUILDING_UV_SHARED=1',
         ],
         'conditions': [
           ['buildtype=="Official"', {
