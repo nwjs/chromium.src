@@ -2140,7 +2140,7 @@
               # (This is currently observed only in chromeos valgrind bots)
               # The following flag is to disable --gc-sections linker
               # option for these bots.
-              'no_gc_sections%': 0,
+              'no_gc_sections%': 1,
 
               # TODO(bradnelson): reexamine how this is done if we change the
               # expansion of configurations
