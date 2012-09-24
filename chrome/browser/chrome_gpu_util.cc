@@ -34,6 +34,10 @@ bool ShouldRunCompositingFieldTrial() {
   return false;
 #endif
 
+#if defined(OS_CHROMEOS)
+  return false;
+#endif
+
 #if defined(OS_WIN)
   // Don't run the trial on Windows XP.
   if (base::win::GetVersion() < base::win::VERSION_VISTA)
@@ -81,28 +85,20 @@ void InitializeCompositingFieldTrial() {
   base::FieldTrial::Probability threaded_compositing_probability = 0;
 
   chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
-  if (channel == chrome::VersionInfo::CHANNEL_STABLE ||
-      channel == chrome::VersionInfo::CHANNEL_BETA) {
-    // Stable and Beta channels: Non-threaded force-compositing-mode on by
-    // default (mac and windows only).
-#if defined(OS_WIN) || defined(OS_MACOSX)
-    force_compositing_mode_probability = 3;
-#endif
-  } else if (channel == chrome::VersionInfo::CHANNEL_DEV ||
-             channel == chrome::VersionInfo::CHANNEL_CANARY) {
-    // Dev and Canary channels: force-compositing-mode and
-    // threaded-compositing on with 1/3 probability each.
-    force_compositing_mode_probability = 1;
-
-#if defined(OS_MACOSX) || defined(OS_LINUX)
-    // Threaded compositing mode isn't feature complete on mac or linux yet:
-    // http://crbug.com/133602 for mac
-    // http://crbug.com/140866 for linux
-    threaded_compositing_probability = 0;
-#else
+  // Temporarily increase the field trial percentages for the dev
+  // Proper fix is in https://codereview.chromium.org/10914247/
+  if (channel == chrome::VersionInfo::CHANNEL_DEV) {
+#if defined(OS_WIN)
+    // Windows: Threaded compositing on by default.
     if (!CommandLine::ForCurrentProcess()->HasSwitch(
             switches::kDisableThreadedCompositing))
-        threaded_compositing_probability = 1;
+        threaded_compositing_probability = 3;
+    else
+      force_compositing_mode_probability = 3;
+#endif
+#if defined(OS_MACOSX)
+    // Force compositing mode on by default.
+    force_compositing_mode_probability = 3;
 #endif
   }
 
