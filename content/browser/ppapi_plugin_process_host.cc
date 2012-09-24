@@ -242,6 +242,10 @@ void PpapiPluginProcessHost::RequestPluginChannel(Client* client) {
 void PpapiPluginProcessHost::OnProcessLaunched() {
 }
 
+void PpapiPluginProcessHost::OnProcessCrashed(int exit_code) {
+  PluginServiceImpl::GetInstance()->RegisterPluginCrash(plugin_path_);
+}
+
 bool PpapiPluginProcessHost::OnMessageReceived(const IPC::Message& msg) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PpapiPluginProcessHost, msg)
