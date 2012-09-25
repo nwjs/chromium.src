@@ -17,6 +17,7 @@
 #include "content/common/indexed_db/indexed_db_messages.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/user_metrics.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/result_codes.h"
 #include "googleurl/src/gurl.h"
@@ -102,7 +103,7 @@ void IndexedDBDispatcherHost::ResetDispatcherHosts() {
   // thread, and we must not reset the dispatcher hosts until after those
   // messages are processed.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::WEBKIT_DEPRECATED) ||
-         CommandLine::ForCurrentProcess()->HasSwitch(switches::kSingleProcess));
+         content::RenderProcessHost::run_renderer_in_process());
 
   database_dispatcher_host_.reset();
   index_dispatcher_host_.reset();

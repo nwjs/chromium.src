@@ -7,10 +7,13 @@
 #import <Foundation/Foundation.h>
 
 #include <limits>
+#include <stdio.h>
 
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/time.h"
+#include "content/nw/src/common/shell_switches.h"
 #include "third_party/node/deps/uv/include/uv.h"
 
 #if !defined(OS_IOS)
@@ -528,44 +531,6 @@ void MessagePumpNSRunLoop::Quit() {
   CFRunLoopWakeUp(run_loop());
 }
 
-MessagePumpUVRunLoop::MessagePumpUVRunLoop()
-    : keep_running_(true) {
-  CFRunLoopSourceContext source_context = CFRunLoopSourceContext();
-  source_context.perform = NoOp;
-  quit_source_ = CFRunLoopSourceCreate(NULL,  // allocator
-                                       0,     // priority
-                                       &source_context);
-  CFRunLoopAddSource(run_loop(), quit_source_, kCFRunLoopCommonModes);
-}
-
-MessagePumpUVRunLoop::~MessagePumpUVRunLoop() {
-  CFRunLoopRemoveSource(run_loop(), quit_source_, kCFRunLoopCommonModes);
-  CFRelease(quit_source_);
-}
-
-void MessagePumpUVRunLoop::DoRun(Delegate* delegate) {
-  while (keep_running_) {
-    // Wake up after 50ms.
-    MessagePumpScopedAutoreleasePool autorelease_pool(this);
-    NSDate* short_then = [NSDate dateWithTimeIntervalSinceNow:0.05];
-
-    // And poll UV.
-    uv_run_once_nowait(uv_default_loop());
-
-    // NSRunLoop manages autorelease pools itself.
-    [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode
-                             beforeDate:short_then];
-  }
-
-  keep_running_ = true;
-}
-
-void MessagePumpUVRunLoop::Quit() {
-  keep_running_ = false;
-  CFRunLoopSourceSignal(quit_source_);
-  CFRunLoopWakeUp(run_loop());
-}
-
 #if defined(OS_IOS)
 MessagePumpUIApplication::MessagePumpUIApplication()
     : run_loop_(NULL) {
@@ -590,9 +555,10 @@ void MessagePumpUIApplication::Attach(Delegate* delegate) {
 
 #else
 
-MessagePumpNSApplication::MessagePumpNSApplication()
+MessagePumpNSApplication::MessagePumpNSApplication(bool forNode)
     : keep_running_(true),
-      running_own_loop_(false) {
+      running_own_loop_(false),
+      for_node_(forNode) {
 }
 
 MessagePumpNSApplication::~MessagePumpNSApplication() {}
@@ -607,17 +573,20 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
   // RegisterCrApp() or RegisterBrowserCrApp().
   CHECK(NSApp);
 
-  if (![NSApp isRunning]) {
+  if (!for_node_ && ![NSApp isRunning]) {
     running_own_loop_ = false;
     // NSApplication manages autorelease pools itself when run this way.
     [NSApp run];
   } else {
     running_own_loop_ = true;
-    NSDate* distant_future = [NSDate distantFuture];
     while (keep_running_) {
+      if (for_node_)
+        uv_run_once_nowait(uv_default_loop());
+
       MessagePumpScopedAutoreleasePool autorelease_pool(this);
+      NSDate* short_then = [NSDate dateWithTimeIntervalSinceNow:0.05];
       NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                          untilDate:distant_future
+                                          untilDate:short_then
                                              inMode:NSDefaultRunLoopMode
                                             dequeue:YES];
       if (event) {
@@ -650,7 +619,8 @@ void MessagePumpNSApplication::Quit() {
            atStart:NO];
 }
 
-MessagePumpCrApplication::MessagePumpCrApplication() {
+MessagePumpCrApplication::MessagePumpCrApplication(bool forNode) 
+ : MessagePumpNSApplication(forNode) {
 }
 
 // Prevents an autorelease pool from being created if the app is in the midst of
@@ -714,13 +684,16 @@ bool MessagePumpMac::IsHandlingSendEvent() {
 #endif  // !defined(OS_IOS)
 
 // static
-MessagePump* MessagePumpMac::Create(bool withUv) {
+MessagePump* MessagePumpMac::Create(bool forNode) {
   if ([NSThread isMainThread]) {
+    if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kmNodejs))
+      forNode = false;
+
 #if defined(OS_IOS)
     return new MessagePumpUIApplication;
 #else
     if ([NSApp conformsToProtocol:@protocol(CrAppProtocol)])
-      return new MessagePumpCrApplication;
+      return new MessagePumpCrApplication(forNode);
 
     // The main-thread MessagePump implementations REQUIRE an NSApp.
     // Executables which have specific requirements for their
@@ -728,10 +701,8 @@ MessagePump* MessagePumpMac::Create(bool withUv) {
     // creating an event loop.
     [NSApplication sharedApplication];
     not_using_crapp = true;
-    return new MessagePumpNSApplication;
+    return new MessagePumpNSApplication(forNode);
 #endif
-  } else if (withUv) {
-    return new MessagePumpUVRunLoop;
   }
 
   return new MessagePumpNSRunLoop;
