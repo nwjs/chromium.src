@@ -7,3 +7,8 @@
 IN_PROC_BROWSER_TEST_F(ExtensionApiTest, DISABLED_FileAPI) {
   ASSERT_TRUE(RunExtensionTest("fileapi")) << message_;
 }
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, RequestQuotaInBackgroundPage) {
+  ASSERT_TRUE(RunExtensionTest("request_quota_background")) << message_;
+}
+
