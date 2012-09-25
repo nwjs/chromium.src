@@ -29,7 +29,6 @@
 #include "content/public/app/content_main_delegate.h"
 #include "content/public/app/startup_helper_win.h"
 #include "content/public/browser/content_browser_client.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_paths.h"
@@ -312,7 +311,8 @@ class ContentClientInitializer {
       if (!content_client->plugin_)
         content_client->plugin_ = &g_empty_content_plugin_client.Get();
     } else if (process_type == switches::kRendererProcess ||
-               RenderProcessHost::run_renderer_in_process()) {
+               CommandLine::ForCurrentProcess()->HasSwitch(
+                   switches::kSingleProcess)) {
       if (delegate)
         content_client->renderer_ = delegate->CreateContentRendererClient();
       if (!content_client->renderer_)

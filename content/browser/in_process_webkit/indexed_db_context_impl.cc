@@ -13,7 +13,6 @@
 #include "base/utf_string_conversions.h"
 #include "content/browser/in_process_webkit/indexed_db_quota_client.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_switches.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebCString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBDatabase.h"
@@ -95,7 +94,7 @@ IndexedDBContextImpl::IndexedDBContextImpl(
   if (!data_path.empty())
     data_path_ = data_path.Append(kIndexedDBDirectory);
   if (quota_manager_proxy &&
-      !content::RenderProcessHost::run_renderer_in_process()) {
+      !CommandLine::ForCurrentProcess()->HasSwitch(switches::kSingleProcess)) {
     quota_manager_proxy->RegisterClient(
         new IndexedDBQuotaClient(webkit_thread_loop, this));
   }
