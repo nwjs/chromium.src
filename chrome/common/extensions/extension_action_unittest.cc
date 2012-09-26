@@ -131,8 +131,6 @@ TEST_F(ExtensionActionTest, Visibility) {
   action.ClearAllValuesForTab(100);
   ASSERT_FALSE(action.GetIsVisible(1));
   ASSERT_FALSE(action.GetIsVisible(100));
-
-  message_loop.RunAllPending();
 }
 
 TEST_F(ExtensionActionTest, ScriptBadgeAnimation) {
@@ -156,6 +154,8 @@ TEST_F(ExtensionActionTest, ScriptBadgeAnimation) {
 
   script_badge.ClearAllValuesForTab(1);
   EXPECT_FALSE(script_badge.GetIconAnimation(100));
+
+  message_loop.RunAllPending();
 }
 
 TEST_F(ExtensionActionTest, GetAttention) {
