@@ -84,25 +84,7 @@ void InitializeCompositingFieldTrial() {
   base::FieldTrial::Probability force_compositing_mode_probability = 0;
   base::FieldTrial::Probability threaded_compositing_probability = 0;
 
-  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
-  // Temporarily increase the field trial percentages for the dev
-  // Proper fix is in https://codereview.chromium.org/10914247/
-  if (channel == chrome::VersionInfo::CHANNEL_DEV) {
-#if defined(OS_WIN)
-    // Windows: Threaded compositing on by default.
-    if (!CommandLine::ForCurrentProcess()->HasSwitch(
-            switches::kDisableThreadedCompositing))
-        threaded_compositing_probability = 3;
-    else
-      force_compositing_mode_probability = 3;
-#endif
-#if defined(OS_MACOSX)
-    // Force compositing mode on by default.
-    force_compositing_mode_probability = 3;
-#endif
-  }
-
-  int force_compositing_group = trial->AppendGroup(
+   int force_compositing_group = trial->AppendGroup(
       content::kGpuCompositingFieldTrialForceCompositingEnabledName,
       force_compositing_mode_probability);
   int thread_group = trial->AppendGroup(
