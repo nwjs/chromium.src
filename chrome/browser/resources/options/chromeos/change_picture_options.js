@@ -392,8 +392,9 @@ cr.define('options', function() {
         chrome.send('selectImage', [url]);
       }
       // Start/stop camera on (de)selection.
-      if (!imageGrid.inProgramSelection) {
-        if (imageGrid.selectionType == 'camera' && !imageGrid.cameraOnline) {
+      if (!imageGrid.inProgramSelection &&
+          imageGrid.selectionType != e.oldSelectionType) {
+        if (imageGrid.selectionType == 'camera') {
             imageGrid.checkCameraPresence(
               function() {  // When present.
                 // Start capture if camera is still the selected item.
@@ -402,8 +403,7 @@ cr.define('options', function() {
               function() {  // When absent.
                 return true;  // Check again after some time.
               });
-        } else if (imageGrid.selectionType != 'camera' &&
-                   imageGrid.cameraOnline) {
+        } else {
           imageGrid.stopCamera();
         }
       }
