@@ -491,7 +491,7 @@ void ShellWindowViews::DeleteDelegate() {
 }
 
 bool ShellWindowViews::CanResize() const {
-  return true;
+  return maximum_size_.IsEmpty() || minimum_size_ != maximum_size_;
 }
 
 bool ShellWindowViews::CanMaximize() const {
