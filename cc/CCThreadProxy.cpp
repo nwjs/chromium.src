@@ -526,7 +526,7 @@ void CCThreadProxy::beginFrame()
     }
 
     if (request->contentsTexturesWereDeleted)
-        m_layerTreeHost->unlinkAllContentTextures();
+        m_layerTreeHost->evictAllContentTextures();
 
     OwnPtr<CCTextureUpdateQueue> queue = adoptPtr(new CCTextureUpdateQueue);
     m_layerTreeHost->updateLayers(*(queue.get()), request->memoryAllocationLimitBytes);
@@ -568,7 +568,7 @@ void CCThreadProxy::beginFrameCompleteOnImplThread(CCCompletionEvent* completion
 {
     TRACE_EVENT0("cc", "CCThreadProxy::beginFrameCompleteOnImplThread");
     ASSERT(!m_commitCompletionEventOnImplThread);
-    ASSERT(isImplThread() && isMainThreadBlocked());
+    ASSERT(isImplThread());
     ASSERT(m_schedulerOnImplThread);
     ASSERT(m_schedulerOnImplThread->commitPending());
 
@@ -578,20 +578,15 @@ void CCThreadProxy::beginFrameCompleteOnImplThread(CCCompletionEvent* completion
         return;
     }
 
-    if (contentsTexturesWereDeleted) {
-        ASSERT(m_layerTreeHostImpl->contentsTexturesPurged());
-        // We unlinked all textures on the main thread, delete them now.
-        m_layerTreeHost->deleteUnlinkedTextures();
-        // Mark that we can start drawing again when this commit is complete.
-        m_resetContentsTexturesPurgedAfterCommitOnImplThread = true;
-    } else if (m_layerTreeHostImpl->contentsTexturesPurged()) {
+    if (!contentsTexturesWereDeleted && m_layerTreeHostImpl->contentsTexturesPurged()) {
         // We purged the content textures on the impl thread between the time we
         // posted the beginFrame task and now, meaning we have a bunch of
         // uploads that are now invalid. Clear the uploads (they all go to
         // content textures), and kick another commit to fill them again.
         queue->clearUploads();
         setNeedsCommitOnImplThread();
-    }
+    } else
+        m_resetContentsTexturesPurgedAfterCommitOnImplThread = true;
 
     bool hasResourceUpdates = !!queue->fullUploadSize();
     m_currentTextureUpdateControllerOnImplThread = CCTextureUpdateController::create(this, CCProxy::implThread(), queue, m_layerTreeHostImpl->resourceProvider(), m_layerTreeHostImpl->resourceProvider()->textureUploader());

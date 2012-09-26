@@ -274,11 +274,8 @@ bool CCSingleThreadProxy::commitAndComposite()
     if (!m_layerTreeHost->initializeRendererIfNeeded())
         return false;
 
-    if (m_layerTreeHostImpl->contentsTexturesPurged()) {
-        m_layerTreeHost->unlinkAllContentTextures();
-        DebugScopedSetImplThreadAndMainThreadBlocked implAndMainBlocked;
-        m_layerTreeHost->deleteUnlinkedTextures();
-    }
+    if (m_layerTreeHostImpl->contentsTexturesPurged())
+        m_layerTreeHost->evictAllContentTextures();
 
     CCTextureUpdateQueue queue;
     m_layerTreeHost->updateLayers(queue, m_layerTreeHostImpl->memoryAllocationLimitBytes());

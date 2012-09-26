@@ -58,8 +58,7 @@ public:
 
     void reduceMemory(CCResourceProvider*);
     void clearAllMemory(CCResourceProvider*);
-    void unlinkAllBackings();
-    void deleteAllUnlinkedBackings();
+    void allBackingTexturesWereDeleted();
 
     void acquireBackingTextureIfNeeded(CCPrioritizedTexture*, CCResourceProvider*);
 
