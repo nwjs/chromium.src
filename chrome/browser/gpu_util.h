@@ -77,6 +77,9 @@ bool InForceCompositingModeOrThreadTrial();
 // Sets up the force-compositing-mode field trial.
 void InitializeForceCompositingModeFieldTrial();
 
+// Sets up Stage3D on XP field trial
+void InitializeStage3DFieldTrial();
+
 }  // namespace gpu_util
 
 #endif  // CHROME_BROWSER_GPU_UTIL_H_
