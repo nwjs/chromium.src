@@ -5,10 +5,12 @@
 #include "ash/display/display_controller.h"
 #include "ash/display/multi_display_manager.h"
 #include "ash/shell.h"
+#include "ash/system/tray/system_tray.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/coordinate_conversion.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/window_cycle_controller.h"
+#include "ash/wm/window_properties.h"
 #include "ash/wm/window_util.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/capture_client.h"
@@ -138,6 +140,7 @@ TEST_F(ExtendedDesktopTest, SystemModal) {
 
   views::Widget* widget_on_1st = CreateTestWidget(gfx::Rect(10, 10, 100, 100));
   EXPECT_TRUE(wm::IsActiveWindow(widget_on_1st->GetNativeView()));
+  EXPECT_EQ(root_windows[0], widget_on_1st->GetNativeView()->GetRootWindow());
   EXPECT_EQ(root_windows[0], Shell::GetActiveRootWindow());
 
   // Open system modal. Make sure it's on 2nd root window and active.
@@ -303,7 +306,14 @@ TEST_F(ExtendedDesktopTest, GetRootWindowMatching) {
             wm::GetRootWindowMatching(gfx::Rect(0, 1000, 50, 50)));
 }
 
-TEST_F(ExtendedDesktopTest, Capture) {
+#if defined(OS_WIN)
+// TODO(mazda): Re-enable this (http://crbug.com/150986).
+#define MAYBE_Capture DISABLED_Capture
+#else
+#define MAYBE_Capture Capture
+#endif
+
+TEST_F(ExtendedDesktopTest, MAYBE_Capture) {
   UpdateDisplay("1000x600,600x400");
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
 
@@ -352,8 +362,7 @@ TEST_F(ExtendedDesktopTest, Capture) {
   EXPECT_EQ("1 1", r1_d2.GetMouseButtonCountsAndReset());
 
   r1_w2->ReleaseCapture();
-  EXPECT_EQ(NULL,
-            aura::client::GetCaptureWindow(r2_w1->GetRootWindow()));
+  EXPECT_EQ(NULL, aura::client::GetCaptureWindow(r2_w1->GetRootWindow()));
   generator2.MoveMouseTo(15, 15);
   generator2.ClickLeftButton();
   EXPECT_EQ("1 1 0", r2_d1.GetMouseMotionCountsAndReset());
@@ -536,6 +545,58 @@ TEST_F(ExtendedDesktopTest, ConvertPoint) {
   p.SetPoint(0, 0);
   aura::Window::ConvertPointToTarget(d1, d2, &p);
   EXPECT_EQ("-10,-610", p.ToString());
+}
+
+TEST_F(ExtendedDesktopTest, OpenSystemTray) {
+  UpdateDisplay("1000x600,600x400");
+  SystemTray* tray = ash::Shell::GetInstance()->system_tray();
+  ASSERT_FALSE(tray->HasSystemBubble());
+
+  // Opens the tray by a dummy click event and makes sure that adding/removing
+  // displays doesn't break anything.
+  aura::test::EventGenerator event_generator(
+      ash::Shell::GetInstance()->GetPrimaryRootWindow(),
+      tray->GetWidget()->GetNativeWindow());
+  event_generator.ClickLeftButton();
+  EXPECT_TRUE(tray->HasSystemBubble());
+
+  UpdateDisplay("100x600");
+  EXPECT_TRUE(tray->HasSystemBubble());
+  UpdateDisplay("100x600,600x400");
+  EXPECT_TRUE(tray->HasSystemBubble());
+
+  // Closes the tray and again makes sure that adding/removing displays doesn't
+  // break anything.
+  event_generator.ClickLeftButton();
+  RunAllPendingInMessageLoop();
+
+  EXPECT_FALSE(tray->HasSystemBubble());
+
+  UpdateDisplay("100x600");
+  EXPECT_FALSE(tray->HasSystemBubble());
+  UpdateDisplay("100x600,600x400");
+  EXPECT_FALSE(tray->HasSystemBubble());
+}
+
+TEST_F(ExtendedDesktopTest, StayInSameRootWindow) {
+  UpdateDisplay("100x100,200x200");
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  views::Widget* w1 = CreateTestWidgetWithParent(
+      NULL, gfx::Rect(10, 10, 50, 50), false);
+  EXPECT_EQ(root_windows[0], w1->GetNativeView()->GetRootWindow());
+  w1->SetBounds(gfx::Rect(150, 10, 50, 50));
+  EXPECT_EQ(root_windows[1], w1->GetNativeView()->GetRootWindow());
+
+  // The widget stays in the same root if kStayInSameRootWindowKey is set to
+  // true.
+  w1->GetNativeView()->SetProperty(internal::kStayInSameRootWindowKey, true);
+  w1->SetBounds(gfx::Rect(10, 10, 50, 50));
+  EXPECT_EQ(root_windows[1], w1->GetNativeView()->GetRootWindow());
+
+  // The widget should now move to the 1st root window without the property.
+  w1->GetNativeView()->ClearProperty(internal::kStayInSameRootWindowKey);
+  w1->SetBounds(gfx::Rect(10, 10, 50, 50));
+  EXPECT_EQ(root_windows[0], w1->GetNativeView()->GetRootWindow());
 }
 
 }  // namespace internal

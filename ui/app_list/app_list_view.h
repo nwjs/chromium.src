@@ -14,7 +14,6 @@
 
 namespace app_list {
 
-class AppListBubbleBorder;
 class AppListModel;
 class AppListViewDelegate;
 class ContentsView;
@@ -42,6 +41,8 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDelegateView,
   void SetBubbleArrowLocation(
       views::BubbleBorder::ArrowLocation arrow_location);
 
+  void SetAnchorPoint(const gfx::Point& anchor_point);
+
   void Close();
 
   void UpdateBounds();
@@ -63,9 +64,6 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDelegateView,
   virtual void ButtonPressed(views::Button* sender,
                              const ui::Event& event) OVERRIDE;
 
-  // Overridden from views::BubbleDelegate:
-  virtual gfx::Rect GetBubbleBounds() OVERRIDE;
-
   // Overridden from SearchBoxViewDelegate:
   virtual void QueryChanged(SearchBoxView* sender) OVERRIDE;
 
@@ -79,7 +77,6 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDelegateView,
   scoped_ptr<AppListModel> model_;
   scoped_ptr<AppListViewDelegate> delegate_;
 
-  AppListBubbleBorder* bubble_border_;  // Owned by views hierarchy.
   SearchBoxView* search_box_view_;  // Owned by views hierarchy.
   ContentsView* contents_view_;  // Owned by views hierarchy.
 

@@ -29,6 +29,10 @@
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/non_client_view.h"
 
+#if defined(OS_WIN)
+#include "base/win/metro.h"
+#endif
+
 namespace {
 
 // Padding around the "content" of a tab, occupied by the tab border graphics.
@@ -57,7 +61,7 @@ int top_padding() {
     switch (ui::GetDisplayLayout()) {
       case ui::LAYOUT_ASH:
       case ui::LAYOUT_DESKTOP:
-        value = 6;
+        value = 7;
         break;
       case ui::LAYOUT_TOUCH:
         value = 12;
@@ -204,7 +208,19 @@ static const SkColor kMiniTitleChangeGradientColor1 = SK_ColorWHITE;
 static const SkColor kMiniTitleChangeGradientColor2 =
     SkColorSetARGB(0, 255, 255, 255);
 
+// Max number of images to cache. This has to be at least two since rounding
+// errors may lead to tabs in the same tabstrip having different sizes.
+const size_t kMaxImageCacheSize = 4;
+
 }  // namespace
+
+Tab::ImageCacheEntry::ImageCacheEntry()
+    : resource_id(-1),
+      scale_factor(ui::SCALE_FACTOR_NONE),
+      instant_images(false) {
+}
+
+Tab::ImageCacheEntry::~ImageCacheEntry() {}
 
 Tab::TabImage Tab::tab_alpha_ = {0};
 Tab::TabImage Tab::tab_active_ = {0};
@@ -213,6 +229,8 @@ Tab::TabImage Tab::tab_inactive_ = {0};
 
 // static
 const char Tab::kViewClassName[] = "BrowserTab";
+// static
+Tab::ImageCache* Tab::image_cache_ = NULL;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tab, public:
@@ -630,18 +648,49 @@ void Tab::PaintInactiveTabBackgroundWithTitleChange(gfx::Canvas* canvas) {
 }
 
 void Tab::PaintInactiveTabBackground(gfx::Canvas* canvas) {
+  int tab_id;
+  if (GetWidget() && GetWidget()->GetTopLevelWidget()->ShouldUseNativeFrame()) {
+    tab_id = IDR_THEME_TAB_BACKGROUND_V;
+  } else if (data().incognito) {
+    tab_id = IDR_THEME_TAB_BACKGROUND_INCOGNITO;
+#if defined(OS_WIN)
+  } else if (base::win::IsMetroProcess()) {
+    tab_id = IDR_THEME_TAB_BACKGROUND_V;
+#endif
+  } else {
+    tab_id = IDR_THEME_TAB_BACKGROUND;
+  }
+
+  const bool can_cache = !GetThemeProvider()->HasCustomImage(tab_id) &&
+      !hover_controller().ShouldDraw();
+
+  if (can_cache) {
+    const bool instant_images =
+        controller() && controller()->IsInstantExtendedAPIEnabled();
+    gfx::ImageSkia cached_image(
+        GetCachedImage(tab_id, size(), canvas->scale_factor(), instant_images));
+    if (cached_image.width() == 0) {
+      gfx::Canvas tmp_canvas(size(), canvas->scale_factor(), false);
+      PaintInactiveTabBackgroundUsingResourceId(&tmp_canvas, tab_id);
+      cached_image = gfx::ImageSkia(tmp_canvas.ExtractImageRep());
+      SetCachedImage(tab_id, canvas->scale_factor(), instant_images,
+                     cached_image);
+    }
+    canvas->DrawImageInt(cached_image, 0, 0);
+  } else {
+    PaintInactiveTabBackgroundUsingResourceId(canvas, tab_id);
+  }
+}
+
+void Tab::PaintInactiveTabBackgroundUsingResourceId(gfx::Canvas* canvas,
+                                                    int tab_id) {
+  // WARNING: the inactive tab background may be cached. If you change what it
+  // is drawn from you may need to update whether it can be cached.
+
   // The tab image needs to be lined up with the background image
   // so that it feels partially transparent.  These offsets represent the tab
   // position within the frame background image.
   int offset = GetMirroredX() + background_offset_.x();
-
-  int tab_id;
-  if (GetWidget() && GetWidget()->GetTopLevelWidget()->ShouldUseNativeFrame()) {
-    tab_id = IDR_THEME_TAB_BACKGROUND_V;
-  } else {
-    tab_id = data().incognito ? IDR_THEME_TAB_BACKGROUND_INCOGNITO :
-                                IDR_THEME_TAB_BACKGROUND;
-  }
 
   gfx::ImageSkia* tab_bg = GetThemeProvider()->GetImageSkiaNamed(tab_id);
 
@@ -808,6 +857,8 @@ void Tab::InitTabResources() {
 
   initialized = true;
 
+  image_cache_ = new ImageCache();
+
   // Load the tab images once now, and maybe again later if the theme changes.
   LoadTabImages();
 }
@@ -840,4 +891,34 @@ void Tab::LoadTabImages() {
   tab_inactive_.image_r = rb.GetImageSkiaNamed(IDR_TAB_INACTIVE_RIGHT);
   tab_inactive_.l_width = tab_inactive_.image_l->width();
   tab_inactive_.r_width = tab_inactive_.image_r->width();
+}
+
+// static
+gfx::ImageSkia Tab::GetCachedImage(int resource_id,
+                                   const gfx::Size& size,
+                                   ui::ScaleFactor scale_factor,
+                                   bool instant_images) {
+  for (ImageCache::const_iterator i = image_cache_->begin();
+       i != image_cache_->end(); ++i) {
+    if (i->resource_id == resource_id && i->scale_factor == scale_factor &&
+        i->image.size() == size && i->instant_images == instant_images) {
+      return i->image;
+    }
+  }
+  return gfx::ImageSkia();
+}
+
+// static
+void Tab::SetCachedImage(int resource_id,
+                         ui::ScaleFactor scale_factor,
+                         bool instant_images,
+                         const gfx::ImageSkia& image) {
+  ImageCacheEntry entry;
+  entry.resource_id = resource_id;
+  entry.scale_factor = scale_factor;
+  entry.image = image;
+  entry.instant_images = instant_images;
+  image_cache_->push_front(entry);
+  if (image_cache_->size() > kMaxImageCacheSize)
+    image_cache_->pop_back();
 }

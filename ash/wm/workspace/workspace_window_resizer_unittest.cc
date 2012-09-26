@@ -16,6 +16,7 @@
 #include "ash/wm/workspace/snap_sizer.h"
 #include "ash/wm/workspace/phantom_window_controller.h"
 #include "base/string_number_conversions.h"
+#include "base/stringprintf.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/base/hit_test.h"
@@ -58,11 +59,12 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
 
   virtual void SetUp() OVERRIDE {
     AshTestBase::SetUp();
-    aura::RootWindow* root = Shell::GetPrimaryRootWindow();
-    root->SetHostSize(gfx::Size(800, kRootHeight));
+    UpdateDisplay(StringPrintf("800x%d", kRootHeight));
 
+    aura::RootWindow* root = Shell::GetPrimaryRootWindow();
     gfx::Rect root_bounds(root->bounds());
     EXPECT_EQ(kRootHeight, root_bounds.height());
+    EXPECT_EQ(800, root_bounds.width());
     Shell::GetInstance()->SetDisplayWorkAreaInsets(root, gfx::Insets());
     window_.reset(new aura::Window(&delegate_));
     window_->SetType(aura::client::WINDOW_TYPE_NORMAL);
@@ -491,11 +493,8 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_WindowDragWithMultiDisplays) {
         window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
     ASSERT_TRUE(resizer.get());
     // Drag the pointer to the right. Once it reaches the right edge of the
-    // primary display, it warps to the secondary. Since the secondary root
-    // window's native origin held by aura::RootWindowHost is (0, 600), and a
-    // mouse drag event has a location in the primary root window's coordinates,
-    // (0, 610) below means (0, 10) in the second root window's coordinates.
-    resizer->Drag(CalculateDragPoint(*resizer, 0, 610), 0);
+    // primary display, it warps to the secondary.
+    resizer->Drag(CalculateDragPoint(*resizer, 800, 10), 0);
     resizer->CompleteDrag(0);
     // The whole window is on the secondary display now. The parent should be
     // changed.
@@ -528,9 +527,9 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_WindowDragWithMultiDisplays) {
     scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
         window_.get(), gfx::Point(49, 0), HTCAPTION, empty_windows()));
     ASSERT_TRUE(resizer.get());
-    resizer->Drag(CalculateDragPoint(*resizer, -49, 610), ui::EF_CONTROL_DOWN);
+    resizer->Drag(CalculateDragPoint(*resizer, 751, 10), ui::EF_CONTROL_DOWN);
     resizer->CompleteDrag(0);
-    // Since the pointer is on the secondary, the parent should not be changed
+    // Since the pointer is on the secondary, the parent should be changed
     // even though only small fraction of the window is within the secondary
     // root window's bounds.
     EXPECT_EQ(root_windows[1], window_->GetRootWindow());
@@ -556,7 +555,7 @@ TEST_F(WorkspaceWindowResizerTest,
         window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
     ASSERT_TRUE(resizer.get());
     // Move the mouse near the right edge, (798, 0), of the primary display.
-    resizer->Drag(CalculateDragPoint(*resizer, 798, -600), ui::EF_CONTROL_DOWN);
+    resizer->Drag(CalculateDragPoint(*resizer, -2, 0), ui::EF_CONTROL_DOWN);
     resizer->CompleteDrag(0);
     EXPECT_EQ(root_windows[0], window_->GetRootWindow());
     EXPECT_EQ("798,0 50x60", window_->bounds().ToString());
@@ -605,7 +604,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
     EXPECT_GT(1.0f, controller->GetOpacity());
 
     // Enter the pointer to the secondary display.
-    resizer->Drag(CalculateDragPoint(*resizer, 0, 610), 0);
+    resizer->Drag(CalculateDragPoint(*resizer, 800, 10), 0);
     EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
     controller = resizer->drag_phantom_window_controller_.get();
     ASSERT_TRUE(controller);
@@ -881,10 +880,10 @@ TEST_F(WorkspaceWindowResizerTest, SnapToEdge) {
   EXPECT_EQ("513,112 320x160", window_->bounds().ToString());
 
   // And the bottom should snap too.
-  resizer->Drag(CalculateDragPoint(*resizer, 0, 600 - 160 - 112 - 2 - 7), 0);
-  EXPECT_EQ("96,438 320x160", window_->bounds().ToString());
-  resizer->Drag(CalculateDragPoint(*resizer, 0, 600 - 160 - 112 - 2 + 15), 0);
-  EXPECT_EQ("96,438 320x160", window_->bounds().ToString());
+  resizer->Drag(CalculateDragPoint(*resizer, 0, 600 - 160 - 112 - 3 - 7), 0);
+  EXPECT_EQ("96,437 320x160", window_->bounds().ToString());
+  resizer->Drag(CalculateDragPoint(*resizer, 0, 600 - 160 - 112 - 3 + 15), 0);
+  EXPECT_EQ("96,437 320x160", window_->bounds().ToString());
   resizer->Drag(CalculateDragPoint(*resizer, 0, 600 - 160 - 112 - 2 + 32), 0);
   EXPECT_EQ("96,470 320x160", window_->bounds().ToString());
   resizer->Drag(CalculateDragPoint(*resizer, 0, 600 - 160 - 112 - 2 + 33), 0);

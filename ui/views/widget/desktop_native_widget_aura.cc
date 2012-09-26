@@ -4,6 +4,7 @@
 
 #include "ui/views/widget/desktop_native_widget_aura.h"
 
+#include "ui/aura/root_window.h"
 #include "ui/aura/root_window_host.h"
 #include "ui/aura/window.h"
 #include "ui/base/hit_test.h"
@@ -33,20 +34,21 @@ void DesktopNativeWidgetAura::InitNativeWidget(
   window_->Init(params.layer_type);
   window_->Show();
 
-  desktop_root_window_host_.reset(
-      DesktopRootWindowHost::Create(native_widget_delegate_, params.bounds));
+  desktop_root_window_host_ =
+      DesktopRootWindowHost::Create(native_widget_delegate_, params.bounds);
   desktop_root_window_host_->Init(window_, params);
 }
 
 NonClientFrameView* DesktopNativeWidgetAura::CreateNonClientFrameView() {
-  return NULL;
+  return desktop_root_window_host_->CreateNonClientFrameView();
 }
 
 bool DesktopNativeWidgetAura::ShouldUseNativeFrame() const {
-  return false;
+  return desktop_root_window_host_->ShouldUseNativeFrame();
 }
 
 void DesktopNativeWidgetAura::FrameTypeChanged() {
+  desktop_root_window_host_->FrameTypeChanged();
 }
 
 Widget* DesktopNativeWidgetAura::GetWidget() {
@@ -87,10 +89,11 @@ void DesktopNativeWidgetAura::ViewRemoved(View* view) {
 
 void DesktopNativeWidgetAura::SetNativeWindowProperty(const char* name,
                                                       void* value) {
+  window_->SetNativeWindowProperty(name, value);
 }
 
 void* DesktopNativeWidgetAura::GetNativeWindowProperty(const char* name) const {
-  return NULL;
+  return window_->GetNativeWindowProperty(name);
 }
 
 TooltipManager* DesktopNativeWidgetAura::GetTooltipManager() const {
@@ -107,13 +110,23 @@ void DesktopNativeWidgetAura::SendNativeAccessibilityEvent(
 }
 
 void DesktopNativeWidgetAura::SetCapture() {
+  window_->SetCapture();
+  // aura::Window doesn't implicitly update capture on the RootWindowHost, so
+  // we have to do that manually.
+  if (!desktop_root_window_host_->HasCapture())
+    window_->GetRootWindow()->SetNativeCapture();
 }
 
 void DesktopNativeWidgetAura::ReleaseCapture() {
+  window_->ReleaseCapture();
+  // aura::Window doesn't implicitly update capture on the RootWindowHost, so
+  // we have to do that manually.
+  if (desktop_root_window_host_->HasCapture())
+    window_->GetRootWindow()->ReleaseNativeCapture();
 }
 
 bool DesktopNativeWidgetAura::HasCapture() const {
-  return false;
+  return window_->HasCapture() && desktop_root_window_host_->HasCapture();
 }
 
 InputMethod* DesktopNativeWidgetAura::CreateInputMethod() {
@@ -187,6 +200,7 @@ void DesktopNativeWidgetAura::StackBelow(gfx::NativeView native_view) {
 }
 
 void DesktopNativeWidgetAura::SetShape(gfx::NativeRegion shape) {
+  desktop_root_window_host_->SetShape(shape);
 }
 
 void DesktopNativeWidgetAura::Close() {
@@ -255,19 +269,22 @@ void DesktopNativeWidgetAura::Restore() {
 }
 
 void DesktopNativeWidgetAura::SetFullscreen(bool fullscreen) {
+  desktop_root_window_host_->SetFullscreen(fullscreen);
 }
 
 bool DesktopNativeWidgetAura::IsFullscreen() const {
-  return false;
+  return desktop_root_window_host_->IsFullscreen();
 }
 
 void DesktopNativeWidgetAura::SetOpacity(unsigned char opacity) {
+  desktop_root_window_host_->SetOpacity(opacity);
 }
 
 void DesktopNativeWidgetAura::SetUseDragFrame(bool use_drag_frame) {
 }
 
 void DesktopNativeWidgetAura::FlashFrame(bool flash_frame) {
+  desktop_root_window_host_->FlashFrame(flash_frame);
 }
 
 bool DesktopNativeWidgetAura::IsAccessibleWidget() const {
@@ -286,16 +303,15 @@ void DesktopNativeWidgetAura::SchedulePaintInRect(const gfx::Rect& rect) {
 }
 
 void DesktopNativeWidgetAura::SetCursor(gfx::NativeCursor cursor) {
+  desktop_root_window_host_->AsRootWindowHost()->SetCursor(cursor);
 }
 
 void DesktopNativeWidgetAura::ClearNativeFocus() {
-}
-
-void DesktopNativeWidgetAura::FocusNativeView(gfx::NativeView native_view) {
+  desktop_root_window_host_->ClearNativeFocus();
 }
 
 gfx::Rect DesktopNativeWidgetAura::GetWorkAreaBoundsInScreen() const {
-  return gfx::Rect(100, 100);
+  return desktop_root_window_host_->GetWorkAreaBoundsInScreen();
 }
 
 void DesktopNativeWidgetAura::SetInactiveRenderingDisabled(bool value) {
@@ -303,14 +319,16 @@ void DesktopNativeWidgetAura::SetInactiveRenderingDisabled(bool value) {
 
 Widget::MoveLoopResult DesktopNativeWidgetAura::RunMoveLoop(
       const gfx::Point& drag_offset) {
-  return Widget::MOVE_LOOP_CANCELED;
+  return desktop_root_window_host_->RunMoveLoop(drag_offset);
 }
 
 void DesktopNativeWidgetAura::EndMoveLoop() {
+  desktop_root_window_host_->EndMoveLoop();
 }
 
 void DesktopNativeWidgetAura::SetVisibilityChangedAnimationsEnabled(
     bool value) {
+  desktop_root_window_host_->SetVisibilityChangedAnimationsEnabled(value);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -329,6 +347,7 @@ void DesktopNativeWidgetAura::OnBoundsChanged(const gfx::Rect& old_bounds,
 }
 
 void DesktopNativeWidgetAura::OnFocus(aura::Window* old_focused_window) {
+  // This space intentionally left blank.
 }
 
 void DesktopNativeWidgetAura::OnBlur() {
@@ -340,8 +359,7 @@ gfx::NativeCursor DesktopNativeWidgetAura::GetCursor(const gfx::Point& point) {
 
 int DesktopNativeWidgetAura::GetNonClientComponent(
     const gfx::Point& point) const {
-  // TODO(beng): seems like this shouldn't be necessary here, right?
-  return HTCLIENT;
+  return native_widget_delegate_->GetNonClientComponent(point);
 }
 
 bool DesktopNativeWidgetAura::ShouldDescendIntoChildForEventHandling(
@@ -355,6 +373,7 @@ bool DesktopNativeWidgetAura::CanFocus() {
 }
 
 void DesktopNativeWidgetAura::OnCaptureLost() {
+  native_widget_delegate_->OnMouseCaptureLost();
 }
 
 void DesktopNativeWidgetAura::OnPaint(gfx::Canvas* canvas) {
@@ -375,10 +394,11 @@ void DesktopNativeWidgetAura::OnWindowTargetVisibilityChanged(bool visible) {
 }
 
 bool DesktopNativeWidgetAura::HasHitTestMask() const {
-  return false;
+  return native_widget_delegate_->HasHitTestMask();
 }
 
 void DesktopNativeWidgetAura::GetHitTestMask(gfx::Path* mask) const {
+  native_widget_delegate_->GetHitTestMask(mask);
 }
 
 scoped_refptr<ui::Texture> DesktopNativeWidgetAura::CopyTexture() {
@@ -417,12 +437,12 @@ ui::EventResult DesktopNativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {
 }
 
 ui::TouchStatus DesktopNativeWidgetAura::OnTouchEvent(ui::TouchEvent* event) {
-  return ui::TOUCH_STATUS_UNKNOWN;
+  return native_widget_delegate_->OnTouchEvent(*event);
 }
 
 ui::EventResult DesktopNativeWidgetAura::OnGestureEvent(
     ui::GestureEvent* event) {
-  return ui::ER_UNHANDLED;
+  return native_widget_delegate_->OnGestureEvent(*event);
 }
 
 }  // namespace views

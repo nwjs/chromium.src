@@ -14,6 +14,7 @@
 
 #include <list>
 #include <map>
+#include <utility>
 #include <vector>
 
 #include <X11/extensions/Xrandr.h>
@@ -42,6 +43,7 @@
 
 #if defined(USE_AURA)
 #include <X11/Xcursor/Xcursor.h>
+#include "skia/ext/image_operations.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/skia_util.h"
 #endif
@@ -166,7 +168,7 @@ unsigned int XKeyEventKeyCode(ui::KeyboardCode key_code,
 // A process wide singleton that manages the usage of X cursors.
 class XCursorCache {
  public:
-   XCursorCache() {}
+  XCursorCache() {}
   ~XCursorCache() {
     Clear();
   }
@@ -352,9 +354,14 @@ static SharedMemorySupport DoQuerySharedMemorySupport(Display* dpy) {
 #endif
 
   // Next we probe to see if shared memory will really work
-  int shmkey = shmget(IPC_PRIVATE, 1, 0666);
-  if (shmkey == -1)
+  int shmkey = shmget(IPC_PRIVATE, 1, 0600);
+  if (shmkey == -1) {
+    LOG(WARNING) << "Failed to get shared memory segment.";
     return SHARED_MEMORY_NONE;
+  } else {
+    VLOG(1) << "Got shared memory segment " << shmkey;
+  }
+
   void* address = shmat(shmkey, NULL, 0);
   // Mark the shared memory region for deletion
   shmctl(shmkey, IPC_RMID, NULL);
@@ -365,12 +372,20 @@ static SharedMemorySupport DoQuerySharedMemorySupport(Display* dpy) {
 
   gdk_error_trap_push();
   bool result = XShmAttach(dpy, &shminfo);
+  if (result)
+    VLOG(1) << "X got shared memory segment " << shmkey;
+  else
+    LOG(WARNING) << "X failed to attach to shared memory segment " << shmkey;
   XSync(dpy, False);
   if (gdk_error_trap_pop())
     result = false;
   shmdt(address);
-  if (!result)
+  if (!result) {
+    LOG(WARNING) << "X failed to attach to shared memory segment " << shmkey;
     return SHARED_MEMORY_NONE;
+  }
+
+  VLOG(1) << "X attached to shared memory segment " << shmkey;
 
   XShmDetach(dpy, &shminfo);
   return pixmaps_supported ? SHARED_MEMORY_PIXMAP : SHARED_MEMORY_PUTIMAGE;
@@ -433,12 +448,35 @@ void UnrefCustomXCursor(::Cursor cursor) {
   XCustomCursorCache::GetInstance()->Unref(cursor);
 }
 
-XcursorImage* SkBitmapToXcursorImage(const SkBitmap* bitmap,
+XcursorImage* SkBitmapToXcursorImage(const SkBitmap* cursor_image,
                                      const gfx::Point& hotspot) {
-  DCHECK(bitmap->config() == SkBitmap::kARGB_8888_Config);
+  DCHECK(cursor_image->config() == SkBitmap::kARGB_8888_Config);
+  gfx::Point hotspot_point = hotspot;
+  SkBitmap scaled;
+
+  // X11 seems to have issues with cursors when images get larger than 64
+  // pixels. So rescale the image if necessary.
+  const float kMaxPixel = 64.f;
+  bool needs_scale = false;
+  if (cursor_image->width() > kMaxPixel || cursor_image->height() > kMaxPixel) {
+    float scale = 1.f;
+    if (cursor_image->width() > cursor_image->height())
+      scale = kMaxPixel / cursor_image->width();
+    else
+      scale = kMaxPixel / cursor_image->height();
+
+    scaled = skia::ImageOperations::Resize(*cursor_image,
+        skia::ImageOperations::RESIZE_BETTER,
+        static_cast<int>(cursor_image->width() * scale),
+        static_cast<int>(cursor_image->height() * scale));
+    hotspot_point = hotspot.Scale(scale);
+    needs_scale = true;
+  }
+
+  const SkBitmap* bitmap = needs_scale ? &scaled : cursor_image;
   XcursorImage* image = XcursorImageCreate(bitmap->width(), bitmap->height());
-  image->xhot = hotspot.x();
-  image->yhot = hotspot.y();
+  image->xhot = hotspot_point.x();
+  image->yhot = hotspot_point.y();
 
   if (bitmap->width() && bitmap->height()) {
     bitmap->lockPixels();
@@ -878,8 +916,13 @@ XSharedMemoryId AttachSharedMemory(Display* display, int shared_memory_key) {
   // This function is only called if QuerySharedMemorySupport returned true. In
   // which case we've already succeeded in having the X server attach to one of
   // our shared memory segments.
-  if (!XShmAttach(display, &shminfo))
+  if (!XShmAttach(display, &shminfo)) {
+    LOG(WARNING) << "X failed to attach to shared memory segment "
+                 << shminfo.shmid;
     NOTREACHED();
+  } else {
+    VLOG(1) << "X attached to shared memory segment " << shminfo.shmid;
+  }
 
   return shminfo.shmseg;
 }
@@ -1530,7 +1573,7 @@ void LogErrorEventDescription(Display* dpy,
     XFreeExtensionList(ext_list);
   }
 
-  LOG(ERROR) 
+  LOG(ERROR)
       << "X Error detected: "
       << "serial " << error_event.serial << ", "
       << "error_code " << static_cast<int>(error_event.error_code)

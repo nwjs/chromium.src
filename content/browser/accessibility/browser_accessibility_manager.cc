@@ -116,8 +116,10 @@ BrowserAccessibility* BrowserAccessibilityManager::GetFromRendererID(
   return GetFromChildID(child_id);
 }
 
-void BrowserAccessibilityManager::GotFocus() {
-  osk_state_ = OSK_DISALLOWED_BECAUSE_TAB_JUST_APPEARED;
+void BrowserAccessibilityManager::GotFocus(bool touch_event_context) {
+  if (!touch_event_context)
+    osk_state_ = OSK_DISALLOWED_BECAUSE_TAB_JUST_APPEARED;
+
   if (!focus_)
     return;
 
@@ -185,7 +187,8 @@ void BrowserAccessibilityManager::OnAccessibilityNotifications(
         notification_type == AccessibilityNotificationBlur) {
       SetFocus(node, false);
 
-      if (osk_state_ != OSK_DISALLOWED_BECAUSE_TAB_HIDDEN)
+      if (osk_state_ != OSK_DISALLOWED_BECAUSE_TAB_HIDDEN &&
+          osk_state_ != OSK_DISALLOWED_BECAUSE_TAB_JUST_APPEARED)
         osk_state_ = OSK_ALLOWED;
 
       // Don't send a native focus event if the window itself doesn't

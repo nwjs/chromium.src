@@ -95,17 +95,11 @@ class DockView : public views::View {
   }
 
   virtual void OnPaintBackground(gfx::Canvas* canvas) {
-    SkRect outer_rect = { SkIntToScalar(0), SkIntToScalar(0),
-                          SkIntToScalar(width()),
-                          SkIntToScalar(height()) };
-
     // Fill the background rect.
     SkPaint paint;
     paint.setColor(SkColorSetRGB(108, 108, 108));
     paint.setStyle(SkPaint::kFill_Style);
-    canvas->sk_canvas()->drawRoundRect(
-        outer_rect, SkIntToScalar(kRoundedRectRadius),
-        SkIntToScalar(kRoundedRectRadius), paint);
+    canvas->DrawRoundRect(GetLocalBounds(), kRoundedRectRadius, paint);
 
     ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
 
@@ -1928,8 +1922,6 @@ Browser* TabDragController::CreateBrowserForDrag(
     const gfx::Point& point_in_screen,
     gfx::Point* drag_offset,
     std::vector<gfx::Rect>* drag_bounds) {
-  Browser* browser = new Browser(
-      Browser::CreateParams(drag_data_[0].contents->profile()));
   gfx::Point center(0, source->height() / 2);
   views::View::ConvertPointToWidget(source, &center);
   gfx::Rect new_bounds(source->GetWidget()->GetWindowBoundsInScreen());
@@ -1957,8 +1949,10 @@ Browser* TabDragController::CreateBrowserForDrag(
 
   *drag_offset = point_in_screen.Subtract(new_bounds.origin());
 
+  Browser::CreateParams create_params(drag_data_[0].contents->profile());
+  create_params.initial_bounds = new_bounds;
+  Browser* browser = new Browser(create_params);
   SetTrackedByWorkspace(browser->window()->GetNativeWindow(), false);
-  browser->window()->SetBounds(new_bounds);
   return browser;
 }
 

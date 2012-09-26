@@ -25,6 +25,7 @@
 #include "chrome/browser/download/download_service.h"
 #include "chrome/browser/download/download_service_factory.h"
 #include "chrome/browser/download/download_util.h"
+#include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/google/google_util.h"
@@ -254,7 +255,6 @@ RenderViewContextMenu::RenderViewContextMenu(
       ALLOW_THIS_IN_INITIALIZER_LIST(menu_model_(this)),
       external_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(speech_input_submenu_model_(this)),
-      ALLOW_THIS_IN_INITIALIZER_LIST(bidi_submenu_model_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(protocol_handler_submenu_model_(this)),
       protocol_handler_registry_(profile_->GetProtocolHandlerRegistry()) {
 }
@@ -674,6 +674,8 @@ void RenderViewContextMenu::AppendPlatformAppItems() {
   if (platform_app->location() == Extension::LOAD) {
     menu_model_.AddItemWithStringId(IDC_RELOAD, IDS_CONTENT_CONTEXT_RELOAD);
     AppendDeveloperItems();
+    menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE,
+                                    IDS_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE);
   }
 }
 
@@ -990,13 +992,7 @@ void RenderViewContextMenu::AppendEditableItems() {
 
   AppendSpellcheckOptionsSubMenu();
   AppendSpeechInputOptionsSubMenu();
-
-#if defined(OS_MACOSX)
-  // OS X provides a contextual menu to set writing direction for BiDi
-  // languages.
-  // This functionality is exposed as a keyboard shortcut on Windows & Linux.
-  AppendBidiSubMenu();
-#endif  // OS_MACOSX
+  AppendPlatformEditableItems();
 
   menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
   menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_SELECTALL,
@@ -1037,22 +1033,6 @@ void RenderViewContextMenu::AppendSpeechInputOptionsSubMenu() {
   }
 }
 
-#if defined(OS_MACOSX)
-void RenderViewContextMenu::AppendBidiSubMenu() {
-  bidi_submenu_model_.AddCheckItem(IDC_WRITING_DIRECTION_DEFAULT,
-      l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_WRITING_DIRECTION_DEFAULT));
-  bidi_submenu_model_.AddCheckItem(IDC_WRITING_DIRECTION_LTR,
-      l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_WRITING_DIRECTION_LTR));
-  bidi_submenu_model_.AddCheckItem(IDC_WRITING_DIRECTION_RTL,
-      l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_WRITING_DIRECTION_RTL));
-
-  menu_model_.AddSubMenu(
-      IDC_WRITING_DIRECTION_MENU,
-      l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_WRITING_DIRECTION_MENU),
-      &bidi_submenu_model_);
-}
-#endif  // OS_MACOSX
-
 void RenderViewContextMenu::AppendProtocolHandlerSubMenu() {
   const ProtocolHandlerRegistry::ProtocolHandlerList handlers =
       GetHandlersForLinkUrl();
@@ -1074,6 +1054,9 @@ void RenderViewContextMenu::AppendProtocolHandlerSubMenu() {
       IDC_CONTENT_CONTEXT_OPENLINKWITH,
       l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_OPENLINKWITH),
       &protocol_handler_submenu_model_);
+}
+
+void RenderViewContextMenu::AppendPlatformEditableItems() {
 }
 
 MenuItem* RenderViewContextMenu::GetExtensionMenuItem(int id) const {
@@ -1149,13 +1132,14 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return source_web_contents_->GetController().CanGoForward();
 
     case IDC_RELOAD: {
-      TabContents* tab_contents =
-          TabContents::FromWebContents(source_web_contents_);
-      if (!tab_contents)
+      CoreTabHelper* core_tab_helper =
+          CoreTabHelper::FromWebContents(source_web_contents_);
+      if (!core_tab_helper)
         return false;
-      CoreTabHelperDelegate* core_delegate =
-          tab_contents->core_tab_helper()->delegate();
-      return !core_delegate || core_delegate->CanReloadContents(tab_contents);
+
+      CoreTabHelperDelegate* core_delegate = core_tab_helper->delegate();
+      return !core_delegate ||
+             core_delegate->CanReloadContents(source_web_contents_);
     }
 
     case IDC_VIEW_SOURCE:
@@ -1163,6 +1147,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return source_web_contents_->GetController().CanViewSource();
 
     case IDC_CONTENT_CONTEXT_INSPECTELEMENT:
+    case IDC_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE:
       return IsDevCommandEnabled(id);
 
     case IDC_CONTENT_CONTEXT_VIEWPAGEINFO:
@@ -1293,14 +1278,14 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return true;
 
     case IDC_SAVE_PAGE: {
-      TabContents* tab_contents =
-          TabContents::FromWebContents(source_web_contents_);
-      if (!tab_contents)
+      CoreTabHelper* core_tab_helper =
+          CoreTabHelper::FromWebContents(source_web_contents_);
+      if (!core_tab_helper)
         return false;
 
-      CoreTabHelperDelegate* core_delegate =
-          tab_contents->core_tab_helper()->delegate();
-      if (core_delegate && !core_delegate->CanSaveContents(tab_contents))
+      CoreTabHelperDelegate* core_delegate = core_tab_helper->delegate();
+      if (core_delegate &&
+          !core_delegate->CanSaveContents(source_web_contents_))
         return false;
 
       PrefService* local_state = g_browser_process->local_state();
@@ -1367,19 +1352,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
     case IDC_CHECK_SPELLING_WHILE_TYPING:
       return profile_->GetPrefs()->GetBoolean(prefs::kEnableSpellCheck);
 
-#if defined(OS_MACOSX)
-    case IDC_WRITING_DIRECTION_DEFAULT:  // Provided to match OS defaults.
-      return params_.writing_direction_default &
-          WebContextMenuData::CheckableMenuItemEnabled;
-    case IDC_WRITING_DIRECTION_RTL:
-      return params_.writing_direction_right_to_left &
-          WebContextMenuData::CheckableMenuItemEnabled;
-    case IDC_WRITING_DIRECTION_LTR:
-      return params_.writing_direction_left_to_right &
-          WebContextMenuData::CheckableMenuItemEnabled;
-    case IDC_WRITING_DIRECTION_MENU:
-      return true;
-#elif defined(OS_POSIX)
+#if !defined(OS_MACOSX) && defined(OS_POSIX)
     // TODO(suzhe): this should not be enabled for password fields.
     case IDC_INPUT_METHODS_MENU:
       return true;
@@ -1444,20 +1417,6 @@ bool RenderViewContextMenu::IsCommandIdChecked(int id) const {
     else
       return false;
   }
-
-#if defined(OS_MACOSX)
-    if (id == IDC_WRITING_DIRECTION_DEFAULT)
-      return params_.writing_direction_default &
-          WebContextMenuData::CheckableMenuItemChecked;
-    if (id == IDC_WRITING_DIRECTION_RTL)
-      return params_.writing_direction_right_to_left &
-          WebContextMenuData::CheckableMenuItemChecked;
-    if (id == IDC_WRITING_DIRECTION_LTR)
-      return params_.writing_direction_left_to_right &
-          WebContextMenuData::CheckableMenuItemChecked;
-    if (id == IDC_CONTENT_CONTEXT_LOOK_UP_IN_DICTIONARY)
-      return false;
-#endif  // OS_MACOSX
 
 #if defined(ENABLE_INPUT_SPEECH)
   // Check box for menu item 'Block offensive words'.
@@ -1710,14 +1669,14 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
 
     case IDC_PRINT:
       if (params_.media_type == WebContextMenuData::MediaTypeNone) {
-        TabContents* tab_contents =
-            TabContents::FromWebContents(source_web_contents_);
-        if (!tab_contents)
+        printing::PrintViewManager* print_view_manager =
+            printing::PrintViewManager::FromWebContents(source_web_contents_);
+        if (!print_view_manager)
           break;
         if (profile_->GetPrefs()->GetBoolean(prefs::kPrintPreviewDisabled)) {
-          tab_contents->print_view_manager()->PrintNow();
+          print_view_manager->PrintNow();
         } else {
-          tab_contents->print_view_manager()->PrintPreviewNow();
+          print_view_manager->PrintPreviewNow();
         }
       } else {
         rvh->Send(new PrintMsg_PrintNodeUnderContextMenu(rvh->GetRoutingID()));
@@ -1731,6 +1690,16 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
     case IDC_CONTENT_CONTEXT_INSPECTELEMENT:
       Inspect(params_.x, params_.y);
       break;
+
+    case IDC_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE: {
+      const Extension* platform_app = GetExtension();
+      DCHECK(platform_app);
+      DCHECK(platform_app->is_platform_app());
+
+      extensions::ExtensionSystem::Get(profile_)->extension_service()->
+          InspectBackgroundPage(platform_app);
+      break;
+    }
 
     case IDC_CONTENT_CONTEXT_VIEWPAGEINFO: {
       NavigationController* controller = &source_web_contents_->GetController();
@@ -1836,21 +1805,6 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       break;
     }
 
-#if defined(OS_MACOSX)
-    case IDC_WRITING_DIRECTION_DEFAULT:
-      // WebKit's current behavior is for this menu item to always be disabled.
-      NOTREACHED();
-      break;
-    case IDC_WRITING_DIRECTION_RTL:
-    case IDC_WRITING_DIRECTION_LTR: {
-      WebKit::WebTextDirection dir = WebKit::WebTextDirectionLeftToRight;
-      if (id == IDC_WRITING_DIRECTION_RTL)
-        dir = WebKit::WebTextDirectionRightToLeft;
-      rvh->UpdateTextDirection(dir);
-      rvh->NotifyTextDirection();
-      break;
-    }
-#endif  // OS_MACOSX
     case IDC_CONTENT_CONTEXT_PROTOCOL_HANDLER_SETTINGS: {
       content::RecordAction(
           UserMetricsAction("RegisterProtocolHandler.ContextMenu_Settings"));
@@ -1870,11 +1824,10 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
         return;
       model->Load();
 
-      TabContents* tab_contents =
-          TabContents::FromWebContents(source_web_contents_);
-      if (tab_contents &&
-          tab_contents->search_engine_tab_helper() &&
-          tab_contents->search_engine_tab_helper()->delegate()) {
+      SearchEngineTabHelper* search_engine_tab_helper =
+          SearchEngineTabHelper::FromWebContents(source_web_contents_);
+      if (search_engine_tab_helper &&
+          search_engine_tab_helper->delegate()) {
         string16 keyword(TemplateURLService::GenerateKeyword(params_.page_url));
         TemplateURLData data;
         data.short_name = keyword;
@@ -1883,7 +1836,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
         data.favicon_url =
             TemplateURL::GenerateFaviconURL(params_.page_url.GetOrigin());
         // Takes ownership of the TemplateURL.
-        tab_contents->search_engine_tab_helper()->delegate()->
+        search_engine_tab_helper->delegate()->
             ConfirmAddSearchProvider(new TemplateURL(profile_, data), profile_);
       }
       break;
@@ -1956,7 +1909,8 @@ void RenderViewContextMenu::MenuClosed(ui::SimpleMenuModel* source) {
 }
 
 bool RenderViewContextMenu::IsDevCommandEnabled(int id) const {
-  if (id == IDC_CONTENT_CONTEXT_INSPECTELEMENT) {
+  if (id == IDC_CONTENT_CONTEXT_INSPECTELEMENT ||
+      id == IDC_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE) {
     const CommandLine* command_line = CommandLine::ForCurrentProcess();
     if (!profile_->GetPrefs()->GetBoolean(prefs::kWebKitJavascriptEnabled) ||
         command_line->HasSwitch(switches::kDisableJavaScript))

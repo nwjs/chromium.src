@@ -1,7 +1,7 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-//
+
 // Implementation of AudioOutputStream for Windows using Windows Core Audio
 // WASAPI for low latency rendering.
 //
@@ -90,10 +90,6 @@
 //
 // Core Audio API details:
 //
-// - CoInitializeEx() is called on the creating thread and on the internal
-//   capture thread. Each thread's concurrency model and apartment is set
-//   to multi-threaded (MTA). CHECK() is called to ensure that we crash if
-//   CoInitializeEx(MTA) fails.
 // - The public API methods (Open(), Start(), Stop() and Close()) must be
 //   called on constructing thread. The reason is that we want to ensure that
 //   the COM environment is the same for all API implementations.
@@ -218,7 +214,7 @@ class MEDIA_EXPORT WASAPIAudioOutputStream
   // as command-line flag and AUDCLNT_SHAREMODE_SHARED otherwise (default).
   static AUDCLNT_SHAREMODE GetShareMode();
 
-  bool started() const { return started_; }
+  bool started() const { return render_thread_.get() != NULL; }
 
  private:
   FRIEND_TEST_ALL_PREFIXES(WASAPIAudioOutputStreamTest, HardwareChannelCount);
@@ -295,10 +291,6 @@ class MEDIA_EXPORT WASAPIAudioOutputStream
         client_channel_count_));
   }
 
-  // Initializes the COM library for use by the calling thread and sets the
-  // thread's concurrency model to multi-threaded.
-  base::win::ScopedCOMInitializer com_init_;
-
   // Contains the thread ID of the creating thread.
   base::PlatformThreadId creating_thread_id_;
 
@@ -320,7 +312,6 @@ class MEDIA_EXPORT WASAPIAudioOutputStream
   base::win::ScopedCoMem<WAVEFORMATPCMEX> audio_engine_mix_format_;
 
   bool opened_;
-  bool started_;
 
   // Set to true as soon as a new default device is detected, and cleared when
   // the streaming has switched from using the old device to the new device.

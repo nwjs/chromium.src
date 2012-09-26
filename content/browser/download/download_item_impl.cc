@@ -30,8 +30,6 @@
 #include "base/bind.h"
 #include "base/file_util.h"
 #include "base/format_macros.h"
-#include "base/i18n/case_conversion.h"
-#include "base/i18n/string_search.h"
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
 #include "base/stl_util.h"
@@ -78,22 +76,6 @@ const char* DebugSafetyStateString(DownloadItem::SafetyState state) {
       return "DANGEROUS_BUT_VALIDATED";
     default:
       NOTREACHED() << "Unknown safety state " << state;
-      return "unknown";
-  };
-}
-
-const char* DebugDownloadStateString(DownloadItem::DownloadState state) {
-  switch (state) {
-    case DownloadItem::IN_PROGRESS:
-      return "IN_PROGRESS";
-    case DownloadItem::COMPLETE:
-      return "COMPLETE";
-    case DownloadItem::CANCELLED:
-      return "CANCELLED";
-    case DownloadItem::INTERRUPTED:
-      return "INTERRUPTED";
-    default:
-      NOTREACHED() << "Unknown download state " << state;
       return "unknown";
   };
 }
@@ -160,7 +142,7 @@ DownloadItemImpl::DownloadItemImpl(DownloadItemImplDelegate* delegate,
       bytes_per_sec_(0),
       last_reason_(content::DOWNLOAD_INTERRUPT_REASON_NONE),
       start_tick_(base::TimeTicks()),
-      state_(info.state),
+      state_(ExternalToInternalState(info.state)),
       danger_type_(content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS),
       start_time_(info.start_time),
       end_time_(info.end_time),
@@ -180,9 +162,9 @@ DownloadItemImpl::DownloadItemImpl(DownloadItemImplDelegate* delegate,
       bound_net_log_(bound_net_log),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
   delegate_->Attach();
-  if (IsInProgress())
-    state_ = CANCELLED;
-  if (IsComplete())
+  if (state_ == IN_PROGRESS_INTERNAL)
+    state_ = CANCELLED_INTERNAL;
+  if (state_ == COMPLETE_INTERNAL)
     all_data_saved_ = true;
   Init(false /* not actively downloading */,
        download_net_logs::SRC_HISTORY_IMPORT);
@@ -215,7 +197,7 @@ DownloadItemImpl::DownloadItemImpl(
       bytes_per_sec_(0),
       last_reason_(content::DOWNLOAD_INTERRUPT_REASON_NONE),
       start_tick_(base::TimeTicks::Now()),
-      state_(IN_PROGRESS),
+      state_(IN_PROGRESS_INTERNAL),
       danger_type_(content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS),
       start_time_(info.start_time),
       db_handle_(DownloadItem::kUninitializedHandle),
@@ -270,7 +252,7 @@ DownloadItemImpl::DownloadItemImpl(DownloadItemImplDelegate* delegate,
       bytes_per_sec_(0),
       last_reason_(content::DOWNLOAD_INTERRUPT_REASON_NONE),
       start_tick_(base::TimeTicks::Now()),
-      state_(IN_PROGRESS),
+      state_(IN_PROGRESS_INTERNAL),
       danger_type_(content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS),
       start_time_(base::Time::Now()),
       db_handle_(DownloadItem::kUninitializedHandle),
@@ -320,7 +302,11 @@ void DownloadItemImpl::UpdateObservers() {
 
 void DownloadItemImpl::DangerousDownloadValidated() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK_EQ(IN_PROGRESS, GetState());
   DCHECK_EQ(DANGEROUS, GetSafetyState());
+
+  if (GetState() != IN_PROGRESS)
+    return;
 
   UMA_HISTOGRAM_ENUMERATION("Download.DangerousDownloadValidated",
                             GetDangerType(),
@@ -341,7 +327,7 @@ void DownloadItemImpl::DangerousDownloadValidated() {
 void DownloadItemImpl::TogglePause() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  DCHECK(IsInProgress());
+  DCHECK(state_ == IN_PROGRESS_INTERNAL || state_ == COMPLETING_INTERNAL);
   if (is_paused_)
     request_handle_->ResumeRequest();
   else
@@ -358,7 +344,7 @@ void DownloadItemImpl::Cancel(bool user_cancel) {
       content::DOWNLOAD_INTERRUPT_REASON_USER_SHUTDOWN;
 
   VLOG(20) << __FUNCTION__ << "() download = " << DebugString(true);
-  if (!IsPartialDownload()) {
+  if (state_ != IN_PROGRESS_INTERNAL) {
     // Small downloads might be complete before this method has
     // a chance to run.
     return;
@@ -366,7 +352,7 @@ void DownloadItemImpl::Cancel(bool user_cancel) {
 
   download_stats::RecordDownloadCount(download_stats::CANCELLED_COUNT);
 
-  TransitionTo(CANCELLED);
+  TransitionTo(CANCELLED_INTERNAL);
   if (user_cancel)
     delegate_->DownloadStopped(this);
 }
@@ -412,7 +398,7 @@ void DownloadItemImpl::Remove() {
 void DownloadItemImpl::OpenDownload() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (IsPartialDownload()) {
+  if (state_ == IN_PROGRESS_INTERNAL) {
     // We don't honor the open_when_complete_ flag for temporary
     // downloads. Don't set it because it shows up in the UI.
     if (!IsTemporary())
@@ -420,7 +406,7 @@ void DownloadItemImpl::OpenDownload() {
     return;
   }
 
-  if (!IsComplete() || file_externally_removed_)
+  if (state_ != COMPLETE_INTERNAL || file_externally_removed_)
     return;
 
   // Ideally, we want to detect errors in opening and report them, but we
@@ -460,7 +446,7 @@ int64 DownloadItemImpl::GetDbHandle() const {
 }
 
 DownloadItem::DownloadState DownloadItemImpl::GetState() const {
-  return state_;
+  return InternalToExternalState(state_);
 }
 
 content::DownloadInterruptReason DownloadItemImpl::GetLastReason() const {
@@ -482,24 +468,24 @@ bool DownloadItemImpl::IsPersisted() const {
 // TODO(ahendrickson) -- Move |INTERRUPTED| from |IsCancelled()| to
 // |IsPartialDownload()|, when resuming interrupted downloads is implemented.
 bool DownloadItemImpl::IsPartialDownload() const {
-  return (state_ == IN_PROGRESS);
+  return InternalToExternalState(state_) == IN_PROGRESS;
 }
 
 bool DownloadItemImpl::IsInProgress() const {
-  return (state_ == IN_PROGRESS);
+  return InternalToExternalState(state_) == IN_PROGRESS;
 }
 
 bool DownloadItemImpl::IsCancelled() const {
-  return (state_ == CANCELLED) ||
-         (state_ == INTERRUPTED);
+  DownloadState external_state = InternalToExternalState(state_);
+  return  external_state == CANCELLED || external_state == INTERRUPTED;
 }
 
 bool DownloadItemImpl::IsInterrupted() const {
-  return (state_ == INTERRUPTED);
+  return InternalToExternalState(state_) == INTERRUPTED;
 }
 
 bool DownloadItemImpl::IsComplete() const {
-  return (state_ == COMPLETE);
+  return InternalToExternalState(state_) == COMPLETE;
 }
 
 const GURL& DownloadItemImpl::GetURL() const {
@@ -672,7 +658,7 @@ base::Time DownloadItemImpl::GetEndTime() const {
 }
 
 bool DownloadItemImpl::CanShowInFolder() {
-  return !IsCancelled() && !file_externally_removed_;
+  return state_ != CANCELLED_INTERNAL && !file_externally_removed_;
 }
 
 bool DownloadItemImpl::CanOpenDownload() {
@@ -693,39 +679,6 @@ bool DownloadItemImpl::GetAutoOpened() {
 
 bool DownloadItemImpl::GetOpened() const {
   return opened_;
-}
-
-bool DownloadItemImpl::MatchesQuery(const string16& query) const {
-  if (query.empty())
-    return true;
-
-  DCHECK_EQ(query, base::i18n::ToLower(query));
-
-  string16 url_raw(UTF8ToUTF16(GetURL().spec()));
-  if (base::i18n::StringSearchIgnoringCaseAndAccents(
-          query, url_raw, NULL, NULL)) {
-    return true;
-  }
-
-  // TODO(phajdan.jr): write a test case for the following code.
-  // A good test case would be:
-  //   "/\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xbd\xa0\xe5\xa5\xbd",
-  //   L"/\x4f60\x597d\x4f60\x597d",
-  //   "/%E4%BD%A0%E5%A5%BD%E4%BD%A0%E5%A5%BD"
-  std::string languages;
-  languages = content::GetContentClient()->browser()->GetAcceptLangs(
-      GetBrowserContext());
-  string16 url_formatted(net::FormatUrl(GetURL(), languages));
-  if (base::i18n::StringSearchIgnoringCaseAndAccents(
-          query, url_formatted, NULL, NULL)) {
-    return true;
-  }
-
-  // TODO(asanka): Change this to GetTargetFilePath() once DownloadQuery has
-  //               been modified to work with target paths.
-  string16 path(GetFullPath().LossyDisplayName());
-  return base::i18n::StringSearchIgnoringCaseAndAccents(
-      query, path, NULL, NULL);
 }
 
 DownloadPersistentStoreInfo DownloadItemImpl::GetPersistentStoreInfo() const {
@@ -785,7 +738,7 @@ std::string DownloadItemImpl::DebugString(bool verbose) const {
       base::StringPrintf("{ id = %d"
                          " state = %s",
                          download_id_.local(),
-                         DebugDownloadStateString(GetState()));
+                         DebugDownloadStateString(state_));
 
   // Construct a string of the URL chain.
   std::string url_list("<none>");
@@ -869,11 +822,11 @@ void DownloadItemImpl::Interrupt(content::DownloadInterruptReason reason) {
   // interrupts to race with cancels.
 
   // Whatever happens, the first one to hit the UI thread wins.
-  if (!IsInProgress())
+  if (state_ != IN_PROGRESS_INTERNAL)
     return;
 
   last_reason_ = reason;
-  TransitionTo(INTERRUPTED);
+  TransitionTo(INTERRUPTED_INTERNAL);
   download_stats::RecordDownloadInterrupted(
       reason, received_bytes_, total_bytes_);
   delegate_->DownloadStopped(this);
@@ -891,7 +844,7 @@ void DownloadItemImpl::UpdateProgress(int64 bytes_so_far,
                                       const std::string& hash_state) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (!IsInProgress()) {
+  if (state_ != IN_PROGRESS_INTERNAL) {
     // Ignore if we're no longer in-progress.  This can happen if we race a
     // Cancel on the UI thread with an update on the FILE thread.
     //
@@ -936,7 +889,7 @@ void DownloadItemImpl::MarkAsComplete() {
 
   DCHECK(all_data_saved_);
   end_time_ = base::Time::Now();
-  TransitionTo(COMPLETE);
+  TransitionTo(COMPLETE_INTERNAL);
 }
 
 void DownloadItemImpl::SetIsPersisted() {
@@ -1021,6 +974,16 @@ void DownloadItemImpl::OnDownloadTargetDetermined(
   // space/permission/availability constraints.
   DCHECK(intermediate_path.DirName() == target_path.DirName());
 
+  if (state_ != IN_PROGRESS_INTERNAL) {
+    // If we've been cancelled or interrupted while the target was being
+    // determined, continue the cascade with a null name.
+    // The error doesn't matter as the cause of download stoppage
+    // will already have been recorded and will be retained, but we use
+    // whatever was recorded for consistency.
+    OnDownloadRenamedToIntermediateName(last_reason_, FilePath());
+    return;
+  }
+
   // Rename to intermediate name.
   // TODO(asanka): Skip this rename if AllDataSaved() is true. This avoids a
   //               spurious rename when we can just rename to the final
@@ -1060,6 +1023,9 @@ void DownloadItemImpl::MaybeCompleteDownload() {
 void DownloadItemImpl::OnDownloadCompleting() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+  if (state_ != IN_PROGRESS_INTERNAL)
+    return;
+
   VLOG(20) << __FUNCTION__ << "()"
            << " needs rename = " << NeedsRename()
            << " " << DebugString(true);
@@ -1083,6 +1049,7 @@ void DownloadItemImpl::OnDownloadCompleting() {
                    delegate_->GetDownloadFileManager(), GetGlobalId(),
                    base::Bind(&DownloadItemImpl::OnDownloadFileReleased,
                               weak_ptr_factory_.GetWeakPtr())));
+    TransitionTo(COMPLETING_INTERNAL);
   }
 }
 
@@ -1090,6 +1057,12 @@ void DownloadItemImpl::OnDownloadRenamedToFinalName(
     content::DownloadInterruptReason reason,
     const FilePath& full_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  // If a cancel or interrupt hit, we'll cancel the DownloadFile, which
+  // will result in deleting the file on the file thread.  So we don't
+  // care about the name having been changed.
+  if (state_ != IN_PROGRESS_INTERNAL)
+    return;
 
   VLOG(20) << __FUNCTION__ << "()"
            << " full_path = \"" << full_path.value() << "\""
@@ -1115,6 +1088,7 @@ void DownloadItemImpl::OnDownloadRenamedToFinalName(
                  delegate_->GetDownloadFileManager(), GetGlobalId(),
                  base::Bind(&DownloadItemImpl::OnDownloadFileReleased,
                             weak_ptr_factory_.GetWeakPtr())));
+  TransitionTo(COMPLETING_INTERNAL);
 }
 
 void DownloadItemImpl::OnDownloadFileReleased() {
@@ -1136,7 +1110,7 @@ void DownloadItemImpl::Completed() {
 
   DCHECK(all_data_saved_);
   end_time_ = base::Time::Now();
-  TransitionTo(COMPLETE);
+  TransitionTo(COMPLETE_INTERNAL);
   delegate_->DownloadCompleted(this);
   download_stats::RecordDownloadCompleted(start_tick_, received_bytes_);
 
@@ -1178,27 +1152,33 @@ void DownloadItemImpl::ProgressComplete(int64 bytes_so_far,
     total_bytes_ = 0;
 }
 
-void DownloadItemImpl::TransitionTo(DownloadState new_state) {
+void DownloadItemImpl::TransitionTo(DownloadInternalState new_state) {
   if (state_ == new_state)
     return;
 
-  DownloadState old_state = state_;
+  DownloadInternalState old_state = state_;
   state_ = new_state;
 
   switch (state_) {
-    case COMPLETE:
+    case COMPLETING_INTERNAL:
+      bound_net_log_.AddEvent(
+          net::NetLog::TYPE_DOWNLOAD_ITEM_COMPLETING,
+          base::Bind(&download_net_logs::ItemCompletingCallback,
+                     received_bytes_, &hash_));
+      break;
+    case COMPLETE_INTERNAL:
       bound_net_log_.AddEvent(
           net::NetLog::TYPE_DOWNLOAD_ITEM_FINISHED,
           base::Bind(&download_net_logs::ItemFinishedCallback,
-                     received_bytes_, &hash_));
+                     auto_opened_));
       break;
-    case INTERRUPTED:
+    case INTERRUPTED_INTERNAL:
       bound_net_log_.AddEvent(
           net::NetLog::TYPE_DOWNLOAD_ITEM_INTERRUPTED,
           base::Bind(&download_net_logs::ItemInterruptedCallback,
                      last_reason_, received_bytes_, &hash_state_));
       break;
-    case CANCELLED:
+    case CANCELLED_INTERNAL:
       bound_net_log_.AddEvent(
           net::NetLog::TYPE_DOWNLOAD_ITEM_CANCELED,
           base::Bind(&download_net_logs::ItemCanceledCallback,
@@ -1210,10 +1190,14 @@ void DownloadItemImpl::TransitionTo(DownloadState new_state) {
 
   VLOG(20) << " " << __FUNCTION__ << "()" << " this = " << DebugString(true);
 
-  UpdateObservers();
+  // Only update observers on user visible state changes.
+  if (InternalToExternalState(old_state) != InternalToExternalState(state_))
+    UpdateObservers();
 
-  bool is_done = (state_ != IN_PROGRESS);
-  bool was_done = (old_state != IN_PROGRESS);
+  bool is_done = (state_ != IN_PROGRESS_INTERNAL &&
+                  state_ != COMPLETING_INTERNAL);
+  bool was_done = (old_state != IN_PROGRESS_INTERNAL &&
+                   old_state != COMPLETING_INTERNAL);
   if (is_done && !was_done)
     bound_net_log_.EndEvent(net::NetLog::TYPE_DOWNLOAD_ITEM_ACTIVE);
 }
@@ -1247,6 +1231,60 @@ void DownloadItemImpl::SetFullPath(const FilePath& new_path) {
                  &current_path_, &new_path));
 }
 
+// static
+DownloadItem::DownloadState DownloadItemImpl::InternalToExternalState(
+    DownloadInternalState internal_state) {
+  switch (internal_state) {
+    case IN_PROGRESS_INTERNAL:
+      return IN_PROGRESS;
+    case COMPLETING_INTERNAL:
+      return IN_PROGRESS;
+    case COMPLETE_INTERNAL:
+      return COMPLETE;
+    case CANCELLED_INTERNAL:
+      return CANCELLED;
+    case INTERRUPTED_INTERNAL:
+      return INTERRUPTED;
+    default:
+      NOTREACHED();
+  }
+  return MAX_DOWNLOAD_STATE;
+}
 
+// static
+DownloadItemImpl::DownloadInternalState
+DownloadItemImpl::ExternalToInternalState(
+     DownloadState external_state) {
+   switch (external_state) {
+     case IN_PROGRESS:
+       return IN_PROGRESS_INTERNAL;
+     case COMPLETE:
+       return COMPLETE_INTERNAL;
+     case CANCELLED:
+       return CANCELLED_INTERNAL;
+     case INTERRUPTED:
+       return INTERRUPTED_INTERNAL;
+     default:
+       NOTREACHED();
+   }
+   return MAX_DOWNLOAD_INTERNAL_STATE;
+ }
 
-
+const char* DownloadItemImpl::DebugDownloadStateString(
+    DownloadInternalState state) {
+  switch (state) {
+    case IN_PROGRESS_INTERNAL:
+      return "IN_PROGRESS";
+    case COMPLETING_INTERNAL:
+      return "COMPLETING";
+    case COMPLETE_INTERNAL:
+      return "COMPLETE";
+    case CANCELLED_INTERNAL:
+      return "CANCELLED";
+    case INTERRUPTED_INTERNAL:
+      return "INTERRUPTED";
+    default:
+      NOTREACHED() << "Unknown download state " << state;
+      return "unknown";
+  };
+}

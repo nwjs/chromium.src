@@ -16,6 +16,7 @@
 #include "content/public/browser/web_contents_view_delegate.h"
 #include "content/public/browser/web_drag_dest_delegate.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
+#include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/drag_drop_client.h"
 #include "ui/aura/client/drag_drop_delegate.h"
 #include "ui/aura/root_window.h"
@@ -250,7 +251,9 @@ void WebContentsViewAura::EndDrag(WebKit::WebDragOperationsMask ops) {
 // WebContentsViewAura, WebContentsView implementation:
 
 void WebContentsViewAura::CreateView(const gfx::Size& initial_size) {
-  initial_size_ = initial_size;
+  // NOTE: we ignore |initial_size| since in some cases it's wrong (such as
+  // if the bookmark bar is not shown and you create a new tab). The right
+  // value is set shortly after this, so its safe to ignore.
 
   window_.reset(new aura::Window(this));
   window_->set_owned_by_parent(false);
@@ -406,7 +409,7 @@ gfx::Rect WebContentsViewAura::GetViewBounds() const {
 
 void WebContentsViewAura::ShowContextMenu(
     const content::ContextMenuParams& params,
-    const content::ContextMenuSourceType& type) {
+    content::ContextMenuSourceType type) {
   if (delegate_.get())
     delegate_->ShowContextMenu(params, type);
 }
@@ -489,6 +492,17 @@ void WebContentsViewAura::OnBoundsChanged(const gfx::Rect& old_bounds,
   SizeChangedCommon(new_bounds.size());
   if (delegate_.get())
     delegate_->SizeChanged(new_bounds.size());
+
+  // Constrained web dialogs, need to be kept centered over our content area.
+  for (size_t i = 0; i < window_->children().size(); i++) {
+    if (window_->children()[i]->GetProperty(
+            aura::client::kConstrainedWindowKey)) {
+      gfx::Rect bounds = window_->children()[i]->bounds();
+      bounds.Offset((new_bounds.width() - old_bounds.width()) / 2,
+                    (new_bounds.height() - old_bounds.height()) / 2);
+      window_->children()[i]->SetBounds(bounds);
+    }
+  }
 }
 
 void WebContentsViewAura::OnFocus(aura::Window* old_focused_window) {

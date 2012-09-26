@@ -69,8 +69,6 @@ CCResourceProvider::ResourceId CCTiledLayerImpl::contentsResourceId() const
 
     DrawableTile* tile = tileAt(0, 0);
     CCResourceProvider::ResourceId resourceId = tile ? tile->resourceId() : 0;
-    ASSERT(resourceId);
-
     return resourceId;
 }
 
@@ -212,6 +210,11 @@ Region CCTiledLayerImpl::visibleContentOpaqueRegion() const
 void CCTiledLayerImpl::didLoseContext()
 {
     m_tiler->reset();
+}
+
+const char* CCTiledLayerImpl::layerTypeAsString() const
+{
+    return "ContentLayer";
 }
 
 } // namespace cc

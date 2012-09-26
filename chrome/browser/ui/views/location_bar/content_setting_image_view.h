@@ -17,7 +17,6 @@
 #include "ui/views/widget/widget_observer.h"
 
 class ContentSettingImageModel;
-class ContentSettingBubbleContents;
 class LocationBarView;
 class TabContents;
 
@@ -34,8 +33,6 @@ namespace ui {
 class SlideAnimation;
 }
 
-class ContentSettingsDelegateView;
-
 // The ContentSettingImageView displays an icon and optional text label for
 // various content settings affordances in the location bar (i.e. plugin
 // blocking, geolocation).
@@ -44,11 +41,11 @@ class ContentSettingImageView : public LocationBarDecorationView,
  public:
   ContentSettingImageView(ContentSettingsType content_type,
                           const int background_images[],
-                          LocationBarView* parent);
+                          LocationBarView* parent,
+                          const gfx::Font& font,
+                          SkColor font_color);
   virtual ~ContentSettingImageView();
 
-  // |new_navigation| true if this is a new navigation, false if the tab was
-  // just switched to.
   virtual void Update(TabContents* tab_contents) OVERRIDE;
 
 

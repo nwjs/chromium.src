@@ -12,6 +12,7 @@
 #include "CCRenderPassSink.h"
 #include "CCRenderer.h"
 #include "SkColor.h"
+#include "base/time.h"
 #include <public/WebCompositorOutputSurfaceClient.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
@@ -40,6 +41,7 @@ public:
     virtual void setNeedsRedrawOnImplThread() = 0;
     virtual void setNeedsCommitOnImplThread() = 0;
     virtual void postAnimationEventsToMainThreadOnImplThread(PassOwnPtr<CCAnimationEventsVector>, double wallClockTime) = 0;
+    virtual void releaseContentsTexturesOnImplThread() = 0;
 };
 
 // CCLayerTreeHostImpl owns the CCLayerImpl tree as well as associated rendering state
@@ -64,6 +66,9 @@ public:
     virtual void scheduleAnimation() OVERRIDE;
 
     struct FrameData : public CCRenderPassSink {
+        FrameData();
+        ~FrameData();
+
         Vector<IntRect> occludingScreenSpaceRects;
         CCRenderPassList renderPasses;
         CCRenderPassIdHashMap renderPassesById;
@@ -89,8 +94,8 @@ public:
     void didDrawAllLayers(const FrameData&);
 
     // CCRendererClient implementation
-    virtual const IntSize& deviceViewportSize() const OVERRIDE { return m_deviceViewportSize; }
-    virtual const CCLayerTreeSettings& settings() const OVERRIDE { return m_settings; }
+    virtual const IntSize& deviceViewportSize() const OVERRIDE;
+    virtual const CCLayerTreeSettings& settings() const OVERRIDE;
     virtual void didLoseContext() OVERRIDE;
     virtual void onSwapBuffersComplete() OVERRIDE;
     virtual void setFullRootLayerDamage() OVERRIDE;
@@ -109,7 +114,7 @@ public:
     void finishAllRendering();
     int sourceAnimationFrameNumber() const;
 
-    bool initializeRenderer(PassOwnPtr<CCGraphicsContext>, TextureUploaderOption);
+    bool initializeRenderer(PassOwnPtr<CCGraphicsContext>);
     bool isContextLost();
     CCRenderer* renderer() { return m_renderer.get(); }
     const RendererCapabilities& rendererCapabilities() const;
@@ -137,6 +142,7 @@ public:
     void setSourceFrameNumber(int frameNumber) { m_sourceFrameNumber = frameNumber; }
 
     bool contentsTexturesPurged() const { return m_contentsTexturesPurged; }
+    void setContentsTexturesPurged();
     void resetContentsTexturesPurged();
     size_t memoryAllocationLimitBytes() const { return m_memoryAllocationLimitBytes; }
 
@@ -212,8 +218,8 @@ protected:
     // Virtual for testing.
     virtual void animateLayers(double monotonicTime, double wallClockTime);
 
-    // Virtual for testing. Measured in seconds.
-    virtual double lowFrequencyAnimationInterval() const;
+    // Virtual for testing.
+    virtual base::TimeDelta lowFrequencyAnimationInterval() const;
 
     CCLayerTreeHostImplClient* m_client;
     int m_sourceFrameNumber;

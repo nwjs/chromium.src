@@ -16,6 +16,7 @@
 #include "ash/system/web_notification/web_notification_tray.h"
 #include "ash/volume_control_delegate.h"
 #include "ash/wm/shelf_layout_manager.h"
+#include "ash/wm/window_properties.h"
 #include "base/i18n/time_formatting.h"
 #include "base/utf_string_conversions.h"
 #include "ui/aura/window.h"
@@ -315,6 +316,7 @@ StatusAreaWidget::StatusAreaWidget()
   set_focus_on_creation(false);
   SetContentsView(status_area_widget_delegate_);
   GetNativeView()->SetName("StatusAreaWidget");
+  GetNativeView()->SetProperty(internal::kStayInSameRootWindowKey, true);
 }
 
 StatusAreaWidget::~StatusAreaWidget() {
@@ -336,10 +338,10 @@ void StatusAreaWidget::Shutdown() {
   // hierarchy. Do not used scoped pointers since we don't want to destroy them
   // in the destructor if Shutdown() is not called (e.g. in tests).
   system_tray_delegate_.reset();
-  system_tray_ = NULL;
-  delete system_tray_;
-  web_notification_tray_ = NULL;
   delete web_notification_tray_;
+  web_notification_tray_ = NULL;
+  delete system_tray_;
+  system_tray_ = NULL;
 }
 
 bool StatusAreaWidget::ShouldShowLauncher() const {
@@ -356,6 +358,12 @@ bool StatusAreaWidget::ShouldShowLauncher() const {
   return (system_tray_ && system_tray_->IsMouseInNotificationBubble()) ||
         (web_notification_tray_ &&
          web_notification_tray_->IsMouseInNotificationBubble());
+}
+
+bool StatusAreaWidget::IsMessageBubbleShown() const {
+  return ((system_tray_ && system_tray_->IsAnyBubbleVisible()) ||
+          (web_notification_tray_ &&
+           web_notification_tray_->IsMessageCenterBubbleVisible()));
 }
 
 void StatusAreaWidget::AddSystemTray(ShellDelegate* shell_delegate) {

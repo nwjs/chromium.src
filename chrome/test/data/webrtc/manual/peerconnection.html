@@ -5,15 +5,34 @@
   <script type="text/javascript" src="../test_functions.js"></script>
   <script type="text/javascript" src="../message_handling.js"></script>
   <script type="text/javascript" src="../getusermedia.js"></script>
-  <script type="text/javascript" src="../jsep_call.js"></script>
+  <script type="text/javascript" src="../jsep01_call.js"></script>
   <script type="text/javascript" src="peerconnection.js"></script>
   <meta charset="utf-8">
 </head>
 <body>
   <table border="0">
     <tr>
-      <td>Local Preview</td>
-      <td>Remote Video</td>
+      <td>
+        Media hints: <input type="text" id="media-hints" size="20" value="{ }"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        Audio<input type="checkbox" id="audio" checked />
+        Video<input type="checkbox" id="video" checked />
+        <button id="re-request" onclick="getUserMediaFromHere();">
+            Request</button>
+      </td>
+      <td>
+        <p><small>Note: If you have granted media access for the callee, they
+            will automatically respond with their local stream when they are
+            called.</small>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><h2>Local Preview</h2></td>
+      <td><h2>Remote Video</h2></td>
     </tr>
     <tr>
       <td><video width="320" height="240" id="local-view"
@@ -26,46 +45,59 @@
   <table border="0">
     <tr>
       <td>Server [<a href="" onclick="showServerHelp()">?</a>]:</td>
-      <td><input type="text" id="server" size="30"
+      <td><input type="text" id="server" size="20"
           value="http://localhost:8888" /></td>
       <td valign="top">
         <button id="connect" onclick="connectFromHere();">
             Connect</button>
       </td>
-      <td valign="top">
-        <button id="call" onclick="callFromHere();" disabled="true">
-            Call</button>
-      </td>
-      <td valign="top">
-        <button id="hangup" onclick="hangUpFromHere();" disabled="true">
-            Hang up</button>
-      </td>
-      <td valign="top">
-        <button id="toggle-remote" onclick="toggleRemoteFromHere();"
-            disabled="true">Toggle Remote Stream</button>
-      </td>
-      <td valign="top">
-        <button id="toggle-local" onclick="toggleLocalFromHere();"
-            disabled="true">Toggle Local Stream</button>
-      </td>
-      <td valign="top">
-        <button id="stop-local" onclick="stopLocalFromHere();">
-            Stop Local Stream</button>
+    </tr>
+    <tr>
+      <td>PeerConnection:</td>
+      <td colspan="2">
+        <button id="call" onclick="callFromHere();">Call</button>
+        <button id="hangup" onclick="hangUpFromHere();">Hang up</button>
       </td>
     </tr>
     <tr>
-      <td></td>
-      <td>
-        Audio<input type="checkbox" id="audio" checked />
-        Video<input type="checkbox" id="video" checked />
+      <td>Local Stream:</td>
+      <td colspan="2">
+        <button id="send-local-stream" onclick="sendLocalStreamFromHere();">
+            Send</button>
+        <button id="remove-local-stream" onclick="removeLocalStreamFromHere();">
+            Remove</button>
+        <button id="toggle-local" onclick="toggleLocalFromHere();">
+            Toggle</button>
+        <button id="stop-local" onclick="stopLocalFromHere();">
+            Stop</button>
       </td>
-      <td><button id="re-request" onclick="getUserMediaFromHere();">
-          Request</button></td>
+    </tr>
+    <tr>
+      <td>Remote Stream:</td>
+      <td colspan="2">
+        <button id="toggle-remote" onclick="toggleRemoteFromHere();">
+            Toggle</button>
+      </td>
     </tr>
   </table>
 
-  <h1>Log</h1>
-  <pre id="debug"></pre>
+  <table border="0" width="100%">
+    <colgroup>
+      <col style="width: 50%;">
+      <col style="width: 50%;">
+    </colgroup>
+    <tr>
+      <td>
+        <h1>Messages</h1>
+        <button onclick="clearLog();">Clear Logs</button>
+      </td>
+      <td><h1>Debug</h1></td>
+    </tr>
+    <tr>
+      <td valign="top"><pre id="messages"></pre></td>
+      <td valign="top"><pre id="debug"></pre></td>
+    </tr>
+  </table>
 
 </body>
 </html>

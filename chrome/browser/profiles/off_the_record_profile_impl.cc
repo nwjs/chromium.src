@@ -30,7 +30,7 @@
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/io_thread.h"
 #include "chrome/browser/net/proxy_service_factory.h"
-#include "chrome/browser/plugin_prefs.h"
+#include "chrome/browser/plugins/plugin_prefs.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
@@ -252,7 +252,7 @@ net::URLRequestContextGetter*
     const extensions::Extension* installed_app = GetExtensionService()->
         GetInstalledAppForRenderer(renderer_child_id);
     if (installed_app != NULL && installed_app->is_storage_isolated()) {
-      return GetRequestContextForIsolatedApp(installed_app->id());
+      return GetRequestContextForStoragePartition(installed_app->id());
     }
   }
 
@@ -265,7 +265,7 @@ net::URLRequestContextGetter*
     // non-persistent context using the RPH's id.
     std::string id("guest-");
     id.append(base::IntToString(renderer_child_id));
-    return GetRequestContextForIsolatedApp(id);
+    return GetRequestContextForStoragePartition(id);
   }
 
   return GetRequestContext();
@@ -285,14 +285,20 @@ net::URLRequestContextGetter*
 }
 
 net::URLRequestContextGetter*
+OffTheRecordProfileImpl::GetMediaRequestContextForStoragePartition(
+    const std::string& partition_id) {
+  return GetRequestContextForStoragePartition(partition_id);
+}
+
+net::URLRequestContextGetter*
     OffTheRecordProfileImpl::GetRequestContextForExtensions() {
   return io_data_.GetExtensionsRequestContextGetter();
 }
 
 net::URLRequestContextGetter*
-    OffTheRecordProfileImpl::GetRequestContextForIsolatedApp(
-        const std::string& app_id) {
-  return io_data_.GetIsolatedAppRequestContextGetter(app_id);
+    OffTheRecordProfileImpl::GetRequestContextForStoragePartition(
+        const std::string& partition_id) {
+  return io_data_.GetIsolatedAppRequestContextGetter(partition_id);
 }
 
 content::ResourceContext* OffTheRecordProfileImpl::GetResourceContext() {

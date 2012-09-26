@@ -433,9 +433,8 @@ bool InterceptionManager::PatchNtdll(bool hot_patch_needed) {
                      PAGE_EXECUTE_READ, &old_protection);
 
   ResultCode ret = child_->TransferVariable("g_originals", g_originals,
-                                           sizeof(g_originals));
-
-  return SBOX_ALL_OK == ret ? true : false;
+                                            sizeof(g_originals));
+  return (SBOX_ALL_OK == ret);
 }
 
 bool InterceptionManager::PatchClientFunctions(DllInterceptionData* thunks,
@@ -454,9 +453,9 @@ bool InterceptionManager::PatchClientFunctions(DllInterceptionData* thunks,
   wchar_t* loader_get = reinterpret_cast<wchar_t*>(
                             ntdll_image.GetProcAddress("LdrGetDllHandle"));
   if (loader_get) {
-    if (!GetModuleHandleHelper(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                                   GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                               loader_get, &ntdll_base))
+    if (!GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           loader_get, &ntdll_base))
       return false;
   }
 

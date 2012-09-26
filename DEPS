@@ -8,20 +8,20 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "128689",
+  "webkit_revision": "129516",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9742",
+  "nacl_revision": "9834",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
   "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
-  "gtm_revision": "534",
+  "gtm_revision": "578",
 
-  "libjingle_revision": "181",
+  "libjingle_revision": "193",
   "libphonenumber_revision": "456",
   "libvpx_revision": "152423",
-  "lss_revision": "11",
+  "lss_revision": "13",
 
   # These two FFmpeg variables must be updated together.  One is used for SVN
   # checkouts and the other for Git checkouts.
@@ -29,7 +29,7 @@ vars = {
   "ffmpeg_hash": "4a1909e22211b340ee859a8c9d12e8825fe499b7",
 
   "sfntly_revision": "134",
-  "skia_revision": "5559",
+  "skia_revision": "5655",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
@@ -39,7 +39,7 @@ vars = {
   # and V8 without interference from each other.
   "webrtc_revision": "2718",
   "jsoncpp_revision": "248",
-  "nss_revision": "154476",
+  "nss_revision": "158129",
 }
 
 deps = {
@@ -65,7 +65,7 @@ deps = {
     (Var("googlecode_url") % "angleproject") + "/trunk@1275",
 
   "src/third_party/trace-viewer":
-    (Var("googlecode_url") % "trace-viewer") + "/trunk@144",
+    (Var("googlecode_url") % "trace-viewer") + "/trunk@168",
 
   # Note that this is *not* where we check out WebKit -- this just
   # puts some extra files into place for the real WebKit checkout to
@@ -75,7 +75,7 @@ deps = {
     "/trunk/deps/third_party/WebKit@76115",
 
   "src/third_party/icu":
-    "/trunk/deps/third_party/icu46@149334",
+    "/trunk/deps/third_party/icu46@158118",
 
   "src/third_party/libexif/sources":
     "/trunk/deps/third_party/libexif/sources@146817",
@@ -103,18 +103,13 @@ deps = {
     (Var("googlecode_url") % "grit-i18n") + "/trunk@67",
 
   "src/tools/gyp":
-    # DO NOT ROLL GYP. The next gyp roll needs some tricks to work.
-    # Talk to thakis@ for details. (I'll try to get this fixed by friday.)
-    (Var("googlecode_url") % "gyp") + "/trunk@1492",
+    (Var("googlecode_url") % "gyp") + "/trunk@1501",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
 
   "src/native_client":
     Var("nacl_trunk") + "/src/native_client@" + Var("nacl_revision"),
-
-  "src/native_client_sdk/src/site_scons":
-    Var("nacl_trunk") + "/src/native_client/site_scons@" + Var("nacl_revision"),
 
   "src/third_party/pymox/src":
     (Var("googlecode_url") % "pymox") + "/trunk@70",
@@ -167,7 +162,7 @@ deps = {
     (Var("googlecode_url") % "bidichecker") + "/trunk/lib@4",
 
   "src/third_party/v8-i18n":
-    (Var("googlecode_url") % "v8-i18n") + "/trunk@142",
+    (Var("googlecode_url") % "v8-i18n") + "/trunk@143",
 
   # When roll to another webgl conformance tests revision, please goto
   # chrome/test/gpu and run generate_webgl_conformance_test_list.py.
@@ -255,7 +250,7 @@ deps = {
     Var("libjingle_revision"),
 
   "src/third_party/libsrtp":
-    "/trunk/deps/third_party/libsrtp@156317",
+    "/trunk/deps/third_party/libsrtp@157430",
 
   "src/third_party/speex":
     "/trunk/deps/third_party/speex@149334",
@@ -288,7 +283,7 @@ deps = {
         "/trunk/jsoncpp/src/lib_json@" + Var("jsoncpp_revision"),
 
   "src/third_party/libyuv":
-    (Var("googlecode_url") % "libyuv") + "/trunk@347",
+    (Var("googlecode_url") % "libyuv") + "/trunk@364",
 
   "src/third_party/mozc/session":
     (Var("googlecode_url") % "mozc") + "/trunk/src/session@83",
@@ -313,7 +308,7 @@ deps = {
     "/trunk/deps/third_party/undoview@119694",
 
   "src/tools/deps2git":
-    "/trunk/tools/deps2git@153866",
+    "/trunk/tools/deps2git@157441",
 
   "src/third_party/webpagereplay":
     (Var("googlecode_url") % "web-page-replay") + "/trunk@494",
@@ -517,7 +512,7 @@ deps_os = {
        Var("lss_revision")),
 
     "src/third_party/openssl":
-      "/trunk/deps/third_party/openssl@151890",
+      "/trunk/deps/third_party/openssl@157142",
 
     "src/third_party/WebKit/Tools/gdb":
       Var("webkit_trunk") + "/Tools/gdb@" + Var("webkit_revision"),
@@ -531,7 +526,7 @@ deps_os = {
     # For Chromium OS.
     "src/third_party/cros_system_api":
       Var("chromiumos_git") + "/platform/system_api.git" +
-      "@cb147b466b03f18b56c04056a375f097ed52189b",
+      "@94ed6fa5e9c8d55d183260a41856899502af0459",
   },
   "android": {
     "src/third_party/freetype":

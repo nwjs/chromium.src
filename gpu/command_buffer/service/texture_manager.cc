@@ -621,10 +621,7 @@ TextureManager::TextureManager(
     FeatureInfo* feature_info,
     GLint max_texture_size,
     GLint max_cube_map_texture_size)
-    : texture_memory_tracker_(new MemoryTypeTracker(
-        memory_tracker,
-        "TextureManager",
-        "TextureMemory")),
+    : texture_memory_tracker_(new MemoryTypeTracker(memory_tracker)),
       feature_info_(feature_info),
       max_texture_size_(max_texture_size),
       max_cube_map_texture_size_(max_cube_map_texture_size),
@@ -864,9 +861,6 @@ TextureDefinition* TextureManager::Save(TextureInfo* info) {
   if (info->IsAttachedToFramebuffer())
     return NULL;
 
-  if (info->IsImmutable())
-    return NULL;
-
   TextureDefinition::LevelInfos level_infos(info->level_infos_.size());
   for (size_t face = 0; face < level_infos.size(); ++face) {
     GLenum target = info->target() == GL_TEXTURE_2D ?
@@ -900,13 +894,16 @@ TextureDefinition* TextureManager::Save(TextureInfo* info) {
   }
 
   GLuint old_service_id = info->service_id();
+  bool immutable = info->IsImmutable();
 
   GLuint new_service_id = 0;
   glGenTextures(1, &new_service_id);
   info->SetServiceId(new_service_id);
+  info->SetImmutable(false);
 
   return new TextureDefinition(info->target(),
                                old_service_id,
+                               immutable,
                                level_infos);
 }
 
@@ -917,9 +914,6 @@ bool TextureManager::Restore(TextureInfo* info,
   scoped_ptr<TextureDefinition> scoped_definition(definition);
 
   if (info->IsAttachedToFramebuffer())
-    return false;
-
-  if (info->IsImmutable())
     return false;
 
   if (info->target() != definition->target())
@@ -954,6 +948,7 @@ bool TextureManager::Restore(TextureInfo* info,
   GLuint old_service_id = info->service_id();
   glDeleteTextures(1, &old_service_id);
   info->SetServiceId(definition->ReleaseServiceId());
+  info->SetImmutable(definition->immutable());
 
   return true;
 }

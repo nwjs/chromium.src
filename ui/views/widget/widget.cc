@@ -150,6 +150,7 @@ Widget::InitParams::InitParams()
       mirror_origin_in_rtl(false),
       has_dropshadow(false),
       remove_standard_frame(false),
+      use_system_default_icon(false),
       show_state(ui::SHOW_STATE_DEFAULT),
       double_buffer(false),
       parent(NULL),
@@ -778,10 +779,6 @@ void Widget::SetFocusTraversableParentView(View* parent_view) {
 
 void Widget::ClearNativeFocus() {
   native_widget_->ClearNativeFocus();
-}
-
-void Widget::FocusNativeView(gfx::NativeView native_view) {
-  native_widget_->FocusNativeView(native_view);
 }
 
 NonClientFrameView* Widget::CreateNonClientFrameView() {

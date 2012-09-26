@@ -112,6 +112,7 @@ class PanelView : public NativePanel,
   virtual views::Widget* GetWidget() OVERRIDE;
   virtual const views::Widget* GetWidget() const OVERRIDE;
   virtual string16 GetWindowTitle() const OVERRIDE;
+  virtual gfx::ImageSkia GetWindowAppIcon() OVERRIDE;
   virtual gfx::ImageSkia GetWindowIcon() OVERRIDE;
   virtual void DeleteDelegate() OVERRIDE;
   virtual void OnWindowBeginUserBoundsChange() OVERRIDE;
@@ -150,10 +151,12 @@ class PanelView : public NativePanel,
   scoped_ptr<Panel> panel_;
   gfx::Rect bounds_;
 
-  // The window that holds all panel views.
+  // The window that holds all panel views. Lifetime managed by native widget.
+  // See widget.h.
   views::Widget* window_;
 
-  // The view hosting the web contents.
+  // The view hosting the web contents. Will be destroyed when child views
+  // of this class are destroyed.
   views::WebView* web_view_;
 
   // True if the panel should always stay on top of other windows.

@@ -430,7 +430,9 @@ class PrintSystemWin : public PrintSystem {
           hr = E_FAIL;
           DOCINFO di = {0};
           di.cbSize = sizeof(DOCINFO);
-          std::wstring doc_name = UTF8ToWide(job_title);
+          string16 doc_name = UTF8ToUTF16(job_title);
+          DCHECK(printing::PrintBackend::SimplifyDocumentTitle(doc_name) ==
+                 doc_name);
           di.lpszDocName = doc_name.c_str();
           job_id_ = StartDoc(dc, &di);
           if (job_id_ <= 0)
@@ -887,19 +889,6 @@ std::string PrintSystemWin::GetSupportedMimeTypes() {
   return "application/pdf";
 }
 
-
-std::string PrintSystem::GenerateProxyId() {
-  GUID proxy_id = {0};
-  HRESULT hr = UuidCreate(&proxy_id);
-  DCHECK(SUCCEEDED(hr));
-  wchar_t* proxy_id_as_string = NULL;
-  UuidToString(&proxy_id, reinterpret_cast<RPC_WSTR *>(&proxy_id_as_string));
-  DCHECK(proxy_id_as_string);
-  std::string ret;
-  WideToUTF8(proxy_id_as_string, wcslen(proxy_id_as_string), &ret);
-  RpcStringFree(reinterpret_cast<RPC_WSTR *>(&proxy_id_as_string));
-  return ret;
-}
 
 scoped_refptr<PrintSystem> PrintSystem::CreateInstance(
     const base::DictionaryValue* print_system_settings) {

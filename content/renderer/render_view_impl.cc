@@ -69,10 +69,12 @@
 #include "content/renderer/devtools_agent.h"
 #include "content/renderer/dom_automation_controller.h"
 #include "content/renderer/dom_storage/webstoragenamespace_impl.h"
+#include "content/renderer/do_not_track_bindings.h"
 #include "content/renderer/external_popup_menu.h"
 #include "content/renderer/geolocation_dispatcher.h"
 #include "content/renderer/gpu/compositor_thread.h"
 #include "content/renderer/gpu/compositor_output_surface.h"
+#include "content/renderer/gpu/compositor_software_output_device_gl_adapter.h"
 #include "content/renderer/idle_user_detector.h"
 #include "content/renderer/input_tag_speech_dispatcher.h"
 #include "content/renderer/java/java_bridge_dispatcher.h"
@@ -110,6 +112,7 @@
 #include "net/base/data_url.h"
 #include "net/base/escape.h"
 #include "net/base/net_errors.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/http/http_util.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorOutputSurface.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebAccessibilityObject.h"
@@ -191,6 +194,7 @@
 #include "webkit/glue/weburlresponse_extradata_impl.h"
 #include "webkit/gpu/webgraphicscontext3d_in_process_impl.h"
 #include "webkit/media/webmediaplayer_impl.h"
+#include "webkit/media/webmediaplayer_ms.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #include "webkit/plugins/npapi/webplugin_delegate.h"
 #include "webkit/plugins/npapi/webplugin_delegate_impl.h"
@@ -204,11 +208,15 @@
 #include "content/renderer/android/email_detector.h"
 #include "content/renderer/android/phone_number_detector.h"
 #include "content/renderer/media/stream_texture_factory_impl_android.h"
+#include "content/renderer/media/webmediaplayer_proxy_impl_android.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebHitTestResult.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebFloatPoint.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebFloatRect.h"
 #include "ui/gfx/rect_f.h"
+#include "webkit/media/android/media_player_bridge_manager_impl.h"
 #include "webkit/media/android/webmediaplayer_android.h"
+#include "webkit/media/android/webmediaplayer_impl_android.h"
+#include "webkit/media/android/webmediaplayer_in_process_android.h"
 #include "webkit/media/android/webmediaplayer_manager_android.h"
 #elif defined(OS_WIN)
 // TODO(port): these files are currently Windows only because they concern:
@@ -250,12 +258,14 @@ using WebKit::WebFindOptions;
 using WebKit::WebFormControlElement;
 using WebKit::WebFormElement;
 using WebKit::WebFrame;
+using WebKit::WebGestureEvent;
 using WebKit::WebGraphicsContext3D;
 using WebKit::WebHistoryItem;
 using WebKit::WebHTTPBody;
 using WebKit::WebIconURL;
 using WebKit::WebImage;
 using WebKit::WebInputElement;
+using WebKit::WebInputEvent;
 using WebKit::WebIntentRequest;
 using WebKit::WebIntentServiceInfo;
 using WebKit::WebMediaPlayer;
@@ -612,6 +622,8 @@ RenderViewImpl::RenderViewImpl(
       mouse_lock_dispatcher_(NULL),
 #if defined(OS_ANDROID)
       expected_content_intent_id_(0),
+      media_player_proxy_(NULL),
+      synchronous_find_active_match_ordinal_(-1),
 #endif
       session_storage_namespace_id_(session_storage_namespace_id),
       handling_select_range_(false),
@@ -939,9 +951,6 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_Redo, OnRedo)
     IPC_MESSAGE_HANDLER(ViewMsg_Cut, OnCut)
     IPC_MESSAGE_HANDLER(ViewMsg_Copy, OnCopy)
-#if defined(OS_MACOSX)
-    IPC_MESSAGE_HANDLER(ViewMsg_CopyToFindPboard, OnCopyToFindPboard)
-#endif
     IPC_MESSAGE_HANDLER(ViewMsg_Paste, OnPaste)
     IPC_MESSAGE_HANDLER(ViewMsg_PasteAndMatchStyle, OnPasteAndMatchStyle)
     IPC_MESSAGE_HANDLER(ViewMsg_Replace, OnReplace)
@@ -960,12 +969,6 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_ExecuteEditCommand, OnExecuteEditCommand)
     IPC_MESSAGE_HANDLER(ViewMsg_Find, OnFind)
     IPC_MESSAGE_HANDLER(ViewMsg_StopFinding, OnStopFinding)
-#if defined(OS_ANDROID)
-    IPC_MESSAGE_HANDLER(ViewMsg_ActivateNearestFindResult,
-                        OnActivateNearestFindResult)
-    IPC_MESSAGE_HANDLER(ViewMsg_FindMatchRects,
-                        OnFindMatchRects)
-#endif
     IPC_MESSAGE_HANDLER(ViewMsg_Zoom, OnZoom)
     IPC_MESSAGE_HANDLER(ViewMsg_SetZoomLevel, OnSetZoomLevel)
     IPC_MESSAGE_HANDLER(ViewMsg_ZoomFactor, OnZoomFactor)
@@ -1018,12 +1021,6 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_SetActive, OnSetActive)
     IPC_MESSAGE_HANDLER(ViewMsg_SetNavigationStartTime,
                         OnSetNavigationStartTime)
-#if defined(OS_MACOSX)
-    IPC_MESSAGE_HANDLER(ViewMsg_SetWindowVisibility, OnSetWindowVisibility)
-    IPC_MESSAGE_HANDLER(ViewMsg_WindowFrameChanged, OnWindowFrameChanged)
-    IPC_MESSAGE_HANDLER(ViewMsg_PluginImeCompositionCompleted,
-                        OnPluginImeCompositionCompleted)
-#endif
     IPC_MESSAGE_HANDLER(ViewMsg_SetEditCommandsForNextKeyEvent,
                         OnSetEditCommandsForNextKeyEvent)
     IPC_MESSAGE_HANDLER(ViewMsg_CustomContextMenuAction,
@@ -1038,22 +1035,29 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(
         ViewMsg_GetSerializedHtmlDataForCurrentPageWithLocalLinks,
         OnGetSerializedHtmlDataForCurrentPageWithLocalLinks)
-#if defined(OS_MACOSX)
-    IPC_MESSAGE_HANDLER(ViewMsg_SelectPopupMenuItem, OnSelectPopupMenuItem)
-#elif defined(OS_ANDROID)
-    IPC_MESSAGE_HANDLER(ViewMsg_SelectPopupMenuItems, OnSelectPopupMenuItems)
-#endif
     IPC_MESSAGE_HANDLER(ViewMsg_ContextMenuClosed, OnContextMenuClosed)
     // TODO(viettrungluu): Move to a separate message filter.
-#if defined(OS_MACOSX)
-    IPC_MESSAGE_HANDLER(ViewMsg_SetInLiveResize, OnSetInLiveResize)
-#endif
     IPC_MESSAGE_HANDLER(ViewMsg_SetHistoryLengthAndPrune,
                         OnSetHistoryLengthAndPrune)
     IPC_MESSAGE_HANDLER(ViewMsg_EnableViewSourceMode, OnEnableViewSourceMode)
     IPC_MESSAGE_HANDLER(JavaBridgeMsg_Init, OnJavaBridgeInit)
     IPC_MESSAGE_HANDLER(ViewMsg_SetAccessibilityMode, OnSetAccessibilityMode)
     IPC_MESSAGE_HANDLER(ViewMsg_UpdateFrameTree, OnUpdatedFrameTree)
+#if defined(OS_ANDROID)
+    IPC_MESSAGE_HANDLER(ViewMsg_ActivateNearestFindResult,
+                        OnActivateNearestFindResult)
+    IPC_MESSAGE_HANDLER(ViewMsg_FindMatchRects, OnFindMatchRects)
+    IPC_MESSAGE_HANDLER(ViewMsg_SelectPopupMenuItems, OnSelectPopupMenuItems)
+    IPC_MESSAGE_HANDLER_DELAY_REPLY(ViewMsg_SynchronousFind, OnSynchronousFind)
+#elif defined(OS_MACOSX)
+    IPC_MESSAGE_HANDLER(ViewMsg_CopyToFindPboard, OnCopyToFindPboard)
+    IPC_MESSAGE_HANDLER(ViewMsg_PluginImeCompositionCompleted,
+                        OnPluginImeCompositionCompleted)
+    IPC_MESSAGE_HANDLER(ViewMsg_SelectPopupMenuItem, OnSelectPopupMenuItem)
+    IPC_MESSAGE_HANDLER(ViewMsg_SetInLiveResize, OnSetInLiveResize)
+    IPC_MESSAGE_HANDLER(ViewMsg_SetWindowVisibility, OnSetWindowVisibility)
+    IPC_MESSAGE_HANDLER(ViewMsg_WindowFrameChanged, OnWindowFrameChanged)
+#endif
 
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(handled = RenderWidget::OnMessageReceived(message))
@@ -1887,9 +1891,6 @@ WebStorageNamespace* RenderViewImpl::createSessionStorageNamespace(
 }
 
 WebKit::WebCompositorOutputSurface* RenderViewImpl::createOutputSurface() {
-  // TODO(aelias): if force-software-mode is on, create an output surface
-  // without a 3D context.
-
   // Explicitly disable antialiasing for the compositor. As of the time of
   // this writing, the only platform that supported antialiasing for the
   // compositor was Mac OS X, because the on-screen OpenGL context creation
@@ -1907,7 +1908,15 @@ WebKit::WebCompositorOutputSurface* RenderViewImpl::createOutputSurface() {
   if (!context)
     return NULL;
 
-  return new CompositorOutputSurface(routing_id(), context);
+  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  if (command_line.HasSwitch(switches::kEnableSoftwareCompositingGLAdapter)) {
+      // In the absence of a software-based delegating renderer, use this
+      // stopgap adapter class to present the software renderer output using a
+      // 3d context.
+      return new CompositorOutputSurface(routing_id(), NULL,
+          new CompositorSoftwareOutputDeviceGLAdapter(context));
+  } else
+      return new CompositorOutputSurface(routing_id(), context, NULL);
 }
 
 void RenderViewImpl::didAddMessageToConsole(
@@ -1939,7 +1948,8 @@ void RenderViewImpl::didAddMessageToConsole(
 }
 
 void RenderViewImpl::printPage(WebFrame* frame) {
-  FOR_EACH_OBSERVER(RenderViewObserver, observers_, PrintPage(frame));
+  FOR_EACH_OBSERVER(RenderViewObserver, observers_,
+                    PrintPage(frame, handling_input_event_));
 }
 
 WebKit::WebNotificationPresenter* RenderViewImpl::notificationPresenter() {
@@ -2066,6 +2076,16 @@ bool RenderViewImpl::handleCurrentKeyboardEvent() {
   }
 
   return did_execute_command;
+}
+
+void RenderViewImpl::didHandleGestureEvent(const WebGestureEvent& event,
+                                           bool event_swallowed) {
+#if defined(OS_ANDROID)
+  if (event.type == WebInputEvent::GestureTap ||
+      event.type == WebInputEvent::GestureLongPress) {
+    UpdateTextInputState(SHOW_IME_IF_NEEDED);
+  }
+#endif
 }
 
 WebKit::WebColorChooser* RenderViewImpl::createColorChooser(
@@ -2498,12 +2518,45 @@ WebMediaPlayer* RenderViewImpl::createMediaPlayer(
   FOR_EACH_OBSERVER(
       RenderViewObserver, observers_, WillCreateMediaPlayer(frame, client));
 
+  const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
 #if defined(OS_ANDROID)
-  // TODO(qinmin): upstream the implementation of getting WebGraphicsContext3D
-  // and GpuChannelHost here to replace the NULL params.
-  return new webkit_media::WebMediaPlayerAndroid(
-      frame, client, cookieJar(frame), media_player_manager_.get(),
-      new content::StreamTextureFactoryImpl(NULL, NULL, routing_id_));
+  WebGraphicsContext3D* resource_context =
+      GetWebView()->sharedGraphicsContext3D();
+
+  GpuChannelHost* gpu_channel_host =
+      RenderThreadImpl::current()->EstablishGpuChannelSync(
+          content::CAUSE_FOR_GPU_LAUNCH_VIDEODECODEACCELERATOR_INITIALIZE);
+  if (!gpu_channel_host) {
+    LOG(ERROR) << "Failed to establish GPU channel for media player";
+    return NULL;
+  }
+
+  if (cmd_line->HasSwitch(switches::kMediaPlayerInRenderProcess)) {
+    if (!media_bridge_manager_.get()) {
+      media_bridge_manager_.reset(
+          new webkit_media::MediaPlayerBridgeManagerImpl(1));
+    }
+    return new webkit_media::WebMediaPlayerInProcessAndroid(
+        frame,
+        client,
+        cookieJar(frame),
+        media_player_manager_.get(),
+        media_bridge_manager_.get(),
+        new content::StreamTextureFactoryImpl(
+            resource_context, gpu_channel_host, routing_id_),
+        cmd_line->HasSwitch(switches::kDisableMediaHistoryLogging));
+  }
+  if (!media_player_proxy_) {
+    media_player_proxy_ = new content::WebMediaPlayerProxyImplAndroid(
+        this, media_player_manager_.get());
+  }
+  return new webkit_media::WebMediaPlayerImplAndroid(
+      frame,
+      client,
+      media_player_manager_.get(),
+      media_player_proxy_,
+      new content::StreamTextureFactoryImpl(
+          resource_context, gpu_channel_host, routing_id_));
 #endif
 
   media::MessageLoopFactory* message_loop_factory =
@@ -2514,7 +2567,6 @@ WebMediaPlayer* RenderViewImpl::createMediaPlayer(
   RenderAudioSourceProvider* audio_source_provider = NULL;
 
   // Add in any custom filter factories first.
-  const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   if (!cmd_line->HasSwitch(switches::kDisableAudio)) {
     // audio_source_provider is a "provider" to WebKit, and a sink
     // from the perspective of the audio renderer.
@@ -2528,8 +2580,7 @@ WebMediaPlayer* RenderViewImpl::createMediaPlayer(
   }
 
   WebGraphicsContext3DCommandBufferImpl* context3d = NULL;
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableAcceleratedVideoDecode))
+  if (!cmd_line->HasSwitch(switches::kDisableAcceleratedVideoDecode))
     context3d = RenderThreadImpl::current()->GetGpuVDAContext3D();
   if (context3d) {
     scoped_refptr<base::MessageLoopProxy> factories_loop =
@@ -2555,6 +2606,16 @@ WebMediaPlayer* RenderViewImpl::createMediaPlayer(
           audio_source_provider, message_loop_factory, media_stream_impl_,
           render_media_log);
   if (!media_player) {
+    // TODO(wjia): when all patches related to WebMediaPlayerMS have been
+    // landed, remove the switch. Refer to crbug.com/142988.
+    if (cmd_line->HasSwitch(switches::kEnableWebMediaPlayerMS)) {
+      EnsureMediaStreamImpl();
+      if (media_stream_impl_ && media_stream_impl_->IsMediaStream(url)) {
+        return new webkit_media::WebMediaPlayerMS(
+            frame, client, AsWeakPtr(), media_stream_impl_, render_media_log);
+      }
+    }
+
     media_player = new webkit_media::WebMediaPlayerImpl(
         frame, client, AsWeakPtr(), collection, audio_source_provider,
         audio_source_provider, message_loop_factory, media_stream_impl_,
@@ -2678,9 +2739,11 @@ WebNavigationPolicy RenderViewImpl::decidePolicyForNavigation(
       !frame->parent() && (is_content_initiated || is_redirect)) {
     WebString origin_str = frame->document().securityOrigin().toString();
     GURL frame_url(origin_str.utf8().data());
-    // TODO(cevans): revisit whether this origin check is still necessary once
+    // TODO(cevans): revisit whether this site check is still necessary once
     // crbug.com/101395 is fixed.
-    if (frame_url.GetOrigin() != url.GetOrigin()) {
+    if (!net::RegistryControlledDomainService::SameDomainOrHost(frame_url,
+                                                                url) ||
+        frame_url.scheme() != url.scheme()) {
       OpenURL(frame, url, referrer, default_policy);
       return WebKit::WebNavigationPolicyIgnore;
     }
@@ -3347,6 +3410,8 @@ void RenderViewImpl::didClearWindowObject(WebFrame* frame) {
     dom_automation_controller_->BindToJavascript(frame,
                                                  "domAutomationController");
   }
+
+  content::InjectDoNotTrackBindings(frame);
 }
 
 void RenderViewImpl::didCreateDocumentElement(WebFrame* frame) {
@@ -3791,7 +3856,7 @@ void RenderViewImpl::CreateFrameTree(WebKit::WebFrame* frame,
 
   string16 name;
   if (frame_tree->GetString(content::kFrameTreeNodeNameKey, &name) &&
-      name != string16()) {
+      !name.empty()) {
     frame->setName(name);
   }
 
@@ -3804,11 +3869,15 @@ void RenderViewImpl::CreateFrameTree(WebKit::WebFrame* frame,
   if (!frame_tree->GetList(content::kFrameTreeNodeSubtreeKey, &children))
     return;
 
+  // Create an invisible iframe tree in the swapped out page.
   base::DictionaryValue* child;
   for (size_t i = 0; i < children->GetSize(); ++i) {
     if (!children->GetDictionary(i, &child))
       continue;
     WebElement element = frame->document().createElement("iframe");
+    element.setAttribute("width", "0");
+    element.setAttribute("height", "0");
+    element.setAttribute("frameBorder", "0");
     if (frame->document().body().appendChild(element)) {
       WebFrame* subframe = WebFrame::fromFrameOwnerElement(element);
       if (subframe)
@@ -3902,30 +3971,64 @@ void RenderViewImpl::hasTouchEventHandlers(bool has_handlers) {
   Send(new ViewHostMsg_HasTouchEventHandlers(routing_id_, has_handlers));
 }
 
-void RenderViewImpl::reportFindInPageMatchCount(int request_id, int count,
+void RenderViewImpl::SendFindReply(int request_id,
+                                   int match_count,
+                                   int ordinal,
+                                   const WebRect& selection_rect,
+                                   bool final_status_update) {
+#if defined(OS_ANDROID)
+  if (synchronous_find_reply_message_.get()) {
+    if (final_status_update) {
+      ViewMsg_SynchronousFind::WriteReplyParams(
+          synchronous_find_reply_message_.get(),
+          match_count,
+          match_count ? synchronous_find_active_match_ordinal_ : 0);
+      Send(synchronous_find_reply_message_.release());
+    }
+    return;
+  }
+#endif
+
+  Send(new ViewHostMsg_Find_Reply(routing_id_,
+                                  request_id,
+                                  match_count,
+                                  selection_rect,
+                                  ordinal,
+                                  final_status_update));
+}
+
+void RenderViewImpl::reportFindInPageMatchCount(int request_id,
+                                                int count,
                                                 bool final_update) {
   int active_match_ordinal = -1;  // -1 = don't update active match ordinal
   if (!count)
     active_match_ordinal = 0;
 
-  Send(new ViewHostMsg_Find_Reply(routing_id_,
-                                  request_id,
-                                  count,
-                                  gfx::Rect(),
-                                  active_match_ordinal,
-                                  final_update));
+  // Send the search result over to the browser process.
+  SendFindReply(request_id,
+                count,
+                active_match_ordinal,
+                gfx::Rect(),
+                final_update);
 }
 
 void RenderViewImpl::reportFindInPageSelection(int request_id,
                                                int active_match_ordinal,
                                                const WebRect& selection_rect) {
-  // Send the search result over to the browser process.
-  Send(new ViewHostMsg_Find_Reply(routing_id_,
-                                  request_id,
-                                  -1,
-                                  selection_rect,
-                                  active_match_ordinal,
-                                  false));
+#if defined(OS_ANDROID)
+  // If this was a SynchronousFind request, we need to remember the ordinal
+  // value here for replying when reportFindInPageMatchCount is called.
+  if (synchronous_find_reply_message_.get()) {
+    synchronous_find_active_match_ordinal_ = active_match_ordinal;
+    return;
+  }
+#endif
+
+  SendFindReply(request_id,
+                -1,
+                active_match_ordinal,
+                selection_rect,
+                false);
 }
 
 void RenderViewImpl::openFileSystem(
@@ -4227,7 +4330,6 @@ WebKit::WebPlugin* RenderViewImpl::CreatePlugin(
         pepper_module.get(), params, pepper_delegate_.AsWeakPtr());
   }
 
-
 #if defined(USE_AURA) && !defined(OS_WIN)
   return NULL;
 #else
@@ -4252,8 +4354,10 @@ void RenderViewImpl::EvaluateScript(const string16& frame_xpath,
       v8::Context::Scope context_scope(context);
       V8ValueConverterImpl converter;
       converter.SetDateAllowed(true);
-      converter.SetRegexpAllowed(true);
-      list.Set(0, converter.FromV8Value(result, context));
+      converter.SetRegExpAllowed(true);
+      base::Value* result_value = converter.FromV8Value(result, context);
+      list.Set(0, result_value ? result_value :
+                                 base::Value::CreateNullValue());
     } else {
       list.Set(0, Value::CreateNullValue());
     }
@@ -4532,8 +4636,22 @@ WebKit::WebPlugin* RenderViewImpl::GetWebPluginFromPluginDocument() {
   return webview()->mainFrame()->document().to<WebPluginDocument>().plugin();
 }
 
-void RenderViewImpl::OnFind(int request_id, const string16& search_text,
+void RenderViewImpl::OnFind(int request_id,
+                            const string16& search_text,
                             const WebFindOptions& options) {
+#if defined(OS_ANDROID)
+  // Make sure any asynchronous messages do not disrupt an ongoing synchronous
+  // find request as it might lead to deadlocks. Also, these should be safe to
+  // ignore since they would belong to a previous find request.
+  if (synchronous_find_reply_message_.get())
+    return;
+#endif
+  Find(request_id, search_text, options);
+}
+
+void RenderViewImpl::Find(int request_id,
+                          const string16& search_text,
+                          const WebFindOptions& options) {
   WebFrame* main_frame = webview()->mainFrame();
 
   // Check if the plugin still exists in the document.
@@ -4543,16 +4661,10 @@ void RenderViewImpl::OnFind(int request_id, const string16& search_text,
       // Just navigate back/forward.
       GetWebPluginFromPluginDocument()->selectFindResult(options.forward);
     } else {
-      if (GetWebPluginFromPluginDocument()->startFind(
+      if (!GetWebPluginFromPluginDocument()->startFind(
           search_text, options.matchCase, request_id)) {
-      } else {
         // Send "no results".
-        Send(new ViewHostMsg_Find_Reply(routing_id_,
-                                        request_id,
-                                        0,
-                                        gfx::Rect(),
-                                        0,
-                                        true));
+        SendFindReply(request_id, 0, 0, gfx::Rect(), true);
       }
     }
     return;
@@ -4625,13 +4737,8 @@ void RenderViewImpl::OnFind(int request_id, const string16& search_text,
     // Otherwise the scoping effort will send more results.
     bool final_status_update = !result;
 
-    // Send the search result over to the browser process.
-    Send(new ViewHostMsg_Find_Reply(routing_id_,
-                                    request_id,
-                                    match_count,
-                                    selection_rect,
-                                    ordinal,
-                                    final_status_update));
+    SendFindReply(request_id, match_count, ordinal, selection_rect,
+                  final_status_update);
 
     // Scoping effort begins, starting with the mainframe.
     search_frame = main_frame;
@@ -4661,6 +4768,18 @@ void RenderViewImpl::OnFind(int request_id, const string16& search_text,
 }
 
 void RenderViewImpl::OnStopFinding(content::StopFindAction action) {
+#if defined(OS_ANDROID)
+  // Make sure any asynchronous messages do not disrupt an ongoing synchronous
+  // find request as it might lead to deadlocks. Also, these should be safe to
+  // ignore since they would belong to a previous find request.
+  if (synchronous_find_reply_message_.get())
+    return;
+#endif
+
+  StopFinding(action);
+}
+
+void RenderViewImpl::StopFinding(content::StopFindAction action) {
   WebView* view = webview();
   if (!view)
     return;
@@ -4695,6 +4814,23 @@ void RenderViewImpl::OnStopFinding(content::StopFindAction action) {
 }
 
 #if defined(OS_ANDROID)
+void RenderViewImpl::OnSynchronousFind(int request_id,
+                                       const string16& search_string,
+                                       const WebFindOptions& options,
+                                       IPC::Message* reply_msg) {
+  // It is impossible for simultaneous blocking finds to occur.
+  CHECK(!synchronous_find_reply_message_.get());
+  synchronous_find_reply_message_.reset(reply_msg);
+
+  // Find next should be asynchronous in order to minimize blocking
+  // the UI thread as much as possible.
+  DCHECK(!options.findNext);
+  StopFinding(content::STOP_FIND_ACTION_KEEP_SELECTION);
+  synchronous_find_active_match_ordinal_ = -1;
+
+  Find(request_id, search_string, options);
+}
+
 void RenderViewImpl::OnActivateNearestFindResult(int request_id,
                                                  float x, float y) {
   if (!webview())
@@ -4712,12 +4848,11 @@ void RenderViewImpl::OnActivateNearestFindResult(int request_id,
     return;
   }
 
-  Send(new ViewHostMsg_Find_Reply(routing_id_,
-                                  request_id,
-                                  -1 /* number_of_matches */,
-                                  selection_rect,
-                                  ordinal,
-                                  true /* final_update */));
+  SendFindReply(request_id,
+                -1 /* number_of_matches */,
+                ordinal,
+                selection_rect,
+                true /* final_update */);
 }
 
 void RenderViewImpl::OnFindMatchRects(int current_version) {
@@ -4846,7 +4981,7 @@ void RenderViewImpl::OnScriptEvalRequest(const string16& frame_xpath,
                                          const string16& jscript,
                                          int id,
                                          bool notify_result) {
-  UNSHIPPED_TRACE_EVENT_INSTANT0("test_tracing", "OnScriptEvalRequest");
+  TRACE_EVENT_INSTANT0("test_tracing", "OnScriptEvalRequest");
   EvaluateScript(frame_xpath, jscript, id, notify_result);
 }
 
@@ -5619,12 +5754,12 @@ void RenderViewImpl::OnSetFocus(bool enable) {
 }
 
 void RenderViewImpl::PpapiPluginFocusChanged() {
-  UpdateTextInputState();
+  UpdateTextInputState(DO_NOT_SHOW_IME);
   UpdateSelectionBounds();
 }
 
 void RenderViewImpl::PpapiPluginTextInputTypeChanged() {
-  UpdateTextInputState();
+  UpdateTextInputState(DO_NOT_SHOW_IME);
   if (renderer_accessibility_)
     renderer_accessibility_->FocusedNodeChanged(WebNode());
 }
@@ -6149,6 +6284,11 @@ void RenderViewImpl::OnUpdatedFrameTree(
     int process_id,
     int route_id,
     const std::string& frame_tree) {
+  // We should only act on this message if we are swapped out.  It's possible
+  // for this to happen due to races.
+  if (!is_swapped_out_)
+    return;
+
   base::DictionaryValue* frames = NULL;
   scoped_ptr<base::Value> tree(base::JSONReader::Read(frame_tree));
   if (tree.get() && tree->IsType(base::Value::TYPE_DICTIONARY))

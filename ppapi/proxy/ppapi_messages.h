@@ -46,11 +46,11 @@
 #include "ppapi/shared_impl/ppb_device_ref_shared.h"
 #include "ppapi/shared_impl/ppb_input_event_shared.h"
 #include "ppapi/shared_impl/ppb_network_list_private_shared.h"
-#include "ppapi/shared_impl/ppb_url_request_info_shared.h"
 #include "ppapi/shared_impl/ppb_view_shared.h"
 #include "ppapi/shared_impl/ppp_flash_browser_operations_shared.h"
 #include "ppapi/shared_impl/private/ppb_host_resolver_shared.h"
 #include "ppapi/shared_impl/private/ppb_x509_certificate_private_shared.h"
+#include "ppapi/shared_impl/url_request_info_data.h"
 
 #undef IPC_MESSAGE_EXPORT
 #define IPC_MESSAGE_EXPORT PPAPI_PROXY_EXPORT
@@ -200,7 +200,7 @@ IPC_STRUCT_TRAITS_BEGIN(ppapi::HostPortPair)
   IPC_STRUCT_TRAITS_MEMBER(port)
 IPC_STRUCT_TRAITS_END()
 
-IPC_STRUCT_TRAITS_BEGIN(ppapi::PPB_URLRequestInfo_Data)
+IPC_STRUCT_TRAITS_BEGIN(ppapi::URLRequestInfoData)
   IPC_STRUCT_TRAITS_MEMBER(url)
   IPC_STRUCT_TRAITS_MEMBER(method)
   IPC_STRUCT_TRAITS_MEMBER(headers)
@@ -221,7 +221,7 @@ IPC_STRUCT_TRAITS_BEGIN(ppapi::PPB_URLRequestInfo_Data)
   IPC_STRUCT_TRAITS_MEMBER(body)
 IPC_STRUCT_TRAITS_END()
 
-IPC_STRUCT_TRAITS_BEGIN(ppapi::PPB_URLRequestInfo_Data::BodyItem)
+IPC_STRUCT_TRAITS_BEGIN(ppapi::URLRequestInfoData::BodyItem)
   IPC_STRUCT_TRAITS_MEMBER(is_file)
   IPC_STRUCT_TRAITS_MEMBER(data)
   // Note: we don't serialize file_ref.
@@ -231,13 +231,6 @@ IPC_STRUCT_TRAITS_BEGIN(ppapi::PPB_URLRequestInfo_Data::BodyItem)
   IPC_STRUCT_TRAITS_MEMBER(expected_last_modified_time)
 IPC_STRUCT_TRAITS_END()
 
-#if !defined(OS_NACL) && !defined(NACL_WIN64)
-IPC_STRUCT_TRAITS_BEGIN(ppapi::proxy::PPPVideoCapture_Buffer)
-  IPC_STRUCT_TRAITS_MEMBER(resource)
-  IPC_STRUCT_TRAITS_MEMBER(handle)
-  IPC_STRUCT_TRAITS_MEMBER(size)
-IPC_STRUCT_TRAITS_END()
-
 IPC_STRUCT_TRAITS_BEGIN(ppapi::NetworkInfo)
   IPC_STRUCT_TRAITS_MEMBER(name)
   IPC_STRUCT_TRAITS_MEMBER(type)
@@ -245,6 +238,13 @@ IPC_STRUCT_TRAITS_BEGIN(ppapi::NetworkInfo)
   IPC_STRUCT_TRAITS_MEMBER(addresses)
   IPC_STRUCT_TRAITS_MEMBER(display_name)
   IPC_STRUCT_TRAITS_MEMBER(mtu)
+IPC_STRUCT_TRAITS_END()
+
+#if !defined(OS_NACL) && !defined(NACL_WIN64)
+IPC_STRUCT_TRAITS_BEGIN(ppapi::proxy::PPPVideoCapture_Buffer)
+  IPC_STRUCT_TRAITS_MEMBER(resource)
+  IPC_STRUCT_TRAITS_MEMBER(handle)
+  IPC_STRUCT_TRAITS_MEMBER(size)
 IPC_STRUCT_TRAITS_END()
 
 // TODO(tomfinegan): This is identical to PPPVideoCapture_Buffer, maybe replace
@@ -555,6 +555,11 @@ IPC_MESSAGE_ROUTED2(PpapiMsg_PPPMessaging_HandleMessage,
 IPC_MESSAGE_ROUTED1(PpapiMsg_PPPMouseLock_MouseLockLost,
                     PP_Instance /* instance */)
 
+// PPB_NetworkMonitor_Private.
+IPC_MESSAGE_ROUTED2(PpapiMsg_PPBNetworkMonitor_NetworkList,
+                    uint32 /* plugin_dispatcher_id */,
+                    ppapi::NetworkList /* network_list */)
+
 // PPP_Printing
 IPC_SYNC_MESSAGE_ROUTED1_1(PpapiMsg_PPPPrinting_QuerySupportedFormats,
                            PP_Instance /* instance */,
@@ -580,10 +585,14 @@ IPC_MESSAGE_ROUTED2(PpapiMsg_PPPTextInput_RequestSurroundingText,
 
 // PPB_URLLoader
 // (Messages from browser to plugin to notify it of changes in state.)
-IPC_MESSAGE_ROUTED3(PpapiMsg_PPBURLLoader_ReadResponseBody_Ack,
-                    ppapi::HostResource /* loader */,
-                    int32 /* result */,
-                    std::string /* data */)
+//
+// NOTE: The ReadResponseBody_Ack message is a custom generated message
+// with the following fields appended:
+//   ppapi::HostResource
+//   response data (array of bytes stored via WriteData)
+//   int result
+//
+IPC_MESSAGE_ROUTED0(PpapiMsg_PPBURLLoader_ReadResponseBody_Ack)
 IPC_MESSAGE_ROUTED2(PpapiMsg_PPBURLLoader_CallbackComplete,
                     ppapi::HostResource /* loader */,
                     int32_t /* result */)
@@ -616,11 +625,6 @@ IPC_MESSAGE_ROUTED3(PpapiMsg_PPPContentDecryptor_DecryptAndDecode,
                     PP_Instance /* instance */,
                     ppapi::proxy::PPPDecryptor_Buffer /* buffer */,
                     std::string /* serialized_block_info */)
-
-// PPB_NetworkMonitor_Private.
-IPC_MESSAGE_ROUTED2(PpapiMsg_PPBNetworkMonitor_NetworkList,
-                    uint32 /* plugin_dispatcher_id */,
-                    ppapi::NetworkList /* network_list */)
 
 // PPB_Talk
 IPC_MESSAGE_ROUTED3(
@@ -1073,7 +1077,7 @@ IPC_SYNC_MESSAGE_ROUTED1_1(PpapiHostMsg_PPBURLLoader_Create,
                            ppapi::HostResource /* result */)
 IPC_MESSAGE_ROUTED2(PpapiHostMsg_PPBURLLoader_Open,
                     ppapi::HostResource /* loader */,
-                    ppapi::PPB_URLRequestInfo_Data /* request_data */)
+                    ppapi::URLRequestInfoData /* request_data */)
 IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBURLLoader_FollowRedirect,
                     ppapi::HostResource /* loader */)
 IPC_SYNC_MESSAGE_ROUTED1_1(
@@ -1212,13 +1216,13 @@ IPC_MESSAGE_ROUTED3(PpapiHostMsg_PPBInstance_DeliverSamples,
                     PP_Instance /* instance */,
                     PP_Resource /* decrypted_samples, PPB_Buffer_Dev */,
                     std::string /* serialized_block_info */)
+#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
 // PPB_NetworkMonitor_Private.
 IPC_MESSAGE_CONTROL1(PpapiHostMsg_PPBNetworkMonitor_Start,
                      uint32 /* plugin_dispatcher_id */)
 IPC_MESSAGE_CONTROL1(PpapiHostMsg_PPBNetworkMonitor_Stop,
                      uint32 /* plugin_dispatcher_id */)
-#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
 // PPB_HostResolver_Private.
 IPC_MESSAGE_CONTROL5(PpapiHostMsg_PPBHostResolver_Resolve,
@@ -1331,7 +1335,7 @@ IPC_SYNC_MESSAGE_ROUTED2_1(PpapiHostMsg_PPBFlash_GetProxyForURL,
                            ppapi::proxy::SerializedVar /* result */)
 IPC_SYNC_MESSAGE_ROUTED4_1(PpapiHostMsg_PPBFlash_Navigate,
                            PP_Instance /* instance */,
-                           ppapi::PPB_URLRequestInfo_Data /* request_data */,
+                           ppapi::URLRequestInfoData /* request_data */,
                            std::string /* target */,
                            PP_Bool /* from_user_action */,
                            int32_t /* result */)

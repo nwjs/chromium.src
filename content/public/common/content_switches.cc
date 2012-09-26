@@ -168,9 +168,6 @@ const char kDisableLogging[]                = "disable-logging";
 // Prevent plugins from running.
 const char kDisablePlugins[]                = "disable-plugins";
 
-// Disable the JavaScript Pointer Lock API.
-const char kDisablePointerLock[]            = "disable-pointer-lock";
-
 // Disables remote web font support. SVG font should always work whether this
 // option is specified or not.
 const char kDisableRemoteFonts[]            = "disable-remote-fonts";
@@ -279,9 +276,6 @@ const char kEnableFixedLayout[]             = "enable-fixed-layout";
 // Enable the JavaScript Full Screen API.
 const char kDisableFullScreen[]             = "disable-fullscreen";
 
-// Enable the JavaScript Pointer Lock API.
-const char kEnablePointerLock[]             = "enable-pointer-lock";
-
 // Enable Text Service Framework(TSF) for text inputting instead of IMM32. This
 // flag is ignored on Metro environment.
 const char kEnableTextServicesFramework[] = "enable-text-services-framework";
@@ -298,6 +292,10 @@ const char kEnableLogging[]                 = "enable-logging";
 
 // Disable Media Source API on <audio>/<video> elements.
 const char kDisableMediaSource[]             = "disable-media-source";
+
+// Enables using WebMediaPlayerMS for src of <audio>/<video> derived from
+// media stream.
+const char kEnableWebMediaPlayerMS[]        = "enable-web-media-player-ms";
 
 // On Windows, converts the page to the currently-installed monitor profile.
 // This does NOT enable color management for images. The source is still
@@ -407,6 +405,10 @@ const char kForceFieldTrials[]              = "force-fieldtrials";
 // overrides this if present.
 const char kForceRendererAccessibility[]    = "force-renderer-accessibility";
 
+// Force the compositor to use its software implementation instead of GL.
+const char kEnableSoftwareCompositingGLAdapter[] =
+    "enable-software-compositing-gl-adapter";
+
 // Passes gpu device_id from browser process to GPU process.
 const char kGpuDeviceID[]                   = "gpu-device-id";
 
@@ -432,6 +434,9 @@ const char kGpuVendorID[]                   = "gpu-vendor-id";
 // Used in conjunction with kRendererProcess. This causes the process
 // to run as a guest renderer instead of a regular renderer.
 const char kGuestRenderer[]                 = "guest-renderer";
+
+// Ignores GPU blacklist.
+const char kIgnoreGpuBlacklist[]            = "ignore-gpu-blacklist";
 
 // Run the GPU process as a thread in the browser process.
 const char kInProcessGPU[]                  = "in-process-gpu";
@@ -552,6 +557,11 @@ const char kShowCompositedLayerTree[]       = "show-composited-layer-tree";
 // Draws a FPS indicator
 const char kShowFPSCounter[]                = "show-fps-counter";
 
+// Enables accelerated compositing for overflow scroll. Promotes eligible
+// overflow:scroll elements to layers to enable accelerated scrolling for them.
+const char kEnableAcceleratedCompositingForOverflowScroll[] =
+    "enable-accelerated-compositing-for-overflow-scroll";
+
 // Visibly render a border around paint rects in the web page to help debug
 // and study painting behavior.
 const char kShowPaintRects[]                = "show-paint-rects";
@@ -641,8 +651,15 @@ const char kZygoteProcess[]                 = "zygote";
 const char kEnableVisualWordMovement[]      = "enable-visual-word-movement";
 
 #if defined(OS_ANDROID)
+// Disable history logging for media elements.
+const char kDisableMediaHistoryLogging[]    = "disable-media-history";
+
+// Whether to run media elements in the renderer process.
+const char kMediaPlayerInRenderProcess[]    = "media-player-in-render-process";
+
 // Set when Chromium should use a mobile user agent.
 const char kUseMobileUserAgent[] = "use-mobile-user-agent";
+
 // Omnibus flag setting an Android graphics mode.  May be:
 //   "basic" (untiled software path)
 //   "compositor" (hardware-accelerated compositing),
@@ -652,6 +669,9 @@ const char kGraphicsModeValueCompositor[]   = "compositor";
 
 // The telephony region (ISO country code) to use in phone number detection.
 const char kNetworkCountryIso[] = "network-country-iso";
+
+// Set to enable compatibility with legacy WebView synchronous APIs.
+const char kEnableWebViewSynchronousAPIs[] = "enable-webview-synchronous-apis";
 #endif
 
 #if defined(OS_POSIX)

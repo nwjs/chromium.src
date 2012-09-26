@@ -11,8 +11,12 @@
 
 namespace aura {
 class DesktopActivationClient;
+class DesktopCursorClient;
 class DesktopDispatcherClient;
 class FocusManager;
+namespace client {
+class ScreenPositionClient;
+}
 }
 
 namespace views {
@@ -47,6 +51,8 @@ class DesktopRootWindowHostWin : public DesktopRootWindowHost,
   virtual gfx::Rect GetWindowBoundsInScreen() const OVERRIDE;
   virtual gfx::Rect GetClientAreaBoundsInScreen() const OVERRIDE;
   virtual gfx::Rect GetRestoredBounds() const OVERRIDE;
+  virtual gfx::Rect GetWorkAreaBoundsInScreen() const OVERRIDE;
+  virtual void SetShape(gfx::NativeRegion native_region) OVERRIDE;
   virtual void Activate() OVERRIDE;
   virtual void Deactivate() OVERRIDE;
   virtual bool IsActive() const OVERRIDE;
@@ -55,10 +61,29 @@ class DesktopRootWindowHostWin : public DesktopRootWindowHost,
   virtual void Restore() OVERRIDE;
   virtual bool IsMaximized() const OVERRIDE;
   virtual bool IsMinimized() const OVERRIDE;
+  virtual bool HasCapture() const OVERRIDE;
   virtual void SetAlwaysOnTop(bool always_on_top) OVERRIDE;
   virtual InputMethod* CreateInputMethod() OVERRIDE;
   virtual internal::InputMethodDelegate* GetInputMethodDelegate() OVERRIDE;
   virtual void SetWindowTitle(const string16& title) OVERRIDE;
+  virtual void ClearNativeFocus() OVERRIDE;
+  virtual Widget::MoveLoopResult RunMoveLoop(
+      const gfx::Point& drag_offset) OVERRIDE;
+  virtual void EndMoveLoop() OVERRIDE;
+  virtual void SetVisibilityChangedAnimationsEnabled(bool value) OVERRIDE;
+  virtual bool ShouldUseNativeFrame() OVERRIDE;
+  virtual void FrameTypeChanged() OVERRIDE;
+  virtual NonClientFrameView* CreateNonClientFrameView() OVERRIDE;
+  virtual void SetFullscreen(bool fullscreen) OVERRIDE;
+  virtual bool IsFullscreen() const OVERRIDE;
+  virtual void SetOpacity(unsigned char opacity) OVERRIDE;
+  virtual void SetWindowIcons(const gfx::ImageSkia& window_icon,
+                              const gfx::ImageSkia& app_icon) OVERRIDE;
+  virtual void SetAccessibleName(const string16& name) OVERRIDE;
+  virtual void SetAccessibleRole(ui::AccessibilityTypes::Role role) OVERRIDE;
+  virtual void SetAccessibleState(ui::AccessibilityTypes::State state) OVERRIDE;
+  virtual void InitModalType(ui::ModalType modal_type) OVERRIDE;
+  virtual void FlashFrame(bool flash_frame) OVERRIDE;
 
   // Overridden from aura::RootWindowHost:
   virtual aura::RootWindow* GetRootWindow() OVERRIDE;
@@ -159,6 +184,9 @@ class DesktopRootWindowHostWin : public DesktopRootWindowHost,
                              WPARAM w_param,
                              LPARAM l_param) OVERRIDE;
 
+  Widget* GetWidget();
+  const Widget* GetWidget() const;
+
   scoped_ptr<aura::RootWindow> root_window_;
   scoped_ptr<HWNDMessageHandler> message_handler_;
   scoped_ptr<DesktopCaptureClient> capture_client_;
@@ -172,6 +200,13 @@ class DesktopRootWindowHostWin : public DesktopRootWindowHost,
 
   aura::RootWindowHostDelegate* root_window_host_delegate_;
   aura::Window* content_window_;
+
+  // In some cases, we set a screen position client on |root_window_|. If we
+  // do, we're responsible for the lifetime.
+  scoped_ptr<aura::client::ScreenPositionClient> position_client_;
+
+  // A simple cursor client which just forwards events to the RootWindow.
+  scoped_ptr<aura::DesktopCursorClient> cursor_client_;
 
   DISALLOW_COPY_AND_ASSIGN(DesktopRootWindowHostWin);
 };

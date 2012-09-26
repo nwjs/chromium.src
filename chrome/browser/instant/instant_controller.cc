@@ -7,6 +7,7 @@
 #include "base/command_line.h"
 #include "base/i18n/case_conversion.h"
 #include "base/metrics/histogram.h"
+#include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/autocomplete_provider.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
@@ -29,7 +30,6 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
-#include "ui/gfx/codec/png_codec.h"
 
 #if defined(TOOLKIT_VIEWS)
 #include "ui/views/widget/widget.h"
@@ -182,7 +182,8 @@ bool InstantController::Update(const AutocompleteMatch& match,
   // If the match's TemplateURL is valid, it's a search query; use it. If it's
   // not valid, it's likely a URL; in EXTENDED mode, try using the default
   // search engine's TemplateURL instead.
-  if (GetInstantURL(match.GetTemplateURL(profile), &instant_url)) {
+  const GURL& tab_url = active_tab->web_contents()->GetURL();
+  if (GetInstantURL(match.GetTemplateURL(profile), tab_url, &instant_url)) {
     ResetLoader(instant_url, active_tab);
   } else if (mode_ != EXTENDED || !CreateDefaultLoader()) {
     Hide();
@@ -222,7 +223,7 @@ bool InstantController::Update(const AutocompleteMatch& match,
     //    still Q, so we don't Update() the loader, but we do need to Show().
     if (loader_processed_last_update_ &&
         (mode_ == INSTANT || mode_ == EXTENDED))
-      Show();
+      Show(100, INSTANT_SIZE_PERCENT);
     return true;
   }
 
@@ -288,6 +289,14 @@ void InstantController::HandleAutocompleteResults(
   loader_->SendAutocompleteResults(results);
 }
 
+bool InstantController::OnUpOrDownKeyPressed(int count) {
+  if (mode_ != EXTENDED || !GetPreviewContents())
+    return false;
+
+  loader_->OnUpOrDownKeyPressed(count);
+  return true;
+}
+
 TabContents* InstantController::GetPreviewContents() const {
   return loader_.get() ? loader_->preview_contents() : NULL;
 }
@@ -297,6 +306,17 @@ void InstantController::Hide() {
   if (is_showing_) {
     is_showing_ = false;
     delegate_->HideInstant();
+
+    content::NotificationService::current()->Notify(
+        chrome::NOTIFICATION_INSTANT_CONTROLLER_HIDDEN,
+        content::Source<InstantController>(this),
+        content::NotificationService::NoDetails());
+  }
+  if (GetPreviewContents() && !last_full_text_.empty()) {
+    // Send a blank query to ask the preview to clear out old results.
+    last_full_text_.clear();
+    last_user_text_.clear();
+    loader_->Update(last_full_text_, true);
   }
 }
 
@@ -327,12 +347,12 @@ TabContents* InstantController::ReleasePreviewContents(InstantCommitType type) {
   // If the preview page has navigated since the last Update(), we need to add
   // the navigation to history ourselves. Else, the page will navigate after
   // commit, and it will be added to history in the usual manner.
-  scoped_refptr<history::HistoryAddPageArgs> last_navigation =
+  const history::HistoryAddPageArgs& last_navigation =
       loader_->last_navigation();
-  if (last_navigation != NULL) {
+  if (!last_navigation.url.is_empty()) {
     content::NavigationEntry* entry =
         preview->web_contents()->GetController().GetActiveEntry();
-    DCHECK_EQ(last_navigation->url, entry->GetURL());
+    DCHECK_EQ(last_navigation.url, entry->GetURL());
 
     // Add the page to history.
     preview->history_tab_helper()->UpdateHistoryForNavigation(last_navigation);
@@ -355,8 +375,9 @@ TabContents* InstantController::ReleasePreviewContents(InstantCommitType type) {
   HistoryService* history = HistoryServiceFactory::GetForProfile(
       preview->profile(), Profile::EXPLICIT_ACCESS);
   if (history) {
-    history->AddPage(url_for_history_, NULL, 0, GURL(), last_transition_type_,
-                     history::RedirectList(), history::SOURCE_BROWSED, false);
+    history->AddPage(url_for_history_, base::Time::Now(), NULL, 0, GURL(),
+                     history::RedirectList(), last_transition_type_,
+                     history::SOURCE_BROWSED, false);
   }
 
   AddPreviewUsageForHistogram(mode_, PREVIEW_COMMITTED);
@@ -365,8 +386,8 @@ TabContents* InstantController::ReleasePreviewContents(InstantCommitType type) {
   // still be on the stack. So, schedule a destruction for later.
   MessageLoop::current()->DeleteSoon(FROM_HERE, loader_.release());
 
-  // This call is here to hide the preview and reset view state. It won't
-  // actually delete |loader_| because it was just released to DeleteSoon().
+  // This call is here to reset view state. It won't actually delete |loader_|
+  // because it was just released to DeleteSoon().
   DeleteLoader();
 
   return preview;
@@ -476,20 +497,33 @@ void InstantController::SetSuggestions(
   if (!suggestions.empty())
     suggestion = suggestions[0];
 
-  string16 suggestion_lower = base::i18n::ToLower(suggestion.text);
-  string16 user_text_lower = base::i18n::ToLower(last_user_text_);
-  if (user_text_lower.size() >= suggestion_lower.size() ||
-      suggestion_lower.compare(0, user_text_lower.size(), user_text_lower))
-    suggestion.text.clear();
-  else
-    suggestion.text.erase(0, last_user_text_.size());
-
-  last_suggestion_ = suggestion;
-  if (!last_verbatim_)
+  if (suggestion.behavior == INSTANT_COMPLETE_REPLACE) {
+    // We don't get an Update() when changing the omnibox due to a REPLACE
+    // suggestion (so that we don't inadvertently cause the preview to change
+    // what it's showing, as the user arrows up/down through the page-provided
+    // suggestions). So, update these state variables here.
+    last_full_text_ = suggestion.text;
+    last_user_text_.clear();
+    last_verbatim_ = true;
+    last_suggestion_ = InstantSuggestion();
+    last_match_was_search_ = suggestion.type == INSTANT_SUGGESTION_SEARCH;
     delegate_->SetSuggestedText(suggestion.text, suggestion.behavior);
+  } else {
+    string16 suggestion_lower = base::i18n::ToLower(suggestion.text);
+    string16 user_text_lower = base::i18n::ToLower(last_user_text_);
+    if (user_text_lower.size() >= suggestion_lower.size() ||
+        suggestion_lower.compare(0, user_text_lower.size(), user_text_lower))
+      suggestion.text.clear();
+    else
+      suggestion.text.erase(0, last_user_text_.size());
+
+    last_suggestion_ = suggestion;
+    if (!last_verbatim_)
+      delegate_->SetSuggestedText(suggestion.text, suggestion.behavior);
+  }
 
   if (mode_ != SUGGEST)
-    Show();
+    Show(100, INSTANT_SIZE_PERCENT);
 }
 
 void InstantController::CommitInstantLoader(InstantLoader* loader) {
@@ -499,6 +533,16 @@ void InstantController::CommitInstantLoader(InstantLoader* loader) {
     return;
 
   CommitCurrentPreview(INSTANT_COMMIT_FOCUS_LOST);
+}
+
+void InstantController::SetInstantPreviewHeight(InstantLoader* loader,
+                                                int height,
+                                                InstantSizeUnits units) {
+  DCHECK_EQ(loader_.get(), loader);
+  if (loader_ != loader || mode_ != EXTENDED)
+    return;
+
+  Show(height, units);
 }
 
 void InstantController::InstantLoaderPreviewLoaded(InstantLoader* loader) {
@@ -533,7 +577,7 @@ void InstantController::InstantSupportDetermined(InstantLoader* loader,
 void InstantController::SwappedTabContents(InstantLoader* loader) {
   DCHECK_EQ(loader_.get(), loader);
   if (loader_ == loader && is_showing_)
-    delegate_->ShowInstant();
+    delegate_->ShowInstant(100, INSTANT_SIZE_PERCENT);
 }
 
 void InstantController::InstantLoaderContentsFocused(InstantLoader* loader) {
@@ -589,8 +633,9 @@ bool InstantController::CreateDefaultLoader() {
   const TemplateURL* template_url =
       TemplateURLServiceFactory::GetForProfile(active_tab->profile())->
                                  GetDefaultSearchProvider();
+  const GURL& tab_url = active_tab->web_contents()->GetURL();
   std::string instant_url;
-  if (!GetInstantURL(template_url, &instant_url))
+  if (!GetInstantURL(template_url, tab_url, &instant_url))
     return false;
 
   ResetLoader(instant_url, active_tab);
@@ -613,13 +658,15 @@ void InstantController::MaybeOnStaleLoader() {
 }
 
 void InstantController::DeleteLoader() {
-  Hide();
+  last_active_tab_ = NULL;
   last_full_text_.clear();
   last_user_text_.clear();
   last_verbatim_ = false;
   last_suggestion_ = InstantSuggestion();
   last_transition_type_ = content::PAGE_TRANSITION_LINK;
   last_match_was_search_ = false;
+  is_showing_ = false;
+  loader_processed_last_update_ = false;
   last_omnibox_bounds_ = gfx::Rect();
   url_for_history_ = GURL();
   if (GetPreviewContents())
@@ -627,11 +674,17 @@ void InstantController::DeleteLoader() {
   loader_.reset();
 }
 
-void InstantController::Show() {
+void InstantController::Show(int height, InstantSizeUnits units) {
+  // Call even if showing in case height changed.
+  delegate_->ShowInstant(height, units);
   if (!is_showing_) {
     is_showing_ = true;
-    delegate_->ShowInstant();
     AddPreviewUsageForHistogram(mode_, PREVIEW_SHOWED);
+
+    content::NotificationService::current()->Notify(
+        chrome::NOTIFICATION_INSTANT_CONTROLLER_SHOWN,
+        content::Source<InstantController>(this),
+        content::NotificationService::NoDetails());
   }
 }
 
@@ -663,11 +716,13 @@ void InstantController::SendBoundsToPage() {
 }
 
 bool InstantController::GetInstantURL(const TemplateURL* template_url,
+                                      const GURL& tab_url,
                                       std::string* instant_url) const {
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kInstantURL)) {
     *instant_url = command_line->GetSwitchValueASCII(switches::kInstantURL);
-    return true;
+    MaybeSetRefFromURL(tab_url, instant_url);
+    return template_url != NULL;
   }
 
   if (!template_url)
@@ -711,7 +766,29 @@ bool InstantController::GetInstantURL(const TemplateURL* template_url,
       iter->second > kMaxInstantSupportFailures)
     return false;
 
+  MaybeSetRefFromURL(tab_url, instant_url);
   return true;
+}
+
+void InstantController::MaybeSetRefFromURL(const GURL& tab_url,
+                                           std::string* instant_url) const {
+  if (mode_ == EXTENDED) {
+    GURL url_obj(*instant_url);
+    if (!url_obj.is_valid())
+      return;
+
+    // Copy hash state so that search modes persist for query refinements.
+    if (tab_url.has_ref() &&
+        tab_url.host() == url_obj.host() &&
+        tab_url.path() == url_obj.path()) {
+      const std::string new_ref = tab_url.ref();
+      GURL::Replacements hash;
+      hash.SetRefStr(new_ref);
+      url_obj = url_obj.ReplaceComponents(hash);
+      DCHECK(url_obj.is_valid());
+      *instant_url = url_obj.spec();
+    }
+  }
 }
 
 bool InstantController::IsOutOfDate() const {

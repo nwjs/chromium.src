@@ -7,27 +7,25 @@ package org.chromium.android_webview.test;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.test.ActivityInstrumentationTestCase2;
-import android.view.View;
-import android.view.ViewGroup;
 
-import org.chromium.android_webview.AndroidWebViewUtil;
+import junit.framework.Assert;
+
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwContentsClient;
 import org.chromium.content.browser.ContentSettings;
 import org.chromium.content.browser.ContentView;
-import org.chromium.content.browser.ContentViewClient;
 import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.LoadUrlParams;
-import org.chromium.content.browser.test.CallbackHelper;
+import org.chromium.content.browser.test.util.CallbackHelper;
+import org.chromium.content.browser.test.util.TestCallbackHelperContainer;
+import org.chromium.ui.gfx.ActivityNativeWindow;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * A base class for android_webview tests.
@@ -73,6 +71,15 @@ public class AndroidWebViewTestBase
             // Unwrap the cause of the exception and re-throw it.
             throw e.getCause();
         }
+    }
+
+    protected void enableJavaScriptOnUiThread(final ContentViewCore contentViewCore) {
+        getInstrumentation().runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                contentViewCore.getContentSettings().setJavaScriptEnabled(true);
+            }
+        });
     }
 
     /**
@@ -141,7 +148,8 @@ public class AndroidWebViewTestBase
                 getActivity(), ContentViewCore.PERSONALITY_VIEW);
         testContainerView.initialize(contentViewCore,
                 new AwContents(testContainerView, testContainerView.getInternalAccessDelegate(),
-                contentViewCore, contentsClient, incognito, false));
+                contentViewCore, contentsClient, new ActivityNativeWindow(getActivity()),
+                incognito, false));
         getActivity().addView(testContainerView);
         return testContainerView;
     }
@@ -166,6 +174,16 @@ public class AndroidWebViewTestBase
         return testContainerView.get();
     }
 
+    protected void destroyAwContentsOnMainSync(final AwContents contents) {
+        if (contents == null) return;
+        getInstrumentation().runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                contents.destroy();
+            }
+        });
+    }
+
     protected String getTitleOnUiThread(final ContentViewCore contentViewCore) throws Throwable {
         return runTestOnUiThreadAndGetResult(new Callable<String>() {
             @Override
@@ -183,5 +201,27 @@ public class AndroidWebViewTestBase
                 return contentViewCore.getContentSettings();
             }
         });
+    }
+
+    /**
+     * Executes the given snippet of JavaScript code within the given ContentView. Returns the
+     * result of its execution in JSON format.
+     */
+    protected String executeJavaScriptAndWaitForResult(final ContentViewCore core,
+            TestAwContentsClient viewClient, final String code) throws Throwable {
+        final AtomicInteger requestId = new AtomicInteger();
+        TestCallbackHelperContainer.OnEvaluateJavaScriptResultHelper
+                onEvaluateJavaScriptResultHelper = viewClient.getOnEvaluateJavaScriptResultHelper();
+        int currentCallCount = onEvaluateJavaScriptResultHelper.getCallCount();
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                requestId.set(core.evaluateJavaScript(code));
+            }
+        });
+        onEvaluateJavaScriptResultHelper.waitForCallback(currentCallCount);
+        Assert.assertEquals("Response ID mismatch when evaluating JavaScript.",
+                requestId.get(), onEvaluateJavaScriptResultHelper.getId());
+        return onEvaluateJavaScriptResultHelper.getJsonResult();
     }
 }

@@ -9,6 +9,7 @@
 
 #include "sync/base/sync_export.h"
 #include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/sync_encryption_handler.h"
 #include "sync/protocol/sync_protocol_error.h"
 
 namespace syncer {
@@ -80,10 +81,19 @@ struct SYNC_EXPORT SyncStatus {
   int useless_sync_cycles;
   int useful_sync_cycles;
 
+  // Nudge counts for each possible source
+  int nudge_source_notification;
+  int nudge_source_local;
+  int nudge_source_continuation;
+  int nudge_source_local_refresh;
+
   // Encryption related.
   ModelTypeSet encrypted_types;
   bool cryptographer_ready;
   bool crypto_has_pending_keys;
+  bool has_keystore_key;
+  base::Time keystore_migration_time;
+  PassphraseType passphrase_type;
 
   // Per-datatype throttled status.
   ModelTypeSet throttled_types;

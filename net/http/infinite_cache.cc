@@ -297,6 +297,9 @@ void InfiniteCacheTransaction::OnDataRead(const char* data, int data_len) {
   if (!data_len)
     return Finish();
 
+  if (data_len < 0)
+    return OnTruncatedResponse();
+
   resource_data_->details.response_size += data_len;
 
   resource_data_->details.response_hash =
@@ -311,11 +314,14 @@ void InfiniteCacheTransaction::OnTruncatedResponse() {
   resource_data_->details.flags |= TRUNCATED;
 }
 
-void InfiniteCacheTransaction::OnServedFromCache() {
+void InfiniteCacheTransaction::OnServedFromCache(
+    const HttpResponseInfo* response) {
   if (!cache_)
     return;
 
   resource_data_->details.flags |= CACHED;
+  if (!resource_data_->details.last_access)
+    OnResponseReceived(response);
 }
 
 void InfiniteCacheTransaction::Finish() {
@@ -476,7 +482,7 @@ void InfiniteCache::Worker::DeleteDataBetween(base::Time initial_time,
   file_util::Delete(path_, false);
   StoreData();
   *result = OK;
-  UMA_HISTOGRAM_BOOLEAN("InfiniteCache.DeleteAll", true);
+  UMA_HISTOGRAM_BOOLEAN("InfiniteCache.DeleteRange", true);
 }
 
 void InfiniteCache::Worker::Process(
@@ -500,25 +506,21 @@ void InfiniteCache::Worker::Process(
     }
     data->details.use_count = i->second.use_count;
     data->details.update_count = i->second.update_count;
-    if (data->details.flags & CACHED) {
+    bool reused = CanReuse(i->second, data->details);
+    bool data_changed = DataChanged(i->second, data->details);
+    bool headers_changed = HeadersChanged(i->second, data->details);
+
+    if (reused && data_changed)
+      header_->num_bad_hits++;
+
+    if (reused)
       RecordHit(i->second, &data->details);
-    } else {
-      bool reused = CanReuse(i->second, data->details);
-      bool data_changed = DataChanged(i->second, data->details);
-      bool headers_changed = HeadersChanged(i->second, data->details);
 
-      if (reused && data_changed)
-        header_->num_bad_hits++;
+    if (headers_changed)
+      UMA_HISTOGRAM_BOOLEAN("InfiniteCache.HeadersChange", true);
 
-      if (reused)
-        RecordHit(i->second, &data->details);
-
-      if (headers_changed)
-        UMA_HISTOGRAM_BOOLEAN("InfiniteCache.HeadersChange", true);
-
-      if (data_changed)
-        RecordUpdate(i->second, &data->details);
-    }
+    if (data_changed)
+      RecordUpdate(i->second, &data->details);
 
     if (data->details.flags & NO_STORE) {
       Remove(i->second);
@@ -867,18 +869,18 @@ bool InfiniteCache::Worker::CanReuse(const Details& old,
   };
   int reason = REUSE_OK;
 
-  if (old.flags & NO_CACHE)
-    reason = REUSE_NO_CACHE;
+  Time expiration = IntToTime(old.expiration);
+  if (expiration < Time::Now())
+    reason = REUSE_EXPIRED;
 
   if (old.flags & EXPIRED)
     reason = REUSE_ALWAYS_EXPIRED;
 
+  if (old.flags & NO_CACHE)
+    reason = REUSE_NO_CACHE;
+
   if (old.flags & TRUNCATED)
     reason = REUSE_TRUNCATED;
-
-  Time expiration = IntToTime(old.expiration);
-  if (expiration < Time::Now())
-    reason = REUSE_EXPIRED;
 
   if (old.vary_hash != current.vary_hash)
     reason = REUSE_VARY;
@@ -893,6 +895,9 @@ bool InfiniteCache::Worker::CanReuse(const Details& old,
 
 bool InfiniteCache::Worker::DataChanged(const Details& old,
                                         const Details& current) {
+  if (current.flags & CACHED)
+    return false;
+
   bool changed = false;
   if (old.response_size != current.response_size) {
     changed = true;

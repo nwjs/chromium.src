@@ -11,6 +11,8 @@ import android.view.KeyEvent;
 import android.webkit.ConsoleMessage;
 
 import org.chromium.content.browser.ContentViewClient;
+import org.chromium.content.browser.ContentViewCore;
+import org.chromium.content.browser.WebContentsObserverAndroid;
 
 /**
  * Base-class that an AwContents embedder derives from to receive callbacks.
@@ -28,12 +30,13 @@ public abstract class AwContentsClient extends ContentViewClient {
     private final WebContentsDelegateAdapter mWebContentsDelegateAdapter =
             new WebContentsDelegateAdapter();
 
+    private AwWebContentsObserver mWebContentsObserver;
+
     //--------------------------------------------------------------------------------------------
     //                        Adapter for WebContentsDelegate methods.
     //--------------------------------------------------------------------------------------------
 
     class WebContentsDelegateAdapter extends AwWebContentsDelegate {
-
         @Override
         public void onLoadProgressChanged(int progress) {
             AwContentsClient.this.onProgressChanged(progress);
@@ -103,6 +106,34 @@ public abstract class AwContentsClient extends ContentViewClient {
         }
     }
 
+    class AwWebContentsObserver extends WebContentsObserverAndroid {
+        public AwWebContentsObserver(ContentViewCore contentViewCore) {
+            super(contentViewCore);
+        }
+
+        @Override
+        public void didStartLoading(String url) {
+            AwContentsClient.this.onPageStarted(url);
+        }
+
+        @Override
+        public void didStopLoading(String url) {
+            AwContentsClient.this.onPageFinished(url);
+        }
+
+        @Override
+        public void didFailLoad(boolean isProvisionalLoad,
+                boolean isMainFrame, int errorCode, String description, String failingUrl) {
+            AwContentsClient.this.onReceivedError(
+                    ErrorCodeConversionHelper.convertErrorCode(errorCode), description, failingUrl);
+        }
+    }
+
+    void installWebContentsObserver(ContentViewCore contentViewCore) {
+        assert mWebContentsObserver == null;
+        mWebContentsObserver = new AwWebContentsObserver(contentViewCore);
+    }
+
     final AwWebContentsDelegate getWebContentsDelegate()  {
         return mWebContentsDelegateAdapter;
     }
@@ -123,14 +154,34 @@ public abstract class AwContentsClient extends ContentViewClient {
     public abstract void onReceivedHttpAuthRequest(AwHttpAuthHandler handler,
             String host, String realm);
 
+    protected abstract void handleJsAlert(String url, String message, JsResultReceiver receiver);
+
+    protected abstract void handleJsBeforeUnload(String url, String message,
+                                                 JsResultReceiver receiver);
+
+    protected abstract void handleJsConfirm(String url, String message, JsResultReceiver receiver);
+
+    protected abstract void handleJsPrompt(String url, String message, String defaultValue,
+            JsPromptResultReceiver receiver);
+
+    //--------------------------------------------------------------------------------------------
+    //                              Other WebView-specific methods
+    //--------------------------------------------------------------------------------------------
+    //
+
+    public abstract void onFindResultReceived(int activeMatchOrdinal, int numberOfMatches,
+            boolean isDoneCounting);
+
+    public abstract void onPageStarted(String url);
+
+    public abstract void onPageFinished(String url);
+
+    public abstract void onReceivedError(int errorCode, String description, String failingUrl);
+
     //--------------------------------------------------------------------------------------------
     //             Stuff that we ignore since it only makes sense for Chrome browser
     //--------------------------------------------------------------------------------------------
     //
-
-    @Override
-    final public void onMainFrameCommitted(String url, String baseUrl) {
-    }
 
     @Override
     final public boolean shouldOverrideScroll(float dx, float dy, float scrollX, float scrollY) {

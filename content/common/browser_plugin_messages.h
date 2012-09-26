@@ -9,6 +9,7 @@
 #include "base/basictypes.h"
 #include "base/process.h"
 #include "content/common/content_export.h"
+#include "content/common/content_param_traits.h"
 #include "content/public/common/common_param_traits.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_message_macros.h"
@@ -32,6 +33,14 @@ IPC_MESSAGE_ROUTED2(BrowserPluginHostMsg_SetFocus,
                     int /* instance_id */,
                     bool /* enable */)
 
+// Tell the guest to stop loading.
+IPC_MESSAGE_ROUTED1(BrowserPluginHostMsg_Stop,
+                    int /* instance_id */)
+
+/// Tell the guest to reload.
+IPC_MESSAGE_ROUTED1(BrowserPluginHostMsg_Reload,
+                    int /* instance_id */)
+
 // Message payload includes:
 // 1. A blob that should be cast to WebInputEvent
 // 2. An optional boolean value indicating if a RawKeyDown event is associated
@@ -54,10 +63,11 @@ IPC_MESSAGE_ROUTED3(BrowserPluginHostMsg_UpdateRect_ACK,
 // that WebContents. If not, it will create the WebContents, associate it with
 // the BrowserPlugin's browser-side BrowserPluginHost as a guest, and navigate
 // it to the requested URL.
-IPC_MESSAGE_ROUTED3(BrowserPluginHostMsg_NavigateOrCreateGuest,
+IPC_MESSAGE_ROUTED4(BrowserPluginHostMsg_NavigateGuest,
                     int /* instance_id*/,
-                    long long /* frame_id */,
-                    std::string /* src */)
+                    int64 /* frame_id */,
+                    std::string /* src */,
+                    gfx::Size /* size */)
 
 // When a BrowserPlugin has been removed from the embedder's DOM, it informs
 // the browser process to cleanup the guest.
@@ -71,6 +81,11 @@ IPC_STRUCT_BEGIN(BrowserPluginHostMsg_ResizeGuest_Params)
   // A handle to the new buffer to use to transport damage to the
   // embedder renderer process.
   IPC_STRUCT_MEMBER(TransportDIB::Id, damage_buffer_id)
+#if defined(OS_WIN)
+  // The size of the damage buffer because this information is not available
+  // on Windows.
+  IPC_STRUCT_MEMBER(int, damage_buffer_size)
+#endif
   // The new width of the plugin container.
   IPC_STRUCT_MEMBER(int, width)
   // The new height of the plugin container.
@@ -94,9 +109,10 @@ IPC_SYNC_MESSAGE_ROUTED2_0(BrowserPluginHostMsg_ResizeGuest,
 
 // When the guest navigates, the browser process informs the embedder through
 // the BrowserPluginMsg_DidNavigate message.
-IPC_MESSAGE_CONTROL2(BrowserPluginMsg_DidNavigate,
+IPC_MESSAGE_CONTROL3(BrowserPluginMsg_DidNavigate,
                      int /* instance_id */,
-                     GURL /* url */)
+                     GURL /* url */,
+                     int /* process_id */)
 
 // When the guest crashes, the browser process informs the embedder through this
 // message.

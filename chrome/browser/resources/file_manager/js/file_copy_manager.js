@@ -816,7 +816,7 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
         chrome.fileBrowserPrivate.onFileTransfersUpdated.removeListener(
             onFileTransfersUpdated);
         if (chrome.extension.lastError) {
-          this.log_(
+          self.log_(
               'Error copying ' + sourceFileUrl + ' to ' + targetFileUrl);
           onFilesystemError({
             code: chrome.extension.lastError.message,
@@ -852,8 +852,14 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
         self.cancelCallback_ = null;
         chrome.fileBrowserPrivate.onFileTransfersUpdated.removeListener(
             onFileTransfersUpdated);
-        chrome.fileBrowserPrivate.cancelFileTransfers([sourceFileUrl],
-                                                      function() {});
+        if (task.sourceOnGData) {
+          chrome.fileBrowserPrivate.cancelFileTransfers([sourceFileUrl],
+                                                        function() {});
+        } else {
+          chrome.fileBrowserPrivate.cancelFileTransfers([targetFileUrl],
+                                                        function() {});
+        }
+
         self.doCancel_();
       };
 

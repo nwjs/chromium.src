@@ -105,11 +105,11 @@
       <command id="paste" i18n-values="label:PASTE_BUTTON_LABEL"
               shortcut="U+0056-Ctrl"></command>
       <command id="rename" i18n-values="label:RENAME_BUTTON_LABEL"
-              shortcut="Enter-Ctrl U+0045-Ctrl"></command>
+              shortcut="Enter-Ctrl"></command>
       <command id="delete" i18n-values="label:DELETE_BUTTON_LABEL"
                shortcut="U+007F"></command>
       <command id="newfolder" i18n-values="label:NEW_FOLDER_BUTTON_LABEL"
-               shortcut="U+0020-Ctrl"></command>
+               shortcut="U+0045-Ctrl"></command>
 
       <command id="unmount" i18n-values="label:UNMOUNT_DEVICE_BUTTON_LABEL"
           ></command>
@@ -131,7 +131,7 @@
           i18n-values="label:OPEN_WITH_BUTTON_LABEL"></command>
     </commands>
 
-    <menu id="file-context-menu" class="chrome-menu">
+    <menu id="file-context-menu" class="chrome-menu" showShortcuts>
       <menuitem id="default-action"
           visibleif="full-page" hidden></menuitem>
       <menuitem command="#open-with"
@@ -158,8 +158,8 @@
           i18n-content=GDATA_MOBILE_CONNECTION_OPTION></menuitem>
       <menuitem id="gdata-hosted-settings"
           i18n-content=GDATA_SHOW_HOSTED_FILES_OPTION></menuitem>
-      <hr visibleif="ctrl">
-      <menuitem id="gdata-clear-local-cache" visibleif="ctrl"
+      <hr required_attr="ctrl-pressing">
+      <menuitem id="gdata-clear-local-cache" required_attr="ctrl-pressing"
           command="#gdata-clear-local-cache"></menuitem>
       <hr>
       <div id="gdata-space-info" disabled>
@@ -177,7 +177,7 @@
     <menu id="tasks-menu" class="chrome-menu">
     </menu>
 
-    <menu id="text-context-menu" class="chrome-menu">
+    <menu id="text-context-menu" class="chrome-menu" showShortcuts>
         <menuitem command="#cut"></menuitem>
         <menuitem command="#copy"></menuitem>
         <menuitem command="#paste"></menuitem>

@@ -23,10 +23,6 @@ namespace {
 // Pointer to singleton object (NULL if no bubble is open).
 ZoomBubbleGtk* g_bubble = NULL;
 
-// Padding on each side of the percentage label and the left and right sides of
-// the "Set to default" button.
-const int kSidePadding = 5;
-
 // Number of milliseconds the bubble should stay open for if it will auto-close.
 const int kBubbleCloseDelay = 1500;
 
@@ -52,8 +48,8 @@ void ZoomBubbleGtk::Show(GtkWidget* anchor,
     // If the bubble is already showing but its |auto_close_| value is not equal
     // to |auto_close|, the bubble's focus properties must change, so the
     // current bubble must be closed and a new one created.
-    if (g_bubble)
-      g_bubble->Close();
+    Close();
+    DCHECK(!g_bubble);
 
     g_bubble = new ZoomBubbleGtk(anchor, tab_contents, auto_close);
   }
@@ -76,28 +72,32 @@ ZoomBubbleGtk::ZoomBubbleGtk(GtkWidget* anchor,
           tab_contents->web_contents()->GetBrowserContext()));
 
   event_box_ = gtk_event_box_new();
+  gtk_event_box_set_visible_window(GTK_EVENT_BOX(event_box_), FALSE);
   GtkWidget* container = gtk_vbox_new(FALSE, 0);
   gtk_container_add(GTK_CONTAINER(event_box_), container);
 
-  int zoom_percent = tab_contents->zoom_controller()->zoom_percent();
+  ZoomController* zoom_controller =
+      ZoomController::FromWebContents(tab_contents->web_contents());
+  int zoom_percent = zoom_controller->zoom_percent();
   std::string percentage_text = UTF16ToUTF8(l10n_util::GetStringFUTF16Int(
       IDS_TOOLTIP_ZOOM, zoom_percent));
   label_ = theme_service->BuildLabel(percentage_text, ui::kGdkBlack);
   gtk_widget_modify_font(label_, pango_font_description_from_string("13"));
-  gtk_misc_set_padding(GTK_MISC(label_), kSidePadding, kSidePadding);
-
+  gtk_misc_set_padding(GTK_MISC(label_),
+                       ui::kControlSpacing, ui::kControlSpacing);
   gtk_box_pack_start(GTK_BOX(container), label_, FALSE, FALSE, 0);
 
   GtkWidget* separator = gtk_hseparator_new();
   gtk_box_pack_start(GTK_BOX(container), separator, FALSE, FALSE, 0);
 
   GtkWidget* set_default_button = theme_service->BuildChromeButton();
-  gtk_button_set_label(GTK_BUTTON(set_default_button),
-      l10n_util::GetStringUTF8(IDS_ZOOM_SET_DEFAULT).c_str());
+  GtkWidget* label = theme_service->BuildLabel(
+      l10n_util::GetStringUTF8(IDS_ZOOM_SET_DEFAULT).c_str(), ui::kGdkBlack);
+  gtk_container_add(GTK_CONTAINER(set_default_button), label);
 
   GtkWidget* alignment = gtk_alignment_new(0, 0, 1, 1);
   gtk_alignment_set_padding(
-      GTK_ALIGNMENT(alignment), 0, 0, kSidePadding, kSidePadding);
+      GTK_ALIGNMENT(alignment), 0, 0, ui::kControlSpacing, ui::kControlSpacing);
   gtk_container_add(GTK_CONTAINER(alignment), set_default_button);
 
   gtk_box_pack_start(GTK_BOX(container), alignment, FALSE, FALSE, 0);
@@ -125,8 +125,6 @@ ZoomBubbleGtk::ZoomBubbleGtk(GtkWidget* anchor,
   if (auto_close_) {
     // If this is an auto-closing bubble, listen to leave/enter to keep the
     // bubble alive if the mouse stays anywhere inside the bubble.
-    gtk_widget_add_events(event_box_, GDK_ENTER_NOTIFY_MASK |
-                                      GDK_LEAVE_NOTIFY_MASK);
     g_signal_connect_after(event_box_, "enter-notify-event",
                            G_CALLBACK(&OnMouseEnterThunk), this);
     g_signal_connect(event_box_, "leave-notify-event",
@@ -137,6 +135,8 @@ ZoomBubbleGtk::ZoomBubbleGtk(GtkWidget* anchor,
     gtk_widget_add_events(set_default_button, GDK_ENTER_NOTIFY_MASK);
     g_signal_connect_after(set_default_button, "enter-notify-event",
                            G_CALLBACK(&OnMouseEnterThunk), this);
+    g_signal_connect(set_default_button, "leave-notify-event",
+                     G_CALLBACK(&OnMouseLeaveThunk), this);
   }
 
   StartTimerIfNecessary();
@@ -149,7 +149,9 @@ ZoomBubbleGtk::~ZoomBubbleGtk() {
 }
 
 void ZoomBubbleGtk::Refresh() {
-  int zoom_percent = tab_contents_->zoom_controller()->zoom_percent();
+  ZoomController* zoom_controller =
+      ZoomController::FromWebContents(tab_contents_->web_contents());
+  int zoom_percent = zoom_controller->zoom_percent();
   string16 text =
       l10n_util::GetStringFUTF16Int(IDS_TOOLTIP_ZOOM, zoom_percent);
   gtk_label_set_text(GTK_LABEL(g_bubble->label_), UTF16ToUTF8(text).c_str());

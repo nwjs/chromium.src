@@ -35,6 +35,9 @@ typedef void (*GetDeviceInfoFunc)(const FilePath& device_path,
 
 namespace chrome {
 
+class RemovableDeviceNotificationsLinux;
+typedef RemovableDeviceNotificationsLinux RemovableDeviceNotifications;
+
 class RemovableDeviceNotificationsLinux
     : public base::RefCountedThreadSafe<RemovableDeviceNotificationsLinux,
           content::BrowserThread::DeleteOnFileThread> {
@@ -46,9 +49,6 @@ class RemovableDeviceNotificationsLinux
 
   // Must be called for RemovableDeviceNotificationsLinux to work.
   void Init();
-
-  // Use |device_id| to find and return where the device is mounted.
-  FilePath GetDeviceMountPoint(const std::string& device_id) const;
 
   // Finds the device that contains |path| and populates |device_info|.
   // Returns false if unable to find the device.
@@ -78,8 +78,6 @@ class RemovableDeviceNotificationsLinux
   // Structure to save mounted device information such as device path and unique
   // identifier.
   struct MountPointInfo {
-    MountPointInfo();
-
     FilePath mount_device;
     std::string device_id;
     string16 device_name;

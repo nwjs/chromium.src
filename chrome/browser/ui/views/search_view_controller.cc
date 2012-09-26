@@ -393,10 +393,6 @@ void SearchViewController::SetState(State state) {
     case STATE_NTP:
       DestroyViews();
       CreateViews(state);
-      // In |CreateViews|, the main web contents view was reparented, so force
-      // a search re-layout by |toolbar_view_| to re-position the omnibox per
-      // the new bounds of web contents view.
-      toolbar_view_->LayoutForSearch();
       break;
 
     case STATE_NTP_ANIMATING:
@@ -411,6 +407,15 @@ void SearchViewController::SetState(State state) {
       break;
   }
   state_ = state;
+
+  // In |CreateViews|, the main web contents view was reparented, so for
+  // |STATE_NTP| and |STATE_NTP_LOADING|, force a search re-layout by
+  // |toolbar_view_| to re-position the omnibox per the new bounds of web
+  // contents view.
+  // Note: call |LayoutForSearch()| after |state_| has been updated, because
+  // the former calls |GetNTPOmniboxBounds()| which accesses the latter.
+  if (state_ == STATE_NTP_LOADING || state_ == STATE_NTP)
+    toolbar_view_->LayoutForSearch();
 }
 
 void SearchViewController::StartAnimation() {
@@ -475,8 +480,8 @@ void SearchViewController::CreateViews(State state) {
           Profile::FromBrowserContext(browser_context_))->
               GetDefaultSearchProvider();
 
-#if defined(GOOGLE_CHROME_BUILD)
   if (default_provider &&
+      InstantUI::ShouldShowSearchProviderLogo(browser_context_) &&
       (TemplateURLPrepopulateData::GetEngineType(default_provider->url()) ==
        SEARCH_ENGINE_GOOGLE)) {
     default_provider_logo_.reset(new views::ImageView());
@@ -486,7 +491,6 @@ void SearchViewController::CreateViews(State state) {
     default_provider_logo_->SetPaintToLayer(true);
     default_provider_logo_->SetFillsBoundsOpaquely(false);
   }
-#endif
 
   if (!default_provider_logo_.get()) {
     default_provider_name_.reset(new views::Label(
@@ -603,7 +607,9 @@ void SearchViewController::MaybeHideOverlay() {
 }
 
 chrome::search::SearchModel* SearchViewController::search_model() {
-  return tab_contents_ ? tab_contents_->search_tab_helper()->model() : NULL;
+  return tab_contents_ ? chrome::search::SearchTabHelper::FromWebContents(
+                             tab_contents_->web_contents())->model()
+                       : NULL;
 }
 
 content::WebContents* SearchViewController::web_contents() {

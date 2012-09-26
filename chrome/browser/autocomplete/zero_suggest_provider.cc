@@ -53,12 +53,6 @@ ZeroSuggestProvider::ZeroSuggestProvider(
       template_url_service_(TemplateURLServiceFactory::GetForProfile(profile)) {
 }
 
-// static
-void ZeroSuggestProvider::RegisterUserPrefs(PrefService* user_prefs) {
-  user_prefs->RegisterStringPref(prefs::kExperimentalZeroSuggestUrlPrefix, "",
-                                 PrefService::UNSYNCABLE_PREF);
-}
-
 void ZeroSuggestProvider::Start(const AutocompleteInput& input,
                                 bool /*minimal_changes*/) {
   UpdateMatches(input.text());
@@ -101,13 +95,15 @@ void ZeroSuggestProvider::OnURLFetchComplete(const net::URLFetcher* source) {
     JSONStringValueSerializer deserializer(json_data);
     deserializer.set_allow_trailing_comma(true);
     scoped_ptr<Value> data(deserializer.Deserialize(NULL, NULL));
-    results_updated = data.get() && ParseSuggestResults(data.get());
+    results_updated =
+        data.get() && ParseSuggestResults(data.get()) && !results_.empty();
   }
   done_ = true;
 
-  ConvertResultsToAutocompleteMatches();
-  if (results_updated)
+  if (results_updated) {
+    ConvertResultsToAutocompleteMatches();
     listener_->OnProviderUpdate(true);
+  }
 }
 
 ZeroSuggestProvider::~ZeroSuggestProvider() {

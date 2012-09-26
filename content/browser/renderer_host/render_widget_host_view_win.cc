@@ -330,6 +330,12 @@ WebKit::WebGestureEvent CreateWebGestureEvent(HWND hwnd,
       gesture_event.data.tap.height =
           gesture.details().bounding_box().height();
       break;
+    case ui::ET_GESTURE_TAP_DOWN:
+      gesture_event.data.tapDown.width =
+          gesture.details().bounding_box().width();
+      gesture_event.data.tapDown.height =
+          gesture.details().bounding_box().height();
+      break;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       gesture_event.data.scrollUpdate.deltaX = gesture.details().scroll_x();
       gesture_event.data.scrollUpdate.deltaY = gesture.details().scroll_y();
@@ -1503,7 +1509,7 @@ void RenderWidgetHostViewWin::OnSetFocus(HWND window) {
     return;
 
   if (GetBrowserAccessibilityManager())
-    GetBrowserAccessibilityManager()->GotFocus();
+    GetBrowserAccessibilityManager()->GotFocus(pointer_down_context_);
 
   render_widget_host_->GotFocus();
   render_widget_host_->SetActive(true);
@@ -1528,6 +1534,7 @@ void RenderWidgetHostViewWin::OnCaptureChanged(HWND window) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewWin::OnCaptureChanged");
   if (render_widget_host_)
     render_widget_host_->LostCapture();
+  pointer_down_context_ = false;
 }
 
 void RenderWidgetHostViewWin::OnCancelMode() {
@@ -1813,7 +1820,11 @@ LRESULT RenderWidgetHostViewWin::OnMouseEvent(UINT message, WPARAM wparam,
       case WM_RBUTTONDOWN:
         // Finish the ongoing composition whenever a mouse click happens.
         // It matches IE's behavior.
-        ime_input_.CleanupComposition(m_hWnd);
+        if (base::win::IsTsfAwareRequired()) {
+          ui::TsfBridge::GetInstance()->CancelComposition();
+        } else {
+          ime_input_.CleanupComposition(m_hWnd);
+        }
         // Fall through.
       case WM_MOUSEMOVE:
       case WM_MOUSELEAVE: {
@@ -1839,8 +1850,13 @@ LRESULT RenderWidgetHostViewWin::OnMouseEvent(UINT message, WPARAM wparam,
     }
   }
 
-  if (message == WM_LBUTTONDOWN && GetBrowserAccessibilityManager())
+  if (message == WM_LBUTTONDOWN && pointer_down_context_ &&
+      GetBrowserAccessibilityManager())
     GetBrowserAccessibilityManager()->GotMouseDown();
+
+  if (message == WM_LBUTTONUP && ui::IsMouseEventFromTouch(message) &&
+      base::win::IsMetroProcess())
+    pointer_down_context_ = false;
 
   ForwardMouseEventToRenderer(message, wparam, lparam);
   return 0;
@@ -2200,6 +2216,9 @@ LRESULT RenderWidgetHostViewWin::OnTouchEvent(UINT message, WPARAM wparam,
     TRACE_EVENT0("browser", "EarlyOut_NothingToDo");
     return 0;
   }
+
+  if (total == 1 && (points[0].dwFlags & TOUCHEVENTF_DOWN))
+      pointer_down_context_ = true;
 
   bool has_touch_handler = render_widget_host_->has_touch_handler() &&
       touch_events_enabled_;
@@ -2665,32 +2684,6 @@ LRESULT RenderWidgetHostViewWin::OnParentNotify(UINT message, WPARAM wparam,
     default:
       break;
   }
-  return 0;
-}
-
-LRESULT RenderWidgetHostViewWin::OnPointerMessage(
-    UINT message, WPARAM wparam, LPARAM lparam, BOOL& handled) {
-  TRACE_EVENT0("browser", "RenderWidgetHostViewWin::OnPointerMessage");
-  POINT point = {0};
-
-  point.x = GET_X_LPARAM(lparam);
-  point.y = GET_Y_LPARAM(lparam);
-  ScreenToClient(&point);
-
-  lparam = MAKELPARAM(point.x, point.y);
-
-  if (message == WM_POINTERDOWN) {
-    if (!base::win::IsMetroProcess()) {
-      SetFocus();
-      pointer_down_context_ = true;
-      received_focus_change_after_pointer_down_ = false;
-      MessageLoop::current()->PostDelayedTask(FROM_HERE,
-          base::Bind(&RenderWidgetHostViewWin::ResetPointerDownContext,
-                     weak_factory_.GetWeakPtr()),
-          base::TimeDelta::FromMilliseconds(kPointerDownContextResetDelay));
-    }
-  }
-  handled = FALSE;
   return 0;
 }
 

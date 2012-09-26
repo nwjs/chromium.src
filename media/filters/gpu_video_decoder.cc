@@ -133,8 +133,9 @@ void GpuVideoDecoder::Initialize(const scoped_refptr<DemuxerStream>& stream,
   // TODO(scherkus): this check should go in Pipeline prior to creating
   // decoder objects.
   const VideoDecoderConfig& config = stream->video_decoder_config();
-  if (!config.IsValidConfig()) {
-    DLOG(ERROR) << "Invalid video stream - " << config.AsHumanReadableString();
+  if (!config.IsValidConfig() || config.is_encrypted()) {
+    DLOG(ERROR) << "Unsupported video stream - "
+                << config.AsHumanReadableString();
     status_cb.Run(PIPELINE_ERROR_DECODE);
     return;
   }
@@ -219,6 +220,17 @@ void GpuVideoDecoder::Read(const ReadCB& read_cb) {
   }
 }
 
+bool GpuVideoDecoder::CanMoreDecodeWorkBeDone() {
+#if defined(OS_WIN)
+  // TODO(ananta): the DXVA decoder stymies our attempt to pipeline Decode()s by
+  // claiming to be done with previous work way too quickly.  Until this is
+  // resolved we don't pipeline work.  http://crbug.com/150925
+  return bitstream_buffers_in_decoder_.empty() && !pending_read_cb_.is_null();
+#else
+  return bitstream_buffers_in_decoder_.size() < kMaxInFlightDecodes;
+#endif
+}
+
 void GpuVideoDecoder::RequestBufferDecode(
     DemuxerStream::Status status,
     const scoped_refptr<DecoderBuffer>& buffer) {
@@ -275,7 +287,7 @@ void GpuVideoDecoder::RequestBufferDecode(
   vda_loop_proxy_->PostTask(FROM_HERE, base::Bind(
       &VideoDecodeAccelerator::Decode, weak_vda_, bitstream_buffer));
 
-  if (bitstream_buffers_in_decoder_.size() < kMaxInFlightDecodes)
+  if (CanMoreDecodeWorkBeDone())
     EnsureDemuxOrDecode();
 }
 
@@ -475,7 +487,7 @@ void GpuVideoDecoder::NotifyEndOfBitstreamBuffer(int32 id) {
   bitstream_buffers_in_decoder_.erase(it);
 
   if (pending_reset_cb_.is_null() && state_ != kDrainingDecoder &&
-      bitstream_buffers_in_decoder_.size() < kMaxInFlightDecodes) {
+      CanMoreDecodeWorkBeDone()) {
     EnsureDemuxOrDecode();
   }
 }

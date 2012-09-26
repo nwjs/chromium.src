@@ -22,6 +22,7 @@
 #include "CCPrioritizedTextureManager.h"
 #include "CCRenderPassDrawQuad.h"
 #include "CCRendererGL.h"
+#include "CCRendererSoftware.h"
 #include "CCRenderingStats.h"
 #include "CCScrollbarAnimationController.h"
 #include "CCScrollbarLayerImpl.h"
@@ -88,6 +89,14 @@ private:
     CCLayerTreeHostImpl* m_layerTreeHostImpl;
     RefPtr<CCDelayBasedTimeSource> m_timeSource;
 };
+
+CCLayerTreeHostImpl::FrameData::FrameData()
+{
+}
+
+CCLayerTreeHostImpl::FrameData::~FrameData()
+{
+}
 
 PassOwnPtr<CCLayerTreeHostImpl> CCLayerTreeHostImpl::create(const CCLayerTreeSettings& settings, CCLayerTreeHostImplClient* client)
 {
@@ -283,7 +292,7 @@ bool CCLayerTreeHostImpl::calculateRenderPasses(FrameData& frame)
 
         occlusionTracker.enterLayer(it);
 
-        CCAppendQuadsData appendQuadsData;
+        CCAppendQuadsData appendQuadsData(targetRenderPass->id());
 
         if (it.representsContributingRenderSurface()) {
             CCRenderPass::Id contributingRenderPassId = it->renderSurface()->renderPassId();
@@ -296,6 +305,19 @@ bool CCLayerTreeHostImpl::calculateRenderPasses(FrameData& frame)
             else {
                 it->willDraw(m_resourceProvider.get());
                 frame.willDrawLayers.append(*it);
+
+                if (it->hasContributingDelegatedRenderPasses()) {
+                    CCRenderPass::Id contributingRenderPassId = it->firstContributingRenderPassId();
+                    while (frame.renderPassesById.contains(contributingRenderPassId)) {
+                        CCRenderPass* renderPass = frame.renderPassesById.get(contributingRenderPassId);
+  
+                        CCAppendQuadsData appendQuadsData(renderPass->id());
+                        renderPass->appendQuadsForLayer(*it, &occlusionTracker, appendQuadsData);
+
+                        contributingRenderPassId = it->nextContributingRenderPassId(contributingRenderPassId);
+                    }
+                }
+
                 targetRenderPass->appendQuadsForLayer(*it, &occlusionTracker, appendQuadsData);
             }
         }
@@ -355,7 +377,7 @@ void CCLayerTreeHostImpl::animateLayersRecursive(CCLayerImpl* current, double mo
 
     for (size_t i = 0; i < current->children().size(); ++i) {
         bool childNeedsAnimateLayers = false;
-        animateLayersRecursive(current->children()[i].get(), monotonicTime, wallClockTime, events, didAnimate, childNeedsAnimateLayers);
+        animateLayersRecursive(current->children()[i], monotonicTime, wallClockTime, events, didAnimate, childNeedsAnimateLayers);
         if (childNeedsAnimateLayers)
             subtreeNeedsAnimateLayers = true;
     }
@@ -385,7 +407,11 @@ static inline CCRenderPass* findRenderPassById(CCRenderPass::Id renderPassId, co
 {
     CCRenderPassIdHashMap::const_iterator it = frame.renderPassesById.find(renderPassId);
     ASSERT(it != frame.renderPassesById.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    return it->value.get();
+#else
     return it->second.get();
+#endif
 }
 
 static void removeRenderPassesRecursive(CCRenderPass::Id removeRenderPassId, CCLayerTreeHostImpl::FrameData& frame)
@@ -404,7 +430,7 @@ static void removeRenderPassesRecursive(CCRenderPass::Id removeRenderPassId, CCL
     const CCQuadList& quadList = removedPass->quadList();
     CCQuadList::constBackToFrontIterator quadListIterator = quadList.backToFrontBegin();
     for (; quadListIterator != quadList.backToFrontEnd(); ++quadListIterator) {
-        CCDrawQuad* currentQuad = (*quadListIterator).get();
+        CCDrawQuad* currentQuad = (*quadListIterator);
         if (currentQuad->material() != CCDrawQuad::RenderPass)
             continue;
 
@@ -430,7 +456,7 @@ bool CCLayerTreeHostImpl::CullRenderPassesWithNoQuads::shouldRemoveRenderPass(co
     // If any quad or RenderPass draws into this RenderPass, then keep it.
     const CCQuadList& quadList = frame.renderPasses[passIndex]->quadList();
     for (CCQuadList::constBackToFrontIterator quadListIterator = quadList.backToFrontBegin(); quadListIterator != quadList.backToFrontEnd(); ++quadListIterator) {
-        CCDrawQuad* currentQuad = quadListIterator->get();
+        CCDrawQuad* currentQuad = *quadListIterator;
 
         if (currentQuad->material() != CCDrawQuad::RenderPass)
             return false;
@@ -456,7 +482,7 @@ void CCLayerTreeHostImpl::removeRenderPasses(RenderPassCuller culler, FrameData&
         CCQuadList::constBackToFrontIterator quadListIterator = quadList.backToFrontBegin();
 
         for (; quadListIterator != quadList.backToFrontEnd(); ++quadListIterator) {
-            CCDrawQuad* currentQuad = quadListIterator->get();
+            CCDrawQuad* currentQuad = *quadListIterator;
 
             if (currentQuad->material() != CCDrawQuad::RenderPass)
                 continue;
@@ -500,8 +526,8 @@ void CCLayerTreeHostImpl::releaseContentsTextures()
 {
     if (m_contentsTexturesPurged)
         return;
-    m_resourceProvider->deleteOwnedResources(CCRenderer::ContentPool);
-    m_contentsTexturesPurged = true;
+    m_client->releaseContentsTexturesOnImplThread();
+    setContentsTexturesPurged();
     m_client->setNeedsCommitOnImplThread();
     m_client->onCanDrawStateChanged(canDraw());
 }
@@ -583,6 +609,16 @@ bool CCLayerTreeHostImpl::swapBuffers()
     return m_renderer->swapBuffers();
 }
 
+const IntSize& CCLayerTreeHostImpl::deviceViewportSize() const
+{
+    return m_deviceViewportSize;
+}
+
+const CCLayerTreeSettings& CCLayerTreeHostImpl::settings() const
+{
+    return m_settings;
+}
+
 void CCLayerTreeHostImpl::didLoseContext()
 {
     m_client->didLoseContextOnImplThread();
@@ -608,7 +644,7 @@ static CCLayerImpl* findRootScrollLayer(CCLayerImpl* layer)
         return layer;
 
     for (size_t i = 0; i < layer->children().size(); ++i) {
-        CCLayerImpl* found = findRootScrollLayer(layer->children()[i].get());
+        CCLayerImpl* found = findRootScrollLayer(layer->children()[i]);
         if (found)
             return found;
     }
@@ -674,42 +710,49 @@ void CCLayerTreeHostImpl::setVisible(bool visible)
     setBackgroundTickingEnabled(!m_visible && m_needsAnimateLayers);
 }
 
-bool CCLayerTreeHostImpl::initializeRenderer(PassOwnPtr<CCGraphicsContext> context, TextureUploaderOption textureUploader)
+bool CCLayerTreeHostImpl::initializeRenderer(PassOwnPtr<CCGraphicsContext> context)
 {
-    if (!context->bindToClient(this))
-        return false;
-
-    WebKit::WebGraphicsContext3D* context3d = context->context3D();
-
-    if (!context3d) {
-        // FIXME: Implement this path for software compositing.
-        return false;
-    }
-
-    OwnPtr<CCGraphicsContext> contextRef(context);
-    OwnPtr<CCResourceProvider> resourceProvider = CCResourceProvider::create(contextRef.get());
-    OwnPtr<CCRendererGL> renderer;
-    if (resourceProvider.get())
-        renderer = CCRendererGL::create(this, resourceProvider.get(), textureUploader);
-
-    // Since we now have a new context/renderer, we cannot continue to use the old
-    // resources (i.e. renderSurfaces and texture IDs).
+    // Since we will create a new resource provider, we cannot continue to use
+    // the old resources (i.e. renderSurfaces and texture IDs). Clear them
+    // before we destroy the old resource provider.
     if (m_rootLayerImpl) {
         clearRenderSurfaces();
         sendDidLoseContextRecursive(m_rootLayerImpl.get());
     }
+    // Note: order is important here.
+    m_renderer.clear();
+    m_resourceProvider.clear();
+    m_context.clear();
 
-    m_renderer = renderer.release();
+    if (!context->bindToClient(this))
+        return false;
+
+    OwnPtr<CCResourceProvider> resourceProvider = CCResourceProvider::create(context.get());
+    if (!resourceProvider)
+        return false;
+
+    if (context->context3D())
+        m_renderer = CCRendererGL::create(this, resourceProvider.get());
+    else if (context->softwareDevice())
+        m_renderer = CCRendererSoftware::create(this, resourceProvider.get(), context->softwareDevice());
+    if (!m_renderer)
+        return false;
+
     m_resourceProvider = resourceProvider.release();
-    if (m_renderer)
-        m_context = contextRef.release();
+    m_context = context;
 
-    if (!m_visible && m_renderer)
-         m_renderer->setVisible(m_visible);
+    if (!m_visible)
+        m_renderer->setVisible(m_visible);
 
     m_client->onCanDrawStateChanged(canDraw());
 
-    return m_renderer;
+    return true;
+}
+
+void CCLayerTreeHostImpl::setContentsTexturesPurged()
+{
+    m_contentsTexturesPurged = true;
+    m_client->onCanDrawStateChanged(canDraw());
 }
 
 void CCLayerTreeHostImpl::resetContentsTexturesPurged()
@@ -747,7 +790,7 @@ static void adjustScrollsForPageScaleChange(CCLayerImpl* layerImpl, float pageSc
     }
 
     for (size_t i = 0; i < layerImpl->children().size(); ++i)
-        adjustScrollsForPageScaleChange(layerImpl->children()[i].get(), pageScaleChange);
+        adjustScrollsForPageScaleChange(layerImpl->children()[i], pageScaleChange);
 }
 
 void CCLayerTreeHostImpl::setDeviceScaleFactor(float deviceScaleFactor)
@@ -1118,7 +1161,7 @@ static void collectScrollDeltas(CCScrollAndScaleSet* scrollInfo, CCLayerImpl* la
     }
 
     for (size_t i = 0; i < layerImpl->children().size(); ++i)
-        collectScrollDeltas(scrollInfo, layerImpl->children()[i].get());
+        collectScrollDeltas(scrollInfo, layerImpl->children()[i]);
 }
 
 PassOwnPtr<CCScrollAndScaleSet> CCLayerTreeHostImpl::processScrollDeltas()
@@ -1189,9 +1232,9 @@ void CCLayerTreeHostImpl::animateLayers(double monotonicTime, double wallClockTi
     setBackgroundTickingEnabled(!m_visible && m_needsAnimateLayers);
 }
 
-double CCLayerTreeHostImpl::lowFrequencyAnimationInterval() const
+base::TimeDelta CCLayerTreeHostImpl::lowFrequencyAnimationInterval() const
 {
-    return 1;
+    return base::TimeDelta::FromSeconds(1);
 }
 
 void CCLayerTreeHostImpl::sendDidLoseContextRecursive(CCLayerImpl* current)
@@ -1203,14 +1246,14 @@ void CCLayerTreeHostImpl::sendDidLoseContextRecursive(CCLayerImpl* current)
     if (current->replicaLayer())
         sendDidLoseContextRecursive(current->replicaLayer());
     for (size_t i = 0; i < current->children().size(); ++i)
-        sendDidLoseContextRecursive(current->children()[i].get());
+        sendDidLoseContextRecursive(current->children()[i]);
 }
 
 static void clearRenderSurfacesOnCCLayerImplRecursive(CCLayerImpl* current)
 {
     ASSERT(current);
     for (size_t i = 0; i < current->children().size(); ++i)
-        clearRenderSurfacesOnCCLayerImplRecursive(current->children()[i].get());
+        clearRenderSurfacesOnCCLayerImplRecursive(current->children()[i]);
     current->clearRenderSurface();
 }
 
@@ -1237,7 +1280,7 @@ void CCLayerTreeHostImpl::dumpRenderSurfaces(std::string* str, int indent, const
         layer->renderSurface()->dumpSurface(str, indent);
 
     for (size_t i = 0; i < layer->children().size(); ++i)
-        dumpRenderSurfaces(str, indent, layer->children()[i].get());
+        dumpRenderSurfaces(str, indent, layer->children()[i]);
 }
 
 int CCLayerTreeHostImpl::sourceAnimationFrameNumber() const
@@ -1266,7 +1309,7 @@ void CCLayerTreeHostImpl::animateScrollbarsRecursive(CCLayerImpl* layer, double 
         m_client->setNeedsRedrawOnImplThread();
 
     for (size_t i = 0; i < layer->children().size(); ++i)
-        animateScrollbarsRecursive(layer->children()[i].get(), monotonicTime);
+        animateScrollbarsRecursive(layer->children()[i], monotonicTime);
 }
 
 } // namespace cc

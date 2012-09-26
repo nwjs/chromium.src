@@ -7,7 +7,7 @@
 #include "base/path_service.h"
 #include "base/process_util.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/plugin_prefs.h"
+#include "chrome/browser/plugins/plugin_prefs.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -143,7 +143,13 @@ class ChromePluginTest : public InProcessBrowserTest {
 };
 
 // Tests a bunch of basic scenarios with Flash.
-IN_PROC_BROWSER_TEST_F(ChromePluginTest, Flash) {
+// This test fails under ASan on Mac, see http://crbug.com/147004.
+#if defined(ADDRESS_SANITIZER) && defined(OS_MACOSX)
+#define MAYBE_Flash DISABLED_Flash
+#else
+#define MAYBE_Flash Flash
+#endif
+IN_PROC_BROWSER_TEST_F(ChromePluginTest, MAYBE_Flash) {
   // Official builds always have bundled Flash.
 #if !defined(OFFICIAL_BUILD)
   if (GetFlashPath().empty()) {
@@ -194,8 +200,8 @@ IN_PROC_BROWSER_TEST_F(ChromePluginTest, InstalledPlugins) {
     "Chrome PDF Viewer",
     "Shockwave Flash",
     "Native Client",
-#if defined(OS_CHROMEOS)
     "Chrome Remote Desktop Viewer",
+#if defined(OS_CHROMEOS)
     "Google Talk Plugin",
     "Google Talk Plugin Video Accelerator",
     "Netflix",

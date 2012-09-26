@@ -86,8 +86,11 @@
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/options/take_photo_dialog.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
+#include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/webui/options/chromeos/timezone_options_util.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/power_manager_client.h"
 #include "ui/gfx/image/image_skia.h"
 #endif  // defined(OS_CHROMEOS)
 
@@ -183,7 +186,6 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
 #endif
     { "doNotTrack", IDS_OPTIONS_ENABLE_DO_NOT_TRACK },
     { "doNotTrackConfirmMessage", IDS_OPTIONS_ENABLE_DO_NOT_TRACK_BUBBLE_TEXT },
-    { "doNotTrackConfirmTitle", IDS_OPTIONS_ENABLE_DO_NOT_TRACK_BUBBLE_TITLE },
     { "doNotTrackConfirmEnable",
        IDS_OPTIONS_ENABLE_DO_NOT_TRACK_BUBBLE_ENABLE },
     { "doNotTrackConfirmDisable",
@@ -210,7 +212,6 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
     { "homePageUseNewTab", IDS_OPTIONS_HOMEPAGE_USE_NEWTAB },
     { "homePageUseURL", IDS_OPTIONS_HOMEPAGE_USE_URL },
     { "instantConfirmMessage", IDS_INSTANT_OPT_IN_MESSAGE },
-    { "instantConfirmTitle", IDS_INSTANT_OPT_IN_TITLE },
     { "importData", IDS_OPTIONS_IMPORT_DATA_BUTTON },
     { "improveBrowsingExperience", IDS_OPTIONS_IMPROVE_BROWSING_EXPERIENCE },
     { "languageAndSpellCheckSettingsButton",
@@ -232,9 +233,6 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
     { "privacyClearDataButton", IDS_OPTIONS_PRIVACY_CLEAR_DATA_BUTTON },
     { "privacyContentSettingsButton",
       IDS_OPTIONS_PRIVACY_CONTENT_SETTINGS_BUTTON },
-#if defined(OS_WIN)
-    { "privacyWin8Data", IDS_WINDOWS8_PRIVACY_HANDLING_INFO },
-#endif
     { "profilesCreate", IDS_PROFILES_CREATE_BUTTON_LABEL },
     { "profilesDelete", IDS_PROFILES_DELETE_BUTTON_LABEL },
     { "profilesDeleteSingle", IDS_PROFILES_DELETE_SINGLE_BUTTON_LABEL },
@@ -250,7 +248,6 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
     { "sectionTitleStartup", IDS_OPTIONS_STARTUP_GROUP_NAME },
     { "sectionTitleSync", IDS_SYNC_OPTIONS_GROUP_NAME },
     { "spellingConfirmMessage", IDS_CONTENT_CONTEXT_SPELLING_BUBBLE_TEXT },
-    { "spellingConfirmTitle", IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE },
     { "spellingConfirmEnable", IDS_CONTENT_CONTEXT_SPELLING_BUBBLE_ENABLE },
     { "spellingConfirmDisable", IDS_CONTENT_CONTEXT_SPELLING_BUBBLE_DISABLE },
     { "spellingPref", IDS_OPTIONS_SPELLING_PREF },
@@ -290,6 +287,9 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
       IDS_OPTIONS_SETTINGS_SECTION_TITLE_ACCESSIBILITY },
     { "accessibilityVirtualKeyboard",
       IDS_OPTIONS_SETTINGS_ACCESSIBILITY_VIRTUAL_KEYBOARD_DESCRIPTION },
+    { "factoryResetTitle", IDS_OPTIONS_FACTORY_RESET },
+    { "factoryResetRestart", IDS_OPTIONS_FACTORY_RESET_BUTTON },
+    { "factoryResetDataRestart", IDS_RELAUNCH_BUTTON },
     { "changePicture", IDS_OPTIONS_CHANGE_PICTURE_CAPTION },
     { "datetimeTitle", IDS_OPTIONS_SETTINGS_SECTION_TITLE_DATETIME },
     { "deviceGroupDescription", IDS_OPTIONS_DEVICE_GROUP_DESCRIPTION },
@@ -326,6 +326,11 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
   };
 
   RegisterStrings(values, resources, arraysize(resources));
+  RegisterTitle(values, "instantConfirmOverlay", IDS_INSTANT_OPT_IN_TITLE);
+  RegisterTitle(values, "doNotTrackConfirmOverlay",
+                IDS_OPTIONS_ENABLE_DO_NOT_TRACK_BUBBLE_TITLE);
+  RegisterTitle(values, "spellingConfirmOverlay",
+                IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE);
   RegisterCloudPrintValues(values);
 
 #if !defined(OS_CHROMEOS)
@@ -375,18 +380,21 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
         chromeos::UserManager::Get()->IsUserLoggedIn() ?
             chromeos::UserManager::Get()->GetLoggedInUser().email() :
             std::string());
+
+    values->SetString(
+        "factoryResetDescription",
+        l10n_util::GetStringFUTF16(
+            IDS_OPTIONS_FACTORY_RESET_DESCRIPTION,
+            l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
 #endif
 
   // Pass along sync status early so it will be available during page init.
   values->Set("syncData", GetSyncStateDictionary().release());
 
-#if defined(OS_WIN)
-  values->SetString("privacyWin8DataLearnMoreURL",
-                    chrome::kPrivacyWin8DataLearnMoreURL);
-#endif
   values->SetString("privacyLearnMoreURL", chrome::kPrivacyLearnMoreURL);
   values->SetString("sessionRestoreLearnMoreURL",
                     chrome::kSessionRestoreLearnMoreURL);
+  values->SetString("doNotTrackLearnMoreURL", chrome::kDoNotTrackLearnMoreURL);
 
   values->SetString(
       "languageSectionLabel",
@@ -542,6 +550,10 @@ void BrowserOptionsHandler::RegisterMessages() {
       "virtualKeyboardChange",
       base::Bind(&BrowserOptionsHandler::VirtualKeyboardChangeCallback,
                  base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "performFactoryResetRestart",
+      base::Bind(&BrowserOptionsHandler::PerformFactoryResetRestart,
+                 base::Unretained(this)));
 #endif
 }
 
@@ -643,6 +655,13 @@ void BrowserOptionsHandler::InitializePage() {
 #endif
 #if defined(OS_CHROMEOS)
   SetupAccessibilityFeatures();
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableFactoryReset) &&
+      !g_browser_process->browser_policy_connector()->IsEnterpriseManaged()) {
+    web_ui()->CallJavascriptFunction(
+        "BrowserOptions.enableFactoryResetSection");
+  }
+
 #endif
 #if !defined(OS_MACOSX) && !defined(OS_CHROMEOS)
   SetupBackgroundModeSettings();
@@ -1331,6 +1350,23 @@ void BrowserOptionsHandler::VirtualKeyboardChangeCallback(
 
   chromeos::accessibility::EnableVirtualKeyboard(enabled);
 }
+
+#if defined(OS_CHROMEOS)
+
+void BrowserOptionsHandler::PerformFactoryResetRestart(const ListValue* args) {
+  if (g_browser_process->browser_policy_connector()->IsEnterpriseManaged())
+    return;
+
+  PrefService* prefs = g_browser_process->local_state();
+  prefs->SetBoolean(prefs::kFactoryResetRequested, true);
+  prefs->CommitPendingWrite();
+
+  // Perform sign out. Current chrome process will then terminate, new one will
+  // be launched (as if it was a restart).
+  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RequestRestart();
+}
+
+#endif
 
 void BrowserOptionsHandler::SetupAccessibilityFeatures() {
   PrefService* pref_service = g_browser_process->local_state();

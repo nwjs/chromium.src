@@ -617,9 +617,78 @@ bool ShouldDeleteProfile(const InstallerState& installer_state,
   return should_delete;
 }
 
-bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
+// Removes XP-era filetype registration making Chrome the default browser.
+// MSDN (see http://msdn.microsoft.com/library/windows/desktop/cc144148.aspx)
+// tells us not to do this, but certain applications break following
+// uninstallation if we don't.
+void RemoveFiletypeRegistration(const InstallerState& installer_state,
+                                HKEY root,
+                                const string16& browser_entry_suffix) {
+  string16 classes_path(ShellUtil::kRegClasses);
+  classes_path.push_back(FilePath::kSeparators[0]);
+
+  const string16 prog_id(ShellUtil::kChromeHTMLProgId + browser_entry_suffix);
+
+  // Delete each filetype association if it references this Chrome.  Take care
+  // not to delete the association if it references a system-level install of
+  // Chrome (only a risk if the suffix is empty).  Don't delete the whole key
+  // since other apps may have stored data there.
+  std::vector<const wchar_t*> cleared_assocs;
+  if (installer_state.system_install() ||
+      !browser_entry_suffix.empty() ||
+      !base::win::RegKey(HKEY_LOCAL_MACHINE, (classes_path + prog_id).c_str(),
+                         KEY_QUERY_VALUE).Valid()) {
+    InstallUtil::ValueEquals prog_id_pred(prog_id);
+    for (const wchar_t* const* filetype = &ShellUtil::kFileAssociations[0];
+         *filetype != NULL; ++filetype) {
+      if (InstallUtil::DeleteRegistryValueIf(
+              root, (classes_path + *filetype).c_str(), L"",
+              prog_id_pred) == InstallUtil::DELETED) {
+        cleared_assocs.push_back(*filetype);
+      }
+    }
+  }
+
+  // For all filetype associations in HKLM that have just been removed, attempt
+  // to restore some reasonable value.  We have no definitive way of knowing
+  // what handlers are the most appropriate, so we use a fixed mapping based on
+  // the default values for a fresh install of Windows.
+  if (root == HKEY_LOCAL_MACHINE) {
+    string16 assoc;
+    base::win::RegKey key;
+
+    for (size_t i = 0; i < cleared_assocs.size(); ++i) {
+      const wchar_t* replacement_prog_id = NULL;
+      assoc.assign(cleared_assocs[i]);
+
+      // Inelegant, but simpler than a pure data-driven approach.
+      if (assoc == L".htm" || assoc == L".html")
+        replacement_prog_id = L"htmlfile";
+      else if (assoc == L".xht" || assoc == L".xhtml")
+        replacement_prog_id = L"xhtmlfile";
+
+      if (!replacement_prog_id) {
+        LOG(WARNING) << "No known replacement ProgID for " << assoc
+                     << " files.";
+      } else if (key.Open(HKEY_LOCAL_MACHINE,
+                          (classes_path + replacement_prog_id).c_str(),
+                          KEY_QUERY_VALUE) == ERROR_SUCCESS &&
+                 (key.Open(HKEY_LOCAL_MACHINE, (classes_path + assoc).c_str(),
+                           KEY_SET_VALUE) != ERROR_SUCCESS ||
+                  key.WriteValue(NULL, replacement_prog_id) != ERROR_SUCCESS)) {
+        // The replacement ProgID is registered on the computer but the attempt
+        // to set it for the filetype failed.
+        LOG(ERROR) << "Failed to restore system-level filetype association "
+                   << assoc << " = " << replacement_prog_id;
+      }
+    }
+  }
+}
+
+bool DeleteChromeRegistrationKeys(const InstallerState& installer_state,
+                                  BrowserDistribution* dist,
+                                  HKEY root,
                                   const string16& browser_entry_suffix,
-                                  const FilePath& target_path,
                                   InstallStatus* exit_code) {
   DCHECK(exit_code);
   if (!dist->CanSetAsDefault()) {
@@ -627,7 +696,7 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
     return true;
   }
 
-  FilePath chrome_exe(target_path.Append(kChromeExe));
+  FilePath chrome_exe(installer_state.target_path().Append(kChromeExe));
 
   // Delete Software\Classes\ChromeHTML.
   // For user-level installs we now only write these entries in HKCU, but since
@@ -735,6 +804,7 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
   // Delete each protocol association if it references this Chrome.
   InstallUtil::ProgramCompare open_command_pred(chrome_exe);
   string16 parent_key(ShellUtil::kRegClasses);
+  parent_key.push_back(FilePath::kSeparators[0]);
   const string16::size_type base_length = parent_key.size();
   string16 child_key;
   for (const wchar_t* const* proto =
@@ -742,16 +812,13 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
        *proto != NULL;
        ++proto) {
     parent_key.resize(base_length);
-    parent_key.push_back(FilePath::kSeparators[0]);
     parent_key.append(*proto);
     child_key.assign(parent_key).append(ShellUtil::kRegShellOpen);
     InstallUtil::DeleteRegistryKeyIf(root, parent_key, child_key, L"",
                                      open_command_pred);
   }
 
-  // Note that we do not attempt to delete filetype associations since MSDN
-  // says "Windows respects the Default value only if the ProgID found there is
-  // a registered ProgID. If the ProgID is unregistered, it is ignored."
+  RemoveFiletypeRegistration(installer_state, root, browser_entry_suffix);
 
   *exit_code = installer::UNINSTALL_SUCCESSFUL;
   return true;
@@ -1038,8 +1105,8 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
     // Remove all Chrome registration keys.
     // Registration data is put in HKCU for both system level and user level
     // installs.
-    DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER, suffix,
-                                 installer_state.target_path(), &ret);
+    DeleteChromeRegistrationKeys(installer_state, browser_dist,
+                                 HKEY_CURRENT_USER, suffix, &ret);
 
     // If the user's Chrome is registered with a suffix: it is possible that old
     // unsuffixed registrations were left in HKCU (e.g. if this install was
@@ -1049,8 +1116,8 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
     // default through the UI)).
     // Remove remaining HKCU entries with no suffix if any.
     if (!suffix.empty()) {
-      DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER, string16(),
-                                   installer_state.target_path(), &ret);
+      DeleteChromeRegistrationKeys(installer_state, browser_dist,
+                                   HKEY_CURRENT_USER, string16(), &ret);
 
       // For similar reasons it is possible in very few installs (from
       // 21.0.1180.0 and fixed shortly after) to be installed with the new-style
@@ -1058,9 +1125,8 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
       string16 old_style_suffix;
       if (ShellUtil::GetOldUserSpecificRegistrySuffix(&old_style_suffix) &&
           suffix != old_style_suffix) {
-        DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER,
-                                     old_style_suffix,
-                                     installer_state.target_path(), &ret);
+        DeleteChromeRegistrationKeys(installer_state, browser_dist,
+                                     HKEY_CURRENT_USER, old_style_suffix, &ret);
       }
     }
 
@@ -1083,8 +1149,8 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
         (remove_all &&
          ShellUtil::QuickIsChromeRegisteredInHKLM(
              browser_dist, chrome_exe, suffix))) {
-      DeleteChromeRegistrationKeys(browser_dist, HKEY_LOCAL_MACHINE, suffix,
-                                   installer_state.target_path(), &ret);
+      DeleteChromeRegistrationKeys(installer_state, browser_dist,
+                                   HKEY_LOCAL_MACHINE, suffix, &ret);
     }
 
     ProcessDelegateExecuteWorkItems(installer_state, product);
@@ -1096,6 +1162,10 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
 #if 0
     UninstallActiveSetupEntries(installer_state, product);
 #endif
+
+    // Notify the shell that associations have changed since Chrome was likely
+    // unregistered.
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
   }
 
   if (product.is_chrome_frame()) {

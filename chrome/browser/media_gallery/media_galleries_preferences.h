@@ -41,10 +41,14 @@ struct MediaGalleryPrefInfo {
     kAutoDetected,  // Auto added to the list of galleries.
     kUserAdded,     // Explicitly added by the user.
     kBlackListed,   // Auto added but then removed by the user.
+    kInvalidType,
   };
 
   MediaGalleryPrefInfo();
   ~MediaGalleryPrefInfo();
+
+  // The absolute path of the gallery.
+  FilePath AbsolutePath() const;
 
   // The ID that identifies this gallery in this Profile.
   MediaGalleryPrefId pref_id;

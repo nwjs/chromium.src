@@ -16,12 +16,47 @@
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
-#include "grit/browser_resources.h"
-#include "ui/base/resource/resource_bundle.h"
 
 using content::GpuDataManager;
 
 namespace gpu_util {
+
+bool ShouldRunStage3DFieldTrial() {
+#if !defined(OS_WIN)
+  return false;
+#else
+  if (base::win::GetVersion() >= base::win::VERSION_VISTA)
+    return false;
+  return true;
+#endif
+}
+
+void InitializeStage3DFieldTrial() {
+  if (!ShouldRunStage3DFieldTrial()) {
+    base::FieldTrial* trial =
+        base::FieldTrialList::Find(content::kStage3DFieldTrialName);
+    if (trial)
+      trial->Disable();
+    return;
+  }
+
+  const base::FieldTrial::Probability kDivisor = 1000;
+  scoped_refptr<base::FieldTrial> trial(
+    base::FieldTrialList::FactoryGetFieldTrial(
+        content::kStage3DFieldTrialName, kDivisor,
+        content::kStage3DFieldTrialEnabledName, 2013, 3, 1, NULL));
+
+  // Produce the same result on every run of this client.
+  trial->UseOneTimeRandomization();
+
+  // Kill-switch, so disabled unless we get info from server.
+  int blacklisted_group = trial->AppendGroup(
+      content::kStage3DFieldTrialBlacklistedName, kDivisor);
+
+  bool enabled = (trial->group() != blacklisted_group);
+
+  UMA_HISTOGRAM_BOOLEAN("GPU.Stage3DFieldTrial", enabled);
+}
 
 void DisableCompositingFieldTrial() {
   base::FieldTrial* trial =
@@ -120,28 +155,6 @@ void InitializeCompositingFieldTrial() {
   UMA_HISTOGRAM_BOOLEAN("GPU.InForceCompositingModeFieldTrial",
                         force_compositing);
   UMA_HISTOGRAM_BOOLEAN("GPU.InCompositorThreadFieldTrial", thread);
-}
-
-// Load GPU Blacklist, collect preliminary gpu info, and compute preliminary
-// gpu feature flags.
-void InitializeGpuDataManager(const CommandLine& command_line) {
-  if (command_line.HasSwitch(switches::kSkipGpuDataLoading))
-    return;
-
-  std::string chrome_version_string = "0";
-  std::string gpu_blacklist_json_string;
-  if (!command_line.HasSwitch(switches::kIgnoreGpuBlacklist)) {
-    chrome::VersionInfo chrome_version_info;
-    if (chrome_version_info.is_valid())
-        chrome_version_string = chrome_version_info.Version();
-
-    const base::StringPiece gpu_blacklist_json(
-        ResourceBundle::GetSharedInstance().GetRawDataResource(
-            IDR_GPU_BLACKLIST, ui::SCALE_FACTOR_NONE));
-    gpu_blacklist_json_string = gpu_blacklist_json.as_string();
-  }
-  content::GpuDataManager::GetInstance()->Initialize(
-      chrome_version_string, gpu_blacklist_json_string);
 }
 
 }  // namespace gpu_util;

@@ -34,7 +34,6 @@
 #include "chrome/browser/browser_process_impl.h"
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
-#include "chrome/browser/chrome_gpu_util.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/extension_protocols.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -58,7 +57,8 @@
 #include "chrome/browser/page_cycler/page_cycler.h"
 #include "chrome/browser/performance_monitor/performance_monitor.h"
 #include "chrome/browser/performance_monitor/startup_timer.h"
-#include "chrome/browser/plugin_prefs.h"
+#include "chrome/browser/plugins/plugin_prefs.h"
+#include "chrome/browser/policy/policy_service.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/pref_value_store.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
@@ -98,7 +98,6 @@
 #include "chrome/common/profiling.h"
 #include "chrome/installer/util/google_update_settings.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/gpu_data_manager.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/main_function_params.h"
@@ -161,6 +160,10 @@
 #include "chrome/browser/mac/keystone_glue.h"
 #endif
 
+#if defined(ENABLE_CONFIGURATION_POLICY)
+#include "policy/policy_constants.h"
+#endif
+
 #if defined(ENABLE_RLZ)
 #include "chrome/browser/rlz/rlz.h"
 #endif
@@ -201,12 +204,23 @@ void AddFirstRunNewTabs(StartupBrowserCreator* browser_creator,
   }
 }
 
-void InitializeNetworkOptions(const CommandLine& parsed_command_line) {
+void InitializeNetworkOptions(const CommandLine& parsed_command_line,
+                              policy::PolicyService* policy_service) {
   if (parsed_command_line.HasSwitch(switches::kEnableFileCookies)) {
     // Enable cookie storage for file:// URLs.  Must do this before the first
     // Profile (and therefore the first CookieMonster) is created.
     net::CookieMonster::EnableFileScheme();
   }
+
+#if defined(ENABLE_CONFIGURATION_POLICY)
+  bool has_spdy_policy = policy_service->GetPolicies(
+      policy::POLICY_DOMAIN_CHROME,
+      std::string()).Get(policy::key::kDisableSpdy) != NULL;
+  // If "spdy.disabled" preference is controlled via policy, then skip use-spdy
+  // command line flags.
+  if (has_spdy_policy)
+    return;
+#endif  // ENABLE_CONFIGURATION_POLICY
 
   if (parsed_command_line.HasSwitch(switches::kEnableIPPooling))
     net::SpdySessionPool::enable_ip_pooling(true);
@@ -529,7 +543,6 @@ void ChromeBrowserMainParts::SetupMetricsAndFieldTrials() {
 
   // Ensure any field trials specified on the command line are initialized.
   // Also stop the metrics service so that we don't pollute UMA.
-#ifndef NDEBUG
   const CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kForceFieldTrials)) {
     std::string persistent = command_line->GetSwitchValueASCII(
@@ -538,7 +551,6 @@ void ChromeBrowserMainParts::SetupMetricsAndFieldTrials() {
     CHECK(ret) << "Invalid --" << switches::kForceFieldTrials <<
                   " list specified.";
   }
-#endif  // NDEBUG
 
   chrome_variations::VariationsService* variations_service =
       browser_process_->variations_service();
@@ -581,11 +593,9 @@ bool ChromeBrowserMainParts::IsMetricsReportingEnabled() {
     return true;
 
   bool enabled = false;
-#ifndef NDEBUG
   // The debug build doesn't send UMA logs when FieldTrials are forced.
   if (command_line->HasSwitch(switches::kForceFieldTrials))
     return false;
-#endif  // #ifndef NDEBUG
 
 #if defined(GOOGLE_CHROME_BUILD)
 #if defined(OS_CHROMEOS)
@@ -839,7 +849,8 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
       chrome::VersionInfo::GetVersionStringModifier());
 #endif
 
-  InitializeNetworkOptions(parsed_command_line());
+  InitializeNetworkOptions(parsed_command_line(),
+                           browser_process_->policy_service());
 
   // Initialize tracking synchronizer system.
   tracking_synchronizer_ = new chrome_browser_metrics::TrackingSynchronizer();
@@ -1292,6 +1303,14 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
     return chrome::RESULT_CODE_UNINSTALL_EXTENSION_ERROR;
   }
 
+  if (parsed_command_line().HasSwitch(switches::kInstallFromWebstore)) {
+    extensions::StartupHelper helper;
+    if (helper.InstallFromWebstore(parsed_command_line(), profile_))
+      return content::RESULT_CODE_NORMAL_EXIT;
+    return chrome::RESULT_CODE_INSTALL_FROM_WEBSTORE_ERROR;
+  }
+
+
   // Start watching for hangs during startup. We disarm this hang detector when
   // ThreadWatcher takes over or when browser is shutdown or when
   // startup_watcher_ is deleted.
@@ -1314,9 +1333,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 #if !defined(OS_ANDROID)
   CloudPrintProxyServiceFactory::GetForProfile(profile_);
 #endif
-
-  // Load GPU Blacklist; load preliminary GPU info.
-  gpu_util::InitializeGpuDataManager(parsed_command_line());
 
   // Start watching all browser threads for responsiveness.
   ThreadWatcherList::StartWatchingAll(parsed_command_line());
@@ -1386,9 +1402,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
     RecordPreReadExperimentTime("Startup.BrowserOpenTabs",
                                 base::TimeTicks::Now() - browser_open_start);
 
-    // TODO(mad): Move this call in a proper place on CrOS.
-    // http://crosbug.com/17687
-#if !defined(OS_CHROMEOS)
     // If we're running tests (ui_task is non-null), then we don't want to
     // call FetchLanguageListFromTranslateServer or
     // StartRepeatedVariationsSeedFetch.
@@ -1396,13 +1409,15 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
       // Request new variations seed information from server.
       browser_process_->variations_service()->
           StartRepeatedVariationsSeedFetch();
-
+#if !defined(OS_CHROMEOS)
+      // TODO(mad): Move this call in a proper place on CrOS.
+      // http://crosbug.com/17687
       if (translate_manager_ != NULL) {
         translate_manager_->FetchLanguageListFromTranslateServer(
             profile_->GetPrefs());
       }
-    }
 #endif
+    }
 
     run_message_loop_ = true;
   } else {
@@ -1470,6 +1485,14 @@ void ChromeBrowserMainParts::PostMainMessageLoopRun() {
   // Android specific MessageLoop
   NOTREACHED();
 #else
+
+#if defined(USE_X11)
+  // Unset the X11 error handlers. The X11 error handlers log the errors using a
+  // |PostTask()| on the message-loop. But since the message-loop is in the
+  // process of terminating, this can cause errors.
+  UnsetBrowserX11ErrorHandlers();
+#endif
+
   // Start watching for jank during shutdown. It gets disarmed when
   // |shutdown_watcher_| object is destructed.
   shutdown_watcher_->Arm(base::TimeDelta::FromSeconds(300));

@@ -35,6 +35,7 @@
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/download_persistent_store_info.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/page_transition_types.h"
 #include "content/public/test/download_test_observer.h"
@@ -680,7 +681,8 @@ class HTML5FileWriter {
       events_listener_(events_listener),
       blob_data_(new webkit_blob::BlobData()),
       payload_(payload),
-      fs_(BrowserContext::GetFileSystemContext(profile_)) {
+      fs_(BrowserContext::GetDefaultStoragePartition(profile_)->
+          GetFileSystemContext()) {
     CHECK(profile_);
     CHECK(events_listener_);
     CHECK(fs_);
@@ -1205,14 +1207,6 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   EXPECT_STREQ(download_extension_errors::kInvalidFilterError,
       error.c_str());
   error = RunFunctionAndReturnError(
-      new DownloadsSearchFunction(), "[{\"danger\": \"goat\"}]");
-  EXPECT_STREQ(download_extension_errors::kInvalidDangerTypeError,
-      error.c_str());
-  error = RunFunctionAndReturnError(
-      new DownloadsSearchFunction(), "[{\"state\": \"goat\"}]");
-  EXPECT_STREQ(download_extension_errors::kInvalidStateError,
-      error.c_str());
-  error = RunFunctionAndReturnError(
       new DownloadsSearchFunction(), "[{\"orderBy\": \"goat\"}]");
   EXPECT_STREQ(download_extension_errors::kInvalidOrderByError,
       error.c_str());
@@ -1409,8 +1403,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1450,8 +1443,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1604,8 +1596,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1645,8 +1636,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1689,8 +1679,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1734,8 +1723,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1769,8 +1757,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1817,8 +1804,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1855,8 +1841,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1894,8 +1879,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1941,8 +1925,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -1980,8 +1963,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -2015,8 +1997,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   ASSERT_TRUE(result.get());
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());
@@ -2064,8 +2045,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   int result_id = -1;
   ASSERT_TRUE(result->GetAsInteger(&result_id));
 
-  DownloadItem* item = GetCurrentManager()->GetActiveDownloadItem(result_id);
-  if (!item) item = GetCurrentManager()->GetDownloadItem(result_id);
+  DownloadItem* item = GetCurrentManager()->GetDownload(result_id);
   ASSERT_TRUE(item);
   ScopedCancellingItem canceller(item);
   ASSERT_EQ(download_url, item->GetOriginalUrl().spec());

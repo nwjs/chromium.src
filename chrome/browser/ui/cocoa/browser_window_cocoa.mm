@@ -13,6 +13,7 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/download/download_shelf.h"
+#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -558,7 +559,11 @@ bool BrowserWindowCocoa::InPresentationMode() {
   return [controller_ inPresentationMode];
 }
 
-void BrowserWindowCocoa::ShowInstant(TabContents* preview) {
+void BrowserWindowCocoa::ShowInstant(TabContents* preview,
+                                     int height,
+                                     InstantSizeUnits units) {
+  // TODO(jered): Support height < 100%.
+  DCHECK(height == 100 && units == INSTANT_SIZE_PERCENT);
   [controller_ showInstant:preview->web_contents()];
 }
 
@@ -613,6 +618,17 @@ void BrowserWindowCocoa::Observe(int type,
       NOTREACHED();  // we don't ask for anything else!
       break;
   }
+}
+
+extensions::ActiveTabPermissionGranter*
+    BrowserWindowCocoa::GetActiveTabPermissionGranter() {
+  TabContents* tab_contents =
+      browser_->tab_strip_model()->GetActiveTabContents();
+  if (!tab_contents)
+    return NULL;
+  extensions::TabHelper* tab_helper =
+      extensions::TabHelper::FromWebContents(tab_contents->web_contents());
+  return tab_helper ? tab_helper->active_tab_permission_granter() : NULL;
 }
 
 void BrowserWindowCocoa::DestroyBrowser() {

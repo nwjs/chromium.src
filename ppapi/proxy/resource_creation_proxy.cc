@@ -38,12 +38,12 @@
 #include "ppapi/proxy/ppb_video_decoder_proxy.h"
 #include "ppapi/proxy/ppb_x509_certificate_private_proxy.h"
 #include "ppapi/proxy/printing_resource.h"
+#include "ppapi/proxy/url_request_info_resource.h"
 #include "ppapi/shared_impl/api_id.h"
 #include "ppapi/shared_impl/host_resource.h"
 #include "ppapi/shared_impl/ppb_audio_config_shared.h"
 #include "ppapi/shared_impl/ppb_input_event_shared.h"
 #include "ppapi/shared_impl/ppb_resource_array_shared.h"
-#include "ppapi/shared_impl/ppb_url_request_info_shared.h"
 #include "ppapi/shared_impl/private/ppb_browser_font_trusted_shared.h"
 #include "ppapi/shared_impl/var.h"
 #include "ppapi/thunk/enter.h"
@@ -146,9 +146,9 @@ PP_Resource ResourceCreationProxy::CreateURLLoader(PP_Instance instance) {
 
 PP_Resource ResourceCreationProxy::CreateURLRequestInfo(
     PP_Instance instance,
-    const PPB_URLRequestInfo_Data& data) {
-  return (new PPB_URLRequestInfo_Shared(OBJECT_IS_PROXY,
-                                        instance, data))->GetReference();
+    const URLRequestInfoData& data) {
+  return (new URLRequestInfoResource(GetConnection(),
+                                     instance, data))->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateWheelInputEvent(
@@ -233,6 +233,14 @@ PP_Resource ResourceCreationProxy::CreateHostResolverPrivate(
   return PPB_HostResolver_Private_Proxy::CreateProxyResource(instance);
 }
 
+PP_Resource ResourceCreationProxy::CreateNetworkMonitor(
+    PP_Instance instance,
+    PPB_NetworkMonitor_Callback callback,
+    void* user_data) {
+  return PPB_NetworkMonitor_Private_Proxy::CreateProxyResource(
+      instance, callback, user_data);
+}
+
 PP_Resource ResourceCreationProxy::CreateTCPServerSocketPrivate(
     PP_Instance instance) {
   return PPB_TCPServerSocket_Private_Proxy::CreateProxyResource(instance);
@@ -315,14 +323,6 @@ PP_Resource ResourceCreationProxy::CreateFlashMenu(
 PP_Resource ResourceCreationProxy::CreateFlashMessageLoop(
     PP_Instance instance) {
   return PPB_Flash_MessageLoop_Proxy::CreateProxyResource(instance);
-}
-
-PP_Resource ResourceCreationProxy::CreateNetworkMonitor(
-      PP_Instance instance,
-      PPB_NetworkMonitor_Callback callback,
-      void* user_data) {
-  return PPB_NetworkMonitor_Private_Proxy::CreateProxyResource(
-      instance, callback, user_data);
 }
 
 PP_Resource ResourceCreationProxy::CreatePrinting(PP_Instance instance) {

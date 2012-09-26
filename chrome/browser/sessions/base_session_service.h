@@ -12,7 +12,7 @@
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/cancelable_request.h"
+#include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/sessions/session_id.h"
 #include "googleurl/src/gurl.h"
@@ -21,10 +21,6 @@ class Profile;
 class SessionBackend;
 class SessionCommand;
 class TabNavigation;
-
-namespace content {
-class NavigationEntry;
-}
 
 // BaseSessionService is the super class of both tab restore service and
 // session service. It contains commonality needed by both, in particular
@@ -113,8 +109,7 @@ class BaseSessionService : public CancelableRequestProvider,
   SessionCommand* CreateUpdateTabNavigationCommand(
       SessionID::id_type command_id,
       SessionID::id_type tab_id,
-      int index,
-      const content::NavigationEntry& entry);
+      const TabNavigation& navigation);
 
   // Creates a SessionCommand that represents marking a tab as an application.
   SessionCommand* CreateSetTabExtensionAppIDCommand(

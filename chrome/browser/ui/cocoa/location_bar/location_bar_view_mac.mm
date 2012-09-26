@@ -54,6 +54,7 @@
 #include "chrome/browser/ui/omnibox/location_bar_util.h"
 #import "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/zoom/zoom_controller.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
@@ -125,6 +126,12 @@ LocationBarViewMac::LocationBarViewMac(
     content_setting_decorations_.push_back(
         new ContentSettingDecoration(type, this, profile_));
   }
+
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  web_intents_button_decoration_->SetButtonImages(
+      rb.GetNativeImageNamed(IDR_OMNIBOX_WI_BUBBLE_BACKGROUND_L).ToNSImage(),
+      rb.GetNativeImageNamed(IDR_OMNIBOX_WI_BUBBLE_BACKGROUND_C).ToNSImage(),
+      rb.GetNativeImageNamed(IDR_OMNIBOX_WI_BUBBLE_BACKGROUND_R).ToNSImage());
 
   registrar_.Add(this,
       chrome::NOTIFICATION_EXTENSION_PAGE_ACTION_VISIBILITY_CHANGED,
@@ -233,6 +240,10 @@ void LocationBarViewMac::InvalidatePageActions() {
 
 void LocationBarViewMac::UpdateWebIntentsButton() {
   RefreshWebIntentsButtonDecoration();
+}
+
+void LocationBarViewMac::UpdateOpenPDFInReaderPrompt() {
+  // Not implemented on Mac.
 }
 
 void LocationBarViewMac::SaveStateToContents(WebContents* contents) {
@@ -756,7 +767,9 @@ void LocationBarViewMac::UpdateZoomDecoration() {
   if (!tab_contents)
     return;
 
-  zoom_decoration_->Update(tab_contents->zoom_controller());
+  ZoomController* zoom_controller =
+      ZoomController::FromWebContents(tab_contents->web_contents());
+  zoom_decoration_->Update(zoom_controller);
 }
 
 void LocationBarViewMac::UpdateStarDecorationVisibility() {

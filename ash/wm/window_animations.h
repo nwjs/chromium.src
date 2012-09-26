@@ -114,22 +114,27 @@ ASH_EXPORT void AnimateBetweenWorkspaces(aura::Window* old_window,
                                          bool is_restoring_maximized_window);
 
 // Animates the workspace visualy in or out. This is used when the workspace is
-// becoming active, and out when the workspace was active.
+// becoming active, and out when the workspace was active. If |initial_animate|
+// is true, this animation is the result of logging in.
 ASH_EXPORT void AnimateWorkspaceIn(aura::Window* window,
-                                   WorkspaceAnimationDirection direction);
+                                   WorkspaceAnimationDirection direction,
+                                   bool initial_animate,
+                                   base::TimeDelta delta);
 ASH_EXPORT void AnimateWorkspaceOut(aura::Window* window,
                                     WorkspaceAnimationDirection direction,
-                                    WorkspaceType type);
+                                    WorkspaceType type,
+                                    bool initial_animate,
+                                    base::TimeDelta delta);
 
 // Returns the amount of time before destroying the system background.
 ASH_EXPORT base::TimeDelta GetSystemBackgroundDestroyDuration();
-
-namespace internal {
 
 // Returns the duration of the cross-fade animation based on the |old_bounds|
 // and |new_bounds| of the window.
 ASH_EXPORT base::TimeDelta GetCrossFadeDuration(const gfx::Rect& old_bounds,
                                                 const gfx::Rect& new_bounds);
+
+namespace internal {
 
 // Returns false if the |window| didn't animate.
 ASH_EXPORT bool AnimateOnChildWindowVisibilityChanged(

@@ -479,9 +479,10 @@ AudioPlayer.TrackInfo.prototype.setMetadata = function(
     }.bind(this);
     this.img_.src = metadata.thumbnail.url;
   }
-  this.title_.textContent = metadata.media.title || this.getDefaultTitle();
-  this.artist_.textContent =
-      error || metadata.media.artist || this.getDefaultArtist();
+  this.title_.textContent = (metadata.media && metadata.media.title) ||
+      this.getDefaultTitle();
+  this.artist_.textContent = error ||
+      (metadata.media && metadata.media.artist) || this.getDefaultArtist();
 };
 
 /**
@@ -494,6 +495,14 @@ AudioPlayer.TrackInfo.prototype.setMetadata = function(
  */
 function FullWindowAudioControls(container, advanceTrack, onError) {
   AudioControls.apply(this, arguments);
+
+  window.addEventListener('unload', function() {
+    // Workaround for crbug.com/149957. The document is not going to be GC-ed
+    // until the last Files app window closes, but we want the media pipeline
+    // to deinitialize ASAP.
+    this.getMedia().src = '';
+    this.getMedia().load();
+  }.bind(this));
 }
 
 FullWindowAudioControls.prototype = { __proto__: AudioControls.prototype };

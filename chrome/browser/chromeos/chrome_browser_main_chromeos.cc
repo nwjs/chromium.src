@@ -45,7 +45,6 @@
 #include "chrome/browser/chromeos/power/output_observer.h"
 #include "chrome/browser/chromeos/power/power_button_controller_delegate_chromeos.h"
 #include "chrome/browser/chromeos/power/power_button_observer.h"
-#include "chrome/browser/chromeos/power/power_state_override.h"
 #include "chrome/browser/chromeos/power/resume_observer.h"
 #include "chrome/browser/chromeos/power/screen_dimming_observer.h"
 #include "chrome/browser/chromeos/power/screen_lock_observer.h"
@@ -79,6 +78,7 @@
 #include "chromeos/dbus/session_manager_client.h"
 #include "chromeos/disks/disk_mount_manager.h"
 #include "chromeos/display/output_configurator.h"
+#include "chromeos/power/power_state_override.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/main_function_params.h"
 #include "grit/platform_locale_settings.h"
@@ -464,8 +464,10 @@ void ChromeBrowserMainPartsChromeos::PostProfileInit() {
   output_observer_.reset(new chromeos::OutputObserver());
   resume_observer_.reset(new chromeos::ResumeObserver());
   screen_lock_observer_.reset(new chromeos::ScreenLockObserver());
-  if (chromeos::KioskModeSettings::Get()->IsKioskModeEnabled())
-    power_state_override_.reset(new chromeos::PowerStateOverride());
+  if (chromeos::KioskModeSettings::Get()->IsKioskModeEnabled()) {
+    power_state_override_.reset(new chromeos::PowerStateOverride(
+        chromeos::PowerStateOverride::BLOCK_DISPLAY_SLEEP));
+  }
 
   removable_device_notifications_ =
       new chromeos::RemovableDeviceNotificationsCros();
@@ -545,6 +547,7 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopRun() {
   brightness_observer_.reset();
   media_transfer_protocol_device_observer_.reset();
   output_observer_.reset();
+  power_state_override_.reset();
 
   // The XInput2 event listener needs to be shut down earlier than when
   // Singletons are finally destroyed in AtExitManager.

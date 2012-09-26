@@ -550,34 +550,46 @@ IN_PROC_BROWSER_TEST_F(InstantTest, TransitionsBetweenSearchAndURL) {
   SetOmniboxText("query");
   SetOmniboxText("http://monstrous/nightmare");
 
-  // The page should only have been told about the search, not the URL.
+  // The page is told about the search. Though the page isn't told about the
+  // subsequent URL, it invalidates the search, so a blank query is sent in its
+  // place to indicate that the search is "out of date".
   EXPECT_TRUE(UpdateSearchState(instant()->GetPreviewContents()));
   EXPECT_FALSE(instant()->IsCurrent());
   EXPECT_FALSE(instant()->is_showing());
-  EXPECT_EQ(1, onchangecalls_);
-  EXPECT_EQ("query", value_);
+  EXPECT_EQ(2, onchangecalls_);
+  EXPECT_EQ("", value_);
 
   // Type a search. Instant should show.
   SetOmniboxTextAndWaitForInstantToShow("search");
   EXPECT_TRUE(UpdateSearchState(instant()->GetPreviewContents()));
   EXPECT_TRUE(instant()->IsCurrent());
   EXPECT_TRUE(instant()->is_showing());
-  EXPECT_EQ(2, onchangecalls_);
+  EXPECT_EQ(3, onchangecalls_);
+  EXPECT_EQ("search", value_);
 
   // Type another URL. The preview should be hidden.
   SetOmniboxText("http://terrible/terror");
   EXPECT_TRUE(UpdateSearchState(instant()->GetPreviewContents()));
   EXPECT_FALSE(instant()->IsCurrent());
   EXPECT_FALSE(instant()->is_showing());
-  EXPECT_EQ(2, onchangecalls_);
+  EXPECT_EQ(4, onchangecalls_);
+  EXPECT_EQ("", value_);
 
-  // Type the same search as before. The preview should show, but no onchange()
-  // is sent, since the query hasn't changed.
+  // Type the same search as before.
   SetOmniboxTextAndWaitForInstantToShow("search");
   EXPECT_TRUE(UpdateSearchState(instant()->GetPreviewContents()));
   EXPECT_TRUE(instant()->IsCurrent());
   EXPECT_TRUE(instant()->is_showing());
-  EXPECT_EQ(2, onchangecalls_);
+  EXPECT_EQ(5, onchangecalls_);
+  EXPECT_EQ("search", value_);
+
+  // Revert the omnibox.
+  omnibox()->RevertAll();
+  EXPECT_TRUE(UpdateSearchState(instant()->GetPreviewContents()));
+  EXPECT_FALSE(instant()->IsCurrent());
+  EXPECT_FALSE(instant()->is_showing());
+  EXPECT_EQ(6, onchangecalls_);
+  EXPECT_EQ("", value_);
 }
 
 // Test that Instant can't be fooled into committing a URL.
@@ -682,7 +694,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, PageVisibility) {
 
   // Type a query and wait for Instant to show.
   SetOmniboxTextAndWaitForInstantToShow("query");
-  EXPECT_TRUE(CheckVisibilityIs(active_tab, false));
+  EXPECT_TRUE(CheckVisibilityIs(active_tab, true));
   EXPECT_TRUE(CheckVisibilityIs(preview_tab, true));
 
   // Deleting the omnibox text should hide the preview.
@@ -692,7 +704,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, PageVisibility) {
 
   // Typing a query should show the preview again.
   SetOmniboxTextAndWaitForInstantToShow("query");
-  EXPECT_TRUE(CheckVisibilityIs(active_tab, false));
+  EXPECT_TRUE(CheckVisibilityIs(active_tab, true));
   EXPECT_TRUE(CheckVisibilityIs(preview_tab, true));
 
   // Commit the preview.
@@ -805,17 +817,11 @@ IN_PROC_BROWSER_TEST_F(InstantTest, History) {
   EXPECT_EQ(ASCIIToUTF16("search"), queries[0]);
 }
 
-#if defined(OS_WIN)
-// On Windows, NewEmptyWindow() fails the "GetBackingStore called while hidden"
-// CHECK(). TODO(sreeram): Fix it.
-#define MAYBE_NewWindowDismissesInstant DISABLED_NewWindowDismissesInstant
-#else
-#define MAYBE_NewWindowDismissesInstant NewWindowDismissesInstant
-#endif
 // Test that creating a new window hides any currently showing Instant preview.
-IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE_NewWindowDismissesInstant) {
+IN_PROC_BROWSER_TEST_F(InstantTest, NewWindowDismissesInstant) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
   EXPECT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+  base::RunLoop().RunUntilIdle();
   SetOmniboxTextAndWaitForInstantToShow("search");
 
   Browser* previous_window = browser();

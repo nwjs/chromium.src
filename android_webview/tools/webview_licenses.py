@@ -173,6 +173,8 @@ def _FindThirdPartyDirs():
     os.path.join('third_party', 'bidichecker'),
     # Isn't checked out on clients
     os.path.join('third_party', 'gles2_conform'),
+    # The llvm-build doesn't exist for non-clang builder
+    os.path.join('third_party', 'llvm-build'),
   ]
   return licenses.FindThirdPartyDirs(prune_paths)
 

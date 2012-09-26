@@ -17,8 +17,11 @@
 #include "chrome/service/cloud_print/cloud_print_helpers.h"
 #include "chrome/service/cloud_print/job_status_updater.h"
 #include "googleurl/src/gurl.h"
+#include "grit/generated_resources.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
+#include "printing/backend/print_backend.h"
+#include "ui/base/l10n/l10n_util.h"
 
 PrinterJobHandler::JobDetails::JobDetails() {}
 
@@ -617,13 +620,12 @@ void PrinterJobHandler::OnReceivePrinterCaps(
                << ", printer name: " << printer_name;
   }
 
-  std::string tags_hash =
-      CloudPrintHelpers::GenerateHashOfStringMap(printer_info.options);
+  std::string tags_hash = CloudPrintHelpers::GetHashOfPrinterTags(printer_info);
   if (tags_hash != printer_info_cloud_.tags_hash) {
     printer_info_cloud_.tags_hash = tags_hash;
-    CloudPrintHelpers::GenerateMultipartPostDataForPrinterTags(
-        printer_info.options, mime_boundary, &post_data);
-    // Remove all the exising proxy tags.
+    post_data += CloudPrintHelpers::GetPostDataForPrinterTags(printer_info,
+                                                              mime_boundary);
+    // Remove all the existing proxy tags.
     std::string cp_tag_wildcard(kProxyTagPrefix);
     cp_tag_wildcard += ".*";
     cloud_print::AddMultipartValueForUpload(kPrinterRemoveTagValue,
@@ -676,13 +678,22 @@ void PrinterJobHandler::DoPrint(const JobDetails& job_details,
                                 const std::string& printer_name) {
   job_spooler_ = print_system_->CreateJobSpooler();
   DCHECK(job_spooler_);
-  if (!job_spooler_ || !job_spooler_->Spool(job_details.print_ticket_,
-                                            job_details.print_data_file_path_,
-                                            job_details.print_data_mime_type_,
-                                            printer_name,
-                                            job_details.job_title_,
-                                            job_details.tags_,
-                                            this)) {
+  if (!job_spooler_)
+    return;
+  string16 document_name =
+      printing::PrintBackend::SimplifyDocumentTitle(
+          UTF8ToUTF16(job_details.job_title_));
+  if (document_name.empty()) {
+    document_name = printing::PrintBackend::SimplifyDocumentTitle(
+        l10n_util::GetStringUTF16(IDS_DEFAULT_PRINT_DOCUMENT_TITLE));
+  }
+  if (!job_spooler_->Spool(job_details.print_ticket_,
+                           job_details.print_data_file_path_,
+                           job_details.print_data_mime_type_,
+                           printer_name,
+                           UTF16ToUTF8(document_name),
+                           job_details.tags_,
+                           this)) {
     OnJobSpoolFailed();
   }
 }

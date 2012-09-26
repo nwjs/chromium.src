@@ -108,7 +108,7 @@ class QuotaManagerTest : public testing::Test {
     quota_ = -1;
     quota_manager_->GetTemporaryGlobalQuota(
         base::Bind(&QuotaManagerTest::DidGetQuota,
-                   weak_factory_.GetWeakPtr()));
+                   weak_factory_.GetWeakPtr(), quota::kStorageTypeTemporary));
   }
 
   void SetTemporaryGlobalQuota(int64 new_quota) {
@@ -117,7 +117,7 @@ class QuotaManagerTest : public testing::Test {
     quota_manager_->SetTemporaryGlobalOverrideQuota(
         new_quota,
         base::Bind(&QuotaManagerTest::DidGetQuota,
-                   weak_factory_.GetWeakPtr()));
+                   weak_factory_.GetWeakPtr(), quota::kStorageTypeTemporary));
   }
 
   void GetPersistentHostQuota(const std::string& host) {
@@ -159,7 +159,7 @@ class QuotaManagerTest : public testing::Test {
     quota_manager_->GetHostUsage(
         host, type,
         base::Bind(&QuotaManagerTest::DidGetHostUsage,
-                   weak_factory_.GetWeakPtr()));
+                   weak_factory_.GetWeakPtr(), host, type));
   }
 
   void RunAdditionalUsageAndQuotaTask(const GURL& origin, StorageType type) {
@@ -295,8 +295,8 @@ class QuotaManagerTest : public testing::Test {
     quota_ = quota;
   }
 
-  void DidGetQuota(QuotaStatusCode status,
-                   StorageType type,
+  void DidGetQuota(StorageType type,
+                   QuotaStatusCode status,
                    int64 quota) {
     quota_status_ = status;
     type_ = type;
@@ -309,12 +309,8 @@ class QuotaManagerTest : public testing::Test {
   }
 
   void DidGetHostQuota(QuotaStatusCode status,
-                       const std::string& host,
-                       StorageType type,
                        int64 quota) {
     quota_status_ = status;
-    host_ = host;
-    type_ = type;
     quota_ = quota;
   }
 
@@ -929,8 +925,6 @@ TEST_F(QuotaManagerTest, GetAndSetPerststentHostQuota) {
 
   GetPersistentHostQuota("foo.com");
   MessageLoop::current()->RunAllPending();
-  EXPECT_EQ("foo.com", host());
-  EXPECT_EQ(kPerm, type());
   EXPECT_EQ(0, quota());
 
   SetPersistentHostQuota("foo.com", 100);

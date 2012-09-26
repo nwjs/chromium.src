@@ -16,8 +16,10 @@
 #include "ash/shell_delegate.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/shelf_layout_manager.h"
+#include "ash/wm/window_properties.h"
 #include "grit/ash_resources.h"
 #include "ui/aura/window.h"
+#include "ui/aura/window_observer.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
@@ -29,6 +31,8 @@
 namespace {
 // Size of black border at bottom (or side) of launcher.
 const int kNumBlackPixels = 3;
+// Alpha to paint dimming image with.
+const int kDimAlpha = 96;
 }
 
 namespace ash {
@@ -78,6 +82,59 @@ class Launcher::DelegateView : public views::WidgetDelegate,
   DISALLOW_COPY_AND_ASSIGN(DelegateView);
 };
 
+// Class used to slightly dim shelf items when maximized and visible. It also
+// makes sure the widget changes size to always be of the same size as the
+// shelf.
+class DimmerView : public views::WidgetDelegateView,
+                   public aura::WindowObserver {
+ public:
+  explicit DimmerView(views::Widget* launcher)
+      : launcher_(launcher) {
+    launcher_->GetNativeWindow()->AddObserver(this);
+  }
+
+  ~DimmerView() {
+    if (launcher_)
+      launcher_->GetNativeWindow()->RemoveObserver(this);
+  }
+
+ private:
+  // views::View overrides:
+  virtual void OnPaintBackground(gfx::Canvas* canvas) OVERRIDE {
+    SkPaint paint;
+    static const gfx::ImageSkia* launcher_background = NULL;
+    if (!launcher_background) {
+      ResourceBundle& rb = ResourceBundle::GetSharedInstance();
+      launcher_background =
+          rb.GetImageNamed(IDR_AURA_LAUNCHER_DIMMING).ToImageSkia();
+    }
+    paint.setAlpha(kDimAlpha);
+    canvas->DrawImageInt(
+        *launcher_background,
+        0, 0, launcher_background->width(), launcher_background->height(),
+        0, 0, width(), height(),
+        false,
+        paint);
+  }
+
+  // aura::WindowObserver overrides:
+  virtual void OnWindowBoundsChanged(aura::Window* window,
+                                     const gfx::Rect& old_bounds,
+                                     const gfx::Rect& new_bounds) OVERRIDE {
+    CHECK_EQ(window, launcher_->GetNativeWindow());
+    GetWidget()->SetBounds(launcher_->GetWindowBoundsInScreen());
+  }
+
+  virtual void OnWindowDestroying(aura::Window* window) OVERRIDE {
+    CHECK_EQ(window, launcher_->GetNativeWindow());
+    launcher_->GetNativeWindow()->RemoveObserver(this);
+    launcher_ = NULL;
+  }
+
+  views::Widget* launcher_;
+  DISALLOW_COPY_AND_ASSIGN(DimmerView);
+};
+
 Launcher::DelegateView::DelegateView(Launcher* launcher)
     : launcher_(launcher),
       focus_cycler_(NULL),
@@ -108,9 +165,9 @@ void Launcher::DelegateView::Layout() {
 void Launcher::DelegateView::OnPaintBackground(gfx::Canvas* canvas) {
   if (launcher_->alignment_ == SHELF_ALIGNMENT_BOTTOM) {
     SkPaint paint;
-    ResourceBundle& rb = ResourceBundle::GetSharedInstance();
     static const gfx::ImageSkia* launcher_background = NULL;
     if (!launcher_background) {
+      ResourceBundle& rb = ResourceBundle::GetSharedInstance();
       launcher_background =
           rb.GetImageNamed(IDR_AURA_LAUNCHER_BACKGROUND).ToImageSkia();
     }
@@ -174,6 +231,8 @@ Launcher::Launcher(aura::Window* window_container,
   widget_->set_focus_on_creation(false);
   widget_->SetContentsView(delegate_view_);
   widget_->GetNativeView()->SetName("LauncherView");
+  widget_->GetNativeView()->SetProperty(internal::kStayInSameRootWindowKey,
+                                        true);
 }
 
 Launcher::~Launcher() {
@@ -198,6 +257,39 @@ void Launcher::SetPaintsBackground(
       bool value,
       internal::BackgroundAnimator::ChangeType change_type) {
   background_animator_.SetPaintsBackground(value, change_type);
+}
+
+void Launcher::SetDimsShelf(bool value) {
+  if (value == (dimmer_.get() != NULL))
+    return;
+
+  if (!value) {
+    dimmer_.reset();
+    return;
+  }
+
+  dimmer_.reset(new views::Widget);
+  views::Widget::InitParams params(
+      views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  params.transparent = true;
+  params.can_activate = false;
+  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+  params.parent = Shell::GetContainer(
+      window_container_->GetRootWindow(),
+      ash::internal::kShellWindowId_LauncherContainer);
+  params.accept_events = false;
+  dimmer_->Init(params);
+  dimmer_->GetNativeWindow()->SetName("LauncherDimmer");
+  dimmer_->SetBounds(widget_->GetWindowBoundsInScreen());
+  // The launcher should not take focus when it is initially shown.
+  dimmer_->set_focus_on_creation(false);
+  dimmer_->SetContentsView(new DimmerView(widget_.get()));
+  dimmer_->GetNativeView()->SetName("LauncherDimmerView");
+  dimmer_->Show();
+}
+
+bool Launcher::GetDimsShelf() const {
+  return dimmer_.get() && dimmer_->IsVisible();
 }
 
 void Launcher::SetStatusSize(const gfx::Size& size) {
@@ -259,6 +351,12 @@ void Launcher::SetVisible(bool visible) const {
 
 views::View* Launcher::GetAppListButtonView() const {
   return launcher_view_->GetAppListButtonView();
+}
+
+void Launcher::SetWidgetBounds(const gfx::Rect bounds) {
+  widget_->SetBounds(bounds);
+  if (dimmer_.get())
+    dimmer_->SetBounds(bounds);
 }
 
 internal::LauncherView* Launcher::GetLauncherViewForTest() {

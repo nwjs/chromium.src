@@ -10,16 +10,16 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/values.h"
+#include "chrome/browser/content_settings/cookie_settings.h"
+#include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_api_constants.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_helpers.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_store.h"
-#include "chrome/browser/content_settings/cookie_settings.h"
-#include "chrome/browser/content_settings/host_content_settings_map.h"
-#include "chrome/browser/extensions/extension_preference_api_constants.h"
-#include "chrome/browser/extensions/extension_preference_helpers.h"
+#include "chrome/browser/extensions/api/preference/preference_api_constants.h"
+#include "chrome/browser/extensions/api/preference/preference_helpers.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/plugin_finder.h"
-#include "chrome/browser/plugin_installer.h"
+#include "chrome/browser/plugins/plugin_finder.h"
+#include "chrome/browser/plugins/plugin_installer.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
@@ -34,8 +34,8 @@ using content::PluginService;
 namespace Clear = extensions::api::content_settings::ContentSetting::Clear;
 namespace Get = extensions::api::content_settings::ContentSetting::Get;
 namespace Set = extensions::api::content_settings::ContentSetting::Set;
-namespace pref_helpers = extension_preference_helpers;
-namespace pref_keys = extension_preference_api_constants;
+namespace pref_helpers = extensions::preference_helpers;
+namespace pref_keys = extensions::preference_api_constants;
 
 namespace {
 
@@ -259,32 +259,30 @@ bool GetResourceIdentifiersFunction::RunImpl() {
   }
 
   if (!g_testing_plugins_) {
-    PluginFinder::GetPluginsAndPluginFinder(
+    PluginService::GetInstance()->GetPlugins(
         base::Bind(&GetResourceIdentifiersFunction::OnGotPlugins, this));
   } else {
-    PluginFinder::Get(
-        base::Bind(&GetResourceIdentifiersFunction::OnGotPlugins, this,
-                   *g_testing_plugins_));
+    OnGotPlugins(*g_testing_plugins_);
   }
   return true;
 }
 
 void GetResourceIdentifiersFunction::OnGotPlugins(
-    const std::vector<webkit::WebPluginInfo>& plugins,
-    PluginFinder* finder) {
+    const std::vector<webkit::WebPluginInfo>& plugins) {
+  PluginFinder* finder = PluginFinder::GetInstance();
   std::set<std::string> group_identifiers;
   ListValue* list = new ListValue();
   for (std::vector<webkit::WebPluginInfo>::const_iterator it = plugins.begin();
        it != plugins.end(); ++it) {
-    PluginInstaller* installer = finder->GetPluginInstaller(*it);
-    const std::string& group_identifier = installer->identifier();
+    PluginMetadata* plugin_metadata = finder->GetPluginMetadata(*it);
+    const std::string& group_identifier = plugin_metadata->identifier();
     if (group_identifiers.find(group_identifier) != group_identifiers.end())
       continue;
 
     group_identifiers.insert(group_identifier);
     DictionaryValue* dict = new DictionaryValue();
     dict->SetString(keys::kIdKey, group_identifier);
-    dict->SetString(keys::kDescriptionKey, installer->name());
+    dict->SetString(keys::kDescriptionKey, plugin_metadata->name());
     list->Append(dict);
   }
   SetResult(list);

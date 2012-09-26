@@ -25,10 +25,6 @@ namespace extensions {
 void PlatformAppBrowserTest::SetUpCommandLine(CommandLine* command_line) {
   ExtensionBrowserTest::SetUpCommandLine(command_line);
   command_line->AppendSwitch(switches::kEnableExperimentalExtensionApis);
-
-  // Make event pages get suspended quicker.
-  command_line->AppendSwitchASCII(switches::kEventPageIdleTime, "1");
-  command_line->AppendSwitchASCII(switches::kEventPageUnloadingTime, "1");
 }
 
 const Extension* PlatformAppBrowserTest::LoadAndLaunchPlatformApp(
@@ -39,6 +35,25 @@ const Extension* PlatformAppBrowserTest::LoadAndLaunchPlatformApp(
 
   const Extension* extension = LoadExtension(
       test_data_dir_.AppendASCII("platform_apps").AppendASCII(name));
+  EXPECT_TRUE(extension);
+
+  application_launch::OpenApplication(application_launch::LaunchParams(
+          browser()->profile(), extension, extension_misc::LAUNCH_NONE,
+          NEW_WINDOW));
+
+  app_loaded_observer.Wait();
+
+  return extension;
+}
+
+const Extension* PlatformAppBrowserTest::InstallAndLaunchPlatformApp(
+    const char* name) {
+  content::WindowedNotificationObserver app_loaded_observer(
+      content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
+      content::NotificationService::AllSources());
+
+  const Extension* extension = InstallExtension(
+      test_data_dir_.AppendASCII("platform_apps").AppendASCII(name), 1);
   EXPECT_TRUE(extension);
 
   application_launch::OpenApplication(application_launch::LaunchParams(

@@ -33,6 +33,7 @@
 #include "chrome/browser/chromeos/login/network_screen.h"
 #include "chrome/browser/chromeos/login/oobe_display.h"
 #include "chrome/browser/chromeos/login/registration_screen.h"
+#include "chrome/browser/chromeos/login/reset_screen.h"
 #include "chrome/browser/chromeos/login/update_screen.h"
 #include "chrome/browser/chromeos/login/user_image_screen.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
@@ -45,6 +46,7 @@
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -110,6 +112,7 @@ const char WizardController::kEulaScreenName[] = "eula";
 const char WizardController::kRegistrationScreenName[] = "register";
 const char WizardController::kHTMLPageScreenName[] = "html";
 const char WizardController::kEnterpriseEnrollmentScreenName[] = "enroll";
+const char WizardController::kResetScreenName[] = "reset";
 
 // Passing this parameter as a "first screen" initiates full OOBE flow.
 const char WizardController::kOutOfBoxScreenName[] = "oobe";
@@ -133,6 +136,7 @@ bool WizardController::zero_delay_enabled_ = false;
 WizardController::WizardController(chromeos::LoginDisplayHost* host,
                                    chromeos::OobeDisplay* oobe_display)
     : current_screen_(NULL),
+      previous_screen_(NULL),
 #if defined(GOOGLE_CHROME_BUILD)
       is_official_build_(true),
 #else
@@ -244,6 +248,14 @@ chromeos::EnterpriseEnrollmentScreen*
   return enterprise_enrollment_screen_.get();
 }
 
+chromeos::ResetScreen* WizardController::GetResetScreen() {
+  if (!reset_screen_.get()) {
+    reset_screen_.reset(
+        new chromeos::ResetScreen(this, oobe_display_->GetResetScreenActor()));
+  }
+  return reset_screen_.get();
+}
+
 void WizardController::ShowNetworkScreen() {
   VLOG(1) << "Showing network screen.";
   SetStatusAreaVisible(false);
@@ -332,6 +344,12 @@ void WizardController::ShowEnterpriseEnrollmentScreen() {
   SetCurrentScreen(screen);
 }
 
+void WizardController::ShowResetScreen() {
+  VLOG(1) << "Showing reset screen.";
+  SetStatusAreaVisible(false);
+  SetCurrentScreen(GetResetScreen());
+}
+
 void WizardController::SkipToLoginForTesting() {
   MarkEulaAccepted();
   PerformPostEulaActions();
@@ -404,6 +422,7 @@ void WizardController::RegisterPrefs(PrefService* local_state) {
   }
   local_state->RegisterBooleanPref(prefs::kOwnerPrimaryMouseButtonRight, false);
   local_state->RegisterBooleanPref(prefs::kOwnerTapToClickEnabled, true);
+  local_state->RegisterBooleanPref(prefs::kFactoryResetRequested, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -444,6 +463,12 @@ void WizardController::OnEulaAccepted() {
   MarkEulaAccepted();
   bool enabled =
       OptionsUtil::ResolveMetricsReportingEnabled(usage_statistics_reporting_);
+
+  content::NotificationService::current()->Notify(
+      chrome::NOTIFICATION_WIZARD_EULA_ACCEPTED,
+      content::NotificationSource(content::Source<WizardController>(this)),
+      content::NotificationService::NoDetails());
+
   CrosSettings::Get()->SetBoolean(kStatsReportingPref, enabled);
   if (enabled) {
 #if defined(USE_LINUX_BREAKPAD)
@@ -520,6 +545,13 @@ void WizardController::OnEnterpriseEnrollmentDone() {
   ShowLoginScreen();
 }
 
+void WizardController::OnResetCanceled() {
+  if (previous_screen_)
+    SetCurrentScreen(previous_screen_);
+  else
+    ShowLoginScreen();
+}
+
 void WizardController::OnEnterpriseAutoEnrollmentDone() {
   VLOG(1) << "Automagic enrollment done, resuming previous signin";
   ResumeLoginScreen();
@@ -578,6 +610,7 @@ void WizardController::SetCurrentScreenSmooth(WizardScreen* new_current,
   if (current_screen_)
     oobe_display_->HideScreen(current_screen_);
 
+  previous_screen_ = current_screen_;
   current_screen_ = new_current;
 
   if (use_smoothing) {
@@ -613,6 +646,8 @@ void WizardController::AdvanceToScreen(const std::string& screen_name) {
       // Just proceed to image screen.
       OnRegistrationSuccess();
     }
+  } else if (screen_name == kResetScreenName) {
+    ShowResetScreen();
   } else if (screen_name == kHTMLPageScreenName) {
     ShowHTMLPageScreen();
   } else if (screen_name == kEnterpriseEnrollmentScreenName) {
@@ -772,6 +807,9 @@ void WizardController::OnExit(ExitCodes exit_code) {
       break;
     case ENTERPRISE_ENROLLMENT_COMPLETED:
       OnEnterpriseEnrollmentDone();
+      break;
+    case RESET_CANCELED:
+      OnResetCanceled();
       break;
     case ENTERPRISE_AUTO_MAGIC_ENROLLMENT_COMPLETED:
       OnEnterpriseAutoEnrollmentDone();

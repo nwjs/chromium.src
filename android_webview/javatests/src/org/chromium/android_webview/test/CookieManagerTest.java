@@ -10,11 +10,11 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Pair;
 
 import org.chromium.android_webview.CookieManager;
-import org.chromium.base.test.Feature;
+import org.chromium.base.test.util.Feature;
 import org.chromium.content.browser.ContentViewCore;
-import org.chromium.content.browser.test.Criteria;
-import org.chromium.content.browser.test.CriteriaHelper;
-import org.chromium.content.browser.test.TestContentViewClient.OnEvaluateJavaScriptResultHelper;
+import org.chromium.content.browser.test.util.Criteria;
+import org.chromium.content.browser.test.util.CriteriaHelper;
+import org.chromium.content.browser.test.util.TestCallbackHelperContainer.OnEvaluateJavaScriptResultHelper;
 
 import java.util.ArrayList;
 import java.util.Arrays;

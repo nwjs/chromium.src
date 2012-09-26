@@ -14,19 +14,22 @@
 #include "base/values.h"
 #include "chrome/browser/chromeos/gdata/drive_file_system.h"
 #include "chrome/browser/chromeos/gdata/drive_system_service.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
-#include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
 #include "chrome/browser/chromeos/gdata/mock_drive_service.h"
+#include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_test_message_listener.h"
-#include "chrome/browser/google_apis/operation_registry.h"
+#include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/gdata_wapi_parser.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/test/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "webkit/fileapi/file_system_context.h"
@@ -165,8 +168,8 @@ class FileSystemExtensionApiTest : public ExtensionApiTest {
   // Adds a local mount point at at mount point /tmp.
   void AddTmpMountPoint() {
     fileapi::ExternalFileSystemMountPointProvider* provider =
-        BrowserContext::GetFileSystemContext(browser()->profile())->
-            external_provider();
+        BrowserContext::GetDefaultStoragePartition(
+            browser()->profile())->GetFileSystemContext()->external_provider();
     provider->AddLocalMountPoint(test_mount_point_);
   }
 
@@ -205,12 +208,6 @@ class RemoteFileSystemExtensionApiTest : public ExtensionApiTest {
 
     mock_drive_service_ = new gdata::MockDriveService();
 
-    operation_registry_.reset(new gdata::OperationRegistry());
-    // FileBrowserEventRouter will add and remove itself from operation registry
-    // observer list.
-    EXPECT_CALL(*mock_drive_service_, operation_registry()).
-        WillRepeatedly(Return(operation_registry_.get()));
-
     // |mock_drive_service_| will eventually get owned by a system service.
     gdata::DriveSystemServiceFactory::set_drive_service_for_test(
         mock_drive_service_);
@@ -228,7 +225,6 @@ class RemoteFileSystemExtensionApiTest : public ExtensionApiTest {
  protected:
   ScopedTempDir test_cache_root_;
   gdata::MockDriveService* mock_drive_service_;
-  scoped_ptr<gdata::OperationRegistry> operation_registry_;
 };
 
 IN_PROC_BROWSER_TEST_F(FileSystemExtensionApiTest, LocalFileSystem) {
@@ -249,6 +245,35 @@ IN_PROC_BROWSER_TEST_F(FileSystemExtensionApiTest, FileBrowserTestLazy) {
       << message_;
   ASSERT_TRUE(RunExtensionSubtest(
       "filebrowser_component", "read.html", kComponentFlags)) << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemExtensionApiTest, FileBrowserWebIntentTest) {
+  AddTmpMountPoint();
+
+  ResultCatcher catcher;
+  ScopedTempDir tmp_dir;
+  ASSERT_TRUE(tmp_dir.CreateUniqueTempDir());
+
+  // Create a test file inside the ScopedTempDir.
+  FilePath test_file = tmp_dir.path().AppendASCII("text_file.xul");
+  CreateDownloadFile(test_file);
+
+  ASSERT_TRUE(LoadExtension(
+      test_data_dir_.AppendASCII("webintent_handler"))) << message_;
+
+  // Load the source component, with the fileUrl within the virtual mount
+  // point.
+  const extensions::Extension* extension = LoadExtensionAsComponent(
+      test_data_dir_.AppendASCII("filebrowser_component"));
+  ASSERT_TRUE(extension) << message_;
+  std::string path = "filesystem:chrome-extension://" + extension->id() +
+      "/external" + test_file.value();
+  GURL url = extension->GetResourceURL("intent.html#" + path);
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  // The webintent_handler sends chrome.test.succeed() on successful receipt
+  // of the incoming Web Intent.
+  ASSERT_TRUE(catcher.GetNextResult()) << message_;
 }
 
 IN_PROC_BROWSER_TEST_F(FileSystemExtensionApiTest, FileBrowserTestWrite) {

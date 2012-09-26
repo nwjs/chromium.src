@@ -9,6 +9,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
+#include "base/time.h"
 #include "base/threading/thread_checker.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -62,9 +63,6 @@ class SyncEncryptionHandlerImpl
   virtual bool EncryptEverythingEnabled() const OVERRIDE;
   virtual PassphraseType GetPassphraseType() const OVERRIDE;
 
-  // TODO(zea): provide a method for getting the time at which the nigori
-  // node was migrated.
-
   // NigoriHandler implementation.
   // Note: all methods are invoked while the caller holds a transaction.
   virtual void ApplyNigoriUpdate(
@@ -88,6 +86,7 @@ class SyncEncryptionHandlerImpl
   ModelTypeSet GetEncryptedTypesUnsafe();
 
   bool MigratedToKeystore();
+  base::Time migration_time() const;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(SyncEncryptionHandlerImplTest,
@@ -116,6 +115,8 @@ class SyncEncryptionHandlerImpl
                            SetImplicitPassAfterMigrationNoKeystoreKey);
   FRIEND_TEST_ALL_PREFIXES(SyncEncryptionHandlerImplTest,
                            MigrateOnEncryptEverythingKeystorePassphrase);
+  FRIEND_TEST_ALL_PREFIXES(SyncEncryptionHandlerImplTest,
+                           ReceiveMigratedNigoriWithOldPassphrase);
 
   // Container for members that require thread safety protection.  All members
   // that can be accessed from more than one thread should be held here and
@@ -285,8 +286,8 @@ class SyncEncryptionHandlerImpl
   // instantiation.
   int nigori_overwrite_count_;
 
-  // The time (in ms) the nigori was migrated to support keystore encryption.
-  int64 migration_time_ms_;
+  // The time the nigori was migrated to support keystore encryption.
+  base::Time migration_time_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncEncryptionHandlerImpl);
 };

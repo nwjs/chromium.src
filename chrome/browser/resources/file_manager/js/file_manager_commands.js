@@ -50,8 +50,10 @@ CommandUtil.registerCommand = function(node, commandId, handler, var_args) {
   var args = Array.prototype.slice.call(arguments, 3);
 
   node.addEventListener('command', function(event) {
-    if (event.command.id == commandId)
+    if (event.command.id == commandId) {
       handler.execute.apply(handler, [event].concat(args));
+      event.cancelBubble = true;
+    }
   });
 
   node.addEventListener('canExecute', function(event) {
@@ -121,8 +123,8 @@ Commands.importCommand = {
     var root = CommandUtil.getCommandRoot(event, rootsList);
 
     if (root) {
-      chrome.tabs.create({url: chrome.extension.getURL('photo_import.html') +
-          '#' + PathUtil.getRootPath(root.fullPath)});
+      chrome.windows.create({url: chrome.extension.getURL('photo_import.html') +
+          '#' + PathUtil.getRootPath(root.fullPath), type: 'popup'});
     }
   },
   canExecute: function(event, rootsList) {

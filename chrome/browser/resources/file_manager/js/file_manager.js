@@ -424,6 +424,13 @@ FileManager.prototype = {
 
     this.summarizeSelection_();
 
+    var sortField =
+        window.localStorage['sort-field-' + this.dialogType_] ||
+        'modificationTime';
+    var sortDirection =
+        window.localStorage['sort-direction-' + this.dialogType_] || 'desc';
+    this.directoryModel_.sortFileList(sortField, sortDirection);
+
     this.setupCurrentDirectory_(true /* page loading */);
 
     var stateChangeHandler =
@@ -433,13 +440,6 @@ FileManager.prototype = {
     chrome.fileBrowserPrivate.onNetworkConnectionChanged.addListener(
         stateChangeHandler);
     stateChangeHandler();
-
-    var sortField =
-        window.localStorage['sort-field-' + this.dialogType_] ||
-        'modificationTime';
-    var sortDirection =
-        window.localStorage['sort-direction-' + this.dialogType_] || 'desc';
-    this.directoryModel_.sortFileList(sortField, sortDirection);
 
     this.refocus();
 
@@ -535,10 +535,8 @@ FileManager.prototype = {
 
     var doc = this.document_;
 
-    if (this.dialogType_ == FileManager.DialogType.SELECT_SAVEAS_FILE ||
-        this.dialogType_ == FileManager.DialogType.FULL_PAGE)
-      CommandUtil.registerCommand(doc, 'newfolder',
-          Commands.newFolderCommand, this, this.directoryModel_);
+    CommandUtil.registerCommand(doc, 'newfolder',
+        Commands.newFolderCommand, this, this.directoryModel_);
 
     CommandUtil.registerCommand(this.rootsList_, 'unmount',
         Commands.unmountCommand, this.rootsList_, this);
@@ -569,6 +567,9 @@ FileManager.prototype = {
 
     CommandUtil.registerCommand(doc, 'paste',
         Commands.pasteFileCommand, doc, this.fileTransferController_);
+
+    CommandUtil.registerCommand(doc, 'open-with',
+            Commands.openWithCommand, this);
 
     CommandUtil.registerCommand(doc, 'cut', Commands.defaultCommand, doc);
     CommandUtil.registerCommand(doc, 'copy', Commands.defaultCommand, doc);
@@ -979,12 +980,9 @@ FileManager.prototype = {
     // TODO(bshe): should override cr.ui.List's activateItemAtIndex function
     // rather than listen explicitly for double click or tap events.
     this.grid_.addEventListener(
-        'dblclick', this.onDetailDoubleClickOrTap_.bind(this));
+        'dblclick', this.onDetailDoubleClick_.bind(this));
     this.grid_.addEventListener(
         'click', this.onDetailClick_.bind(this));
-    this.grid_.addEventListener(
-        cr.ui.TouchHandler.EventType.TAP,
-        this.onDetailDoubleClickOrTap_.bind(this));
   };
 
   /**
@@ -994,6 +992,7 @@ FileManager.prototype = {
     var renderFunction = this.table_.getRenderFunction();
     this.table_.setRenderFunction(function(entry, parent) {
       var item = renderFunction(entry, parent);
+      this.updateGeneralItemStyle_(item, entry);
       this.updateGDataStyle_(
           item, entry, this.metadataCache_.getCached(entry, 'gdata'));
       return item;
@@ -1042,12 +1041,9 @@ FileManager.prototype = {
     // rather than listen explicitly for double click or tap events.
     // Don't pay attention to double clicks on the table header.
     this.table_.list.addEventListener(
-        'dblclick', this.onDetailDoubleClickOrTap_.bind(this));
+        'dblclick', this.onDetailDoubleClick_.bind(this));
     this.table_.list.addEventListener(
         'click', this.onDetailClick_.bind(this));
-    this.table_.list.addEventListener(
-        cr.ui.TouchHandler.EventType.TAP,
-        this.onDetailDoubleClickOrTap_.bind(this));
   };
 
   FileManager.prototype.onCopyProgress_ = function(event) {
@@ -1572,6 +1568,7 @@ FileManager.prototype = {
       bottom.classList.add('show-checkbox');
     }
 
+    this.updateGeneralItemStyle_(li, entry);
     this.updateGDataStyle_(
         li, entry, this.metadataCache_.getCached(entry, 'gdata'));
   };
@@ -1686,6 +1683,15 @@ FileManager.prototype = {
       if (url)
         iconDiv.style.backgroundImage = 'url(' + url + ')';
     }
+  };
+
+  /**
+   * Updates the list item style foe the entry.
+   * @param {ListItem} listItem List item.
+   * @param {Entry} entry The entry.
+   */
+  FileManager.prototype.updateGeneralItemStyle_ = function(listItem, entry) {
+    listItem.classList.add(entry.isDirectory ? 'directory' : 'file');
   };
 
   /**
@@ -1864,11 +1870,20 @@ FileManager.prototype = {
     // TODO(dgozman): refresh content metadata only when modificationTime
     // changed.
     this.metadataCache_.clear(entries, 'filesystem|thumbnail|media');
-    this.metadataCache_.get(entries, 'filesystem|thumbnail', null);
+    this.metadataCache_.get(entries, 'filesystem', null);
     if (this.isOnGData()) {
       this.metadataCache_.clear(entries, 'gdata');
       this.metadataCache_.get(entries, 'gdata', null);
     }
+
+    var visibleItems = this.currentList_.items;
+    var visibleEntries = [];
+    for (var i = 0; i < visibleItems.length; i++) {
+      var index = this.currentList_.getIndexOfListItem(visibleItems[i]);
+      var entry = this.directoryModel_.getFileList().item(index);
+      visibleEntries.push(entry);
+    }
+    this.metadataCache_.get(visibleEntries, 'thumbnail', null);
   };
 
   FileManager.prototype.dailyUpdateModificationTime_ = function() {
@@ -2616,6 +2631,10 @@ FileManager.prototype = {
       }
     }
 
+    var commands = this.dialogDom_.querySelectorAll('command');
+    for (var i = 0; i < commands.length; i++)
+      commands[i].canExecuteChange();
+
     this.updateOkButton_();
 
     setTimeout(this.onSelectionChangeComplete_.bind(this, event), 0);
@@ -2703,7 +2722,7 @@ FileManager.prototype = {
    *
    * @param {Event} event The click event.
    */
-  FileManager.prototype.onDetailDoubleClickOrTap_ = function(event) {
+  FileManager.prototype.onDetailDoubleClick_ = function(event) {
     if (this.isRenamingInProgress()) {
       // Don't pay attention to double clicks during a rename.
       return;
@@ -2733,11 +2752,12 @@ FileManager.prototype = {
       // Don't pay attention to clicks during a rename.
       return;
     }
+    if (this.dialogType_ != FileManager.DialogType.FULL_PAGE)
+      return;
 
     if (event.target.parentElement.classList.contains('filename-label') ||
-        event.target.classList.contains('detail-icon') ||
-        event.target.classList.contains('img-container')) {
-      this.onDetailDoubleClickOrTap_(event);
+        event.target.classList.contains('detail-icon')) {
+      this.onDetailDoubleClick_(event);
       event.stopPropagation();
       event.preventDefault();
     }
@@ -2781,9 +2801,10 @@ FileManager.prototype = {
     if (this.dialogType_ != FileManager.DialogType.FULL_PAGE)
       return;
 
-    this.document_.title = this.getCurrentDirectory().replace(
-        new RegExp('^' + RootDirectory.GDATA),
-        str('GDATA_DIRECTORY_LABEL'));
+    var path = this.getCurrentDirectory();
+    var rootPath = PathUtil.getRootPath(path);
+    this.document_.title = PathUtil.getRootLabel(rootPath) +
+                           path.substring(rootPath.length);
   },
 
   /**
@@ -3670,6 +3691,8 @@ FileManager.prototype = {
 
     var defaultActionSeparator =
         this.dialogDom_.querySelector('#default-action-separator');
+
+    this.openWithCommand_.canExecuteChange();
 
     // TODO(dzvorygin): Here we use this hack, since 'hidden' is standard
     // attribute and we can't use it's setter as usual.

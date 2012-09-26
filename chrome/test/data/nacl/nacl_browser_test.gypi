@@ -16,17 +16,24 @@
     'variables': {
       'test_files': [],
       'nacl_newlib_out_dir': '<(PRODUCT_DIR)/nacl_test_data/newlib',
-      'out_newlib32': '>(nacl_newlib_out_dir)/>(nexe_target)_newlib_x86_32.nexe',
-      'out_newlib64': '>(nacl_newlib_out_dir)/>(nexe_target)_newlib_x86_64.nexe',
-      'out_newlib_arm': '>(nacl_newlib_out_dir)/>(nexe_target)_newlib_arm.nexe',
-      'nmf_newlib': '>(nacl_newlib_out_dir)/>(nexe_target).nmf',
       'nacl_glibc_out_dir': '<(PRODUCT_DIR)/nacl_test_data/glibc',
-      'out_glibc32': '>(nacl_glibc_out_dir)/>(nexe_target)_glibc_x86_32.nexe',
-      'out_glibc64': '>(nacl_glibc_out_dir)/>(nexe_target)_glibc_x86_64.nexe',
-      'out_glibc_arm': '>(nacl_glibc_out_dir)/>(nexe_target)_glibc_arm.nexe',
-      'nmf_glibc': '>(nacl_glibc_out_dir)/>(nexe_target).nmf',
+      'target_conditions': [
+        ['nexe_target!=""', {
+          # These variables are used for nexe building and for library building,
+          # so they should be unconditionally re-defined.
+          'out_newlib32': '>(nacl_newlib_out_dir)/>(nexe_target)_newlib_x86_32.nexe',
+          'out_newlib64': '>(nacl_newlib_out_dir)/>(nexe_target)_newlib_x86_64.nexe',
+          'out_newlib_arm': '>(nacl_newlib_out_dir)/>(nexe_target)_newlib_arm.nexe',
+          'nmf_newlib': '>(nacl_newlib_out_dir)/>(nexe_target).nmf',
+          'out_glibc32': '>(nacl_glibc_out_dir)/>(nexe_target)_glibc_x86_32.nexe',
+          'out_glibc64': '>(nacl_glibc_out_dir)/>(nexe_target)_glibc_x86_64.nexe',
+          'out_glibc_arm': '>(nacl_glibc_out_dir)/>(nexe_target)_glibc_arm.nexe',
+          'nmf_glibc': '>(nacl_glibc_out_dir)/>(nexe_target).nmf',
+        }],
+      ],
     },
     'dependencies': [
+       '<(DEPTH)/native_client/src/untrusted/nacl/nacl.gyp:nacl_lib',
        '<(DEPTH)/ppapi/ppapi_untrusted.gyp:ppapi_cpp_lib',
        '<(DEPTH)/ppapi/native_client/native_client.gyp:ppapi_lib',
     ],
@@ -129,11 +136,17 @@
                 'target_conditions': [
                   ['enable_x86_64==1', {
                     'inputs': ['>(out_glibc64)'],
-                    'action': ['--library-path=>(libdir_glibc64)'],
+                    'action': [
+                      '--library-path=>(libdir_glibc64)',
+                      '--library-path=<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64',
+                    ],
                   }],
                   ['enable_x86_32==1', {
                     'inputs': ['>(out_glibc32)'],
-                    'action': ['--library-path=>(libdir_glibc32)'],
+                    'action': [
+                      '--library-path=>(libdir_glibc32)',
+                      '--library-path=<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32',
+                    ],
                   }],
                   # TODO(ncbray) handle arm case.  We don't have ARM glibc yet.
                 ],

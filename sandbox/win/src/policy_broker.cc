@@ -16,7 +16,6 @@
 #include "sandbox/win/src/sandbox.h"
 #include "sandbox/win/src/sandbox_nt_types.h"
 #include "sandbox/win/src/sandbox_types.h"
-#include "sandbox/win/src/sandbox_utils.h"
 #include "sandbox/win/src/target_process.h"
 
 // This code executes on the broker side, as a callback from the policy on the
@@ -47,9 +46,9 @@ bool SetupNtdllImports(TargetProcess *child) {
   wchar_t* loader_get = reinterpret_cast<wchar_t*>(
                             ntdll_image.GetProcAddress("LdrGetDllHandle"));
   if (loader_get) {
-    GetModuleHandleHelper(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                              GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          loader_get, &ntdll);
+    GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                      loader_get, &ntdll);
   }
 
   INIT_GLOBAL_NT(AllocateVirtualMemory);
@@ -80,9 +79,7 @@ bool SetupNtdllImports(TargetProcess *child) {
   for (size_t i = 0; i < sizeof(g_nt)/sizeof(void*); i++)
     DCHECK(reinterpret_cast<char**>(&g_nt)[i]);
 #endif
-  ResultCode ret = child->TransferVariable("g_nt", &g_nt, sizeof(g_nt));
-
-  return SBOX_ALL_OK == ret ? true : false;
+  return (SBOX_ALL_OK == child->TransferVariable("g_nt", &g_nt, sizeof(g_nt)));
 }
 
 #undef INIT_GLOBAL_NT

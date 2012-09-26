@@ -9,6 +9,8 @@
 #undef LOG
 #endif
 
+#include <limits.h>
+
 #include "base/string_split.h"
 #include "base/string_util.h"
 #include "CCProxy.h"
@@ -16,7 +18,8 @@
 #include "Extensions3DChromium.h"
 #include "IntRect.h"
 #include "LayerTextureSubImage.h"
-#include <limits.h>
+#include "ThrottledTextureUploader.h"
+#include "UnthrottledTextureUploader.h"
 #include <public/WebGraphicsContext3D.h>
 #include <wtf/HashSet.h>
 
@@ -46,6 +49,64 @@ static bool isTextureFormatSupportedForStorage(GC3Denum format)
     return (format == GraphicsContext3D::RGBA || format == Extensions3D::BGRA_EXT);
 }
 
+CCResourceProvider::TransferableResourceList::TransferableResourceList()
+{
+}
+
+CCResourceProvider::TransferableResourceList::~TransferableResourceList()
+{
+}
+
+CCResourceProvider::Resource::Resource()
+    : glId(0)
+    , pixels(0)
+    , pool(0)
+    , lockForReadCount(0)
+    , lockedForWrite(false)
+    , external(false)
+    , exported(false)
+    , size()
+    , format(0)
+    , type(static_cast<ResourceType>(0))
+{
+}
+
+CCResourceProvider::Resource::Resource(unsigned textureId, int pool, const IntSize& size, GC3Denum format)
+    : glId(textureId)
+    , pixels(0)
+    , pool(pool)
+    , lockForReadCount(0)
+    , lockedForWrite(false)
+    , external(false)
+    , exported(false)
+    , size(size)
+    , format(format)
+    , type(GLTexture)
+{
+}
+
+CCResourceProvider::Resource::Resource(uint8_t* pixels, int pool, const IntSize& size, GC3Denum format)
+    : glId(0)
+    , pixels(pixels)
+    , pool(pool)
+    , lockForReadCount(0)
+    , lockedForWrite(false)
+    , external(false)
+    , exported(false)
+    , size(size)
+    , format(format)
+    , type(Bitmap)
+{
+}
+
+CCResourceProvider::Child::Child()
+{
+}
+
+CCResourceProvider::Child::~Child()
+{
+}
+
 PassOwnPtr<CCResourceProvider> CCResourceProvider::create(CCGraphicsContext* context)
 {
     OwnPtr<CCResourceProvider> resourceProvider(adoptPtr(new CCResourceProvider(context)));
@@ -56,6 +117,11 @@ PassOwnPtr<CCResourceProvider> CCResourceProvider::create(CCGraphicsContext* con
 
 CCResourceProvider::~CCResourceProvider()
 {
+    WebGraphicsContext3D* context3d = m_context->context3D();
+    if (!context3d || !context3d->makeContextCurrent())
+        return;
+    m_textureUploader.clear();
+    m_textureCopier.clear();
 }
 
 WebGraphicsContext3D* CCResourceProvider::graphicsContext3D()
@@ -68,8 +134,13 @@ bool CCResourceProvider::inUseByConsumer(ResourceId id)
 {
     ASSERT(CCProxy::isImplThread());
     ResourceMap::iterator it = m_resources.find(id);
-    ASSERT(it != m_resources.end());
-    return !!it->second.lockForReadCount || it->second.exported;
+    CHECK(it != m_resources.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Resource* resource = &it->value;
+#else
+    Resource* resource = &it->second;
+#endif
+    return !!resource->lockForReadCount || resource->exported;
 }
 
 CCResourceProvider::ResourceId CCResourceProvider::createResource(int pool, const IntSize& size, GC3Denum format, TextureUsageHint hint)
@@ -139,17 +210,22 @@ void CCResourceProvider::deleteResource(ResourceId id)
 {
     ASSERT(CCProxy::isImplThread());
     ResourceMap::iterator it = m_resources.find(id);
-    ASSERT(it != m_resources.end());
-    ASSERT(!it->second.lockedForWrite);
-    ASSERT(!it->second.lockForReadCount);
+    CHECK(it != m_resources.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Resource* resource = &it->value;
+#else
+    Resource* resource = &it->second;
+#endif
+    ASSERT(!resource->lockedForWrite);
+    ASSERT(!resource->lockForReadCount);
 
-    if (it->second.glId && !it->second.external) {
+    if (resource->glId && !resource->external) {
         WebGraphicsContext3D* context3d = m_context->context3D();
         ASSERT(context3d);
-        GLC(context3d, context3d->deleteTexture(it->second.glId));
+        GLC(context3d, context3d->deleteTexture(resource->glId));
     }
-    if (it->second.pixels)
-        delete it->second.pixels;
+    if (resource->pixels)
+        delete resource->pixels;
 
     m_resources.remove(it);
 }
@@ -159,8 +235,13 @@ void CCResourceProvider::deleteOwnedResources(int pool)
     ASSERT(CCProxy::isImplThread());
     ResourceIdArray toDelete;
     for (ResourceMap::iterator it = m_resources.begin(); it != m_resources.end(); ++it) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        if (it->value.pool == pool && !it->value.external)
+            toDelete.append(it->key);
+#else
         if (it->second.pool == pool && !it->second.external)
             toDelete.append(it->first);
+#endif
     }
     for (ResourceIdArray::iterator it = toDelete.begin(); it != toDelete.end(); ++it)
         deleteResource(*it);
@@ -169,28 +250,38 @@ void CCResourceProvider::deleteOwnedResources(int pool)
 CCResourceProvider::ResourceType CCResourceProvider::resourceType(ResourceId id)
 {
     ResourceMap::iterator it = m_resources.find(id);
-    ASSERT(it != m_resources.end());
-    return it->second.type;
+    CHECK(it != m_resources.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Resource* resource = &it->value;
+#else
+    Resource* resource = &it->second;
+#endif
+    return resource->type;
 }
 
 void CCResourceProvider::upload(ResourceId id, const uint8_t* image, const IntRect& imageRect, const IntRect& sourceRect, const IntSize& destOffset)
 {
     ASSERT(CCProxy::isImplThread());
     ResourceMap::iterator it = m_resources.find(id);
-    ASSERT(it != m_resources.end());
-    ASSERT(!it->second.lockedForWrite);
-    ASSERT(!it->second.lockForReadCount);
-    ASSERT(!it->second.external);
+    CHECK(it != m_resources.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Resource* resource = &it->value;
+#else
+    Resource* resource = &it->second;
+#endif
+    ASSERT(!resource->lockedForWrite);
+    ASSERT(!resource->lockForReadCount);
+    ASSERT(!resource->external);
 
-    if (it->second.glId) {
+    if (resource->glId) {
         WebGraphicsContext3D* context3d = m_context->context3D();
         ASSERT(context3d);
         ASSERT(m_texSubImage.get());
-        context3d->bindTexture(GraphicsContext3D::TEXTURE_2D, it->second.glId);
-        m_texSubImage->upload(image, imageRect, sourceRect, destOffset, it->second.format, context3d);
+        context3d->bindTexture(GraphicsContext3D::TEXTURE_2D, resource->glId);
+        m_texSubImage->upload(image, imageRect, sourceRect, destOffset, resource->format, context3d);
     }
 
-    if (it->second.pixels) {
+    if (resource->pixels) {
         SkBitmap srcFull;
         srcFull.setConfig(SkBitmap::kARGB_8888_Config, imageRect.width(), imageRect.height());
         srcFull.setPixels(const_cast<uint8_t*>(image));
@@ -228,41 +319,61 @@ const CCResourceProvider::Resource* CCResourceProvider::lockForRead(ResourceId i
 {
     ASSERT(CCProxy::isImplThread());
     ResourceMap::iterator it = m_resources.find(id);
-    ASSERT(it != m_resources.end());
-    ASSERT(!it->second.lockedForWrite);
-    it->second.lockForReadCount++;
-    return &it->second;
+    CHECK(it != m_resources.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Resource* resource = &it->value;
+#else
+    Resource* resource = &it->second;
+#endif
+    ASSERT(!resource->lockedForWrite);
+    resource->lockForReadCount++;
+    return resource;
 }
 
 void CCResourceProvider::unlockForRead(ResourceId id)
 {
     ASSERT(CCProxy::isImplThread());
     ResourceMap::iterator it = m_resources.find(id);
-    ASSERT(it != m_resources.end());
-    ASSERT(it->second.lockForReadCount > 0);
-    it->second.lockForReadCount--;
+    CHECK(it != m_resources.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Resource* resource = &it->value;
+#else
+    Resource* resource = &it->second;
+#endif
+    ASSERT(resource->lockForReadCount > 0);
+    resource->lockForReadCount--;
 }
 
 const CCResourceProvider::Resource* CCResourceProvider::lockForWrite(ResourceId id)
 {
     ASSERT(CCProxy::isImplThread());
     ResourceMap::iterator it = m_resources.find(id);
-    ASSERT(it != m_resources.end());
-    ASSERT(!it->second.lockedForWrite);
-    ASSERT(!it->second.lockForReadCount);
-    ASSERT(!it->second.external);
-    it->second.lockedForWrite = true;
-    return &it->second;
+    CHECK(it != m_resources.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Resource* resource = &it->value;
+#else
+    Resource* resource = &it->second;
+#endif
+    ASSERT(!resource->lockedForWrite);
+    ASSERT(!resource->lockForReadCount);
+    ASSERT(!resource->external);
+    resource->lockedForWrite = true;
+    return resource;
 }
 
 void CCResourceProvider::unlockForWrite(ResourceId id)
 {
     ASSERT(CCProxy::isImplThread());
     ResourceMap::iterator it = m_resources.find(id);
-    ASSERT(it != m_resources.end());
-    ASSERT(it->second.lockedForWrite);
-    ASSERT(!it->second.external);
-    it->second.lockedForWrite = false;
+    CHECK(it != m_resources.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Resource* resource = &it->value;
+#else
+    Resource* resource = &it->second;
+#endif
+    ASSERT(resource->lockedForWrite);
+    ASSERT(!resource->external);
+    resource->lockedForWrite = false;
 }
 
 CCResourceProvider::ScopedReadLockGL::ScopedReadLockGL(CCResourceProvider* resourceProvider, CCResourceProvider::ResourceId resourceId)
@@ -341,10 +452,9 @@ bool CCResourceProvider::initialize()
     ASSERT(CCProxy::isImplThread());
     WebGraphicsContext3D* context3d = m_context->context3D();
     if (!context3d) {
-        m_maxTextureSize = INT_MAX;
-
-        // FIXME: Implement this path for software compositing.
-        return false;
+        m_maxTextureSize = INT_MAX / 2;
+        m_textureUploader = UnthrottledTextureUploader::create();
+        return true;
     }
     if (!context3d->makeContextCurrent())
         return false;
@@ -353,6 +463,7 @@ bool CCResourceProvider::initialize()
     std::vector<std::string> extensions;
     base::SplitString(extensionsString, ' ', &extensions);
     bool useMapSub = false;
+    bool useBindUniform = false;
     for (size_t i = 0; i < extensions.size(); ++i) {
         if (extensions[i] == "GL_EXT_texture_storage")
             m_useTextureStorageExt = true;
@@ -362,9 +473,14 @@ bool CCResourceProvider::initialize()
             useMapSub = true;
         else if (extensions[i] == "GL_CHROMIUM_shallow_flush")
             m_useShallowFlush = true;
+        else if (extensions[i] == "GL_CHROMIUM_bind_uniform_location")
+            useBindUniform = true;
     }
 
     m_texSubImage = adoptPtr(new LayerTextureSubImage(useMapSub));
+    m_textureCopier = AcceleratedTextureCopier::create(context3d, useBindUniform);
+
+    m_textureUploader = ThrottledTextureUploader::create(context3d);
     GLC(context3d, context3d->getIntegerv(GraphicsContext3D::MAX_TEXTURE_SIZE, &m_maxTextureSize));
     return true;
 }
@@ -384,7 +500,11 @@ void CCResourceProvider::destroyChild(int child)
     ASSERT(CCProxy::isImplThread());
     ChildMap::iterator it = m_children.find(child);
     ASSERT(it != m_children.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    deleteOwnedResources(it->value.pool);
+#else
     deleteOwnedResources(it->second.pool);
+#endif
     m_children.remove(it);
     trimMailboxDeque();
 }
@@ -394,7 +514,11 @@ const CCResourceProvider::ResourceIdMap& CCResourceProvider::getChildToParentMap
     ASSERT(CCProxy::isImplThread());
     ChildMap::const_iterator it = m_children.find(child);
     ASSERT(it != m_children.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    return it->value.childToParentMap;
+#else
     return it->second.childToParentMap;
+#endif
 }
 
 CCResourceProvider::TransferableResourceList CCResourceProvider::prepareSendToParent(const ResourceIdArray& resources)
@@ -410,7 +534,11 @@ CCResourceProvider::TransferableResourceList CCResourceProvider::prepareSendToPa
     for (ResourceIdArray::const_iterator it = resources.begin(); it != resources.end(); ++it) {
         TransferableResource resource;
         if (transferResource(context3d, *it, &resource)) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+            m_resources.find(*it)->value.exported = true;
+#else
             m_resources.find(*it)->second.exported = true;
+#endif
             list.resources.append(resource);
         }
     }
@@ -429,7 +557,11 @@ CCResourceProvider::TransferableResourceList CCResourceProvider::prepareSendToCh
         // FIXME: Implement this path for software compositing.
         return list;
     }
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Child& childInfo = m_children.find(child)->value;
+#else
     Child& childInfo = m_children.find(child)->second;
+#endif
     for (ResourceIdArray::const_iterator it = resources.begin(); it != resources.end(); ++it) {
         TransferableResource resource;
         if (!transferResource(context3d, *it, &resource))
@@ -462,7 +594,11 @@ void CCResourceProvider::receiveFromChild(int child, const TransferableResourceL
         // (and is simpler) to wait.
         GLC(context3d, context3d->waitSyncPoint(resources.syncPoint));
     }
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    Child& childInfo = m_children.find(child)->value;
+#else
     Child& childInfo = m_children.find(child)->second;
+#endif
     for (Vector<TransferableResource>::const_iterator it = resources.resources.begin(); it != resources.resources.end(); ++it) {
         unsigned textureId;
         GLC(context3d, textureId = context3d->createTexture());
@@ -488,10 +624,14 @@ void CCResourceProvider::receiveFromParent(const TransferableResourceList& resou
     if (resources.syncPoint)
         GLC(context3d, context3d->waitSyncPoint(resources.syncPoint));
     for (Vector<TransferableResource>::const_iterator it = resources.resources.begin(); it != resources.resources.end(); ++it) {
-        Resource& resource = m_resources.find(it->id)->second;
-        ASSERT(resource.exported);
-        resource.exported = false;
-        GLC(context3d, context3d->bindTexture(GraphicsContext3D::TEXTURE_2D, resource.glId));
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        Resource* resource = &m_resources.find(it->id)->value;
+#else
+        Resource* resource = &m_resources.find(it->id)->second;
+#endif
+        ASSERT(resource->exported);
+        resource->exported = false;
+        GLC(context3d, context3d->bindTexture(GraphicsContext3D::TEXTURE_2D, resource->glId));
         GLC(context3d, context3d->consumeTextureCHROMIUM(GraphicsContext3D::TEXTURE_2D, it->mailbox.name));
         m_mailboxes.append(it->mailbox);
     }
@@ -501,20 +641,25 @@ bool CCResourceProvider::transferResource(WebGraphicsContext3D* context, Resourc
 {
     ASSERT(CCProxy::isImplThread());
     ResourceMap::const_iterator it = m_resources.find(id);
-    ASSERT(it != m_resources.end());
-    ASSERT(!it->second.lockedForWrite);
-    ASSERT(!it->second.lockForReadCount);
-    ASSERT(!it->second.external);
-    if (it->second.exported)
+    CHECK(it != m_resources.end());
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+    const Resource* source = &it->value;
+#else
+    const Resource* source = &it->second;
+#endif
+    ASSERT(!source->lockedForWrite);
+    ASSERT(!source->lockForReadCount);
+    ASSERT(!source->external);
+    if (source->exported)
         return false;
     resource->id = id;
-    resource->format = it->second.format;
-    resource->size = it->second.size;
+    resource->format = source->format;
+    resource->size = source->size;
     if (!m_mailboxes.isEmpty())
         resource->mailbox = m_mailboxes.takeFirst();
     else
         GLC(context, context->genMailboxCHROMIUM(resource->mailbox.name));
-    GLC(context, context->bindTexture(GraphicsContext3D::TEXTURE_2D, it->second.glId));
+    GLC(context, context->bindTexture(GraphicsContext3D::TEXTURE_2D, source->glId));
     GLC(context, context->produceTextureCHROMIUM(GraphicsContext3D::TEXTURE_2D, resource->mailbox.name));
     return true;
 }
@@ -529,15 +674,27 @@ void CCResourceProvider::trimMailboxDeque()
     size_t maxMailboxCount = 0;
     if (m_context->capabilities().hasParentCompositor) {
         for (ResourceMap::iterator it = m_resources.begin(); it != m_resources.end(); ++it) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+            if (!it->value.exported && !it->value.external)
+#else
             if (!it->second.exported && !it->second.external)
+#endif
                 ++maxMailboxCount;
         }
     } else {
         HashSet<int> childPoolSet;
         for (ChildMap::iterator it = m_children.begin(); it != m_children.end(); ++it)
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+            childPoolSet.add(it->value.pool);
+#else
             childPoolSet.add(it->second.pool);
+#endif
         for (ResourceMap::iterator it = m_resources.begin(); it != m_resources.end(); ++it) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+            if (childPoolSet.contains(it->value.pool))
+#else
             if (childPoolSet.contains(it->second.pool))
+#endif
                 ++maxMailboxCount;
         }
     }

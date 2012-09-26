@@ -74,6 +74,9 @@ const long int kReleaseNotesTargetRelease = 19;
 const char kGetStartedURLPattern[] =
     "http://gweb-gettingstartedguide.appspot.com/";
 
+// Getting started guide application window size.
+const char kGSGAppWindowSize[] = "820,550";
+
 // Parameter to be added to GetStarted URL that contains board.
 const char kGetStartedBoardParam[] = "board";
 
@@ -471,6 +474,10 @@ void ExistingUserController::OnStartEnterpriseEnrollment() {
                  weak_factory_.GetWeakPtr()));
 }
 
+void ExistingUserController::OnStartDeviceReset() {
+  ShowResetScreen();
+}
+
 void ExistingUserController::OnEnrollmentOwnershipCheckCompleted(
     DeviceSettingsService::OwnershipStatus status,
     bool current_user_is_owner) {
@@ -502,6 +509,11 @@ void ExistingUserController::ShowEnrollmentScreen(bool is_auto_enrollment,
     params->SetString("user", user);
   }
   host_->StartWizard(WizardController::kEnterpriseEnrollmentScreenName, params);
+  login_display_->OnFadeOut();
+}
+
+void ExistingUserController::ShowResetScreen() {
+  host_->StartWizard(WizardController::kResetScreenName, NULL);
   login_display_->OnFadeOut();
 }
 
@@ -801,9 +813,8 @@ void ExistingUserController::InitializeStartUrls() const {
   if (!guide_url.empty()) {
     CommandLine::ForCurrentProcess()->AppendSwitchASCII(switches::kApp,
                                                         guide_url);
-    // NTP would open in the background, app window with GSG would be focused
-    // so that user won't have an empty desktop after GSG is closed.
-    CommandLine::ForCurrentProcess()->AppendArg(chrome::kChromeUINewTabURL);
+    CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+        switches::kAppWindowSize, kGSGAppWindowSize);
   } else {
     // We should not be adding any start URLs if guide
     // is defined as it launches as a standalone app window.

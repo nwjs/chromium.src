@@ -16,6 +16,7 @@
 #include "IntRect.h"
 #include "RateLimiter.h"
 #include "SkColor.h"
+#include "cc/own_ptr_vector.h"
 #include <limits>
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
@@ -35,23 +36,8 @@ class Region;
 struct CCScrollAndScaleSet;
 
 struct CCLayerTreeSettings {
-    CCLayerTreeSettings()
-            : acceleratePainting(false)
-            , showFPSCounter(false)
-            , showPlatformLayerTree(false)
-            , showPaintRects(false)
-            , showPropertyChangedRects(false)
-            , showSurfaceDamageRects(false)
-            , showScreenSpaceRects(false)
-            , showReplicaScreenSpaceRects(false)
-            , showOccludingRects(false)
-            , renderVSyncEnabled(true)
-            , refreshRate(0)
-            , maxPartialTextureUpdates(std::numeric_limits<size_t>::max())
-            , defaultTileSize(IntSize(256, 256))
-            , maxUntiledLayerSize(IntSize(512, 512))
-            , minimumOcclusionTrackingSize(IntSize(160, 160))
-    { }
+    CCLayerTreeSettings();
+    ~CCLayerTreeSettings();
 
     bool acceleratePainting;
     bool showFPSCounter;
@@ -75,17 +61,8 @@ struct CCLayerTreeSettings {
 
 // Provides information on an Impl's rendering capabilities back to the CCLayerTreeHost
 struct RendererCapabilities {
-    RendererCapabilities()
-        : bestTextureFormat(0)
-        , contextHasCachedFrontBuffer(false)
-        , usingPartialSwap(false)
-        , usingAcceleratedPainting(false)
-        , usingSetVisibility(false)
-        , usingSwapCompleteCallback(false)
-        , usingGpuMemoryManager(false)
-        , usingDiscardFramebuffer(false)
-        , usingEglImage(false)
-        , maxTextureSize(0) { }
+    RendererCapabilities();
+    ~RendererCapabilities();
 
     GC3Denum bestTextureFormat;
     bool contextHasCachedFrontBuffer;
@@ -191,8 +168,21 @@ public:
 
     CCPrioritizedTextureManager* contentsTextureManager() const;
 
-    void unlinkAllContentTextures();
-    void deleteUnlinkedTextures();
+    // Delete contents textures' backing resources until they use only bytesLimit bytes. This may
+    // be called on the impl thread while the main thread is running.
+    void reduceContentsTexturesMemoryOnImplThread(size_t bytesLimit, CCResourceProvider*);
+    // Returns true if there any evicted backing textures that have not been deleted.
+    bool evictedContentsTexturesBackingsExist() const;
+    // Retrieve the list of all contents textures' backings that have been evicted, to pass to the
+    // main thread to unlink them from their owning textures.
+    void getEvictedContentTexturesBackings(CCPrioritizedTextureManager::BackingVector&);
+    // Unlink the list of contents textures' backings from their owning textures on the main thread
+    // before updating layers.
+    void unlinkEvictedContentTexturesBackings(const CCPrioritizedTextureManager::BackingVector&);
+    // Deletes all evicted backings, unlinking them from their owning textures if needed.
+    // Returns true if this function had to unlink any backings from their owning texture when
+    // destroying them. If this was the case, the impl layer tree may contain invalid resources.
+    bool deleteEvictedContentTexturesBackings();
 
     bool visible() const { return m_visible; }
     void setVisible(bool);
@@ -224,7 +214,6 @@ protected:
 
 private:
     typedef Vector<RefPtr<LayerChromium> > LayerList;
-    typedef Vector<OwnPtr<CCPrioritizedTexture> > TextureList;
 
     void initializeRenderer();
 
@@ -282,6 +271,7 @@ private:
     SkColor m_backgroundColor;
     bool m_hasTransparentBackground;
 
+    typedef OwnPtrVector<CCPrioritizedTexture> TextureList;
     TextureList m_deleteTextureAfterCommitList;
     size_t m_partialTextureUpdateRequests;
 

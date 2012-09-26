@@ -355,41 +355,6 @@ class BlockingNetworkDelegateWithManualCallback : public TestNetworkDelegate {
   AuthCallback auth_callback_;
 };
 
-
-// A simple Interceptor that returns a pre-built URLRequestJob one time.
-class TestJobInterceptor : public URLRequestJobFactory::Interceptor {
- public:
-  TestJobInterceptor()
-      : main_intercept_job_(NULL) {
-  }
-
-  virtual URLRequestJob* MaybeIntercept(
-      URLRequest* request, NetworkDelegate* network_delegate) const OVERRIDE {
-    URLRequestJob* job = main_intercept_job_;
-    main_intercept_job_ = NULL;
-    return job;
-  }
-
-  virtual URLRequestJob* MaybeInterceptRedirect(
-      const GURL& location,
-      URLRequest* request,
-      NetworkDelegate* network_delegate) const OVERRIDE {
-    return NULL;
-  }
-
-  virtual URLRequestJob* MaybeInterceptResponse(
-      URLRequest* request, NetworkDelegate* network_delegate) const OVERRIDE {
-    return NULL;
-  }
-
-  void set_main_intercept_job(URLRequestJob* job) {
-    main_intercept_job_ = job;
-  }
-
- private:
-  mutable URLRequestJob* main_intercept_job_;
-};
-
 class TestURLRequestContextWithProxy : public TestURLRequestContext {
  public:
   // Does not own |delegate|.
@@ -1301,7 +1266,7 @@ class LocalHttpTestServer : public TestServer {
                    FilePath()) {}
 };
 
-TEST_F(URLRequestTest, DelayedCookieCallback) {
+TEST_F(URLRequestTest, FLAKY_DelayedCookieCallback) {
   LocalHttpTestServer test_server;
   ASSERT_TRUE(test_server.Start());
 
@@ -4347,7 +4312,7 @@ class URLRequestTestFTP : public URLRequestTest {
 };
 
 // Make sure an FTP request using an unsafe ports fails.
-TEST_F(URLRequestTestFTP, UnsafePort) {
+TEST_F(URLRequestTestFTP, FLAKY_UnsafePort) {
   ASSERT_TRUE(test_server_.Start());
 
   URLRequestJobFactoryImpl job_factory;

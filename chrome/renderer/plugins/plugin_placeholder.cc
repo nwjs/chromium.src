@@ -22,6 +22,7 @@
 #include "grit/generated_resources.h"
 #include "grit/renderer_resources.h"
 #include "grit/webkit_strings.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebURLRequest.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebContextMenuData.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
@@ -433,21 +434,19 @@ void PluginPlaceholder::PluginListChanged() {
   if (document.isNull())
     return;
 
-  ChromeViewHostMsg_GetPluginInfo_Status status;
-  webkit::WebPluginInfo plugin_info;
+  ChromeViewHostMsg_GetPluginInfo_Output output;
   std::string mime_type(plugin_params_.mimeType.utf8());
-  std::string actual_mime_type;
   render_view()->Send(new ChromeViewHostMsg_GetPluginInfo(
       routing_id(), GURL(plugin_params_.url), document.url(),
-      mime_type, &status, &plugin_info, &actual_mime_type));
-  if (status.value == status_->value)
+      mime_type, &output));
+
+  if (output.status.value == status_->value)
     return;
   chrome::ChromeContentRendererClient* client =
       static_cast<chrome::ChromeContentRendererClient*>(
           content::GetContentClient()->renderer());
   WebPlugin* new_plugin =
-      client->CreatePlugin(render_view(), frame_, plugin_params_,
-                           status, plugin_info, actual_mime_type);
+      client->CreatePlugin(render_view(), frame_, plugin_params_, output);
   ReplacePlugin(new_plugin);
 }
 

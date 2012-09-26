@@ -55,7 +55,7 @@ static const SkColor kTextColorMatchCount = SkColorSetRGB(178, 178, 178);
 static const SkColor kTextColorNoMatch = SK_ColorBLACK;
 
 // The background color of the match count label when results are found.
-static const SkColor kBackgroundColorMatch = SK_ColorWHITE;
+static const SkColor kBackgroundColorMatch = SkColorSetARGB(0, 255, 255, 255);
 
 // The background color of the match count label when no results are found.
 static const SkColor kBackgroundColorNoMatch = SkColorSetRGB(255, 102, 102);
@@ -86,6 +86,7 @@ FindBarView::FindBarView(FindBarHost* host)
   find_text_->set_default_width_in_chars(kDefaultCharWidth);
   find_text_->SetController(this);
   find_text_->SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_FIND));
+
   AddChildView(find_text_);
 
   match_count_text_ = new views::Label();
@@ -104,8 +105,10 @@ FindBarView::FindBarView(FindBarHost* host)
       rb.GetImageSkiaNamed(IDR_FINDINPAGE_PREV));
   find_previous_button_->SetImage(views::CustomButton::BS_HOT,
       rb.GetImageSkiaNamed(IDR_FINDINPAGE_PREV_H));
-  find_previous_button_->SetImage(views::CustomButton::BS_DISABLED,
+  find_previous_button_->SetImage(views::CustomButton::BS_PUSHED,
       rb.GetImageSkiaNamed(IDR_FINDINPAGE_PREV_P));
+  find_previous_button_->SetImage(views::CustomButton::BS_DISABLED,
+      rb.GetImageSkiaNamed(IDR_FINDINPAGE_PREV_D));
   find_previous_button_->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_FIND_IN_PAGE_PREVIOUS_TOOLTIP));
   find_previous_button_->SetAccessibleName(
@@ -119,8 +122,10 @@ FindBarView::FindBarView(FindBarHost* host)
       rb.GetImageSkiaNamed(IDR_FINDINPAGE_NEXT));
   find_next_button_->SetImage(views::CustomButton::BS_HOT,
       rb.GetImageSkiaNamed(IDR_FINDINPAGE_NEXT_H));
-  find_next_button_->SetImage(views::CustomButton::BS_DISABLED,
+  find_next_button_->SetImage(views::CustomButton::BS_PUSHED,
       rb.GetImageSkiaNamed(IDR_FINDINPAGE_NEXT_P));
+  find_next_button_->SetImage(views::CustomButton::BS_DISABLED,
+      rb.GetImageSkiaNamed(IDR_FINDINPAGE_NEXT_D));
   find_next_button_->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_FIND_IN_PAGE_NEXT_TOOLTIP));
   find_next_button_->SetAccessibleName(
@@ -131,11 +136,11 @@ FindBarView::FindBarView(FindBarHost* host)
   close_button_->set_tag(CLOSE_TAG);
   close_button_->set_focusable(true);
   close_button_->SetImage(views::CustomButton::BS_NORMAL,
-                          rb.GetImageSkiaNamed(IDR_CLOSE_BAR));
+                          rb.GetImageSkiaNamed(IDR_TAB_CLOSE));
   close_button_->SetImage(views::CustomButton::BS_HOT,
-                          rb.GetImageSkiaNamed(IDR_CLOSE_BAR_H));
+                          rb.GetImageSkiaNamed(IDR_TAB_CLOSE_H));
   close_button_->SetImage(views::CustomButton::BS_PUSHED,
-                          rb.GetImageSkiaNamed(IDR_CLOSE_BAR_P));
+                          rb.GetImageSkiaNamed(IDR_TAB_CLOSE_P));
   close_button_->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_FIND_IN_PAGE_CLOSE_TOOLTIP));
   close_button_->SetAccessibleName(
@@ -491,7 +496,7 @@ void FindBarView::OnThemeChanged() {
   if (GetThemeProvider()) {
     close_button_->SetBackground(
         GetThemeProvider()->GetColor(ThemeService::COLOR_TAB_TEXT),
-        rb.GetImageSkiaNamed(IDR_CLOSE_BAR),
-        rb.GetImageSkiaNamed(IDR_CLOSE_BAR_MASK));
+        rb.GetImageSkiaNamed(IDR_TAB_CLOSE),
+        rb.GetImageSkiaNamed(IDR_TAB_CLOSE_MASK));
   }
 }

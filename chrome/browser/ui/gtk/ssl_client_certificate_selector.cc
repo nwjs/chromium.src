@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ssl_client_certificate_selector.h"
+#include "chrome/browser/ssl/ssl_client_certificate_selector.h"
 
 #include <gtk/gtk.h>
 
@@ -364,9 +364,9 @@ void SSLClientCertificateSelector::OnOkClicked(GtkWidget* button) {
   // ourself before the Unlocked callback gets called.
   StopObserving();
 
-  browser::UnlockCertSlotIfNecessary(
+  chrome::UnlockCertSlotIfNecessary(
       cert,
-      browser::kCryptoModulePasswordClientAuth,
+      chrome::kCryptoModulePasswordClientAuth,
       cert_request_info()->host_and_port,
       base::Bind(&SSLClientCertificateSelector::Unlocked,
                  base::Unretained(this)));
@@ -386,11 +386,12 @@ void SSLClientCertificateSelector::OnPromptShown(GtkWidget* widget,
 namespace chrome {
 
 void ShowSSLClientCertificateSelector(
-    TabContents* tab_contents,
+    content::WebContents* contents,
     const net::HttpNetworkSession* network_session,
     net::SSLCertRequestInfo* cert_request_info,
     const base::Callback<void(net::X509Certificate*)>& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  TabContents* tab_contents = TabContents::FromWebContents(contents);
   (new SSLClientCertificateSelector(
       tab_contents, network_session, cert_request_info, callback))->Show();
 }

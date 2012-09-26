@@ -270,6 +270,10 @@ const char kWebKitAllowDisplayingInsecureContent[] =
     "webkit.webprefs.allow_displaying_insecure_content";
 const char kWebKitAllowRunningInsecureContent[] =
     "webkit.webprefs.allow_running_insecure_content";
+#if defined(OS_ANDROID)
+const char kWebKitFontScaleFactor[] = "webkit.webprefs.font_scale_factor";
+const char kWebKitForceEnableZoom[] = "webkit.webprefs.force_enable_zoom";
+#endif
 
 const char kWebKitCommonScript[] = "Zyyy";
 const char kWebKitStandardFontFamily[] = "webkit.webprefs.fonts.standard.Zyyy";
@@ -472,6 +476,10 @@ const char kInstantEnabled[] = "instant.enabled";
 const char kExperimentalZeroSuggestUrlPrefix[] =
     "instant.experimental_zero_suggest_url_prefix";
 
+// Boolean pref indicating if instant search provider logo should be shown.
+const char kInstantShowSearchProviderLogo[] =
+    "instant.show_search_provider_logo";
+
 // Used to migrate preferences from local state to user preferences to
 // enable multiple profiles.
 // BITMASK with possible values (see browser_prefs.cc for enum):
@@ -567,6 +575,10 @@ const char kLanguagePreferredLanguages[] =
 // A string pref (comma-separated list) set to the preloaded (active) input
 // method IDs (ex. "pinyin,mozc").
 const char kLanguagePreloadEngines[] = "settings.language.preload_engines";
+
+// A List pref (comma-separated list) set to the extension IMEs to filter out.
+const char kLanguageFilteredExtensionImes[] =
+    "settings.language.filtered_extension_imes";
 
 // Boolean prefs for ibus-chewing Chinese input method.
 const char kLanguageChewingAutoShiftCur[] =
@@ -1541,20 +1553,25 @@ const char kNtpAppPageNames[] = "ntp.app_page_names";
 
 const char kDevToolsDisabled[] = "devtools.disabled";
 
-// A boolean specifying whether dev tools window should be opened docked.
-const char kDevToolsOpenDocked[] = "devtools.open_docked";
-
 // A string specifying the dock location (either 'bottom' or 'right').
 const char kDevToolsDockSide[] = "devtools.dock_side";
+
+// Maps of files edited locally using DevTools.
+const char kDevToolsEditedFiles[] = "devtools.edited_files";
 
 // Integer location of the horizontal split bar in the browser view.
 const char kDevToolsHSplitLocation[] = "devtools.split_location";
 
+// A boolean specifying whether dev tools window should be opened docked.
+const char kDevToolsOpenDocked[] = "devtools.open_docked";
+
+#if defined(OS_ANDROID)
+// A boolean specifying whether remote dev tools debugging is enabled.
+const char kDevToolsRemoteEnabled[] = "devtools.remote_enabled";
+#endif
+
 // Integer location of the vertical split bar in the browser view.
 const char kDevToolsVSplitLocation[] = "devtools.v_split_location";
-
-// Maps of files edited locally using DevTools.
-const char kDevToolsEditedFiles[] = "devtools.edited_files";
 
 // 64-bit integer serialization of the base::Time when the last sync occurred.
 const char kSyncLastSyncedTime[] = "sync.last_synced_time";
@@ -1842,6 +1859,9 @@ const char kTabStripLayoutType[] = "tab_strip_layout_type";
 // If true, cloud policy for the user is loaded once the user signs in.
 const char kLoadCloudPolicyOnSignin[] = "policy.load_cloud_policy_on_signin";
 
+// Indicates that factory reset was requested from options page.
+const char kFactoryResetRequested[] = "FactoryResetRequested";
+
 // *************** SERVICE PREFS ***************
 // These are attached to the service process.
 
@@ -1983,6 +2003,13 @@ const char kUseDefaultPinnedApps[] = "use_default_pinned_apps";
 const char kPinnedLauncherApps[] =
     "pinned_launcher_apps";
 
+// Boolean value indicating whether launcher should run sync animation.
+// Note this is an unsyncable pref value used as a flag per profile because sync
+// animation should only run once for new ChromeOS login (i.e. once per created
+// profile on ChromeOS device).
+const char kLauncherShouldRunSyncAnimation[] =
+    "launcher_should_run_sync_animation";
+
 const char kLongPressTimeInSeconds[] =
     "gesture.long_press_time_in_seconds";
 const char kMaxDistanceBetweenTapsForDoubleTap[] =
@@ -2035,5 +2062,9 @@ const char kNetworkProfileWarningsLeft[] = "network_profile.warnings_left";
 // |network_profile.warnings_left| after a silence period.
 const char kNetworkProfileLastWarningTime[] =
     "network_profile.last_warning_time";
+
+// 64-bit serialization of the time last policy usage statistics were collected
+// by UMA_HISTOGRAM_ENUMERATION.
+const char kLastPolicyStatisticsUpdate[] = "policy.last_statistics_update";
 
 }  // namespace prefs

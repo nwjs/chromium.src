@@ -135,6 +135,7 @@ const char kAppLaunchHistogram[] = "Extensions.AppLaunch";
 const char kAccessExtensionPath[] =
     "/usr/share/chromeos-assets/accessibility/extensions";
 const char kChromeVoxDirectoryName[] = "access_chromevox";
+const char kWallpaperManagerId[] = "obklkkbkpaoaejdabbfldmcfplpdgolj";
 #endif
 
 const char kAppStateNotInstalled[] = "not_installed";
@@ -162,5 +163,21 @@ const int kExtensionIconSizes[] = {
 
 const size_t kNumExtensionIconSizes =
     arraysize(kExtensionIconSizes);
+
+const int kExtensionActionIconSizes[] = {
+  EXTENSION_ICON_ACTION,  // 19,
+  2 * EXTENSION_ICON_ACTION  // 38
+};
+
+const size_t kNumExtensionActionIconSizes =
+    arraysize(kExtensionActionIconSizes);
+
+const int kScriptBadgeIconSizes[] = {
+  EXTENSION_ICON_BITTY,  // 16
+  2 * EXTENSION_ICON_BITTY  // 32
+};
+
+const size_t kNumScriptBadgeIconSizes =
+    arraysize(kScriptBadgeIconSizes);
 
 }  // namespace extension_misc

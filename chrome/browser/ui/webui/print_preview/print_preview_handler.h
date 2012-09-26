@@ -140,8 +140,9 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
   // preview is displayed.
   void HandleGetInitialSettings(const base::ListValue* args);
 
-  // Reports histogram data for the print destination UI.
-  void HandleReportDestinationEvent(const base::ListValue* args);
+  // Reports histogram data for a print preview UI action. |args| should consist
+  // of two elements: the bucket name, and the bucket event.
+  void HandleReportUiEvent(const base::ListValue* args);
 
   void SendInitialSettings(
       const std::string& default_printer,
@@ -162,8 +163,7 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
   void SendCloudPrintEnabled();
 
   // Send the PDF data to the cloud to print.
-  void SendCloudPrintJob(const base::DictionaryValue& settings,
-                         std::string print_ticket);
+  void SendCloudPrintJob();
 
   // Gets the initiator tab for the print preview tab.
   TabContents* GetInitiatorTab() const;

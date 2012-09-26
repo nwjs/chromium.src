@@ -18,7 +18,6 @@
 #include "content/public/renderer/render_view_observer.h"
 #include "content/renderer/media/media_stream_dispatcher_eventhandler.h"
 #include "third_party/libjingle/source/talk/app/webrtc/mediastream.h"
-#include "third_party/libjingle/source/talk/base/scoped_ref_ptr.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebUserMediaClient.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebUserMediaRequest.h"
 #include "webkit/media/media_stream_client.h"
@@ -52,11 +51,6 @@ class CONTENT_EXPORT MediaStreamImpl
       MediaStreamDependencyFactory* dependency_factory);
   virtual ~MediaStreamImpl();
 
-  // Stops a local MediaStream by notifying the MediaStreamDispatcher that the
-  // stream no longer may be used.
-  virtual void StopLocalMediaStream(
-      const WebKit::WebMediaStreamDescriptor& stream);
-
   // WebKit::WebUserMediaClient implementation
   virtual void requestUserMedia(
       const WebKit::WebUserMediaRequest& user_media_request,
@@ -67,6 +61,11 @@ class CONTENT_EXPORT MediaStreamImpl
       const WebKit::WebUserMediaRequest& user_media_request) OVERRIDE;
 
   // webkit_media::MediaStreamClient implementation.
+  virtual bool IsMediaStream(const GURL& url) OVERRIDE;
+  virtual scoped_refptr<webkit_media::VideoFrameProvider> GetVideoFrameProvider(
+      const GURL& url,
+      const base::Closure& error_cb,
+      const webkit_media::VideoFrameProvider::RepaintCB& repaint_cb) OVERRIDE;
   virtual scoped_refptr<media::VideoDecoder> GetVideoDecoder(
       const GURL& url,
       media::MessageLoopFactory* message_loop_factory) OVERRIDE;
@@ -98,6 +97,9 @@ class CONTENT_EXPORT MediaStreamImpl
   virtual void FrameWillClose(WebKit::WebFrame* frame) OVERRIDE;
 
  protected:
+  // Stops a local MediaStream by notifying the MediaStreamDispatcher that the
+  // stream no longer may be used.
+  void OnLocalMediaStreamStop(const std::string& label);
   // This function is virtual for test purposes. A test can override this to
   // test requesting local media streams. The function notifies WebKit that the
   // |request| have completed and generated the MediaStream |stream|.
@@ -124,9 +126,18 @@ class CONTENT_EXPORT MediaStreamImpl
   // We keep a list of the label and WebFrame of generated local media streams,
   // so that we can stop them when needed.
   typedef std::map<std::string, WebKit::WebFrame*> LocalNativeStreamMap;
-  typedef talk_base::scoped_refptr<webrtc::LocalMediaStreamInterface>
-      LocalNativeStreamPtr;
+  typedef scoped_refptr<webrtc::LocalMediaStreamInterface> LocalNativeStreamPtr;
 
+  scoped_refptr<webkit_media::VideoFrameProvider>
+  CreateLocalVideoFrameProvider(
+      webrtc::MediaStreamInterface* stream,
+      const base::Closure& error_cb,
+      const webkit_media::VideoFrameProvider::RepaintCB& repaint_cb);
+  scoped_refptr<webkit_media::VideoFrameProvider>
+  CreateRemoteVideoFrameProvider(
+      webrtc::MediaStreamInterface* stream,
+      const base::Closure& error_cb,
+      const webkit_media::VideoFrameProvider::RepaintCB& repaint_cb);
   scoped_refptr<media::VideoDecoder> CreateLocalVideoDecoder(
       webrtc::MediaStreamInterface* stream,
       media::MessageLoopFactory* message_loop_factory);

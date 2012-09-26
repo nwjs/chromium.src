@@ -437,7 +437,7 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
   switch (xev->type) {
     case EnterNotify: {
       ui::MouseEvent mouseenter_event(xev);
-      delegate_->OnHostMouseEvent(&mouseenter_event);
+      TranslateAndDispatchMouseEvent(&mouseenter_event);
       break;
     }
     case Expose:
@@ -469,7 +469,7 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
     }  // fallthrough
     case ButtonRelease: {
       ui::MouseEvent mouseev(xev);
-      delegate_->OnHostMouseEvent(&mouseev);
+      TranslateAndDispatchMouseEvent(&mouseev);
       break;
     }
     case FocusOut:
@@ -497,11 +497,13 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
         if (client) {
           gfx::Point p = gfx::Screen::GetCursorScreenPoint();
           client->ConvertPointFromScreen(root, &p);
-          if (root->ContainsPoint(p)) {
+          // TODO(oshima): Make sure the pointer is on one of root windows.
+          if (root->ContainsPoint(p))
             root->ConvertPointToNativeScreen(&p);
-            XWarpPointer(
-                xdisplay_, None, x_root_window_, 0, 0, 0, 0, p.x(), p.y());
-          }
+          else
+            p.SetPoint(0, 0);
+          XWarpPointer(
+              xdisplay_, None, x_root_window_, 0, 0, 0, 0, p.x(), p.y());
         }
         ConfineCursorToRootWindow();
       }
@@ -573,7 +575,7 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
       }
 
       ui::MouseEvent mouseev(xev);
-      delegate_->OnHostMouseEvent(&mouseev);
+      TranslateAndDispatchMouseEvent(&mouseev);
       break;
     }
   }
@@ -671,12 +673,12 @@ void RootWindowHostLinux::DispatchXI2Event(const base::NativeEvent& event) {
         }
       }
       ui::MouseEvent mouseev(xev);
-      delegate_->OnHostMouseEvent(&mouseev);
+      TranslateAndDispatchMouseEvent(&mouseev);
       break;
     }
     case ui::ET_MOUSEWHEEL: {
       ui::MouseWheelEvent mouseev(xev);
-      delegate_->OnHostMouseEvent(&mouseev);
+      TranslateAndDispatchMouseEvent(&mouseev);
       break;
     }
     case ui::ET_SCROLL_FLING_START:
@@ -710,9 +712,12 @@ void RootWindowHostLinux::Show() {
     // Before we map the window, set size hints. Otherwise, some window managers
     // will ignore toplevel XMoveWindow commands.
     XSizeHints size_hints;
-    size_hints.flags = PPosition;
+    size_hints.flags = PPosition | PWinGravity;
     size_hints.x = bounds_.x();
     size_hints.y = bounds_.y();
+    // Set StaticGravity so that the window position is not affected by the
+    // frame width when running with window manager.
+    size_hints.win_gravity = StaticGravity;
     XSetWMNormalHints(xdisplay_, xwindow_, &size_hints);
 
     XMapWindow(xdisplay_, xwindow_);
@@ -748,12 +753,22 @@ void RootWindowHostLinux::SetBounds(const gfx::Rect& bounds) {
       delegate_->AsRootWindow()).device_scale_factor();
   bool size_changed = bounds_.size() != bounds.size() ||
       current_scale != new_scale;
+  XWindowChanges changes = {0};
+  unsigned value_mask = 0;
 
-  if (bounds.size() != bounds_.size())
-    XResizeWindow(xdisplay_, xwindow_, bounds.width(), bounds.height());
+  if (bounds.size() != bounds_.size()) {
+    changes.width = bounds.width();
+    changes.height = bounds.height();
+    value_mask = CWHeight | CWWidth;
+  }
 
-  if (bounds.origin() != bounds_.origin())
-    XMoveWindow(xdisplay_, xwindow_, bounds.x(), bounds.y());
+  if (bounds.origin() != bounds_.origin()) {
+    changes.x = bounds.x();
+    changes.y = bounds.y();
+    value_mask |= CWX | CWY;
+  }
+  if (value_mask)
+    XConfigureWindow(xdisplay_, xwindow_, value_mask, &changes);
 
   // Assume that the resize will go through as requested, which should be the
   // case if we're running without a window manager.  If there's a window
@@ -974,6 +989,21 @@ bool RootWindowHostLinux::IsWindowManagerPresent() {
 
 void RootWindowHostLinux::SetCursorInternal(gfx::NativeCursor cursor) {
   XDefineCursor(xdisplay_, xwindow_, cursor.platform());
+}
+
+void RootWindowHostLinux::TranslateAndDispatchMouseEvent(
+    ui::MouseEvent* event) {
+  RootWindow* root = GetRootWindow();
+  client::ScreenPositionClient* screen_position_client =
+      GetScreenPositionClient(root);
+  if (screen_position_client && !bounds_.Contains(event->location())) {
+    gfx::Point location(event->location());
+    screen_position_client->ConvertNativePointToScreen(root, &location);
+    screen_position_client->ConvertPointFromScreen(root, &location);
+    event->set_location(location);
+    event->set_root_location(location);
+  }
+  delegate_->OnHostMouseEvent(event);
 }
 
 // static

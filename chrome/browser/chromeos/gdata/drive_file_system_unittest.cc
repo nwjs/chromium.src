@@ -19,7 +19,6 @@
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
-#include "chrome/browser/chromeos/gdata/drive_api_parser.h"
 #include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/chromeos/gdata/drive_function_remove.h"
 #include "chrome/browser/chromeos/gdata/drive_test_util.h"
@@ -31,6 +30,7 @@
 #include "chrome/browser/chromeos/gdata/mock_drive_uploader.h"
 #include "chrome/browser/chromeos/gdata/mock_drive_web_apps_registry.h"
 #include "chrome/browser/chromeos/gdata/mock_free_disk_space_getter.h"
+#include "chrome/browser/google_apis/drive_api_parser.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/browser_thread.h"
@@ -1225,7 +1225,7 @@ TEST_F(DriveFileSystemTest, TransferFileFromLocalToRemote_RegularFile) {
   scoped_ptr<DocumentEntry> document_entry(
       DocumentEntry::ExtractAndParse(*value));
 
-  EXPECT_CALL(*mock_uploader_, UploadNewFile(_, _, _, _, _, _, _, _))
+  EXPECT_CALL(*mock_uploader_, UploadNewFile(_, _, _, _, _, _, _, _, _))
       .WillOnce(MockUploadNewFile());
 
   // Transfer the local file to Drive.
@@ -2364,7 +2364,8 @@ TEST_F(DriveFileSystemTest, UpdateFileByResourceId_PersistentFile) {
       dirty_cache_file_path,
       "audio/mpeg",
       kDummyCacheContent.size(),  // The size after modification must be used.
-      _))  // callback
+      _,   // Completion callback.
+      _))  // Ready callback.
       .WillOnce(MockUploadExistingFile(
           DRIVE_FILE_OK,
           FilePath::FromUTF8Unsafe("drive/File1"),

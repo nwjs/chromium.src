@@ -117,6 +117,8 @@
         'audio/mac/audio_manager_mac.h',
         'audio/mac/audio_output_mac.cc',
         'audio/mac/audio_output_mac.h',
+        'audio/mac/audio_synchronized_mac.cc',
+        'audio/mac/audio_synchronized_mac.h',
         'audio/mac/audio_unified_mac.cc',
         'audio/mac/audio_unified_mac.h',
         'audio/null_audio_sink.cc',
@@ -145,8 +147,12 @@
         'audio/win/wavein_input_win.h',
         'audio/win/waveout_output_win.cc',
         'audio/win/waveout_output_win.h',
+        'base/android/cookie_getter.cc',
+        'base/android/cookie_getter.h',
         'base/android/media_jni_registrar.cc',
         'base/android/media_jni_registrar.h',
+        'base/android/media_player_bridge_manager.cc',
+        'base/android/media_player_bridge_manager.h',
         'base/audio_decoder.cc',
         'base/audio_decoder.h',
         'base/audio_decoder_config.cc',
@@ -802,9 +808,9 @@
                 'yuv_convert_simd_x86',
               ],
             }],
-            [ 'target_arch == "arm"', {
+            [ 'target_arch == "arm" or target_arch == "mipsel"', {
               'dependencies': [
-                'yuv_convert_simd_arm',
+                'yuv_convert_simd_c',
               ],
             }],
           ],
@@ -887,11 +893,23 @@
             }],
             [ 'OS=="mac"', {
               'variables': {
-                'yasm_flags': [
-                  '-DPREFIX',
-                  '-DMACHO',
-                  '-DCHROMIUM',
-                  '-Isimd',
+                'conditions': [
+                  [ 'target_arch=="ia32"', {
+                    'yasm_flags': [
+                      '-DPREFIX',
+                      '-DMACHO',
+                      '-DCHROMIUM',
+                      '-Isimd',
+                    ],
+                  }, {
+                    'yasm_flags': [
+                      '-DPREFIX',
+                      '-DARCH_X86_64',
+                      '-DMACHO',
+                      '-DCHROMIUM',
+                      '-Isimd',
+                    ],
+                  }],
                 ],
               },
             }],
@@ -927,7 +945,7 @@
           ],
         },
         {
-          'target_name': 'yuv_convert_simd_arm',
+          'target_name': 'yuv_convert_simd_c',
           'type': 'static_library',
           'include_dirs': [
             '..',
@@ -1062,7 +1080,7 @@
         },
       ],
     }],
-    ['OS == "linux" and target_arch != "arm"', {
+    ['OS == "linux" and target_arch != "arm" and target_arch != "mipsel"', {
       'targets': [
         {
           'target_name': 'tile_render_bench',
@@ -1138,6 +1156,7 @@
           'target_name': 'player_android_jni_headers',
           'type': 'none',
           'sources': [
+            'base/android/java/src/org/chromium/media/MediaPlayerBridge.java',
             'base/android/java/src/org/chromium/media/MediaPlayerListener.java',
           ],
           'variables': {
@@ -1151,6 +1170,8 @@
           'sources': [
             'base/android/media_player_bridge.cc',
             'base/android/media_player_bridge.h',
+            'base/android/media_player_listener.cc',
+            'base/android/media_player_listener.h',
           ],
           'dependencies': [
             '../base/base.gyp:base',

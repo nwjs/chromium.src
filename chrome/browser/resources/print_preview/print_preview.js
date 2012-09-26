@@ -509,7 +509,10 @@ cr.define('print_preview', function() {
                  'state: ' + this.uiState_);
       assert(this.cloudPrintInterface_ != null,
              'Google Cloud Print is not enabled');
-      this.cloudPrintInterface_.submit(event.data);
+      this.cloudPrintInterface_.submit(
+          this.destinationStore_.selectedDestination,
+          this.printTicketStore_,
+          event.data);
     },
 
     /**
@@ -649,22 +652,25 @@ cr.define('print_preview', function() {
      */
     onKeyDown_: function(e) {
       // Escape key closes the dialog.
-      // <if expr="not pp_ifdef('toolkit_views')">
-      // On the toolkit_views environment, ESC key is handled by C++-side
-      // instead of JS-side.
       if (e.keyCode == 27 && !e.shiftKey && !e.ctrlKey && !e.altKey &&
           !e.metaKey) {
         if (this.destinationSearch_.getIsVisible()) {
           this.destinationSearch_.setIsVisible(false);
-          this.metrics_.increment(
-              print_preview.Metrics.Bucket.DESTINATION_SELECTION_CANCELED);
+          this.metrics_.incrementDestinationSearchBucket(
+              print_preview.Metrics.DestinationSearchBucket.CANCELED);
         } else {
+          // <if expr="pp_ifdef('toolkit_views')">
+          // On the toolkit_views environment, ESC key is handled by C++-side
+          // instead of JS-side.
+          return;
+          // </if>
+          // <if expr="not pp_ifdef('toolkit_views')">
           this.close_();
+          // </if>
         }
         e.preventDefault();
         return;
       }
-      // </if>
 
       // Ctrl + Shift + p / Mac equivalent.
       if (e.keyCode == 80) {
@@ -709,8 +715,8 @@ cr.define('print_preview', function() {
     onDestinationChangeButtonActivate_: function() {
       this.destinationSearch_.setIsVisible(true);
       this.destinationStore_.startLoadAllCloudDestinations();
-      this.metrics_.increment(
-          print_preview.Metrics.Bucket.DESTINATION_SEARCH_SHOWN);
+      this.metrics_.incrementDestinationSearchBucket(
+          print_preview.Metrics.DestinationSearchBucket.SHOWN);
     },
 
     /**

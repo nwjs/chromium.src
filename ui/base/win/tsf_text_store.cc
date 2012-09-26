@@ -2,12 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#define INITGUID  // required for GUID_PROP_INPUTSCOPE
 #include "ui/base/win/tsf_text_store.h"
 
 #include <OleCtl.h>
 
 #include "base/win/scoped_variant.h"
 #include "ui/base/ime/text_input_client.h"
+#include "ui/base/win/tsf_input_scope.h"
 #include "ui/gfx/rect.h"
 
 namespace ui {
@@ -189,8 +191,8 @@ STDMETHODIMP TsfTextStore::GetStatus(TS_STATUS* status) {
     return E_INVALIDARG;
 
   status->dwDynamicFlags = 0;
-  // We don't support hidden text.
-  status->dwStaticFlags = TS_SS_NOHIDDENTEXT;
+  // We use transitory contexts and we don't support hidden text.
+  status->dwStaticFlags = TS_SS_TRANSITORY | TS_SS_NOHIDDENTEXT;
 
   return S_OK;
 }
@@ -260,7 +262,12 @@ STDMETHODIMP TsfTextStore::GetTextExt(TsViewCookie view_cookie,
     return TS_E_INVALIDPOS;
   }
 
-  gfx::Rect result;
+  // According to a behavior of notepad.exe and wordpad.exe, top left corner of
+  // rect indicates a first character's one, and bottom right corner of rect
+  // indicates a last character's one.
+  // We use RECT instead of gfx::Rect since left position may be bigger than
+  // right position when composition has multiple lines.
+  RECT result;
   gfx::Rect tmp_rect;
   const uint32 start_pos = acp_start - committed_size_;
   const uint32 end_pos = acp_end - committed_size_;
@@ -273,34 +280,50 @@ STDMETHODIMP TsfTextStore::GetTextExt(TsViewCookie view_cookie,
     // equal values of |acp_start| and |acp_end|. So we handle this condition.
     if (start_pos == 0) {
       if (text_input_client_->GetCompositionCharacterBounds(0, &tmp_rect)) {
-        result = tmp_rect;
-        result.set_width(0);
+        tmp_rect.set_width(0);
+        result = tmp_rect.ToRECT();
       } else if (string_buffer_.size() == committed_size_) {
-        result = text_input_client_->GetCaretBounds();
+        result = text_input_client_->GetCaretBounds().ToRECT();
       } else {
         return TS_E_NOLAYOUT;
       }
     } else if (text_input_client_->GetCompositionCharacterBounds(start_pos - 1,
                                                                  &tmp_rect)) {
-      result.set_x(tmp_rect.right());
-      result.set_y(tmp_rect.y());
-      result.set_width(0);
-      result.set_height(tmp_rect.height());
+      result.left = tmp_rect.right();
+      result.right = tmp_rect.right();
+      result.top = tmp_rect.y();
+      result.bottom = tmp_rect.bottom();
     } else {
       return TS_E_NOLAYOUT;
     }
   } else {
-    if (!text_input_client_->GetCompositionCharacterBounds(start_pos, &result))
-      return TS_E_NOLAYOUT;
-
-    for (uint32 i = start_pos + 1; i < end_pos; ++i) {
-      if (!text_input_client_->GetCompositionCharacterBounds(i, &tmp_rect))
+    if (text_input_client_->GetCompositionCharacterBounds(start_pos,
+                                                          &tmp_rect)) {
+      result.left = tmp_rect.x();
+      result.top = tmp_rect.y();
+      result.right = tmp_rect.right();
+      result.bottom = tmp_rect.bottom();
+      if (text_input_client_->GetCompositionCharacterBounds(end_pos - 1,
+                                                            &tmp_rect)) {
+        result.right = tmp_rect.right();
+        result.bottom = tmp_rect.bottom();
+      } else {
+        // We may not be able to get the last character bounds, so we use the
+        // first character bounds instead of returning TS_E_NOLAYOUT.
+      }
+    } else {
+      // Hack for PPAPI flash. PPAPI flash does not support GetCaretBounds, so
+      // it's better to return previous caret rectangle instead.
+      // TODO(nona, kinaba): Remove this hack.
+      if (start_pos == 0) {
+        result = text_input_client_->GetCaretBounds().ToRECT();
+      } else {
         return TS_E_NOLAYOUT;
-      result = result.Union(tmp_rect);
+      }
     }
   }
 
-  *rect =  result.ToRECT();
+  *rect =  result;
   *clipped = FALSE;
   return S_OK;
 }
@@ -351,7 +374,7 @@ STDMETHODIMP TsfTextStore::InsertTextAtSelection(DWORD flags,
     if (acp_start)
       *acp_start = start_pos;
     if (acp_end) {
-      *acp_end = new_end_pos;
+      *acp_end = end_pos;
     }
     return S_OK;
   }
@@ -533,13 +556,17 @@ STDMETHODIMP TsfTextStore::RequestLock(DWORD lock_flags, HRESULT* result) {
 }
 
 STDMETHODIMP TsfTextStore::RequestSupportedAttrs(
-    DWORD flags,
+    DWORD /* flags */,  // Seems that we should ignore this.
     ULONG attribute_buffer_size,
     const TS_ATTRID* attribute_buffer) {
-  // We don't support any document attributes.
-  // This method just returns S_OK, and the subsequently called
-  // RetrieveRequestedAttrs() returns 0 as the number of supported attributes.
-  return S_OK;
+  if (!attribute_buffer)
+    return E_INVALIDARG;
+  // We support only input scope attribute.
+  for (size_t i = 0; i < attribute_buffer_size; ++i) {
+    if (IsEqualGUID(GUID_PROP_INPUTSCOPE, attribute_buffer[i]))
+      return S_OK;
+  }
+  return E_FAIL;
 }
 
 STDMETHODIMP TsfTextStore::RetrieveRequestedAttrs(
@@ -548,8 +575,20 @@ STDMETHODIMP TsfTextStore::RetrieveRequestedAttrs(
     ULONG* attribute_buffer_copied) {
   if (!attribute_buffer_copied)
     return E_INVALIDARG;
-  // We don't support any document attributes.
-  attribute_buffer_copied = 0;
+  if (!attribute_buffer)
+    return E_INVALIDARG;
+  // We support only input scope attribute.
+  *attribute_buffer_copied = 0;
+  if (attribute_buffer_size == 0)
+    return S_OK;
+
+  attribute_buffer[0].dwOverlapId = 0;
+  attribute_buffer[0].idAttr = GUID_PROP_INPUTSCOPE;
+  attribute_buffer[0].varValue.vt = VT_UNKNOWN;
+  attribute_buffer[0].varValue.punkVal = new TsfInputScope(
+      text_input_client_->GetTextInputType());
+  attribute_buffer[0].varValue.punkVal->AddRef();
+  *attribute_buffer_copied = 1;
   return S_OK;
 }
 

@@ -7,6 +7,7 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/bundle_installer.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_function_test_utils.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/test_launcher_utils.h"
@@ -25,6 +27,8 @@
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "content/public/common/gpu_info.h"
+#include "content/public/test/browser_test_utils.h"
 #include "net/base/mock_host_resolver.h"
 #include "ui/gl/gl_switches.h"
 
@@ -92,7 +96,8 @@ class ExtensionWebstorePrivateApiTest : public ExtensionApiTest {
   void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
     ExtensionApiTest::SetUpCommandLine(command_line);
     command_line->AppendSwitchASCII(
-        switches::kAppsGalleryURL, "http://www.example.com");
+        switches::kAppsGalleryURL,
+        "http://www.example.com/files/extensions/api_test");
     command_line->AppendSwitchASCII(
         switches::kAppsGalleryInstallAutoConfirmForTests, "accept");
   }
@@ -257,6 +262,35 @@ class ExtensionWebstoreGetWebGLStatusTest : public InProcessBrowserTest {
   }
 };
 
+// Test cases for webstore origin frame blocking.
+IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest,
+                       FrameWebstorePageBlocked) {
+  content::WebContents* contents = chrome::GetActiveWebContents(browser());
+  string16 expected_title = UTF8ToUTF16("PASS: about:blank");
+  string16 failure_title = UTF8ToUTF16("FAIL");
+  content::TitleWatcher watcher(contents, expected_title);
+  watcher.AlsoWaitForTitle(failure_title);
+  GURL url = test_server()->GetURL(
+      "files/extensions/api_test/webstore_private/noframe.html");
+  ui_test_utils::NavigateToURL(browser(), url);
+  string16 final_title = watcher.WaitAndGetTitle();
+  EXPECT_EQ(expected_title, final_title);
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest,
+                       FrameErrorPageBlocked) {
+  content::WebContents* contents = chrome::GetActiveWebContents(browser());
+  string16 expected_title = UTF8ToUTF16("PASS: about:blank");
+  string16 failure_title = UTF8ToUTF16("FAIL");
+  content::TitleWatcher watcher(contents, expected_title);
+  watcher.AlsoWaitForTitle(failure_title);
+  GURL url = test_server()->GetURL(
+      "files/extensions/api_test/webstore_private/noframe2.html");
+  ui_test_utils::NavigateToURL(browser(), url);
+  string16 final_title = watcher.WaitAndGetTitle();
+  EXPECT_EQ(expected_title, final_title);
+}
+
 // Test cases where the user accepts the install confirmation dialog.
 IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest, InstallAccepted) {
   ASSERT_TRUE(RunInstallTest("accepted.html", "extension.crx"));
@@ -292,21 +326,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest, InstallCancelled) {
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest, IncorrectManifest1) {
-  WebstoreInstallListener listener;
-  WebstorePrivateApi::SetWebstoreInstallerDelegateForTesting(&listener);
   ASSERT_TRUE(RunInstallTest("incorrect_manifest1.html", "extension.crx"));
-  listener.Wait();
-  ASSERT_TRUE(listener.received_failure());
-  ASSERT_EQ("Manifest file is invalid.", listener.error());
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest, IncorrectManifest2) {
-  WebstoreInstallListener listener;
-  WebstorePrivateApi::SetWebstoreInstallerDelegateForTesting(&listener);
   ASSERT_TRUE(RunInstallTest("incorrect_manifest2.html", "extension.crx"));
-  listener.Wait();
-  EXPECT_TRUE(listener.received_failure());
-  ASSERT_EQ("Manifest file is invalid.", listener.error());
 }
 
 // Tests that we can request an app installed bubble (instead of the default
@@ -354,6 +378,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest, InstallTheme) {
   listener.Wait();
   ASSERT_TRUE(listener.received_success());
   ASSERT_EQ("iamefpfkojoapidjnbafmgkgncegbkad", listener.id());
+}
+
+// Tests that an error is properly reported when an empty crx is returned.
+IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest, EmptyCrx) {
+  ASSERT_TRUE(RunInstallTest("empty.html", "empty.crx"));
 }
 
 // Tests successfully installing a bundle of 2 apps and 2 extensions.
@@ -435,10 +464,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebstoreGetWebGLStatusTest, Blocked) {
       "    }\n"
       "  ]\n"
       "}";
-  content::GpuDataManager::GetInstance()->Initialize("0", json_blacklist);
+  content::GPUInfo gpu_info;
+  content::GpuDataManager::GetInstance()->InitializeForTesting(
+      json_blacklist, gpu_info);
   GpuFeatureType type =
       content::GpuDataManager::GetInstance()->GetBlacklistedFeatures();
-  EXPECT_EQ(type, content::GPU_FEATURE_TYPE_WEBGL);
+  EXPECT_EQ((type & content::GPU_FEATURE_TYPE_WEBGL),
+            content::GPU_FEATURE_TYPE_WEBGL);
 
   bool webgl_allowed = false;
   RunTest(webgl_allowed);

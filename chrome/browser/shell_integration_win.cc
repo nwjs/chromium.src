@@ -25,7 +25,6 @@
 #include "base/win/windows_version.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/installer/setup/setup_util.h"
@@ -364,7 +363,7 @@ void MigrateChromiumShortcutsCallback() {
       base::DIR_APP_DATA,
       L"Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar"
     }, {
-      chrome::DIR_USER_DESKTOP,
+      base::DIR_USER_DESKTOP,
       NULL
     }, {
       base::DIR_START_MENU,
@@ -431,7 +430,7 @@ bool ShellIntegration::SetAsDefaultProtocolClient(const std::string& protocol) {
     return false;
   }
 
-  string16 wprotocol = UTF8ToUTF16(protocol);
+  string16 wprotocol(UTF8ToUTF16(protocol));
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
   if (!ShellUtil::MakeChromeDefaultProtocolClient(dist, chrome_exe.value(),
         wprotocol)) {
@@ -457,7 +456,27 @@ bool ShellIntegration::SetAsDefaultBrowserInteractive() {
     return false;
   }
 
-  VLOG(1) << "Set-as-default Windows UI triggered.";
+  VLOG(1) << "Set-default-browser Windows UI completed.";
+  return true;
+}
+
+bool ShellIntegration::SetAsDefaultProtocolClientInteractive(
+    const std::string& protocol) {
+  FilePath chrome_exe;
+  if (!PathService::Get(base::FILE_EXE, &chrome_exe)) {
+    NOTREACHED() << "Error getting app exe path";
+    return false;
+  }
+
+  BrowserDistribution* dist = BrowserDistribution::GetDistribution();
+  string16 wprotocol(UTF8ToUTF16(protocol));
+  if (!ShellUtil::ShowMakeChromeDefaultProtocolClientSystemUI(
+          dist, chrome_exe.value(), wprotocol)) {
+    LOG(ERROR) << "Failed to launch the set-default-client Windows UI.";
+    return false;
+  }
+
+  VLOG(1) << "Set-default-client Windows UI completed.";
   return true;
 }
 

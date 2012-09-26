@@ -95,6 +95,7 @@ struct WEBKIT_GLUE_EXPORT WebPreferences {
   bool show_composited_layer_borders;
   bool show_composited_layer_tree;
   bool show_fps_counter;
+  bool accelerated_compositing_for_overflow_scroll_enabled;
   bool show_paint_rects;
   bool render_vsync_enabled;
   bool asynchronous_spell_checking_enabled;
@@ -115,10 +116,15 @@ struct WEBKIT_GLUE_EXPORT WebPreferences {
   bool fullscreen_enabled;
   bool allow_displaying_insecure_content;
   bool allow_running_insecure_content;
+#if defined(OS_ANDROID)
+  float font_scale_factor;
+  bool force_enable_zoom;
+#endif
   bool password_echo_enabled;
   bool should_print_backgrounds;
   bool enable_scroll_animator;
   bool visual_word_movement_enabled;
+  bool css_sticky_position_enabled;
   bool css_regions_enabled;
   bool css_shaders_enabled;
   bool css_variables_enabled;

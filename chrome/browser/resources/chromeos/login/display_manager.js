@@ -19,6 +19,7 @@
 /** @const */ var ACCELERATOR_CANCEL = 'cancel';
 /** @const */ var ACCELERATOR_ENROLLMENT = 'enrollment';
 /** @const */ var ACCELERATOR_VERSION = 'version';
+/** @const */ var ACCELERATOR_RESET = 'reset';
 
 /* Help topic identifiers. */
 /** @const */ var HELP_TOPIC_ENTERPRISE_REPORTING = 2535613;
@@ -116,6 +117,12 @@ cr.define('cr.ui.login', function() {
       } else if (name == ACCELERATOR_VERSION) {
         if (this.allowToggleVersion_)
           $('version-labels').hidden = !$('version-labels').hidden;
+      } else if (name == ACCELERATOR_RESET) {
+        var currentStepId = this.screens_[this.currentStep_];
+        if (currentStepId == SCREEN_GAIA_SIGNIN ||
+            currentStepId == SCREEN_ACCOUNT_PICKER) {
+          chrome.send('toggleResetScreen');
+        }
       }
     },
 
@@ -489,8 +496,7 @@ cr.define('cr.ui.login', function() {
    * @param {string} opt_email An optional email for signin UI.
    */
   DisplayManager.showSigninUI = function(opt_email) {
-    $('add-user-button').hidden = true;
-    $('cancel-add-user-button').hidden = false;
+    $('login-header-bar').signinUIActive = true;
     chrome.send('showAddUser', [opt_email]);
   };
 
@@ -583,6 +589,7 @@ cr.define('cr.ui.login', function() {
    */
   DisplayManager.updateAddUserButtonStatus = function(disable) {
     $('add-user-button').disabled = disable;
+    $('add-user-button').classList.add('button-restricted');
     $('add-user-button').title = disable ?
         localStrings.getString('disabledAddUserTooltip') : '';
   }

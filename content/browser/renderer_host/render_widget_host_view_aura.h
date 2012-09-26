@@ -24,6 +24,7 @@
 
 namespace aura {
 class CompositorLock;
+class WindowTracker;
 }
 
 namespace gfx {
@@ -96,6 +97,9 @@ class RenderWidgetHostViewAura
                               int error_code) OVERRIDE;
   virtual void Destroy() OVERRIDE;
   virtual void SetTooltipText(const string16& tooltip_text) OVERRIDE;
+  virtual void SelectionChanged(const string16& text,
+                                size_t offset,
+                                const ui::Range& range) OVERRIDE;
   virtual void SelectionBoundsChanged(
       const gfx::Rect& start_rect,
       WebKit::WebTextDirection start_direction,
@@ -321,6 +325,9 @@ class RenderWidgetHostViewAura
   // Current tooltip text.
   string16 tooltip_;
 
+  // The scale factor of the display the renderer is currently on.
+  float device_scale_factor_;
+
   std::vector< base::Callback<void(ui::Compositor*)> >
       on_compositing_did_commit_callbacks_;
 
@@ -381,6 +388,10 @@ class RenderWidgetHostViewAura
 
   // This lock is for waiting for a front surface to become available to draw.
   scoped_refptr<aura::CompositorLock> released_front_lock_;
+
+  // Used to track the state of the window we're created from. Only used when
+  // created fullscreen.
+  scoped_ptr<aura::WindowTracker> host_tracker_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAura);
 };

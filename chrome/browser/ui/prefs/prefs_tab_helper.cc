@@ -96,10 +96,15 @@ const char* kPrefsToObserve[] = {
   prefs::kDefaultZoomLevel,
   prefs::kDefaultCharset,
   prefs::kEnableReferrers,
+  prefs::kEnableDoNotTrack,
   prefs::kWebKitAllowDisplayingInsecureContent,
   prefs::kWebKitAllowRunningInsecureContent,
   prefs::kWebKitDefaultFixedFontSize,
   prefs::kWebKitDefaultFontSize,
+#if defined(OS_ANDROID)
+  prefs::kWebKitFontScaleFactor,
+  prefs::kWebKitForceEnableZoom,
+#endif
   prefs::kWebKitJavascriptEnabled,
   prefs::kWebKitJavaEnabled,
   prefs::kWebKitLoadsImagesAutomatically,
@@ -431,6 +436,14 @@ void PrefsTabHelper::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterBooleanPref(prefs::kEnableReferrers,
                              true,
                              PrefService::UNSYNCABLE_PREF);
+#if defined(OS_ANDROID)
+  prefs->RegisterDoublePref(prefs::kWebKitFontScaleFactor,
+                            pref_defaults.font_scale_factor,
+                            PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterBooleanPref(prefs::kWebKitForceEnableZoom,
+                             pref_defaults.force_enable_zoom,
+                             PrefService::UNSYNCABLE_PREF);
+#endif
 
 #if !defined(OS_MACOSX)
   prefs->RegisterLocalizedStringPref(prefs::kAcceptLanguages,
@@ -525,7 +538,8 @@ void PrefsTabHelper::Observe(int type,
           StartsWithASCII(*pref_name_in, "webkit.webprefs.", true)) {
         UpdateWebPreferences();
       } else if (*pref_name_in == prefs::kDefaultZoomLevel ||
-                 *pref_name_in == prefs::kEnableReferrers) {
+                 *pref_name_in == prefs::kEnableReferrers ||
+                 *pref_name_in == prefs::kEnableDoNotTrack) {
         UpdateRendererPreferences();
       } else {
         NOTREACHED() << "unexpected pref change notification" << *pref_name_in;

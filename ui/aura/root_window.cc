@@ -64,8 +64,6 @@ void GetEventFiltersToNotify(Window* target, EventFilters* filters) {
       filters->push_back(target->event_filter());
     target = target->parent();
   }
-  if (Env::GetInstance()->event_filter())
-    filters->push_back(Env::GetInstance()->event_filter());
 }
 
 float GetDeviceScaleFactorFromDisplay(const Window* window) {
@@ -133,6 +131,7 @@ RootWindow::RootWindow(const CreateParams& params)
       mouse_moved_handler_(NULL),
       mouse_event_dispatch_target_(NULL),
       event_dispatch_target_(NULL),
+      focus_manager_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(
           gesture_recognizer_(ui::GestureRecognizer::Create(this))),
       synthesize_mouse_move_(false),
@@ -475,6 +474,13 @@ void RootWindow::SetTransform(const ui::Transform& transform) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// RootWindow, ui::EventTarget implementation:
+
+ui::EventTarget* RootWindow::GetParentTarget() {
+  return Env::GetInstance();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // RootWindow, ui::CompositorDelegate implementation:
 
 void RootWindow::ScheduleDraw() {
@@ -663,6 +669,22 @@ ui::TouchStatus RootWindow::ProcessTouchEvent(Window* target,
   if (!target->IsVisible())
     return ui::TOUCH_STATUS_UNKNOWN;
 
+  ui::Event::DispatcherApi dispatch_helper(event);
+  dispatch_helper.set_target(target);
+
+  // It is necessary to dispatch the event to the event-handlers on env first.
+  // TODO(sad): Fix touch-event handling so it can use the same
+  // event-dispatching code used for other events.
+  ui::EventTarget::DispatcherApi dispatch_target_helper(Env::GetInstance());
+  const ui::EventHandlerList& pre_target =
+      dispatch_target_helper.pre_target_list();
+  for (ui::EventHandlerList::const_iterator iter = pre_target.begin();
+      iter != pre_target.end(); ++iter) {
+    ui::TouchStatus status = (*iter)->OnTouchEvent(event);
+    if (status != ui::TOUCH_STATUS_UNKNOWN)
+      return status;
+  }
+
   EventFilters filters;
   if (target == this)
     GetEventFiltersToNotify(target, &filters);
@@ -673,8 +695,6 @@ ui::TouchStatus RootWindow::ProcessTouchEvent(Window* target,
   WindowTracker tracker;
   tracker.Add(target);
 
-  ui::Event::DispatcherApi dispatcher(event);
-  dispatcher.set_target(target);
   for (EventFilters::const_reverse_iterator it = filters.rbegin(),
            rend = filters.rend();
        it != rend; ++it) {
@@ -790,12 +810,9 @@ bool RootWindow::CanDispatchToTarget(ui::EventTarget* target) {
 }
 
 void RootWindow::ProcessPreTargetList(ui::EventHandlerList* list) {
-  if (Env::GetInstance()->event_filter())
-    list->insert(list->begin(), Env::GetInstance()->event_filter());
 }
 
 void RootWindow::ProcessPostTargetList(ui::EventHandlerList* list) {
-  // TODO(sad):
 }
 
 bool RootWindow::DispatchLongPressGestureEvent(ui::GestureEvent* event) {
@@ -1036,13 +1053,9 @@ bool RootWindow::DispatchMouseEventToTarget(ui::MouseEvent* event,
       break;
   }
   if (target) {
-    int flags = event->flags();
-    gfx::Point location_in_window = event->location();
-    Window::ConvertPointToTarget(this, target, &location_in_window);
-    if (IsNonClientLocation(target, location_in_window))
-      flags |= ui::EF_IS_NON_CLIENT;
-    event->set_flags(flags);
     event->ConvertLocationToTarget(static_cast<Window*>(this), target);
+    if (IsNonClientLocation(target, event->location()))
+      event->set_flags(event->flags() | ui::EF_IS_NON_CLIENT);
     return ProcessMouseEvent(target, event);
   }
   return false;

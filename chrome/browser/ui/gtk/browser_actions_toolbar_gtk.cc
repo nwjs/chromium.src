@@ -15,14 +15,15 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/api/commands/command_service.h"
 #include "chrome/browser/extensions/api/commands/command_service_factory.h"
+#include "chrome/browser/extensions/extension_action_icon_factory.h"
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/custom_button.h"
 #include "chrome/browser/ui/gtk/extensions/extension_popup_gtk.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_button.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_shrinkable_hbox.h"
@@ -47,6 +48,7 @@
 #include "ui/gfx/canvas_skia_paint.h"
 #include "ui/gfx/gtk_util.h"
 #include "ui/gfx/image/image.h"
+#include "ui/gfx/image/image_skia_operations.h"
 
 using extensions::Extension;
 
@@ -91,7 +93,7 @@ gint WidthForIconCount(gint icon_count) {
 using ui::SimpleMenuModel;
 
 class BrowserActionButton : public content::NotificationObserver,
-                            public ImageLoadingTracker::Observer,
+                            public ExtensionActionIconFactory::Observer,
                             public ExtensionContextMenuModel::PopupDelegate,
                             public MenuGtk::Delegate {
  public:
@@ -101,9 +103,7 @@ class BrowserActionButton : public content::NotificationObserver,
       : toolbar_(toolbar),
         extension_(extension),
         image_(NULL),
-        tracker_(this),
-        tab_specific_icon_(NULL),
-        default_icon_(NULL),
+        icon_factory_(extension, extension->browser_action(), this),
         accel_group_(NULL) {
     button_.reset(new CustomDrawButton(
         theme_provider,
@@ -119,16 +119,6 @@ class BrowserActionButton : public content::NotificationObserver,
 
     DCHECK(extension_->browser_action());
 
-    // The Browser Action API does not allow the default icon path to be
-    // changed at runtime, so we can load this now and cache it.
-    std::string path = extension_->browser_action()->default_icon_path();
-    if (!path.empty()) {
-      tracker_.LoadImage(extension_, extension_->GetResource(path),
-                         gfx::Size(Extension::kBrowserActionIconMaxSize,
-                                   Extension::kBrowserActionIconMaxSize),
-                         ImageLoadingTracker::DONT_CACHE);
-    }
-
     UpdateState();
 
     signals_.Connect(button(), "button-press-event",
@@ -136,7 +126,7 @@ class BrowserActionButton : public content::NotificationObserver,
     signals_.Connect(button(), "clicked",
                      G_CALLBACK(OnClicked), this);
     signals_.Connect(button(), "drag-begin",
-                     G_CALLBACK(&OnDragBegin), this);
+                     G_CALLBACK(OnDragBegin), this);
     signals_.ConnectAfter(widget(), "expose-event",
                      G_CALLBACK(OnExposeEvent), this);
     if (toolbar_->browser()->window()) {
@@ -169,12 +159,6 @@ class BrowserActionButton : public content::NotificationObserver,
 
   ~BrowserActionButton() {
     DisconnectBrowserActionPopupAccelerator();
-
-    if (tab_specific_icon_)
-      g_object_unref(tab_specific_icon_);
-
-    if (default_icon_)
-      g_object_unref(default_icon_);
 
     alignment_.Destroy();
   }
@@ -218,11 +202,8 @@ class BrowserActionButton : public content::NotificationObserver,
     }
   }
 
-  // ImageLoadingTracker::Observer implementation.
-  void OnImageLoaded(const gfx::Image& image,
-                     const std::string& extension_id,
-                     int index) OVERRIDE {
-    extension_->browser_action()->CacheIcon(image);
+  // ExtensionActionIconFactory::Observer implementation.
+  void OnIconUpdated() OVERRIDE {
     UpdateState();
   }
 
@@ -239,18 +220,27 @@ class BrowserActionButton : public content::NotificationObserver,
     else
       gtk_widget_set_tooltip_text(button(), tooltip.c_str());
 
-    gfx::Image image = extension_->browser_action()->GetIcon(tab_id);
-    if (!image.IsEmpty())
-      SetImage(image.ToGdkPixbuf());
-    bool enabled = extension_->browser_action()->GetIsVisible(tab_id);
-    gtk_widget_set_sensitive(button(), enabled);
+    enabled_ = extension_->browser_action()->GetIsVisible(tab_id);
+    if (!enabled_)
+      button_->SetPaintOverride(GTK_STATE_INSENSITIVE);
+    else
+      button_->UnsetPaintOverride();
+
+    gfx::Image image = icon_factory_.GetIcon(tab_id);
+    if (!image.IsEmpty()) {
+      if (enabled_) {
+        SetImage(image);
+      } else {
+        SetImage(gfx::Image(gfx::ImageSkiaOperations::CreateTransparentImage(
+            image.AsImageSkia(), .25)));
+      }
+    }
 
     gtk_widget_queue_draw(button());
   }
 
   gfx::Image GetIcon() {
-    return extension_->browser_action()->GetIcon(
-        toolbar_->GetCurrentTabId());
+    return icon_factory_.GetIcon(toolbar_->GetCurrentTabId());
   }
 
   MenuGtk* GetContextMenu() {
@@ -284,7 +274,10 @@ class BrowserActionButton : public content::NotificationObserver,
 
   // MenuGtk::Delegate implementation.
   virtual void StoppedShowing() {
-    button_->UnsetPaintOverride();
+    if (enabled_)
+      button_->UnsetPaintOverride();
+    else
+      button_->SetPaintOverride(GTK_STATE_INSENSITIVE);
 
     // If the context menu was showing for the overflow menu, re-assert the
     // grab that was shadowed.
@@ -306,33 +299,34 @@ class BrowserActionButton : public content::NotificationObserver,
                             ExtensionPopupGtk::SHOW_AND_INSPECT);
   }
 
-  void SetImage(GdkPixbuf* image) {
+  void SetImage(const gfx::Image& image) {
     if (!image_) {
-      image_ = gtk_image_new_from_pixbuf(image);
+      image_ = gtk_image_new_from_pixbuf(image.ToGdkPixbuf());
       gtk_button_set_image(GTK_BUTTON(button()), image_);
     } else {
-      gtk_image_set_from_pixbuf(GTK_IMAGE(image_), image);
+      gtk_image_set_from_pixbuf(GTK_IMAGE(image_), image.ToGdkPixbuf());
     }
   }
 
   static gboolean OnButtonPress(GtkWidget* widget,
                                 GdkEventButton* event,
-                                BrowserActionButton* action) {
+                                BrowserActionButton* button) {
     if (event->button != 3)
       return FALSE;
 
-    MenuGtk* menu = action->GetContextMenu();
+    MenuGtk* menu = button->GetContextMenu();
     if (!menu)
       return FALSE;
 
-    action->button_->SetPaintOverride(GTK_STATE_ACTIVE);
+    button->button_->SetPaintOverride(GTK_STATE_ACTIVE);
     menu->PopupForWidget(widget, event->button, event->time);
 
     return TRUE;
   }
 
-  static void OnClicked(GtkWidget* widget, BrowserActionButton* action) {
-    action->Activate(widget);
+  static void OnClicked(GtkWidget* widget, BrowserActionButton* button) {
+    if (button->enabled_)
+      button->Activate(widget);
   }
 
   static gboolean OnExposeEvent(GtkWidget* widget,
@@ -452,6 +446,10 @@ class BrowserActionButton : public content::NotificationObserver,
   // The button for this browser action.
   scoped_ptr<CustomDrawButton> button_;
 
+  // Whether the browser action is enabled (equivalent to whether a page action
+  // is visible).
+  bool enabled_;
+
   // The top level widget (parent of |button_|).
   ui::OwnedWidgetGtk alignment_;
 
@@ -461,14 +459,11 @@ class BrowserActionButton : public content::NotificationObserver,
   // extensions change browser action icon in a loop.
   GtkWidget* image_;
 
-  // Loads the button's icons for us on the file thread.
-  ImageLoadingTracker tracker_;
-
-  // If we are displaying a tab-specific icon, it will be here.
-  GdkPixbuf* tab_specific_icon_;
-
-  // If the browser action has a default icon, it will be here.
-  GdkPixbuf* default_icon_;
+  // The object that will be used to get the browser action icon for us.
+  // It may load the icon asynchronously (in which case the initial icon
+  // returned by the factory will be transparent), so we have to observe it for
+  // updates to the icon.
+  ExtensionActionIconFactory icon_factory_;
 
   // Same as |default_icon_|, but stored as SkBitmap.
   SkBitmap default_skbitmap_;

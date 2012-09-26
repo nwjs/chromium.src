@@ -40,6 +40,8 @@ cr.define('cr.ui', function() {
       // the appearance of this element.
       this.classList.add('custom-appearance');
 
+      this.setAttribute('role', 'menuitem');
+
       var iconUrl;
       if ((iconUrl = this.getAttribute('icon')))
         this.iconUrl = iconUrl;
@@ -82,6 +84,8 @@ cr.define('cr.ui', function() {
         this.command_.addEventListener('hiddenChange', this);
         this.command_.addEventListener('checkedChange', this);
       }
+
+      this.updateShortcut_();
     },
 
     /**
@@ -114,6 +118,63 @@ cr.define('cr.ui', function() {
     },
 
     /**
+     * Updates shortcut text according to associated command. If command has
+     * multiple shortcuts, only first one is displayed.
+     */
+    updateShortcut_: function() {
+      this.removeAttribute('shortcutText');
+
+      if (!(this.command_ && this.command_.shortcut))
+        return;
+
+      var shortcuts = this.command_.shortcut.split(/\s+/);
+
+      if (shortcuts.length == 0)
+        return;
+
+      var shortcut = shortcuts[0];
+      var mods = {};
+      var ident = '';
+      shortcut.split('-').forEach(function(part) {
+        var partUc = part.toUpperCase();
+        switch (partUc) {
+          case 'CTRL':
+          case 'ALT':
+          case 'SHIFT':
+          case 'META':
+            mods[partUc] = true;
+            break;
+          default:
+            console.assert(!ident, 'Shortcut has two non-modifier keys');
+            ident = part;
+        }
+      });
+
+      var shortcutText = '';
+
+      // TODO(zvorygin): if more cornercases appear - optimize following
+      // code. Currently 'Enter' keystroke is passed as 'Enter', and 'Space'
+      // is passed as 'U+0020'
+      if (ident == 'U+0020')
+        ident = 'Space';
+
+      ['CTRL', 'ALT', 'SHIFT', 'META'].forEach(function(mod) {
+        if (mods[mod])
+          shortcutText += loadTimeData.getString('SHORTCUT_' + mod) + '+';
+      });
+
+      if (ident.indexOf('U+') != 0) {
+        shortcutText +=
+            loadTimeData.getString('SHORTCUT_' + ident.toUpperCase());
+      } else {
+        shortcutText +=
+            String.fromCharCode(parseInt(ident.substring(2), 16));
+      }
+
+      this.setAttribute('shortcutText', shortcutText);
+    },
+
+    /**
      * Handles mouseup events. This dispatches an activate event; if there is an
      * associated command, that command is executed.
      * @param {Event} e The mouseup event object.
@@ -124,8 +185,11 @@ cr.define('cr.ui', function() {
         // Store |contextElement| since it'll be removed by {Menu} on handling
         // 'activate' event.
         var contextElement = this.parentNode.contextElement;
+        var activationEvent = cr.doc.createEvent('Event');
+        activationEvent.initEvent('activate', true, true);
+        activationEvent.originalEvent = e;
         // Dispatch command event followed by executing the command object.
-        if (cr.dispatchSimpleEvent(this, 'activate', true, true)) {
+        if (this.dispatchEvent(activationEvent)) {
           var command = this.command;
           if (command)
             command.execute(contextElement);

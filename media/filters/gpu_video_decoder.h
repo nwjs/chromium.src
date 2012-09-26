@@ -5,10 +5,10 @@
 #ifndef MEDIA_FILTERS_GPU_VIDEO_DECODER_H_
 #define MEDIA_FILTERS_GPU_VIDEO_DECODER_H_
 
-#include <deque>
 #include <list>
 #include <map>
 #include <utility>
+#include <vector>
 
 #include "media/base/pipeline_status.h"
 #include "media/base/demuxer_stream.h"
@@ -101,6 +101,9 @@ class MEDIA_EXPORT GpuVideoDecoder
   // If no demuxer read is in flight and no bitstream buffers are in the
   // decoder, kick some off demuxing/decoding.
   void EnsureDemuxOrDecode();
+
+  // Return true if more decode work can be piled on to the VDA.
+  bool CanMoreDecodeWorkBeDone();
 
   // Callback to pass to demuxer_stream_->Read() for receiving encoded bits.
   void RequestBufferDecode(DemuxerStream::Status status,

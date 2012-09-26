@@ -437,7 +437,12 @@ def filter_bad_tests(tests, disabled=False, fails=False, flaky=False):
 
 
 def parse_gtest_cases(out):
-  """Expected format is a concatenation of this:
+  """Returns the flattened list of test cases in the executable.
+
+  The returned list is sorted so it is not dependent on the order of the linked
+  objects.
+
+  Expected format is a concatenation of this:
   TestFixture1
      TestCase1
      TestCase2
@@ -458,7 +463,7 @@ def parse_gtest_cases(out):
         break
       assert ' ' not in case
       tests.append(fixture + case)
-  return tests
+  return sorted(tests)
 
 
 def list_test_cases(executable, index, shards, disabled, fails, flaky):
@@ -742,12 +747,12 @@ class OptionParserWithTestSharding(OptionParserWithLogging):
 
     group = optparse.OptionGroup(self, 'Which shard to run')
     group.add_option(
-        '-i', '--index',
+        '-I', '--index',
         type='int',
         default=as_digit(os.environ.get('GTEST_SHARD_INDEX', ''), None),
         help='Shard index to run')
     group.add_option(
-        '-s', '--shards',
+        '-S', '--shards',
         type='int',
         default=as_digit(os.environ.get('GTEST_TOTAL_SHARDS', ''), None),
         help='Total number of shards to calculate from the --index to run')

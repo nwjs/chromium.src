@@ -14,8 +14,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/app_modal_dialogs/javascript_dialog_creator.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "content/public/browser/web_contents.h"
 #include "ipc/ipc_message.h"
 #include "net/url_request/url_request_context.h"
@@ -30,21 +28,21 @@ namespace {
 
 base::LazyInstance<AwBrowserDependencyFactoryImpl>::Leaky g_lazy_instance;
 
-class TabContentsWrapper : public AwContentsContainer {
+class WebContentsWrapper : public AwContentsContainer {
  public:
-  TabContentsWrapper(TabContents* tab_contents) {
-    tab_contents_.reset(tab_contents);
+  WebContentsWrapper(WebContents* web_contents)
+      : web_contents_(web_contents) {
   }
 
-  virtual ~TabContentsWrapper() {}
+  virtual ~WebContentsWrapper() {}
 
   // AwContentsContainer
   virtual content::WebContents* GetWebContents() OVERRIDE {
-    return tab_contents_->web_contents();
+    return web_contents_.get();
   }
 
  private:
-  scoped_ptr<TabContents> tab_contents_;
+  scoped_ptr<content::WebContents> web_contents_;
 };
 
 }  // namespace
@@ -100,13 +98,7 @@ WebContents* AwBrowserDependencyFactoryImpl::CreateWebContents(bool incognito) {
 
 AwContentsContainer* AwBrowserDependencyFactoryImpl::CreateContentsContainer(
     content::WebContents* contents) {
-  return new TabContentsWrapper(
-      TabContents::Factory::CreateTabContents(contents));
-}
-
-content::JavaScriptDialogCreator*
-    AwBrowserDependencyFactoryImpl::GetJavaScriptDialogCreator() {
-  return GetJavaScriptDialogCreatorInstance();
+  return new WebContentsWrapper(contents);
 }
 
 }  // namespace android_webview

@@ -29,6 +29,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/download/download_item_model.h"
+#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/profiles/profile.h"
@@ -1134,13 +1135,17 @@ void BrowserWindowGtk::Paste() {
       window_, chrome::GetActiveWebContents(browser_.get()));
 }
 
-void BrowserWindowGtk::ShowInstant(TabContents* preview) {
+void BrowserWindowGtk::ShowInstant(TabContents* preview,
+                                   int height,
+                                   InstantSizeUnits units) {
+  // TODO(jered): Support height < 100%.
+  DCHECK(height == 100 && units == INSTANT_SIZE_PERCENT);
   contents_container_->SetPreview(preview);
   MaybeShowBookmarkBar(false);
 }
 
 void BrowserWindowGtk::HideInstant() {
-  contents_container_->PopPreview();
+  contents_container_->SetPreview(NULL);
   MaybeShowBookmarkBar(false);
 }
 
@@ -1303,6 +1308,15 @@ bool BrowserWindowGtk::DrawInfoBarArrows(int* x) const {
     NOTREACHED();
   }
   return true;
+}
+
+extensions::ActiveTabPermissionGranter*
+    BrowserWindowGtk::GetActiveTabPermissionGranter() {
+  TabContents* tab = GetDisplayedTab();
+  if (!tab)
+    return NULL;
+  return extensions::TabHelper::FromWebContents(tab->web_contents())->
+      active_tab_permission_granter();
 }
 
 void BrowserWindowGtk::MaybeShowBookmarkBar(bool animate) {
@@ -1528,7 +1542,7 @@ gboolean BrowserWindowGtk::OnMainWindowDeleteEvent(GtkWidget* widget,
 
 void BrowserWindowGtk::OnMainWindowDestroy(GtkWidget* widget) {
   // Make sure we destroy this object while the main window is still valid.
-  extension_keybinding_registry_.reset(NULL);
+  extension_keybinding_registry_.reset();
 
   // BUG 8712. When we gtk_widget_destroy() in Close(), this will emit the
   // signal right away, and we will be here (while Close() is still in the
@@ -1821,9 +1835,11 @@ void BrowserWindowGtk::InitWidgets() {
   UpdateCustomFrame();
 
   // Add the keybinding registry, now that the window has been realized.
-  extension_keybinding_registry_.reset(
-      new ExtensionKeybindingRegistryGtk(browser_->profile(), window_,
-          extensions::ExtensionKeybindingRegistry::ALL_EXTENSIONS));
+  extension_keybinding_registry_.reset(new ExtensionKeybindingRegistryGtk(
+      browser_->profile(),
+      window_,
+      extensions::ExtensionKeybindingRegistry::ALL_EXTENSIONS,
+      this));
 
   // We have to call this after the first window is created, but after that only
   // when the theme changes. This sets the icon that will be used for windows

@@ -199,6 +199,8 @@ static int ToMessageID(WebLocalizedString::Name name) {
       return IDS_FORM_FILE_MULTIPLE_UPLOAD;
     case WebLocalizedString::OtherColorLabel:
       return IDS_FORM_OTHER_COLOR_LABEL;
+      case WebLocalizedString::OtherDateLabel:
+        return IDS_FORM_OTHER_DATE_LABEL;
     case WebLocalizedString::ResetButtonDefaultLabel:
       return IDS_FORM_RESET_LABEL;
     case WebLocalizedString::SearchableIndexIntroduction:
@@ -740,6 +742,10 @@ static size_t memoryUsageMB() {
   v8::HeapStatistics stat;
   v8::V8::GetHeapStatistics(&stat);
   return mem_usage + (static_cast<uint64_t>(stat.total_heap_size()) >> 20);
+}
+#elif defined(OS_MACOSX)
+static size_t memoryUsageMB() {
+  return CurrentProcessMetrics()->GetWorkingSetSize() >> 20;
 }
 #else
 static size_t memoryUsageMB() {

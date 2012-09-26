@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 import unittest
 
-import gpu_tools.page_set
+from chrome_remote_control import page_set
 import page_sets
 
 class PageSetsUnittest(unittest.TestCase):
@@ -13,5 +13,4 @@ class PageSetsUnittest(unittest.TestCase):
   def testPageSetsParseCorrectly():
     filenames = page_sets.GetAllPageSetFilenames()
     for filename in filenames:
-      ps = gpu_tools.page_set.PageSet()
-      ps.LoadFromFile(filename)
+      page_set.PageSet.FromFile(filename)

@@ -4,9 +4,11 @@
 
 #include "chrome/browser/extensions/extension_prefs.h"
 
+#include "base/command_line.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "base/version.h"
 #include "chrome/browser/extensions/admin_policy.h"
 #include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
 #include "chrome/browser/extensions/extension_pref_store.h"
@@ -15,6 +17,8 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/chrome_switches.h"
+#include "chrome/common/chrome_version_info.h"
 #include "chrome/common/extensions/extension_switch_utils.h"
 #include "chrome/common/extensions/manifest.h"
 #include "chrome/common/extensions/permissions/permission_set.h"
@@ -35,9 +39,6 @@ namespace extensions {
 namespace {
 
 // Additional preferences keys
-
-// Whether this extension was running when chrome last shutdown.
-const char kPrefRunning[] = "running";
 
 // Where an extension was installed from. (see Extension::Location)
 const char kPrefLocation[] = "location";
@@ -207,6 +208,9 @@ const char kMediaGalleryIdKey[] = "id";
 
 // Key for Media Gallery Permission Value.
 const char kMediaGalleryHasPermissionKey[] = "has_permission";
+
+// Key for what version chrome was last time the extension prefs were loaded.
+const char kExtensionsLastChromeVersion[] = "extensions.last_chrome_version";
 
 // Provider of write access to a dictionary storing extension prefs.
 class ScopedExtensionPrefUpdate : public DictionaryPrefUpdate {
@@ -492,14 +496,14 @@ PermissionSet* ExtensionPrefs::ReadExtensionPrefPermissionSet(
       std::string permission_name;
       if (!api_values->GetString(i, &permission_name) &&
           !api_values->GetDictionary(i, &permission_dict)) {
-        NOTREACHED() << "Permission is not a string or dict. ";
+        LOG(WARNING) << "Permission is not a string or dict. ";
         continue;
       }
 
       const base::Value *permission_detail = NULL;
       if (permission_dict) {
         if (permission_dict->size() != 1u) {
-          NOTREACHED() << "Permission is not a single key dict.";
+          LOG(WARNING) << "Permission is not a single key dict.";
           continue;
         }
         base::DictionaryValue::Iterator it(*permission_dict);
@@ -510,14 +514,14 @@ PermissionSet* ExtensionPrefs::ReadExtensionPrefPermissionSet(
       const APIPermissionInfo *permission_info =
         info->GetByName(permission_name);
       if (!permission_info) {
-        NOTREACHED() << "Unknown permission[" << permission_name << "].";
+        LOG(WARNING) << "Unknown permission[" << permission_name << "].";
         continue;
       }
 
       scoped_ptr<APIPermission> permission(
           permission_info->CreateAPIPermission());
       if (!permission->FromValue(permission_detail)) {
-        NOTREACHED() << "Parse permission failed.";
+        LOG(WARNING) << "Parse permission failed.";
         continue;
       }
       apis.insert(permission.release());
@@ -659,7 +663,7 @@ bool ExtensionPrefs::IsAppNotificationDisabled(
 }
 
 void ExtensionPrefs::SetAppNotificationDisabled(
-   const std::string& extension_id, bool value) {
+    const std::string& extension_id, bool value) {
   DCHECK(Extension::IdIsValid(extension_id));
   UpdateExtensionPref(extension_id, kPrefAppNotificationDisbaled,
                       Value::CreateBooleanValue(value));
@@ -963,6 +967,17 @@ void ExtensionPrefs::MigrateDisableReasons(
   }
 }
 
+void ExtensionPrefs::ClearRegisteredEvents() {
+  const DictionaryValue* extensions = prefs_->GetDictionary(kExtensionsPref);
+  if (!extensions)
+    return;
+
+  for (DictionaryValue::key_iterator it = extensions->begin_keys();
+       it != extensions->end_keys(); ++it) {
+    UpdateExtensionPref(*it, kRegisteredEvents, NULL);
+  }
+}
+
 PermissionSet* ExtensionPrefs::GetGrantedPermissions(
     const std::string& extension_id) {
   CHECK(Extension::IdIsValid(extension_id));
@@ -1016,6 +1031,30 @@ void ExtensionPrefs::SetActivePermissions(
     const PermissionSet* permissions) {
   SetExtensionPrefPermissionSet(
       extension_id, kPrefActivePermissions, permissions);
+}
+
+bool ExtensionPrefs::CheckRegisteredEventsUpToDate() {
+  // If we're running inside a test, then assume prefs are all up-to-date.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kTestType))
+    return true;
+
+  Version version;
+  if (prefs_->HasPrefPath(kExtensionsLastChromeVersion)) {
+    std::string version_str = prefs_->GetString(kExtensionsLastChromeVersion);
+    version = Version(version_str);
+  }
+
+  chrome::VersionInfo current_version_info;
+  std::string current_version = current_version_info.Version();
+  prefs_->SetString(kExtensionsLastChromeVersion, current_version);
+
+  // If there was no version string in prefs, assume we're out of date.
+  if (!version.IsValid() || version.IsOlderThan(current_version)) {
+    ClearRegisteredEvents();
+    return false;
+  }
+
+  return true;
 }
 
 std::set<std::string> ExtensionPrefs::GetRegisteredEvents(
@@ -1098,21 +1137,6 @@ void ExtensionPrefs::SetRegisteredEvents(
     value->Append(new StringValue(*it));
   }
   UpdateExtensionPref(extension_id, kRegisteredEvents, value);
-}
-
-void ExtensionPrefs::SetExtensionRunning(const std::string& extension_id,
-    bool is_running) {
-  Value* value = Value::CreateBooleanValue(is_running);
-  UpdateExtensionPref(extension_id, kPrefRunning, value);
-}
-
-bool ExtensionPrefs::IsExtensionRunning(const std::string& extension_id) {
-  const DictionaryValue* extension = GetExtensionPref(extension_id);
-  if (!extension)
-    return false;
-  bool running = false;
-  extension->GetBoolean(kPrefRunning, &running);
-  return running;
 }
 
 ExtensionOmniboxSuggestion
@@ -1456,15 +1480,8 @@ void ExtensionPrefs::OnExtensionInstalled(
   // Clear state that may be registered from a previous install.
   extension_dict->Remove(kRegisteredEvents, NULL);
 
-  if (extension->is_app()) {
-    syncer::StringOrdinal new_page_ordinal = page_ordinal.IsValid() ?
-        page_ordinal : extension_sorting_->GetNaturalAppPageOrdinal();
-    if (!extension_sorting_->GetPageOrdinal(id).IsValid())
-      extension_sorting_->SetPageOrdinal(id, new_page_ordinal);
-    if (!extension_sorting_->GetAppLaunchOrdinal(id).IsValid())
-      extension_sorting_->SetAppLaunchOrdinal(
-          id, extension_sorting_->CreateNextAppLaunchOrdinal(new_page_ordinal));
-  }
+  if (extension->ShouldDisplayInLauncher())
+    extension_sorting_->EnsureValidOrdinals(extension->id(), page_ordinal);
 
   extension_pref_value_map_->RegisterExtension(
       id, install_time, initial_state == Extension::ENABLED);
@@ -2158,6 +2175,9 @@ void ExtensionPrefs::RegisterUserPrefs(PrefService* prefs) {
                            PrefService::UNSYNCABLE_PREF);
   prefs->RegisterListPref(prefs::kExtensionAllowedInstallSites,
                           PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterStringPref(kExtensionsLastChromeVersion,
+                            std::string(),  // default value
+                            PrefService::UNSYNCABLE_PREF);
 }
 
 ExtensionPrefs::ExtensionIds ExtensionPrefs::GetExtensionPrefAsVector(

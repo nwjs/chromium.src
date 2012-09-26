@@ -116,6 +116,15 @@ void LayerChromium::setNeedsCommit()
         m_layerTreeHost->setNeedsCommit();
 }
 
+IntRect LayerChromium::layerRectToContentRect(const WebKit::WebRect& layerRect)
+{
+    float widthScale = static_cast<float>(contentBounds().width()) / bounds().width();
+    float heightScale = static_cast<float>(contentBounds().height()) / bounds().height();
+    FloatRect contentRect(layerRect.x, layerRect.y, layerRect.width, layerRect.height);
+    contentRect.scale(widthScale, heightScale);
+    return enclosingIntRect(contentRect);
+}
+
 void LayerChromium::setParent(LayerChromium* layer)
 {
     ASSERT(!layer || !layer->hasAncestor(this));
@@ -262,6 +271,11 @@ void LayerChromium::setBackgroundColor(SkColor backgroundColor)
     setNeedsCommit();
 }
 
+IntSize LayerChromium::contentBounds() const
+{
+    return bounds();
+}
+
 void LayerChromium::setMasksToBounds(bool masksToBounds)
 {
     if (m_masksToBounds == masksToBounds)
@@ -314,6 +328,11 @@ void LayerChromium::setBackgroundFilters(const WebKit::WebFilterOperations& back
     setNeedsCommit();
     if (!backgroundFilters.isEmpty())
         CCLayerTreeHost::setNeedsFilterContext(true);
+}
+
+bool LayerChromium::needsDisplay() const
+{
+    return m_needsDisplay;
 }
 
 void LayerChromium::setOpacity(float opacity)
@@ -568,6 +587,21 @@ PassOwnPtr<CCLayerImpl> LayerChromium::createCCLayerImpl()
     return CCLayerImpl::create(m_layerId);
 }
 
+bool LayerChromium::drawsContent() const
+{
+    return m_isDrawable;
+}
+
+bool LayerChromium::needMoreUpdates()
+{
+    return false;
+}
+
+bool LayerChromium::needsContentsScale() const
+{
+    return false;
+}
+
 void LayerChromium::setDebugBorderColor(SkColor color)
 {
     m_debugBorderColor = color;
@@ -597,6 +631,9 @@ void LayerChromium::setContentsScale(float contentsScale)
 
 void LayerChromium::setBoundsContainPageScale(bool boundsContainPageScale)
 {
+    for (size_t i = 0; i < m_children.size(); ++i)
+        m_children[i]->setBoundsContainPageScale(boundsContainPageScale);
+
     if (boundsContainPageScale == m_boundsContainPageScale)
         return;
 
@@ -620,12 +657,27 @@ bool LayerChromium::descendantDrawsContent()
     return false;
 }
 
+int LayerChromium::id() const
+{
+    return m_layerId;
+}
+
+float LayerChromium::opacity() const
+{
+    return m_opacity;
+}
+
 void LayerChromium::setOpacityFromAnimation(float opacity)
 {
     // This is called due to an ongoing accelerated animation. Since this animation is
     // also being run on the impl thread, there is no need to request a commit to push
     // this value over, so set the value directly rather than calling setOpacity.
     m_opacity = opacity;
+}
+
+const WebKit::WebTransformationMatrix& LayerChromium::transform() const
+{
+    return m_transform;
 }
 
 void LayerChromium::setTransformFromAnimation(const WebTransformationMatrix& transform)
@@ -719,6 +771,11 @@ Region LayerChromium::visibleContentOpaqueRegion() const
     if (opaque())
         return visibleContentRect();
     return Region();
+}
+
+ScrollbarLayerChromium* LayerChromium::toScrollbarLayerChromium()
+{
+    return 0;
 }
 
 void sortLayers(Vector<RefPtr<LayerChromium> >::iterator, Vector<RefPtr<LayerChromium> >::iterator, void*)

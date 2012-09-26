@@ -134,6 +134,10 @@ extern const char kWebKitJavaEnabled[];
 extern const char kWebkitTabsToLinks[];
 extern const char kWebKitAllowDisplayingInsecureContent[];
 extern const char kWebKitAllowRunningInsecureContent[];
+#if defined(OS_ANDROID)
+extern const char kWebKitFontScaleFactor[];
+extern const char kWebKitForceEnableZoom[];
+#endif
 extern const char kPasswordManagerEnabled[];
 extern const char kPasswordManagerAllowShowPasswords[];
 extern const char kPasswordGenerationEnabled[];
@@ -177,6 +181,7 @@ extern const char kInstantAnimationScaleFactor[];
 extern const char kInstantConfirmDialogShown[];
 extern const char kInstantEnabled[];
 extern const char kExperimentalZeroSuggestUrlPrefix[];
+extern const char kInstantShowSearchProviderLogo[];
 extern const char kMultipleProfilePrefMigration[];
 extern const char kNetworkPredictionEnabled[];
 extern const char kDefaultAppsInstallState[];
@@ -203,6 +208,7 @@ extern const char kLanguageHotkeyNextEngineInMenu[];
 extern const char kLanguageHotkeyPreviousEngine[];
 extern const char kLanguagePreferredLanguages[];
 extern const char kLanguagePreloadEngines[];
+extern const char kLanguageFilteredExtensionImes[];
 extern const char kLanguageChewingAutoShiftCur[];
 extern const char kLanguageChewingAddPhraseDirection[];
 extern const char kLanguageChewingEasySymbolInput[];
@@ -539,11 +545,14 @@ extern const char kNtpWebStoreEnabled[];
 extern const char kNtpAppPageNames[];
 
 extern const char kDevToolsDisabled[];
-extern const char kDevToolsOpenDocked[];
 extern const char kDevToolsDockSide[];
-extern const char kDevToolsHSplitLocation[];
-extern const char kDevToolsVSplitLocation[];
 extern const char kDevToolsEditedFiles[];
+extern const char kDevToolsHSplitLocation[];
+extern const char kDevToolsOpenDocked[];
+#if defined(OS_ANDROID)
+extern const char kDevToolsRemoteEnabled[];
+#endif
+extern const char kDevToolsVSplitLocation[];
 
 extern const char kSyncLastSyncedTime[];
 extern const char kSyncHasSetupCompleted[];
@@ -704,6 +713,8 @@ extern const char kDevicePolicyRefreshRate[];
 extern const char kUserPolicyRefreshRate[];
 extern const char kLoadCloudPolicyOnSignin[];
 
+extern const char kFactoryResetRequested[];
+
 extern const char kRecoveryComponentVersion[];
 extern const char kComponentUpdaterState[];
 
@@ -717,6 +728,8 @@ extern const char kShelfAlignment[];
 extern const char kShelfAutoHideBehavior[];
 extern const char kUseDefaultPinnedApps[];
 extern const char kPinnedLauncherApps[];
+
+extern const char kLauncherShouldRunSyncAnimation[];
 
 extern const char kLongPressTimeInSeconds[];
 extern const char kMaxDistanceBetweenTapsForDoubleTap[];
@@ -744,6 +757,8 @@ extern const char kInManagedMode[];
 
 extern const char kNetworkProfileWarningsLeft[];
 extern const char kNetworkProfileLastWarningTime[];
+
+extern const char kLastPolicyStatisticsUpdate[];
 
 }  // namespace prefs
 

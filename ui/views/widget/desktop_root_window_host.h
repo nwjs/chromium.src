@@ -14,6 +14,7 @@ class Window;
 }
 
 namespace gfx {
+class ImageSkia;
 class Rect;
 }
 
@@ -52,6 +53,10 @@ class DesktopRootWindowHost {
   virtual gfx::Rect GetClientAreaBoundsInScreen() const = 0;
   virtual gfx::Rect GetRestoredBounds() const = 0;
 
+  virtual gfx::Rect GetWorkAreaBoundsInScreen() const = 0;
+
+  virtual void SetShape(gfx::NativeRegion native_region) = 0;
+
   virtual void Activate() = 0;
   virtual void Deactivate() = 0;
   virtual bool IsActive() const = 0;
@@ -61,12 +66,42 @@ class DesktopRootWindowHost {
   virtual bool IsMaximized() const = 0;
   virtual bool IsMinimized() const = 0;
 
+  virtual bool HasCapture() const = 0;
+
   virtual void SetAlwaysOnTop(bool always_on_top) = 0;
 
   virtual InputMethod* CreateInputMethod() = 0;
   virtual internal::InputMethodDelegate* GetInputMethodDelegate() = 0;
 
   virtual void SetWindowTitle(const string16& title) = 0;
+
+  virtual void ClearNativeFocus() = 0;
+
+  virtual Widget::MoveLoopResult RunMoveLoop(const gfx::Point& drag_offset) = 0;
+  virtual void EndMoveLoop() = 0;
+
+  virtual void SetVisibilityChangedAnimationsEnabled(bool value) = 0;
+
+  virtual bool ShouldUseNativeFrame() = 0;
+  virtual void FrameTypeChanged() = 0;
+  virtual NonClientFrameView* CreateNonClientFrameView() = 0;
+
+  virtual void SetFullscreen(bool fullscreen) = 0;
+  virtual bool IsFullscreen() const = 0;
+
+  virtual void SetOpacity(unsigned char opacity) = 0;
+
+  virtual void SetWindowIcons(const gfx::ImageSkia& window_icon,
+                              const gfx::ImageSkia& app_icon) = 0;
+
+  virtual void SetAccessibleName(const string16& name) = 0;
+  virtual void SetAccessibleRole(ui::AccessibilityTypes::Role role) = 0;
+  virtual void SetAccessibleState(ui::AccessibilityTypes::State state) = 0;
+
+  virtual void InitModalType(ui::ModalType modal_type) = 0;
+
+  virtual void FlashFrame(bool flash_frame) = 0;
+
 };
 
 }  // namespace views

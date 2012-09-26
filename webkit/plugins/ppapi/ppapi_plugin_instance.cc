@@ -81,7 +81,7 @@
 #include "webkit/plugins/ppapi/ppb_graphics_3d_impl.h"
 #include "webkit/plugins/ppapi/ppb_image_data_impl.h"
 #include "webkit/plugins/ppapi/ppb_url_loader_impl.h"
-#include "webkit/plugins/ppapi/ppb_url_request_info_impl.h"
+#include "webkit/plugins/ppapi/url_request_info_util.h"
 #include "webkit/plugins/ppapi/ppp_pdf.h"
 #include "webkit/plugins/sad_plugin.h"
 
@@ -359,13 +359,11 @@ bool MakeEncryptedBlockInfo(
   block_info->data_offset = decrypt_config.data_offset();
 
   if (!CopyStringToArray(decrypt_config.key_id(), block_info->key_id) ||
-      !CopyStringToArray(decrypt_config.iv(), block_info->iv) ||
-      !CopyStringToArray(decrypt_config.checksum(), block_info->checksum))
+      !CopyStringToArray(decrypt_config.iv(), block_info->iv))
     return false;
 
   block_info->key_id_size = decrypt_config.key_id().size();
   block_info->iv_size = decrypt_config.iv().size();
-  block_info->checksum_size = decrypt_config.checksum().size();
 
   if (decrypt_config.subsamples().size() > arraysize(block_info->subsamples))
     return false;
@@ -433,6 +431,7 @@ PluginInstance::PluginInstance(
       plugin_zoom_interface_(NULL),
       checked_for_plugin_input_event_interface_(false),
       checked_for_plugin_messaging_interface_(false),
+      checked_for_plugin_pdf_interface_(false),
       gamepad_impl_(delegate),
       plugin_print_interface_(NULL),
       plugin_graphics_3d_interface_(NULL),
@@ -1178,7 +1177,8 @@ bool PluginInstance::LoadMouseLockInterface() {
 }
 
 bool PluginInstance::LoadPdfInterface() {
-  if (!plugin_pdf_interface_) {
+  if (!checked_for_plugin_pdf_interface_) {
+    checked_for_plugin_pdf_interface_ = true;
     plugin_pdf_interface_ =
         static_cast<const PPP_Pdf_1*>(module_->GetPluginInterface(
             PPP_PDF_INTERFACE_1));
@@ -1609,6 +1609,7 @@ bool PluginInstance::SetFullscreen(bool fullscreen) {
 }
 
 void PluginInstance::FlashSetFullscreen(bool fullscreen, bool delay_report) {
+  TRACE_EVENT0("ppapi", "PluginInstance::FlashSetFullscreen");
   // Keep a reference on the stack. See NOTE above.
   scoped_refptr<PluginInstance> ref(this);
 
@@ -1619,10 +1620,10 @@ void PluginInstance::FlashSetFullscreen(bool fullscreen, bool delay_report) {
     return;
 
   // Unbind current 2D or 3D graphics context.
-  BindGraphics(pp_instance(), 0);
   VLOG(1) << "Setting fullscreen to " << (fullscreen ? "on" : "off");
   if (fullscreen) {
     DCHECK(!fullscreen_container_);
+    setBackingTextureId(0, false);
     fullscreen_container_ = delegate_->CreateFullscreenContainer(this);
   } else {
     DCHECK(fullscreen_container_);
@@ -1648,6 +1649,17 @@ void PluginInstance::UpdateFlashFullscreenState(bool flash_fullscreen) {
     return;
   }
 
+  PPB_Graphics3D_Impl* graphics_3d  = GetBoundGraphics3D();
+  if (graphics_3d) {
+    if (flash_fullscreen) {
+      fullscreen_container_->ReparentContext(graphics_3d->platform_context());
+    } else {
+      delegate_->ReparentContext(graphics_3d->platform_context());
+      setBackingTextureId(graphics_3d->GetBackingTextureId(),
+                          graphics_3d->IsOpaque());
+    }
+  }
+
   bool old_plugin_focus = PluginHasFocus();
   flash_fullscreen_ = flash_fullscreen;
   if (is_mouselock_pending && !delegate()->IsMouseLocked(this)) {
@@ -1659,7 +1671,7 @@ void PluginInstance::UpdateFlashFullscreenState(bool flash_fullscreen) {
     SendFocusChangeNotification();
 }
 
-int32_t PluginInstance::Navigate(PPB_URLRequestInfo_Impl* request,
+int32_t PluginInstance::Navigate(const ::ppapi::URLRequestInfoData& request,
                                  const char* target,
                                  bool from_user_action) {
   if (!container_)
@@ -1670,8 +1682,10 @@ int32_t PluginInstance::Navigate(PPB_URLRequestInfo_Impl* request,
   if (!frame)
     return PP_ERROR_FAILED;
 
+  ::ppapi::URLRequestInfoData completed_request = request;
+
   WebURLRequest web_request;
-  if (!request->ToWebURLRequest(frame, &web_request))
+  if (!CreateWebURLRequest(&completed_request, frame, &web_request))
     return PP_ERROR_FAILED;
   web_request.setFirstPartyForCookies(document.firstPartyForCookies());
   web_request.setHasUserGesture(from_user_action);
@@ -2008,6 +2022,7 @@ void PluginInstance::ClosePendingUserGesture(PP_Instance instance,
 
 PP_Bool PluginInstance::BindGraphics(PP_Instance instance,
                                      PP_Resource device) {
+  TRACE_EVENT0("ppapi", "PluginInstance::BindGraphics");
   // The Graphics3D instance can't be destroyed until we call
   // setBackingTextureId.
   scoped_refptr< ::ppapi::Resource> old_graphics = bound_graphics_;

@@ -48,6 +48,19 @@ static WebTransformationMatrix windowMatrix(int x, int y, int width, int height)
 }
 
 namespace cc {
+
+CCDirectRenderer::DrawingFrame::DrawingFrame()
+    : rootRenderPass(0)
+    , currentRenderPass(0)
+    , currentTexture(0)
+    , flippedY(false)
+{
+}
+
+CCDirectRenderer::DrawingFrame::~DrawingFrame()
+{
+}
+
 //
 // static
 FloatRect CCDirectRenderer::quadVertexRect()
@@ -89,6 +102,16 @@ IntRect CCDirectRenderer::moveScissorToWindowSpace(const DrawingFrame& frame, Fl
     return scissorRectInCanvasSpace;
 }
 
+CCDirectRenderer::CCDirectRenderer(CCRendererClient* client, CCResourceProvider* resourceProvider)
+    : CCRenderer(client)
+    , m_resourceProvider(resourceProvider)
+{
+}
+
+CCDirectRenderer::~CCDirectRenderer()
+{
+}
+
 void CCDirectRenderer::decideRenderPassAllocationsForFrame(const CCRenderPassList& renderPassesInDrawOrder)
 {
     HashMap<CCRenderPass::Id, const CCRenderPass*> renderPassesInFrame;
@@ -98,15 +121,27 @@ void CCDirectRenderer::decideRenderPassAllocationsForFrame(const CCRenderPassLis
     Vector<CCRenderPass::Id> passesToDelete;
     HashMap<CCRenderPass::Id, OwnPtr<CachedTexture> >::const_iterator passIterator;
     for (passIterator = m_renderPassTextures.begin(); passIterator != m_renderPassTextures.end(); ++passIterator) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        const CCRenderPass* renderPassInFrame = renderPassesInFrame.get(passIterator->key);
+#else
         const CCRenderPass* renderPassInFrame = renderPassesInFrame.get(passIterator->first);
+#endif
         if (!renderPassInFrame) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+            passesToDelete.append(passIterator->key);
+#else
             passesToDelete.append(passIterator->first);
+#endif
             continue;
         }
 
         const IntSize& requiredSize = renderPassTextureSize(renderPassInFrame);
         GC3Denum requiredFormat = renderPassTextureFormat(renderPassInFrame);
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        CachedTexture* texture = passIterator->value.get();
+#else
         CachedTexture* texture = passIterator->second.get();
+#endif
         ASSERT(texture);
 
         if (texture->id() && (texture->size() != requiredSize || texture->format() != requiredFormat))
@@ -159,10 +194,10 @@ void CCDirectRenderer::drawRenderPass(DrawingFrame& frame, const CCRenderPass* r
     const CCQuadList& quadList = renderPass->quadList();
     for (CCQuadList::constBackToFrontIterator it = quadList.backToFrontBegin(); it != quadList.backToFrontEnd(); ++it) {
         FloatRect quadScissorRect = frame.scissorRectInRenderPassSpace;
-        quadScissorRect.intersect(it->get()->clippedRectInTarget());
+        quadScissorRect.intersect((*it)->clippedRectInTarget());
         if (!quadScissorRect.isEmpty()) {
             enableScissorTestRect(moveScissorToWindowSpace(frame, quadScissorRect));
-            drawQuad(frame, it->get());
+            drawQuad(frame, *it);
         }
     }
 
@@ -178,7 +213,7 @@ bool CCDirectRenderer::useRenderPass(DrawingFrame& frame, const CCRenderPass* re
 
     if (renderPass == frame.rootRenderPass) {
         bindFramebufferToOutputSurface(frame);
-        initializeMatrices(frame, renderPass->outputRect(), true);
+        initializeMatrices(frame, renderPass->outputRect(), flippedFramebuffer());
         setDrawViewportSize(renderPass->outputRect().size());
         return true;
     }

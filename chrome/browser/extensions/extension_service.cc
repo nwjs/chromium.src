@@ -30,6 +30,7 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_plugin_service_filter.h"
+#include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api.h"
 #include "chrome/browser/extensions/api/declarative/rules_registry_service.h"
 #include "chrome/browser/extensions/api/extension_action/extension_actions_api.h"
@@ -37,6 +38,7 @@
 #include "chrome/browser/extensions/api/managed_mode/managed_mode_api.h"
 #include "chrome/browser/extensions/api/management/management_api.h"
 #include "chrome/browser/extensions/api/media_galleries_private/media_galleries_private_event_router.h"
+#include "chrome/browser/extensions/api/preference/preference_api.h"
 #include "chrome/browser/extensions/api/processes/processes_api.h"
 #include "chrome/browser/extensions/api/push_messaging/push_messaging_api.h"
 #include "chrome/browser/extensions/api/web_navigation/web_navigation_api.h"
@@ -52,7 +54,6 @@
 #include "chrome/browser/extensions/extension_error_ui.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_install_ui.h"
-#include "chrome/browser/extensions/extension_preference_api.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_sorting.h"
 #include "chrome/browser/extensions/extension_special_storage_policy.h"
@@ -121,6 +122,7 @@
 #include "chrome/browser/chromeos/extensions/media_player_event_router.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/extensions/api/input_ime/input_ime_api.h"
+#include "content/public/browser/storage_partition.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_mount_point_provider.h"
 #endif
@@ -476,7 +478,8 @@ void ExtensionService::InitEventRouters() {
   browser_event_router_->Init();
   window_event_router_.reset(new extensions::WindowEventRouter(profile_));
   window_event_router_->Init();
-  preference_event_router_.reset(new ExtensionPreferenceEventRouter(profile_));
+  preference_event_router_.reset(
+      new extensions::PreferenceEventRouter(profile_));
   bookmark_event_router_.reset(new BookmarkExtensionEventRouter(
       BookmarkModelFactory::GetForProfile(profile_)));
   bookmark_event_router_->Init();
@@ -1107,10 +1110,12 @@ void ExtensionService::NotifyExtensionUnloaded(
       profile_, extension->GetChromeURLOverrides());
 
 #if defined(OS_CHROMEOS)
-    // Revoke external file access to
-  if (BrowserContext::GetFileSystemContext(profile_) &&
-      BrowserContext::GetFileSystemContext(profile_)->external_provider()) {
-    BrowserContext::GetFileSystemContext(profile_)->external_provider()->
+  // Revoke external file access to third party extensions.
+  fileapi::FileSystemContext* filesystem_context =
+      BrowserContext::GetDefaultStoragePartition(profile_)->
+          GetFileSystemContext();
+  if (filesystem_context && filesystem_context->external_provider()) {
+    filesystem_context->external_provider()->
         RevokeAccessForExtension(extension->id());
   }
 
@@ -1966,8 +1971,10 @@ void ExtensionService::AddExtension(const Extension* extension) {
 
   // All apps that are displayed in the launcher are ordered by their ordinals
   // so we must ensure they have valid ordinals.
-  if (extension->ShouldDisplayInLauncher())
-    extension_prefs_->extension_sorting()->EnsureValidOrdinals(extension->id());
+  if (extension->ShouldDisplayInLauncher()) {
+    extension_prefs_->extension_sorting()->EnsureValidOrdinals(
+        extension->id(), syncer::StringOrdinal());
+  }
 
   extensions_.Insert(scoped_extension);
   SyncExtensionChangeIfNeeded(*extension);
@@ -2516,6 +2523,25 @@ void ExtensionService::SetBackgroundPageReady(const Extension* extension) {
       content::NotificationService::NoDetails());
 }
 
+void ExtensionService::InspectBackgroundPage(const Extension* extension) {
+  DCHECK(extension);
+
+  ExtensionProcessManager* pm = profile_->GetExtensionProcessManager();
+  extensions::LazyBackgroundTaskQueue* queue =
+      extensions::ExtensionSystem::Get(profile_)->lazy_background_task_queue();
+
+  extensions::ExtensionHost* host =
+      pm->GetBackgroundHostForExtension(extension->id());
+  if (host) {
+    InspectExtensionHost(host);
+  } else {
+    queue->AddPendingTask(
+        profile_, extension->id(),
+        base::Bind(&ExtensionService::InspectExtensionHost,
+                    base::Unretained(this)));
+  }
+}
+
 bool ExtensionService::IsBeingUpgraded(const Extension* extension) const {
   ExtensionRuntimeDataMap::const_iterator it =
       extension_runtime_data_.find(extension->id());
@@ -2640,4 +2666,10 @@ void ExtensionService::LaunchApplication(
                                 extension_host->extension(),
                                 NULL, FilePath());
 #endif
+}
+
+void ExtensionService::InspectExtensionHost(
+    extensions::ExtensionHost* host) {
+  if (host)
+    DevToolsWindow::OpenDevToolsWindow(host->render_view_host());
 }

@@ -26,15 +26,6 @@ SessionTabHelper::~SessionTabHelper() {
 void SessionTabHelper::SetWindowID(const SessionID& id) {
   window_id_ = id;
 
-  // TODO(mpcomplete): Maybe this notification should send out a WebContents.
-  TabContents* tab = TabContents::FromWebContents(web_contents());
-  if (tab) {
-    content::NotificationService::current()->Notify(
-        chrome::NOTIFICATION_TAB_PARENTED,
-        content::Source<TabContents>(tab),
-        content::NotificationService::NoDetails());
-  }
-
   // Extension code in the renderer holds the ID of the window that hosts it.
   // Notify it that the window ID changed.
   web_contents()->GetRenderViewHost()->Send(

@@ -55,6 +55,9 @@ bool WallpaperStringsFunction::RunImpl() {
              IDS_OPTIONS_WALLPAPER_CENTER_CROPPED_LAYOUT);
   SET_STRING("centerLayout", IDS_OPTIONS_WALLPAPER_CENTER_LAYOUT);
   SET_STRING("stretchLayout", IDS_OPTIONS_WALLPAPER_STRETCH_LAYOUT);
+  SET_STRING("connectionFailed", IDS_WALLPAPER_MANAGER_ACCESS_FAIL);
+  SET_STRING("downloadFailed", IDS_WALLPAPER_MANAGER_DOWNLOAD_FAIL);
+  SET_STRING("downloadCanceled", IDS_WALLPAPER_MANAGER_DOWNLOAD_CANCEL);
   SET_STRING("customWallpaperWarning",
              IDS_WALLPAPER_MANAGER_SHOW_CUSTOM_WALLPAPER_ON_START_WARNING);
 #undef SET_STRING
@@ -67,9 +70,9 @@ bool WallpaperStringsFunction::RunImpl() {
 
   if (wallpaper_manager->GetLoggedInUserWallpaperInfo(&info)) {
     if (info.type == chromeos::User::ONLINE)
-      dict->SetString("selectedWallpaper", info.file);
+      dict->SetString("currentWallpaper", info.file);
     else if (info.type == chromeos::User::CUSTOMIZED)
-      dict->SetString("selectedWallpaper", "CUSTOM");
+      dict->SetString("currentWallpaper", "CUSTOM");
   }
 
   return true;
@@ -95,6 +98,7 @@ class WallpaperFunctionBase::WallpaperDecoder : public ImageDecoder::Delegate {
   virtual void OnImageDecoded(const ImageDecoder* decoder,
                               const SkBitmap& decoded_image) OVERRIDE {
     gfx::ImageSkia final_image(decoded_image);
+    final_image.MakeThreadSafe();
     if (cancel_flag_.IsSet()) {
       delete this;
       return;

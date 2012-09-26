@@ -10,16 +10,27 @@ import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
 import org.chromium.base.NativeClassQualifiedName;
 
+import java.util.concurrent.CopyOnWriteArrayList;
+
 /**
- * Triggers updates to the underlying network state in native Chrome.
+ * Triggers updates to the underlying network state in Chrome.
  * By default, connectivity is assumed and changes must pushed from
  * the embedder via the forceConnectivityState function.
  * Embedders may choose to have this class auto-detect changes in
  * network connectivity by invoking the autoDetectConnectivityState
  * function.
+ * This class is not thread-safe.
  */
 @JNINamespace("net")
 public class NetworkChangeNotifier {
+    /**
+     * Alerted when the connection type of the network changes.
+     * The alert is fired on the UI thread.
+     */
+    public interface ConnectionTypeObserver {
+        public void onConnectionTypeChanged(int connectionType);
+    }
+
     // These constants must always match the ones in network_change_notifier.h.
     public static final int CONNECTION_UNKNOWN = 0;
     public static final int CONNECTION_ETHERNET = 1;
@@ -31,18 +42,51 @@ public class NetworkChangeNotifier {
 
     private final Context mContext;
     private int mNativeChangeNotifier;
-    private int mConnectionType;
+    private final CopyOnWriteArrayList<ConnectionTypeObserver> mConnectionTypeObservers;
     private NetworkChangeNotifierAutoDetect mAutoDetector;
 
     private static NetworkChangeNotifier sInstance;
 
-    // Private constructor - instances are only created via the create factory
-    // function, which is only called from native.
     private NetworkChangeNotifier(Context context, int nativeChangeNotifier) {
         mContext = context;
         mNativeChangeNotifier = nativeChangeNotifier;
-        mConnectionType = CONNECTION_UNKNOWN;
-        sInstance = this;
+        mConnectionTypeObservers = new CopyOnWriteArrayList<ConnectionTypeObserver>();
+    }
+
+    private void destroy() {
+        if (mAutoDetector != null) {
+            mAutoDetector.destroy();
+        }
+        mNativeChangeNotifier = 0;
+        mConnectionTypeObservers.clear();
+    }
+
+    /**
+     * Creates the singleton used by the native-side NetworkChangeNotifier.
+     */
+    @CalledByNative
+    static NetworkChangeNotifier createInstance(Context context, int nativeChangeNotifier) {
+        assert sInstance == null;
+        sInstance = new NetworkChangeNotifier(context, nativeChangeNotifier);
+        return sInstance;
+    }
+
+    /**
+     * Destroys the singleton used by the native-side NetworkChangeNotifier.
+     */
+    @CalledByNative
+    private static void destroyInstance() {
+        assert sInstance != null;
+        sInstance.destroy();
+        sInstance = null;
+    }
+
+    /**
+     * Returns the instance used by the native-side NetworkChangeNotifier.
+     */
+    public static NetworkChangeNotifier getInstance() {
+        assert sInstance != null;
+        return sInstance;
     }
 
     /**
@@ -60,16 +104,27 @@ public class NetworkChangeNotifier {
         sInstance.setAutoDetectConnectivityStateInternal(shouldAutoDetect);
     }
 
+    private void destroyAutoDetector() {
+        if (mAutoDetector != null) {
+            mAutoDetector.destroy();
+            mAutoDetector = null;
+        }
+    }
+
     private void setAutoDetectConnectivityStateInternal(boolean shouldAutoDetect) {
         if (shouldAutoDetect) {
             if (mAutoDetector == null) {
-                mAutoDetector = new NetworkChangeNotifierAutoDetect(this, mContext);
+                mAutoDetector = new NetworkChangeNotifierAutoDetect(
+                    new NetworkChangeNotifierAutoDetect.Observer() {
+                        @Override
+                        public void onConnectionTypeChanged(int newConnectionType) {
+                            notifyObserversOfConnectionTypeChange(newConnectionType);
+                        }
+                    },
+                    mContext);
             }
         } else {
-            if (mAutoDetector != null) {
-                mAutoDetector.destroy();
-                mAutoDetector = null;
-            }
+            destroyAutoDetector();
         }
     }
 
@@ -80,6 +135,7 @@ public class NetworkChangeNotifier {
      * @param networkAvailable True if the NetworkChangeNotifier should
      *     perceive a "connected" state, false implies "disconnected".
      */
+    @CalledByNative
     public static void forceConnectivityState(boolean networkAvailable) {
         assert sInstance != null;
         setAutoDetectConnectivityState(false);
@@ -87,46 +143,65 @@ public class NetworkChangeNotifier {
     }
 
     private void forceConnectivityStateInternal(boolean forceOnline) {
-        boolean connectionCurrentlyExists = mConnectionType != CONNECTION_NONE;
+        if (mNativeChangeNotifier == 0) {
+            return;
+        }
+        boolean connectionCurrentlyExists =
+            nativeGetConnectionType(mNativeChangeNotifier) != CONNECTION_NONE;
         if (connectionCurrentlyExists != forceOnline) {
-            mConnectionType = forceOnline ? CONNECTION_UNKNOWN : CONNECTION_NONE;
-            notifyNativeObservers();
+            notifyObserversOfConnectionTypeChange(
+                    forceOnline ? CONNECTION_UNKNOWN : CONNECTION_NONE);
         }
     }
 
-    void notifyNativeObservers() {
+    /**
+     * Alerts all observers of a connection change.
+     */
+    void notifyObserversOfConnectionTypeChange(int newConnectionType) {
         if (mNativeChangeNotifier != 0) {
-            nativeNotifyObservers(mNativeChangeNotifier);
+            nativeNotifyObserversOfConnectionTypeChange(mNativeChangeNotifier, newConnectionType);
+        }
+
+        for (ConnectionTypeObserver observer : mConnectionTypeObservers) {
+            observer.onConnectionTypeChanged(newConnectionType);
         }
     }
 
-    @CalledByNative
-    private int connectionType() {
-        if (mAutoDetector != null) {
-            return mAutoDetector.connectionType();
-        }
-        return mConnectionType;
+    /**
+     * Adds an observer for any connection type changes.
+     */
+    public static void addConnectionTypeObserver(ConnectionTypeObserver observer) {
+        assert sInstance != null;
+        sInstance.addConnectionTypeObserverInternal(observer);
     }
 
-    @CalledByNative
-    private void destroy() {
-        if (mAutoDetector != null) {
-            mAutoDetector.destroy();
-        }
-        mNativeChangeNotifier = 0;
-        sInstance = null;
+    private void addConnectionTypeObserverInternal(ConnectionTypeObserver observer) {
+        if (!mConnectionTypeObservers.contains(observer))
+            mConnectionTypeObservers.add(observer);
     }
 
-    @CalledByNative
-    private static NetworkChangeNotifier create(Context context, int nativeNetworkChangeNotifier) {
-        return new NetworkChangeNotifier(context, nativeNetworkChangeNotifier);
+    /**
+     * Removes an observer for any connection type changes.
+     */
+    public static boolean removeConnectionTypeObserver(ConnectionTypeObserver observer) {
+        assert sInstance != null;
+        return sInstance.removeConnectionTypeObserverInternal(observer);
     }
 
-    @NativeClassQualifiedName("android::NetworkChangeNotifier")
-    private native void nativeNotifyObservers(int nativePtr);
+    private boolean removeConnectionTypeObserverInternal(ConnectionTypeObserver observer) {
+        return mConnectionTypeObservers.remove(observer);
+    }
+
+    @NativeClassQualifiedName("NetworkChangeNotifierAndroid")
+    private native void nativeNotifyObserversOfConnectionTypeChange(
+            int nativePtr, int newConnectionType);
+
+    @NativeClassQualifiedName("NetworkChangeNotifierAndroid")
+    private native int nativeGetConnectionType(int nativePtr);
 
     // For testing only.
     public static NetworkChangeNotifierAutoDetect getAutoDetectorForTest() {
+        assert sInstance != null;
         return sInstance.mAutoDetector;
     }
 }

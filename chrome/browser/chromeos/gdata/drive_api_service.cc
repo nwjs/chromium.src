@@ -9,10 +9,10 @@
 
 #include "base/bind.h"
 #include "base/message_loop_proxy.h"
-#include "chrome/browser/chromeos/gdata/drive_api_operations.h"
-#include "chrome/browser/chromeos/gdata/gdata_operations.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
-#include "chrome/browser/chromeos/gdata/operation_runner.h"
+#include "chrome/browser/google_apis/drive_api_operations.h"
+#include "chrome/browser/google_apis/gdata_operations.h"
+#include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/operation_runner.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/net/url_util.h"
 #include "content/public/browser/browser_thread.h"
@@ -38,8 +38,10 @@ DriveAPIService::DriveAPIService()
 
 DriveAPIService::~DriveAPIService() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  if (runner_.get())
+  if (runner_.get()) {
+    runner_->operation_registry()->RemoveObserver(this);
     runner_->auth_service()->RemoveObserver(this);
+  }
 }
 
 void DriveAPIService::Initialize(Profile* profile) {
@@ -53,6 +55,7 @@ void DriveAPIService::Initialize(Profile* profile) {
   runner_->Initialize();
 
   runner_->auth_service()->AddObserver(this);
+  runner_->operation_registry()->AddObserver(this);
 }
 
 void DriveAPIService::AddObserver(DriveServiceObserver* observer) {
@@ -61,10 +64,6 @@ void DriveAPIService::AddObserver(DriveServiceObserver* observer) {
 
 void DriveAPIService::RemoveObserver(DriveServiceObserver* observer) {
   observers_.RemoveObserver(observer);
-}
-
-OperationRegistry* DriveAPIService::operation_registry() const {
-  return runner_->operation_registry();
 }
 
 bool DriveAPIService::CanStartOperation() const {
@@ -76,6 +75,16 @@ bool DriveAPIService::CanStartOperation() const {
 void DriveAPIService::CancelAll() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   runner_->CancelAll();
+}
+
+bool DriveAPIService::CancelForFilePath(const FilePath& file_path) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  return operation_registry()->CancelForFilePath(file_path);
+}
+
+OperationProgressStatusList DriveAPIService::GetProgressStatusList() const {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  return operation_registry()->GetProgressStatusList();
 }
 
 void DriveAPIService::Authenticate(const AuthStatusCallback& callback) {
@@ -265,12 +274,29 @@ bool DriveAPIService::HasRefreshToken() const {
   return runner_->auth_service()->HasRefreshToken();
 }
 
+OperationRegistry* DriveAPIService::operation_registry() const {
+  return runner_->operation_registry();
+}
+
 void DriveAPIService::OnOAuth2RefreshTokenChanged() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   if (CanStartOperation()) {
     FOR_EACH_OBSERVER(
         DriveServiceObserver, observers_, OnReadyToPerformOperations());
   }
+}
+
+void DriveAPIService::OnProgressUpdate(
+    const OperationProgressStatusList& list) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  FOR_EACH_OBSERVER(
+      DriveServiceObserver, observers_, OnProgressUpdate(list));
+}
+
+void DriveAPIService::OnAuthenticationFailed() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  FOR_EACH_OBSERVER(
+      DriveServiceObserver, observers_, OnAuthenticationFailed());
 }
 
 }  // namespace gdata

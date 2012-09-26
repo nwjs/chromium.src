@@ -28,6 +28,7 @@ public class ContentShellTestBase extends ActivityInstrumentationTestCase2<Conte
         intent.setData(Uri.parse(url));
         intent.setComponent(new ComponentName(getInstrumentation().getTargetContext(),
               ContentShellActivity.class));
-        return (ContentShellActivity) getInstrumentation().startActivitySync(intent);
+        setActivityIntent(intent);
+        return getActivity();
     }
 }

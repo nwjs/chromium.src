@@ -38,8 +38,6 @@ class FullscreenHandler;
 class HWNDMessageHandlerDelegate;
 class InputMethod;
 
-VIEWS_EXPORT bool IsAeroGlassEnabled();
-
 // These two messages aren't defined in winuser.h, but they are sent to windows
 // with captions. They appear to paint the window caption and frame.
 // Unfortunately if you override the standard non-client rendering as we do
@@ -115,7 +113,6 @@ class VIEWS_EXPORT HWNDMessageHandler : public ui::WindowImpl,
   void FlashFrame(bool flash);
 
   void ClearNativeFocus();
-  void FocusHWND(HWND hwnd);
 
   void SetCapture();
   void ReleaseCapture();
@@ -149,6 +146,10 @@ class VIEWS_EXPORT HWNDMessageHandler : public ui::WindowImpl,
 
   void set_remove_standard_frame(bool remove_standard_frame) {
     remove_standard_frame_ = remove_standard_frame;
+  }
+
+  void set_use_system_default_icon(bool use_system_default_icon) {
+    use_sytem_default_icon_ = use_system_default_icon;
   }
 
  private:
@@ -367,6 +368,8 @@ class VIEWS_EXPORT HWNDMessageHandler : public ui::WindowImpl,
   base::WeakPtrFactory<HWNDMessageHandler> close_widget_factory_;
 
   bool remove_standard_frame_;
+
+  bool use_sytem_default_icon_;
 
   // Whether the focus should be restored next time we get enabled.  Needed to
   // restore focus correctly when Windows modal dialogs are displayed.

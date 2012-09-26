@@ -39,11 +39,12 @@ class SearchBox : public content::RenderViewObserver,
   size_t selection_start() const { return selection_start_; }
   size_t selection_end() const { return selection_end_; }
   int results_base() const { return results_base_; }
+
   gfx::Rect GetRect();
-  const std::vector<InstantAutocompleteResult>& autocomplete_results() const {
-    return autocomplete_results_;
-  }
-  int key_code() const { return key_code_; }
+  const std::vector<InstantAutocompleteResult>& GetAutocompleteResults();
+  // Searchbox retains ownership of this object.
+  const InstantAutocompleteResult*
+      GetAutocompleteResultWithId(size_t restricted_id) const;
 
  private:
   // RenderViewObserver implementation.
@@ -59,7 +60,7 @@ class SearchBox : public content::RenderViewObserver,
   void OnDetermineIfPageSupportsInstant();
   void OnAutocompleteResults(
       const std::vector<InstantAutocompleteResult>& results);
-  void OnKeyPress(int key_code);
+  void OnUpOrDownKeyPressed(int count);
 
   // Sets the searchbox values to their initial value.
   void Reset();
@@ -68,10 +69,11 @@ class SearchBox : public content::RenderViewObserver,
   bool verbatim_;
   size_t selection_start_;
   size_t selection_end_;
-  int results_base_;
+  size_t results_base_;
   gfx::Rect rect_;
   std::vector<InstantAutocompleteResult> autocomplete_results_;
-  int key_code_;
+  size_t last_results_base_;
+  std::vector<InstantAutocompleteResult> last_autocomplete_results_;
 
   DISALLOW_COPY_AND_ASSIGN(SearchBox);
 };

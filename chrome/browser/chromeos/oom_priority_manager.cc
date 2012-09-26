@@ -230,8 +230,8 @@ bool OomPriorityManager::DiscardTabById(int64 target_web_contents_id) {
     Browser* browser = *browser_iterator;
     TabStripModel* model = browser->tab_strip_model();
     for (int idx = 0; idx < model->count(); idx++) {
-      // Can't discard tabs that are already discarded.
-      if (model->IsTabDiscarded(idx))
+      // Can't discard tabs that are already discarded or active.
+      if (model->IsTabDiscarded(idx) || (model->active_index() == idx))
         continue;
       WebContents* web_contents = model->GetTabContentsAt(idx)->web_contents();
       int64 web_contents_id = IdFromTabContents(web_contents);
@@ -497,6 +497,10 @@ void OomPriorityManager::AdjustOomPrioritiesOnFileThread(
   ProcessScoreMap::iterator it;
   for (TabStatsList::iterator iterator = stats_list.begin();
        iterator != stats_list.end(); ++iterator) {
+    // stats_list also contains discarded tab stat. If renderer_handler is zero,
+    // we don't need to adjust oom_score.
+    if (iterator->renderer_handle == 0)
+      continue;
     if (already_seen.find(iterator->renderer_handle) == already_seen.end()) {
       already_seen.insert(iterator->renderer_handle);
       // If a process has the same score as the newly calculated value,

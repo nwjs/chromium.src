@@ -99,7 +99,6 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   virtual void SchedulePaintInRect(const gfx::Rect& rect) OVERRIDE;
   virtual void SetCursor(gfx::NativeCursor cursor) OVERRIDE;
   virtual void ClearNativeFocus() OVERRIDE;
-  virtual void FocusNativeView(gfx::NativeView native_view) OVERRIDE;
   virtual gfx::Rect GetWorkAreaBoundsInScreen() const OVERRIDE;
   virtual void SetInactiveRenderingDisabled(bool value) OVERRIDE;
   virtual Widget::MoveLoopResult RunMoveLoop(
@@ -136,7 +135,8 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
  private:
-  scoped_ptr<DesktopRootWindowHost> desktop_root_window_host_;
+  // Ownership passed to RootWindow on Init.
+  DesktopRootWindowHost* desktop_root_window_host_;
   aura::Window* window_;
   Widget::InitParams::Ownership ownership_;
   internal::NativeWidgetDelegate* native_widget_delegate_;

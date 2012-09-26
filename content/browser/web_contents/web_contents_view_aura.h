@@ -73,7 +73,7 @@ class CONTENT_EXPORT WebContentsViewAura
   // Overridden from RenderViewHostDelegateView:
   virtual void ShowContextMenu(
       const content::ContextMenuParams& params,
-      const content::ContextMenuSourceType& type) OVERRIDE;
+      content::ContextMenuSourceType type) OVERRIDE;
   virtual void ShowPopupMenu(const gfx::Rect& bounds,
                              int item_height,
                              double item_font_size,
@@ -122,8 +122,6 @@ class CONTENT_EXPORT WebContentsViewAura
   virtual int OnDragUpdated(const ui::DropTargetEvent& event) OVERRIDE;
   virtual void OnDragExited() OVERRIDE;
   virtual int OnPerformDrop(const ui::DropTargetEvent& event) OVERRIDE;
-
-  gfx::Size initial_size_;
 
   scoped_ptr<aura::Window> window_;
 

@@ -471,10 +471,6 @@ void NativeWidgetWin::ClearNativeFocus() {
   message_handler_->ClearNativeFocus();
 }
 
-void NativeWidgetWin::FocusNativeView(gfx::NativeView native_view) {
-  message_handler_->FocusHWND(native_view);
-}
-
 gfx::Rect NativeWidgetWin::GetWorkAreaBoundsInScreen() const {
   return gfx::Screen::GetDisplayNearestWindow(GetNativeView()).work_area();
 }
@@ -942,6 +938,7 @@ void NativeWidgetWin::SetInitParams(const Widget::InitParams& params) {
 
   has_non_client_view_ = Widget::RequiresNonClientView(params.type);
   message_handler_->set_remove_standard_frame(params.remove_standard_frame);
+  message_handler_->set_use_system_default_icon(params.use_system_default_icon);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

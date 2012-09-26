@@ -49,14 +49,14 @@ views::BubbleBorder::ArrowLocation GetBubbleArrowLocation() {
   ShelfAlignment shelf_alignment = Shell::GetInstance()->GetShelfAlignment();
   switch (shelf_alignment) {
     case ash::SHELF_ALIGNMENT_BOTTOM:
-      return views::BubbleBorder::BOTTOM_RIGHT;
+      return views::BubbleBorder::BOTTOM_CENTER;
     case ash::SHELF_ALIGNMENT_LEFT:
-      return views::BubbleBorder::LEFT_BOTTOM;
+      return views::BubbleBorder::LEFT_CENTER;
     case ash::SHELF_ALIGNMENT_RIGHT:
-      return views::BubbleBorder::RIGHT_BOTTOM;
+      return views::BubbleBorder::RIGHT_CENTER;
     default:
       NOTREACHED() << "Unknown shelf alignment " << shelf_alignment;
-      return views::BubbleBorder::BOTTOM_RIGHT;
+      return views::BubbleBorder::BOTTOM_CENTER;
   }
 }
 
@@ -190,7 +190,6 @@ void AppListController::ScheduleAnimation() {
   gfx::Rect target_bounds;
   if (is_visible_) {
     target_bounds = layer->bounds();
-    view_bounds_ = target_bounds;
     layer->SetBounds(OffsetTowardsShelf(layer->bounds()));
   } else {
     target_bounds = OffsetTowardsShelf(layer->bounds());
@@ -230,10 +229,8 @@ void AppListController::ProcessLocatedEvent(aura::Window* target,
 }
 
 void AppListController::UpdateBounds() {
-  if (view_ && is_visible_) {
+  if (view_ && is_visible_)
     view_->UpdateBounds();
-    view_bounds_ = view_->GetWidget()->GetNativeView()->bounds();
-  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -338,7 +335,11 @@ void AppListController::TransitionChanged() {
   if (pagination_model_->is_valid_page(transition.target_page))
     return;
 
-  if (pagination_model_->scrolling()) {
+  if (!pagination_model_->IsRevertingCurrentTransition()) {
+    // Update cached |view_bounds_| before the first over-scroll move.
+    if (!should_snap_back_)
+      view_bounds_ = view_->GetWidget()->GetNativeView()->bounds();
+
     const int current_page = pagination_model_->selected_page();
     const int dir = transition.target_page > current_page ? -1 : 1;
 

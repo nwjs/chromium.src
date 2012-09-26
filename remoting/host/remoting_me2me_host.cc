@@ -40,6 +40,7 @@
 #include "remoting/host/constants.h"
 #include "remoting/host/config_file_watcher.h"
 #include "remoting/host/desktop_environment_factory.h"
+#include "remoting/host/desktop_resizer.h"
 #include "remoting/host/dns_blackhole_checker.h"
 #include "remoting/host/event_executor.h"
 #include "remoting/host/heartbeat_sender.h"
@@ -50,6 +51,7 @@
 #include "remoting/host/log_to_server.h"
 #include "remoting/host/network_settings.h"
 #include "remoting/host/policy_hack/policy_watcher.h"
+#include "remoting/host/resizing_host_observer.h"
 #include "remoting/host/session_manager_factory.h"
 #include "remoting/host/signaling_connector.h"
 #include "remoting/host/usage_stats_consent.h"
@@ -130,6 +132,7 @@ class HostProcess
 #else  // !defined(OS_WIN)
         desktop_environment_factory_(new DesktopEnvironmentFactory()),
 #endif  // !defined(OS_WIN)
+        desktop_resizer_(DesktopResizer::Create()),
         exit_code_(kSuccessExitCode)
 #if defined(OS_MACOSX)
       , curtain_(base::Bind(&HostProcess::OnDisconnectRequested,
@@ -422,15 +425,17 @@ class HostProcess
                              &bool_value)) {
       OnNatPolicyUpdate(bool_value);
     }
-    if (policies->GetBoolean(
-            policy_hack::PolicyWatcher::kHostRequireCurtainPolicyName,
-            &bool_value)) {
-      OnCurtainPolicyUpdate(bool_value);
-    }
     if (policies->GetString(
             policy_hack::PolicyWatcher::kHostTalkGadgetPrefixPolicyName,
             &string_value)) {
       OnHostTalkGadgetPrefixPolicyUpdate(string_value);
+    }
+    // TODO(rmsousa): This must be called last. crbug.com/146716 includes a
+    // refactoring to remove this requirement.
+    if (policies->GetBoolean(
+            policy_hack::PolicyWatcher::kHostRequireCurtainPolicyName,
+            &bool_value)) {
+      OnCurtainPolicyUpdate(bool_value);
     }
   }
 
@@ -581,6 +586,9 @@ class HostProcess
         new LogToServer(host_, ServerLogEntry::ME2ME, signal_strategy_.get()));
     host_event_logger_ = HostEventLogger::Create(host_, kApplicationName);
 
+    resizing_host_observer_.reset(
+        new ResizingHostObserver(desktop_resizer_.get(), host_));
+
 #if defined(OS_MACOSX) || defined(OS_WIN)
     if (host_user_interface_.get()) {
       host_user_interface_->Start(
@@ -601,9 +609,14 @@ class HostProcess
   // Invoked when the user uses the Disconnect windows to terminate
   // the sessions.
   void OnDisconnectRequested() {
-    DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
-
-    host_->DisconnectAllClients();
+    if (!context_->network_task_runner()->BelongsToCurrentThread()) {
+      context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
+          &HostProcess::OnDisconnectRequested, base::Unretained(this)));
+      return;
+    }
+    if (host_) {
+      host_->DisconnectAllClients();
+    }
   }
 
   void RestartHost() {
@@ -668,6 +681,7 @@ class HostProcess
     heartbeat_sender_.reset();
     signaling_connector_.reset();
     signal_strategy_.reset();
+    resizing_host_observer_.reset();
   }
 
   scoped_ptr<ChromotingHostContext> context_;
@@ -698,6 +712,8 @@ class HostProcess
   bool shutting_down_;
 
   scoped_ptr<DesktopEnvironmentFactory> desktop_environment_factory_;
+  scoped_ptr<DesktopResizer> desktop_resizer_;
+  scoped_ptr<ResizingHostObserver> resizing_host_observer_;
   scoped_ptr<XmppSignalStrategy> signal_strategy_;
   scoped_ptr<SignalingConnector> signaling_connector_;
   scoped_ptr<HeartbeatSender> heartbeat_sender_;

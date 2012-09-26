@@ -15,10 +15,6 @@
 namespace cc {
 
 class CCScopedTexture;
-class TextureCopier;
-class TextureUploader;
-
-enum TextureUploaderOption { ThrottledUploader, UnthrottledUploader };
 
 class CCRendererClient {
 public:
@@ -56,7 +52,7 @@ public:
     virtual void viewportChanged() { }
 
     virtual void decideRenderPassAllocationsForFrame(const CCRenderPassList&) { }
-    virtual bool haveCachedResourcesForRenderPassId(CCRenderPass::Id) const { return false; }
+    virtual bool haveCachedResourcesForRenderPassId(CCRenderPass::Id) const;
 
     virtual void drawFrame(const CCRenderPassList&, const CCRenderPassIdHashMap&) = 0;
 
@@ -69,10 +65,7 @@ public:
 
     virtual void getFramebufferPixels(void *pixels, const IntRect&) = 0;
 
-    virtual TextureCopier* textureCopier() const = 0;
-    virtual TextureUploader* textureUploader() const = 0;
-
-    virtual bool isContextLost() { return false; }
+    virtual bool isContextLost();
 
     virtual void setVisible(bool) = 0;
 

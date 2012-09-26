@@ -134,7 +134,7 @@
               "requestBody": {
                 "type": "object",
                 "optional": true,
-                "description": "Experimental feature, only available in DEV or CANARY channels. Container for request body data. Only provided if extraInfoSpec contains 'requestBody'. Currently only request body elements containing byte data or files are reported.",
+                "description": "Contains the HTTP request body data. Experimental feature, only available in DEV or CANARY channels. Only provided if extraInfoSpec contains 'requestBody'.",
                 "properties": {
                   "error": {"type": "string", "optional": true, "description": "Errors when obtaining request body data."},
                   "formData": {

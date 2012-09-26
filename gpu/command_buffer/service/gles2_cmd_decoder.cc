@@ -62,11 +62,6 @@
 #define GL_DEPTH24_STENCIL8 0x88F0
 #endif
 
-#define TRACE_BACKBUFFER_MEMORY_TOTAL(decoder) \
-    TRACE_COUNTER_ID1( \
-      "GLES2DecoderImpl", "BackbufferMemory", decoder, \
-      decoder->GetBackbufferMemoryTotal())
-
 namespace gpu {
 namespace gles2 {
 
@@ -1542,7 +1537,6 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
   bool back_buffer_has_stencil_;
 
   bool teximage2d_faster_than_texsubimage2d_;
-  bool bufferdata_faster_than_buffersubdata_;
 
   // The last error message set.
   std::string last_error_;
@@ -1735,8 +1729,7 @@ ScopedTextureUploadTimer::~ScopedTextureUploadTimer() {
 
 Texture::Texture(GLES2DecoderImpl* decoder)
     : decoder_(decoder),
-      memory_tracker_(decoder->GetContextGroup()->memory_tracker(),
-                      NULL, NULL),
+      memory_tracker_(decoder->GetContextGroup()->memory_tracker()),
       id_(0) {
 }
 
@@ -1766,7 +1759,6 @@ void Texture::Create() {
   glTexImage2D(
       GL_TEXTURE_2D, 0, GL_RGBA, 16, 16, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
   memory_tracker_.UpdateMemRepresented(16u * 16u * 4u);
-  TRACE_BACKBUFFER_MEMORY_TOTAL(decoder_);
 }
 
 bool Texture::AllocateStorage(const gfx::Size& size, GLenum format) {
@@ -1793,7 +1785,6 @@ bool Texture::AllocateStorage(const gfx::Size& size, GLenum format) {
         size.width(), size.height(), format, GL_UNSIGNED_BYTE, 4, &image_size,
         NULL, NULL);
     memory_tracker_.UpdateMemRepresented(image_size);
-    TRACE_BACKBUFFER_MEMORY_TOTAL(decoder_);
   }
   return success;
 }
@@ -1817,7 +1808,6 @@ void Texture::Destroy() {
     glDeleteTextures(1, &id_);
     id_ = 0;
     memory_tracker_.UpdateMemRepresented(0);
-    TRACE_BACKBUFFER_MEMORY_TOTAL(decoder_);
   }
 }
 
@@ -1827,8 +1817,7 @@ void Texture::Invalidate() {
 
 RenderBuffer::RenderBuffer(GLES2DecoderImpl* decoder)
     : decoder_(decoder),
-      memory_tracker_(decoder->GetContextGroup()->memory_tracker(),
-                      NULL, NULL),
+      memory_tracker_(decoder->GetContextGroup()->memory_tracker()),
       id_(0) {
 }
 
@@ -1874,7 +1863,6 @@ bool RenderBuffer::AllocateStorage(const gfx::Size& size, GLenum format,
     memory_tracker_.UpdateMemRepresented(
         size.width() * size.height() * samples *
         GLES2Util::RenderbufferBytesPerPixel(format));
-    TRACE_BACKBUFFER_MEMORY_TOTAL(decoder_);
   }
   return success;
 }
@@ -1885,7 +1873,6 @@ void RenderBuffer::Destroy() {
     glDeleteRenderbuffersEXT(1, &id_);
     id_ = 0;
     memory_tracker_.UpdateMemRepresented(0);
-    TRACE_BACKBUFFER_MEMORY_TOTAL(decoder_);
   }
 }
 
@@ -2003,7 +1990,6 @@ GLES2DecoderImpl::GLES2DecoderImpl(ContextGroup* group)
       back_buffer_has_depth_(false),
       back_buffer_has_stencil_(false),
       teximage2d_faster_than_texsubimage2d_(true),
-      bufferdata_faster_than_buffersubdata_(true),
       log_message_count_(0),
       current_decoder_error_(error::kNoError),
       use_shader_translator_(true),
@@ -2051,10 +2037,9 @@ GLES2DecoderImpl::GLES2DecoderImpl(ContextGroup* group)
     use_shader_translator_ = false;
   }
 
-  // TODO(gman): Consider setting these based on GPU and/or driver.
+  // TODO(gman): Consider setting this based on GPU and/or driver.
   if (IsAngle()) {
     teximage2d_faster_than_texsubimage2d_ = false;
-    bufferdata_faster_than_buffersubdata_ = false;
   }
 }
 
@@ -3147,7 +3132,6 @@ bool GLES2DecoderImpl::ResizeOffscreenFrameBuffer(const gfx::Size& size) {
                << "to allocate storage for offscreen target stencil buffer.";
     return false;
   }
-  TRACE_BACKBUFFER_MEMORY_TOTAL(this);
 
   // Attach the offscreen target buffers to the target frame buffer.
   if (IsOffscreenBufferMultisampled()) {
@@ -3237,8 +3221,6 @@ error::Error GLES2DecoderImpl::HandleResizeCHROMIUM(
       return error::kLostContext;
     }
   }
-
-  TRACE_BACKBUFFER_MEMORY_TOTAL(this);
 
   return error::kNoError;
 }
@@ -6875,19 +6857,14 @@ void GLES2DecoderImpl::DoBufferData(
     data = zero.get();
   }
 
-  if (!bufferdata_faster_than_buffersubdata_ &&
-      size == info->size() && usage == info->usage()) {
-    glBufferSubData(target, 0, size, data);
-    info->SetRange(0, size, data);
-    return;
-  }
-
   CopyRealGLErrorsToWrapper();
   glBufferData(target, size, data, usage);
   GLenum error = PeekGLError();
   if (error == GL_NO_ERROR) {
     buffer_manager()->SetInfo(info, size, usage);
     info->SetRange(0, size, data);
+  } else {
+    buffer_manager()->SetInfo(info, 0, usage);
   }
 }
 
@@ -6932,11 +6909,6 @@ void GLES2DecoderImpl::DoBufferSubData(
   }
   if (!info->SetRange(offset, size, data)) {
     SetGLError(GL_INVALID_VALUE, "glBufferSubData", "out of range");
-    return;
-  }
-  if (bufferdata_faster_than_buffersubdata_ &&
-      offset == 0 && size == info->size()) {
-    glBufferData(target, size, data, info->usage());
     return;
   }
   glBufferSubData(target, offset, size, data);
@@ -8334,7 +8306,6 @@ error::Error GLES2DecoderImpl::HandleSwapBuffers(
       DCHECK(offscreen_saved_color_format_);
       offscreen_saved_color_texture_->AllocateStorage(
           offscreen_size_, offscreen_saved_color_format_);
-      TRACE_BACKBUFFER_MEMORY_TOTAL(this);
 
       offscreen_saved_frame_buffer_->AttachRenderTexture(
           offscreen_saved_color_texture_.get());

@@ -8,6 +8,7 @@
 
 #include "ash/display/display_controller.h"
 #include "ash/display/output_configurator_animation.h"
+#include "ash/screen_ash.h"
 #include "ash/shell.h"
 #include "base/bind.h"
 #include "base/json/json_value_converter.h"
@@ -25,6 +26,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/rect.h"
+#include "ui/gfx/screen.h"
 
 namespace chromeos {
 namespace options {
@@ -88,12 +90,9 @@ void DisplayOptionsHandler::OnDisplayRemoved(const gfx::Display& old_display) {
 }
 
 void DisplayOptionsHandler::UpdateDisplaySectionVisibility() {
-  chromeos::OutputState output_state =
-      ash::Shell::GetInstance()->output_configurator()->output_state();
-  base::FundamentalValue show_options(
-      output_state != chromeos::STATE_INVALID &&
-      output_state != chromeos::STATE_HEADLESS &&
-      output_state != chromeos::STATE_SINGLE);
+  // TODO(oshima): Temporarily disable the display options.
+  // crbug.com/152003.
+  base::FundamentalValue show_options(false);
   web_ui()->CallJavascriptFunction(
       "options.BrowserOptions.showDisplayOptions", show_options);
 }
@@ -108,6 +107,7 @@ void DisplayOptionsHandler::SendDisplayInfo() {
   base::FundamentalValue mirroring(
       output_configurator->output_state() == chromeos::STATE_DUAL_MIRROR);
 
+  int64 primary_id = gfx::Screen::GetPrimaryDisplay().id();
   base::ListValue displays;
   for (size_t i = 0; i < display_manager->GetNumDisplays(); ++i) {
     const gfx::Display* display = display_manager->GetDisplayAt(i);
@@ -118,17 +118,19 @@ void DisplayOptionsHandler::SendDisplayInfo() {
     js_display->SetDouble("y", bounds.y());
     js_display->SetDouble("width", bounds.width());
     js_display->SetDouble("height", bounds.height());
-    js_display->SetString("name", display_manager->GetDisplayNameAt(i));
+    js_display->SetString("name",
+                          display_manager->GetDisplayNameFor(*display));
+    js_display->SetBoolean("isPrimary", display->id() == primary_id);
     displays.Set(i, js_display);
   }
 
   scoped_ptr<base::Value> layout_value(base::Value::CreateNullValue());
   scoped_ptr<base::Value> offset_value(base::Value::CreateNullValue());
   if (display_manager->GetNumDisplays() > 1) {
-    const std::string& secondary_display_name =
-        display_manager->GetDisplayNameAt(1);
+    const gfx::Display secondary_display =
+        ash::ScreenAsh::GetSecondaryDisplay();
     const ash::DisplayLayout& layout =
-        display_controller->GetLayoutForDisplayName(secondary_display_name);
+        display_controller->GetLayoutForDisplay(secondary_display);
     layout_value.reset(new base::FundamentalValue(layout.position));
     offset_value.reset(new base::FundamentalValue(layout.offset));
   }

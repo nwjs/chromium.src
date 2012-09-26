@@ -2,43 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/file_path.h"
-#include "base/file_util.h"
 #include "base/message_loop.h"
-#include "base/path_service.h"
-#include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "googleurl/src/gurl.h"
-#include "grit/theme_resources.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/skia/include/core/SkBitmap.h"
-#include "ui/base/resource/resource_bundle.h"
-#include "ui/gfx/image/image_skia.h"
-#include "ui/gfx/skia_util.h"
-#include "webkit/glue/image_decoder.h"
 
 namespace {
-
-bool ImagesAreEqual(const gfx::Image& i1, const gfx::Image& i2) {
-  return gfx::BitmapsAreEqual(*i1.ToSkBitmap(), *i2.ToSkBitmap());
-}
-
-gfx::Image LoadIcon(const std::string& filename) {
-  FilePath path;
-  PathService::Get(chrome::DIR_TEST_DATA, &path);
-  path = path.AppendASCII("extensions").AppendASCII(filename);
-
-  std::string file_contents;
-  file_util::ReadFileToString(path, &file_contents);
-  const unsigned char* data =
-      reinterpret_cast<const unsigned char*>(file_contents.data());
-
-  SkBitmap bitmap;
-  webkit_glue::ImageDecoder decoder;
-  bitmap = decoder.Decode(data, file_contents.length());
-
-  return gfx::Image(bitmap);
-}
 
 class ExtensionActionTest : public testing::Test {
  public:
@@ -63,73 +32,68 @@ TEST_F(ExtensionActionTest, Title) {
   ASSERT_EQ("baz", action.GetTitle(100));
 }
 
-TEST_F(ExtensionActionTest, Icon) {
-  gfx::Image puzzle_piece =
-      ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-          IDR_EXTENSIONS_FAVICON);
-  gfx::Image icon1 = LoadIcon("icon1.png");
-  gfx::Image icon2 = LoadIcon("icon2.png");
-  ASSERT_TRUE(ImagesAreEqual(puzzle_piece, action.GetIcon(1)));
-
-  action.set_default_icon_path("the_default.png");
-  ASSERT_TRUE(ImagesAreEqual(puzzle_piece, action.GetIcon(1)))
-      << "Still returns the puzzle piece because the image isn't loaded yet.";
-  action.CacheIcon(icon2);
-  ASSERT_TRUE(ImagesAreEqual(icon2, action.GetIcon(1)));
-
-  action.SetIcon(ExtensionAction::kDefaultTabId, icon1);
-  ASSERT_TRUE(ImagesAreEqual(icon1, action.GetIcon(100)))
-      << "SetIcon(kDefaultTabId) overrides the default_icon_path.";
-
-  action.SetIcon(100, icon2);
-  ASSERT_TRUE(ImagesAreEqual(icon1, action.GetIcon(1)));
-  ASSERT_TRUE(ImagesAreEqual(icon2, action.GetIcon(100)));
-}
-
 TEST_F(ExtensionActionTest, Visibility) {
-  // Supports the icon animation.
-  MessageLoop message_loop;
-
   ASSERT_FALSE(action.GetIsVisible(1));
-  EXPECT_FALSE(action.GetIconAnimation(ExtensionAction::kDefaultTabId));
   action.SetAppearance(ExtensionAction::kDefaultTabId, ExtensionAction::ACTIVE);
   ASSERT_TRUE(action.GetIsVisible(1));
   ASSERT_TRUE(action.GetIsVisible(100));
-  EXPECT_FALSE(action.GetIconAnimation(ExtensionAction::kDefaultTabId));
 
   action.SetAppearance(ExtensionAction::kDefaultTabId,
                        ExtensionAction::INVISIBLE);
   ASSERT_FALSE(action.GetIsVisible(1));
   ASSERT_FALSE(action.GetIsVisible(100));
-  EXPECT_FALSE(action.GetIconAnimation(100));
   action.SetAppearance(100, ExtensionAction::ACTIVE);
   ASSERT_FALSE(action.GetIsVisible(1));
   ASSERT_TRUE(action.GetIsVisible(100));
-  EXPECT_TRUE(action.GetIconAnimation(100));
+  EXPECT_FALSE(action.GetIconAnimation(100))
+      << "Page actions should not animate.";
 
   action.ClearAllValuesForTab(100);
   ASSERT_FALSE(action.GetIsVisible(1));
   ASSERT_FALSE(action.GetIsVisible(100));
-  EXPECT_FALSE(action.GetIconAnimation(100));
+}
+
+TEST_F(ExtensionActionTest, ScriptBadgeAnimation) {
+  // Supports the icon animation.
+  MessageLoop message_loop;
+
+  ExtensionAction script_badge("", ExtensionAction::TYPE_SCRIPT_BADGE);
+  EXPECT_FALSE(script_badge.GetIconAnimation(ExtensionAction::kDefaultTabId));
+  script_badge.SetAppearance(ExtensionAction::kDefaultTabId,
+                             ExtensionAction::ACTIVE);
+  EXPECT_FALSE(script_badge.GetIconAnimation(ExtensionAction::kDefaultTabId))
+      << "Showing the default tab should not animate script badges.";
+
+  script_badge.SetAppearance(ExtensionAction::kDefaultTabId,
+                             ExtensionAction::INVISIBLE);
+  EXPECT_FALSE(script_badge.GetIconAnimation(1))
+      << "Making a script badge invisible should not show its animation.";
+  script_badge.SetAppearance(1, ExtensionAction::ACTIVE);
+  EXPECT_TRUE(script_badge.GetIconAnimation(1))
+      << "Making a script badge visible should show its animation.";
+
+  script_badge.ClearAllValuesForTab(1);
+  EXPECT_FALSE(script_badge.GetIconAnimation(100));
 }
 
 TEST_F(ExtensionActionTest, GetAttention) {
   // Supports the icon animation.
   scoped_ptr<MessageLoop> message_loop(new MessageLoop);
 
-  EXPECT_FALSE(action.GetIsVisible(1));
-  EXPECT_FALSE(action.GetIconAnimation(1));
-  action.SetAppearance(1, ExtensionAction::WANTS_ATTENTION);
-  EXPECT_TRUE(action.GetIsVisible(1));
-  EXPECT_TRUE(action.GetIconAnimation(1));
+  ExtensionAction script_badge("", ExtensionAction::TYPE_SCRIPT_BADGE);
+  EXPECT_FALSE(script_badge.GetIsVisible(1));
+  EXPECT_FALSE(script_badge.GetIconAnimation(1));
+  script_badge.SetAppearance(1, ExtensionAction::WANTS_ATTENTION);
+  EXPECT_TRUE(script_badge.GetIsVisible(1));
+  EXPECT_TRUE(script_badge.GetIconAnimation(1));
 
   // Simulate waiting long enough for the animation to end.
   message_loop.reset();  // Can't have 2 MessageLoops alive at once.
   message_loop.reset(new MessageLoop);
-  EXPECT_FALSE(action.GetIconAnimation(1));  // Sanity check.
+  EXPECT_FALSE(script_badge.GetIconAnimation(1));  // Sanity check.
 
-  action.SetAppearance(1, ExtensionAction::ACTIVE);
-  EXPECT_FALSE(action.GetIconAnimation(1))
+  script_badge.SetAppearance(1, ExtensionAction::ACTIVE);
+  EXPECT_FALSE(script_badge.GetIconAnimation(1))
       << "The animation should not play again if the icon was already visible.";
 }
 

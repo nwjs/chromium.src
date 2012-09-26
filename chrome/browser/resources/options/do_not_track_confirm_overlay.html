@@ -1,10 +1,13 @@
 <div id="do-not-track-confirm-overlay" class="page" hidden>
   <div class="close-button"></div>
-  <h1 i18n-content="doNotTrackConfirmTitle"></h1>
+  <h1 i18n-content="doNotTrackConfirmOverlay"></h1>
   <div class="content-area">
     <span id="do-not-track-confirm-text"
         i18n-content="doNotTrackConfirmMessage">
     </span>
+    <a target="_blank" i18n-content="learnMore"
+        i18n-values="href:doNotTrackLearnMoreURL">
+    </a>
   </div>
   <div class="action-area">
     <div class="button-strip">
@@ -13,7 +16,8 @@
       </button>
       <button id="do-not-track-confirm-cancel"
           i18n-content="doNotTrackConfirmDisable"
-          class="cancel-button"></button>
+          class="cancel-button">
+      </button>
     </div>
   </div>
 </div>

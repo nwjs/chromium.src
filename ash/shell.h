@@ -131,6 +131,7 @@ class ASH_EXPORT Shell : ash::CursorDelegate {
     aura::shared::InputMethodEventFilter* input_method_event_filter();
     internal::SystemGestureEventFilter* system_gesture_event_filter();
     internal::WorkspaceController* workspace_controller();
+    internal::ScreenPositionController* screen_position_controller();
 
    private:
     Shell* shell_;  // not owned
@@ -180,10 +181,10 @@ class ASH_EXPORT Shell : ash::CursorDelegate {
     active_root_window_ = active_root_window;
   }
 
-  // Adds or removes |filter| from the aura::Env's CompoundEventFilter.
+  // Adds or removes |filter| from the aura::Env's pre-target event-handler
+  // list.
   void AddEnvEventFilter(aura::EventFilter* filter);
   void RemoveEnvEventFilter(aura::EventFilter* filter);
-  size_t GetEnvEventFilterCount() const;
 
   // Shows the background menu over |widget|.
   void ShowBackgroundMenu(views::Widget* widget, const gfx::Point& location);
@@ -245,7 +246,7 @@ class ASH_EXPORT Shell : ash::CursorDelegate {
 #endif  // !defined(OS_MACOSX)
 
   aura::shared::CompoundEventFilter* env_filter() {
-    return env_filter_;
+    return env_filter_.get();
   }
   internal::TooltipController* tooltip_controller() {
     return tooltip_controller_.get();
@@ -349,6 +350,9 @@ class ASH_EXPORT Shell : ash::CursorDelegate {
   // Initializes the root window to be used for a secondary display.
   void InitRootWindowForSecondaryDisplay(aura::RootWindow* root);
 
+  // Starts the animation that occurs on first login.
+  void DoInitialWorkspaceAnimation();
+
 #if defined(OS_CHROMEOS)
   chromeos::OutputConfigurator* output_configurator() {
     return output_configurator_.get();
@@ -396,7 +400,7 @@ class ASH_EXPORT Shell : ash::CursorDelegate {
   aura::RootWindow* active_root_window_;
 
   // The CompoundEventFilter owned by aura::Env object.
-  aura::shared::CompoundEventFilter* env_filter_;
+  scoped_ptr<aura::shared::CompoundEventFilter> env_filter_;
 
   std::vector<WindowAndBoundsPair> to_restore_;
 

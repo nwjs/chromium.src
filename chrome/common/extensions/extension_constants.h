@@ -216,6 +216,8 @@ namespace extension_misc {
   // stored.
   extern const char kAccessExtensionPath[];
   extern const char kChromeVoxDirectoryName[];
+  // The extension id of the wallpaper manager application.
+  extern const char kWallpaperManagerId[];
 #endif
 
   // What causes an extension to be installed? Used in histograms, so don't
@@ -261,6 +263,7 @@ namespace extension_misc {
     EXTENSION_ICON_MEDIUM = 48,
     EXTENSION_ICON_SMALL = 32,
     EXTENSION_ICON_SMALLISH = 24,
+    EXTENSION_ICON_ACTION = 19,
     EXTENSION_ICON_BITTY = 16,
     EXTENSION_ICON_INVALID = 0,
   };
@@ -268,6 +271,14 @@ namespace extension_misc {
   // List of sizes for extension icons that can be defined in the manifest.
   extern const int kExtensionIconSizes[];
   extern const size_t kNumExtensionIconSizes;
+
+  // List of sizes for extension icons that can be defined in the manifest.
+  extern const int kExtensionActionIconSizes[];
+  extern const size_t kNumExtensionActionIconSizes;
+
+  // List of sizes for extension icons that can be defined in the manifest.
+  extern const int kScriptBadgeIconSizes[];
+  extern const size_t kNumScriptBadgeIconSizes;
 
 }  // extension_misc
 

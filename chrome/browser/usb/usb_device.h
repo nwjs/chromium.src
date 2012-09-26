@@ -34,9 +34,11 @@ enum UsbTransferStatus {
   USB_TRANSFER_STALLED,
   USB_TRANSFER_DISCONNECT,
   USB_TRANSFER_OVERFLOW,
+  USB_TRANSFER_LENGTH_SHORT,
 };
 
-typedef base::Callback<void(UsbTransferStatus)> UsbTransferCallback;
+typedef base::Callback<void(UsbTransferStatus, scoped_refptr<net::IOBuffer>,
+    size_t)> UsbTransferCallback;
 
 // A UsbDevice wraps the platform's underlying representation of what a USB
 // device actually is, and provides accessors for performing many of the
@@ -109,7 +111,9 @@ class UsbDevice : public base::RefCounted<UsbDevice> {
     Transfer();
     ~Transfer();
 
+    bool control_transfer;
     scoped_refptr<net::IOBuffer> buffer;
+    size_t length;
     UsbTransferCallback callback;
   };
 
@@ -119,7 +123,10 @@ class UsbDevice : public base::RefCounted<UsbDevice> {
   // Submits a transfer and starts tracking it. Retains the buffer and copies
   // the completion callback until the transfer finishes, whereupon it invokes
   // the callback then releases the buffer.
-  void SubmitTransfer(PlatformUsbTransferHandle handle, net::IOBuffer* buffer,
+  void SubmitTransfer(PlatformUsbTransferHandle handle,
+                      bool control_transfer,
+                      net::IOBuffer* buffer,
+                      const size_t length,
                       const UsbTransferCallback& callback);
 
   // The UsbService isn't referenced here to prevent a dependency cycle between

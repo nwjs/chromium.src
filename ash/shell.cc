@@ -172,13 +172,17 @@ internal::WorkspaceController* Shell::TestApi::workspace_controller() {
   return shell_->GetPrimaryRootWindowController()->workspace_controller();
 }
 
+internal::ScreenPositionController*
+    Shell::TestApi::screen_position_controller() {
+  return shell_->screen_position_controller_.get();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Shell, public:
 
 Shell::Shell(ShellDelegate* delegate)
     : screen_(new ScreenAsh),
       active_root_window_(NULL),
-      env_filter_(NULL),
       delegate_(delegate),
 #if defined(OS_CHROMEOS)
       output_configurator_(new chromeos::OutputConfigurator()),
@@ -195,8 +199,6 @@ Shell::Shell(ShellDelegate* delegate)
   output_configurator_->AddObserver(output_configurator_animation_.get());
   base::MessagePumpAuraX11::Current()->AddDispatcherForRootWindow(
       output_configurator());
-  static_cast<internal::MultiDisplayManager*>(
-      aura::Env::GetInstance()->display_manager())->InitInternalDisplayInfo();
 #endif  // defined(OS_CHROMEOS)
 }
 
@@ -238,6 +240,9 @@ Shell::~Shell() {
   // TODO(xiyuan): Move it back when app list container is no longer needed.
   app_list_controller_.reset();
 
+
+  // Closing the windows frees the workspace controller.
+  shelf_->set_workspace_controller(NULL);
   // Destroy all child windows including widgets.
   display_controller_->CloseChildWindows();
 
@@ -355,9 +360,8 @@ void Shell::Init() {
   // Launcher, and WallPaper could be created by the factory.
   views::FocusManagerFactory::Install(new AshFocusManagerFactory);
 
-  env_filter_ = new aura::shared::CompoundEventFilter;
-  // Pass ownership of the filter to the Env.
-  aura::Env::GetInstance()->SetEventFilter(env_filter_);
+  env_filter_.reset(new aura::shared::CompoundEventFilter);
+  AddEnvEventFilter(env_filter_.get());
 
   cursor_manager_.set_delegate(this);
 
@@ -381,20 +385,16 @@ void Shell::Init() {
   shell_context_menu_.reset(new internal::ShellContextMenu);
 
   // The order in which event filters are added is significant.
-  DCHECK(!GetEnvEventFilterCount());
   user_activity_detector_.reset(new UserActivityDetector);
   AddEnvEventFilter(user_activity_detector_.get());
 
-  DCHECK_EQ(1U, GetEnvEventFilterCount());
   event_rewriter_filter_.reset(new internal::EventRewriterEventFilter);
   AddEnvEventFilter(event_rewriter_filter_.get());
 
-  DCHECK_EQ(2U, GetEnvEventFilterCount());
   overlay_filter_.reset(new internal::OverlayEventFilter);
   AddEnvEventFilter(overlay_filter_.get());
   AddShellObserver(overlay_filter_.get());
 
-  DCHECK_EQ(3U, GetEnvEventFilterCount());
   input_method_filter_.reset(new aura::shared::InputMethodEventFilter());
   AddEnvEventFilter(input_method_filter_.get());
 
@@ -447,6 +447,16 @@ void Shell::Init() {
 
   InitRootWindowController(root_window_controller);
 
+  // This controller needs to be set before SetupManagedWindowMode.
+  desktop_background_controller_.reset(new DesktopBackgroundController());
+  if (delegate_.get())
+    user_wallpaper_delegate_.reset(delegate_->CreateUserWallpaperDelegate());
+  if (!user_wallpaper_delegate_.get())
+    user_wallpaper_delegate_.reset(new DummyUserWallpaperDelegate());
+
+  // Launcher must be created after secondary displays are initialized.
+  display_controller_->InitSecondaryDisplays();
+
   // StatusAreaWidget uses Shell's CapsLockDelegate.
   if (delegate_.get())
     caps_lock_delegate_.reset(delegate_->CreateCapsLockDelegate());
@@ -463,22 +473,12 @@ void Shell::Init() {
   focus_cycler_.reset(new internal::FocusCycler());
   focus_cycler_->AddWidget(status_area_widget_);
 
-  // This controller needs to be set before SetupManagedWindowMode.
-  desktop_background_controller_.reset(new DesktopBackgroundController());
-  if (delegate_.get())
-    user_wallpaper_delegate_.reset(delegate_->CreateUserWallpaperDelegate());
-  if (!user_wallpaper_delegate_.get())
-    user_wallpaper_delegate_.reset(new DummyUserWallpaperDelegate());
-
   InitLayoutManagersForPrimaryDisplay(root_window_controller);
 
   if (!command_line->HasSwitch(switches::kAuraNoShadows)) {
     resize_shadow_controller_.reset(new internal::ResizeShadowController());
     shadow_controller_.reset(new internal::ShadowController());
   }
-
-  // Launcher must be created after secondary displays are initialized.
-  display_controller_->InitSecondaryDisplays();
 
   if (!delegate_.get() || delegate_->IsUserLoggedIn())
     CreateLauncher();
@@ -500,15 +500,11 @@ void Shell::Init() {
 }
 
 void Shell::AddEnvEventFilter(aura::EventFilter* filter) {
-  env_filter_->AddFilter(filter);
+  aura::Env::GetInstance()->AddPreTargetHandler(filter);
 }
 
 void Shell::RemoveEnvEventFilter(aura::EventFilter* filter) {
-  env_filter_->RemoveFilter(filter);
-}
-
-size_t Shell::GetEnvEventFilterCount() const {
-  return env_filter_->GetFilterCount();
+  aura::Env::GetInstance()->RemovePreTargetHandler(filter);
 }
 
 void Shell::ShowBackgroundMenu(views::Widget* widget,
@@ -581,6 +577,7 @@ void Shell::SetDisplayWorkAreaInsets(Window* contains,
 
 void Shell::OnLoginStateChanged(user::LoginStatus status) {
   FOR_EACH_OBSERVER(ShellObserver, observers_, OnLoginStateChanged(status));
+  ash::Shell::GetInstance()->UpdateShelfVisibility();
 }
 
 void Shell::OnAppTerminating() {
@@ -672,6 +669,11 @@ void Shell::InitRootWindowForSecondaryDisplay(aura::RootWindow* root) {
   root->ShowRootWindow();
   // Activate new root for testing.
   active_root_window_ = root;
+}
+
+void Shell::DoInitialWorkspaceAnimation() {
+  return GetPrimaryRootWindowController()->workspace_controller()->
+      DoInitialAnimation();
 }
 
 void Shell::InitRootWindowController(

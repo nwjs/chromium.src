@@ -629,8 +629,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
     return !omnibox_keyword().empty() ||
            browser_action() ||
            (page_action() &&
-               (page_action_command() ||
-                !page_action()->default_icon_path().empty()));
+               (page_action_command() || page_action()->default_icon()));
   }
   const FileBrowserHandlerList* file_browser_handlers() const {
     return file_browser_handlers_.get();
@@ -1143,6 +1142,9 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   // containers like panels and windows.
   int launch_width_;
   int launch_height_;
+
+  // Should this app be shown in a launcher.
+  bool display_in_launcher_;
 
   // The Omnibox keyword for this extension, or empty if there is none.
   std::string omnibox_keyword_;

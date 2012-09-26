@@ -25,12 +25,23 @@ const char kHTMLForBrowserPluginObject[] =
   "<object id='browserplugin' width='640px' height='480px'"
   "  src='foo' type='%s'>";
 
+const char kHTMLForSourcelessPluginObject[] =
+  "<object id='browserplugin' width='640px' height='480px' type='%s'>";
+
+const char kHTMLForPartitionedPluginObject[] =
+  "<object id='browserplugin' width='640px' height='480px'"
+  "  src='foo' type='%s' partition='someid'>";
+
+const char kHTMLForPartitionedPersistedPluginObject[] =
+  "<object id='browserplugin' width='640px' height='480px'"
+  "  src='foo' type='%s' partition='persist:someid'>";
+
 std::string GetHTMLForBrowserPluginObject() {
   return StringPrintf(kHTMLForBrowserPluginObject,
                       content::kBrowserPluginNewMimeType);
 }
 
-}
+}  // namespace
 
 namespace content {
 
@@ -62,6 +73,16 @@ std::string BrowserPluginTest::ExecuteScriptAndReturnString(
   scoped_array<char> str(new char[length]);
   v8_str->WriteUtf8(str.get(), length);
   return str.get();
+}
+
+int BrowserPluginTest::ExecuteScriptAndReturnInt(
+    const std::string& script) {
+  v8::Handle<v8::Value>  value = GetMainFrame()->executeScriptAndReturnValue(
+      WebKit::WebScriptSource(WebKit::WebString::fromUTF8(script.c_str())));
+  if (value.IsEmpty() || !value->IsInt32())
+    return 0;
+
+  return value->Int32Value();
 }
 
 // This test verifies that an initial resize occurs when we instantiate the
@@ -114,39 +135,43 @@ TEST_F(BrowserPluginTest, SrcAttribute) {
   {
     const IPC::Message* msg =
     browser_plugin_manager()->sink().GetUniqueMessageMatching(
-        BrowserPluginHostMsg_NavigateOrCreateGuest::ID);
+        BrowserPluginHostMsg_NavigateGuest::ID);
     ASSERT_TRUE(msg);
 
     int instance_id;
     long long frame_id;
     std::string src;
-    BrowserPluginHostMsg_NavigateOrCreateGuest::Read(
+    gfx::Size size;
+    BrowserPluginHostMsg_NavigateGuest::Read(
         msg,
         &instance_id,
         &frame_id,
-        &src);
+        &src,
+        &size);
     EXPECT_EQ("foo", src);
   }
 
   browser_plugin_manager()->sink().ClearMessages();
   // Navigate to bar and observe the associated
-  // BrowserPluginHostMsg_NavigateOrCreateGuest message.
+  // BrowserPluginHostMsg_NavigateGuest message.
   // Verify that the src attribute is updated as well.
   ExecuteJavaScript("document.getElementById('browserplugin').src = 'bar'");
   {
     const IPC::Message* msg =
       browser_plugin_manager()->sink().GetUniqueMessageMatching(
-          BrowserPluginHostMsg_NavigateOrCreateGuest::ID);
+          BrowserPluginHostMsg_NavigateGuest::ID);
     ASSERT_TRUE(msg);
 
     int instance_id;
     long long frame_id;
     std::string src;
-    BrowserPluginHostMsg_NavigateOrCreateGuest::Read(
+    gfx::Size size;
+    BrowserPluginHostMsg_NavigateGuest::Read(
         msg,
         &instance_id,
         &frame_id,
-        &src);
+        &src,
+        &size);
     EXPECT_EQ("bar", src);
     std::string src_value =
         ExecuteScriptAndReturnString(
@@ -289,6 +314,8 @@ TEST_F(BrowserPluginTest, CustomEvents) {
   const char* kRemoveEventListener =
     "document.getElementById('browserplugin')."
     "    removeEventListener('navigation', nav);";
+  const char* kGetProcessID =
+      "document.getElementById('browserplugin').getProcessId()";
   const char* kGoogleURL = "http://www.google.com/";
   const char* kGoogleNewsURL = "http://news.google.com/";
 
@@ -309,14 +336,134 @@ TEST_F(BrowserPluginTest, CustomEvents) {
           browser_plugin_manager()->GetBrowserPlugin(instance_id));
   ASSERT_TRUE(browser_plugin);
 
-  browser_plugin->DidNavigate(GURL(kGoogleURL));
+  browser_plugin->DidNavigate(GURL(kGoogleURL), 1337);
   EXPECT_EQ(kGoogleURL, ExecuteScriptAndReturnString("url"));
+  EXPECT_EQ(1337, ExecuteScriptAndReturnInt(kGetProcessID));
 
   ExecuteJavaScript(kRemoveEventListener);
-  browser_plugin->DidNavigate(GURL(kGoogleNewsURL));
+  browser_plugin->DidNavigate(GURL(kGoogleNewsURL), 42);
   // The URL variable should not change because we've removed the event
   // listener.
   EXPECT_EQ(kGoogleURL, ExecuteScriptAndReturnString("url"));
+  EXPECT_EQ(42, ExecuteScriptAndReturnInt(kGetProcessID));
+}
+
+TEST_F(BrowserPluginTest, StopMethod) {
+  const char* kCallStop =
+    "document.getElementById('browserplugin').stop();";
+  LoadHTML(GetHTMLForBrowserPluginObject().c_str());
+  ExecuteJavaScript(kCallStop);
+  EXPECT_TRUE(browser_plugin_manager()->sink().GetUniqueMessageMatching(
+      BrowserPluginHostMsg_Stop::ID));
+}
+
+TEST_F(BrowserPluginTest, ReloadMethod) {
+  const char* kCallReload =
+    "document.getElementById('browserplugin').reload();";
+  LoadHTML(GetHTMLForBrowserPluginObject().c_str());
+  ExecuteJavaScript(kCallReload);
+  EXPECT_TRUE(browser_plugin_manager()->sink().GetUniqueMessageMatching(
+      BrowserPluginHostMsg_Reload::ID));
+}
+
+
+// Verify that the 'partition' attribute on the browser plugin is parsed
+// correctly.
+TEST_F(BrowserPluginTest, PartitionAttribute) {
+  std::string html = StringPrintf(kHTMLForPartitionedPluginObject,
+                                  content::kBrowserPluginNewMimeType);
+  LoadHTML(html.c_str());
+  std::string partition_value = ExecuteScriptAndReturnString(
+      "document.getElementById('browserplugin').partition");
+  EXPECT_STREQ("someid", partition_value.c_str());
+
+  html = StringPrintf(kHTMLForPartitionedPersistedPluginObject,
+                      content::kBrowserPluginNewMimeType);
+  LoadHTML(html.c_str());
+  partition_value = ExecuteScriptAndReturnString(
+      "document.getElementById('browserplugin').partition");
+  EXPECT_STREQ("persist:someid", partition_value.c_str());
+
+  // Verify that once HTML has defined a source and partition, we cannot change
+  // the partition anymore.
+  ExecuteJavaScript(
+      "try {"
+      "  document.getElementById('browserplugin').partition = 'foo';"
+      "  document.title = 'success';"
+      "} catch (e) { document.title = e.message; }");
+  std::string title = ExecuteScriptAndReturnString("document.title");
+  EXPECT_STREQ(
+      "The object has already navigated, so its partition cannot be changed.",
+      title.c_str());
+
+  // Load a browser tag without 'src' defined.
+  html = StringPrintf(kHTMLForSourcelessPluginObject,
+                      content::kBrowserPluginNewMimeType);
+  LoadHTML(html.c_str());
+
+  // Ensure we don't parse just "persist:" string and return exception.
+  ExecuteJavaScript(
+      "try {"
+      "  document.getElementById('browserplugin').partition = 'persist:';"
+      "  document.title = 'success';"
+      "} catch (e) { document.title = e.message; }");
+  title = ExecuteScriptAndReturnString("document.title");
+  EXPECT_STREQ("Invalid empty partition attribute.", title.c_str());
+}
+
+// Test to verify that after the first navigation, the partition attribute
+// cannot be modified.
+TEST_F(BrowserPluginTest, ImmutableAttributesAfterNavigation) {
+  std::string html = StringPrintf(kHTMLForSourcelessPluginObject,
+                                  content::kBrowserPluginNewMimeType);
+  LoadHTML(html.c_str());
+
+  ExecuteJavaScript(
+      "document.getElementById('browserplugin').partition = 'storage'");
+  std::string partition_value = ExecuteScriptAndReturnString(
+      "document.getElementById('browserplugin').partition");
+  EXPECT_STREQ("storage", partition_value.c_str());
+
+  std::string src_value = ExecuteScriptAndReturnString(
+      "document.getElementById('browserplugin').src");
+  EXPECT_STREQ("", src_value.c_str());
+
+  ExecuteJavaScript("document.getElementById('browserplugin').src = 'bar'");
+  {
+    const IPC::Message* msg =
+        browser_plugin_manager()->sink().GetUniqueMessageMatching(
+            BrowserPluginHostMsg_NavigateGuest::ID);
+    ASSERT_TRUE(msg);
+
+    int instance_id;
+    long long frame_id;
+    std::string src;
+    gfx::Size size;
+    BrowserPluginHostMsg_NavigateGuest::Read(
+        msg,
+        &instance_id,
+        &frame_id,
+        &src,
+        &size);
+    EXPECT_STREQ("bar", src.c_str());
+  }
+
+  // Setting the partition should throw an exception and the value should not
+  // change.
+  ExecuteJavaScript(
+      "try {"
+      "  document.getElementById('browserplugin').partition = 'someid';"
+      "  document.title = 'success';"
+      "} catch (e) { document.title = e.message; }");
+
+  std::string title = ExecuteScriptAndReturnString("document.title");
+  EXPECT_STREQ(
+      "The object has already navigated, so its partition cannot be changed.",
+      title.c_str());
+
+  partition_value = ExecuteScriptAndReturnString(
+      "document.getElementById('browserplugin').partition");
+  EXPECT_STREQ("storage", partition_value.c_str());
 }
 
 }  // namespace content

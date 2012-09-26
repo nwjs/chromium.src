@@ -24,8 +24,11 @@
 
 struct WebMenuItem;
 
+namespace ui {
+class WindowAndroid;
+}
+
 namespace content {
-class ContentViewClient;
 class RenderWidgetHostViewAndroid;
 
 // TODO(jrg): this is a shell.  Upstream the rest.
@@ -35,11 +38,17 @@ class ContentViewCoreImpl : public ContentViewCore,
   ContentViewCoreImpl(JNIEnv* env,
                       jobject obj,
                       bool hardware_accelerated,
-                      bool take_ownership_of_web_contents,
-                      WebContents* web_contents);
+                      WebContents* web_contents,
+                      ui::WindowAndroid* window_android);
 
-  // ContentViewCore overrides
+  // ContentViewCore implementation.
   virtual void Destroy(JNIEnv* env, jobject obj) OVERRIDE;
+  virtual base::android::ScopedJavaLocalRef<jobject> GetJavaObject() OVERRIDE;
+  virtual WebContents* GetWebContents() const OVERRIDE;
+  virtual ui::WindowAndroid* GetWindowAndroid() OVERRIDE;
+  virtual void LoadUrl(NavigationController::LoadURLParams& params) OVERRIDE;
+  virtual void OnWebPreferencesUpdated() OVERRIDE;
+  virtual jint GetCurrentRenderProcessId(JNIEnv* env, jobject obj) OVERRIDE;
 
   // --------------------------------------------------------------------------
   // Methods called from Java via JNI
@@ -103,9 +112,9 @@ class ContentViewCoreImpl : public ContentViewCore,
                jint x,
                jint y,
                jfloat delta);
-  virtual void SelectBetweenCoordinates(JNIEnv* env, jobject obj,
+  void SelectBetweenCoordinates(JNIEnv* env, jobject obj,
                                         jint x1, jint y1,
-                                        jint x2, jint y2) OVERRIDE;
+                                        jint x2, jint y2);
   jboolean CanGoBack(JNIEnv* env, jobject obj);
   jboolean CanGoForward(JNIEnv* env, jobject obj);
   jboolean CanGoToOffset(JNIEnv* env, jobject obj, jint offset);
@@ -116,10 +125,8 @@ class ContentViewCoreImpl : public ContentViewCore,
   void Reload(JNIEnv* env, jobject obj);
   jboolean NeedsReload(JNIEnv* env, jobject obj);
   void ClearHistory(JNIEnv* env, jobject obj);
-  void SetClient(JNIEnv* env, jobject obj, jobject jclient);
   jint EvaluateJavaScript(JNIEnv* env, jobject obj, jstring script);
-  virtual int GetNativeImeAdapter(JNIEnv* env, jobject obj) OVERRIDE;
-  virtual base::android::ScopedJavaLocalRef<jobject> GetJavaObject() OVERRIDE;
+  int GetNativeImeAdapter(JNIEnv* env, jobject obj);
   void AddJavascriptInterface(JNIEnv* env,
                               jobject obj,
                               jobject object,
@@ -141,6 +148,8 @@ class ContentViewCoreImpl : public ContentViewCore,
                            bool multiple);
 
   void OnTabCrashed(const base::ProcessHandle handle);
+  void UpdateContentSize(int width, int height);
+  void UpdateScrollOffsetAndPageScaleFactor(int x, int y, float scale);
   void ImeUpdateAdapter(int native_ime_adapter, int text_input_type,
                         const std::string& text,
                         int selection_start, int selection_end,
@@ -169,10 +178,6 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   gfx::Rect GetBounds() const;
 
-  WebContents* web_contents() const { return web_contents_; }
-
-  virtual void LoadUrl(NavigationController::LoadURLParams& params) OVERRIDE;
-
  private:
   // NotificationObserver implementation.
   virtual void Observe(int type,
@@ -189,6 +194,8 @@ class ContentViewCoreImpl : public ContentViewCore,
   // --------------------------------------------------------------------------
 
   void InitJNI(JNIEnv* env, jobject obj);
+
+  void InitWebContents(content::WebContents* web_contents);
 
   RenderWidgetHostViewAndroid* GetRenderWidgetHostViewAndroid();
 
@@ -208,13 +215,12 @@ class ContentViewCoreImpl : public ContentViewCore,
   // Reference to the current WebContents used to determine how and what to
   // display in the ContentViewCore.
   WebContentsImpl* web_contents_;
-  bool owns_web_contents_;
-
-  // We only set this to be the delegate of the web_contents if we own it.
-  scoped_ptr<ContentViewClient> content_view_client_;
 
   // Whether the renderer backing this ContentViewCore has crashed.
   bool tab_crashed_;
+
+  // The owning window that has a hold of main application activity.
+  ui::WindowAndroid* window_android_;
 
   DISALLOW_COPY_AND_ASSIGN(ContentViewCoreImpl);
 };

@@ -12,6 +12,7 @@
 #include "ash/wm/activation_controller.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/shelf_layout_manager.h"
+#include "ash/wm/window_properties.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace/workspace2.h"
 #include "ash/wm/workspace_controller_test_helper.h"
@@ -20,6 +21,8 @@
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/test/event_generator.h"
+#include "ui/aura/test/test_window_delegate.h"
+#include "ui/aura/test/test_windows.h"
 #include "ui/aura/window.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/compositor/layer.h"
@@ -458,6 +461,7 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
   scoped_ptr<Window> w1(CreateTestWindow());
   const gfx::Rect w1_bounds(0, 1, 101, 102);
   ShelfLayoutManager* shelf = Shell::GetInstance()->shelf();
+  shelf->SetAutoHideBehavior(ash::SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
   const gfx::Rect touches_shelf_bounds(
       0, shelf->GetIdealBounds().y() - 10, 101, 102);
   // Move |w1| to overlap the shelf.
@@ -480,7 +484,7 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
   w1->Show();
   wm::ActivateWindow(w1.get());
 
-  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
 
   // Maximize the window.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
@@ -489,7 +493,7 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
 
   // Restore.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
-  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
 
   // Fullscreen.
@@ -498,7 +502,7 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
 
   // Normal.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
-  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
   EXPECT_FALSE(GetWindowOverlapsShelf());
 
@@ -517,20 +521,20 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
 
   // Minimize.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MINIMIZED);
-  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
 
   // Since the restore from minimize will restore to the pre-minimize
   // state (tested elsewhere), we abandon the current size and restore
   // rect and set them to the window.
   gfx::Rect restore = *GetRestoreBoundsInScreen(w1.get());
-  EXPECT_EQ("0,0 800x598", w1->bounds().ToString());
+  EXPECT_EQ("0,0 800x597", w1->bounds().ToString());
   EXPECT_EQ("0,1 101x102", restore.ToString());
   ClearRestoreBounds(w1.get());
   w1->SetBounds(restore);
 
   // Restore.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
-  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
 
   // Create another window, maximized.
@@ -547,7 +551,7 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
   // Switch to w1.
   wm::ActivateWindow(w1.get());
   EXPECT_EQ(0, active_index());
-  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
   EXPECT_EQ(ScreenAsh::GetMaximizedWindowBoundsInParent(
                 w2->parent()).ToString(),
@@ -952,6 +956,85 @@ TEST_F(WorkspaceManager2Test, FocusOnFullscreenInSeparateWorkspace) {
   EXPECT_TRUE(w2->IsVisible());
   EXPECT_TRUE(wm::IsActiveWindow(w2.get()));
   EXPECT_FALSE(w1->IsVisible());
+}
+
+namespace {
+
+// WindowDelegate used by DontCrashOnChangeAndActivate.
+class DontCrashOnChangeAndActivateDelegate
+    : public aura::test::TestWindowDelegate {
+ public:
+  DontCrashOnChangeAndActivateDelegate() : window_(NULL) {}
+
+  void set_window(aura::Window* window) { window_ = window; }
+
+  // WindowDelegate overrides:
+  virtual void OnBoundsChanged(const gfx::Rect& old_bounds,
+                               const gfx::Rect& new_bounds) OVERRIDE {
+    if (window_) {
+      wm::ActivateWindow(window_);
+      window_ = NULL;
+    }
+  }
+
+ private:
+  aura::Window* window_;
+
+  DISALLOW_COPY_AND_ASSIGN(DontCrashOnChangeAndActivateDelegate);
+};
+
+}  // namespace
+
+// Exercises possible crash in W2. Here's the sequence:
+// . minimize a maximized window.
+// . remove the window (which happens when switching displays).
+// . add the window back.
+// . show the window and during the bounds change activate it.
+TEST_F(WorkspaceManager2Test, DontCrashOnChangeAndActivate) {
+  // Force the shelf
+  ShelfLayoutManager* shelf = Shell::GetInstance()->shelf();
+  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
+
+  DontCrashOnChangeAndActivateDelegate delegate;
+  scoped_ptr<Window> w1(
+      CreateTestWindowWithDelegate(&delegate, 1000, gfx::Rect(10, 11, 250, 251),
+                                   NULL));
+  w1->Show();
+  wm::ActivateWindow(w1.get());
+  wm::MaximizeWindow(w1.get());
+  wm::MinimizeWindow(w1.get());
+
+  w1->parent()->RemoveChild(w1.get());
+
+  // Do this so that when we Show() the window a resize occurs and we make the
+  // window active.
+  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
+
+  w1->SetParent(NULL);
+  delegate.set_window(w1.get());
+  w1->Show();
+}
+
+// Verifies a window with a transient parent not managed by workspace works.
+TEST_F(WorkspaceManager2Test, TransientParent) {
+  // Normal window with no transient parent.
+  scoped_ptr<Window> w2(CreateTestWindow());
+  w2->SetBounds(gfx::Rect(10, 11, 250, 251));
+  w2->Show();
+  wm::ActivateWindow(w2.get());
+
+  // Window with a transient parent. We set the transient parent to the root,
+  // which would never happen but is enough to exercise the bug.
+  scoped_ptr<Window> w1(CreateTestWindowUnparented());
+  Shell::GetInstance()->GetPrimaryRootWindow()->AddTransientChild(w1.get());
+  w1->SetBounds(gfx::Rect(10, 11, 250, 251));
+  w1->SetParent(NULL);
+  w1->Show();
+  wm::ActivateWindow(w1.get());
+
+  // The window with the transient parent should get added to the same parent as
+  // the normal window.
+  EXPECT_EQ(w2->parent(), w1->parent());
 }
 
 }  // namespace internal

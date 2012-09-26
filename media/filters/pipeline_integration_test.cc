@@ -363,7 +363,7 @@ TEST_F(PipelineIntegrationTest, BasicPlayback_16x9AspectRatio) {
 }
 
 TEST_F(PipelineIntegrationTest, EncryptedPlayback) {
-  MockMediaSource source("bear-320x240-encrypted.webm", kWebM, 220788);
+  MockMediaSource source("bear-320x240-encrypted.webm", kWebM, 219816);
   FakeDecryptorClient encrypted_media;
   StartPipelineWithEncryptedMedia(&source, &encrypted_media);
 

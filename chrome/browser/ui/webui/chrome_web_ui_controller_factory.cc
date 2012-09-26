@@ -39,7 +39,7 @@
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox_ui.h"
 #include "chrome/browser/ui/webui/options/options_ui.h"
-#include "chrome/browser/ui/webui/performance_monitor/web_ui.h"
+#include "chrome/browser/ui/webui/performance_monitor/performance_monitor_ui.h"
 #include "chrome/browser/ui/webui/plugins_ui.h"
 #include "chrome/browser/ui/webui/policy_ui.h"
 #include "chrome/browser/ui/webui/predictors/predictors_ui.h"
@@ -51,6 +51,7 @@
 #include "chrome/browser/ui/webui/task_manager/task_manager_ui.h"
 #include "chrome/browser/ui/webui/test_chrome_web_ui_controller_factory.h"
 #include "chrome/browser/ui/webui/tracing_ui.h"
+#include "chrome/browser/ui/webui/version_ui.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_switch_utils.h"
@@ -222,6 +223,8 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return &NewWebUI<SyncInternalsUI>;
   if (url.host() == chrome::kChromeUISyncResourcesHost)
     return &NewWebUI<WebDialogUI>;
+  if (url.host() == chrome::kChromeUIVersionHost)
+    return &NewWebUI<VersionUI>;
 
   /****************************************************************************
    * OS Specific #defines
@@ -263,7 +266,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return &NewWebUI<InspectUI>;
   // Performance monitoring page is not on Android for now.
   if (url.host() == chrome::kChromeUIPerformanceMonitorHost)
-    return &NewWebUI<performance_monitor::WebUI>;
+    return &NewWebUI<performance_monitor::PerformanceMonitorUI>;
   // Android does not support plugins for now.
   if (url.host() == chrome::kChromeUIPluginsHost)
     return &NewWebUI<PluginsUI>;
@@ -362,8 +365,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
       url.host() == chrome::kChromeUIMemoryHost ||
       url.host() == chrome::kChromeUIMemoryRedirectHost ||
       url.host() == chrome::kChromeUIStatsHost ||
-      url.host() == chrome::kChromeUITermsHost ||
-      url.host() == chrome::kChromeUIVersionHost
+      url.host() == chrome::kChromeUITermsHost
 #if defined(OS_LINUX) || defined(OS_OPENBSD)
       || url.host() == chrome::kChromeUILinuxProxyConfigHost
       || url.host() == chrome::kChromeUISandboxHost

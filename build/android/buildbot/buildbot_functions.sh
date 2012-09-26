@@ -10,10 +10,6 @@
 # Number of jobs on the compile line; e.g.  make -j"${JOBS}"
 JOBS="${JOBS:-4}"
 
-# Clobber build?  Overridden by bots with BUILDBOT_CLOBBER.
-NEED_CLOBBER="${NEED_CLOBBER:-0}"
-
-
 # Parse named arguments passed into the annotator script
 # and assign them global variable names.
 function bb_parse_args {
@@ -50,25 +46,12 @@ function bb_run_gclient_hooks {
 #   $1: source root.
 #   $2 and beyond: key value pairs which are parsed by bb_parse_args.
 function bb_baseline_setup {
-  echo "@@@BUILD_STEP Environment setup@@@"
   SRC_ROOT="$1"
   # Remove SRC_ROOT param
   shift
-
-  bb_parse_args "$@"
-
   cd $SRC_ROOT
-  if [ ! "$BUILDBOT_CLOBBER" = "" ]; then
-    NEED_CLOBBER=1
-  fi
 
-
-  local BUILDTOOL=$(bb_get_json_prop "$FACTORY_PROPERTIES" buildtool)
-  if [[ $BUILDTOOL = ninja ]]; then
-    export GYP_GENERATORS=ninja
-  fi
-
-  if [ "$NEED_CLOBBER" -eq 1 ]; then
+  if [[ $BUILDBOT_CLOBBER ]]; then
     echo "@@@BUILD_STEP Clobber@@@"
     # Sdk key expires, delete android folder.
     # crbug.com/145860
@@ -80,10 +63,21 @@ function bb_baseline_setup {
     fi
   fi
 
+  echo "@@@BUILD_STEP Environment setup@@@"
+  bb_parse_args "$@"
+
+  local BUILDTOOL=$(bb_get_json_prop "$FACTORY_PROPERTIES" buildtool)
+  if [[ $BUILDTOOL = ninja ]]; then
+    export GYP_GENERATORS=ninja
+  fi
   bb_setup_goma_internal
   . build/android/envsetup.sh
-  export GYP_DEFINES+=" fastbuild=1"
-
+  local extra_gyp_defines="$(bb_get_json_prop "$FACTORY_PROPERTIES" \
+     extra_gyp_defines)"
+  export GYP_DEFINES+=" fastbuild=1 $extra_gyp_defines"
+  if echo $extra_gyp_defines | grep -q clang; then
+    unset CXX_target
+  fi
   # Should be called only after envsetup is done.
   bb_run_gclient_hooks
 }
@@ -98,7 +92,7 @@ function bb_setup_goma_internal {
 
   echo "Killing old goma processes"
   ${GOMA_DIR}/goma_ctl.sh stop || true
-  killall compiler_proxy || true
+  killall -9 compiler_proxy || true
 
   echo "Starting goma"
   ${GOMA_DIR}/goma_ctl.sh start
@@ -196,17 +190,21 @@ function bb_run_tests_emulator {
   build/android/run_tests.py -e --xvfb --verbose
 }
 
-# Run tests on an actual device.  (Better have one plugged in!)
-function bb_run_unit_tests {
+function bb_spawn_logcat_monitor_and_status {
   python build/android/device_status_check.py
-  local LOGCAT_DUMP_DIR="$CHROME_SRC/out/logcat"
+  LOGCAT_DUMP_DIR="$CHROME_SRC/out/logcat"
   rm -rf "$LOGCAT_DUMP_DIR"
   python build/android/adb_logcat_monitor.py "$LOGCAT_DUMP_DIR" &
+}
 
-  build/android/run_tests.py --xvfb --verbose
-
+function bb_print_logcat {
   echo "@@@BUILD_STEP Logcat dump@@@"
   python build/android/adb_logcat_printer.py "$LOGCAT_DUMP_DIR"
+}
+
+# Run tests on an actual device.  (Better have one plugged in!)
+function bb_run_unit_tests {
+  build/android/run_tests.py --xvfb --verbose
 }
 
 # Run instrumentation test.
@@ -225,7 +223,7 @@ function bb_run_instrumentation_test {
 # Run content shell instrumentation test on device.
 function bb_run_instrumentation_tests {
   build/android/adb_install_content_shell
-  local TEST_APK="content_shell_test/ContentShellTest-debug"
+  local TEST_APK="ContentShellTest"
   # Use -I to install the test apk only on the first run.
   # TODO(bulach): remove the second once we have a Smoke test.
   bb_run_instrumentation_test ${TEST_APK} "-I -A Smoke"
@@ -294,11 +292,10 @@ function bb_check_webview_licenses {
   set +e
   cd "${SRC_ROOT}"
   python android_webview/tools/webview_licenses.py scan
-  local license_exit_code=$?
-  if [[ license_exit_code -ne 0 ]]; then
+  if [[ $? -ne 0 ]]; then
     echo "@@@STEP_FAILURE@@@"
   fi
-  return $license_exit_code
+  return 0
   )
 }
 
@@ -307,5 +304,5 @@ function bb_get_json_prop {
   local JSON="$1"
   local PROP="$2"
 
-  python -c "import json; print json.loads('$JSON').get('$PROP')"
+  python -c "import json; print json.loads('$JSON').get('$PROP', '')"
 }

@@ -37,6 +37,8 @@
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
+#include "ui/aura/window_tracker.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/events/event.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/base/hit_test.h"
@@ -48,6 +50,10 @@
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/skia_util.h"
+
+#if defined(OS_WIN)
+#include "ui/base/win/hidden_window.h"
+#endif
 
 using WebKit::WebScreenInfo;
 using WebKit::WebTouchEvent;
@@ -69,6 +75,41 @@ const int kMouseLockBorderPercentage = 15;
 // length of time that we should delay further UI resizes while waiting for a
 // resized frame from a renderer.
 const int kResizeLockTimeoutMs = 67;
+
+#if defined(OS_WIN)
+// Used to associate a plugin HWND with its RenderWidgetHostViewAura instance.
+const wchar_t kWidgetOwnerProperty[] = L"RenderWidgetHostViewAuraOwner";
+
+BOOL CALLBACK WindowDestroyingCallback(HWND window, LPARAM param) {
+  RenderWidgetHostViewAura* widget =
+      reinterpret_cast<RenderWidgetHostViewAura*>(param);
+  if (GetProp(window, kWidgetOwnerProperty) == widget) {
+    // Properties set on HWNDs must be removed to avoid leaks.
+    RemoveProp(window, kWidgetOwnerProperty);
+    RenderWidgetHostViewBase::DetachPluginWindowsCallback(window);
+  }
+  return TRUE;
+}
+
+BOOL CALLBACK HideWindowsCallback(HWND window, LPARAM param) {
+  RenderWidgetHostViewAura* widget =
+      reinterpret_cast<RenderWidgetHostViewAura*>(param);
+  if (GetProp(window, kWidgetOwnerProperty) == widget)
+    SetParent(window, ui::GetHiddenWindow());
+  return TRUE;
+}
+
+BOOL CALLBACK ShowWindowsCallback(HWND window, LPARAM param) {
+  RenderWidgetHostViewAura* widget =
+      reinterpret_cast<RenderWidgetHostViewAura*>(param);
+
+  HWND parent =
+      widget->GetNativeView()->GetRootWindow()->GetAcceleratedWidget();
+  if (GetProp(window, kWidgetOwnerProperty) == widget)
+    SetParent(window, parent);
+  return TRUE;
+}
+#endif
 
 ui::TouchStatus DecideTouchStatus(const WebKit::WebTouchEvent& event,
                                   WebKit::WebTouchPoint* point) {
@@ -152,7 +193,7 @@ class RenderWidgetHostViewAura::WindowObserver : public aura::WindowObserver {
   explicit WindowObserver(RenderWidgetHostViewAura* view) : view_(view) {}
   virtual ~WindowObserver() {}
 
-    // Overridden from aura::WindowObserver:
+  // Overridden from aura::WindowObserver:
   virtual void OnWindowRemovingFromRootWindow(aura::Window* window) OVERRIDE {
     view_->RemovingFromRootWindow();
   }
@@ -222,6 +263,7 @@ RenderWidgetHostViewAura::RenderWidgetHostViewAura(RenderWidgetHost* host)
       text_input_type_(ui::TEXT_INPUT_TYPE_NONE),
       can_compose_inline_(true),
       has_composition_text_(false),
+      device_scale_factor_(1.0f),
       current_surface_(0),
       current_surface_is_protected_(true),
       current_surface_in_use_by_compositor_(true),
@@ -282,6 +324,10 @@ void RenderWidgetHostViewAura::InitAsFullscreen(
   if (reference_host_view) {
     aura::Window* reference_window =
         static_cast<RenderWidgetHostViewAura*>(reference_host_view)->window_;
+    if (reference_window) {
+      host_tracker_.reset(new aura::WindowTracker);
+      host_tracker_->Add(reference_window);
+    }
     gfx::Display display =
         gfx::Screen::GetDisplayNearestWindow(reference_window);
     aura::client::StackingClient* stacking_client =
@@ -309,6 +355,11 @@ void RenderWidgetHostViewAura::WasShown() {
   }
 
   AdjustSurfaceProtection();
+
+#if defined(OS_WIN)
+  LPARAM lparam = reinterpret_cast<LPARAM>(this);
+  EnumChildWindows(ui::GetHiddenWindow(), ShowWindowsCallback, lparam);
+#endif
 }
 
 void RenderWidgetHostViewAura::WasHidden() {
@@ -325,6 +376,13 @@ void RenderWidgetHostViewAura::WasHidden() {
   }
 
   AdjustSurfaceProtection();
+
+#if defined(OS_WIN)
+  HWND parent = window_->GetRootWindow()->GetAcceleratedWidget();
+  LPARAM lparam = reinterpret_cast<LPARAM>(this);
+
+  EnumChildWindows(parent, HideWindowsCallback, lparam);
+#endif
 }
 
 void RenderWidgetHostViewAura::SetSize(const gfx::Size& size) {
@@ -391,6 +449,18 @@ void RenderWidgetHostViewAura::MovePluginWindows(
     moves[i].window_rect.Offset(view_bounds.origin());
   }
   MovePluginWindowsHelper(parent, moves);
+
+  // Make sure each plugin window (or its wrapper if it exists) has a pointer to
+  // |this|.
+  for (size_t i = 0; i < moves.size(); ++i) {
+    HWND window = moves[i].window;
+    if (GetParent(window) != parent) {
+      window = GetParent(window);
+      DCHECK(GetParent(window) == parent);
+    }
+    if (!GetProp(window, kWidgetOwnerProperty))
+      CHECK(SetProp(window, kWidgetOwnerProperty, this));
+  }
 #endif  // defined(OS_WIN)
 }
 
@@ -427,7 +497,7 @@ bool RenderWidgetHostViewAura::IsShowing() {
 }
 
 gfx::Rect RenderWidgetHostViewAura::GetViewBounds() const {
-  return window_->GetBoundsInRootWindow();
+  return window_->GetBoundsInScreen();
 }
 
 void RenderWidgetHostViewAura::UpdateCursor(const WebCursor& cursor) {
@@ -527,6 +597,23 @@ void RenderWidgetHostViewAura::SetTooltipText(const string16& tooltip_text) {
   aura::RootWindow* root_window = window_->GetRootWindow();
   if (aura::client::GetTooltipClient(root_window))
     aura::client::GetTooltipClient(root_window)->UpdateTooltip(window_);
+}
+
+void RenderWidgetHostViewAura::SelectionChanged(const string16& text,
+                                                size_t offset,
+                                                const ui::Range& range) {
+  RenderWidgetHostViewBase::SelectionChanged(text, offset, range);
+
+#if defined(USE_X11) && !defined(OS_CHROMEOS)
+  if (text.empty() || range.is_empty())
+    return;
+
+  // Set the BUFFER_SELECTION to the ui::Clipboard.
+  ui::ScopedClipboardWriter clipboard_writer(
+      ui::Clipboard::GetForCurrentThread(),
+      ui::Clipboard::BUFFER_SELECTION);
+  clipboard_writer.WriteText(text);
+#endif  // defined(USE_X11) && !defined(OS_CHROMEOS)
 }
 
 void RenderWidgetHostViewAura::SelectionBoundsChanged(
@@ -845,7 +932,8 @@ void RenderWidgetHostViewAura::AcceleratedSurfaceNew(
       uint64 surface_handle) {
   ImageTransportFactory* factory = ImageTransportFactory::GetInstance();
   scoped_refptr<ui::Texture> surface(factory->CreateTransportClient(
-      gfx::Size(width_in_pixel, height_in_pixel), surface_handle));
+      gfx::Size(width_in_pixel, height_in_pixel), device_scale_factor_,
+      surface_handle));
   if (!surface) {
     LOG(ERROR) << "Failed to create ImageTransport texture";
     return;
@@ -1268,6 +1356,7 @@ void RenderWidgetHostViewAura::OnDeviceScaleFactorChanged(
   if (!host_)
     return;
 
+  device_scale_factor_ = device_scale_factor;
   BackingStoreAura* backing_store = static_cast<BackingStoreAura*>(
       host_->GetBackingStore(false));
   if (backing_store)  // NULL in hardware path.
@@ -1279,10 +1368,16 @@ void RenderWidgetHostViewAura::OnDeviceScaleFactorChanged(
 
 void RenderWidgetHostViewAura::OnWindowDestroying() {
 #if defined(OS_WIN)
-  if (window_->GetRootWindow()) {
-    HWND parent = window_->GetRootWindow()->GetAcceleratedWidget();
-    DetachPluginsHelper(parent);
+  HWND parent = NULL;
+  // If the tab was hidden and it's closed, host_->is_hidden would have been
+  // reset to false in RenderWidgetHostImpl::RendererExited.
+  if (!window_->GetRootWindow() || host_->is_hidden()) {
+    parent = ui::GetHiddenWindow();
+  } else {
+    parent = window_->GetRootWindow()->GetAcceleratedWidget();
   }
+  LPARAM lparam = reinterpret_cast<LPARAM>(this);
+  EnumChildWindows(parent, WindowDestroyingCallback, lparam);
 #endif
 }
 
@@ -1323,7 +1418,8 @@ scoped_refptr<ui::Texture> RenderWidgetHostViewAura::CopyTexture() {
     return scoped_refptr<ui::Texture>();
 
   return scoped_refptr<ui::Texture>(
-      factory->CreateOwnedTexture(container->size(), texture_id));
+      factory->CreateOwnedTexture(
+          container->size(), device_scale_factor_, texture_id));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1337,6 +1433,12 @@ ui::EventResult RenderWidgetHostViewAura::OnKeyEvent(ui::KeyEvent* event) {
 
   // We need to handle the Escape key for Pepper Flash.
   if (is_fullscreen_ && event->key_code() == ui::VKEY_ESCAPE) {
+    // Focus the window we were created from.
+    if (host_tracker_.get() && !host_tracker_->windows().empty()) {
+      aura::Window* host = *(host_tracker_->windows().begin());
+      if (host->GetFocusManager())
+        host->Focus();
+    }
     if (!in_shutdown_) {
       in_shutdown_ = true;
       host_->Shutdown();
@@ -1610,7 +1712,11 @@ void RenderWidgetHostViewAura::UpdateCursorIfOverSelf() {
   if (!root_window)
     return;
 
-  if (root_window->GetEventHandlerForPoint(screen_point) != window_)
+  gfx::Rect screen_rect = GetViewBounds();
+  gfx::Point local_point = screen_point;
+  local_point.Offset(-screen_rect.x(), -screen_rect.y());
+
+  if (root_window->GetEventHandlerForPoint(local_point) != window_)
     return;
 
   gfx::NativeCursor cursor = current_cursor_.GetNativeCursor();

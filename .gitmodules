@@ -120,8 +120,8 @@
 	os = all
 [submodule "native_client_sdk/src/site_scons"]
 	path = native_client_sdk/src/site_scons
-	url = http://git.chromium.org/native_client/src/native_client/site_scons.git
-	os = all
+	url = 
+	os = ios
 [submodule "sandbox/linux/seccomp-legacy"]
 	path = sandbox/linux/seccomp-legacy
 	url = http://git.chromium.org/external/seccompsandbox.git

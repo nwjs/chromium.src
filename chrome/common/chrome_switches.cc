@@ -62,6 +62,10 @@ const char kAppId[]                         = "app-id";
 // mode.
 const char kApp[]                           = "app";
 
+// Specifies the initial size for application windows launched with --app.
+// --app-window-size=w,h
+const char kAppWindowSize[]                 = "app-window-size";
+
 // A URL for the server which assigns channel ids for server pushed app
 // notifications.
 const char kAppNotifyChannelServerURL[]     = "app-notify-channel-server-url";
@@ -90,10 +94,6 @@ const char kAppsGalleryURL[]                = "apps-gallery-url";
 
 // The update url used by gallery/webstore extensions.
 const char kAppsGalleryUpdateURL[]          = "apps-gallery-update-url";
-
-// Specifies the URL of an application manifest to retrieve. The user will be
-// prompted for consent and the application retrieved/installed if consented.
-const char kAppsInstallFromManifestURL[]    = "apps-install-from-manifest-url";
 
 // Whether to always use the new app install bubble when installing an app.
 const char kAppsNewInstallBubble[]          = "apps-new-install-bubble";
@@ -246,6 +246,9 @@ const char kDiagnostics[]                   = "diagnostics";
 // device, useful when using remote desktop or machines without sound cards.
 // This is temporary until we fix the underlying problem.
 
+// Disables the Action Box toolbar UI.
+const char kDisableActionBox[]              = "disable-action-box";
+
 // Disables the experimental asynchronous DNS client.
 const char kDisableAsyncDns[]               = "disable-async-dns";
 
@@ -345,11 +348,6 @@ const char kDisableIPv6[]                   = "disable-ipv6";
 // attempt to use the existing connection.
 const char kDisableIPPooling[]              = "disable-ip-pooling";
 
-// Disables Mouse Lock being permitted when the browser is not currently
-// in tab fullscreen.
-const char kDisableNonFullscreenMouseLock[] =
-    "disable-non-fullscreen-mouse-lock";
-
 // Disables the menu on the NTP for accessing sessions from other devices.
 const char kDisableNTPOtherSessionsMenu[]   = "disable-ntp-other-sessions-menu";
 
@@ -372,6 +370,10 @@ const char kDisableRestoreBackgroundContents[] =
 // Disables restoring session state (cookies, session storage, etc.) when
 // restoring the browsing session.
 const char kDisableRestoreSessionState[]    = "disable-restore-session-state";
+
+// Disables throttling prints initiated by scripts.
+const char kDisableScriptedPrintThrottling[] =
+    "disable-scripted-print-throttling";
 
 // Disables syncing browser data to a Google Account.
 const char kDisableSync[]                   = "disable-sync";
@@ -454,9 +456,6 @@ const char kDnsPrefetchDisable[]            = "dns-prefetch-disable";
 // scripts.
 const char kDumpHistogramsOnExit[]          = "dump-histograms-on-exit";
 
-// Enables the Action Box toolbar UI.
-const char kEnableActionBox[]               = "enable-action-box";
-
 // Enables the experimental asynchronous DNS client.
 const char kEnableAsyncDns[]                = "enable-async-dns";
 
@@ -510,6 +509,9 @@ const char kEnableDevToolsExperiments[]     = "enable-devtools-experiments";
 // Enables experimental discovery slots in New Tab page.
 const char kEnableDiscoveryInNewTabPage[]   = "enable-discovery-ntp";
 
+// Enables Drive v2 API instead of Google Documents List API.
+const char kEnableDriveV2Api[]              = "enable-drive-v2-api";
+
 // Enables extensions to be easily installed from sites other than the web
 // store. Without this flag, they can still be installed, but must be manually
 // dragged onto chrome://extensions/.
@@ -528,7 +530,7 @@ const char kEnableExtensionActivityLogging[] =
 const char kEnableExtensionActivityUI[]     = "enable-extension-activity-ui";
 
 // Enables to show extensions in an action box.
-const char kEnableExtensionsInActionBox[]   = "extensions-in-action-box";
+const char kEnableExtensionsInActionBox[]   = "enable-extensions-in-action-box";
 
 // Enables experimental timeline API.
 const char kEnableExtensionTimelineApi[]    = "enable-extension-timeline-api";
@@ -776,9 +778,6 @@ const char kHostResolverRules[]             = "host-resolver-rules";
 // <profile_dir>/Default/TransportSecurity
 const char kHstsHosts[]                     = "hsts-hosts";
 
-// Ignores GPU blacklist.
-const char kIgnoreGpuBlacklist[]            = "ignore-gpu-blacklist";
-
 // Performs importing from another browser. The value associated with this
 // setting encodes the target browser and what items to import.
 const char kImport[]                        = "import";
@@ -789,6 +788,10 @@ const char kImportFromFile[]                = "import-from-file";
 
 // Causes the browser to launch directly in incognito mode.
 const char kIncognito[]                     = "incognito";
+
+// Causes Chrome to attempt to get metadata from the webstore for the
+// app/extension ID given, and then prompt the user to download and install it.
+const char kInstallFromWebstore[]    = "install-from-webstore";
 
 // URL to use for instant. If specified this overrides the url from the
 // TemplateURL.
@@ -1359,8 +1362,14 @@ const char kTabletUI[]                      = "tablet-ui";
 // Possible values: parallel|postpone. Default: parallel.
 const char kAshWebUIInit[]                  = "ash-webui-init";
 
+// Enables switching between different cellular carriers from the UI.
+const char kEnableCarrierSwitching[]        = "enable-carrier-switching";
+
 // Disables wallpaper boot animation (except of OOBE case).
 const char kDisableBootAnimation[]          = "disable-boot-animation";
+
+// Disables reset the device to its factory state in design.
+const char kDisableFactoryReset[]           = "disable-factory-reset";
 
 // Disables gdata content provider.
 const char kDisableGData[]                  = "disable-gdata";
@@ -1390,12 +1399,6 @@ const char kEnableTouchpadThreeFingerClick[]
 
 // Skips OAuth part of ChromeOS login process.
 const char kSkipOAuthLogin[]                = "skip-oauth-login";
-
-// Enables Drive v2 API instead of Google Documents List API.
-const char kEnableDriveV2Api[]              = "enable-drive-v2-api";
-
-// Use level db for drive metadata storage.
-const char kUseLevelDBForGData[]            = "use-leveldb-for-gdata";
 
 // Enables the redirection of viewable document requests to the Google Document
 // Viewer.

@@ -39,7 +39,7 @@ namespace {
 
 // The URL at which the set of synced tabs is displayed. We treat it differently
 // from all other URL's as accessing it triggers a sync refresh of Sessions.
-static const char kNTPOpenTabSyncURL[] = "chrome://newtab/#opentabs";
+static const char kNTPOpenTabSyncURL[] = "chrome://newtab/#open_tabs";
 
 // Extract the source SyncedTabDelegate from a NotificationSource originating
 // from a NavigationController, if it exists. Returns |NULL| otherwise.
@@ -112,8 +112,9 @@ void SessionChangeProcessor::Observe(
     }
 
     case chrome::NOTIFICATION_TAB_PARENTED: {
-      SyncedTabDelegate* tab =
-          content::Source<TabContents>(source).ptr()->synced_tab_delegate();
+      TabContents* tab_contents = TabContents::FromWebContents(
+          content::Source<WebContents>(source).ptr());
+      SyncedTabDelegate* tab = tab_contents->synced_tab_delegate();
       if (!tab || tab->profile() != profile_) {
         return;
       }

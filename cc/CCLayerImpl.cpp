@@ -88,7 +88,7 @@ void CCLayerImpl::removeFromParent()
     m_parent = 0;
 
     for (size_t i = 0; i < parent->m_children.size(); ++i) {
-        if (parent->m_children[i].get() == this) {
+        if (parent->m_children[i] == this) {
             parent->m_children.remove(i);
             return;
         }
@@ -153,6 +153,21 @@ void CCLayerImpl::appendDebugBorderQuad(CCQuadSink& quadList, const CCSharedQuad
     quadList.append(CCDebugBorderDrawQuad::create(sharedQuadState, contentRect, debugBorderColor(), debugBorderWidth()), appendQuadsData);
 }
 
+bool CCLayerImpl::hasContributingDelegatedRenderPasses() const
+{
+    return false;
+}
+
+CCRenderPass::Id CCLayerImpl::firstContributingRenderPassId() const
+{
+    return CCRenderPass::Id(0, 0);
+}
+
+CCRenderPass::Id CCLayerImpl::nextContributingRenderPassId(CCRenderPass::Id) const
+{
+    return CCRenderPass::Id(0, 0);
+}
+
 CCResourceProvider::ResourceId CCLayerImpl::contentsResourceId() const
 {
     ASSERT_NOT_REACHED();
@@ -207,6 +222,15 @@ CCInputHandlerClient::ScrollStatus CCLayerImpl::tryScroll(const IntPoint& viewpo
     }
 
     return CCInputHandlerClient::ScrollStarted;
+}
+
+IntRect CCLayerImpl::layerRectToContentRect(const WebKit::WebRect& layerRect)
+{
+    float widthScale = static_cast<float>(contentBounds().width()) / bounds().width();
+    float heightScale = static_cast<float>(contentBounds().height()) / bounds().height();
+    FloatRect contentRect(layerRect.x, layerRect.y, layerRect.width, layerRect.height);
+    contentRect.scale(widthScale, heightScale);
+    return enclosingIntRect(contentRect);
 }
 
 std::string CCLayerImpl::indentString(int indent)
@@ -313,6 +337,11 @@ void CCLayerImpl::noteLayerPropertyChangedForDescendants()
         m_children[i]->noteLayerPropertyChangedForSubtree();
 }
 
+const char* CCLayerImpl::layerTypeAsString() const
+{
+    return "LayerChromium";
+}
+
 void CCLayerImpl::resetAllChangeTrackingForSubtree()
 {
     m_layerPropertyChanged = false;
@@ -333,9 +362,29 @@ void CCLayerImpl::resetAllChangeTrackingForSubtree()
         m_children[i]->resetAllChangeTrackingForSubtree();
 }
 
+bool CCLayerImpl::layerIsAlwaysDamaged() const
+{
+    return false;
+}
+
+int CCLayerImpl::id() const
+{
+     return m_layerId;
+}
+
+float CCLayerImpl::opacity() const
+{
+     return m_opacity;
+}
+
 void CCLayerImpl::setOpacityFromAnimation(float opacity)
 {
     setOpacity(opacity);
+}
+
+const WebKit::WebTransformationMatrix& CCLayerImpl::transform() const
+{
+     return m_transform;
 }
 
 void CCLayerImpl::setTransformFromAnimation(const WebTransformationMatrix& transform)

@@ -366,7 +366,6 @@
         '<(DEPTH)/webkit/support/webkit_support.gyp:user_agent',
       ],
       'sources': [
-        '../../glue/bookmarklet_unittest.cc',
         '../../glue/cpp_bound_class_unittest.cc',
         '../../glue/cpp_variant_unittest.cc',
         '../../glue/dom_operations_unittest.cc',
@@ -393,7 +392,6 @@
         '../../plugins/ppapi/ppapi_unittest.h',
         '../../plugins/ppapi/quota_file_io_unittest.cc',
         '../../plugins/ppapi/time_conversion_unittest.cc',
-        '../../plugins/ppapi/url_request_info_unittest.cc',
         '../../user_agent/user_agent_unittest.cc',
         '../webcore_unit_tests/BMPImageDecoder_unittest.cpp',
         '../webcore_unit_tests/ICOImageDecoder_unittest.cpp',

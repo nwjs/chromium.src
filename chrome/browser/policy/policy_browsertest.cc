@@ -29,7 +29,7 @@
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/net/url_request_mock_util.h"
-#include "chrome/browser/plugin_prefs.h"
+#include "chrome/browser/plugins/plugin_prefs.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/policy/mock_configuration_policy_provider.h"
 #include "chrome/browser/policy/policy_map.h"
@@ -99,6 +99,7 @@
 #include "ash/accelerators/accelerator_table.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
+#include "chrome/browser/chromeos/audio/audio_handler.h"
 #endif
 
 using content::BrowserThread;
@@ -308,6 +309,29 @@ int CountPlugins() {
   EXPECT_GE(count, 0);
   return count;
 }
+
+void FlushBlacklistPolicy() {
+  // Updates of the URLBlacklist are done on IO, after building the blacklist
+  // on FILE, which is initiated from IO.
+  content::RunAllPendingInMessageLoop(BrowserThread::IO);
+  content::RunAllPendingInMessageLoop(BrowserThread::FILE);
+  content::RunAllPendingInMessageLoop(BrowserThread::IO);
+}
+
+#if defined(OS_CHROMEOS)
+// Volume observer mock used by the audio policy tests.
+class TestVolumeObserver : public chromeos::AudioHandler::VolumeObserver {
+ public:
+  TestVolumeObserver() {}
+  virtual ~TestVolumeObserver() {}
+
+  MOCK_METHOD0(OnVolumeChanged, void());
+  MOCK_METHOD0(OnMuteToggled, void());
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(TestVolumeObserver);
+};
+#endif
 
 }  // namespace
 
@@ -1100,7 +1124,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, TranslateEnabled) {
       infobar_delegate->AsTranslateInfoBarDelegate();
   ASSERT_TRUE(delegate);
   EXPECT_EQ(TranslateInfoBarDelegate::BEFORE_TRANSLATE, delegate->type());
-  EXPECT_EQ("fr", delegate->GetOriginalLanguageCode());
+  EXPECT_EQ("fr", delegate->original_language_code());
 
   // Now force disable translate.
   ui_test_utils::CloseAllInfoBars(tab_contents);
@@ -1149,6 +1173,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, URLBlacklist) {
   policies.Set(key::kURLBlacklist, POLICY_LEVEL_MANDATORY,
                POLICY_SCOPE_USER, blacklist.DeepCopy());
   provider_.UpdateChromePolicy(policies);
+  FlushBlacklistPolicy();
   // All bbb.com URLs are blocked.
   CheckCanOpenURL(browser(), kAAA);
   for (size_t i = 1; i < arraysize(kURLS); ++i)
@@ -1161,6 +1186,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, URLBlacklist) {
   policies.Set(key::kURLWhitelist, POLICY_LEVEL_MANDATORY,
                POLICY_SCOPE_USER, whitelist.DeepCopy());
   provider_.UpdateChromePolicy(policies);
+  FlushBlacklistPolicy();
   CheckCanOpenURL(browser(), kAAA);
   CheckURLIsBlocked(browser(), kBBB);
   CheckCanOpenURL(browser(), kSUB_BBB);
@@ -1187,6 +1213,43 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DisableScreenshotsFile) {
   // Check if trying to take a screenshot fails when disabled by policy.
   TestScreenshotFile(false);
   ASSERT_EQ(CountScreenshots(), screenshot_count + 1);
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, DisableAudioOutput) {
+  // Set up the mock observer.
+  chromeos::AudioHandler* audio_handler = chromeos::AudioHandler::GetInstance();
+  scoped_ptr<TestVolumeObserver> mock(new TestVolumeObserver());
+  audio_handler->AddVolumeObserver(mock.get());
+
+  bool prior_state = audio_handler->IsMuted();
+  // Make sure we are not muted and then toggle the policy and observe if the
+  // trigger was successful.
+  EXPECT_CALL(*mock, OnMuteToggled()).Times(1);
+  audio_handler->SetMuted(false);
+  EXPECT_FALSE(audio_handler->IsMuted());
+  EXPECT_CALL(*mock, OnMuteToggled()).Times(1);
+  PolicyMap policies;
+  policies.Set(key::kAudioOutputAllowed, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(false));
+  provider_.UpdateChromePolicy(policies);
+  EXPECT_TRUE(audio_handler->IsMuted());
+  // This should not change the state now and should not trigger OnMuteToggled.
+  audio_handler->SetMuted(false);
+  EXPECT_TRUE(audio_handler->IsMuted());
+
+  // Toggle back and observe if the trigger was successful.
+  EXPECT_CALL(*mock, OnMuteToggled()).Times(1);
+  policies.Set(key::kAudioOutputAllowed, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, base::Value::CreateBooleanValue(true));
+  provider_.UpdateChromePolicy(policies);
+  EXPECT_FALSE(audio_handler->IsMuted());
+  EXPECT_CALL(*mock, OnMuteToggled()).Times(1);
+  audio_handler->SetMuted(true);
+  EXPECT_TRUE(audio_handler->IsMuted());
+  // Revert the prior state.
+  EXPECT_CALL(*mock, OnMuteToggled()).Times(1);
+  audio_handler->SetMuted(prior_state);
+  audio_handler->RemoveVolumeObserver(mock.get());
 }
 #endif
 

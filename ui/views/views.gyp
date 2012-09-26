@@ -8,14 +8,8 @@
 
   'target_defaults': {
     'conditions': [
-      ['OS=="win"', {'sources/': [
-        ['include', '_(win)\\.cc$'],
-        ['include', '/win/'],
-        ['include', '/win_[^/]*\\.cc$'],
-      ]}],
       ['use_aura==1', {
-        'sources/': [ ['exclude', '_win\\.(h|cc)$'],
-                      ['exclude', '_x\\.(h|cc)$'] ],
+        'sources/': [ ['exclude', '_win\\.(h|cc)$'] ],
         'dependencies': [ '../aura/aura.gyp:aura', ],
       }],
       ['OS!="linux" or chromeos==1', {
@@ -64,8 +58,6 @@
         'bubble/bubble_delegate.h',
         'bubble/bubble_frame_view.cc',
         'bubble/bubble_frame_view.h',
-        'bubble/bubble_border_2.cc',
-        'bubble/bubble_border_2.h',
         'button_drag_utils.cc',
         'button_drag_utils.h',
         'color_chooser/color_chooser_listener.h',
@@ -317,6 +309,8 @@
         'widget/default_theme_provider.h',
         'widget/desktop_capture_client.cc',
         'widget/desktop_capture_client.h',
+        'widget/desktop_layout_manager.cc',
+        'widget/desktop_layout_manager.h',
         'widget/desktop_native_widget_aura.cc',
         'widget/desktop_native_widget_aura.h',
         'widget/desktop_native_widget_helper_aura.cc',
@@ -326,6 +320,8 @@
         'widget/desktop_root_window_host_linux.h',
         'widget/desktop_root_window_host_win.cc',
         'widget/desktop_root_window_host_win.h',
+        'widget/desktop_screen_position_client.cc',
+        'widget/desktop_screen_position_client.h',
         'widget/drop_helper.cc',
         'widget/drop_helper.h',
         'widget/drop_target_win.cc',
@@ -394,8 +390,6 @@
       'conditions': [
         ['use_aura==1', {
           'sources/': [
-            ['exclude', '_x\\.cc$'],
-            ['exclude', '/x_[^/]*\\.cc$'],
             ['exclude', 'controls/menu/menu_2.*'],
           ],
           'sources!': [
@@ -419,7 +413,6 @@
                 ['exclude', 'controls/menu/*'],
                 ['exclude', 'controls/scrollbar/*'],
                 ['exclude', 'focus/accelerator_handler_aura.cc'],
-                ['exclude', 'widget/tooltip_manager_views.cc'],
               ],
             }],
             ['OS=="win"', {
@@ -428,32 +421,23 @@
                 ['include', 'ime/input_method_win.h'],
                 ['include', 'widget/desktop_root_window_host_win.cc'],
                 ['include', 'widget/desktop_root_window_host_win.h'],
-                ['include', 'widget/desktop_capture_client.cc'],
-                ['include', 'widget/desktop_capture_client.h'],
               ],
             }],
           ],
         }],
-        ['chromeos==1 or use_aura==0', {
-          'sources!': [
-            'widget/desktop_root_window_host.h',
-            'widget/desktop_root_window_host_linux.cc',
-            'widget/desktop_root_window_host_linux.h',
-            'widget/desktop_native_widget_aura.cc',
-            'widget/desktop_native_widget_aura.h',
-            'widget/desktop_root_window_host_win.cc',
-            'widget/desktop_root_window_host_win.h',
-            'widget/desktop_capture_client.cc',
-            'widget/desktop_capture_client.h',
-          ],
+        ['use_aura==0', {
           'sources/': [
-            ['exclude', 'widget/desktop_root_window_host_win.cc'],
-            ['exclude', 'widget/desktop_root_window_host_win.h'],
+            ['exclude', '/desktop_[^/]*\\.cc$'],
+            ['exclude', '/x11_[^/]*\\.cc$'],
           ],
         }],
-        ['use_aura==0', {
-          'sources!': [
-            'widget/tooltip_manager_views.cc',
+        ['chromeos==1', {
+          'sources/': [
+            ['exclude', '/desktop_[^/]*\\.cc$'],
+            ['include', 'widget/desktop_native_widget_helper_aura.cc'],
+            ['include', 'widget/desktop_native_widget_helper_aura.h'],
+            ['include', 'widget/desktop_screen_position_client.cc'],
+            ['include', 'widget/desktop_screen_position_client.h'],
           ],
         }],
         ['use_aura==0 and OS=="win"', {
@@ -476,11 +460,6 @@
           ],
           'include_dirs': [
             '../../third_party/wtl/include',
-          ],
-        }],
-        ['use_x11==0', {
-          'sources!': [
-            'events/event_x.cc',
           ],
         }],
         ['use_aura==0 or OS!="win"', {
@@ -560,6 +539,7 @@
       'sources': [
         'accessible_pane_view_unittest.cc',
         'animation/bounds_animator_unittest.cc',
+        'bubble/bubble_border_unittest.cc',
         'bubble/bubble_delegate_unittest.cc',
         'bubble/bubble_frame_view_unittest.cc',
         'controls/button/image_button_unittest.cc',
@@ -733,7 +713,7 @@
         '..',
       ],
       'defines': [
-        'VIEWS_EXAMPLES_IMPLEMENTATION',
+        'VIEWS_EXAMPLES_WITH_CONTENT_IMPLEMENTATION',
       ],
       'sources': [
         'examples/bubble_example.cc',
@@ -782,7 +762,7 @@
         'examples/throbber_example.h',
         'examples/tree_view_example.cc',
         'examples/tree_view_example.h',
-        'examples/views_examples_export.h',
+        'examples/views_examples_with_content_export.h',
         'examples/webview_example.cc',
         'examples/webview_example.h',
         'examples/widget_example.cc',

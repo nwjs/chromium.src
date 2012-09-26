@@ -40,6 +40,7 @@ class GURL;
 class InstantController;
 class KeywordHintView;
 class LocationIconView;
+class OpenPDFInReaderView;
 class PageActionWithBadgeView;
 class PageActionImageView;
 class Profile;
@@ -315,6 +316,7 @@ class LocationBarView : public LocationBar,
   virtual void UpdatePageActions() OVERRIDE;
   virtual void InvalidatePageActions() OVERRIDE;
   virtual void UpdateWebIntentsButton() OVERRIDE;
+  virtual void UpdateOpenPDFInReaderPrompt() OVERRIDE;
   virtual void SaveStateToContents(content::WebContents* contents) OVERRIDE;
   virtual void Revert() OVERRIDE;
   virtual const OmniboxView* GetLocationEntry() const OVERRIDE;
@@ -435,6 +437,13 @@ class LocationBarView : public LocationBar,
   void PaintActionBoxBackground(gfx::Canvas* canvas,
                                 const gfx::Rect& content_rect);
 
+  // Draw backgrounds and borders for page actions.  Must be called
+  // after layout, so the |page_action_views_| have their bounds.
+  void PaintPageActionBackgrounds(gfx::Canvas* canvas);
+
+  // Draw the focus border when the search mode is |NTP|.
+  void PaintSearchNTPFocusBorder(gfx::Canvas* canvas);
+
 #if defined(USE_AURA)
   // Fade in the location bar view so the icons come in gradually.
   void StartFadeAnimation();
@@ -484,7 +493,10 @@ class LocationBarView : public LocationBar,
   gfx::Font font_;
 
   // An object used to paint the normal-mode background.
-  scoped_ptr<views::Painter> painter_;
+  scoped_ptr<views::Painter> background_painter_;
+
+  // An object used to paint the focus border when search mode is |NTP|.
+  scoped_ptr<views::Painter> search_focus_painter_;
 
   // An icon to the left of the edit field.
   LocationIconView* location_icon_view_;
@@ -516,6 +528,9 @@ class LocationBarView : public LocationBar,
 
   // The zoom icon.
   ZoomView* zoom_view_;
+
+  // The icon to open a PDF in Reader.
+  OpenPDFInReaderView* open_pdf_in_reader_view_;
 
   // The current page actions.
   std::vector<ExtensionAction*> page_actions_;

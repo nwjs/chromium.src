@@ -203,9 +203,15 @@ void TiledLayerChromium::pushPropertiesTo(CCLayerImpl* layer)
     Vector<UpdatableTile*> invalidTiles;
 
     for (CCLayerTilingData::TileMap::const_iterator iter = m_tiler->tiles().begin(); iter != m_tiler->tiles().end(); ++iter) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        int i = iter->key.first;
+        int j = iter->key.second;
+        UpdatableTile* tile = static_cast<UpdatableTile*>(iter->value.get());
+#else
         int i = iter->first.first;
         int j = iter->first.second;
         UpdatableTile* tile = static_cast<UpdatableTile*>(iter->second.get());
+#endif
         // FIXME: This should not ever be null.
         if (!tile)
             continue;
@@ -235,7 +241,11 @@ void TiledLayerChromium::setLayerTreeHost(CCLayerTreeHost* host)
 {
     if (host && host != layerTreeHost()) {
         for (CCLayerTilingData::TileMap::const_iterator iter = m_tiler->tiles().begin(); iter != m_tiler->tiles().end(); ++iter) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+            UpdatableTile* tile = static_cast<UpdatableTile*>(iter->value.get());
+#else
             UpdatableTile* tile = static_cast<UpdatableTile*>(iter->second.get());
+#endif
             // FIXME: This should not ever be null.
             if (!tile)
                 continue;
@@ -303,7 +313,11 @@ void TiledLayerChromium::invalidateContentRect(const IntRect& contentRect)
         return;
 
     for (CCLayerTilingData::TileMap::const_iterator iter = m_tiler->tiles().begin(); iter != m_tiler->tiles().end(); ++iter) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        UpdatableTile* tile = static_cast<UpdatableTile*>(iter->value.get());
+#else
         UpdatableTile* tile = static_cast<UpdatableTile*>(iter->second.get());
+#endif
         ASSERT(tile);
         // FIXME: This should not ever be null.
         if (!tile)
@@ -548,8 +562,7 @@ bool isSmallAnimatedLayer(TiledLayerChromium* layer)
 // FIXME: Remove this and make this based on distance once distance can be calculated
 // for offscreen layers. For now, prioritize all small animated layers after 512
 // pixels of pre-painting.
-void setPriorityForTexture(const CCPriorityCalculator& priorityCalc,
-                           const IntRect& visibleRect,
+void setPriorityForTexture(const IntRect& visibleRect,
                            const IntRect& tileRect,
                            bool drawsToRoot,
                            bool isSmallAnimatedLayer,
@@ -557,9 +570,9 @@ void setPriorityForTexture(const CCPriorityCalculator& priorityCalc,
 {
     int priority = CCPriorityCalculator::lowestPriority();
     if (!visibleRect.isEmpty())
-        priority = priorityCalc.priorityFromDistance(visibleRect, tileRect, drawsToRoot);
+        priority = CCPriorityCalculator::priorityFromDistance(visibleRect, tileRect, drawsToRoot);
     if (isSmallAnimatedLayer)
-        priority = CCPriorityCalculator::maxPriority(priority, priorityCalc.priorityFromDistance(512, drawsToRoot));
+        priority = CCPriorityCalculator::maxPriority(priority, CCPriorityCalculator::smallAnimatedLayerMinPriority());
     if (priority != CCPriorityCalculator::lowestPriority())
         texture->setRequestPriority(priority);
 }
@@ -620,7 +633,7 @@ void TiledLayerChromium::setTexturePriorities(const CCPriorityCalculator& priori
                 IntRect tileRect = m_tiler->tileRect(tile);
                 tile->dirtyRect = tileRect;
                 LayerTextureUpdater::Texture* backBuffer = tile->texture();
-                setPriorityForTexture(priorityCalc, visibleContentRect(), tile->dirtyRect, drawsToRoot, smallAnimatedLayer, backBuffer->texture());
+                setPriorityForTexture(visibleContentRect(), tile->dirtyRect, drawsToRoot, smallAnimatedLayer, backBuffer->texture());
                 OwnPtr<CCPrioritizedTexture> frontBuffer = CCPrioritizedTexture::create(backBuffer->texture()->textureManager(),
                                                                                         backBuffer->texture()->size(),
                                                                                         backBuffer->texture()->format());
@@ -633,12 +646,16 @@ void TiledLayerChromium::setTexturePriorities(const CCPriorityCalculator& priori
 
     // Now update priorities on all tiles we have in the layer, no matter where they are.
     for (CCLayerTilingData::TileMap::const_iterator iter = m_tiler->tiles().begin(); iter != m_tiler->tiles().end(); ++iter) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        UpdatableTile* tile = static_cast<UpdatableTile*>(iter->value.get());
+#else
         UpdatableTile* tile = static_cast<UpdatableTile*>(iter->second.get());
+#endif
         // FIXME: This should not ever be null.
         if (!tile)
             continue;
         IntRect tileRect = m_tiler->tileRect(tile);
-        setPriorityForTexture(priorityCalc, visibleContentRect(), tileRect, drawsToRoot, smallAnimatedLayer, tile->managedTexture());
+        setPriorityForTexture(visibleContentRect(), tileRect, drawsToRoot, smallAnimatedLayer, tile->managedTexture());
     }
 }
 
@@ -658,7 +675,11 @@ void TiledLayerChromium::resetUpdateState()
 
     CCLayerTilingData::TileMap::const_iterator end = m_tiler->tiles().end();
     for (CCLayerTilingData::TileMap::const_iterator iter = m_tiler->tiles().begin(); iter != end; ++iter) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        UpdatableTile* tile = static_cast<UpdatableTile*>(iter->value.get());
+#else
         UpdatableTile* tile = static_cast<UpdatableTile*>(iter->second.get());
+#endif
         // FIXME: This should not ever be null.
         if (!tile)
             continue;

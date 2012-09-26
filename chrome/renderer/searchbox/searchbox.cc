@@ -15,8 +15,7 @@ SearchBox::SearchBox(content::RenderView* render_view)
       verbatim_(false),
       selection_start_(0),
       selection_end_(0),
-      results_base_(0),
-      key_code_(0) {
+      results_base_(0) {
 }
 
 SearchBox::~SearchBox() {
@@ -57,6 +56,24 @@ gfx::Rect SearchBox::GetRect() {
                    static_cast<int>(static_cast<float>(rect_.height()) / zoom));
 }
 
+const std::vector<InstantAutocompleteResult>&
+    SearchBox::GetAutocompleteResults() {
+  // Remember the last requested autocomplete_results to account for race
+  // conditions between autocomplete providers returning new data and the user
+  // clicking on a suggestion.
+  last_autocomplete_results_ = autocomplete_results_;
+  last_results_base_ = results_base_;
+  return autocomplete_results_;
+}
+
+const InstantAutocompleteResult* SearchBox::GetAutocompleteResultWithId(
+    size_t restricted_id) const {
+  if (restricted_id < last_results_base_ ||
+      restricted_id >= last_results_base_ + last_autocomplete_results_.size())
+    return NULL;
+  return &last_autocomplete_results_[restricted_id - last_results_base_];
+}
+
 bool SearchBox::OnMessageReceived(const IPC::Message& message) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(SearchBox, message)
@@ -68,7 +85,8 @@ bool SearchBox::OnMessageReceived(const IPC::Message& message) {
                         OnDetermineIfPageSupportsInstant)
     IPC_MESSAGE_HANDLER(ChromeViewMsg_SearchBoxAutocompleteResults,
                         OnAutocompleteResults)
-    IPC_MESSAGE_HANDLER(ChromeViewMsg_SearchBoxKeyPress, OnKeyPress)
+    IPC_MESSAGE_HANDLER(ChromeViewMsg_SearchBoxUpOrDownKeyPressed,
+                        OnUpOrDownKeyPressed)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -137,11 +155,10 @@ void SearchBox::OnAutocompleteResults(
   }
 }
 
-void SearchBox::OnKeyPress(int key_code) {
-  key_code_ = key_code;
+void SearchBox::OnUpOrDownKeyPressed(int count) {
   if (render_view()->GetWebView() && render_view()->GetWebView()->mainFrame()) {
-    extensions_v8::SearchBoxExtension::DispatchKeyPress(
-        render_view()->GetWebView()->mainFrame());
+    extensions_v8::SearchBoxExtension::DispatchUpOrDownKeyPress(
+        render_view()->GetWebView()->mainFrame(), count);
   }
 }
 
@@ -152,5 +169,4 @@ void SearchBox::Reset() {
   results_base_ = 0;
   rect_ = gfx::Rect();
   autocomplete_results_.clear();
-  key_code_ = 0;
 }

@@ -303,7 +303,8 @@ const char kBluetoothAddDeviceSubPage[] = "bluetooth";
 // Extension sub pages.
 const char kExtensionConfigureCommandsSubPage[] = "configureCommands";
 
-const char kSyncGoogleDashboardURL[] = "https://www.google.com/dashboard/";
+const char kSyncGoogleDashboardURL[] =
+    "https://www.google.com/settings/chrome/sync/";
 
 const char kAutoPasswordGenerationLearnMoreURL[] =
     "https://support.google.com/chrome/?p=ui_generate_password";
@@ -412,16 +413,18 @@ const char kKillReasonURL[] =
     "https://support.google.com/chrome/?p=e_deadjim";
 #endif
 
-#if defined(OS_WIN)
-const char kPrivacyWin8DataLearnMoreURL[] =
-    "https://support.google.com/chrome/?p=win8_directories";
-#endif
-
 const char kPrivacyLearnMoreURL[] =
 #if defined(OS_CHROMEOS)
     "https://support.google.com/chromeos/?p=settings_privacy";
 #else
     "https://support.google.com/chrome/?p=settings_privacy";
+#endif
+
+const char kDoNotTrackLearnMoreURL[] =
+#if defined(OS_CHROMEOS)
+    "https://support.google.com/chromeos/?p=settings_do_not_track";
+#else
+    "https://support.google.com/chrome/?p=settings_do_not_track";
 #endif
 
 const char kSessionRestoreLearnMoreURL[] =

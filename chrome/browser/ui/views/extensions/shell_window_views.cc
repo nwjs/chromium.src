@@ -28,6 +28,7 @@
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/grid_layout.h"
+#include "ui/views/views_delegate.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/non_client_view.h"
 
@@ -323,6 +324,7 @@ ShellWindowViews::ShellWindowViews(ShellWindow* shell_window,
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
   params.delegate = this;
   params.remove_standard_frame = true;
+  params.use_system_default_icon = true;
   minimum_size_ = win_params.minimum_size;
   maximum_size_ = win_params.maximum_size;
   window_->Init(params);
@@ -345,7 +347,8 @@ ShellWindowViews::ShellWindowViews(ShellWindow* shell_window,
   extension_keybinding_registry_.reset(
       new ExtensionKeybindingRegistryViews(shell_window_->profile(),
           window_->GetFocusManager(),
-          extensions::ExtensionKeybindingRegistry::PLATFORM_APPS_ONLY));
+          extensions::ExtensionKeybindingRegistry::PLATFORM_APPS_ONLY,
+          shell_window_));
 
   OnViewWasResized();
 
@@ -491,7 +494,7 @@ void ShellWindowViews::DeleteDelegate() {
 }
 
 bool ShellWindowViews::CanResize() const {
-  return true;
+  return maximum_size_.IsEmpty() || minimum_size_ != maximum_size_;
 }
 
 bool ShellWindowViews::CanMaximize() const {
@@ -504,6 +507,13 @@ views::View* ShellWindowViews::GetContentsView() {
 
 views::NonClientFrameView* ShellWindowViews::CreateNonClientFrameView(
     views::Widget* widget) {
+#if defined(USE_ASH)
+  if (!frameless_) {
+    ash::CustomFrameViewAsh* frame = new ash::CustomFrameViewAsh();
+    frame->Init(widget);
+    return frame;
+  }
+#endif
   ShellWindowFrameView* frame_view = new ShellWindowFrameView(this);
   frame_view->Init(window_);
   return frame_view;
@@ -589,6 +599,10 @@ gfx::ImageSkia ShellWindowViews::GetWindowIcon() {
       return *app_icon.ToImageSkia();
   }
   return gfx::ImageSkia();
+}
+
+bool ShellWindowViews::ShouldShowWindowTitle() const {
+  return false;
 }
 
 void ShellWindowViews::Layout() {

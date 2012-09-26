@@ -8,6 +8,7 @@
 #ifndef CHROME_BROWSER_SYSTEM_MONITOR_MEDIA_STORAGE_UTIL_H_
 #define CHROME_BROWSER_SYSTEM_MONITOR_MEDIA_STORAGE_UTIL_H_
 
+#include <set>
 #include <string>
 
 #include "base/basictypes.h"
@@ -29,6 +30,7 @@ class MediaStorageUtil {
     MTP_OR_PTP,
   };
 
+  typedef std::set<std::string /*device id*/> DeviceIdSet;
   typedef base::Callback<void(bool)> BoolCallback;
 
   // Returns a device id given properties of the device. A prefix dependent on
@@ -57,9 +59,13 @@ class MediaStorageUtil {
   static void IsDeviceAttached(const std::string& device_id,
                                const BoolCallback& callback);
 
+  // Removes disconnected devices from |devices| and then calls |done|.
+  static void FilterAttachedDevices(DeviceIdSet* devices,
+                                    const base::Closure& done);
+
   // Given |path|, fill in |device_id|, |device_name|, and |relative_path|
   // (from the root of the device) if they are not NULL.
-  static void GetDeviceInfoFromPath(const FilePath& path,
+  static bool GetDeviceInfoFromPath(const FilePath& path,
                                     std::string* device_id,
                                     string16* device_name,
                                     FilePath* relative_path);
@@ -69,8 +75,15 @@ class MediaStorageUtil {
   // the device is connected.
   static FilePath FindDevicePathById(const std::string& device_id);
 
+  // Record device information histogram for the given |device_uuid| and
+  // |device_name|. |mass_storage| indicates whether the current device is a
+  // mass storage device, as defined by IsMassStorageDevice().
+  static void RecordDeviceInfoHistogram(bool mass_storage,
+                                        const std::string& device_uuid,
+                                        const string16& device_name);
+
  protected:
-  typedef void (*GetDeviceInfoFromPathFunction)(const FilePath& path,
+  typedef bool (*GetDeviceInfoFromPathFunction)(const FilePath& path,
                                                 std::string* device_id,
                                                 string16* device_name,
                                                 FilePath* relative_path);
@@ -82,12 +95,6 @@ class MediaStorageUtil {
  private:
   // All methods are static, this class should not be instantiated.
   MediaStorageUtil();
-
-  // Per platform implementation.
-  static void GetDeviceInfoFromPathImpl(const FilePath& path,
-                                        std::string* device_id,
-                                        string16* device_name,
-                                        FilePath* relative_path);
 
   DISALLOW_COPY_AND_ASSIGN(MediaStorageUtil);
 };

@@ -8,17 +8,61 @@
 
 #include "base/file_path.h"
 #include "base/logging.h"
-#include "base/metrics/histogram.h"
 #include "base/stl_util.h"
 #include "base/string_number_conversions.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/system_monitor/media_device_notifications_utils.h"
 #include "chrome/browser/system_monitor/media_storage_util.h"
+#include "chrome/browser/system_monitor/removable_device_constants.h"
 #include "content/public/browser/browser_thread.h"
 
 namespace chromeos {
 
+using base::SystemMonitor;
+
 namespace {
+
+// Construct a device name using label or manufacturer (vendor and product) name
+// details.
+string16 GetDeviceName(const disks::DiskMountManager::Disk& disk) {
+  std::string device_name = disk.device_label();
+  if (device_name.empty()) {
+    device_name = disk.vendor_name();
+    const std::string& product_name = disk.product_name();
+    if (!product_name.empty()) {
+      if (!device_name.empty())
+        device_name += chrome::kSpaceDelim;
+      device_name += product_name;
+    }
+  }
+  return UTF8ToUTF16(device_name);
+}
+
+// Construct a device id using uuid or manufacturer (vendor and product) id
+// details.
+std::string MakeDeviceUniqueId(const disks::DiskMountManager::Disk& disk) {
+  std::string uuid = disk.fs_uuid();
+  if (!uuid.empty())
+    return chrome::kFSUniqueIdPrefix + uuid;
+
+  // If one of the vendor or product information is missing, its value in the
+  // string is empty.
+  // Format: VendorModelSerial:VendorInfo:ModelInfo:SerialInfo
+  // TODO(kmadhusu) Extract serial information for the disks and append it to
+  // the device unique id.
+  const std::string& vendor = disk.vendor_id();
+  const std::string& product = disk.product_id();
+  if (vendor.empty() && product.empty())
+    return std::string();
+  return base::StringPrintf("%s%s%s%s%s",
+                            chrome::kVendorModelSerialPrefix,
+                            vendor.c_str(), chrome::kNonSpaceDelim,
+                            product.c_str(), chrome::kNonSpaceDelim);
+}
+
+static RemovableDeviceNotificationsCros*
+    g_removable_device_notifications_chromeos = NULL;
 
 // Returns true if the requested device is valid, else false. On success, fills
 // in |unique_id| and |device_label|
@@ -30,31 +74,40 @@ bool GetDeviceInfo(const std::string& source_path, std::string* unique_id,
   if (!disk || disk->device_type() == DEVICE_TYPE_UNKNOWN)
     return false;
 
-  *unique_id = disk->fs_uuid();
+  if (unique_id)
+    *unique_id = MakeDeviceUniqueId(*disk);
 
-  // TODO(kmadhusu): If device label is empty, extract vendor and model details
-  // and use them as device_label.
-  *device_label = UTF8ToUTF16(disk->device_label().empty() ?
-                              FilePath(source_path).BaseName().value() :
-                              disk->device_label());
+  if (device_label)
+    *device_label = GetDeviceName(*disk);
   return true;
 }
 
 }  // namespace
 
+using chrome::MediaStorageUtil;
 using content::BrowserThread;
 
 RemovableDeviceNotificationsCros::RemovableDeviceNotificationsCros() {
   DCHECK(disks::DiskMountManager::GetInstance());
+  DCHECK(!g_removable_device_notifications_chromeos);
+  g_removable_device_notifications_chromeos = this;
   disks::DiskMountManager::GetInstance()->AddObserver(this);
   CheckExistingMountPointsOnUIThread();
 }
 
 RemovableDeviceNotificationsCros::~RemovableDeviceNotificationsCros() {
+  DCHECK_EQ(this, g_removable_device_notifications_chromeos);
+  g_removable_device_notifications_chromeos = NULL;
   disks::DiskMountManager* manager = disks::DiskMountManager::GetInstance();
   if (manager) {
     manager->RemoveObserver(this);
   }
+}
+
+// static
+RemovableDeviceNotificationsCros*
+RemovableDeviceNotificationsCros::GetInstance() {
+  return g_removable_device_notifications_chromeos;
 }
 
 void RemovableDeviceNotificationsCros::CheckExistingMountPointsOnUIThread() {
@@ -114,11 +167,33 @@ void RemovableDeviceNotificationsCros::MountCompleted(
       MountMap::iterator it = mount_map_.find(mount_info.mount_path);
       if (it == mount_map_.end())
         return;
-      base::SystemMonitor::Get()->ProcessRemovableStorageDetached(it->second);
+      SystemMonitor::Get()->ProcessRemovableStorageDetached(
+          it->second.device_id);
       mount_map_.erase(it);
       break;
     }
   }
+}
+
+bool RemovableDeviceNotificationsCros::GetDeviceInfoForPath(
+    const FilePath& path,
+    SystemMonitor::RemovableStorageInfo* device_info) const {
+  if (!path.IsAbsolute())
+    return false;
+
+  FilePath current = path;
+  while (!ContainsKey(mount_map_, current.value()) &&
+         current != current.DirName()) {
+    current = current.DirName();
+  }
+
+  MountMap::const_iterator info_it = mount_map_.find(current.value());
+  if (info_it == mount_map_.end())
+    return false;
+
+  if (device_info)
+    *device_info = info_it->second;
+  return true;
 }
 
 void RemovableDeviceNotificationsCros::CheckMountedPathOnFileThread(
@@ -138,7 +213,9 @@ void RemovableDeviceNotificationsCros::AddMountedPathOnUIThread(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (ContainsKey(mount_map_, mount_info.mount_path)) {
-    NOTREACHED();
+    // CheckExistingMountPointsOnUIThread() added the mount point information
+    // in the map before the device attached handler is called. Therefore, an
+    // entry for the device already exists in the map.
     return;
   }
 
@@ -148,20 +225,22 @@ void RemovableDeviceNotificationsCros::AddMountedPathOnUIThread(
   if (!GetDeviceInfo(mount_info.source_path, &unique_id, &device_label))
     return;
 
-  // Keep track of device uuid, to see how often we receive empty uuid values.
-  UMA_HISTOGRAM_BOOLEAN("MediaDeviceNotification.DeviceUUIDAvailable",
-                        !unique_id.empty());
-  if (unique_id.empty())
+  // Keep track of device uuid and label, to see how often we receive empty
+  // values.
+  MediaStorageUtil::RecordDeviceInfoHistogram(true, unique_id, device_label);
+  if (unique_id.empty() || device_label.empty())
     return;
 
-  chrome::MediaStorageUtil::Type type = has_dcim ?
-      chrome::MediaStorageUtil::REMOVABLE_MASS_STORAGE_WITH_DCIM :
-      chrome::MediaStorageUtil::REMOVABLE_MASS_STORAGE_NO_DCIM;
+  MediaStorageUtil::Type type = has_dcim ?
+      MediaStorageUtil::REMOVABLE_MASS_STORAGE_WITH_DCIM :
+      MediaStorageUtil::REMOVABLE_MASS_STORAGE_NO_DCIM;
 
   std::string device_id = chrome::MediaStorageUtil::MakeDeviceId(type,
                                                                  unique_id);
-  mount_map_.insert(std::make_pair(mount_info.mount_path, device_id));
-  base::SystemMonitor::Get()->ProcessRemovableStorageAttached(
+  SystemMonitor::RemovableStorageInfo info(device_id, device_label,
+                                           mount_info.mount_path);
+  mount_map_.insert(std::make_pair(mount_info.mount_path, info));
+  SystemMonitor::Get()->ProcessRemovableStorageAttached(
       device_id,
       device_label,
       mount_info.mount_path);

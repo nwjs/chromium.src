@@ -10,9 +10,11 @@
 
 #include "base/basictypes.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/chromeos/gdata/drive_upload_mode.h"
-#include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
+#include "chrome/browser/google_apis/drive_upload_mode.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
+#include "chrome/browser/google_apis/gdata_wapi_parser.h"
+#include "net/base/file_stream.h"
+#include "net/base/completion_callback.h"
 #include "net/base/file_stream.h"
 
 class GURL;
@@ -33,6 +35,9 @@ typedef base::Callback<void(DriveFileError error,
     const FilePath& file_path,
     scoped_ptr<DocumentEntry> document_entry)> UploadCompletionCallback;
 
+// Callback to be invoked once the upoader is ready to upload.
+typedef base::Callback<void(int32 upload_id)> UploaderReadyCallback;
+
 class DriveUploaderInterface {
  public:
   virtual ~DriveUploaderInterface() {}
@@ -47,10 +52,11 @@ class DriveUploaderInterface {
       const std::string& content_type,
       int64 content_length,
       int64 file_size,
-      const UploadCompletionCallback& callback) = 0;
+      const UploadCompletionCallback& completion_callback,
+      const UploaderReadyCallback& ready_callback) = 0;
 
   // Stream data to an existing file.
-  // Transfers ownership. Returns the upload_id.
+  // Returns the upload_id.
   virtual int StreamExistingFile(
       const GURL& upload_location,
       const FilePath& drive_file_path,
@@ -58,7 +64,8 @@ class DriveUploaderInterface {
       const std::string& content_type,
       int64 content_length,
       int64 file_size,
-      const UploadCompletionCallback& callback) = 0;
+      const UploadCompletionCallback& completion_callback,
+      const UploaderReadyCallback& ready_callback) = 0;
 
   // Uploads an existing file (a file that already exists on Drive).
   virtual int UploadExistingFile(
@@ -67,7 +74,8 @@ class DriveUploaderInterface {
       const FilePath& local_file_path,
       const std::string& content_type,
       int64 file_size,
-      const UploadCompletionCallback& callback) = 0;
+      const UploadCompletionCallback& completion_callback,
+      const UploaderReadyCallback& ready_callback) = 0;
 
   // Updates attributes of streaming upload.
   virtual void UpdateUpload(int upload_id,
@@ -92,7 +100,8 @@ class DriveUploader : public DriveUploaderInterface {
       const std::string& content_type,
       int64 content_length,
       int64 file_size,
-      const UploadCompletionCallback& callback) OVERRIDE;
+      const UploadCompletionCallback& completion_callback,
+      const UploaderReadyCallback& ready_callback) OVERRIDE;
   virtual int StreamExistingFile(
       const GURL& upload_location,
       const FilePath& drive_file_path,
@@ -100,14 +109,16 @@ class DriveUploader : public DriveUploaderInterface {
       const std::string& content_type,
       int64 content_length,
       int64 file_size,
-      const UploadCompletionCallback& callback) OVERRIDE;
+      const UploadCompletionCallback& completion_callback,
+      const UploaderReadyCallback& ready_callback) OVERRIDE;
   virtual int UploadExistingFile(
       const GURL& upload_location,
       const FilePath& drive_file_path,
       const FilePath& local_file_path,
       const std::string& content_type,
       int64 file_size,
-      const UploadCompletionCallback& callback) OVERRIDE;
+      const UploadCompletionCallback& completion_callback,
+      const UploaderReadyCallback& ready_callback) OVERRIDE;
   virtual void UpdateUpload(
       int upload_id, content::DownloadItem* download) OVERRIDE;
   virtual int64 GetUploadedBytes(int upload_id) const OVERRIDE;
@@ -151,7 +162,7 @@ class DriveUploader : public DriveUploaderInterface {
     // to extend a generic stream.
     //
     // For opening and reading from physical file.
-    net::FileStream* file_stream;
+    scoped_ptr<net::FileStream> file_stream;
     scoped_refptr<net::IOBuffer> buf;  // Holds current content to be uploaded.
     // Size of |buf|, max is 512KB; Google Docs requires size of each upload
     // chunk to be a multiple of 512KB.
@@ -174,18 +185,31 @@ class DriveUploader : public DriveUploaderInterface {
     // Will be set once the upload is complete.
     scoped_ptr<DocumentEntry> entry;
 
+    // Callback to be invoked once the uploader is ready to upload.
+    UploaderReadyCallback ready_callback;
+
+    // Callback to be invoked once the upload has finished.
     UploadCompletionCallback completion_callback;
+  };
+
+  // Indicates step in which we try to open a file.
+  // Retrying happens in FILE_OPEN_UPDATE_UPLOAD step.
+  enum FileOpenType {
+    FILE_OPEN_START_UPLOAD,
+    FILE_OPEN_UPDATE_UPLOAD
   };
 
   // Lookup UploadFileInfo* in pending_uploads_.
   UploadFileInfo* GetUploadFileInfo(int upload_id) const;
 
   // Open the file.
-  void OpenFile(UploadFileInfo* upload_file_info);
+  void OpenFile(UploadFileInfo* upload_file_info, FileOpenType open_type);
 
   // net::FileStream::Open completion callback. The result of the file
   // open operation is passed as |result|.
-  void OpenCompletionCallback(int upload_id, int result);
+  void OpenCompletionCallback(FileOpenType open_type,
+                              int upload_id,
+                              int result);
 
   // DriveService callback for InitiateUpload.
   void OnUploadLocationReceived(int upload_id,
@@ -212,16 +236,16 @@ class DriveUploader : public DriveUploaderInterface {
   void InitiateUpload(UploadFileInfo* uploader_file_info);
 
   // Handle failed uploads.
-  void UploadFailed(scoped_ptr<UploadFileInfo> upload_file_info,
+  void UploadFailed(UploadFileInfo* upload_file_info,
                     DriveFileError error);
 
-  // Removes |upload_id| from UploadFileInfoMap |pending_uploads_|.
-  // Note that this does not delete the UploadFileInfo object itself,
-  // because it may still be in use by an asynchronous function.
-  void RemoveUpload(int upload_id);
+  // Removes |upload_file_info| from UploadFileInfoMap |pending_uploads_|.
+  // After its removal from the map, |upload_file_info| is deleted.
+  void RemoveUpload(scoped_ptr<UploadFileInfo> upload_file_info);
 
   // Starts uploading a file with |upload_file_info|. Returns a new upload
-  // ID assigned to |upload_file_info|.
+  // ID assigned to |upload_file_info|. |upload_file_info| is added to
+  // |pending_uploads_map_|.
   int StartUploadFile(scoped_ptr<UploadFileInfo> upload_file_info);
 
   // Pointers to DriveServiceInterface object owned by DriveSystemService.
@@ -232,6 +256,8 @@ class DriveUploader : public DriveUploaderInterface {
   int next_upload_id_;  // id counter.
 
   typedef std::map<int, UploadFileInfo*> UploadFileInfoMap;
+  // Upload file infos added to the map are deleted either in |RemoveUpload| or
+  // in DriveUploader dtor (i.e. we can assume |this| takes their ownership).
   UploadFileInfoMap pending_uploads_;
 
   // Note: This should remain the last member so it'll be destroyed and

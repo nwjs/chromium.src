@@ -124,6 +124,7 @@ void ChromeBrowserFieldTrials::SetupFieldTrials(bool proxy_policy_is_set) {
   DefaultAppsFieldTrial();
   AutoLaunchChromeFieldTrial();
   gpu_util::InitializeCompositingFieldTrial();
+  gpu_util::InitializeStage3DFieldTrial();
   SetupUniformityFieldTrials();
   AutocompleteFieldTrial::Activate();
   DisableNewTabFieldTrialIfNecesssary();
@@ -540,7 +541,7 @@ void ChromeBrowserFieldTrials::SetUpSafeBrowsingInterstitialFieldTrial() {
   const base::FieldTrial::Probability kVersion2Probability = 50;  // 50% prob.
   scoped_refptr<base::FieldTrial> trial(
       base::FieldTrialList::FactoryGetFieldTrial("SBInterstitial", kDivisor,
-                                                 "V1", 2012, 9, 19, NULL));
+                                                 "V1", 2012, 10, 23, NULL));
   trial->UseOneTimeRandomization();
   trial->AppendGroup("V2", kVersion2Probability);
 }

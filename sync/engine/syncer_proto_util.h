@@ -42,8 +42,10 @@ class SyncerProtoUtil {
   // Posts the given message and fills the buffer with the returned value.
   // Returns true on success.  Also handles store birthday verification: will
   // produce a SyncError if the birthday is incorrect.
+  // NOTE: This will add all fields that must be sent on every request, which
+  // includes store birthday, protocol version, client chips, api keys, etc.
   static SyncerError PostClientToServerMessage(
-      const sync_pb::ClientToServerMessage& msg,
+      sync_pb::ClientToServerMessage* msg,
       sync_pb::ClientToServerResponse* response,
       sessions::SyncSession* session);
 

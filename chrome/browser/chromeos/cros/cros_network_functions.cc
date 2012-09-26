@@ -827,4 +827,15 @@ int32 CrosNetmaskToPrefixLength(const std::string& netmask) {
   return prefix_length;
 }
 
+// Changes the active cellular carrier.
+void CrosSetCarrier(const std::string& device_path,
+                    const std::string& carrier,
+                    const NetworkOperationCallback& callback) {
+  DBusThreadManager::Get()->GetShillDeviceClient()->SetCarrier(
+      dbus::ObjectPath(device_path), carrier,
+      base::Bind(callback, device_path, NETWORK_METHOD_ERROR_NONE,
+                 std::string()),
+      base::Bind(&OnNetworkActionError, callback, device_path));
+}
+
 }  // namespace chromeos

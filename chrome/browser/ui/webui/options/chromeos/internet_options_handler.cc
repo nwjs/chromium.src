@@ -108,6 +108,8 @@ const char kRefreshNetworkDataFunction[] =
     "options.network.NetworkList.refreshNetworkData";
 const char kShowDetailedInfoFunction[] =
     "options.internet.DetailsInternetPage.showDetailedInfo";
+const char kUpdateCarrierFunction[] =
+    "options.internet.DetailsInternetPage.updateCarrier";
 const char kUpdateCellularPlansFunction[] =
     "options.internet.DetailsInternetPage.updateCellularPlans";
 const char kUpdateSecurityTabFunction[] =
@@ -127,6 +129,7 @@ const char kRefreshCellularPlanMessage[] = "refreshCellularPlan";
 const char kRefreshNetworksMessage[] = "refreshNetworks";
 const char kSetApnMessage[] = "setApn";
 const char kSetAutoConnectMessage[] = "setAutoConnect";
+const char kSetCarrierMessage[] = "setCarrier";
 const char kSetIPConfigMessage[] = "setIPConfig";
 const char kSetPreferNetworkMessage[] = "setPreferNetwork";
 const char kSetServerHostname[] = "setServerHostname";
@@ -143,6 +146,7 @@ const char kTagAirplaneMode[] = "airplaneMode";
 const char kTagApn[] = "apn";
 const char kTagAutoConnect[] = "autoConnect";
 const char kTagBssid[] = "bssid";
+const char kTagCarrierSelectFlag[] = "showCarrierSelect";
 const char kTagCarrierUrl[] = "carrierUrl";
 const char kTagCellularAvailable[] = "cellularAvailable";
 const char kTagCellularBusy[] = "cellularBusy";
@@ -204,6 +208,8 @@ const char kTagRestrictedPool[] = "restrictedPool";
 const char kTagRoamingState[] = "roamingState";
 const char kTagServerHostname[] = "serverHostname";
 const char kTagService_name[] = "service_name";
+const char kTagCarriers[] = "carriers";
+const char kTagCurrentCarrierIndex[] = "currentCarrierIndex";
 const char kTagServiceName[] = "serviceName";
 const char kTagServicePath[] = "servicePath";
 const char kTagShared[] = "shared";
@@ -530,6 +536,36 @@ void PopulateVPNDetails(
                      Value::CreateStringValue(vpn->server_hostname()),
                      hostname_ui_data);
 }
+
+// Given a list of supported carrier's by the device, return the index of
+// the carrier the device is currently using.
+int FindCurrentCarrierIndex(const base::ListValue* carriers,
+                            const chromeos::NetworkDevice* device) {
+  DCHECK(carriers);
+  DCHECK(device);
+
+  bool gsm = (device->technology_family() == chromeos::TECHNOLOGY_FAMILY_GSM);
+  int index = 0;
+  for (base::ListValue::const_iterator it = carriers->begin();
+       it != carriers->end();
+       ++it, ++index) {
+    std::string value;
+    if ((*it)->GetAsString(&value)) {
+      // For GSM devices the device name will be empty, so simply select
+      // the Generic UMTS carrier option if present.
+      if (gsm && (value == shill::kCarrierGenericUMTS)) {
+        return index;
+      } else {
+        // For other carriers, the service name will match the carrier name.
+        if (value == device->carrier())
+          return index;
+      }
+    }
+  }
+
+  return -1;
+}
+
 }  // namespace
 
 namespace options {
@@ -714,19 +750,6 @@ void InternetOptionsHandler::GetLocalizedValues(
     { "lockSimCard", IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_LOCK_SIM_CARD },
     { "changePinButton",
       IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_CHANGE_PIN_BUTTON },
-
-    // Plan Tab.
-
-    { "planName", IDS_OPTIONS_SETTINGS_INTERNET_CELL_PLAN_NAME },
-    { "planLoading", IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_LOADING_PLAN },
-    { "noPlansFound", IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_NO_PLANS_FOUND },
-    { "purchaseMore", IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PURCHASE_MORE },
-    { "dataRemaining", IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_DATA_REMAINING },
-    { "planExpires", IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EXPIRES },
-    { "showPlanNotifications",
-      IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_SHOW_MOBILE_NOTIFICATION },
-    { "autoconnectCellular",
-      IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_AUTO_CONNECT }
   };
 
   RegisterStrings(localized_strings, resources, arraysize(resources));
@@ -790,6 +813,9 @@ void InternetOptionsHandler::RegisterMessages() {
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback(kSetApnMessage,
       base::Bind(&InternetOptionsHandler::SetApnCallback,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(kSetCarrierMessage,
+      base::Bind(&InternetOptionsHandler::SetCarrierCallback,
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback(kSetSimCardLockMessage,
       base::Bind(&InternetOptionsHandler::SetSimCardLockCallback,
@@ -903,6 +929,34 @@ void InternetOptionsHandler::SetApnCallback(const ListValue* args) {
   }
 }
 
+void InternetOptionsHandler::CarrierStatusCallback(
+    const std::string& service_path,
+    chromeos::NetworkMethodErrorType error,
+    const std::string& error_message) {
+  UpdateCarrier(error == chromeos::NETWORK_METHOD_ERROR_NONE);
+}
+
+
+void InternetOptionsHandler::SetCarrierCallback(const ListValue* args) {
+  std::string service_path;
+  std::string carrier;
+  if (args->GetSize() != 2 ||
+      !args->GetString(0, &service_path) ||
+      !args->GetString(1, &carrier)) {
+    NOTREACHED();
+    return;
+  }
+
+  chromeos::NetworkLibrary* cros_net =
+      chromeos::CrosLibrary::Get()->GetNetworkLibrary();
+  if (cros_net) {
+    cros_net->SetCarrier(
+        carrier,
+        base::Bind(&InternetOptionsHandler::CarrierStatusCallback,
+                   weak_factory_.GetWeakPtr()));
+  }
+}
+
 void InternetOptionsHandler::SetSimCardLockCallback(const ListValue* args) {
   bool require_pin_new_value;
   if (!args->GetBoolean(0, &require_pin_new_value)) {
@@ -936,6 +990,11 @@ void InternetOptionsHandler::RefreshNetworkData() {
   FillNetworkInfo(&dictionary);
   web_ui()->CallJavascriptFunction(
       kRefreshNetworkDataFunction, dictionary);
+}
+
+void InternetOptionsHandler::UpdateCarrier(bool success) {
+  web_ui()->CallJavascriptFunction(kUpdateCarrierFunction,
+                                   *(Value::CreateBooleanValue(success)));
 }
 
 void InternetOptionsHandler::OnNetworkManagerChanged(
@@ -1352,6 +1411,9 @@ DictionaryValue* InternetOptionsHandler::CreateDictionaryFromCellularApn(
 void InternetOptionsHandler::PopulateCellularDetails(
     const chromeos::CellularNetwork* cellular,
     DictionaryValue* dictionary) {
+  dictionary->SetBoolean(kTagCarrierSelectFlag,
+                         CommandLine::ForCurrentProcess()->HasSwitch(
+                             switches::kEnableCarrierSwitching));
   // Cellular network / connection settings.
   dictionary->SetString(kTagServiceName, cellular->name());
   dictionary->SetString(kTagNetworkTechnology,
@@ -1419,6 +1481,21 @@ void InternetOptionsHandler::PopulateCellularDetails(
     }
     SetValueDictionary(dictionary, kTagProviderApnList, apn_list_value,
                        cellular_property_ui_data);
+
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+        switches::kEnableCarrierSwitching)) {
+      base::ListValue* supported_carriers = device->supported_carriers();
+      if (supported_carriers) {
+        dictionary->Set(kTagCarriers, supported_carriers->DeepCopy());
+        dictionary->SetInteger(kTagCurrentCarrierIndex,
+                               FindCurrentCarrierIndex(supported_carriers,
+                                                       device));
+      } else {
+        // In case of any error, set the current carrier tag to -1 indicating
+        // to the JS code to fallback to a single carrier.
+        dictionary->SetInteger(kTagCurrentCarrierIndex, -1);
+      }
+    }
   }
 
   SetActivationButtonVisibility(cellular,
@@ -1476,41 +1553,42 @@ void InternetOptionsHandler::NetworkCommandCallback(const ListValue* args) {
   chromeos::ConnectionType type =
       (chromeos::ConnectionType) atoi(str_type.c_str());
 
-  chromeos::Network *network = NULL;
-  if (service_path.size() != 0) {
-    network = cros_->FindNetworkByPath(service_path);
-    if (!network) {
-      VLOG(2) << "Unknown network service-path '" << service_path << "'";
-      return;
-    }
-    DCHECK_EQ(network->type(), type)
-        << "provided type and the type of the provided network '"
-        << service_path << "' do not match";
+  // Process commands that do not require an existing network.
+  if (command == kTagAddConnection) {
+    if (CanAddNetworkType(type))
+      AddConnection(type);
+    return;
+  } else if (command == kTagForget) {
+    if (CanForgetNetworkType(type))
+      cros_->ForgetNetwork(service_path);
+    return;
   }
 
-  if (command != kTagAddConnection) {
-    DCHECK(network) << "network command '" << command
-                    << "' called but no network provided";
+  // Process commands that require an active network.
+  chromeos::Network *network = NULL;
+  if (!service_path.empty())
+    network = cros_->FindNetworkByPath(service_path);
+
+  if (!network) {
+    VLOG(2) << "Network command: " << command
+            << "Called with unknown service-path: " << service_path;
+    return;
   }
+  DCHECK_EQ(network->type(), type)
+      << "Provided type: " << type << " does not match: " << network->type()
+      << " For network: " << service_path;
 
   if (command == kTagOptions) {
     PopulateDictionaryDetails(network);
   } else if (command == kTagConnect) {
     ConnectToNetwork(network);
-  } else if (command == kTagForget &&
-             CanForgetNetworkType(type)) {
-    cros_->ForgetNetwork(service_path);
-  } else if (command == kTagAddConnection &&
-             CanAddNetworkType(type)) {
-    AddConnection(type);
-  } else if (command == kTagDisconnect &&
-             type != chromeos::TYPE_ETHERNET) {
+  } else if (command == kTagDisconnect && type != chromeos::TYPE_ETHERNET) {
     cros_->DisconnectFromNetwork(network);
-  } else if (command == kTagActivate &&
-             type == chromeos::TYPE_CELLULAR) {
+  } else if (command == kTagActivate && type == chromeos::TYPE_CELLULAR) {
     ash::Shell::GetInstance()->delegate()->OpenMobileSetup(
         network->service_path());
   } else {
+    VLOG(1) << "Unknown command: " << command;
     NOTREACHED();
   }
 }

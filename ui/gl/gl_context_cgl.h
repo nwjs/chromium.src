@@ -7,6 +7,7 @@
 
 #include <OpenGL/CGLTypes.h>
 
+#include "base/memory/scoped_generic_obj.h"
 #include "ui/gl/gl_context.h"
 
 namespace gfx {
@@ -27,19 +28,17 @@ class GLContextCGL : public GLContext {
   virtual bool IsCurrent(GLSurface* surface) OVERRIDE;
   virtual void* GetHandle() OVERRIDE;
   virtual void SetSwapInterval(int interval) OVERRIDE;
+  virtual bool GetTotalGpuMemory(size_t* bytes) OVERRIDE;
+
+  // Helper for dual-GPU support on systems where this is necessary
+  // for stability reasons.
+  static void ForceUseOfDiscreteGPU();
 
  protected:
   virtual ~GLContextCGL();
 
  private:
-  // Expose ForceUseOfDiscreteGPU only to GLContext implementation.
-  friend class GLContext;
-
   GpuPreference GetGpuPreference();
-
-  // Helper for dual-GPU support on systems where this is necessary
-  // for stability reasons.
-  static void ForceUseOfDiscreteGPU();
 
   void* context_;
   GpuPreference gpu_preference_;
@@ -48,6 +47,14 @@ class GLContextCGL : public GLContext {
 
   DISALLOW_COPY_AND_ASSIGN(GLContextCGL);
 };
+
+class ScopedCGLDestroyRendererInfo {
+ public:
+  void operator()(CGLRendererInfoObj x) const;
+};
+
+typedef ScopedGenericObj<CGLRendererInfoObj, ScopedCGLDestroyRendererInfo>
+    ScopedCGLRendererInfoObj;
 
 }  // namespace gfx
 

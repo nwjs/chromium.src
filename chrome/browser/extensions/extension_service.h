@@ -49,7 +49,6 @@ class CommandLine;
 class ExtensionErrorUI;
 class ExtensionFontSettingsEventRouter;
 class ExtensionManagementEventRouter;
-class ExtensionPreferenceEventRouter;
 class ExtensionSyncData;
 class ExtensionToolbarModel;
 class HistoryExtensionEventRouter;
@@ -79,6 +78,7 @@ class ExtensionUpdater;
 class FontSettingsEventRouter;
 class MediaGalleriesPrivateEventRouter;
 class PendingExtensionManager;
+class PreferenceEventRouter;
 class PushMessagingEventRouter;
 class SettingsFrontend;
 class WebNavigationEventRouter;
@@ -618,6 +618,10 @@ class ExtensionService
   static void RecordPermissionMessagesHistogram(
       const extensions::Extension* e, const char* histogram);
 
+  // Open a dev tools window for the background page for the given extension,
+  // starting the background page first if necesary.
+  void InspectBackgroundPage(const extensions::Extension* extension);
+
 #if defined(UNIT_TEST)
   void TrackTerminatedExtensionForTest(const extensions::Extension* extension) {
     TrackTerminatedExtension(extension);
@@ -726,6 +730,9 @@ class ExtensionService
   // Launches the platform app associated with |extension_host|.
   static void LaunchApplication(extensions::ExtensionHost* extension_host);
 
+  // Helper to inspect an ExtensionHost after it has been loaded.
+  void InspectExtensionHost(extensions::ExtensionHost* host);
+
   // The normal profile associated with this ExtensionService.
   Profile* profile_;
 
@@ -827,7 +834,7 @@ class ExtensionService
 
   scoped_ptr<extensions::WindowEventRouter> window_event_router_;
 
-  scoped_ptr<ExtensionPreferenceEventRouter> preference_event_router_;
+  scoped_ptr<extensions::PreferenceEventRouter> preference_event_router_;
 
   scoped_ptr<BookmarkExtensionEventRouter> bookmark_event_router_;
 

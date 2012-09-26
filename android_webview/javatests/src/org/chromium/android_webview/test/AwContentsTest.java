@@ -11,8 +11,8 @@ import android.test.UiThreadTest;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import org.chromium.android_webview.AwContents;
-import org.chromium.base.test.Feature;
-import org.chromium.content.browser.test.CallbackHelper;
+import org.chromium.base.test.util.Feature;
+import org.chromium.content.browser.test.util.CallbackHelper;
 
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;

@@ -9,6 +9,7 @@
       'type': 'static_library',
       'dependencies': [
         '../base/base.gyp:base',
+        '../skia/skia.gyp:skia',
         '../testing/gtest.gyp:gtest',
       ],
       'sources': [
@@ -18,6 +19,8 @@
         'base/test/ui_cocoa_test_helper.mm',
         'base/test/dummy_input_method.cc',
         'base/test/dummy_input_method.h',
+        'base/win/mock_tsf_bridge.cc',
+        'base/win/mock_tsf_bridge.h',
       ],
       'include_dirs': [
         '../',
@@ -62,6 +65,7 @@
         'gfx/image/image_unittest.cc',
         'gfx/image/image_unittest_util.cc',
         'gfx/image/image_unittest_util.h',
+        'gfx/image/image_unittest_util_ios.mm',
         'gfx/image/image_unittest_util_mac.mm',
         'gfx/insets_unittest.cc',
       ],
@@ -84,6 +88,7 @@
         'base/gtk/gtk_expanded_container_unittest.cc',
         'base/gtk/gtk_im_context_util_unittest.cc',
         'base/gtk/menu_label_accelerator_util_unittest.cc',
+        'base/layout_unittest.cc',
         'base/l10n/l10n_util_mac_unittest.mm',
         'base/l10n/l10n_util_unittest.cc',
         'base/models/list_model_unittest.cc',

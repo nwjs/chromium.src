@@ -15,6 +15,7 @@
 #include "base/scoped_temp_dir.h"
 #include "base/stl_util.h"
 #include "base/time.h"
+#include "chrome/browser/sessions/session_types_test_helper.h"
 #include "chrome/browser/signin/signin_manager.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/token_service_factory.h"
@@ -41,11 +42,11 @@
 #include "sync/internal_api/public/change_record.h"
 #include "sync/internal_api/public/read_node.h"
 #include "sync/internal_api/public/read_transaction.h"
+#include "sync/internal_api/public/test/test_user_share.h"
 #include "sync/internal_api/public/write_node.h"
 #include "sync/internal_api/public/write_transaction.h"
 #include "sync/protocol/session_specifics.pb.h"
 #include "sync/protocol/sync.pb.h"
-#include "sync/test/engine/test_id_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ui_base_types.h"
@@ -139,9 +140,10 @@ void VerifySyncedSession(
       ASSERT_EQ("app_id", tab->extension_app_id);
       ASSERT_EQ(1U, tab->navigations.size());
       ASSERT_EQ(tab->navigations[0].virtual_url(), GURL("http://foo/1"));
-      ASSERT_EQ(tab->navigations[0].referrer().url, GURL("referrer"));
+      ASSERT_EQ(SessionTypesTestHelper::GetReferrer(tab->navigations[0]).url,
+                GURL("referrer"));
       ASSERT_EQ(tab->navigations[0].title(), string16(ASCIIToUTF16("title")));
-      ASSERT_EQ(tab->navigations[0].transition(),
+      ASSERT_EQ(SessionTypesTestHelper::GetTransitionType(tab->navigations[0]),
                 content::PAGE_TRANSITION_TYPED);
     }
   }
@@ -159,8 +161,6 @@ class ProfileSyncServiceSessionTest
         notified_of_update_(false),
         notified_of_refresh_(false) {}
   ProfileSyncService* sync_service() { return sync_service_.get(); }
-
-  TestIdFactory* ids() { return sync_service_->id_factory(); }
 
  protected:
   virtual TestingProfile* CreateProfile() OVERRIDE {
@@ -287,8 +287,8 @@ class CreateRootHelper {
 
  private:
   void CreateRootCallback(ProfileSyncServiceSessionTest* test) {
-    success_ = ProfileSyncServiceTestHelper::CreateRoot(
-        syncer::SESSIONS, test->sync_service()->GetUserShare(), test->ids());
+    success_ = syncer::TestUserShare::CreateRoot(
+        syncer::SESSIONS, test->sync_service()->GetUserShare());
   }
 
   base::Closure callback_;

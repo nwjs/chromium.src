@@ -385,7 +385,7 @@ remoting.ClientSession.prototype.sendKeyCombination_ = function(keys) {
   for (var i = 0; i < keys.length; i++) {
     this.plugin.injectKeyEvent(keys[i], true);
   }
-  for (var i = arguments.length -1; i >= 0; i--) {
+  for (var i = 0; i < keys.length; i++) {
     this.plugin.injectKeyEvent(keys[i], false);
   }
 }
@@ -517,6 +517,7 @@ remoting.ClientSession.prototype.onConnectionStatusUpdate_ =
     function(status, error) {
   if (status == remoting.ClientSession.State.CONNECTED) {
     this.onDesktopSizeChanged_();
+    this.plugin.notifyClientDimensions(window.innerWidth, window.innerHeight)
   } else if (status == remoting.ClientSession.State.FAILED) {
     this.error = /** @type {remoting.ClientSession.ConnectionError} */ (error);
   }

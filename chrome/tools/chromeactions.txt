@@ -36,7 +36,6 @@
 0xb41d9c886871e31a	AboutFlags_page-prerender
 0x735ca25b198de8ab	AboutFlags_prerender-from-omnibox
 0xb33861525ba727a4	AboutFlags_print-preview
-0x89ee0fa8efbf345c	AboutFlags_print-setting-reset
 0x75b933619fb87fec	AboutFlags_remoting
 0x4ef8419b680e7a19	AboutFlags_save-page-as-mhtml
 0xb9396e0515186060	AboutFlags_snap-start
@@ -59,6 +58,7 @@
 0x36adab865c373745	Accel_Fullscreen_F4
 0x125f05329e660307	Accel_KeyboardBrightnessDown_F6
 0xcdd268156ab80bb1	Accel_KeyboardBrightnessUp_F7
+0x290302f64fd4dfe1	Accel_Maximize_Restore_F4
 0x5e6bce93ecde1df8	Accel_NewTab_T
 0x5a27559e6846a75e	Accel_NextWindow_F5
 0xc217e3bb30e9a004	Accel_NextWindow_Tab
@@ -1040,6 +1040,8 @@
 0x31bc6949351f46a1	Options_DisableGData_Enable
 0x3c91497bc48f7456	Options_DnsPrefetchCheckbox_Disable
 0xb1c929ead405f1a9	Options_DnsPrefetchCheckbox_Enable
+0x5e1d34b2eb43d66f	Options_DoNotTrackCheckbox_Disable
+0x127ee5905bb2d0cd	Options_DoNotTrackCheckbox_Enable
 0x24f63c90f4b05e70	Options_EnableCloudPrintProxy
 0x7224f61ec49ec7ce	Options_FormAutofill_Disable
 0xe88933ca2c819b4e	Options_FormAutofill_Enable
@@ -1174,6 +1176,11 @@
 0xde70e21d95b52c83	PDF_UseReaderInfoBarCancel
 0xc35f4595bbf2a0fa	PDF_UseReaderInfoBarOK
 0xb7334d4097ba87ef	PDF_UseReaderInfoBarShown
+0xbf1053adc4e5cd87	PPAPI.BrokerInfobarClickedAllow
+0x146afa4664512557	PPAPI.BrokerInfobarClickedDeny
+0xcd9ed785cbf9424b	PPAPI.BrokerInfobarDisplayed
+0x002f8a6579713ab1	PPAPI.BrokerSettingAllow
+0x957b8f35c259d30a	PPAPI.BrokerSettingDeny
 0xee3677bcca83ece9	PageDown
 0xac722301695b9315	PageLoad
 0x9b869c510c75c582	PageUp
@@ -1280,6 +1287,7 @@
 0x1afb02b1f90b177e	ShowBookmarksBar
 0xe8705f2d7890043e	ShowControlPanel
 0x537e45904298316b	ShowDateOptions
+0xa27f5c1b4192af95	ShowDisplayOptions
 0x3d0170d09a816e7f	ShowDownloads
 0xf530f742ba5b2683	ShowExtensions
 0xa0118397d83c34d0	ShowFileBrowserFullTab

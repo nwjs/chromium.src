@@ -22,14 +22,14 @@
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/password_manager/password_manager_delegate_impl.h"
 #include "chrome/browser/pepper_broker_observer.h"
-#include "chrome/browser/plugin_observer.h"
+#include "chrome/browser/plugins/plugin_observer.h"
 #include "chrome/browser/prerender/prerender_tab_helper.h"
 #include "chrome/browser/printing/print_preview_message_handler.h"
 #include "chrome/browser/printing/print_view_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_tab_observer.h"
 #include "chrome/browser/sessions/session_tab_helper.h"
+#include "chrome/browser/ssl/ssl_tab_helper.h"
 #include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
-#include "chrome/browser/tab_contents/tab_contents_ssl_helper.h"
 #include "chrome/browser/tab_contents/thumbnail_generator.h"
 #include "chrome/browser/translate/translate_tab_helper.h"
 #include "chrome/browser/ui/alternate_error_tab_observer.h"
@@ -41,10 +41,9 @@
 #include "chrome/browser/ui/hung_plugin_tab_helper.h"
 #include "chrome/browser/ui/intents/web_intent_picker_controller.h"
 #include "chrome/browser/ui/metro_pin_tab_helper.h"
-#include "chrome/browser/ui/pdf/pdf_tab_observer.h"
+#include "chrome/browser/ui/pdf/pdf_tab_helper.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 #include "chrome/browser/ui/sad_tab_helper.h"
-#include "chrome/browser/ui/search/search.h"
 #include "chrome/browser/ui/search/search_tab_helper.h"
 #include "chrome/browser/ui/search_engines/search_engine_tab_helper.h"
 #include "chrome/browser/ui/snapshot_tab_helper.h"
@@ -114,6 +113,7 @@ TabContents::TabContents(WebContents* contents)
   // helpers may rely on that.
   SessionTabHelper::CreateForWebContents(contents);
 
+  AlternateErrorPageTabObserver::CreateForWebContents(contents);
   autocomplete_history_manager_.reset(new AutocompleteHistoryManager(contents));
   autofill_delegate_.reset(new TabAutofillManagerDelegate(this));
   autofill_manager_ = new AutofillManager(autofill_delegate_.get(), this);
@@ -125,69 +125,59 @@ TabContents::TabContents(WebContents* contents)
     autocomplete_history_manager_->SetExternalDelegate(
         autofill_external_delegate_.get());
   }
-#if defined(ENABLE_AUTOMATION)
-  automation_tab_helper_.reset(new AutomationTabHelper(contents));
-#endif
-  blocked_content_tab_helper_.reset(new BlockedContentTabHelper(this));
-  bookmark_tab_helper_.reset(new BookmarkTabHelper(this));
-  load_time_stats_tab_helper_.reset(
-      new chrome_browser_net::LoadTimeStatsTabHelper(this));
-#if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
-  captive_portal_tab_helper_.reset(
-      new captive_portal::CaptivePortalTabHelper(profile(), web_contents()));
-#endif
+  BlockedContentTabHelper::CreateForWebContents(contents);
+  BookmarkTabHelper::CreateForWebContents(contents);
+  chrome_browser_net::LoadTimeStatsTabHelper::CreateForWebContents(contents);
   constrained_window_tab_helper_.reset(new ConstrainedWindowTabHelper(this));
-  core_tab_helper_.reset(new CoreTabHelper(contents));
+  content_settings_.reset(new TabSpecificContentSettings(contents));
+  CoreTabHelper::CreateForWebContents(contents);
   extensions::TabHelper::CreateForWebContents(contents);
+  extensions::WebNavigationTabObserver::CreateForWebContents(contents);
   favicon_tab_helper_.reset(new FaviconTabHelper(contents));
   find_tab_helper_.reset(new FindTabHelper(contents));
   history_tab_helper_.reset(new HistoryTabHelper(contents));
-  hung_plugin_tab_helper_.reset(new HungPluginTabHelper(contents));
+  HungPluginTabHelper::CreateForWebContents(contents);
   infobar_tab_helper_.reset(new InfoBarTabHelper(contents));
   MetroPinTabHelper::CreateForWebContents(contents);
   password_manager_delegate_.reset(new PasswordManagerDelegateImpl(this));
   password_manager_.reset(
       new PasswordManager(contents, password_manager_delegate_.get()));
+  PluginObserver::CreateForWebContents(contents);
   prefs_tab_helper_.reset(new PrefsTabHelper(contents));
   prerender_tab_helper_.reset(new prerender::PrerenderTabHelper(this));
-  search_engine_tab_helper_.reset(new SearchEngineTabHelper(contents));
-  bool is_search_enabled =
-      chrome::search::IsInstantExtendedAPIEnabled(profile());
-  search_tab_helper_.reset(
-      new chrome::search::SearchTabHelper(this, is_search_enabled));
-  snapshot_tab_helper_.reset(new SnapshotTabHelper(contents));
-  ssl_helper_.reset(new TabContentsSSLHelper(this));
+  SearchEngineTabHelper::CreateForWebContents(contents);
+  chrome::search::SearchTabHelper::CreateForWebContents(contents);
+  SnapshotTabHelper::CreateForWebContents(contents);
+  SSLTabHelper::CreateForWebContents(contents);
   synced_tab_delegate_.reset(new TabContentsSyncedTabDelegate(this));
-  content_settings_.reset(new TabSpecificContentSettings(contents));
   translate_tab_helper_.reset(new TranslateTabHelper(contents));
-  zoom_controller_.reset(new ZoomController(this));
+  ZoomController::CreateForWebContents(contents);
 
-#if !defined(OS_ANDROID)
-  web_intent_picker_controller_.reset(new WebIntentPickerController(this));
-  sad_tab_helper_.reset(new SadTabHelper(contents));
+#if defined(ENABLE_AUTOMATION)
+  automation_tab_helper_.reset(new AutomationTabHelper(contents));
 #endif
 
-  // Create the per-tab observers.
-  alternate_error_page_tab_observer_.reset(
-      new AlternateErrorPageTabObserver(contents, profile()));
-  external_protocol_observer_.reset(new ExternalProtocolObserver(contents));
-  navigation_metrics_recorder_.reset(new NavigationMetricsRecorder(contents));
-  pdf_tab_observer_.reset(new PDFTabObserver(this));
-  pepper_broker_observer_.reset(new PepperBrokerObserver(contents));
-  plugin_observer_.reset(new PluginObserver(this));
-  safe_browsing_tab_observer_.reset(
-      new safe_browsing::SafeBrowsingTabObserver(this));
-    webnavigation_observer_.reset(
-        new extensions::WebNavigationTabObserver(contents));
+#if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
+  captive_portal::CaptivePortalTabHelper::CreateForWebContents(contents);
+#endif
 
 #if !defined(OS_ANDROID)
   if (OmniboxSearchHint::IsEnabled(profile()))
-    omnibox_search_hint_.reset(new OmniboxSearchHint(this));
+    OmniboxSearchHint::CreateForWebContents(contents);
+  PDFTabHelper::CreateForWebContents(contents);
+  SadTabHelper::CreateForWebContents(contents);
+  WebIntentPickerController::CreateForWebContents(contents);
 #endif
 
+  external_protocol_observer_.reset(new ExternalProtocolObserver(contents));
+  navigation_metrics_recorder_.reset(new NavigationMetricsRecorder(contents));
+  pepper_broker_observer_.reset(new PepperBrokerObserver(contents));
+  safe_browsing_tab_observer_.reset(
+      new safe_browsing::SafeBrowsingTabObserver(this));
+
 #if defined(ENABLE_PRINTING)
-  print_view_manager_.reset(new printing::PrintViewManager(this));
-  print_preview_.reset(new printing::PrintPreviewMessageHandler(contents));
+  printing::PrintPreviewMessageHandler::CreateForWebContents(contents);
+  printing::PrintViewManager::CreateForWebContents(contents);
 #endif
 
   // Start the in-browser thumbnailing if the feature is enabled.
@@ -196,14 +186,14 @@ TabContents::TabContents(WebContents* contents)
     thumbnail_generator_->StartThumbnailing(web_contents_.get());
   }
 
+#if defined(ENABLE_ONE_CLICK_SIGNIN)
   // If this is not an incognito window, setup to handle one-click login.
   // We don't want to check that the profile is already connected at this time
   // because the connected state may change while this tab is open.  Having a
   // one-click signin helper attached does not cause problems if the profile
   // happens to be already connected.
-#if defined(ENABLE_ONE_CLICK_SIGNIN)
   if (OneClickSigninHelper::CanOffer(contents, "", false))
-      one_click_signin_helper_.reset(new OneClickSigninHelper(contents));
+      OneClickSigninHelper::CreateForWebContents(contents);
 #endif
 }
 

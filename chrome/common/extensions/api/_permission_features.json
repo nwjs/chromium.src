@@ -35,6 +35,11 @@
       "extension", "packaged_app", "hosted_app", "platform_app"
     ]
   },
+  "bookmarkManagerPrivate": {
+    "channel": "stable",
+    "extension_types": ["extension", "packaged_app"],
+    "location": "component"
+  },
   "bookmarks": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
@@ -243,7 +248,7 @@
     "min_manifest_version": 2
   },
   "serial": {
-    "channel": "dev",
+    "channel": "stable",
     "extension_types": ["platform_app"]
   },
   "socket": {

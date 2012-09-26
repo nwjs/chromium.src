@@ -911,6 +911,27 @@ bool RegisterChromeAsDefaultForXP(BrowserDistribution* dist,
   return ret;
 }
 
+// Associates Chrome with |protocol| in the registry. This should not be
+// required on Vista+ but since some applications still read these registry
+// keys directly, we have to do this on Vista+ as well.
+// See http://msdn.microsoft.com/library/aa767914.aspx for more details.
+bool RegisterChromeAsDefaultProtocolClientForXP(BrowserDistribution* dist,
+                                                const string16& chrome_exe,
+                                                const string16& protocol) {
+  ScopedVector<RegistryEntry> entries;
+  const string16 chrome_open(ShellUtil::GetChromeShellOpenCmd(chrome_exe));
+  const string16 chrome_icon(ShellUtil::GetChromeIcon(dist, chrome_exe));
+  RegistryEntry::GetUserProtocolEntries(protocol, chrome_icon, chrome_open,
+                                        &entries);
+  // Change the default protocol handler for current user.
+  if (!AddRegistryEntries(HKEY_CURRENT_USER, entries)) {
+    LOG(ERROR) << "Could not make Chrome default protocol client (XP).";
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace
 
 const wchar_t* ShellUtil::kRegDefaultIcon = L"\\DefaultIcon";
@@ -1098,43 +1119,15 @@ bool ShellUtil::GetChromeShortcutName(BrowserDistribution* dist,
 }
 
 bool ShellUtil::GetDesktopPath(bool system_level, FilePath* path) {
-  wchar_t desktop[MAX_PATH];
-  int dir = system_level ? CSIDL_COMMON_DESKTOPDIRECTORY :
-                           CSIDL_DESKTOPDIRECTORY;
-  if (FAILED(SHGetFolderPath(NULL, dir, NULL, SHGFP_TYPE_CURRENT, desktop)))
-    return false;
-  *path = FilePath(desktop);
-  return true;
+  int dir_key = system_level ? base::DIR_COMMON_DESKTOP :
+                               base::DIR_USER_DESKTOP;
+  return PathService::Get(dir_key, path);
 }
 
 bool ShellUtil::GetQuickLaunchPath(bool system_level, FilePath* path) {
-  if (system_level) {
-    wchar_t qlaunch[MAX_PATH];
-    // We are accessing GetDefaultUserProfileDirectory this way so that we do
-    // not have to declare dependency to Userenv.lib for chrome.exe
-    typedef BOOL (WINAPI *PROFILE_FUNC)(LPWSTR, LPDWORD);
-    HMODULE module = LoadLibrary(L"Userenv.dll");
-    PROFILE_FUNC p = reinterpret_cast<PROFILE_FUNC>(GetProcAddress(module,
-        "GetDefaultUserProfileDirectoryW"));
-    DWORD size = _countof(qlaunch);
-    if ((p == NULL) || ((p)(qlaunch, &size) != TRUE))
-      return false;
-    *path = FilePath(qlaunch);
-    if (base::win::GetVersion() >= base::win::VERSION_VISTA) {
-      *path = path->AppendASCII("AppData");
-      *path = path->AppendASCII("Roaming");
-    } else {
-      *path = path->AppendASCII("Application Data");
-    }
-  } else {
-    if (!PathService::Get(base::DIR_APP_DATA, path)) {
-      return false;
-    }
-  }
-  *path = path->AppendASCII("Microsoft");
-  *path = path->AppendASCII("Internet Explorer");
-  *path = path->AppendASCII("Quick Launch");
-  return true;
+  int dir_key = system_level ? base::DIR_DEFAULT_USER_QUICK_LAUNCH :
+                               base::DIR_USER_QUICK_LAUNCH;
+  return PathService::Get(dir_key, path);
 }
 
 void ShellUtil::GetRegisteredBrowsers(
@@ -1359,12 +1352,8 @@ bool ShellUtil::ShowMakeChromeDefaultSystemUI(BrowserDistribution* dist,
   // Return true only when the user took an action and there was no error.
   const bool ret = LaunchSelectDefaultProtocolHandlerDialog(L"http");
 
-  if (ret) {
-    const int shell_change =
-        InstallUtil::IsPerUserInstall(chrome_exe.c_str()) ? CURRENT_USER :
-                                                            SYSTEM_LEVEL;
-    RegisterChromeAsDefaultForXP(dist, shell_change, chrome_exe);
-  }
+  if (ret)
+    RegisterChromeAsDefaultForXP(dist, CURRENT_USER, chrome_exe);
 
   return ret;
 }
@@ -1375,7 +1364,14 @@ bool ShellUtil::MakeChromeDefaultProtocolClient(BrowserDistribution* dist,
   if (!dist->CanSetAsDefault())
     return false;
 
-  ShellUtil::RegisterChromeForProtocol(dist, chrome_exe, L"", protocol, true);
+  if (!RegisterChromeForProtocol(dist, chrome_exe, string16(), protocol, true))
+    return false;
+
+  // Windows 8 does not permit making a browser default just like that.
+  // This process needs to be routed through the system's UI. Use
+  // ShowMakeChromeDefaultProocolClientSystemUI instead (below).
+  if (!CanMakeChromeDefaultUnattended())
+    return false;
 
   bool ret = true;
   // First use the new "recommended" way on Vista to make Chrome default
@@ -1401,18 +1397,34 @@ bool ShellUtil::MakeChromeDefaultProtocolClient(BrowserDistribution* dist,
   // Now use the old way to associate Chrome with the desired protocol. This
   // should not be required on Vista but since some applications still read
   // Software\Classes\http key directly, we have to do this on Vista also.
+  if (!RegisterChromeAsDefaultProtocolClientForXP(dist, chrome_exe, protocol))
+    ret = false;
 
-  ScopedVector<RegistryEntry> entries;
-  const string16 suffix(GetCurrentInstallationSuffix(dist, chrome_exe));
-  const string16 chrome_open(ShellUtil::GetChromeShellOpenCmd(chrome_exe));
-  const string16 chrome_icon(ShellUtil::GetChromeIcon(dist, chrome_exe));
-  RegistryEntry::GetUserProtocolEntries(protocol, chrome_icon, chrome_open,
-                                        &entries);
-  // Change the default protocol handler for current user.
-  if (!AddRegistryEntries(HKEY_CURRENT_USER, entries)) {
-      ret = false;
-      LOG(ERROR) << "Could not make Chrome default protocol client (XP).";
-  }
+  return ret;
+}
+
+bool ShellUtil::ShowMakeChromeDefaultProtocolClientSystemUI(
+    BrowserDistribution* dist,
+    const string16& chrome_exe,
+    const string16& protocol) {
+  DCHECK_GE(base::win::GetVersion(), base::win::VERSION_WIN8);
+  if (!dist->CanSetAsDefault())
+    return false;
+
+  if (!RegisterChromeForProtocol(dist, chrome_exe, string16(), protocol, true))
+    return false;
+
+  // On Windows 8, you can't set yourself as the default handler
+  // programatically. In other words IApplicationAssociationRegistration
+  // has been rendered useless. What you can do is to launch
+  // "Set Program Associations" section of the "Default Programs"
+  // control panel, which is a mess, or pop the concise "How you want to open
+  // links of this type (protocol)?" dialog.  We choose the latter.
+  // Return true only when the user took an action and there was no error.
+  const bool ret = LaunchSelectDefaultProtocolHandlerDialog(protocol.c_str());
+
+  if (ret)
+    RegisterChromeAsDefaultProtocolClientForXP(dist, chrome_exe, protocol);
 
   return ret;
 }

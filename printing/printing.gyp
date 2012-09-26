@@ -209,6 +209,7 @@
         '../ui/ui.gyp:ui',
       ],
       'sources': [
+        'backend/print_backend_unittest.cc',
         'emf_win_unittest.cc',
         'printing_test.h',
         'page_number_unittest.cc',
@@ -246,6 +247,8 @@
           'dependencies': [
             '../build/linux/system.gyp:gtk',
           ],
+        }],
+        [ 'os_posix == 1 and OS != "mac" and OS != "android" and OS != "ios"', {
           'conditions': [
             ['linux_use_tcmalloc == 1', {
               'dependencies': [

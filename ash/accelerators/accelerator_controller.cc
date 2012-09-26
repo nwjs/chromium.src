@@ -22,6 +22,7 @@
 #include "ash/magnifier/magnification_controller.h"
 #include "ash/root_window_controller.h"
 #include "ash/rotator/screen_rotation.h"
+#include "ash/screen_ash.h"
 #include "ash/screenshot_delegate.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
@@ -48,6 +49,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/layer_animator.h"
+#include "ui/gfx/screen.h"
 #include "ui/oak/oak.h"
 #include "ui/views/debug_utils.h"
 #include "ui/views/widget/widget.h"
@@ -117,6 +119,13 @@ void HandleCycleDisplayMode() {
     animation->StartFadeOutAnimation(base::Bind(
         base::IgnoreResult(&chromeos::OutputConfigurator::CycleDisplayMode),
         base::Unretained(shell->output_configurator())));
+  }
+}
+
+void HandleSwapPrimaryDisplay() {
+  if (gfx::Screen::GetNumDisplays() > 1) {
+    Shell::GetInstance()->display_controller()->SetPrimaryDisplay(
+        ScreenAsh::GetSecondaryDisplay());
   }
 }
 
@@ -441,6 +450,9 @@ bool AcceleratorController::PerformAction(int action,
       HandleCycleWindowLinear(CYCLE_FORWARD);
       return true;
 #if defined(OS_CHROMEOS)
+    case CYCLE_DISPLAY_MODE:
+      HandleCycleDisplayMode();
+      return true;
     case LOCK_SCREEN:
       return HandleLock();
     case OPEN_FILE_MANAGER_DIALOG:
@@ -449,14 +461,14 @@ bool AcceleratorController::PerformAction(int action,
       return HandleFileManager(false /* as_dialog */);
     case OPEN_CROSH:
       return HandleCrosh();
+    case SWAP_PRIMARY_DISPLAY:
+      HandleSwapPrimaryDisplay();
+      return true;
     case TOGGLE_SPOKEN_FEEDBACK:
       return HandleToggleSpokenFeedback();
     case TOGGLE_WIFI:
       if (Shell::GetInstance()->tray_delegate())
         Shell::GetInstance()->tray_delegate()->ToggleWifi();
-      return true;
-    case CYCLE_DISPLAY_MODE:
-      HandleCycleDisplayMode();
       return true;
 #endif
     case OPEN_FEEDBACK_PAGE:
@@ -475,7 +487,6 @@ bool AcceleratorController::PerformAction(int action,
     case RESTORE_TAB:
       return HandleRestoreTab();
     case TAKE_SCREENSHOT:
-    case TAKE_SCREENSHOT_BY_PRTSCN_KEY:
       if (screenshot_delegate_.get() &&
           screenshot_delegate_->CanTakeScreenshot()) {
         screenshot_delegate_->HandleTakeScreenshotForAllRootWindows();
@@ -649,20 +660,25 @@ bool AcceleratorController::PerformAction(int action,
       }
       break;
     }
-    case WINDOW_MAXIMIZE_RESTORE: {
-      aura::Window* window = wm::GetActiveWindow();
-      // Attempt to restore the window that would be cycled through next from
-      // the launcher when there is no active window.
-      if (!window)
-        return HandleCycleWindowMRU(WindowCycleController::FORWARD, false);
-      if (!wm::IsWindowFullscreen(window)) {
-        if (wm::IsWindowMaximized(window))
-          wm::RestoreWindow(window);
-        else
-          wm::MaximizeWindow(window);
-        return true;
+    case TOGGLE_MAXIMIZED: {
+      if (key_code == ui::VKEY_F4 && shell->delegate()) {
+        shell->delegate()->RecordUserMetricsAction(
+            UMA_ACCEL_MAXIMIZE_RESTORE_F4);
       }
-      break;
+      aura::Window* window = wm::GetActiveWindow();
+      if (!window)
+        return true;
+      if (wm::IsWindowFullscreen(window)) {
+        // Chrome also uses VKEY_F4 as a shortcut. Its action is to toggle
+        // fullscreen. We return false below so Chrome will process the
+        // shortcut again and, in case of VKEY_F4, exit fullscreen.
+        return false;
+      }
+      if (wm::IsWindowMaximized(window))
+        wm::RestoreWindow(window);
+      else if (wm::CanMaximizeWindow(window))
+        wm::MaximizeWindow(window);
+      return true;
     }
     case WINDOW_POSITION_CENTER: {
       aura::Window* window = wm::GetActiveWindow();
@@ -715,13 +731,9 @@ bool AcceleratorController::PerformAction(int action,
 
 void AcceleratorController::SetBrightnessControlDelegate(
     scoped_ptr<BrightnessControlDelegate> brightness_control_delegate) {
-  internal::MultiDisplayManager* display_manager =
-      static_cast<internal::MultiDisplayManager*>(
-          aura::Env::GetInstance()->display_manager());
-  // Install brightness control delegate only when internal
-  // display exists.
-  if (display_manager->HasInternalDisplay())
-    brightness_control_delegate_.swap(brightness_control_delegate);
+  // TODO(oshima): Show brightness control regardless of display type
+  // temporarily. crbug.com/152003.
+  brightness_control_delegate_.swap(brightness_control_delegate);
 }
 
 void AcceleratorController::SetImeControlDelegate(

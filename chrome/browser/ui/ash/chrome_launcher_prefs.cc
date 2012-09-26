@@ -35,7 +35,6 @@ namespace ash {
 const char kPinnedAppsPrefAppIDPath[] = "id";
 
 const char kShelfAutoHideBehaviorAlways[] = "Always";
-const char kShelfAutoHideBehaviorDefault[] = "Default";
 const char kShelfAutoHideBehaviorNever[] = "Never";
 
 extern const char kShelfAlignmentBottom[] = "Bottom";
@@ -52,11 +51,14 @@ void RegisterChromeLauncherUserPrefs(PrefService* user_prefs) {
                                CreateDefaultPinnedAppsList(),
                                PrefService::SYNCABLE_PREF);
   user_prefs->RegisterStringPref(prefs::kShelfAutoHideBehavior,
-                                 kShelfAutoHideBehaviorDefault,
+                                 kShelfAutoHideBehaviorNever,
                                  PrefService::SYNCABLE_PREF);
   user_prefs->RegisterStringPref(prefs::kShelfAlignment,
                                  kShelfAlignmentBottom,
                                  PrefService::SYNCABLE_PREF);
+  user_prefs->RegisterBooleanPref(prefs::kLauncherShouldRunSyncAnimation,
+                                  true,
+                                  PrefService::UNSYNCABLE_PREF);
 }
 
 base::DictionaryValue* CreateAppDict(const std::string& app_id) {

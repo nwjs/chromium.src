@@ -35,12 +35,6 @@ const int kArrowToContentPadding = -4;
 // We draw flat diagonal corners, each corner is an NxN square.
 const int kCornerSize = 3;
 
-// Margins around the content.
-const int kTopMargin = kArrowSize + kCornerSize - 1;
-const int kBottomMargin = kCornerSize - 1;
-const int kLeftMargin = kCornerSize - 1;
-const int kRightMargin = kCornerSize - 1;
-
 const GdkColor kBackgroundColor = GDK_COLOR_RGB(0xff, 0xff, 0xff);
 const GdkColor kFrameColor = GDK_COLOR_RGB(0x63, 0x63, 0x63);
 
@@ -161,9 +155,7 @@ void BubbleGtk::Init(GtkWidget* anchor_widget,
   gtk_window_add_accel_group(GTK_WINDOW(window_), accel_group_);
 
   GtkWidget* alignment = gtk_alignment_new(0.0, 0.0, 1.0, 1.0);
-  gtk_alignment_set_padding(GTK_ALIGNMENT(alignment),
-                            kTopMargin, kBottomMargin,
-                            kLeftMargin, kRightMargin);
+  gtk_alignment_set_padding(GTK_ALIGNMENT(alignment), kArrowSize, 0, 0, 0);
 
   gtk_container_add(GTK_CONTAINER(alignment), content);
   gtk_container_add(GTK_CONTAINER(window_), alignment);
@@ -178,13 +170,19 @@ void BubbleGtk::Init(GtkWidget* anchor_widget,
 
   gtk_widget_add_events(window_, GDK_BUTTON_PRESS_MASK);
 
-  signals_.Connect(window_, "expose-event", G_CALLBACK(OnExposeThunk), this);
+  // Connect during the bubbling phase so the border is always on top.
+  signals_.ConnectAfter(window_, "expose-event",
+                        G_CALLBACK(OnExposeThunk), this);
   signals_.Connect(window_, "size-allocate", G_CALLBACK(OnSizeAllocateThunk),
                    this);
   signals_.Connect(window_, "button-press-event",
                    G_CALLBACK(OnButtonPressThunk), this);
   signals_.Connect(window_, "destroy", G_CALLBACK(OnDestroyThunk), this);
   signals_.Connect(window_, "hide", G_CALLBACK(OnHideThunk), this);
+  if (grab_input_) {
+    signals_.Connect(window_, "grab-broken-event",
+                     G_CALLBACK(OnGrabBrokenThunk), this);
+  }
 
   // If the toplevel window is being used as the anchor, then the signals below
   // are enough to keep us positioned correctly.
@@ -192,16 +190,15 @@ void BubbleGtk::Init(GtkWidget* anchor_widget,
     signals_.Connect(anchor_widget_, "size-allocate",
                      G_CALLBACK(OnAnchorAllocateThunk), this);
     signals_.Connect(anchor_widget_, "destroy",
-                     G_CALLBACK(gtk_widget_destroyed), &anchor_widget_);
+                     G_CALLBACK(OnAnchorDestroyThunk), this);
   }
 
   signals_.Connect(toplevel_window_, "configure-event",
                    G_CALLBACK(OnToplevelConfigureThunk), this);
   signals_.Connect(toplevel_window_, "unmap-event",
                    G_CALLBACK(OnToplevelUnmapThunk), this);
-  // Set |toplevel_window_| to NULL if it gets destroyed.
-  signals_.Connect(toplevel_window_, "destroy",
-                   G_CALLBACK(gtk_widget_destroyed), &toplevel_window_);
+  signals_.Connect(window_, "destroy",
+                   G_CALLBACK(OnToplevelDestroyThunk), this);
 
   gtk_widget_show_all(window_);
 
@@ -468,11 +465,6 @@ void BubbleGtk::Observe(int type,
   }
 }
 
-void BubbleGtk::HandlePointerAndKeyboardUngrabbedByContent() {
-  if (grab_input_)
-    GrabPointerAndKeyboard();
-}
-
 void BubbleGtk::StopGrabbingInput() {
   if (!grab_input_)
     return;
@@ -656,6 +648,30 @@ void BubbleGtk::OnHide(GtkWidget* widget) {
   gtk_widget_destroy(widget);
 }
 
+gboolean BubbleGtk::OnGrabBroken(GtkWidget* widget,
+                                 GdkEventGrabBroken* grab_broken) {
+  // |grab_input_| may have been changed to false.
+  if (!grab_input_)
+    return false;
+
+  gpointer user_data;
+  gdk_window_get_user_data(grab_broken->grab_window, &user_data);
+
+  if (GTK_IS_WIDGET(user_data)) {
+    signals_.Connect(GTK_WIDGET(user_data), "hide",
+                     G_CALLBACK(OnForeshadowWidgetHideThunk), this);
+  }
+
+  return FALSE;
+}
+
+void BubbleGtk::OnForeshadowWidgetHide(GtkWidget* widget) {
+  if (grab_input_)
+    GrabPointerAndKeyboard();
+
+  signals_.DisconnectAll(widget);
+}
+
 gboolean BubbleGtk::OnToplevelConfigure(GtkWidget* widget,
                                         GdkEventConfigure* event) {
   if (!UpdateArrowLocation(false))
@@ -673,4 +689,16 @@ void BubbleGtk::OnAnchorAllocate(GtkWidget* widget,
                                  GtkAllocation* allocation) {
   if (!UpdateArrowLocation(false))
     MoveWindow();
+}
+
+void BubbleGtk::OnAnchorDestroy(GtkWidget* widget) {
+  anchor_widget_ = NULL;
+  Close();
+  // |this| is deleted.
+}
+
+void BubbleGtk::OnToplevelDestroy(GtkWidget* widget) {
+  toplevel_window_ = NULL;
+  Close();
+  // |this| is deleted.
 }

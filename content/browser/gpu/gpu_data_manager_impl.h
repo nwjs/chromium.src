@@ -30,11 +30,7 @@ class CONTENT_EXPORT GpuDataManagerImpl
   static GpuDataManagerImpl* GetInstance();
 
   // GpuDataManager implementation.
-  virtual void Initialize(
-      const std::string& browser_version_string,
-      const std::string& gpu_blacklist_json) OVERRIDE;
-  virtual void Initialize(
-      const std::string& browser_version_string,
+  virtual void InitializeForTesting(
       const std::string& gpu_blacklist_json,
       const content::GPUInfo& gpu_info) OVERRIDE;
   virtual content::GpuFeatureType GetBlacklistedFeatures() const OVERRIDE;
@@ -54,6 +50,11 @@ class CONTENT_EXPORT GpuDataManagerImpl
   virtual void AddObserver(content::GpuDataManagerObserver* observer) OVERRIDE;
   virtual void RemoveObserver(
       content::GpuDataManagerObserver* observer) OVERRIDE;
+
+  // This collects preliminary GPU info, load GpuBlacklist, and compute the
+  // preliminary blacklisted features; it should only be called at browser
+  // startup time in UI thread before the IO restriction is turned on.
+  void Initialize();
 
   // Only update if the current GPUInfo is not finalized.  If blacklist is
   // loaded, run through blacklist and update blacklisted features.
@@ -94,12 +95,17 @@ class CONTENT_EXPORT GpuDataManagerImpl
   FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, GpuSideBlacklisting);
   FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, GpuSideExceptions);
   FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, BlacklistCard);
+  FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, SoftwareRendering);
+  FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, SoftwareRendering2);
   FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest, GpuInfoUpdate);
   FRIEND_TEST_ALL_PREFIXES(GpuDataManagerImplTest,
                            GPUVideoMemoryUsageStatsUpdate);
 
   GpuDataManagerImpl();
   virtual ~GpuDataManagerImpl();
+
+  void InitializeImpl(const std::string& gpu_blacklist_json,
+                      const content::GPUInfo& gpu_info);
 
   void UpdateBlacklistedFeatures(content::GpuFeatureType features);
 

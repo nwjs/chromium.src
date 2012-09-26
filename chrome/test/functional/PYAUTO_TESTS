@@ -55,7 +55,6 @@
       'ntp',
       'omnibox',
       'passwords',
-      'policy_prefs_ui',
       'prefs',
       'prefs_ui',
       'pyauto_webdriver',
@@ -63,7 +62,6 @@
       'special_tabs',
       'sync.SyncTest',
       'test_pyauto',
-      'themes',
 
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
@@ -175,9 +173,6 @@
       '-omnibox.OmniboxTest.testContentHistory',
       # Keychain popups make autofill/password tests difficult: crbug.com/49378
       '-passwords',
-      # crbug.com/130094
-      '-policy_prefs_ui.PolicyPrefsUITest.testToggleUserPolicyTogglesBanner',
-      '-policy_prefs_ui.PolicyPrefsUITest.testUserPoliciesShowBanner',
       # crbug.com/69619
       '-search_engines.SearchEnginesTest.testDiscoverSearchEngine',
       # Keychain popups make sync tests difficult on Mac.  crbug.com/49378
@@ -270,9 +265,6 @@
       # Multi-profile doesn't apply to chromeos yet.
       '-multiprofile',
       '-ntp.NTPTest.testDifferentProfileNotAppearInMostVisited',
-      # This requires a custom setup on ChromeOS and has its own suite for
-      # that platform.
-      '-policy_prefs_ui',
       # You cannot adjust the downloads directory on ChromeOS.
       '-prefs.PrefsTest.testDownloadDirPref',
 
@@ -420,6 +412,12 @@
       '-execute_javascript.ExecuteJavascriptTest.testExecuteJavascriptInExtension',
       # crbug.com/132285
       '-special_tabs.SpecialTabsTest.testSpecialURLTabs',
+      # crbug.com/145006
+      '-about_plugins_ui.ChromeAboutPluginsUITest.testEnableAndDisableFlashPlugin',
+      # crbug.com/151972
+      '-extensions.ExtensionsTest.testGetExtensionPermissions',
+      # crbug.com/151973
+      '-prefs_ui.PrefsUITest.testInitialLineEntryInIncognitoUI',
     ],
 
     'win': [
@@ -446,8 +444,6 @@
       '-gpu.GpuTest.test2dCanvas',
       # crbug.com/125424
       '-media.media_basic_playback.MediaConstrainedNetworkPerfTest.testBasicPlaybackMatrix',
-      # crbug.com/95621
-      '-youtube.YoutubeTest.testPlayerStatus',
     ],
 
     'mac': [
@@ -509,6 +505,8 @@
       # Disabled tests that need to be investigated/fixed.
       # ==================================================
       '-perf.HTML5BenchmarkTest',  # crbug.com/134476
+      '-perf.LiveWebappLoadTest.testNewTabGmail',  # crbug.com/136554
+      '-perf.ScrollTest.testGmailScroll',  # crbug.com/136554
       '-perf.WebGLTest.testWebGLField',  # crbug.com/132797
 
       # ===========================
@@ -623,7 +621,7 @@
       'chromeos_oobe',
 
       # crosbug.com/32583
-      '-chromeos_login.ChromeosLogin.testCachedCredentials',
+      '-chromeos_login.ChromeosLoginCachedCredentialsUserPod.testCachedCredentialsUserPod',
     ],
   },
 
@@ -635,7 +633,6 @@
       'chromeos_device_policy',
       'chromeos_onc',
       'chromeos_retail_mode',
-      'policy_prefs_ui',
     ],
   },
 
@@ -676,6 +673,7 @@
   'AV_PERF': {
      'linux': [
        'media.audio_latency_perf',
+       'media.audio_playback_perf',
        'media.media_constrained_network_perf',
        'media.media_scrub_perf',
        'media.media_seek_perf',
@@ -684,6 +682,7 @@
      ],
      'win': [
        'media.audio_latency_perf',
+       'media.audio_playback_perf',
        'media.media_constrained_network_perf',
        'media.media_scrub_perf',
        'media.media_seek_perf',
@@ -740,12 +739,8 @@
       '-plugins',
       '-omnibox',
       '-special_tabs',
-      '-youtube.YoutubeTest.testPlayerStatus',
       '-ntp.NTPTest.testLaunchAppFullScreen',
       '-media.media_basic_playback.MediaConstrainedNetworkPerfTest.testBasicPlaybackMatrix',
-      '-policy_prefs_ui.PolicyPrefsUITest.testNoUserPoliciesNoBanner',
-      '-policy_prefs_ui.PolicyPrefsUITest.testToggleUserPolicyTogglesBanner',
-      '-policy_prefs_ui.PolicyPrefsUITest.testUserPoliciesShowBanner',
       '-search_engines.SearchEnginesTest.testDiscoverSearchEngine',
       '-ntp.NTPTest.testUninstallApp',
       '-ntp.NTPTest.testLaunchAppWithDefaultSettings',

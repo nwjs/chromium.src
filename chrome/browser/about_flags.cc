@@ -141,14 +141,6 @@ const Experiment::Choice kTouchOptimizedUIChoices[] = {
     switches::kTouchOptimizedUIDisabled }
 };
 
-const Experiment::Choice kPointerLockUIChoices[] = {
-  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
-  { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
-    switches::kEnablePointerLock, ""},
-  { IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED,
-    switches::kDisablePointerLock, ""}
-};
-
 const Experiment::Choice kAsyncDnsChoices[] = {
   { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
   { IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED,
@@ -156,6 +148,16 @@ const Experiment::Choice kAsyncDnsChoices[] = {
   { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
     switches::kEnableAsyncDns, ""}
 };
+
+#if defined(OS_CHROMEOS)
+const Experiment::Choice kAshBootAnimationFunction[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
+  { IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION2,
+    ash::switches::kAshBootAnimationFunction2, ""},
+  { IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION3,
+    ash::switches::kAshBootAnimationFunction3, ""}
+};
+#endif
 
 
 // RECORDING USER METRICS FOR FLAGS:
@@ -371,11 +373,11 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableExperimentalExtensionApis)
   },
   {
-    "action-box",
+    "disable-action-box",
     IDS_FLAGS_ACTION_BOX_NAME,
     IDS_FLAGS_ACTION_BOX_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableActionBox),
+    SINGLE_VALUE_TYPE(switches::kDisableActionBox),
   },
   {
     "script-badges",
@@ -547,13 +549,6 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_ENCRYPTED_MEDIA_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableEncryptedMedia)
-  },
-  {
-    "enable-pointer-lock",
-    IDS_FLAGS_ENABLE_POINTER_LOCK_NAME,
-    IDS_FLAGS_ENABLE_POINTER_LOCK_DESCRIPTION,
-    kOsAll,
-    MULTI_VALUE_TYPE(kPointerLockUIChoices)
   },
 #if defined(USE_ASH)
   {
@@ -771,13 +766,6 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(ash::switches::kAshTouchHud)
   },
   {
-    "ash-notify-disabled",
-    IDS_FLAGS_DISABLE_ASH_NOTIFY_NAME,
-    IDS_FLAGS_DISABLE_ASH_NOTIFY_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(ash::switches::kAshNotifyDisabled),
-  },
-  {
     "enable-pinch",
     IDS_FLAGS_ENABLE_PINCH_SCALE_NAME,
     IDS_FLAGS_ENABLE_PINCH_SCALE_DESCRIPTION,
@@ -808,13 +796,6 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableDriveV2Api),
   },
   {
-    "use-leveldb-for-gdata",
-    IDS_FLAGS_USE_LEVELDB_FOR_GDATA_NAME,
-    IDS_FLAGS_USE_LEVELDB_FOR_GDATA_DESCRIPTION,
-    kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kUseLevelDBForGData),
-  },
-  {
     "disable-html5-camera",
     IDS_FLAGS_DISABLE_HTML5_CAMERA,
     IDS_FLAGS_DISABLE_HTML5_CAMERA_DESCRIPTION,
@@ -829,11 +810,32 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kDisableNewOobe),
   },
   {
+    "disable-factory-reset",
+    IDS_FLAGS_DISABLE_FACTORY_RESET,
+    IDS_FLAGS_DISABLE_FACTORY_RESET_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kDisableFactoryReset),
+  },
+  {
     "disable-boot-animation",
     IDS_FLAGS_DISABLE_BOOT_ANIMATION,
     IDS_FLAGS_DISABLE_BOOT_ANIMATION_DESCRIPTION,
     kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kDisableBootAnimation),
+  },
+  {
+    "disable-boot-animation2",
+    IDS_FLAGS_DISABLE_BOOT_ANIMATION2,
+    IDS_FLAGS_DISABLE_BOOT_ANIMATION2_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(ash::switches::kAshDisableBootAnimation2),
+  },
+  {
+    "boot-animation-fucntion",
+    IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION,
+    IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION_DESCRIPTION,
+    kOsCrOS,
+    MULTI_VALUE_TYPE(kAshBootAnimationFunction),
   },
   {
     "disable-workspace2",
@@ -863,13 +865,6 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_FRAMELESS_DIALOG_DESCRIPTION,
     kOsWin | kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kEnableFramelessConstrainedDialogs),
-  },
-  {
-    "disable-non-fullscreen-mouse-lock",
-    IDS_FLAGS_DISABLE_NON_FULLSCREEN_MOUSE_LOCK_NAME,
-    IDS_FLAGS_DISABLE_NON_FULLSCREEN_MOUSE_LOCK_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kDisableNonFullscreenMouseLock),
   },
 #if defined(OS_CHROMEOS)
   {

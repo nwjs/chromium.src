@@ -11,14 +11,11 @@
 #include "base/memory/scoped_ptr.h"
 #include "content/public/browser/web_contents_observer.h"
 
-class AlternateErrorPageTabObserver;
 class AutocompleteHistoryManager;
 class AutofillExternalDelegate;
 class AutofillManager;
 class AutomationTabHelper;
 class BasePanelBrowserTest;
-class BlockedContentTabHelper;
-class BookmarkTabHelper;
 class Browser;
 class BrowserCommandsTabContentsCreator;
 class BrowserLauncherItemControllerContentsCreator;
@@ -26,7 +23,6 @@ class BrowserTabstripTabContentsCreator;
 class ChromeWebContentsHandler;
 class ConstrainedWebDialogDelegateBase;
 class ConstrainedWindowTabHelper;
-class CoreTabHelper;
 class ExtensionTabUtil;
 class ExternalProtocolObserver;
 class ExternalTabContainerWin;
@@ -35,27 +31,19 @@ class FindBackendTestContentsCreator;
 class FindTabHelper;
 class GeolocationPermissionContextTests;
 class HistoryTabHelper;
-class HungPluginTabHelper;
 class InfoBarControllerContentsCreator;
 class InfoBarTabHelper;
 class InstantLoader;
 class NavigationMetricsRecorder;
 class OffscreenTabContentsCreator;
-class OmniboxSearchHint;
 class PanelHost;
 class PasswordManager;
 class PasswordManagerDelegate;
-class PDFTabObserver;
 class PepperBrokerObserver;
-class PluginObserver;
 class PrefsTabHelper;
 class Profile;
-class SadTabHelper;
-class SearchEngineTabHelper;
 class ShellWindow;
-class SnapshotTabHelper;
 class TabAutofillManagerDelegate;
-class TabContentsSSLHelper;
 class TabContentsTestHarness;
 class TabSpecificContentSettings;
 class TabStripModel;
@@ -67,35 +55,11 @@ class WebDialogGtk;
 class WebDialogWindowControllerTabContentsCreator;
 class WebIntentInlineDispositionBrowserTest;
 class WebIntentPickerCocoa;
-class WebIntentPickerController;
 class WebIntentPickerGtk;
 class WebUITestContentsCreator;
-class ZoomController;
-
-#if defined(ENABLE_ONE_CLICK_SIGNIN)
-class OneClickSigninHelper;
-#endif
-
-namespace android_webview {
-class AwBrowserDependencyFactoryImpl;
-}
 
 namespace browser_sync {
 class SyncedTabDelegate;
-}
-
-namespace captive_portal {
-class CaptivePortalTabHelper;
-}
-
-namespace chrome {
-namespace search {
-class SearchTabHelper;
-}
-}
-
-namespace chrome_browser_net {
-class LoadTimeStatsTabHelper;
 }
 
 namespace chromeos {
@@ -105,17 +69,11 @@ class WebUILoginView;
 
 namespace extensions {
 class WebAuthFlow;
-class WebNavigationTabObserver;
 }
 
 namespace prerender {
 class PrerenderContents;
 class PrerenderTabHelper;
-}
-
-namespace printing {
-class PrintViewManager;
-class PrintPreviewMessageHandler;
 }
 
 namespace safe_browsing {
@@ -145,7 +103,6 @@ class TabContents : public content::WebContentsObserver {
     // more code to construct instances. Explicitly befriend those who currently
     // do so.
 
-    friend class android_webview::AwBrowserDependencyFactoryImpl;
     friend class BasePanelBrowserTest;
     friend class Browser;
     friend class BrowserCommandsTabContentsCreator;
@@ -215,39 +172,14 @@ class TabContents : public content::WebContentsObserver {
     return automation_tab_helper_.get();
   }
 
-  BlockedContentTabHelper* blocked_content_tab_helper() {
-    return blocked_content_tab_helper_.get();
-  }
-
-  BookmarkTabHelper* bookmark_tab_helper() {
-    return bookmark_tab_helper_.get();
-  }
-
-#if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
-  captive_portal::CaptivePortalTabHelper* captive_portal_tab_helper() {
-    return captive_portal_tab_helper_.get();
-  }
-#endif
-
   ConstrainedWindowTabHelper* constrained_window_tab_helper() {
     return constrained_window_tab_helper_.get();
   }
 
-  CoreTabHelper* core_tab_helper() { return core_tab_helper_.get(); }
-
   FaviconTabHelper* favicon_tab_helper() { return favicon_tab_helper_.get(); }
   FindTabHelper* find_tab_helper() { return find_tab_helper_.get(); }
   HistoryTabHelper* history_tab_helper() { return history_tab_helper_.get(); }
-  HungPluginTabHelper* hung_plugin_tab_helper() {
-    return hung_plugin_tab_helper_.get();
-  }
   InfoBarTabHelper* infobar_tab_helper() { return infobar_tab_helper_.get(); }
-
-#if defined(ENABLE_ONE_CLICK_SIGNIN)
-  OneClickSigninHelper* one_click_signin_helper() {
-    return one_click_signin_helper_.get();
-  }
-#endif
 
   PasswordManager* password_manager() { return password_manager_.get(); }
   PrefsTabHelper* prefs_tab_helper() { return prefs_tab_helper_.get(); }
@@ -255,26 +187,6 @@ class TabContents : public content::WebContentsObserver {
   prerender::PrerenderTabHelper* prerender_tab_helper() {
     return prerender_tab_helper_.get();
   }
-
-  printing::PrintViewManager* print_view_manager() {
-    return print_view_manager_.get();
-  }
-
-  SadTabHelper* sad_tab_helper() { return sad_tab_helper_.get(); }
-
-  SearchEngineTabHelper* search_engine_tab_helper() {
-    return search_engine_tab_helper_.get();
-  }
-
-  chrome::search::SearchTabHelper* search_tab_helper() {
-    return search_tab_helper_.get();
-  }
-
-  SnapshotTabHelper* snapshot_tab_helper() {
-    return snapshot_tab_helper_.get();
-  }
-
-  TabContentsSSLHelper* ssl_helper() { return ssl_helper_.get(); }
 
   browser_sync::SyncedTabDelegate* synced_tab_delegate() {
     return synced_tab_delegate_.get();
@@ -291,14 +203,6 @@ class TabContents : public content::WebContentsObserver {
 
   TranslateTabHelper* translate_tab_helper() {
     return translate_tab_helper_.get();
-  }
-
-  WebIntentPickerController* web_intent_picker_controller() {
-    return web_intent_picker_controller_.get();
-  }
-
-  ZoomController* zoom_controller() {
-    return zoom_controller_.get();
   }
 
   // Overrides -----------------------------------------------------------------
@@ -326,19 +230,10 @@ class TabContents : public content::WebContentsObserver {
   scoped_ptr<TabAutofillManagerDelegate> autofill_delegate_;
   scoped_ptr<AutofillExternalDelegate> autofill_external_delegate_;
   scoped_ptr<AutomationTabHelper> automation_tab_helper_;
-  scoped_ptr<BlockedContentTabHelper> blocked_content_tab_helper_;
-  scoped_ptr<BookmarkTabHelper> bookmark_tab_helper_;
-  scoped_ptr<chrome_browser_net::LoadTimeStatsTabHelper>
-  load_time_stats_tab_helper_;
-#if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
-  scoped_ptr<captive_portal::CaptivePortalTabHelper> captive_portal_tab_helper_;
-#endif
   scoped_ptr<ConstrainedWindowTabHelper> constrained_window_tab_helper_;
-  scoped_ptr<CoreTabHelper> core_tab_helper_;
   scoped_ptr<FaviconTabHelper> favicon_tab_helper_;
   scoped_ptr<FindTabHelper> find_tab_helper_;
   scoped_ptr<HistoryTabHelper> history_tab_helper_;
-  scoped_ptr<HungPluginTabHelper> hung_plugin_tab_helper_;
   scoped_ptr<InfoBarTabHelper> infobar_tab_helper_;
 
   // PasswordManager and its delegate. The delegate must outlive the manager,
@@ -349,14 +244,6 @@ class TabContents : public content::WebContentsObserver {
   scoped_ptr<PrefsTabHelper> prefs_tab_helper_;
   scoped_ptr<prerender::PrerenderTabHelper> prerender_tab_helper_;
 
-  // Handles print job for this contents.
-  scoped_ptr<printing::PrintViewManager> print_view_manager_;
-
-  scoped_ptr<SadTabHelper> sad_tab_helper_;
-  scoped_ptr<SearchEngineTabHelper> search_engine_tab_helper_;
-  scoped_ptr<chrome::search::SearchTabHelper> search_tab_helper_;
-  scoped_ptr<SnapshotTabHelper> snapshot_tab_helper_;
-  scoped_ptr<TabContentsSSLHelper> ssl_helper_;
   scoped_ptr<browser_sync::SyncedTabDelegate> synced_tab_delegate_;
 
   // The TabSpecificContentSettings object is used to query the blocked content
@@ -366,27 +253,13 @@ class TabContents : public content::WebContentsObserver {
   scoped_ptr<ThumbnailGenerator> thumbnail_generator_;
   scoped_ptr<TranslateTabHelper> translate_tab_helper_;
 
-  // Handles displaying a web intents picker to the user.
-  scoped_ptr<WebIntentPickerController> web_intent_picker_controller_;
-
-  scoped_ptr<ZoomController> zoom_controller_;
-
   // Per-tab observers ---------------------------------------------------------
   // (These provide no API for callers; objects that need to exist 1:1 with tabs
   // and silently do their thing live here.)
 
-  scoped_ptr<AlternateErrorPageTabObserver> alternate_error_page_tab_observer_;
-  scoped_ptr<extensions::WebNavigationTabObserver> webnavigation_observer_;
   scoped_ptr<ExternalProtocolObserver> external_protocol_observer_;
   scoped_ptr<NavigationMetricsRecorder> navigation_metrics_recorder_;
-  scoped_ptr<OmniboxSearchHint> omnibox_search_hint_;
-#if defined(ENABLE_ONE_CLICK_SIGNIN)
-  scoped_ptr<OneClickSigninHelper> one_click_signin_helper_;
-#endif
-  scoped_ptr<PDFTabObserver> pdf_tab_observer_;
   scoped_ptr<PepperBrokerObserver> pepper_broker_observer_;
-  scoped_ptr<PluginObserver> plugin_observer_;
-  scoped_ptr<printing::PrintPreviewMessageHandler> print_preview_;
   scoped_ptr<safe_browsing::SafeBrowsingTabObserver>
       safe_browsing_tab_observer_;
 

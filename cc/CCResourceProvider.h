@@ -11,6 +11,7 @@
 #include "IntSize.h"
 #include "SkBitmap.h"
 #include "SkCanvas.h"
+#include "TextureCopier.h"
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
@@ -27,6 +28,8 @@ namespace cc {
 
 class IntRect;
 class LayerTextureSubImage;
+class TextureCopier;
+class TextureUploader;
 
 // Thread-safety notes: this class is not thread-safe and can only be called
 // from the thread it was created on (in practice, the compositor thread).
@@ -52,6 +55,9 @@ public:
     };
     typedef Vector<TransferableResource> TransferableResourceArray;
     struct TransferableResourceList {
+        TransferableResourceList();
+        ~TransferableResourceList();
+
         TransferableResourceArray resources;
         unsigned syncPoint;
     };
@@ -61,6 +67,8 @@ public:
     virtual ~CCResourceProvider();
 
     WebKit::WebGraphicsContext3D* graphicsContext3D();
+    TextureUploader* textureUploader() const { return m_textureUploader.get(); }
+    TextureCopier* textureCopier() const { return m_textureCopier.get(); }
     int maxTextureSize() const { return m_maxTextureSize; }
     unsigned numResources() const { return m_resources.size(); }
 
@@ -201,42 +209,10 @@ public:
 
 private:
     struct Resource {
-        Resource()
-            : glId(0)
-            , pixels(0)
-            , pool(0)
-            , lockForReadCount(0)
-            , lockedForWrite(false)
-            , external(false)
-            , exported(false)
-            , size()
-            , format(0)
-            , type(static_cast<ResourceType>(0))
-        { }
-        Resource(unsigned textureId, int pool, const IntSize& size, GC3Denum format)
-            : glId(textureId)
-            , pixels(0)
-            , pool(pool)
-            , lockForReadCount(0)
-            , lockedForWrite(false)
-            , external(false)
-            , exported(false)
-            , size(size)
-            , format(format)
-            , type(GLTexture)
-        { }
-        Resource(uint8_t* pixels, int pool, const IntSize& size, GC3Denum format)
-            : glId(0)
-            , pixels(pixels)
-            , pool(pool)
-            , lockForReadCount(0)
-            , lockedForWrite(false)
-            , external(false)
-            , exported(false)
-            , size(size)
-            , format(format)
-            , type(Bitmap)
-        { }
+        Resource();
+        Resource(unsigned textureId, int pool, const IntSize& size, GC3Denum format);
+        Resource(uint8_t* pixels, int pool, const IntSize& size, GC3Denum format);
+
         unsigned glId;
         uint8_t* pixels;
         int pool;
@@ -250,6 +226,9 @@ private:
     };
     typedef HashMap<ResourceId, Resource> ResourceMap;
     struct Child {
+        Child();
+        ~Child();
+
         int pool;
         ResourceIdMap childToParentMap;
         ResourceIdMap parentToChildMap;
@@ -281,6 +260,8 @@ private:
     bool m_useTextureUsageHint;
     bool m_useShallowFlush;
     OwnPtr<LayerTextureSubImage> m_texSubImage;
+    OwnPtr<TextureUploader> m_textureUploader;
+    OwnPtr<AcceleratedTextureCopier> m_textureCopier;
     int m_maxTextureSize;
 };
 

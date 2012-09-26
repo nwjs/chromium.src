@@ -19,6 +19,7 @@ function WallpaperManager(dialogDom) {
   this.selectedCategory = null;
   this.butterBar_ = new ButterBar(this.dialogDom_);
   this.customWallpaperData_ = null;
+  this.currentWallpaper_ = null;
   this.fetchManifest_();
   this.initDom_();
 }
@@ -96,7 +97,7 @@ function WallpaperManager(dialogDom) {
         this.parseManifest_(xhr.responseText);
       } else {
         this.manifest_ = {};
-        this.butterBar_.showError_('Failed to download manifest.');
+        this.butterBar_.showError_(str('connectionFailed'));
       }
     }
 
@@ -112,8 +113,8 @@ function WallpaperManager(dialogDom) {
     this.initCategoriesList_();
     this.initThumbnailsGrid_();
 
-    var selectedWallpaper = str('selectedWallpaper');
-    if (selectedWallpaper == 'CUSTOM') {
+    this.currentWallpaper_ = str('currentWallpaper');
+    if (this.currentWallpaper_ == 'CUSTOM') {
       // Custom is the last one in the categories list.
       this.categoriesList_.selectionModel.selectedIndex =
           this.categoriesList_.dataModel.length - 1;
@@ -124,7 +125,7 @@ function WallpaperManager(dialogDom) {
       for (var key in this.manifest_.wallpaper_list) {
         var url = this.manifest_.wallpaper_list[key].base_url +
             HighResolutionSuffix;
-        if (url.indexOf(selectedWallpaper) != -1) {
+        if (url.indexOf(this.currentWallpaper_) != -1) {
           firstCategory = this.manifest_.wallpaper_list[key].categories[0];
         }
       }
@@ -152,12 +153,7 @@ function WallpaperManager(dialogDom) {
 
     this.wallpaperGrid_.addEventListener('change',
         this.onThumbnailClicked_.bind(this));
-    this.wallpaperGrid_.addEventListener('activate', this.onClose_.bind(this));
-
-    var self = this;
-    // Override cr.ui.List's activateItemIndex function. Called when a list item
-    // is activated.
-    this.wallpaperGrid_.activateItemAtIndex = this.onClose_.bind(this);
+    this.wallpaperGrid_.addEventListener('dblclick', this.onClose_.bind(this));
   };
 
   /**
@@ -205,9 +201,9 @@ function WallpaperManager(dialogDom) {
         chrome.wallpaperPrivate.setWallpaper(image,
                                              selectedItem.layout,
                                              wallpaperURL);
+        self.currentWallpaper_ = wallpaperURL;
       } else {
-        // Displays the error text in butter bar.
-        self.butterBar_.showError_(self.wallpaperRequest_.statusText);
+        self.butterBar_.showError_(str('downloadFailed'));
       }
       self.wallpaperRequest_ = null;
     });
@@ -319,6 +315,7 @@ function WallpaperManager(dialogDom) {
         setWallpaperLayout.options[setWallpaperLayout.selectedIndex].value;
     chrome.wallpaperPrivate.setCustomWallpaper(customWallpaper,
                                                layout);
+    this.currentWallpaper_ = 'CUSTOM';
   };
 
   /**
@@ -382,7 +379,7 @@ function WallpaperManager(dialogDom) {
           wallpapersDataModel.push(wallpaperInfo);
           var url = this.manifest_.wallpaper_list[key].base_url +
               HighResolutionSuffix;
-          if (url == str('selectedWallpaper')) {
+          if (url == this.currentWallpaper_) {
             selectedItem = wallpaperInfo;
           }
         }

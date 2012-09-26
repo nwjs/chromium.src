@@ -40,9 +40,18 @@ void NetworkLibraryImplStub::Init() {
   enabled_devices_ = devices;
   connected_devices_ = devices;
 
+  base::ListValue supported_carriers;
+  supported_carriers.Append(new StringValue("Generic CDMA Carrier 1"));
+  supported_carriers.Append(new StringValue("Generic UMTS"));
+  supported_carriers.Append(new StringValue("Generic CDMA Carrier 2"));
+  supported_carriers.Append(new StringValue("Generic CDMA Carrier 3"));
+
   NetworkDevice* cellular = new NetworkDevice("cellular");
   cellular->type_ = TYPE_CELLULAR;
+  cellular->set_technology_family(TECHNOLOGY_FAMILY_CDMA);
+  cellular->set_carrier("Generic CDMA Carrier 2");
   cellular->imsi_ = "123456789012345";
+  cellular->set_supported_carriers(supported_carriers);
   device_map_["cellular"] = cellular;
 
   CellularApn apn;
@@ -63,6 +72,7 @@ void NetworkLibraryImplStub::Init() {
   cellular_gsm->imsi_ = "123456789012345";
   cellular_gsm->set_sim_pin_required(SIM_PIN_REQUIRED);
   cellular_gsm->set_provider_apn_list(apn_list);
+  cellular_gsm->set_supported_carriers(supported_carriers);
   device_map_["cellular_gsm"] = cellular_gsm;
 
   // Profiles
@@ -159,6 +169,7 @@ void NetworkLibraryImplStub::Init() {
 
   CellularNetwork* cellular1 = new CellularNetwork("cellular1");
   cellular1->set_name("Fake Cellular 1");
+  cellular1->set_device_path(cellular->device_path());
   cellular1->set_strength(100);
   cellular1->set_connected();
   cellular1->set_activation_state(ACTIVATION_STATE_ACTIVATED);
@@ -169,6 +180,7 @@ void NetworkLibraryImplStub::Init() {
 
   CellularNetwork* cellular2 = new CellularNetwork("/cellular2");
   cellular2->set_name("Fake Cellular 2");
+  cellular2->set_device_path(cellular->device_path());
   cellular2->set_strength(50);
   cellular2->set_activation_state(ACTIVATION_STATE_NOT_ACTIVATED);
   cellular2->set_network_technology(NETWORK_TECHNOLOGY_UMTS);
@@ -199,6 +211,7 @@ void NetworkLibraryImplStub::Init() {
 
   CellularNetwork* cellular5 = new CellularNetwork("cellular5");
   cellular5->set_name("Fake Cellular Low Data");
+  cellular5->set_device_path(cellular->device_path());
   cellular5->set_strength(100);
   cellular5->set_activation_state(ACTIVATION_STATE_ACTIVATED);
   cellular5->set_payment_url(std::string("http://www.google.com"));
@@ -623,6 +636,17 @@ void NetworkLibraryImplStub::RequestCellularRegister(
     const std::string& network_id) {}
 
 void NetworkLibraryImplStub::SetCellularDataRoamingAllowed(bool new_value) {}
+
+void NetworkLibraryImplStub::SetCarrier(
+    const std::string& carrier,
+    const NetworkOperationCallback& completed) {
+  // Call the completed callback with a 10s delay.
+  BrowserThread::PostDelayedTask(
+      BrowserThread::UI,
+      FROM_HERE,
+      base::Bind(completed, "", NETWORK_METHOD_ERROR_NONE,""),
+      base::TimeDelta::FromMilliseconds(10000));
+}
 
 bool NetworkLibraryImplStub::IsCellularAlwaysInRoaming() {
   return false;

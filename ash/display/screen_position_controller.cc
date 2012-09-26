@@ -8,6 +8,7 @@
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
+#include "ash/wm/coordinate_conversion.h"
 #include "ash/wm/system_modal_container_layout_manager.h"
 #include "ash/wm/window_properties.h"
 #include "ash/wm/workspace_controller.h"
@@ -76,6 +77,15 @@ void ScreenPositionController::ConvertPointFromScreen(
   aura::Window::ConvertPointToTarget(root, window, point);
 }
 
+void ScreenPositionController::ConvertNativePointToScreen(
+    aura::Window* window,
+    gfx::Point* point) {
+  std::pair<aura::RootWindow*, gfx::Point> pair =
+      wm::GetRootWindowRelativeToWindow(window, *point);
+  *point = pair.second;
+  ConvertPointToScreen(pair.first, point);
+}
+
 void ScreenPositionController::SetBounds(aura::Window* window,
                                          const gfx::Rect& bounds,
                                          const gfx::Display& display) {
@@ -85,9 +95,13 @@ void ScreenPositionController::SetBounds(aura::Window* window,
     return;
   }
 
-  // Don't move a transient windows to other root window.
-  // It moves when its transient_parent moves.
-  if (!window->transient_parent()) {
+  // Don't move a window to other root window if:
+  // a) the window is a transient window. It moves when its
+  //    transient_parent moves.
+  // b) if the window has kStayInSameRootWindowkey. It's intentionally kept in
+  //    the same root window even if the bounds is outside of the display.
+  if (!window->transient_parent() &&
+      !window->GetProperty(internal::kStayInSameRootWindowKey)) {
     aura::RootWindow* dst_root =
         Shell::GetInstance()->display_controller()->GetRootWindowForDisplayId(
             display.id());

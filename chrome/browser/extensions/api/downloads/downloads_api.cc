@@ -431,18 +431,21 @@ void RunDownloadQuery(
     }
     query_out.Limit(*query_in.limit.get());
   }
-  if (query_in.state.get()) {
-    DownloadItem::DownloadState state = StateEnumFromString(
-        *query_in.state.get());
+  std::string state_string =
+      extensions::api::downloads::ToString(query_in.state);
+  if (!state_string.empty()) {
+    DownloadItem::DownloadState state = StateEnumFromString(state_string);
     if (state == DownloadItem::MAX_DOWNLOAD_STATE) {
       *error = download_extension_errors::kInvalidStateError;
       return;
     }
     query_out.AddFilter(state);
   }
-  if (query_in.danger.get()) {
-    content::DownloadDangerType danger_type =
-        DangerEnumFromString(*query_in.danger.get());
+  std::string danger_string =
+      extensions::api::downloads::ToString(query_in.danger);
+  if (!danger_string.empty()) {
+    content::DownloadDangerType danger_type = DangerEnumFromString(
+        danger_string);
     if (danger_type == content::DOWNLOAD_DANGER_TYPE_MAX) {
       *error = download_extension_errors::kInvalidDangerTypeError;
       return;
@@ -624,8 +627,10 @@ bool DownloadsDownloadFunction::RunImpl() {
     }
   }
 
-  if (options.method.get())
-    download_params->set_method(*options.method.get());
+  std::string method_string =
+      extensions::api::downloads::ToString(options.method);
+  if (!method_string.empty())
+    download_params->set_method(method_string);
   if (options.body.get())
     download_params->set_post_body(*options.body.get());
   download_params->set_callback(base::Bind(
@@ -855,7 +860,7 @@ bool DownloadsGetFileIconFunction::RunImpl() {
   DownloadItem* download_item = manager->GetDownload(params->download_id);
   if (!download_item && incognito_manager)
     download_item = incognito_manager->GetDownload(params->download_id);
-  if (!download_item) {
+  if (!download_item || download_item->GetTargetFilePath().empty()) {
     // The DownloadItem is is added to history when the path is determined. If
     // the download is not in history, then we don't have a path / final
     // filename and no icon.
@@ -865,12 +870,11 @@ bool DownloadsGetFileIconFunction::RunImpl() {
   // In-progress downloads return the intermediate filename for GetFullPath()
   // which doesn't have the final extension. Therefore we won't be able to
   // derive a good file icon for it. So we use GetTargetFilePath() instead.
-  FilePath path = download_item->GetTargetFilePath();
-  DCHECK(!path.empty());
   DCHECK(icon_extractor_.get());
   DCHECK(icon_size == 16 || icon_size == 32);
   EXTENSION_FUNCTION_VALIDATE(icon_extractor_->ExtractIconURLForPath(
-      path, IconLoaderSizeFromPixelSize(icon_size),
+      download_item->GetTargetFilePath(),
+      IconLoaderSizeFromPixelSize(icon_size),
       base::Bind(&DownloadsGetFileIconFunction::OnIconURLExtracted, this)));
   return true;
 }

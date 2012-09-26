@@ -9,7 +9,6 @@
 #include "base/command_line.h"
 #include "base/threading/thread_restrictions.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "third_party/skia/include/images/SkImageEncoder.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/Platform.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorSupport.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebFloatPoint.h"
@@ -24,6 +23,7 @@
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_surface.h"
+#include "ui/gl/gl_switches.h"
 #include "webkit/glue/webthread_impl.h"
 #include "webkit/gpu/webgraphicscontext3d_in_process_impl.h"
 
@@ -118,17 +118,18 @@ WebKit::WebGraphicsContext3D* DefaultContextFactory::CreateContextCommon(
   if (!offscreen) {
     context->makeContextCurrent();
     gfx::GLContext* gl_context = gfx::GLContext::GetCurrent();
-    bool vsync = !command_line->HasSwitch(switches::kDisableUIVsync);
+    bool vsync = !command_line->HasSwitch(switches::kDisableGpuVsync);
     gl_context->SetSwapInterval(vsync ? 1 : 0);
     gl_context->ReleaseCurrent(NULL);
   }
   return context;
 }
 
-Texture::Texture(bool flipped, const gfx::Size& size)
+Texture::Texture(bool flipped, const gfx::Size& size, float device_scale_factor)
     : texture_id_(0),
       flipped_(flipped),
-      size_(size) {
+      size_(size),
+      device_scale_factor_(device_scale_factor) {
 }
 
 Texture::~Texture() {

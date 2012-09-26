@@ -44,13 +44,20 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_BRIGHTNESS_UP, ui::EF_NONE, BRIGHTNESS_UP },
   { true, ui::VKEY_KBD_BRIGHTNESS_DOWN, ui::EF_NONE, KEYBOARD_BRIGHTNESS_DOWN },
   { true, ui::VKEY_KBD_BRIGHTNESS_UP, ui::EF_NONE, KEYBOARD_BRIGHTNESS_UP },
+  { true, ui::VKEY_F4, ui::EF_NONE, TOGGLE_MAXIMIZED },
   { true, ui::VKEY_F4, ui::EF_CONTROL_DOWN, CYCLE_DISPLAY_MODE },
+  { true, ui::VKEY_F4, ui::EF_ALT_DOWN, SWAP_PRIMARY_DISPLAY },
   { true, ui::VKEY_L, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, LOCK_SCREEN },
+  // F13 (which is also for locking screen) is handled directly in power
+  // manager.
   { true, ui::VKEY_POWER, ui::EF_NONE, POWER_PRESSED },
   { false, ui::VKEY_POWER, ui::EF_NONE, POWER_RELEASED },
 #if !defined(NDEBUG)
   // Extra shortcut for debug build to activate lock screen on linux desktop.
   { true, ui::VKEY_L, ui::EF_ALT_DOWN, LOCK_SCREEN },
+  // Extra shortcut for display swaping as alt-f4 is taken on linux desktop.
+  { true, ui::VKEY_F4, ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN,
+    SWAP_PRIMARY_DISPLAY },
 #endif
   { true, ui::VKEY_O, ui::EF_CONTROL_DOWN, OPEN_FILE_MANAGER_DIALOG },
   { true, ui::VKEY_M, ui::EF_CONTROL_DOWN, OPEN_FILE_MANAGER_TAB },
@@ -80,7 +87,7 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_F5, ui::EF_CONTROL_DOWN, TAKE_SCREENSHOT },
   { true, ui::VKEY_F5, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
     TAKE_PARTIAL_SCREENSHOT },
-  { true, ui::VKEY_PRINT, ui::EF_NONE, TAKE_SCREENSHOT_BY_PRTSCN_KEY },
+  { true, ui::VKEY_PRINT, ui::EF_NONE, TAKE_SCREENSHOT },
   // On Chrome OS, Search key is mapped to LWIN.
   { true, ui::VKEY_LWIN, ui::EF_NONE, TOGGLE_APP_LIST },
   { true, ui::VKEY_MEDIA_LAUNCH_APP2, ui::EF_NONE, TOGGLE_APP_LIST },
@@ -100,11 +107,13 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_S, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, FOCUS_SYSTEM_TRAY },
   { true, ui::VKEY_F7, ui::EF_CONTROL_DOWN, MAGNIFY_SCREEN_ZOOM_IN},
   { true, ui::VKEY_F6, ui::EF_CONTROL_DOWN, MAGNIFY_SCREEN_ZOOM_OUT},
+  { true, ui::VKEY_HELP, ui::EF_NONE, SHOW_KEYBOARD_OVERLAY },
   { true, ui::VKEY_OEM_2, ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN,
     SHOW_KEYBOARD_OVERLAY },
   { true, ui::VKEY_OEM_2,
     ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN,
     SHOW_KEYBOARD_OVERLAY },
+  { true, ui::VKEY_F14, ui::EF_NONE, SHOW_KEYBOARD_OVERLAY },
   { true, ui::VKEY_F1, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, SHOW_OAK },
   { true, ui::VKEY_ESCAPE, ui::EF_SHIFT_DOWN, SHOW_TASK_MANAGER },
   { true, ui::VKEY_1, ui::EF_ALT_DOWN, SELECT_WIN_0 },
@@ -121,7 +130,7 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_OEM_4, ui::EF_ALT_DOWN, WINDOW_SNAP_LEFT },
   { true, ui::VKEY_OEM_6, ui::EF_ALT_DOWN, WINDOW_SNAP_RIGHT },
   { true, ui::VKEY_OEM_MINUS, ui::EF_ALT_DOWN, WINDOW_MINIMIZE },
-  { true, ui::VKEY_OEM_PLUS, ui::EF_ALT_DOWN, WINDOW_MAXIMIZE_RESTORE },
+  { true, ui::VKEY_OEM_PLUS, ui::EF_ALT_DOWN, TOGGLE_MAXIMIZED },
   { true, ui::VKEY_OEM_PLUS, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN,
     WINDOW_POSITION_CENTER },
   { true, ui::VKEY_F2, ui::EF_CONTROL_DOWN, FOCUS_NEXT_PANE },
@@ -167,26 +176,8 @@ const AcceleratorAction kReservedActions[] = {
   CYCLE_FORWARD_MRU,  // Alt+Tab
 
 #if defined(OS_CHROMEOS)
-  // Chrome OS top-row keys.
-  FOCUS_PREVIOUS_PANE,  // Control+F1
-  FOCUS_NEXT_PANE,  // Control+F2
-  CYCLE_DISPLAY_MODE,  // Control+F4
-  CYCLE_FORWARD_LINEAR,  // F5
-  CYCLE_BACKWARD_LINEAR,  // Shift+F5
-  TAKE_SCREENSHOT,  // Control+F5
-  TAKE_PARTIAL_SCREENSHOT,  // Shift+Control+F5
-  BRIGHTNESS_DOWN,  // F6
-  KEYBOARD_BRIGHTNESS_DOWN,  // Alt+F6
-  MAGNIFY_SCREEN_ZOOM_OUT,  // Control+F6
-  BRIGHTNESS_UP,  // F7
-  KEYBOARD_BRIGHTNESS_UP,  // Alt+F7
-  MAGNIFY_SCREEN_ZOOM_IN,  // Control+F7
-  VOLUME_MUTE,  // F8
-  VOLUME_DOWN,  // F9
-  VOLUME_UP,  // F10
   POWER_PRESSED,
   POWER_RELEASED,
-  // TODO(yusukes): Handle F1, F2, F3, and F4 without modifiers in BrowserView.
 #endif
 };
 
@@ -201,6 +192,8 @@ const AcceleratorAction kActionsAllowedAtLoginOrLockScreen[] = {
   DISABLE_CAPS_LOCK,
   KEYBOARD_BRIGHTNESS_DOWN,
   KEYBOARD_BRIGHTNESS_UP,
+  MAGNIFY_SCREEN_ZOOM_IN,  // Control+F7
+  MAGNIFY_SCREEN_ZOOM_OUT,  // Control+F6
   NEXT_IME,
   PREVIOUS_IME,
   SWITCH_IME,  // Switch to another IME depending on the accelerator.

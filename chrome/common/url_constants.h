@@ -329,13 +329,11 @@ extern const char kCrashReasonURL[];
 // "Learn more" URL for killed tab page.
 extern const char kKillReasonURL[];
 
-#if defined(OS_WIN)
-// "Learn more" URL for the Win8 Data Privacy section under Options.
-extern const char kPrivacyWin8DataLearnMoreURL[];
-#endif
-
 // "Learn more" URL for the Privacy section under Options.
 extern const char kPrivacyLearnMoreURL[];
+
+// "Learn more" URL for the "Do not track" setting in the privacy section.
+extern const char kDoNotTrackLearnMoreURL[];
 
 // "Learn more" URL for the Continue where I left off startup option under
 // Options.

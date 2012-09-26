@@ -19,7 +19,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/cancelable_request.h"
+#include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/prerender/prerender_condition.h"
 #include "chrome/browser/prerender/prerender_contents.h"
@@ -402,8 +402,9 @@ bool PrerenderManager::MaybeUsePrerenderedPage(WebContents* web_contents,
   // Merge the browsing history.
   new_tab_contents->web_contents()->GetController().CopyStateFromAndPrune(
       &old_tab_contents->web_contents()->GetController());
-  old_tab_contents->core_tab_helper()->delegate()->
-      SwapTabContents(old_tab_contents, new_tab_contents);
+  CoreTabHelper::FromWebContents(old_tab_contents->web_contents())->delegate()->
+      SwapTabContents(old_tab_contents->web_contents(),
+                      new_tab_contents->web_contents());
   prerender_contents->CommitHistory(new_tab_contents);
 
   GURL icon_url = prerender_contents->icon_url();

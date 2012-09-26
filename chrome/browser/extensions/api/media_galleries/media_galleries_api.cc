@@ -6,10 +6,13 @@
 
 #include "chrome/browser/extensions/api/media_galleries/media_galleries_api.h"
 
+#include <set>
 #include <string>
 #include <vector>
 
+#include "base/memory/scoped_ptr.h"
 #include "base/platform_file.h"
+#include "base/stl_util.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/shell_window_registry.h"
 #include "chrome/browser/media_gallery/media_file_system_registry.h"
@@ -30,7 +33,13 @@
 #include "base/sys_string_conversions.h"
 #endif
 
+using chrome::MediaFileSystemInfo;
+using chrome::MediaFileSystemRegistry;
+using content::ChildProcessSecurityPolicy;
 using content::WebContents;
+
+namespace MediaGalleries = extensions::api::media_galleries;
+namespace GetMediaFileSystems = MediaGalleries::GetMediaFileSystems;
 
 namespace extensions {
 
@@ -54,12 +63,6 @@ bool ApiIsAccessible(std::string* error) {
 
 }  // namespace
 
-using chrome::MediaFileSystemRegistry;
-using content::ChildProcessSecurityPolicy;
-
-namespace MediaGalleries = extensions::api::media_galleries;
-namespace GetMediaFileSystems = MediaGalleries::GetMediaFileSystems;
-
 MediaGalleriesGetMediaFileSystemsFunction::
     ~MediaGalleriesGetMediaFileSystemsFunction() {}
 
@@ -70,51 +73,76 @@ bool MediaGalleriesGetMediaFileSystemsFunction::RunImpl() {
   scoped_ptr<GetMediaFileSystems::Params> params(
       GetMediaFileSystems::Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params.get());
-  MediaGalleries::GetMediaFileSystemsInteractivity interactive = "no";
-  if (params->details.get() && params->details->interactive.get())
-    interactive = *params->details->interactive;
-
-  if (interactive == "yes") {
-    ShowDialog();
-    return true;
-  } else if (interactive == "if_needed") {
-    std::vector<MediaFileSystemRegistry::MediaFSInfo> filesystems =
-        MediaFileSystemRegistry::GetInstance()->GetMediaFileSystemsForExtension(
-            render_view_host(), GetExtension());
-    if (filesystems.empty())
-      ShowDialog();
-    else
-      ReturnGalleries(filesystems);
-
-    return true;
-  } else if (interactive == "no") {
-    GetAndReturnGalleries();
-    return true;
+  MediaGalleries::GetMediaFileSystemsInteractivity interactive =
+      MediaGalleries::MEDIA_GALLERIES_GET_MEDIA_FILE_SYSTEMS_INTERACTIVITY_NO;
+  if (params->details.get() && params->details->interactive != MediaGalleries::
+         MEDIA_GALLERIES_GET_MEDIA_FILE_SYSTEMS_INTERACTIVITY_NONE) {
+    interactive = params->details->interactive;
   }
 
+  switch (interactive) {
+    case MediaGalleries::
+        MEDIA_GALLERIES_GET_MEDIA_FILE_SYSTEMS_INTERACTIVITY_YES:
+      ShowDialog();
+      return true;
+    case MediaGalleries::
+        MEDIA_GALLERIES_GET_MEDIA_FILE_SYSTEMS_INTERACTIVITY_IF_NEEDED:
+      MediaFileSystemRegistry::GetInstance()->GetMediaFileSystemsForExtension(
+          render_view_host(), GetExtension(), base::Bind(
+              &MediaGalleriesGetMediaFileSystemsFunction::
+                  ShowDialogIfNoGalleries,
+              this));
+      return true;
+    case MediaGalleries::
+        MEDIA_GALLERIES_GET_MEDIA_FILE_SYSTEMS_INTERACTIVITY_NO:
+      GetAndReturnGalleries();
+      return true;
+    case MediaGalleries::
+        MEDIA_GALLERIES_GET_MEDIA_FILE_SYSTEMS_INTERACTIVITY_NONE:
+      NOTREACHED();
+  }
   error_ = kInvalidInteractive;
   return false;
 }
 
+void MediaGalleriesGetMediaFileSystemsFunction::ShowDialogIfNoGalleries(
+    const std::vector<MediaFileSystemInfo>& filesystems) {
+  if (filesystems.empty())
+    ShowDialog();
+  else
+    ReturnGalleries(filesystems);
+}
+
 void MediaGalleriesGetMediaFileSystemsFunction::GetAndReturnGalleries() {
-  std::vector<MediaFileSystemRegistry::MediaFSInfo> filesystems =
-      MediaFileSystemRegistry::GetInstance()->GetMediaFileSystemsForExtension(
-          render_view_host(), GetExtension());
-  ReturnGalleries(filesystems);
+  MediaFileSystemRegistry::GetInstance()->GetMediaFileSystemsForExtension(
+      render_view_host(), GetExtension(), base::Bind(
+          &MediaGalleriesGetMediaFileSystemsFunction::ReturnGalleries, this));
 }
 
 void MediaGalleriesGetMediaFileSystemsFunction::ReturnGalleries(
-    const std::vector<MediaFileSystemRegistry::MediaFSInfo>& filesystems) {
+    const std::vector<MediaFileSystemInfo>& filesystems) {
   const int child_id = render_view_host()->GetProcess()->GetID();
+  std::set<std::string> file_system_names;
   base::ListValue* list = new base::ListValue();
   for (size_t i = 0; i < filesystems.size(); i++) {
-    base::DictionaryValue* dict_value = new base::DictionaryValue();
-    dict_value->SetWithoutPathExpansion(
+    scoped_ptr<base::DictionaryValue> file_system_dict_value(
+        new base::DictionaryValue());
+
+    // Send the file system id so the renderer can create a valid FileSystem
+    // object.
+    file_system_dict_value->SetWithoutPathExpansion(
         "fsid", Value::CreateStringValue(filesystems[i].fsid));
-    // The directory name is not exposed to the js layer.
-    dict_value->SetWithoutPathExpansion(
+
+    // The name must be unique according to the HTML5 File System API spec.
+    if (ContainsKey(file_system_names, filesystems[i].name)) {
+      NOTREACHED() << "Duplicate file system name: " << filesystems[i].name;
+      continue;
+    }
+    file_system_names.insert(filesystems[i].name);
+    file_system_dict_value->SetWithoutPathExpansion(
         "name", Value::CreateStringValue(filesystems[i].name));
-    list->Append(dict_value);
+
+    list->Append(file_system_dict_value.release());
 
     if (!filesystems[i].path.empty() &&
         MediaGalleriesPermission::HasReadAccess(*GetExtension())) {

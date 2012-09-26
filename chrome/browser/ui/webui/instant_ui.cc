@@ -85,6 +85,11 @@ void InstantUIMessageHandler::GetPreferenceValue(const base::ListValue* args) {
     base::FundamentalValue arg(value);
     web_ui()->CallJavascriptFunction(
         "instantConfig.getPreferenceValueResult", pref_name_value, arg);
+  } else if (pref_name == prefs::kInstantShowSearchProviderLogo) {
+    PrefService* prefs = Profile::FromWebUI(web_ui())->GetPrefs();
+    base::FundamentalValue arg(prefs->GetBoolean(pref_name.c_str()));
+    web_ui()->CallJavascriptFunction(
+        "instantConfig.getPreferenceValueResult", pref_name_value, arg);
   } else if (pref_name == prefs::kExperimentalZeroSuggestUrlPrefix) {
     PrefService* prefs = Profile::FromWebUI(web_ui())->GetPrefs();
     base::StringValue arg(prefs->GetString(pref_name.c_str()));
@@ -99,17 +104,25 @@ void InstantUIMessageHandler::SetPreferenceValue(const base::ListValue* args) {
 
   if (pref_name == prefs::kInstantAnimationScaleFactor) {
     double value;
-    if (!args->GetDouble(1, &value)) return;
+    if (!args->GetDouble(1, &value))
+      return;
 #if defined(TOOLKIT_VIEWS)
     // Clamp to something reasonable.
-    value = std::max(0.1, std::min(value, 10.0));
+    value = std::max(0.1, std::min(value, 20.0));
     slow_animation_scale_factor_ = static_cast<int>(value);
 #else
     NOTIMPLEMENTED();
-#endif
+#endif  // defined(TOOLKIT_VIEWS)
+  } else if (pref_name == prefs::kInstantShowSearchProviderLogo) {
+    bool value;
+    if (!args->GetBoolean(1, &value))
+      return;
+    PrefService* prefs = Profile::FromWebUI(web_ui())->GetPrefs();
+    prefs->SetBoolean(pref_name.c_str(), value);
   } else if (pref_name == prefs::kExperimentalZeroSuggestUrlPrefix) {
     std::string value;
-    if (!args->GetString(1, &value)) return;
+    if (!args->GetString(1, &value))
+      return;
     PrefService* prefs = Profile::FromWebUI(web_ui())->GetPrefs();
     prefs->SetString(pref_name.c_str(), value);
   }
@@ -131,4 +144,19 @@ InstantUI::InstantUI(content::WebUI* web_ui) : WebUIController(web_ui) {
 // static
 int InstantUI::GetSlowAnimationScaleFactor() {
   return InstantUIMessageHandler::slow_animation_scale_factor();
+}
+
+// static
+bool InstantUI::ShouldShowSearchProviderLogo(
+      content::BrowserContext* browser_context) {
+  PrefService* prefs = Profile::FromBrowserContext(browser_context)->GetPrefs();
+  return prefs->GetBoolean(prefs::kInstantShowSearchProviderLogo);
+}
+
+// static
+void InstantUI::RegisterUserPrefs(PrefService* user_prefs) {
+  user_prefs->RegisterBooleanPref(prefs::kInstantShowSearchProviderLogo, false,
+                                  PrefService::UNSYNCABLE_PREF);
+  user_prefs->RegisterStringPref(prefs::kExperimentalZeroSuggestUrlPrefix, "",
+                                 PrefService::UNSYNCABLE_PREF);
 }

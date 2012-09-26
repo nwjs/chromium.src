@@ -28,6 +28,7 @@ WebContentsViewAndroid::WebContentsViewAndroid(
     WebContentsImpl* web_contents,
     WebContentsViewDelegate* delegate)
     : web_contents_(web_contents),
+      content_view_core_(NULL),
       delegate_(delegate) {
 }
 
@@ -78,7 +79,7 @@ gfx::NativeView WebContentsViewAndroid::GetContentNativeView() const {
 }
 
 gfx::NativeWindow WebContentsViewAndroid::GetTopLevelNativeWindow() const {
-  return content_view_core_;
+  return content_view_core_->GetWindowAndroid();
 }
 
 void WebContentsViewAndroid::GetContainerBounds(gfx::Rect* out) const {
@@ -160,7 +161,7 @@ gfx::Rect WebContentsViewAndroid::GetViewBounds() const {
 
 void WebContentsViewAndroid::ShowContextMenu(
     const ContextMenuParams& params,
-    const content::ContextMenuSourceType& type) {
+    content::ContextMenuSourceType type) {
   if (delegate_.get())
     delegate_->ShowContextMenu(params, type);
 }

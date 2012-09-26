@@ -268,20 +268,22 @@
       <if expr="pp_ifdef('chromeos')">
         <structure type="chrome_scaled_image" name="IDR_FILES_APP_ICON" file="files_app_icon.png" />
       </if>
-      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_NEXT" file="find_next.png" />
-      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_NEXT_H" file="find_next_hover.png" />
-      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_NEXT_P" file="find_next_disabled.png" />
-      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_PREV" file="find_prev.png" />
-      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_PREV_H" file="find_prev_hover.png" />
-      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_PREV_P" file="find_prev_disabled.png" />
-      <structure type="chrome_scaled_image" name="IDR_FIND_BOX_BACKGROUND" file="find_box_bg.png" />
-      <structure type="chrome_scaled_image" name="IDR_FIND_BOX_BACKGROUND_LEFT" file="find_box_bg_left.png" />
-      <structure type="chrome_scaled_image" name="IDR_FIND_DIALOG_LEFT" file="find_dialog_left.png" />
-      <structure type="chrome_scaled_image" name="IDR_FIND_DIALOG_MIDDLE" file="find_dialog_middle.png" />
-      <structure type="chrome_scaled_image" name="IDR_FIND_DIALOG_RIGHT" file="find_dialog_right.png" />
-      <structure type="chrome_scaled_image" name="IDR_FIND_DLG_LEFT_BACKGROUND" file="find_dlg_left_bg.png" />
-      <structure type="chrome_scaled_image" name="IDR_FIND_DLG_MIDDLE_BACKGROUND" file="find_dlg_middle_bg.png" />
-      <structure type="chrome_scaled_image" name="IDR_FIND_DLG_RIGHT_BACKGROUND" file="find_dlg_right_bg.png" />
+      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_NEXT" file="common/find_next.png" />
+      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_NEXT_D" file="common/find_next_disabled.png" />
+      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_NEXT_H" file="common/find_next_hover.png" />
+      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_NEXT_P" file="common/find_next_pressed.png" />
+      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_PREV" file="common/find_prev.png" />
+      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_PREV_D" file="common/find_prev_disabled.png" />
+      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_PREV_H" file="common/find_prev_hover.png" />
+      <structure type="chrome_scaled_image" name="IDR_FINDINPAGE_PREV_P" file="common/find_prev_pressed.png" />
+      <structure type="chrome_scaled_image" name="IDR_FIND_BOX_BACKGROUND" file="common/find_box_bg.png" />
+      <structure type="chrome_scaled_image" name="IDR_FIND_BOX_BACKGROUND_LEFT" file="common/find_box_bg_left.png" />
+      <structure type="chrome_scaled_image" name="IDR_FIND_DIALOG_LEFT" file="common/find_dialog_left.png" />
+      <structure type="chrome_scaled_image" name="IDR_FIND_DIALOG_MIDDLE" file="common/find_dialog_middle.png" />
+      <structure type="chrome_scaled_image" name="IDR_FIND_DIALOG_RIGHT" file="common/find_dialog_right.png" />
+      <structure type="chrome_scaled_image" name="IDR_FIND_DLG_LEFT_BACKGROUND" file="common/find_dlg_left_bg.png" />
+      <structure type="chrome_scaled_image" name="IDR_FIND_DLG_MIDDLE_BACKGROUND" file="common/find_dlg_middle_bg.png" />
+      <structure type="chrome_scaled_image" name="IDR_FIND_DLG_RIGHT_BACKGROUND" file="common/find_dlg_right_bg.png" />
       <structure type="chrome_scaled_image" name="IDR_FLAGS_FAVICON" file="common/favicon_flags.png" />
       <if expr="not pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_FORWARD" file="forward.png" />
@@ -300,9 +302,7 @@
       <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_ALLOWED_LOCATIONBAR_ICON" file="allowed_location.png" />
       <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_DENIED_LOCATIONBAR_ICON" file="blocked_location.png" />
       <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_INFOBAR_ICON" file="infobar_geolocation.png" />
-      <if expr="pp_ifdef('_google_chrome')">
-         <structure type="chrome_scaled_image" name="IDR_GOOGLE_LOGO_LG" file="google_chrome/google_logo_lg.png" />
-      </if>
+      <structure type="chrome_scaled_image" name="IDR_GOOGLE_LOGO_LG" file="google_logo_lg.png" />
       <if expr="pp_ifdef('chromeos')">
         <structure type="chrome_scaled_image" name="IDR_HELP_MENU" file="help_16.png" />
       </if>
@@ -327,6 +327,7 @@
       <if expr="pp_ifdef('chromeos')">
         <structure type="chrome_scaled_image" name="IDR_ICON_ADD_USER24" file="icon_add_user24.png" />
         <structure type="chrome_scaled_image" name="IDR_ICON_ADD_USER_WHITE" file="icon_add_user_white.png" />
+        <structure type="chrome_scaled_image" name="IDR_ICON_GUEST_WHITE" file="icon_guest_white.png" />
         <structure type="chrome_scaled_image" name="IDR_ICON_POWER24" file="icon_power24.png" />
         <structure type="chrome_scaled_image" name="IDR_ICON_POWER_WHITE" file="icon_power_white.png" />
       </if>
@@ -396,6 +397,7 @@
       <structure type="chrome_scaled_image" name="IDR_INPUT_GOOD" file="input_good.png" />
       <structure type="chrome_scaled_image" name="IDR_KEYWORD_SEARCH_MAGNIFIER" file="keyword_search_magnifier.png" />
       <structure type="chrome_scaled_image" name="IDR_KILLED_TAB" file="killtab.png" />
+      <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_HTTP" file="common/location_bar_http.png" />
       <if expr="not pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_LOCATIONBG_C" file="omnibox_c.png" />
         <structure type="chrome_scaled_image" name="IDR_LOCATIONBG_L" file="omnibox_l.png" />
@@ -412,6 +414,7 @@
       <if expr="pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_LOCATIONBG_R" file="common/browser_omnibox_right.png" />
         <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_BORDER" file="common/browser_omnibox_border.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_SEARCH_FOCUS_BORDER_MASK" file="common/browser_omnibox_search_focus_border_mask.png" />
       </if>
       <if expr="is_macosx">
         <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_KEYWORD_HINT_TAB" file="mac/keyword_hint_tab.png" />
@@ -423,6 +426,8 @@
       <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_SELECTED_KEYWORD_BACKGROUND_L" file="common/keyword_search_bubble_left.png" />
       <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_SELECTED_KEYWORD_BACKGROUND_R" file="common/keyword_search_bubble_right.png" />
       <if expr="pp_ifdef('chromeos')">
+        <!-- TODO(nkostylev): This resource needs to be removed when cros login code is moved to ash. -->
+        <structure type="chrome_scaled_image" name="IDR_LAUNCHER_BACKGROUND" file="cros/launcher_background.png" />
         <structure type="chrome_scaled_image" name="IDR_LOGIN_ADD_USER" file="login_add_user.png" />
         <structure type="chrome_scaled_image" name="IDR_LOGIN_ADD_USER_HOVER" file="login_add_user_hover.png" />
         <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER" file="avatar_beaker.png" />
@@ -531,6 +536,7 @@
       <structure type="chrome_scaled_image" name="IDR_OMNIBOX_HTTPS_WARNING" file="common/omnibox_https_warning.png" />
       <structure type="chrome_scaled_image" name="IDR_OMNIBOX_HTTP_DARK" file="common/omnibox_http_dark.png" />
       <structure type="chrome_scaled_image" name="IDR_OMNIBOX_HTTP_SELECTED" file="common/omnibox_http_selected.png" />
+      <structure type="chrome_scaled_image" name="IDR_OMNIBOX_PDF_ICON" file="pdf.png" />
       <structure type="chrome_scaled_image" name="IDR_OMNIBOX_SEARCH" file="common/omnibox_search.png" />
       <structure type="chrome_scaled_image" name="IDR_OMNIBOX_SEARCH_DARK" file="common/omnibox_search_dark.png" />
       <structure type="chrome_scaled_image" name="IDR_OMNIBOX_SEARCH_SELECTED" file="common/omnibox_search_selected.png" />
@@ -659,6 +665,7 @@
       <structure type="chrome_scaled_image" name="IDR_PROFILE_EDIT_PRESSED" file="profile_edit_pressed.png" />
       <if expr="pp_ifdef('chromeos')">
         <structure type="chrome_scaled_image" name="IDR_PROFILE_PICTURE_LOADING" file="profile_loading.png" />
+        <structure type="chrome_scaled_image" name="IDR_RESET_WARNING" file="reset_warning.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_PROFILE_SELECTED" file="profile_selected.png" />
       <structure type="chrome_scaled_image" name="IDR_REGISTER_PROTOCOL_HANDLER_LOCATIONBAR_ICON" file="webintents.png" />
@@ -886,10 +893,16 @@
         <structure type="chrome_scaled_image" name="IDR_VOLUME_BUBBLE_UP_ICON" file="volume_up_icon.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_WARNING" file="alert_small.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TABSTRIP_CENTER" file="website_settings_tabstrip_center.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TABSTRIP_LEFT" file="website_settings_tabstrip_left.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TABSTRIP_RIGHT" file="website_settings_tabstrip_right.png" />
       <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_BACKGROUND" file="website_settings_tab_background.png" />
       <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_CENTER" file="website_settings_tab_center.png" />
       <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_LEFT" file="website_settings_tab_left.png" />
       <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_RIGHT" file="website_settings_tab_right.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_CENTER2" file="website_settings_tab_center2.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_LEFT2" file="website_settings_tab_left2.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_RIGHT2" file="website_settings_tab_right2.png" />
       <if expr="not pp_ifdef('_google_chrome')">
         <structure type="chrome_scaled_image" name="IDR_WEBSTORE_ICON" file="chromium/webstore_icon.png" />
         <structure type="chrome_scaled_image" name="IDR_WEBSTORE_ICON_16" file="chromium/webstore_icon_16.png" />

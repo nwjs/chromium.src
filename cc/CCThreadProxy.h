@@ -61,18 +61,19 @@ public:
     virtual void setNeedsRedrawOnImplThread() OVERRIDE;
     virtual void setNeedsCommitOnImplThread() OVERRIDE;
     virtual void postAnimationEventsToMainThreadOnImplThread(PassOwnPtr<CCAnimationEventsVector>, double wallClockTime) OVERRIDE;
+    virtual void releaseContentsTexturesOnImplThread() OVERRIDE;
 
     // CCSchedulerClient implementation
     virtual void scheduledActionBeginFrame() OVERRIDE;
     virtual CCScheduledActionDrawAndSwapResult scheduledActionDrawAndSwapIfPossible() OVERRIDE;
     virtual CCScheduledActionDrawAndSwapResult scheduledActionDrawAndSwapForced() OVERRIDE;
-    virtual void scheduledActionUpdateMoreResources(double monotonicTimeLimit) OVERRIDE;
+    virtual void scheduledActionUpdateMoreResources(base::TimeTicks timeLimit) OVERRIDE;
     virtual void scheduledActionCommit() OVERRIDE;
     virtual void scheduledActionBeginContextRecreation() OVERRIDE;
     virtual void scheduledActionAcquireLayerTexturesForMainThread() OVERRIDE;
 
     // CCTextureUpdateControllerClient implementation
-    virtual void updateTexturesCompleted() OVERRIDE;
+    virtual void readyToFinalizeTextureUpdates() OVERRIDE;
 
 private:
     explicit CCThreadProxy(CCLayerTreeHost*);
@@ -80,14 +81,12 @@ private:
 
     // Set on impl thread, read on main thread.
     struct BeginFrameAndCommitState {
-        BeginFrameAndCommitState()
-            : monotonicFrameBeginTime(0)
-        {
-        }
+        BeginFrameAndCommitState();
+        ~BeginFrameAndCommitState();
 
         double monotonicFrameBeginTime;
         OwnPtr<CCScrollAndScaleSet> scrollInfo;
-        bool contentsTexturesWereDeleted;
+        CCPrioritizedTextureManager::BackingVector evictedContentsTexturesBackings;
         size_t memoryAllocationLimitBytes;
     };
     OwnPtr<BeginFrameAndCommitState> m_pendingBeginFrameRequest;
@@ -108,7 +107,7 @@ private:
         IntRect rect;
     };
     void forceBeginFrameOnImplThread(CCCompletionEvent*);
-    void beginFrameCompleteOnImplThread(CCCompletionEvent*, PassOwnPtr<CCTextureUpdateQueue>, bool contentsTexturesWereDeleted);
+    void beginFrameCompleteOnImplThread(CCCompletionEvent*, PassOwnPtr<CCTextureUpdateQueue>);
     void beginFrameAbortedOnImplThread();
     void requestReadbackOnImplThread(ReadbackRequest*);
     void requestStartPageScaleAnimationOnImplThread(IntSize targetPosition, bool useAnchor, float scale, double durationSec);

@@ -119,6 +119,13 @@ const struct AcceleratorMapping {
   { GDK_c, IDC_COPY, GDK_CONTROL_MASK },
   { GDK_x, IDC_CUT, GDK_CONTROL_MASK },
   { GDK_v, IDC_PASTE, GDK_CONTROL_MASK },
+
+  // Dev tools.
+  { GDK_i, IDC_DEV_TOOLS,
+    GdkModifierType(GDK_CONTROL_MASK | GDK_SHIFT_MASK) },
+  { GDK_j, IDC_DEV_TOOLS_CONSOLE,
+    GdkModifierType(GDK_CONTROL_MASK | GDK_SHIFT_MASK) },
+
 };
 
 // Table of accelerator mappings to command ids.
@@ -833,6 +840,10 @@ void PanelGtk::UpdatePanelTitleBar() {
   string16 title = panel_->GetWindowTitle();
   gtk_window_set_title(window_, UTF16ToUTF8(title).c_str());
   titlebar_->UpdateTitleAndIcon();
+
+  gfx::Image app_icon = panel_->app_icon();
+  if (!app_icon.IsEmpty())
+    gtk_util::SetWindowIcon(window_, panel_->profile(), app_icon.ToGdkPixbuf());
 }
 
 void PanelGtk::UpdatePanelLoadingAnimations(bool should_animate) {

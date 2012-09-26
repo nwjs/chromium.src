@@ -23,20 +23,54 @@ import org.chromium.base.ActivityStatus;
 public class NetworkChangeNotifierAutoDetect extends BroadcastReceiver
         implements ActivityStatus.Listener {
 
+    /** Queries the ConnectivityManager for information about the current connection. */
+    static class ConnectivityManagerDelegate {
+        private ConnectivityManager mConnectivityManager;
+
+        ConnectivityManagerDelegate(Context context) {
+            if (context != null) {
+                mConnectivityManager = (ConnectivityManager)
+                       context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            }
+        }
+
+        boolean activeNetworkExists() {
+            return mConnectivityManager != null &&
+                    mConnectivityManager.getActiveNetworkInfo() != null;
+        }
+
+        int getNetworkType() {
+            return mConnectivityManager.getActiveNetworkInfo().getType();
+        }
+
+        int getNetworkSubtype() {
+            return mConnectivityManager.getActiveNetworkInfo().getSubtype();
+        }
+    }
+
     private static final String TAG = "NetworkChangeNotifierAutoDetect";
 
     private final NetworkConnectivityIntentFilter mIntentFilter =
             new NetworkConnectivityIntentFilter();
 
-    private final NetworkChangeNotifier mOwner;
+    private final Observer mObserver;
 
     private final Context mContext;
+    private ConnectivityManagerDelegate mConnectivityManagerDelegate;
     private boolean mRegistered;
     private int mConnectionType;
 
-    public NetworkChangeNotifierAutoDetect(NetworkChangeNotifier owner, Context context) {
-        mOwner = owner;
+    /**
+     * Observer notified on the UI thread whenever a new connection type was detected.
+     */
+    public static interface Observer {
+        public void onConnectionTypeChanged(int newConnectionType);
+    }
+
+    public NetworkChangeNotifierAutoDetect(Observer observer, Context context) {
+        mObserver = observer;
         mContext = context;
+        mConnectivityManagerDelegate = new ConnectivityManagerDelegate(context);
         mConnectionType = currentConnectionType(context);
 
         ActivityStatus status = ActivityStatus.getInstance();
@@ -46,8 +80,11 @@ public class NetworkChangeNotifierAutoDetect extends BroadcastReceiver
         status.registerListener(this);
     }
 
-    public int connectionType() {
-        return mConnectionType;
+    /**
+     * Allows overriding the ConnectivityManagerDelegate for tests.
+     */
+    void setConnectivityManagerDelegateForTests(ConnectivityManagerDelegate delegate) {
+        mConnectivityManagerDelegate = delegate;
     }
 
     public void destroy() {
@@ -76,14 +113,11 @@ public class NetworkChangeNotifierAutoDetect extends BroadcastReceiver
 
     private int currentConnectionType(Context context) {
         // Track exactly what type of connection we have.
-        ConnectivityManager connectivityManager = (ConnectivityManager)
-                context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-        if (activeNetworkInfo == null) {
+        if (!mConnectivityManagerDelegate.activeNetworkExists()) {
             return NetworkChangeNotifier.CONNECTION_NONE;
         }
 
-        switch (activeNetworkInfo.getType()) {
+        switch (mConnectivityManagerDelegate.getNetworkType()) {
             case ConnectivityManager.TYPE_ETHERNET:
                 return NetworkChangeNotifier.CONNECTION_ETHERNET;
             case ConnectivityManager.TYPE_WIFI:
@@ -92,7 +126,7 @@ public class NetworkChangeNotifierAutoDetect extends BroadcastReceiver
                 return NetworkChangeNotifier.CONNECTION_4G;
             case ConnectivityManager.TYPE_MOBILE:
                 // Use information from TelephonyManager to classify the connection.
-                switch (activeNetworkInfo.getSubtype()) {
+                switch (mConnectivityManagerDelegate.getNetworkSubtype()) {
                     case TelephonyManager.NETWORK_TYPE_GPRS:
                     case TelephonyManager.NETWORK_TYPE_EDGE:
                     case TelephonyManager.NETWORK_TYPE_CDMA:
@@ -130,7 +164,7 @@ public class NetworkChangeNotifierAutoDetect extends BroadcastReceiver
         if (newConnectionType != mConnectionType) {
             mConnectionType = newConnectionType;
             Log.d(TAG, "Network connectivity changed, type is: " + mConnectionType);
-            mOwner.notifyNativeObservers();
+            mObserver.onConnectionTypeChanged(newConnectionType);
         }
     }
 

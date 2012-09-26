@@ -6,6 +6,10 @@
 
 #include "base/message_loop.h"
 #include "base/string_util.h"
+#if defined (OS_WIN)
+#include "base/sys_info.h"
+#endif
+#include "base/utf_string_conversions.h"
 #include "content/common/browser_plugin_messages.h"
 #include "content/public/common/content_client.h"
 #include "content/public/renderer/content_renderer_client.h"
@@ -39,7 +43,10 @@ namespace content {
 namespace {
 const char kCrashEventName[] = "crash";
 const char kNavigationEventName[] = "navigation";
+const char* kPartitionAttribute = "partition";
+const char* kPersistPrefix = "persist:";
 const char* kSrcAttribute = "src";
+
 }
 
 BrowserPlugin::BrowserPlugin(
@@ -54,13 +61,14 @@ BrowserPlugin::BrowserPlugin(
       sad_guest_(NULL),
       guest_crashed_(false),
       resize_pending_(false),
-      parent_frame_(frame->identifier()) {
+      navigate_src_sent_(false),
+      parent_frame_(frame->identifier()),
+      process_id_(-1),
+      persist_storage_(false) {
   BrowserPluginManager::Get()->AddBrowserPlugin(instance_id, this);
   bindings_.reset(new BrowserPluginBindings(this));
 
-  std::string src;
-  if (ParseSrcAttribute(params, &src))
-    SetSrcAttribute(src);
+  ParseAttributes(params);
 }
 
 BrowserPlugin::~BrowserPlugin() {
@@ -90,30 +98,87 @@ std::string BrowserPlugin::GetSrcAttribute() const {
 void BrowserPlugin::SetSrcAttribute(const std::string& src) {
   if (src == src_ && !guest_crashed_)
     return;
-  if (!src.empty()) {
+  if (!src.empty() || navigate_src_sent_) {
     BrowserPluginManager::Get()->Send(
-        new BrowserPluginHostMsg_NavigateOrCreateGuest(
+        new BrowserPluginHostMsg_NavigateGuest(
             render_view_->GetRoutingID(),
             instance_id_,
             parent_frame_,
-            src));
+            src,
+            gfx::Size(width(), height())));
+    // Record that we sent a NavigateGuest message to embedder. Once we send
+    // such a message, subsequent SetSrcAttribute() calls must always send
+    // NavigateGuest messages to the embedder (even if |src| is empty), so
+    // resize works correctly for all cases (e.g. The embedder can reset the
+    // guest's |src| to empty value, resize and then set the |src| to a
+    // non-empty value).
+    // Additionally, once this instance has navigated, the storage partition
+    // cannot be changed, so this value is used for enforcing this.
+    navigate_src_sent_ = true;
   }
   src_ = src;
   guest_crashed_ = false;
 }
 
-bool BrowserPlugin::ParseSrcAttribute(
-    const WebKit::WebPluginParams& params,
-    std::string* src) {
+std::string BrowserPlugin::GetPartitionAttribute() const {
+  std::string value;
+  if (persist_storage_)
+    value.append(kPersistPrefix);
+
+  value.append(storage_partition_id_);
+  return value;
+}
+
+bool BrowserPlugin::SetPartitionAttribute(const std::string& partition_id,
+                                          std::string& error_message) {
+  if (navigate_src_sent_) {
+    error_message =
+      "The object has already navigated, so its partition cannot be changed.";
+    return false;
+  }
+
+  std::string input = partition_id;
+
+  // Since the "persist:" prefix is in ASCII, StartsWith will work fine on
+  // UTF-8 encoded |partition_id|. If the prefix is a match, we can safely
+  // remove the prefix without splicing in the middle of a multi-byte codepoint.
+  // We can use the rest of the string as UTF-8 encoded one.
+  if (StartsWithASCII(input, kPersistPrefix, true)) {
+    size_t index = input.find(":");
+    CHECK(index != std::string::npos);
+    // It is safe to do index + 1, since we tested for the full prefix above.
+    input = input.substr(index + 1);
+    if (input.empty()) {
+      error_message = "Invalid empty partition attribute.";
+      return false;
+    }
+    persist_storage_ = true;
+  } else {
+    persist_storage_ = false;
+  }
+
+  storage_partition_id_ = input;
+  return true;
+}
+
+void BrowserPlugin::ParseAttributes(const WebKit::WebPluginParams& params) {
+  std::string src;
+
   // Get the src attribute from the attributes vector
   for (unsigned i = 0; i < params.attributeNames.size(); ++i) {
     std::string attributeName = params.attributeNames[i].utf8();
     if (LowerCaseEqualsASCII(attributeName, kSrcAttribute)) {
-      *src = params.attributeValues[i].utf8();
-      return true;
+      src = params.attributeValues[i].utf8();
+    } else if (LowerCaseEqualsASCII(attributeName, kPartitionAttribute)) {
+      std::string error;
+      SetPartitionAttribute(params.attributeValues[i].utf8(), error);
     }
   }
-  return false;
+
+  // Set the 'src' attribute last, as it will set the has_navigated_ flag to
+  // true, which prevents changing the 'partition' attribute.
+  if (!src.empty())
+    SetSrcAttribute(src);
 }
 
 float BrowserPlugin::GetDeviceScaleFactor() const {
@@ -135,6 +200,23 @@ void BrowserPlugin::RemoveEventListeners() {
     }
   }
   event_listener_map_.clear();
+}
+
+void BrowserPlugin::Stop() {
+  if (!navigate_src_sent_)
+    return;
+  BrowserPluginManager::Get()->Send(
+      new BrowserPluginHostMsg_Stop(render_view_->GetRoutingID(),
+                                    instance_id_));
+}
+
+void BrowserPlugin::Reload() {
+  if (!navigate_src_sent_)
+    return;
+  guest_crashed_ = false;
+  BrowserPluginManager::Get()->Send(
+      new BrowserPluginHostMsg_Reload(render_view_->GetRoutingID(),
+                                      instance_id_));
 }
 
 void BrowserPlugin::UpdateRect(
@@ -202,8 +284,9 @@ void BrowserPlugin::GuestCrashed() {
   }
 }
 
-void BrowserPlugin::DidNavigate(const GURL& url) {
+void BrowserPlugin::DidNavigate(const GURL& url, int process_id) {
   src_ = url.spec();
+  process_id_ = process_id;
   if (!HasListeners(kNavigationEventName))
     return;
 
@@ -310,8 +393,9 @@ void BrowserPlugin::paint(WebCanvas* canvas, const WebRect& rect) {
   paint.setStyle(SkPaint::kFill_Style);
   paint.setColor(SK_ColorWHITE);
   canvas->drawRect(image_data_rect, paint);
-  // Stay at white if we have no src set, or we don't yet have a backing store.
-  if (!backing_store_.get() || src_.empty())
+  // Stay at white if we have never set a non-empty src, or we don't yet have a
+  // backing store.
+  if (!backing_store_.get() || !navigate_src_sent_)
     return;
   float inverse_scale_factor =  1.0f / backing_store_->GetScaleFactor();
   canvas->scale(inverse_scale_factor, inverse_scale_factor);
@@ -327,23 +411,51 @@ void BrowserPlugin::updateGeometry(
   int old_height = height();
   plugin_rect_ = window_rect;
   if (old_width == window_rect.width &&
-      old_height == window_rect.height)
+      old_height == window_rect.height) {
+    return;
+  }
+  // Until an actual navigation occurs, there is no browser side embedder
+  // present to notify about geometry updates. In this case, after we've updated
+  // the BrowserPlugin's state we are done and can return immediately.
+  if (!navigate_src_sent_)
     return;
 
   const size_t stride = skia::PlatformCanvas::StrideForWidth(window_rect.width);
-  const size_t size = window_rect.height *
-                      stride *
-                      GetDeviceScaleFactor() *
-                      GetDeviceScaleFactor();
+  // Make sure the size of the damage buffer is at least four bytes so that we
+  // can fit in a magic word to verify that the memory is shared correctly.
+  size_t size =
+      std::max(sizeof(unsigned int),
+               static_cast<size_t>(window_rect.height *
+                                   stride *
+                                   GetDeviceScaleFactor() *
+                                   GetDeviceScaleFactor()));
 
   // Don't drop the old damage buffer until after we've made sure that the
   // browser process has dropped it.
-  TransportDIB* new_damage_buffer =
-      RenderProcess::current()->CreateTransportDIB(size);
-  DCHECK(new_damage_buffer);
+  TransportDIB* new_damage_buffer = NULL;
+#if defined(OS_WIN)
+  size_t allocation_granularity = base::SysInfo::VMAllocationGranularity();
+  size_t shared_mem_size = size / allocation_granularity + 1;
+  shared_mem_size = shared_mem_size * allocation_granularity;
+
+  base::SharedMemory shared_mem;
+  if (!shared_mem.CreateAnonymous(shared_mem_size))
+    NOTREACHED() << "Unable to create shared memory of size:" << size;
+  new_damage_buffer = TransportDIB::Map(shared_mem.handle());
+#else
+  new_damage_buffer = RenderProcess::current()->CreateTransportDIB(size);
+#endif
+  if (!new_damage_buffer)
+    NOTREACHED() << "Unable to create damage buffer";
+  DCHECK(new_damage_buffer->memory());
+  // Insert the magic word.
+  *static_cast<unsigned int*>(new_damage_buffer->memory()) = 0xdeadbeef;
 
   BrowserPluginHostMsg_ResizeGuest_Params params;
   params.damage_buffer_id = new_damage_buffer->id();
+#if defined(OS_WIN)
+  params.damage_buffer_size = size;
+#endif
   params.width = window_rect.width;
   params.height = window_rect.height;
   params.resize_pending = resize_pending_;
@@ -377,7 +489,7 @@ bool BrowserPlugin::acceptsInputEvents() {
 
 bool BrowserPlugin::handleInputEvent(const WebKit::WebInputEvent& event,
                                      WebKit::WebCursorInfo& cursor_info) {
-  if (guest_crashed_ || src_.empty())
+  if (guest_crashed_ || !navigate_src_sent_)
     return false;
   bool handled = false;
   WebCursor cursor;

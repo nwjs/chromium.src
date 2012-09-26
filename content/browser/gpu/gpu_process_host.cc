@@ -822,7 +822,6 @@ bool GpuProcessHost::LaunchGpuProcess(const std::string& channel_id) {
     switches::kReduceGpuSandbox,
     switches::kDisableSeccompFilterSandbox,
     switches::kEnableGpuSandbox,
-    switches::kDisableGpuSwitching,
     switches::kDisableGpuVsync,
     switches::kDisableGpuWatchdog,
     switches::kDisableImageTransportSurface,
@@ -835,6 +834,7 @@ bool GpuProcessHost::LaunchGpuProcess(const std::string& channel_id) {
 #endif
     switches::kGpuNoContextLost,
     switches::kGpuStartupDialog,
+    switches::kGpuSwitching,
     switches::kLoggingLevel,
     switches::kNoSandbox,
     switches::kTestGLLib,

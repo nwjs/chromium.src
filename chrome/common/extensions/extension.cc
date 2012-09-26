@@ -130,6 +130,51 @@ static void ConvertHexadecimalToIDAlphabet(std::string* id) {
   }
 }
 
+// Strips leading slashes from the file path. Returns true iff the final path is
+// non empty.
+bool NormalizeAndValidatePath(std::string* path) {
+  size_t first_non_slash = path->find_first_not_of('/');
+  if (first_non_slash == std::string::npos) {
+    *path = "";
+    return false;
+  }
+
+  *path = path->substr(first_non_slash);
+  return true;
+}
+
+// Loads icon paths defined in dictionary |icons_value| into ExtensionIconSet
+// |icons|. |icons_value| is a dictionary value {icon size -> icon path}. Icons
+// in |icons_value| whose size is not in |icon_sizes| will be ignored.
+// Returns success. If load fails, |error| will be set.
+bool LoadIconsFromDictionary(const DictionaryValue* icons_value,
+                             const int* icon_sizes,
+                             size_t num_icon_sizes,
+                             ExtensionIconSet* icons,
+                             string16* error) {
+  DCHECK(icons);
+  for (size_t i = 0; i < num_icon_sizes; ++i) {
+    std::string key = base::IntToString(icon_sizes[i]);
+    if (icons_value->HasKey(key)) {
+      std::string icon_path;
+      if (!icons_value->GetString(key, &icon_path)) {
+        *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
+            errors::kInvalidIconPath, key);
+        return false;
+      }
+
+      if (!NormalizeAndValidatePath(&icon_path)) {
+        *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
+            errors::kInvalidIconPath, key);
+        return false;
+      }
+
+      icons->Add(icon_sizes[i], icon_path);
+    }
+  }
+  return true;
+}
+
 // A singleton object containing global data needed by the extension objects.
 class ExtensionConfig {
  public:
@@ -818,12 +863,14 @@ scoped_ptr<ExtensionAction> Extension::LoadExtensionActionHelper(
       for (ListValue::const_iterator iter = icons->begin();
            iter != icons->end(); ++iter) {
         std::string path;
-        if (!(*iter)->GetAsString(&path) || path.empty()) {
+        if (!(*iter)->GetAsString(&path) || !NormalizeAndValidatePath(&path)) {
           *error = ASCIIToUTF16(errors::kInvalidPageActionIconPath);
           return scoped_ptr<ExtensionAction>();
         }
 
-        result->set_default_icon_path(path);
+        scoped_ptr<ExtensionIconSet> icon_set(new ExtensionIconSet);
+        icon_set->Add(extension_misc::EXTENSION_ICON_ACTION, path);
+        result->set_default_icon(icon_set.Pass());
         break;
       }
     }
@@ -838,16 +885,34 @@ scoped_ptr<ExtensionAction> Extension::LoadExtensionActionHelper(
     }
   }
 
-  std::string default_icon;
   // Read the page action |default_icon| (optional).
+  // The |default_icon| value can be either dictionary {icon size -> icon path}
+  // or non empty string value.
   if (extension_action->HasKey(keys::kPageActionDefaultIcon)) {
-    if (!extension_action->GetString(keys::kPageActionDefaultIcon,
-                                     &default_icon) ||
-        default_icon.empty()) {
+    const DictionaryValue* icons_value = NULL;
+    std::string default_icon;
+    if (extension_action->GetDictionary(keys::kPageActionDefaultIcon,
+                                        &icons_value)) {
+      scoped_ptr<ExtensionIconSet> default_icons(new ExtensionIconSet());
+      if (!LoadIconsFromDictionary(icons_value,
+                                   extension_misc::kExtensionActionIconSizes,
+                                   extension_misc::kNumExtensionActionIconSizes,
+                                   default_icons.get(),
+                                   error)) {
+        return scoped_ptr<ExtensionAction>();
+      }
+
+      result->set_default_icon(default_icons.Pass());
+    } else if (extension_action->GetString(keys::kPageActionDefaultIcon,
+                                           &default_icon) &&
+               NormalizeAndValidatePath(&default_icon)) {
+      scoped_ptr<ExtensionIconSet> icon_set(new ExtensionIconSet);
+      icon_set->Add(extension_misc::EXTENSION_ICON_ACTION, default_icon);
+      result->set_default_icon(icon_set.Pass());
+    } else {
       *error = ASCIIToUTF16(errors::kInvalidPageActionIconPath);
       return scoped_ptr<ExtensionAction>();
     }
-    result->set_default_icon_path(default_icon);
   }
 
   // Read the page action title from |default_title| if present, |name| if not
@@ -996,7 +1061,11 @@ bool Extension::LoadAppFeatures(string16* error) {
       !LoadLaunchContainer(error)) {
     return false;
   }
-
+  if (manifest_->HasKey(keys::kDisplayInLauncher) &&
+      !manifest_->GetBoolean(keys::kDisplayInLauncher, &display_in_launcher_)) {
+    *error = ASCIIToUTF16(errors::kInvalidDisplayInLauncher);
+    return false;
+  }
   return true;
 }
 
@@ -1375,28 +1444,11 @@ bool Extension::LoadIcons(string16* error) {
     return false;
   }
 
-  for (size_t i = 0; i < extension_misc::kNumExtensionIconSizes; ++i) {
-    std::string key = base::IntToString(extension_misc::kExtensionIconSizes[i]);
-    if (icons_value->HasKey(key)) {
-      std::string icon_path;
-      if (!icons_value->GetString(key, &icon_path)) {
-        *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
-            errors::kInvalidIconPath, key);
-        return false;
-      }
-
-      if (!icon_path.empty() && icon_path[0] == '/')
-        icon_path = icon_path.substr(1);
-
-      if (icon_path.empty()) {
-        *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
-            errors::kInvalidIconPath, key);
-        return false;
-      }
-      icons_.Add(extension_misc::kExtensionIconSizes[i], icon_path);
-    }
-  }
-  return true;
+  return LoadIconsFromDictionary(icons_value,
+                                 extension_misc::kExtensionIconSizes,
+                                 extension_misc::kNumExtensionIconSizes,
+                                 &icons_,
+                                 error);
 }
 
 bool Extension::LoadCommands(string16* error) {
@@ -2369,20 +2421,25 @@ bool Extension::LoadScriptBadge(string16* error) {
   }
   script_badge_->SetTitle(ExtensionAction::kDefaultTabId, name());
 
-  if (!script_badge_->default_icon_path().empty()) {
+  if (script_badge_->default_icon()) {
     install_warnings_.push_back(
         InstallWarning(InstallWarning::FORMAT_TEXT,
                        errors::kScriptBadgeIconIgnored));
   }
-  std::string icon16_path = icons().Get(extension_misc::EXTENSION_ICON_BITTY,
-                                        ExtensionIconSet::MATCH_EXACTLY);
-  if (!icon16_path.empty()) {
-    script_badge_->set_default_icon_path(icon16_path);
+
+  scoped_ptr<ExtensionIconSet> icon_set(new ExtensionIconSet);
+
+  for (size_t i = 0; i < extension_misc::kNumScriptBadgeIconSizes; i++) {
+    std::string path = icons().Get(extension_misc::kScriptBadgeIconSizes[i],
+                                   ExtensionIconSet::MATCH_EXACTLY);
+    if (!path.empty())
+      icon_set->Add(extension_misc::kScriptBadgeIconSizes[i], path);
+  }
+
+  if (!icon_set->map().empty()) {
+    script_badge_->set_default_icon(icon_set.Pass());
   } else {
-    script_badge_->SetIcon(
-        ExtensionAction::kDefaultTabId,
-        ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-            IDR_EXTENSIONS_FAVICON));
+    script_badge_->set_default_icon(scoped_ptr<ExtensionIconSet>());
   }
 
   return true;
@@ -2906,6 +2963,7 @@ Extension::Extension(const FilePath& path,
       launch_container_(extension_misc::LAUNCH_TAB),
       launch_width_(0),
       launch_height_(0),
+      display_in_launcher_(true),
       wants_file_access_(false),
       creation_flags_(0) {
   DCHECK(path.empty() || path.IsAbsolute());
@@ -3200,16 +3258,22 @@ std::set<FilePath> Extension::GetBrowserImages() const {
     }
   }
 
-  // Page action icons.
-  if (page_action()) {
-    image_paths.insert(FilePath::FromWStringHack(UTF8ToWide(
-        page_action()->default_icon_path())));
+  if (page_action() && page_action()->default_icon()) {
+    for (ExtensionIconSet::IconMap::const_iterator iter =
+             page_action()->default_icon()->map().begin();
+         iter != page_action()->default_icon()->map().end();
+         ++iter) {
+       image_paths.insert(FilePath::FromWStringHack(UTF8ToWide(iter->second)));
+    }
   }
 
-  // Browser action icons.
-  if (browser_action()) {
-    image_paths.insert(FilePath::FromWStringHack(UTF8ToWide(
-        browser_action()->default_icon_path())));
+  if (browser_action() && browser_action()->default_icon()) {
+    for (ExtensionIconSet::IconMap::const_iterator iter =
+             browser_action()->default_icon()->map().begin();
+         iter != browser_action()->default_icon()->map().end();
+         ++iter) {
+       image_paths.insert(FilePath::FromWStringHack(UTF8ToWide(iter->second)));
+    }
   }
 
   return image_paths;
@@ -3762,8 +3826,8 @@ bool Extension::IsSyncable() const {
 }
 
 bool Extension::ShouldDisplayInLauncher() const {
-  // All apps should be displayed on the NTP except for the Cloud Print App.
-  return is_app() && id() != extension_misc::kCloudPrintAppId;
+  // Only apps should be displayed on the NTP.
+  return is_app() && display_in_launcher_;
 }
 
 bool Extension::InstallWarning::operator==(const InstallWarning& other) const {

@@ -38,9 +38,6 @@ namespace {
 // keeps track of the currently open bubble, or NULL if none is open.
 BookmarkBubbleGtk* g_bubble = NULL;
 
-// Padding between content and edge of bubble.
-const int kContentBorder = 7;
-
 }  // namespace
 
 // static
@@ -119,7 +116,8 @@ BookmarkBubbleGtk::BookmarkBubbleGtk(GtkWidget* anchor,
   // portion with the name entry and the folder combo.  |bottom| is the final
   // row with a spacer, and the edit... and close buttons on the right.
   GtkWidget* content = gtk_vbox_new(FALSE, 5);
-  gtk_container_set_border_width(GTK_CONTAINER(content), kContentBorder);
+  gtk_container_set_border_width(GTK_CONTAINER(content),
+                                 ui::kContentAreaBorder);
   GtkWidget* top = gtk_hbox_new(FALSE, 0);
 
   gtk_misc_set_alignment(GTK_MISC(label), 0, 1);
@@ -185,8 +183,6 @@ BookmarkBubbleGtk::BookmarkBubbleGtk(GtkWidget* anchor,
                    G_CALLBACK(&OnNameActivateThunk), this);
   g_signal_connect(folder_combo_, "changed",
                    G_CALLBACK(&OnFolderChangedThunk), this);
-  g_signal_connect(folder_combo_, "notify::popup-shown",
-                   G_CALLBACK(&OnFolderPopupShownThunk), this);
   g_signal_connect(edit_button, "clicked",
                    G_CALLBACK(&OnEditClickedThunk), this);
   g_signal_connect(close_button, "clicked",
@@ -238,18 +234,6 @@ void BookmarkBubbleGtk::OnFolderChanged(GtkWidget* widget) {
         FROM_HERE,
         base::Bind(&BookmarkBubbleGtk::ShowEditor, factory_.GetWeakPtr()));
   }
-}
-
-void BookmarkBubbleGtk::OnFolderPopupShown(GtkWidget* widget,
-                                           GParamSpec* property) {
-  // GtkComboBox grabs the keyboard and pointer when it displays its popup,
-  // which steals the grabs that BubbleGtk had installed.  When the popup is
-  // hidden, we notify BubbleGtk so it can try to reacquire the grabs
-  // (otherwise, GTK won't activate our widgets when the user clicks in them).
-  gboolean popup_shown = FALSE;
-  g_object_get(G_OBJECT(folder_combo_), "popup-shown", &popup_shown, NULL);
-  if (!popup_shown)
-    bubble_->HandlePointerAndKeyboardUngrabbedByContent();
 }
 
 void BookmarkBubbleGtk::OnEditClicked(GtkWidget* widget) {

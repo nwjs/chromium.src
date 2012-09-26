@@ -45,6 +45,9 @@
         'base/layout.h',
         'base/models/tree_node_iterator.h',
         'base/models/tree_node_model.h',
+        'base/resource/data_pack.cc',
+        'base/resource/data_pack.h',
+        'base/resource/resource_handle.h',
         'base/ui_base_paths.cc',
         'base/ui_base_paths.h',
         'base/ui_base_switches.cc',
@@ -95,6 +98,8 @@
       ],
       'all_sources': [
         '<@(_common_sources)',
+        'android/ui_jni_registrar.cc',
+        'android/ui_jni_registrar.h',
         'base/accelerators/accelerator.cc',
         'base/accelerators/accelerator.h',
         'base/accelerators/accelerator_cocoa.h',
@@ -175,6 +180,8 @@
         'base/dialogs/gtk/select_file_dialog_impl_kde.cc',
         'base/dialogs/select_file_dialog.cc',
         'base/dialogs/select_file_dialog.h',
+        'base/dialogs/select_file_dialog_android.cc',
+        'base/dialogs/select_file_dialog_android.h',
         'base/dialogs/select_file_dialog_factory.cc',
         'base/dialogs/select_file_dialog_factory.h',
         'base/dialogs/select_file_dialog_mac.h',
@@ -317,8 +324,6 @@
         'base/range/range.h',
         'base/range/range_mac.mm',
         'base/range/range_win.cc',
-        'base/resource/data_pack.cc',
-        'base/resource/data_pack.h',
         'base/resource/resource_bundle.cc',
         'base/resource/resource_bundle.h',
         'base/resource/resource_bundle_android.cc',
@@ -329,7 +334,6 @@
         'base/resource/resource_bundle_win.h',
         'base/resource/resource_data_dll_win.cc',
         'base/resource/resource_data_dll_win.h',
-        'base/resource/resource_handle.h',
         'base/text/bytes_formatting.cc',
         'base/text/bytes_formatting.h',
         'base/text/text_elider.cc',
@@ -374,6 +378,8 @@
         'base/win/singleton_hwnd.h',
         'base/win/tsf_bridge.cc',
         'base/win/tsf_bridge.h',
+        'base/win/tsf_input_scope.cc',
+        'base/win/tsf_input_scope.h',
         'base/win/tsf_text_store.cc',
         'base/win/tsf_text_store.h',
         'base/win/window_impl.cc',
@@ -398,6 +404,8 @@
         'gfx/android/gfx_jni_registrar.h',
         'gfx/android/java_bitmap.cc',
         'gfx/android/java_bitmap.h',
+        'gfx/android/window_android.cc',
+        'gfx/android/window_android.h',
         'gfx/blit.cc',
         'gfx/blit.h',
         'gfx/canvas.cc',
@@ -452,6 +460,7 @@
         'gfx/path_aura.cc',
         'gfx/path_gtk.cc',
         'gfx/path_win.cc',
+        'gfx/path_win.h',
         'gfx/platform_font.h',
         'gfx/platform_font_android.cc',
         'gfx/platform_font_ios.h',
@@ -570,7 +579,6 @@
             ['exclude', 'base/dragdrop/os_exchange_data_provider_win.h'],
             ['exclude', 'base/native_theme/native_theme_win.cc'],
             ['exclude', 'base/native_theme/native_theme_win.h'],
-            ['exclude', 'gfx/path_win.cc'],
           ],
         }],
         ['use_aura==0 and toolkit_views==0', {
@@ -785,6 +793,16 @@
             'gfx/platform_font_pango.cc',
             'gfx/platform_font_pango.h',
           ],
+          'dependencies': [
+            'ui_java',
+            'ui_jni_headers',
+          ],
+          'include_dirs': [
+            '<(SHARED_INTERMEDIATE_DIR)/ui',
+          ],
+          'export_dependent_settings': [
+            'ui_java',
+          ],
         }],
         ['OS=="android" or OS=="ios"', {
           'sources!': [
@@ -811,5 +829,37 @@
         'ui_unittests.gypi',
       ]},
     ],
+    ['OS=="android"' , {
+       'targets': [
+         {
+           'target_name': 'ui_jni_headers',
+           'type': 'none',
+           'sources': [
+             'android/java/src/org/chromium/ui/gfx/BitmapHelper.java',
+             'android/java/src/org/chromium/ui/gfx/NativeWindow.java',
+             'android/java/src/org/chromium/ui/SelectFileDialog.java',
+           ],
+           'variables': {
+             'jni_gen_dir': 'ui',
+           },
+           'includes': [ '../build/jni_generator.gypi' ],
+         },
+         {
+           'target_name': 'ui_java',
+           'type': 'none',
+           'variables': {
+             'package_name': 'ui',
+             'java_in_dir': '../ui/android/java',
+           },
+           'dependencies': [
+             '../base/base.gyp:base_java',
+           ],
+           'export_dependent_settings': [
+             '../base/base.gyp:base_java',
+           ],
+           'includes': [ '../build/java.gypi' ],
+         },
+       ],
+    }],
   ],
 }

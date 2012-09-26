@@ -441,10 +441,10 @@ void ExpectFilledCreditCardYearMonthWithYearMonth(int page_id,
 
 class TestAutofillManager : public AutofillManager {
  public:
-  TestAutofillManager(TabContents* tab_contents,
+  TestAutofillManager(autofill::AutofillManagerDelegate* delegate,
+                      TabContents* tab_contents,
                       TestPersonalDataManager* personal_data)
-      : AutofillManager(&delegate_, tab_contents, personal_data),
-        delegate_(tab_contents),
+      : AutofillManager(delegate, tab_contents, personal_data),
         personal_data_(personal_data),
         autofill_enabled_(true),
         did_finish_async_form_submit_(false),
@@ -565,8 +565,6 @@ class TestAutofillManager : public AutofillManager {
   // AutofillManager is ref counted.
   virtual ~TestAutofillManager() {}
 
-  TabAutofillManagerDelegate delegate_;
-
   // Weak reference.
   TestPersonalDataManager* personal_data_;
 
@@ -607,7 +605,9 @@ class AutofillManagerTest : public TabContentsTestHarness {
         profile, TestPersonalDataManager::Build);
 
     TabContentsTestHarness::SetUp();
-    autofill_manager_ = new TestAutofillManager(tab_contents(),
+    manager_delegate_.reset(new TabAutofillManagerDelegate(tab_contents()));
+    autofill_manager_ = new TestAutofillManager(manager_delegate_.get(),
+                                                tab_contents(),
                                                 &personal_data_);
 
     file_thread_.Start();
@@ -712,6 +712,7 @@ class AutofillManagerTest : public TabContentsTestHarness {
   content::TestBrowserThread ui_thread_;
   content::TestBrowserThread file_thread_;
 
+  scoped_ptr<TabAutofillManagerDelegate> manager_delegate_;
   scoped_refptr<TestAutofillManager> autofill_manager_;
   TestPersonalDataManager personal_data_;
 
@@ -2622,7 +2623,7 @@ TEST_F(AutofillManagerTest, FormSubmittedWithDefaultValues) {
 // Checks that resetting the auxiliary profile enabled preference does the right
 // thing on all platforms.
 TEST_F(AutofillManagerTest, AuxiliaryProfilesReset) {
-  PrefServiceBase* prefs = PrefServiceBase::ForContext(profile());
+  PrefServiceBase* prefs = PrefServiceBase::FromBrowserContext(profile());
 #if defined(OS_MACOSX)
   // Auxiliary profiles is implemented on Mac only.  It enables Mac Address
   // Book integration.
@@ -2918,7 +2919,7 @@ TEST_F(AutofillManagerTest, DeterminePossibleFieldTypesForUpload) {
 }
 
 TEST_F(AutofillManagerTest, UpdatePasswordSyncState) {
-  PrefServiceBase* prefs = PrefServiceBase::ForContext(profile());
+  PrefServiceBase* prefs = PrefServiceBase::FromBrowserContext(profile());
 
   // Allow this test to control what should get synced.
   prefs->SetBoolean(prefs::kSyncKeepEverythingSynced, false);
@@ -2976,7 +2977,7 @@ TEST_F(AutofillManagerTest, UpdatePasswordSyncState) {
 }
 
 TEST_F(AutofillManagerTest, UpdatePasswordGenerationState) {
-  PrefServiceBase* prefs = PrefServiceBase::ForContext(profile());
+  PrefServiceBase* prefs = PrefServiceBase::FromBrowserContext(profile());
 
   // Always set password sync enabled so we can test the behavior of password
   // generation.

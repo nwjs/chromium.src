@@ -7,7 +7,6 @@
 #include "base/debug/trace_event.h"
 #include "base/logging.h"
 #include "base/mac/mac_util.h"
-#include "base/memory/scoped_generic_obj.h"
 #include "base/memory/scoped_ptr.h"
 #include "third_party/mesa/MesaLib/include/GL/osmesa.h"
 #include "ui/gl/gl_bindings.h"
@@ -17,22 +16,11 @@
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_surface.h"
 #include "ui/gl/gl_switches.h"
+#include "ui/gl/gpu_switching_manager.h"
 
 #if defined(USE_AURA)
 #include "ui/gl/gl_context_nsview.h"
 #endif
-
-namespace {
-
-// ScopedGenericObj functor for CGLDestroyRendererInfo().
-class ScopedDestroyRendererInfo {
- public:
-  void operator()(CGLRendererInfoObj x) const {
-    CGLDestroyRendererInfo(x);
-  }
-};
-
-}  // namespace
 
 namespace gfx {
 
@@ -119,8 +107,7 @@ bool GLContext::SupportsDualGpus() {
     return false;
   }
 
-  ScopedGenericObj<CGLRendererInfoObj, ScopedDestroyRendererInfo>
-      scoper(renderer_info);
+  ScopedCGLRendererInfoObj scoper(renderer_info);
 
   for (GLint i = 0; i < num_renderers; ++i) {
     GLint accelerated = 0;
@@ -163,14 +150,14 @@ bool GLContext::SupportsDualGpus() {
 
     const int kMacBookProFirstDualAMDIntelGPUModel = 8;
 
+    // Do not overwrite commandline switches to honor a user's decision.
     bool forcibly_disable =
         ((model == "MacBookPro") &&
-         (model_major < kMacBookProFirstDualAMDIntelGPUModel)) ||
-        CommandLine::ForCurrentProcess()->HasSwitch(
-            switches::kDisableGpuSwitching);
+         (model_major < kMacBookProFirstDualAMDIntelGPUModel)) &&
+        !CommandLine::ForCurrentProcess()->HasSwitch(switches::kGpuSwitching);
 
     if (forcibly_disable) {
-      GLContextCGL::ForceUseOfDiscreteGPU();
+      GpuSwitchingManager::GetInstance()->ForceUseOfDiscreteGpu();
       return false;
     }
 

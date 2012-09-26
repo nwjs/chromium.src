@@ -18,6 +18,10 @@ CCDebugRectHistory::CCDebugRectHistory()
 {
 }
 
+CCDebugRectHistory::~CCDebugRectHistory()
+{
+}
+
 void CCDebugRectHistory::saveDebugRectsForCurrentFrame(CCLayerImpl* rootLayer, const Vector<CCLayerImpl*>& renderSurfaceLayerList, const Vector<IntRect>& occludingScreenSpaceRects, const CCLayerTreeSettings& settings)
 {
     // For now, clear all rects from previous frames. In the future we may want to store
@@ -54,7 +58,7 @@ void CCDebugRectHistory::savePaintRects(CCLayerImpl* layer)
     }
 
     for (unsigned i = 0; i < layer->children().size(); ++i)
-        savePaintRects(layer->children()[i].get());
+        savePaintRects(layer->children()[i]);
 }
 
 void CCDebugRectHistory::savePropertyChangedRects(const Vector<CCLayerImpl*>& renderSurfaceLayerList)

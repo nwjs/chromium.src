@@ -19,7 +19,7 @@
 // them.
 typedef std::pair<scoped_ptr<base::SharedMemory>, int32> SharedMemoryAndId;
 
-enum { kNumPictureBuffers = 4 };
+enum { kNumPictureBuffers = 8 };
 
 void* omx_handle = NULL;
 
@@ -190,7 +190,8 @@ bool OmxVideoDecodeAccelerator::CreateComponent() {
                         PLATFORM_FAILURE, false);
   RETURN_ON_FAILURE(num_components == 1, "No components for: " << role_name,
                     PLATFORM_FAILURE, false);
-  component_name_is_nvidia_h264ext_ = component == "OMX.Nvidia.h264ext.decode";
+  component_name_is_nvidia_h264ext_ = StartsWithASCII(
+      component, "OMX.Nvidia.h264ext.decode", true);
 
   // Get the handle to the component.
   result = omx_gethandle(
@@ -390,6 +391,12 @@ void OmxVideoDecodeAccelerator::ReusePictureBuffer(int32 picture_buffer_id) {
                "Picture id", picture_buffer_id);
   DCHECK_EQ(message_loop_, MessageLoop::current());
 
+  // During port-flushing, do not call OMX FillThisBuffer.
+  if (current_state_change_ == RESETTING) {
+    queued_picture_buffer_ids_.push_back(picture_buffer_id);
+    return;
+  }
+
   RETURN_ON_FAILURE(CanFillBuffer(), "Can't fill buffer", ILLEGAL_STATE,);
 
   OutputPictureById::iterator it = pictures_.find(picture_buffer_id);
@@ -517,6 +524,22 @@ void OmxVideoDecodeAccelerator::OnReachedIdleInInitializing() {
     RETURN_ON_OMX_FAILURE(result,
                           "Resource Allocation failed",
                           PLATFORM_FAILURE,);
+
+    // The OMX spec doesn't say whether (0,0) is bottom-left or top-left, but
+    // NVIDIA OMX implementation used with this class chooses the opposite
+    // of other APIs used for HW decode (DXVA, OS/X, VAAPI).  So we request
+    // a mirror here to avoid having to track Y-orientation throughout the
+    // stack (particularly unattractive because this is exposed to ppapi
+    // plugin authors and NaCl programs).
+    OMX_CONFIG_MIRRORTYPE mirror_config;
+    InitParam(*this, &mirror_config);
+    result = OMX_GetConfig(component_handle_,
+                           OMX_IndexConfigCommonMirror, &mirror_config);
+    RETURN_ON_OMX_FAILURE(result, "Failed to get mirror", PLATFORM_FAILURE,);
+    mirror_config.eMirror = OMX_MirrorVertical;
+    result = OMX_SetConfig(component_handle_,
+                           OMX_IndexConfigCommonMirror, &mirror_config);
+    RETURN_ON_OMX_FAILURE(result, "Failed to set mirror", PLATFORM_FAILURE,);
   }
   BeginTransitionToState(OMX_StateExecuting);
 }
@@ -795,6 +818,14 @@ void OmxVideoDecodeAccelerator::OnOutputPortDisabled() {
 void OmxVideoDecodeAccelerator::OnOutputPortEnabled() {
   DCHECK_EQ(message_loop_, MessageLoop::current());
 
+  if (current_state_change_ == RESETTING) {
+    for (OutputPictureById::iterator it = pictures_.begin();
+         it != pictures_.end(); ++it) {
+      queued_picture_buffer_ids_.push_back(it->first);
+    }
+    return;
+  }
+
   if (!CanFillBuffer()) {
     StopOnError(ILLEGAL_STATE);
     return;
@@ -818,14 +849,6 @@ void OmxVideoDecodeAccelerator::OnOutputPortEnabled() {
 void OmxVideoDecodeAccelerator::FillBufferDoneTask(
     OMX_BUFFERHEADERTYPE* buffer) {
 
-  // If we are destroying and then get a fillbuffer callback, calling into any
-  // openmax function will put us in error mode, so bail now. In the RESETTING
-  // case we still need to enqueue the picture ids but have to avoid giving
-  // them to the client (this is handled below).
-  if (current_state_change_ == DESTROYING ||
-      current_state_change_ == ERRORING)
-    return;
-
   media::Picture* picture =
       reinterpret_cast<media::Picture*>(buffer->pAppPrivate);
   int picture_buffer_id = picture ? picture->picture_buffer_id() : -1;
@@ -835,6 +858,14 @@ void OmxVideoDecodeAccelerator::FillBufferDoneTask(
   DCHECK_EQ(message_loop_, MessageLoop::current());
   DCHECK_GT(output_buffers_at_component_, 0);
   --output_buffers_at_component_;
+
+  // If we are destroying and then get a fillbuffer callback, calling into any
+  // openmax function will put us in error mode, so bail now. In the RESETTING
+  // case we still need to enqueue the picture ids but have to avoid giving
+  // them to the client (this is handled below).
+  if (current_state_change_ == DESTROYING ||
+      current_state_change_ == ERRORING)
+    return;
 
   if (fake_output_buffers_.size() && fake_output_buffers_.count(buffer)) {
     size_t erased = fake_output_buffers_.erase(buffer);
@@ -1123,7 +1154,7 @@ bool OmxVideoDecodeAccelerator::CanFillBuffer() {
   DCHECK_EQ(message_loop_, MessageLoop::current());
   const CurrentStateChange csc = current_state_change_;
   const OMX_STATETYPE cs = client_state_;
-  return (csc != DESTROYING && csc != ERRORING) &&
+  return (csc != DESTROYING && csc != ERRORING && csc != RESETTING) &&
       (cs == OMX_StateIdle || cs == OMX_StateExecuting || cs == OMX_StatePause);
 }
 

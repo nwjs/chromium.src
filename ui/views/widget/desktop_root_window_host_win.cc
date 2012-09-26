@@ -4,14 +4,25 @@
 
 #include "ui/views/widget/desktop_root_window_host_win.h"
 
+#include "third_party/skia/include/core/SkPath.h"
+#include "third_party/skia/include/core/SkRegion.h"
 #include "ui/aura/desktop/desktop_activation_client.h"
+#include "ui/aura/desktop/desktop_cursor_client.h"
 #include "ui/aura/desktop/desktop_dispatcher_client.h"
 #include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/shared/compound_event_filter.h"
+#include "ui/base/cursor/cursor_loader_win.h"
+#include "ui/base/win/shell.h"
+#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/path_win.h"
 #include "ui/views/ime/input_method_win.h"
 #include "ui/views/widget/desktop_capture_client.h"
+#include "ui/views/widget/desktop_screen_position_client.h"
+#include "ui/views/widget/widget_delegate.h"
+#include "ui/views/win/fullscreen_handler.h"
 #include "ui/views/win/hwnd_message_handler.h"
+#include "ui/views/window/native_frame_view.h"
 
 namespace views {
 
@@ -40,6 +51,8 @@ void DesktopRootWindowHostWin::Init(aura::Window* content_window,
   content_window_ = content_window;
   message_handler_->Init(NULL, params.bounds);
 
+  message_handler_->set_remove_standard_frame(!ShouldUseNativeFrame());
+
   aura::RootWindow::CreateParams rw_params(params.bounds);
   rw_params.host = this;
   root_window_.reset(new aura::RootWindow(rw_params));
@@ -63,6 +76,14 @@ void DesktopRootWindowHostWin::Init(aura::Window* content_window,
   dispatcher_client_.reset(new aura::DesktopDispatcherClient);
   aura::client::SetDispatcherClient(root_window_.get(),
                                     dispatcher_client_.get());
+
+  cursor_client_.reset(new aura::DesktopCursorClient(root_window_.get()));
+  aura::client::SetCursorClient(root_window_.get(), cursor_client_.get());
+
+
+  position_client_.reset(new DesktopScreenPositionClient());
+  aura::client::SetScreenPositionClient(root_window_.get(),
+                                        position_client_.get());
 
   // CEF sets focus to the window the user clicks down on.
   // TODO(beng): see if we can't do this some other way. CEF seems a heavy-
@@ -122,6 +143,21 @@ gfx::Rect DesktopRootWindowHostWin::GetRestoredBounds() const {
   return message_handler_->GetRestoredBounds();
 }
 
+gfx::Rect DesktopRootWindowHostWin::GetWorkAreaBoundsInScreen() const {
+  MONITORINFO monitor_info;
+  monitor_info.cbSize = sizeof(monitor_info);
+  GetMonitorInfo(MonitorFromWindow(message_handler_->hwnd(),
+                                   MONITOR_DEFAULTTONEAREST),
+                 &monitor_info);
+  return gfx::Rect(monitor_info.rcWork);
+}
+
+void DesktopRootWindowHostWin::SetShape(gfx::NativeRegion native_region) {
+  SkPath path;
+  native_region->getBoundaryPath(&path);
+  message_handler_->SetRegion(gfx::CreateHRGNFromSkPath(path));
+}
+
 void DesktopRootWindowHostWin::Activate() {
   message_handler_->Activate();
 }
@@ -154,6 +190,10 @@ bool DesktopRootWindowHostWin::IsMinimized() const {
   return message_handler_->IsMinimized();
 }
 
+bool DesktopRootWindowHostWin::HasCapture() const {
+  return message_handler_->HasCapture();
+}
+
 void DesktopRootWindowHostWin::SetAlwaysOnTop(bool always_on_top) {
   message_handler_->SetAlwaysOnTop(always_on_top);
 }
@@ -169,6 +209,80 @@ internal::InputMethodDelegate*
 
 void DesktopRootWindowHostWin::SetWindowTitle(const string16& title) {
   message_handler_->SetTitle(title);
+}
+
+void DesktopRootWindowHostWin::ClearNativeFocus() {
+  message_handler_->ClearNativeFocus();
+}
+
+Widget::MoveLoopResult DesktopRootWindowHostWin::RunMoveLoop(
+    const gfx::Point& drag_offset) {
+  return message_handler_->RunMoveLoop(drag_offset) ?
+      Widget::MOVE_LOOP_SUCCESSFUL : Widget::MOVE_LOOP_CANCELED;
+}
+
+void DesktopRootWindowHostWin::EndMoveLoop() {
+  message_handler_->EndMoveLoop();
+}
+
+void DesktopRootWindowHostWin::SetVisibilityChangedAnimationsEnabled(
+    bool value) {
+  message_handler_->SetVisibilityChangedAnimationsEnabled(value);
+}
+
+bool DesktopRootWindowHostWin::ShouldUseNativeFrame() {
+  return false;
+  // TODO(beng): allow BFW customizations.
+  // return ui::win::IsAeroGlassEnabled();
+}
+
+void DesktopRootWindowHostWin::FrameTypeChanged() {
+  message_handler_->FrameTypeChanged();
+}
+
+NonClientFrameView* DesktopRootWindowHostWin::CreateNonClientFrameView() {
+  return GetWidget()->ShouldUseNativeFrame() ?
+      new NativeFrameView(GetWidget()) : NULL;
+}
+
+void DesktopRootWindowHostWin::SetFullscreen(bool fullscreen) {
+  message_handler_->fullscreen_handler()->SetFullscreen(fullscreen);
+}
+
+bool DesktopRootWindowHostWin::IsFullscreen() const {
+  return message_handler_->fullscreen_handler()->fullscreen();
+}
+
+void DesktopRootWindowHostWin::SetOpacity(unsigned char opacity) {
+  message_handler_->SetOpacity(static_cast<BYTE>(opacity));
+  GetWidget()->GetRootView()->SchedulePaint();
+}
+
+void DesktopRootWindowHostWin::SetWindowIcons(
+    const gfx::ImageSkia& window_icon, const gfx::ImageSkia& app_icon) {
+  message_handler_->SetWindowIcons(window_icon, app_icon);
+}
+
+void DesktopRootWindowHostWin::SetAccessibleName(const string16& name) {
+  message_handler_->SetAccessibleName(name);
+}
+
+void DesktopRootWindowHostWin::SetAccessibleRole(
+    ui::AccessibilityTypes::Role role) {
+  message_handler_->SetAccessibleRole(role);
+}
+
+void DesktopRootWindowHostWin::SetAccessibleState(
+    ui::AccessibilityTypes::State state) {
+  message_handler_->SetAccessibleState(state);
+}
+
+void DesktopRootWindowHostWin::InitModalType(ui::ModalType modal_type) {
+  message_handler_->InitModalType(modal_type);
+}
+
+void DesktopRootWindowHostWin::FlashFrame(bool flash_frame) {
+  message_handler_->FlashFrame(flash_frame);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -207,12 +321,21 @@ gfx::Point DesktopRootWindowHostWin::GetLocationOnNativeScreen() const {
 }
 
 void DesktopRootWindowHostWin::SetCapture() {
+  message_handler_->SetCapture();
 }
 
 void DesktopRootWindowHostWin::ReleaseCapture() {
+  message_handler_->ReleaseCapture();
 }
 
 void DesktopRootWindowHostWin::SetCursor(gfx::NativeCursor cursor) {
+  // Custom web cursors are handled directly.
+  if (cursor == ui::kCursorCustom)
+    return;
+  ui::CursorLoaderWin cursor_loader;
+  cursor_loader.SetPlatformCursor(&cursor);
+
+  message_handler_->SetCursor(cursor.platform());
 }
 
 void DesktopRootWindowHostWin::ShowCursor(bool show) {
@@ -260,59 +383,64 @@ bool DesktopRootWindowHostWin::IsWidgetWindow() const {
 }
 
 bool DesktopRootWindowHostWin::IsUsingCustomFrame() const {
-  return true;
+  return !GetWidget()->ShouldUseNativeFrame();
 }
 
 void DesktopRootWindowHostWin::SchedulePaint() {
-  native_widget_delegate_->AsWidget()->GetRootView()->SchedulePaint();
+  GetWidget()->GetRootView()->SchedulePaint();
 }
 
 void DesktopRootWindowHostWin::EnableInactiveRendering() {
+  native_widget_delegate_->EnableInactiveRendering();
 }
 
 bool DesktopRootWindowHostWin::IsInactiveRenderingDisabled() {
-  return false;
+  return native_widget_delegate_->IsInactiveRenderingDisabled();
 }
 
 bool DesktopRootWindowHostWin::CanResize() const {
-  return true;
+  return GetWidget()->widget_delegate()->CanResize();
 }
 
 bool DesktopRootWindowHostWin::CanMaximize() const {
-  return true;
+  return GetWidget()->widget_delegate()->CanMaximize();
 }
 
 bool DesktopRootWindowHostWin::CanActivate() const {
-  return true;
+  return native_widget_delegate_->CanActivate();
 }
 
 bool DesktopRootWindowHostWin::WidgetSizeIsClientSize() const {
-  return false;
+  const Widget* widget = GetWidget()->GetTopLevelWidget();
+  return IsMaximized() || (widget && widget->ShouldUseNativeFrame());
 }
 
 bool DesktopRootWindowHostWin::CanSaveFocus() const {
-  return true;
+  return GetWidget()->is_top_level();
 }
 
 void DesktopRootWindowHostWin::SaveFocusOnDeactivate() {
+  GetWidget()->GetFocusManager()->StoreFocusedView();
 }
 
 void DesktopRootWindowHostWin::RestoreFocusOnActivate() {
+  RestoreFocusOnEnable();
 }
 
 void DesktopRootWindowHostWin::RestoreFocusOnEnable() {
+  GetWidget()->GetFocusManager()->RestoreFocusedView();
 }
 
 bool DesktopRootWindowHostWin::IsModal() const {
-  return false;
+  return native_widget_delegate_->IsModal();
 }
 
 int DesktopRootWindowHostWin::GetInitialShowState() const {
-  return ui::SHOW_STATE_NORMAL;
+  return SW_SHOWNORMAL;
 }
 
 bool DesktopRootWindowHostWin::WillProcessWorkAreaChange() const {
-  return false;
+  return GetWidget()->widget_delegate()->WillProcessWorkAreaChange();
 }
 
 int DesktopRootWindowHostWin::GetNonClientComponent(
@@ -322,6 +450,8 @@ int DesktopRootWindowHostWin::GetNonClientComponent(
 
 void DesktopRootWindowHostWin::GetWindowMask(const gfx::Size& size,
                                              gfx::Path* path) {
+  if (GetWidget()->non_client_view())
+    GetWidget()->non_client_view()->GetWindowMask(size, path);
 }
 
 bool DesktopRootWindowHostWin::GetClientAreaInsets(gfx::Insets* insets) const {
@@ -330,48 +460,60 @@ bool DesktopRootWindowHostWin::GetClientAreaInsets(gfx::Insets* insets) const {
 
 void DesktopRootWindowHostWin::GetMinMaxSize(gfx::Size* min_size,
                                              gfx::Size* max_size) const {
+  *min_size = native_widget_delegate_->GetMinimumSize();
+  *max_size = native_widget_delegate_->GetMaximumSize();
 }
 
 gfx::Size DesktopRootWindowHostWin::GetRootViewSize() const {
-  return gfx::Size(100, 100);
+  return GetWidget()->GetRootView()->size();
 }
 
 void DesktopRootWindowHostWin::ResetWindowControls() {
+  GetWidget()->non_client_view()->ResetWindowControls();
 }
 
 void DesktopRootWindowHostWin::PaintLayeredWindow(gfx::Canvas* canvas) {
+  GetWidget()->GetRootView()->Paint(canvas);
 }
 
 gfx::NativeViewAccessible DesktopRootWindowHostWin::GetNativeViewAccessible() {
-  return NULL;
+  return GetWidget()->GetRootView()->GetNativeViewAccessible();
 }
 
 InputMethod* DesktopRootWindowHostWin::GetInputMethod() {
-  return native_widget_delegate_->AsWidget()->GetInputMethodDirect();
+  return GetWidget()->GetInputMethodDirect();
 }
 
 void DesktopRootWindowHostWin::HandleAppDeactivated() {
+  native_widget_delegate_->EnableInactiveRendering();
 }
 
 void DesktopRootWindowHostWin::HandleActivationChanged(bool active) {
+  native_widget_delegate_->OnNativeWidgetActivationChanged(active);
 }
 
 bool DesktopRootWindowHostWin::HandleAppCommand(short command) {
-  return false;
+  // We treat APPCOMMAND ids as an extension of our command namespace, and just
+  // let the delegate figure out what to do...
+  return GetWidget()->widget_delegate() &&
+      GetWidget()->widget_delegate()->ExecuteWindowsCommand(command);
 }
 
 void DesktopRootWindowHostWin::HandleCaptureLost() {
+  native_widget_delegate_->OnMouseCaptureLost();
 }
 
 void DesktopRootWindowHostWin::HandleClose() {
+  GetWidget()->Close();
 }
 
 bool DesktopRootWindowHostWin::HandleCommand(int command) {
-  return false;
+  return GetWidget()->widget_delegate()->ExecuteWindowsCommand(command);
 }
 
 void DesktopRootWindowHostWin::HandleAccelerator(
     const ui::Accelerator& accelerator) {
+  GetWidget()->GetFocusManager()->ProcessAccelerator(accelerator);
 }
 
 void DesktopRootWindowHostWin::HandleCreate() {
@@ -392,25 +534,31 @@ void DesktopRootWindowHostWin::HandleDestroyed() {
 }
 
 bool DesktopRootWindowHostWin::HandleInitialFocus() {
-  return false;
+  return GetWidget()->SetInitialFocus();
 }
 
 void DesktopRootWindowHostWin::HandleDisplayChange() {
+  GetWidget()->widget_delegate()->OnDisplayChanged();
 }
 
 void DesktopRootWindowHostWin::HandleBeginWMSizeMove() {
+  native_widget_delegate_->OnNativeWidgetBeginUserBoundsChange();
 }
 
 void DesktopRootWindowHostWin::HandleEndWMSizeMove() {
+  native_widget_delegate_->OnNativeWidgetEndUserBoundsChange();
 }
 
 void DesktopRootWindowHostWin::HandleMove() {
+  native_widget_delegate_->OnNativeWidgetMove();
 }
 
 void DesktopRootWindowHostWin::HandleWorkAreaChanged() {
+  GetWidget()->widget_delegate()->OnWorkAreaChanged();
 }
 
 void DesktopRootWindowHostWin::HandleVisibilityChanged(bool visible) {
+  native_widget_delegate_->OnNativeWidgetVisibilityChanged(visible);
 }
 
 void DesktopRootWindowHostWin::HandleClientSizeChanged(
@@ -422,21 +570,27 @@ void DesktopRootWindowHostWin::HandleClientSizeChanged(
 }
 
 void DesktopRootWindowHostWin::HandleFrameChanged() {
+  // Replace the frame and layout the contents.
+  GetWidget()->non_client_view()->UpdateFrame(true);
 }
 
 void DesktopRootWindowHostWin::HandleNativeFocus(HWND last_focused_window) {
+  // TODO(beng): inform the native_widget_delegate_.
   InputMethod* input_method = GetInputMethod();
   if (input_method)
     input_method->OnFocus();
 }
 
 void DesktopRootWindowHostWin::HandleNativeBlur(HWND focused_window) {
+  // TODO(beng): inform the native_widget_delegate_.
   InputMethod* input_method = GetInputMethod();
   if (input_method)
     input_method->OnBlur();
 }
 
 bool DesktopRootWindowHostWin::HandleMouseEvent(const ui::MouseEvent& event) {
+  if (event.flags() & ui::EF_IS_NON_CLIENT)
+    return false;
   return root_window_host_delegate_->OnHostMouseEvent(
       const_cast<ui::MouseEvent*>(&event));
 }
@@ -513,6 +667,17 @@ bool DesktopRootWindowHostWin::PreHandleMSG(UINT message,
 void DesktopRootWindowHostWin::PostHandleMSG(UINT message,
                                              WPARAM w_param,
                                              LPARAM l_param) {
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// DesktopRootWindowHostWin, private:
+
+Widget* DesktopRootWindowHostWin::GetWidget() {
+  return native_widget_delegate_->AsWidget();
+}
+
+const Widget* DesktopRootWindowHostWin::GetWidget() const {
+  return native_widget_delegate_->AsWidget();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -63,7 +63,7 @@
 #include "chrome/browser/spellchecker/spellcheck_message_filter.h"
 #include "chrome/browser/ssl/ssl_add_cert_handler.h"
 #include "chrome/browser/ssl/ssl_blocking_page.h"
-#include "chrome/browser/tab_contents/tab_contents_ssl_helper.h"
+#include "chrome/browser/ssl/ssl_tab_helper.h"
 #include "chrome/browser/tab_contents/tab_util.h"
 #include "chrome/browser/toolkit_extra_parts.h"
 #include "chrome/browser/ui/tab_contents/chrome_web_contents_view_delegate.h"
@@ -136,10 +136,12 @@
 #include "chrome/browser/ui/crypto_module_password_dialog.h"
 #endif
 
+using base::FileDescriptor;
 using content::AccessTokenStore;
 using content::BrowserThread;
 using content::BrowserURLHandler;
 using content::ChildProcessSecurityPolicy;
+using content::FileDescriptorInfo;
 using content::QuotaPermissionContext;
 using content::RenderViewHost;
 using content::SiteInstance;
@@ -168,8 +170,63 @@ const char* kPredefinedAllowedSocketOrigins[] = {
   "jdfhpkjeckflbbleddjlpimecpbjdeep"   // see crbug.com/142514
 };
 
+// Returns a copy of the given url with its host set to given host and path set
+// to given path. Other parts of the url will be the same.
+GURL ReplaceURLHostAndPath(const GURL& url,
+                           const std::string& host,
+                           const std::string& path) {
+  url_canon::Replacements<char> replacements;
+  replacements.SetHost(host.c_str(),
+                       url_parse::Component(0, host.length()));
+  replacements.SetPath(path.c_str(),
+                       url_parse::Component(0, path.length()));
+  return url.ReplaceComponents(replacements);
+}
+
+// Maps "foo://bar/baz/" to "foo://chrome/bar/baz/".
+GURL AddUberHost(const GURL& url) {
+  const std::string uber_host = chrome::kChromeUIUberHost;
+  const std::string new_path = url.host() + url.path();
+
+  return ReplaceURLHostAndPath(url, uber_host, new_path);
+}
+
+// If url->host() is "chrome", changes the url from "foo://chrome/bar/" to
+// "foo://bar/" and returns true. Otherwise returns false.
+bool RemoveUberHost(GURL* url) {
+  if (url->host() != chrome::kChromeUIUberHost)
+    return false;
+
+  const std::string old_path = url->path();
+
+  const std::string::size_type separator = old_path.find('/', 1);
+  std::string new_host;
+  std::string new_path;
+  if (separator == std::string::npos) {
+    new_host = old_path.empty() ? old_path : old_path.substr(1);
+  } else {
+    new_host = old_path.substr(1, separator - 1);
+    new_path = old_path.substr(separator);
+  }
+
+  *url = ReplaceURLHostAndPath(*url, new_host, new_path);
+
+  return true;
+}
+
 // Handles rewriting Web UI URLs.
 bool HandleWebUI(GURL* url, content::BrowserContext* browser_context) {
+  // Do not handle special URLs such as "about:foo"
+  if (!url->host().empty()) {
+    const GURL chrome_url = AddUberHost(*url);
+
+    // Handle valid "chrome://chrome/foo" URLs so the reverse handler will
+    // be called.
+    if (ChromeWebUIControllerFactory::GetInstance()->UseWebUIForURL(
+            browser_context, chrome_url))
+      return true;
+  }
+
   if (!ChromeWebUIControllerFactory::GetInstance()->UseWebUIForURL(
           browser_context, *url))
     return false;
@@ -198,6 +255,15 @@ bool HandleWebUI(GURL* url, content::BrowserContext* browser_context) {
   }
 
   return true;
+}
+
+// Reverse URL handler for Web UI. Maps "chrome://chrome/foo/" to
+// "chrome://foo/".
+bool HandleWebUIReverse(GURL* url, content::BrowserContext* browser_context) {
+  if (!url->is_valid() || !url->SchemeIs(chrome::kChromeUIScheme))
+    return false;
+
+  return RemoveUberHost(url);
 }
 
 // Used by the GetPrivilegeRequiredByUrl() and GetProcessPrivilege() functions
@@ -785,10 +851,12 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
     if (process) {
       Profile* profile = Profile::FromBrowserContext(
           process->GetBrowserContext());
-      extensions::ProcessMap* process_map =
-          profile->GetExtensionService()->process_map();
-      if (process_map && process_map->Contains(process->GetID()))
-        command_line->AppendSwitch(switches::kExtensionProcess);
+      if (profile->GetExtensionService()) {
+        extensions::ProcessMap* process_map =
+            profile->GetExtensionService()->process_map();
+        if (process_map && process_map->Contains(process->GetID()))
+          command_line->AppendSwitch(switches::kExtensionProcess);
+      }
 
       PrefService* prefs = profile->GetPrefs();
       // Currently this pref is only registered if applied via a policy.
@@ -823,6 +891,7 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kDisableBundledPpapiFlash,
       switches::kDisableExtensionsResourceWhitelist,
       switches::kDisableInBrowserThumbnailing,
+      switches::kDisableScriptedPrintThrottling,
       switches::kDumpHistogramsOnExit,
       switches::kEnableBenchmarking,
       switches::kEnableBundledPpapiFlash,
@@ -1122,9 +1191,10 @@ void ChromeContentBrowserClient::AllowCertificateError(
   }
 
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
-  TabContents* tab_contents = TabContents::FromWebContents(tab);
-  if (tab_contents)
-    tab_contents->captive_portal_tab_helper()->OnSSLCertError(ssl_info);
+  captive_portal::CaptivePortalTabHelper* captive_portal_tab_helper =
+      captive_portal::CaptivePortalTabHelper::FromWebContents(tab);
+  if (captive_portal_tab_helper)
+    captive_portal_tab_helper->OnSSLCertError(ssl_info);
 #endif
 
   // Otherwise, display an SSL blocking page.
@@ -1177,15 +1247,15 @@ void ChromeContentBrowserClient::SelectClientCertificate(
     }
   }
 
-  TabContents* tab_contents = TabContents::FromWebContents(tab);
-  if (!tab_contents) {
-    // If there is no TabContents for the given WebContents then we can't
+  SSLTabHelper* ssl_tab_helper = SSLTabHelper::FromWebContents(tab);
+  if (!ssl_tab_helper) {
+    // If there is no SSLTabHelper for the given WebContents then we can't
     // show the user a dialog to select a client certificate. So we simply
     // proceed with no client certificate.
     callback.Run(NULL);
     return;
   }
-  tab_contents->ssl_helper()->ShowClientCertificateRequestDialog(
+  ssl_tab_helper->ShowClientCertificateRequestDialog(
       network_session, cert_request_info, callback);
 }
 
@@ -1572,8 +1642,7 @@ void ChromeContentBrowserClient::BrowserURLHandlerCreated(
   handler->AddHandlerPair(&WillHandleBrowserAboutURL,
                           BrowserURLHandler::null_handler());
   // chrome: & friends.
-  handler->AddHandlerPair(&HandleWebUI,
-                          BrowserURLHandler::null_handler());
+  handler->AddHandlerPair(&HandleWebUI, &HandleWebUIReverse);
 }
 
 void ChromeContentBrowserClient::ClearCache(RenderViewHost* rvh) {
@@ -1662,11 +1731,12 @@ bool ChromeContentBrowserClient::AllowPepperPrivateFileAPI() {
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
 void ChromeContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
     const CommandLine& command_line,
-    base::GlobalDescriptors::Mapping* mappings) {
+    std::vector<FileDescriptorInfo>* mappings) {
   int crash_signal_fd = GetCrashSignalFD(command_line);
   if (crash_signal_fd >= 0) {
-    mappings->push_back(std::pair<base::GlobalDescriptors::Key, int>(
-        kCrashDumpSignal, crash_signal_fd));
+    mappings->push_back(FileDescriptorInfo(kCrashDumpSignal,
+                                           FileDescriptor(crash_signal_fd,
+                                                          false)));
   }
 }
 #endif  // defined(OS_POSIX) && !defined(OS_MACOSX)
@@ -1681,8 +1751,8 @@ const wchar_t* ChromeContentBrowserClient::GetResourceDllName() {
 crypto::CryptoModuleBlockingPasswordDelegate*
     ChromeContentBrowserClient::GetCryptoPasswordDelegate(
         const GURL& url) {
-  return browser::NewCryptoModuleBlockingDialogDelegate(
-      browser::kCryptoModulePasswordKeygen, url.host());
+  return chrome::NewCryptoModuleBlockingDialogDelegate(
+      chrome::kCryptoModulePasswordKeygen, url.host());
 }
 #endif
 

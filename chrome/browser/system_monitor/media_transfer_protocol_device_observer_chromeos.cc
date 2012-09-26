@@ -4,27 +4,39 @@
 
 #include "chrome/browser/system_monitor/media_transfer_protocol_device_observer_chromeos.h"
 
-#include "base/metrics/histogram.h"
+#include "base/file_path.h"
 #include "base/stl_util.h"
 #include "base/string_number_conversions.h"
 #include "base/string_split.h"
 #include "base/stringprintf.h"
-#include "base/system_monitor/system_monitor.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/mtp/media_transfer_protocol_manager.h"
-#include "chrome/browser/system_monitor/removable_device_constants.h"
 #include "chrome/browser/system_monitor/media_storage_util.h"
+#include "chrome/browser/system_monitor/removable_device_constants.h"
 #include "chromeos/dbus/mtp_storage_info.pb.h"
 
 namespace chromeos {
 namespace mtp {
 
+using base::SystemMonitor;
 using chrome::MediaStorageUtil;
 
 namespace {
 
+static MediaTransferProtocolDeviceObserverCros* g_mtp_device_observer = NULL;
+
 // Device root path constant.
 const char kRootPath[] = "/";
+
+// Constructs and returns the location of the device using the |storage_name|.
+std::string GetDeviceLocationFromStorageName(const std::string& storage_name) {
+  // Construct a dummy device path using the storage name. This is only used
+  // for registering device media file system.
+  // E.g.: If the |storage_name| is "usb:2,2:12345" then "/usb:2,2:12345" is the
+  // device location.
+  DCHECK(!storage_name.empty());
+  return kRootPath + storage_name;
+}
 
 // Returns the storage identifier of the device from the given |storage_name|.
 // E.g. If the |storage_name| is "usb:2,2:65537", the storage identifier is
@@ -61,6 +73,13 @@ std::string GetDeviceIdFromStorageInfo(const MtpStorageInfo& storage_info) {
                                         unique_id);
 }
 
+// Returns the |data_store_id| string in the required format.
+// If the |data_store_id| is 65537, this function returns "(65537)".
+std::string GetFormattedIdString(const std::string& data_store_id) {
+  return base::StringPrintf("%s%s%s", chrome::kLeftParen, data_store_id.c_str(),
+                            chrome::kRightParen);
+}
+
 // Helper function to get device label from storage information.
 string16 GetDeviceLabelFromStorageInfo(const MtpStorageInfo& storage_info) {
   std::string device_label;
@@ -72,6 +91,19 @@ string16 GetDeviceLabelFromStorageInfo(const MtpStorageInfo& storage_info) {
     if (!device_label.empty())
       device_label += chrome::kSpaceDelim;
     device_label += product_name;
+  }
+
+  // Add the data store id to the device label.
+  if (!device_label.empty()) {
+    const std::string& volume_id = storage_info.volume_identifier();
+    if (!volume_id.empty()) {
+      device_label += GetFormattedIdString(volume_id);
+    } else {
+      const std::string data_store_id =
+          GetStorageIdFromStorageName(storage_info.storage_name());
+      if (!data_store_id.empty())
+        device_label += GetFormattedIdString(data_store_id);
+    }
   }
   return UTF8ToUTF16(device_label);
 }
@@ -98,11 +130,9 @@ void GetStorageInfo(const std::string& storage_name,
   if (label)
     *label = GetDeviceLabelFromStorageInfo(*storage_info);
 
-  // Construct a dummy device path using the storage name. This is only used
-  // for registering device media file system.
-  // E.g.: /usb:2,2:12345
+
   if (location)
-    *location = kRootPath + storage_name;
+    *location = GetDeviceLocationFromStorageName(storage_name);
 }
 
 }  // namespace
@@ -110,6 +140,9 @@ void GetStorageInfo(const std::string& storage_name,
 MediaTransferProtocolDeviceObserverCros::
 MediaTransferProtocolDeviceObserverCros()
     : get_storage_info_func_(&GetStorageInfo) {
+  DCHECK(!g_mtp_device_observer);
+  g_mtp_device_observer = this;
+
   MediaTransferProtocolManager* mtp_manager =
       MediaTransferProtocolManager::GetInstance();
   if (mtp_manager)
@@ -124,14 +157,50 @@ MediaTransferProtocolDeviceObserverCros::
     : get_storage_info_func_(get_storage_info_func) {
   // In unit tests, we don't have a media transfer protocol manager.
   DCHECK(!MediaTransferProtocolManager::GetInstance());
+  DCHECK(!g_mtp_device_observer);
+  g_mtp_device_observer = this;
 }
 
 MediaTransferProtocolDeviceObserverCros::
 ~MediaTransferProtocolDeviceObserverCros() {
+  DCHECK_EQ(this, g_mtp_device_observer);
+  g_mtp_device_observer = NULL;
+
   MediaTransferProtocolManager* mtp_manager =
       MediaTransferProtocolManager::GetInstance();
   if (mtp_manager)
     mtp_manager->RemoveObserver(this);
+}
+
+// static
+MediaTransferProtocolDeviceObserverCros*
+MediaTransferProtocolDeviceObserverCros::GetInstance() {
+  DCHECK(g_mtp_device_observer != NULL);
+  return g_mtp_device_observer;
+}
+
+bool MediaTransferProtocolDeviceObserverCros::GetStorageInfoForPath(
+    const FilePath& path,
+    SystemMonitor::RemovableStorageInfo* storage_info) const {
+  if (!path.IsAbsolute())
+    return false;
+
+  std::vector<FilePath::StringType> path_components;
+  path.GetComponents(&path_components);
+  if (path_components.size() < 2)
+    return false;
+
+  // First and second component of the path specifies the device location.
+  // E.g.: If |path| is "/usb:2,2:65537/DCIM/Folder_a", "/usb:2,2:65537" is the
+  // device location.
+  StorageLocationToInfoMap::const_iterator info_it =
+      storage_map_.find(GetDeviceLocationFromStorageName(path_components[1]));
+  if (info_it == storage_map_.end())
+    return false;
+
+  if (storage_info)
+    *storage_info = info_it->second;
+  return true;
 }
 
 // MediaTransferProtocolManager::Observer override.
@@ -140,7 +209,7 @@ void MediaTransferProtocolDeviceObserverCros::StorageChanged(
     const std::string& storage_name) {
   DCHECK(!storage_name.empty());
 
-  base::SystemMonitor* system_monitor = base::SystemMonitor::Get();
+  SystemMonitor* system_monitor = SystemMonitor::Get();
   DCHECK(system_monitor);
 
   // New storage is attached.
@@ -152,24 +221,24 @@ void MediaTransferProtocolDeviceObserverCros::StorageChanged(
 
     // Keep track of device id and device name to see how often we receive
     // empty values.
-    UMA_HISTOGRAM_BOOLEAN("MediaDeviceNotification.MTPDeviceUUIDAvailable",
-                          !device_id.empty());
-    UMA_HISTOGRAM_BOOLEAN("MediaDeviceNotification.MTPDeviceNameAvailable",
-                          !device_name.empty());
-
+    MediaStorageUtil::RecordDeviceInfoHistogram(false, device_id, device_name);
     if (device_id.empty() || device_name.empty())
       return;
 
-    DCHECK(!ContainsKey(storage_map_, storage_name));
-    storage_map_[storage_name] = device_id;
+    DCHECK(!ContainsKey(storage_map_, location));
+
+    SystemMonitor::RemovableStorageInfo storage_info(device_id, device_name,
+                                                     location);
+    storage_map_[location] = storage_info;
     system_monitor->ProcessRemovableStorageAttached(device_id, device_name,
                                                     location);
   } else {
     // Existing storage is detached.
-    StorageNameToIdMap::iterator it = storage_map_.find(storage_name);
+    StorageLocationToInfoMap::iterator it =
+        storage_map_.find(GetDeviceLocationFromStorageName(storage_name));
     if (it == storage_map_.end())
       return;
-    system_monitor->ProcessRemovableStorageDetached(it->second);
+    system_monitor->ProcessRemovableStorageDetached(it->second.device_id);
     storage_map_.erase(it);
   }
 }

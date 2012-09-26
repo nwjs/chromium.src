@@ -164,6 +164,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // and icon should not be rendered, and that the client area should be
     // equivalent to the window area.
     bool remove_standard_frame;
+    // Only used by ShellWindow on Windows. Specifies that the default icon of
+    // packaged app should be the system default icon.
+    bool use_system_default_icon;
     // Whether the widget should be maximized or minimized.
     ui::WindowShowState show_state;
     // Should the widget be double buffered? Default is false.
@@ -490,9 +493,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Clear native focus set to the Widget's NativeWidget.
   void ClearNativeFocus();
 
-  // Sets the focus to |native_view|.
-  void FocusNativeView(gfx::NativeView native_view);
-
   void set_frame_type(FrameType frame_type) { frame_type_ = frame_type; }
   FrameType frame_type() const { return frame_type_; }
 
@@ -604,7 +604,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // with it. TYPE_CONTROL and TYPE_TOOLTIP is not considered top level.
   bool is_top_level() const { return is_top_level_; }
 
-  // Returns the work are bounds of the screen the Widget belongs to.
+  // Returns the work area bounds of the screen the Widget belongs to.
   gfx::Rect GetWorkAreaBoundsInScreen() const;
 
   // Notification that our owner is closing.

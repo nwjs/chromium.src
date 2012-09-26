@@ -15,6 +15,8 @@
 #include "base/sys_info.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
+#include "content/browser/browser_plugin/browser_plugin_embedder.h"
+#include "content/browser/browser_plugin/browser_plugin_guest.h"
 #include "content/browser/browser_plugin/old/old_browser_plugin_host.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/debugger/devtools_manager_impl.h"
@@ -35,6 +37,7 @@
 #include "content/browser/web_contents/interstitial_page_impl.h"
 #include "content/browser/web_contents/navigation_entry_impl.h"
 #include "content/browser/webui/web_ui_impl.h"
+#include "content/common/browser_plugin_messages.h"
 #include "content/common/intents_messages.h"
 #include "content/common/ssl_status_serialization.h"
 #include "content/common/view_messages.h"
@@ -362,6 +365,12 @@ WebContentsImpl::WebContentsImpl(
 WebContentsImpl::~WebContentsImpl() {
   is_being_destroyed_ = true;
 
+  for (std::set<RenderWidgetHostImpl*>::iterator iter =
+           created_widgets_.begin(); iter != created_widgets_.end(); ++iter) {
+    (*iter)->DetachDelegate();
+  }
+  created_widgets_.clear();
+
   // Clear out any JavaScript state.
   if (dialog_creator_)
     dialog_creator_->ResetJavaScriptState(this);
@@ -390,8 +399,12 @@ WebContentsImpl::~WebContentsImpl() {
 
   // OnCloseStarted isn't called in unit tests.
   if (!close_start_time_.is_null()) {
-    UMA_HISTOGRAM_TIMES("Tab.Close",
-        base::TimeTicks::Now() - close_start_time_);
+    base::TimeTicks now = base::TimeTicks::Now();
+    base::TimeTicks unload_start_time = close_start_time_;
+    if (!before_unload_end_time_.is_null())
+      unload_start_time = before_unload_end_time_;
+    UMA_HISTOGRAM_TIMES("Tab.Close", now - close_start_time_);
+    UMA_HISTOGRAM_TIMES("Tab.Close.UnloadTime", now - unload_start_time);
   }
 
   FOR_EACH_OBSERVER(WebContentsObserver,
@@ -420,6 +433,34 @@ WebContentsImpl* WebContentsImpl::CreateWithOpener(
 
   new_contents->Init(browser_context, site_instance, routing_id,
                      static_cast<const WebContentsImpl*>(base_web_contents));
+  return new_contents;
+}
+
+WebContentsImpl* WebContentsImpl::CreateGuest(BrowserContext* browser_context,
+                                              const std::string& host_url,
+                                              int guest_instance_id) {
+  // The SiteInstance of a given guest is based on the fact that it's a guest
+  // in addition to which platform application the guest belongs to, rather
+  // than the URL that the guest is being navigated to.
+  GURL guest_site(
+      base::StringPrintf("%s://%s", chrome::kGuestScheme, host_url.c_str()));
+  SiteInstance* guest_site_instance =
+      SiteInstance::CreateForURL(browser_context, guest_site);
+  WebContentsImpl* new_contents = WebContentsImpl::Create(
+      browser_context,
+      guest_site_instance,
+      MSG_ROUTING_NONE,
+      NULL);  // base WebContents
+  WebContentsImpl* new_contents_impl =
+      static_cast<WebContentsImpl*>(new_contents);
+
+  // This makes |new_contents| act as a guest.
+  // For more info, see comment above class BrowserPluginGuest.
+  new_contents_impl->browser_plugin_guest_.reset(
+      content::BrowserPluginGuest::Create(
+          guest_instance_id,
+          new_contents_impl,
+          new_contents_impl->GetRenderViewHost()));
   return new_contents;
 }
 
@@ -490,6 +531,9 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
       command_line.HasSwitch(switches::kShowCompositedLayerTree);
   prefs.show_fps_counter =
       command_line.HasSwitch(switches::kShowFPSCounter);
+  prefs.accelerated_compositing_for_overflow_scroll_enabled =
+      command_line.HasSwitch(
+          switches::kEnableAcceleratedCompositingForOverflowScroll);
   prefs.show_paint_rects =
       command_line.HasSwitch(switches::kShowPaintRects);
   prefs.render_vsync_enabled =
@@ -522,6 +566,8 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
       !command_line.HasSwitch(switches::kDisableAcceleratedVideo);
   prefs.fullscreen_enabled =
       !command_line.HasSwitch(switches::kDisableFullScreen);
+  prefs.css_sticky_position_enabled =
+      command_line.HasSwitch(switches::kEnableExperimentalWebKitFeatures);
   prefs.css_regions_enabled =
       command_line.HasSwitch(switches::kEnableExperimentalWebKitFeatures);
   prefs.css_shaders_enabled =
@@ -694,6 +740,8 @@ bool WebContentsImpl::OnMessageReceived(RenderViewHost* render_view_host,
     IPC_MESSAGE_HANDLER(ViewHostMsg_WebUISend, OnWebUISend)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RequestPpapiBrokerPermission,
                         OnRequestPpapiBrokerPermission)
+    IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_NavigateGuest,
+                        OnBrowserPluginNavigateGuest)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP_EX()
   message_source_ = NULL;
@@ -1156,6 +1204,19 @@ void WebContentsImpl::LostCapture() {
     delegate_->LostCapture();
 }
 
+void WebContentsImpl::RenderWidgetDeleted(
+    RenderWidgetHostImpl* render_widget_host) {
+  if (is_being_destroyed_) {
+    // |created_widgets_| might have been destroyed.
+    return;
+  }
+
+  std::set<RenderWidgetHostImpl*>::iterator iter =
+      created_widgets_.find(render_widget_host);
+  if (iter != created_widgets_.end())
+    created_widgets_.erase(iter);
+}
+
 bool WebContentsImpl::PreHandleKeyboardEvent(
     const NativeWebKeyboardEvent& event,
     bool* is_keyboard_shortcut) {
@@ -1321,6 +1382,8 @@ void WebContentsImpl::CreateNewWidget(int route_id,
   content::RenderProcessHost* process = GetRenderProcessHost();
   RenderWidgetHostImpl* widget_host =
       new RenderWidgetHostImpl(this, process, route_id);
+  created_widgets_.insert(widget_host);
+
   RenderWidgetHostViewPort* widget_view =
       RenderWidgetHostViewPort::CreateViewForWidget(widget_host);
   if (!is_fullscreen) {
@@ -1433,7 +1496,7 @@ RenderWidgetHostView* WebContentsImpl::GetCreatedWidget(int route_id) {
 
 void WebContentsImpl::ShowContextMenu(
     const content::ContextMenuParams& params,
-    const content::ContextMenuSourceType& type) {
+    content::ContextMenuSourceType type) {
   // Allow WebContentsDelegates to handle the context menu operation first.
   if (delegate_ && delegate_->HandleContextMenu(params))
     return;
@@ -2312,6 +2375,29 @@ void WebContentsImpl::OnPpapiBrokerPermissionResult(int request_id,
                                                     result));
 }
 
+void WebContentsImpl::OnBrowserPluginNavigateGuest(int instance_id,
+                                                   int64 frame_id,
+                                                   const std::string& src,
+                                                   const gfx::Size& size) {
+  // This is the first 'navigate' to a browser plugin, before WebContents has/is
+  // an 'Embedder'; subsequent navigate messages for this WebContents will
+  // be handled by the BrowserPluginEmbedderHelper of the embedder itself (this
+  // also means any message from browser plugin renderer prior to NavigateGuest
+  // which is not NavigateGuest will be ignored). Therefore
+  // |browser_plugin_embedder_| should not be set.
+  // For more info, see comment above classes BrowserPluginEmbedder and
+  // BrowserPluginGuest.
+  CHECK(!browser_plugin_embedder_.get());
+
+  browser_plugin_embedder_.reset(
+      content::BrowserPluginEmbedder::Create(this, GetRenderViewHost()));
+  browser_plugin_embedder_->NavigateGuest(GetRenderViewHost(),
+                                          instance_id,
+                                          frame_id,
+                                          src,
+                                          size);
+}
+
 // Notifies the RenderWidgetHost instance about the fact that the page is
 // loading, or done loading and calls the base implementation.
 void WebContentsImpl::SetIsLoading(bool is_loading,
@@ -2468,6 +2554,11 @@ void WebContentsImpl::NotifySwapped() {
       content::NOTIFICATION_WEB_CONTENTS_SWAPPED,
       content::Source<WebContents>(this),
       content::NotificationService::NoDetails());
+
+  // Ensure that the associated embedder gets cleared after a RenderViewHost
+  // gets swapped, so we don't reuse the same embedder next time a
+  // RenderViewHost is attached to this WebContents.
+  RemoveBrowserPluginEmbedder();
 }
 
 void WebContentsImpl::NotifyConnected() {
@@ -2511,6 +2602,11 @@ gfx::Rect WebContentsImpl::GetRootWindowResizerRect() const {
   if (delegate_)
     return delegate_->GetRootWindowResizerRect();
   return gfx::Rect();
+}
+
+void WebContentsImpl::RemoveBrowserPluginEmbedder() {
+  if (browser_plugin_embedder_.get())
+    browser_plugin_embedder_.reset();
 }
 
 void WebContentsImpl::RenderViewCreated(RenderViewHost* render_view_host) {
@@ -3116,8 +3212,9 @@ void WebContentsImpl::WorkerCrashed() {
 }
 
 void WebContentsImpl::BeforeUnloadFiredFromRenderManager(
-    bool proceed,
+    bool proceed, const base::TimeTicks& proceed_time,
     bool* proceed_to_fire_unload) {
+  before_unload_end_time_ = proceed_time;
   if (delegate_)
     delegate_->BeforeUnloadFired(this, proceed, proceed_to_fire_unload);
 }
@@ -3239,6 +3336,7 @@ void WebContentsImpl::OnDialogClosed(RenderViewHost* rvh,
     controller_.DiscardNonCommittedEntries();
 
     close_start_time_ = base::TimeTicks();
+    before_unload_end_time_ = base::TimeTicks();
   }
   is_showing_before_unload_dialog_ = false;
   static_cast<RenderViewHostImpl*>(
@@ -3300,4 +3398,12 @@ void WebContentsImpl::GetBrowserPluginEmbedderInfo(
         StringPrintf("%d.r%d", render_view_host->GetProcess()->GetID(),
                      embedder_process_id);
   }
+}
+
+content::BrowserPluginGuest* WebContentsImpl::GetBrowserPluginGuest() {
+  return browser_plugin_guest_.get();
+}
+
+content::BrowserPluginEmbedder* WebContentsImpl::GetBrowserPluginEmbedder() {
+  return browser_plugin_embedder_.get();
 }

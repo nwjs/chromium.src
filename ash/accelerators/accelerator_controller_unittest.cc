@@ -317,7 +317,7 @@ class AcceleratorControllerTest : public AshTestBase {
   void EnableInternalDisplay() {
     static_cast<internal::MultiDisplayManager*>(
         aura::Env::GetInstance()->display_manager())->
-        EnableInternalDisplayForTest();
+        SetFirstDisplayAsInternalDisplayForTest();
   }
 
   static AcceleratorController* GetController();
@@ -450,23 +450,23 @@ TEST_F(AcceleratorControllerTest, WindowSnap) {
   {
     gfx::Rect normal_bounds = window->bounds();
 
-    GetController()->PerformAction(WINDOW_MAXIMIZE_RESTORE, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
     EXPECT_TRUE(wm::IsWindowMaximized(window.get()));
     EXPECT_NE(normal_bounds.ToString(), window->bounds().ToString());
 
-    GetController()->PerformAction(WINDOW_MAXIMIZE_RESTORE, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
     EXPECT_FALSE(wm::IsWindowMaximized(window.get()));
     EXPECT_EQ(normal_bounds.ToString(), window->bounds().ToString());
 
-    GetController()->PerformAction(WINDOW_MAXIMIZE_RESTORE, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
     GetController()->PerformAction(WINDOW_SNAP_LEFT, dummy);
     EXPECT_FALSE(wm::IsWindowMaximized(window.get()));
 
-    GetController()->PerformAction(WINDOW_MAXIMIZE_RESTORE, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
     GetController()->PerformAction(WINDOW_SNAP_RIGHT, dummy);
     EXPECT_FALSE(wm::IsWindowMaximized(window.get()));
 
-    GetController()->PerformAction(WINDOW_MAXIMIZE_RESTORE, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
     EXPECT_TRUE(wm::IsWindowMaximized(window.get()));
     GetController()->PerformAction(WINDOW_MINIMIZE, dummy);
     EXPECT_FALSE(wm::IsWindowMaximized(window.get()));
@@ -713,16 +713,9 @@ TEST_F(AcceleratorControllerTest, GlobalAccelerators) {
   // Brightness
   const ui::Accelerator f6(ui::VKEY_F6, ui::EF_NONE);
   const ui::Accelerator f7(ui::VKEY_F7, ui::EF_NONE);
-  {
-    EXPECT_FALSE(GetController()->Process(f6));
-    EXPECT_FALSE(GetController()->Process(f7));
-    DummyBrightnessControlDelegate* delegate =
-        new DummyBrightnessControlDelegate(true);
-    GetController()->SetBrightnessControlDelegate(
-        scoped_ptr<BrightnessControlDelegate>(delegate).Pass());
-    EXPECT_FALSE(GetController()->Process(f6));
-    EXPECT_FALSE(GetController()->Process(f7));
-  }
+  // TODO(oshima): Temporarily removed the tests for
+  // no internal display case. Add this back when
+  // re-enabling extended desktop. crbug.com/152003
   // Enable internal display.
   EnableInternalDisplay();
   {
@@ -992,17 +985,7 @@ TEST_F(AcceleratorControllerTest, ReservedAccelerators) {
       ui::Accelerator(ui::VKEY_TAB, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN)));
 #if defined(OS_CHROMEOS)
   EXPECT_TRUE(GetController()->IsReservedAccelerator(
-      ui::Accelerator(ui::VKEY_F5, ui::EF_NONE)));
-  EXPECT_TRUE(GetController()->IsReservedAccelerator(
-      ui::Accelerator(ui::VKEY_F6, ui::EF_NONE)));
-  EXPECT_TRUE(GetController()->IsReservedAccelerator(
-      ui::Accelerator(ui::VKEY_F7, ui::EF_NONE)));
-  EXPECT_TRUE(GetController()->IsReservedAccelerator(
-      ui::Accelerator(ui::VKEY_F8, ui::EF_NONE)));
-  EXPECT_TRUE(GetController()->IsReservedAccelerator(
-      ui::Accelerator(ui::VKEY_F9, ui::EF_NONE)));
-  EXPECT_TRUE(GetController()->IsReservedAccelerator(
-      ui::Accelerator(ui::VKEY_F10, ui::EF_NONE)));
+      ui::Accelerator(ui::VKEY_POWER, ui::EF_NONE)));
 #endif
   // Others are not reserved.
   EXPECT_FALSE(GetController()->IsReservedAccelerator(

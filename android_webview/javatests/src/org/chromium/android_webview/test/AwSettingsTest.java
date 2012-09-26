@@ -7,20 +7,15 @@ package org.chromium.android_webview.test;
 import android.content.Context;
 import android.os.Build;
 import android.test.suitebuilder.annotation.SmallTest;
-import android.test.suitebuilder.annotation.Smoke;
 
-import org.chromium.base.test.Feature;
-import org.chromium.base.test.TestFileUtil;
-import org.chromium.base.test.UrlUtils;
-import org.chromium.android_webview.AwContents;
-import org.chromium.android_webview.AwContentsClient;
-import org.chromium.android_webview.tests.TestContentProvider;
+import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.TestFileUtil;
+import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content.browser.ContentSettings;
 import org.chromium.content.browser.ContentViewCore;
-import org.chromium.content.browser.test.CallbackHelper;
-import org.chromium.content.browser.test.HistoryUtils;
+import org.chromium.content.browser.test.util.CallbackHelper;
+import org.chromium.content.browser.test.util.HistoryUtils;
 
-import java.util.concurrent.Callable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -148,6 +143,31 @@ public class AwSettingsTest extends AndroidWebViewTestBase {
             return "<html><head><title>" + JS_DISABLED_STRING + "</title>"
                     + "</head><body onload=\"document.title='" + JS_ENABLED_STRING
                     + "';\"></body></html>";
+        }
+    }
+
+    // In contrast to AwSettingsJavaScriptTestHelper, doesn't reload the page when testing
+    // JavaScript state.
+    class AwSettingsJavaScriptDynamicTestHelper extends AwSettingsJavaScriptTestHelper {
+        AwSettingsJavaScriptDynamicTestHelper(
+                ContentViewCore contentViewCore,
+                TestAwContentsClient contentViewClient) throws Throwable {
+            super(contentViewCore, contentViewClient);
+            // Load the page.
+            super.doEnsureSettingHasValue(getInitialValue());
+        }
+
+        @Override
+        protected void doEnsureSettingHasValue(Boolean value) throws Throwable {
+            String oldTitle = getTitleOnUiThread();
+            String newTitle = oldTitle + "_modified";
+            executeJavaScriptAndWaitForResult(
+                mContentViewCore, mContentViewClient, getScript(newTitle));
+            assertEquals(value == ENABLED ? newTitle : oldTitle, getTitleOnUiThread());
+        }
+
+        private String getScript(String title) {
+            return "document.title='" + title + "';";
         }
     }
 
@@ -694,6 +714,33 @@ public class AwSettingsTest extends AndroidWebViewTestBase {
         runPerViewSettingsTest(
             new AwSettingsJavaScriptTestHelper(views.getView0(), views.getClient0()),
             new AwSettingsJavaScriptTestHelper(views.getView1(), views.getClient1()));
+    }
+
+    @SmallTest
+    @Feature({"Android-WebView", "Preferences"})
+    public void testJavaScriptEnabledDynamicNormal() throws Throwable {
+        ViewPair views = createViews(NORMAL_VIEW, NORMAL_VIEW);
+        runPerViewSettingsTest(
+            new AwSettingsJavaScriptDynamicTestHelper(views.getView0(), views.getClient0()),
+            new AwSettingsJavaScriptDynamicTestHelper(views.getView1(), views.getClient1()));
+    }
+
+    @SmallTest
+    @Feature({"Android-WebView", "Preferences"})
+    public void testJavaScriptEnabledDynamicIncognito() throws Throwable {
+        ViewPair views = createViews(INCOGNITO_VIEW, INCOGNITO_VIEW);
+        runPerViewSettingsTest(
+            new AwSettingsJavaScriptDynamicTestHelper(views.getView0(), views.getClient0()),
+            new AwSettingsJavaScriptDynamicTestHelper(views.getView1(), views.getClient1()));
+    }
+
+    @SmallTest
+    @Feature({"Android-WebView", "Preferences"})
+    public void testJavaScriptEnabledDynamicBoth() throws Throwable {
+        ViewPair views = createViews(NORMAL_VIEW, INCOGNITO_VIEW);
+        runPerViewSettingsTest(
+            new AwSettingsJavaScriptDynamicTestHelper(views.getView0(), views.getClient0()),
+            new AwSettingsJavaScriptDynamicTestHelper(views.getView1(), views.getClient1()));
     }
 
     @SmallTest

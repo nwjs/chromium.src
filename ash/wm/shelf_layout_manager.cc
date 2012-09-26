@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "ash/ash_switches.h"
 #include "ash/launcher/launcher.h"
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
@@ -16,6 +17,7 @@
 #include "ash/wm/window_animations.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/auto_reset.h"
+#include "base/command_line.h"
 #include "base/i18n/rtl.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/event_filter.h"
@@ -36,8 +38,19 @@ namespace {
 // Delay before showing the launcher. This is after the mouse stops moving.
 const int kAutoHideDelayMS = 200;
 
+// To avoid hiding the shelf when the mouse transitions from a message bubble
+// into the shelf, the hit test area is enlarged by this amount of pixels to
+// keep the shelf from hiding.
+const int kNotificationBubbleGapHeight = 6;
+
 ui::Layer* GetLayer(views::Widget* widget) {
   return widget->GetNativeView()->layer();
+}
+
+bool IsDraggingTrayEnabled() {
+  static bool dragging_tray_allowed = CommandLine::ForCurrentProcess()->
+      HasSwitch(ash::switches::kAshEnableTrayDragging);
+  return dragging_tray_allowed;
 }
 
 }  // namespace
@@ -46,7 +59,7 @@ ui::Layer* GetLayer(views::Widget* widget) {
 const int ShelfLayoutManager::kWorkspaceAreaBottomInset = 2;
 
 // static
-const int ShelfLayoutManager::kAutoHideSize = 2;
+const int ShelfLayoutManager::kAutoHideSize = 3;
 
 // ShelfLayoutManager::AutoHideEventFilter -------------------------------------
 
@@ -162,7 +175,7 @@ class ShelfLayoutManager::UpdateShelfObserver
 ShelfLayoutManager::ShelfLayoutManager(views::Widget* status)
     : root_window_(Shell::GetPrimaryRootWindow()),
       in_layout_(false),
-      auto_hide_behavior_(SHELF_AUTO_HIDE_BEHAVIOR_DEFAULT),
+      auto_hide_behavior_(SHELF_AUTO_HIDE_BEHAVIOR_NEVER),
       alignment_(SHELF_ALIGNMENT_BOTTOM),
       launcher_(NULL),
       status_(status),
@@ -253,7 +266,7 @@ void ShelfLayoutManager::LayoutShelf() {
   CalculateTargetBounds(state_, &target_bounds);
   if (launcher_widget()) {
     GetLayer(launcher_widget())->SetOpacity(target_bounds.opacity);
-    launcher_widget()->SetBounds(
+    launcher_->SetWidgetBounds(
         ScreenAsh::ConvertRectToScreen(
             launcher_widget()->GetNativeView()->parent(),
             target_bounds.launcher_bounds_in_root));
@@ -284,8 +297,8 @@ void ShelfLayoutManager::UpdateVisibilityState() {
         break;
 
       case WORKSPACE_WINDOW_STATE_MAXIMIZED:
-        SetState(auto_hide_behavior_ != SHELF_AUTO_HIDE_BEHAVIOR_NEVER ?
-                 AUTO_HIDE : VISIBLE);
+          SetState(auto_hide_behavior_ == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS ?
+                   AUTO_HIDE : VISIBLE);
         break;
 
       case WORKSPACE_WINDOW_STATE_WINDOW_OVERLAPS_SHELF:
@@ -363,7 +376,8 @@ ShelfLayoutManager::DragState ShelfLayoutManager::UpdateGestureDrag(
           GetPreferredSize().height();
 
     if (min_height < launcher_widget()->GetWindowBoundsInScreen().height() &&
-        gesture.root_location().x() >= status_->GetWindowBoundsInScreen().x())
+        gesture.root_location().x() >= status_->GetWindowBoundsInScreen().x() &&
+        IsDraggingTrayEnabled())
       return DRAG_TRAY;
   }
 
@@ -484,8 +498,7 @@ ShelfLayoutManager::TargetBounds::TargetBounds() : opacity(0.0f) {}
 gfx::Rect ShelfLayoutManager::GetMaximizedWindowBounds(
     aura::Window* window) {
   gfx::Rect bounds(ScreenAsh::GetDisplayBoundsInParent(window));
-  if (auto_hide_behavior_ == SHELF_AUTO_HIDE_BEHAVIOR_DEFAULT ||
-      auto_hide_behavior_ == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+  if (auto_hide_behavior_ == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
     AdjustBoundsBasedOnAlignment(kAutoHideSize, &bounds);
     return bounds;
   }
@@ -514,6 +527,15 @@ void ShelfLayoutManager::SetState(VisibilityState visibility_state) {
   state.visibility_state = visibility_state;
   state.auto_hide_state = CalculateAutoHideState(visibility_state);
   state.is_screen_locked = delegate && delegate->IsScreenLocked();
+
+  // It's possible for SetState() when a window becomes maximized but the state
+  // won't have changed value. Do the dimming check before the early exit.
+  if (launcher_ && workspace_controller_) {
+    launcher_->SetDimsShelf(
+        (state.visibility_state == VISIBLE) &&
+          workspace_controller_->GetWindowState() ==
+              WORKSPACE_WINDOW_STATE_MAXIMIZED);
+  }
 
   if (state_.Equals(state))
     return;  // Nothing changed.
@@ -647,6 +669,9 @@ void ShelfLayoutManager::CalculateTargetBounds(
   } else if (state.visibility_state == AUTO_HIDE &&
              state.auto_hide_state == AUTO_HIDE_HIDDEN) {
     shelf_size = kAutoHideSize;
+    // Keep the launcher to its full height when dragging is in progress.
+    if (gesture_drag_status_ == GESTURE_DRAG_NONE)
+      launcher_size.set_height(kAutoHideSize);
   }
   if (alignment_ == SHELF_ALIGNMENT_BOTTOM) {
     int y = available_bounds.bottom();
@@ -660,7 +685,7 @@ void ShelfLayoutManager::CalculateTargetBounds(
     if (launcher_widget()) {
       target_bounds->launcher_bounds_in_root = gfx::Rect(
           available_bounds.x(),
-          y + (shelf_height - launcher_size.height()) / 2,
+          y,
           available_bounds.width(),
           launcher_size.height());
     }
@@ -790,17 +815,22 @@ void ShelfLayoutManager::UpdateShelfBackground(
   if (launcher_)
     launcher_->SetPaintsBackground(launcher_paints, type);
   // The status area normally draws a background, but we don't want it to draw a
-  // background when the launcher does.
+  // background when the launcher does or when we're at login/lock screen.
   StatusAreaWidget* status_area_widget =
       Shell::GetInstance()->status_area_widget();
-  if (status_area_widget)
-    status_area_widget->SetPaintsBackground(!launcher_paints, type);
+  if (status_area_widget) {
+    ShellDelegate* delegate = Shell::GetInstance()->delegate();
+    bool delegate_allows_tray_bg = !delegate ||
+        (delegate->IsUserLoggedIn() && !delegate->IsScreenLocked());
+    bool status_area_paints = !launcher_paints && delegate_allows_tray_bg;
+    status_area_widget->SetPaintsBackground(status_area_paints, type);
+  }
 }
 
 bool ShelfLayoutManager::GetLauncherPaintsBackground() const {
   return gesture_drag_status_ != GESTURE_DRAG_NONE ||
       (!state_.is_screen_locked && window_overlaps_shelf_) ||
-      state_.visibility_state == AUTO_HIDE;
+      (state_.visibility_state == AUTO_HIDE) ;
 }
 
 void ShelfLayoutManager::UpdateAutoHideStateNow() {
@@ -836,10 +866,21 @@ ShelfLayoutManager::AutoHideState ShelfLayoutManager::CalculateAutoHideState(
   if (event_filter_.get() && event_filter_->in_mouse_drag())
     return AUTO_HIDE_HIDDEN;
 
-  bool mouse_over_launcher =
-      launcher_widget()->GetWindowBoundsInScreen().Contains(
-          gfx::Screen::GetCursorScreenPoint());
-  return mouse_over_launcher ? AUTO_HIDE_SHOWN : AUTO_HIDE_HIDDEN;
+  gfx::Rect shelf_region = launcher_widget()->GetWindowBoundsInScreen();
+  if (Shell::GetInstance()->status_area_widget()->IsMessageBubbleShown() &&
+      IsVisible()) {
+    // Increase the the hit test area to prevent the shelf from disappearing
+    // when the mouse is over the bubble gap.
+    shelf_region.Inset(alignment_ == SHELF_ALIGNMENT_RIGHT ?
+                           -kNotificationBubbleGapHeight : 0,
+                       alignment_ == SHELF_ALIGNMENT_BOTTOM ?
+                           -kNotificationBubbleGapHeight : 0,
+                       alignment_ == SHELF_ALIGNMENT_LEFT ?
+                           -kNotificationBubbleGapHeight : 0,
+                       0);
+  }
+  return shelf_region.Contains(gfx::Screen::GetCursorScreenPoint()) ?
+      AUTO_HIDE_SHOWN : AUTO_HIDE_HIDDEN;
 }
 
 void ShelfLayoutManager::UpdateHitTestBounds() {

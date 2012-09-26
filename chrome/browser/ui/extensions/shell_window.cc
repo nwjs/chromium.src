@@ -9,6 +9,7 @@
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/shell_window_geometry_cache.h"
 #include "chrome/browser/extensions/shell_window_registry.h"
+#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/file_select_helper.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/intents/web_intents_util.h"
@@ -65,7 +66,7 @@ void SuspendRenderViewHost(RenderViewHost* rvh) {
 }  // namespace
 
 ShellWindow::CreateParams::CreateParams()
-  : frame(ShellWindow::CreateParams::FRAME_NONE),
+  : frame(ShellWindow::CreateParams::FRAME_CHROME),
     bounds(-1, -1, kDefaultWidth, kDefaultHeight),
     restore_position(true), restore_size(true) {
 }
@@ -107,13 +108,6 @@ void ShellWindow::Init(const GURL& url,
   web_contents_->GetRenderViewHost()->SyncRendererPrefs();
 
   native_window_.reset(NativeShellWindow::Create(this, params));
-  // Interpretation of the bounds passed to NativeShellWindow::Create varies
-  // between the different implementations, SetBounds behaves more consistent
-  // so call that one here too. A fix for http://crbug.com/130184 should make
-  // this no longer needed.
-  if (params.bounds.x() >= 0 && params.bounds.y() >= 0) {
-    native_window_->SetBounds(params.bounds);
-  }
 
   if (!params.window_key.empty()) {
     window_key_ = params.window_key;
@@ -162,7 +156,7 @@ void ShellWindow::Init(const GURL& url,
   // Close when the browser is exiting.
   // TODO(mihaip): we probably don't want this in the long run (when platform
   // apps are no longer tied to the browser process).
-  registrar_.Add(this, content::NOTIFICATION_APP_TERMINATING,
+  registrar_.Add(this, chrome::NOTIFICATION_APP_TERMINATING,
                  content::NotificationService::AllSources());
 
   // Automatically dismiss all infobars.
@@ -359,9 +353,10 @@ void ShellWindow::WebIntentDispatch(
   if (!web_intents::IsWebIntentsEnabledForProfile(profile_))
     return;
 
-  contents_->web_intent_picker_controller()->SetIntentsDispatcher(
-      intents_dispatcher);
-  contents_->web_intent_picker_controller()->ShowDialog(
+  WebIntentPickerController* web_intent_picker_controller =
+      WebIntentPickerController::FromWebContents(contents_->web_contents());
+  web_intent_picker_controller->SetIntentsDispatcher(intents_dispatcher);
+  web_intent_picker_controller->ShowDialog(
       intents_dispatcher->GetIntent().action,
       intents_dispatcher->GetIntent().type);
 }
@@ -424,7 +419,7 @@ void ShellWindow::Observe(int type,
         native_window_->Close();
       break;
     }
-    case content::NOTIFICATION_APP_TERMINATING:
+    case chrome::NOTIFICATION_APP_TERMINATING:
       native_window_->Close();
       break;
     default:
@@ -434,6 +429,12 @@ void ShellWindow::Observe(int type,
 
 extensions::WindowController*
 ShellWindow::GetExtensionWindowController() const {
+  return NULL;
+}
+
+extensions::ActiveTabPermissionGranter*
+    ShellWindow::GetActiveTabPermissionGranter() {
+  // Shell windows don't support the activeTab permission.
   return NULL;
 }
 

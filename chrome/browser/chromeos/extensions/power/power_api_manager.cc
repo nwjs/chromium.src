@@ -4,9 +4,9 @@
 
 #include "chrome/browser/chromeos/extensions/power/power_api_manager.h"
 
-#include "chrome/browser/chromeos/power/power_state_override.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
+#include "chromeos/power/power_state_override.h"
 #include "content/public/browser/notification_service.h"
 
 namespace extensions {
@@ -35,7 +35,7 @@ void PowerApiManager::Observe(int type,
         content::Details<extensions::UnloadedExtensionInfo>(details)->
             extension->id());
     UpdatePowerSettings();
-  } else if (type == content::NOTIFICATION_APP_TERMINATING) {
+  } else if (type == chrome::NOTIFICATION_APP_TERMINATING) {
     // If the Chrome app is terminating, ensure we release our power overrides.
     power_state_override_.reset(NULL);
   } else {
@@ -47,7 +47,7 @@ PowerApiManager::PowerApiManager()
     : power_state_override_(NULL) {
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED,
                   content::NotificationService::AllSources());
-  registrar_.Add(this, content::NOTIFICATION_APP_TERMINATING,
+  registrar_.Add(this, chrome::NOTIFICATION_APP_TERMINATING,
                  content::NotificationService::AllSources());
   UpdatePowerSettings();
 }
@@ -57,7 +57,8 @@ PowerApiManager::~PowerApiManager() {}
 void PowerApiManager::UpdatePowerSettings() {
   // If we have a wake lock and don't have the power state overriden.
   if (extension_ids_set_.size() && !power_state_override_.get()) {
-    power_state_override_.reset(new chromeos::PowerStateOverride());
+    power_state_override_.reset(new chromeos::PowerStateOverride(
+        chromeos::PowerStateOverride::BLOCK_DISPLAY_SLEEP));
   // else, if we don't have any wake locks and do have a power override.
   } else if (extension_ids_set_.empty() && power_state_override_.get()) {
     power_state_override_.reset(NULL);

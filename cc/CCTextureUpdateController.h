@@ -12,12 +12,11 @@
 
 namespace cc {
 
-class TextureCopier;
 class TextureUploader;
 
 class CCTextureUpdateControllerClient {
 public:
-    virtual void updateTexturesCompleted() = 0;
+    virtual void readyToFinalizeTextureUpdates() = 0;
 
 protected:
     virtual ~CCTextureUpdateControllerClient() { }
@@ -26,16 +25,19 @@ protected:
 class CCTextureUpdateController : public CCTimerClient {
     WTF_MAKE_NONCOPYABLE(CCTextureUpdateController);
 public:
-    static PassOwnPtr<CCTextureUpdateController> create(CCTextureUpdateControllerClient* client, CCThread* thread, PassOwnPtr<CCTextureUpdateQueue> queue, CCResourceProvider* resourceProvider, TextureCopier* copier, TextureUploader* uploader)
+    static PassOwnPtr<CCTextureUpdateController> create(CCTextureUpdateControllerClient* client, CCThread* thread, PassOwnPtr<CCTextureUpdateQueue> queue, CCResourceProvider* resourceProvider, TextureUploader* uploader)
     {
-        return adoptPtr(new CCTextureUpdateController(client, thread, queue, resourceProvider, copier, uploader));
+        return adoptPtr(new CCTextureUpdateController(client, thread, queue, resourceProvider, uploader));
     }
     static size_t maxPartialTextureUpdates();
-    static void updateTextures(CCResourceProvider*, TextureCopier*, TextureUploader*, CCTextureUpdateQueue*, size_t count);
 
     virtual ~CCTextureUpdateController();
 
-    void updateMoreTextures(double monotonicTimeLimit);
+    // Discard uploads to textures that were evicted on the impl thread.
+    void discardUploadsToEvictedResources();
+
+    void performMoreUpdates(double monotonicTimeLimit);
+    void finalize();
 
     // CCTimerClient implementation.
     virtual void onTimerFired() OVERRIDE;
@@ -46,7 +48,9 @@ public:
     virtual size_t updateMoreTexturesSize() const;
 
 protected:
-    CCTextureUpdateController(CCTextureUpdateControllerClient*, CCThread*, PassOwnPtr<CCTextureUpdateQueue>, CCResourceProvider*, TextureCopier*, TextureUploader*);
+    CCTextureUpdateController(CCTextureUpdateControllerClient*, CCThread*, PassOwnPtr<CCTextureUpdateQueue>, CCResourceProvider*, TextureUploader*);
+
+    static size_t maxFullUpdatesPerTick(TextureUploader*);
 
     // This returns true when there were textures left to update.
     bool updateMoreTexturesIfEnoughTimeRemaining();
@@ -57,9 +61,9 @@ protected:
     OwnPtr<CCTextureUpdateQueue> m_queue;
     bool m_contentsTexturesPurged;
     CCResourceProvider* m_resourceProvider;
-    TextureCopier* m_copier;
     TextureUploader* m_uploader;
     double m_monotonicTimeLimit;
+    size_t m_textureUpdatesPerTick;
     bool m_firstUpdateAttempt;
 };
 

@@ -271,10 +271,6 @@ class TestingAutomationProvider : public AutomationProvider,
   // Uses the JSON interface for input/output.
   void CloseBrowserWindow(base::DictionaryValue* args,
                           IPC::Message* reply_message);
-  // Reset to the default theme.
-  // Uses the JSON interface for input/output.
-  void ResetToDefaultTheme(base::DictionaryValue* args,
-                           IPC::Message* reply_message);
 
   // Get info about multi-profile users.
   // Uses the JSON interface for input/output.
@@ -515,12 +511,6 @@ class TestingAutomationProvider : public AutomationProvider,
   void GetSavedPasswords(Browser* browser,
                          base::DictionaryValue* args,
                          IPC::Message* reply_message);
-
-  // Get info about theme.
-  // Uses the JSON interface for input/output.
-  void GetThemeInfo(Browser* browser,
-                    base::DictionaryValue* args,
-                    IPC::Message* reply_message);
 
   // Install the given unpacked/packed extension.
   // Uses the JSON interface for input/output.
@@ -1373,16 +1363,6 @@ class TestingAutomationProvider : public AutomationProvider,
   void CreateNewAutomationProvider(base::DictionaryValue* args,
                                    IPC::Message* reply_message);
 
-  // Gets a list of supported policies. The output is a map of policy name to
-  // its value type.
-  // Example:
-  //   input: none
-  //   output: { "ShowHomeButton": "bool",
-  //             "DefaultSearchProviderSearchURL": "str"
-  //           }
-  void GetPolicyDefinitionList(base::DictionaryValue* args,
-                               IPC::Message* reply_message);
-
   // Triggers a policy update on the platform and cloud providers, if they
   // exist. Returns after the update notifications are received.
   // Example:
@@ -1496,13 +1476,17 @@ class TestingAutomationProvider : public AutomationProvider,
   void ToggleNetworkDevice(base::DictionaryValue* args,
                            IPC::Message* reply_message);
 
-  void GetProxySettings(Browser* browser,
-                        base::DictionaryValue* args,
+  void GetProxySettings(base::DictionaryValue* args,
                         IPC::Message* reply_message);
 
-  void SetProxySettings(Browser* browser,
-                        base::DictionaryValue* args,
+  void SetProxySettings(base::DictionaryValue* args,
                         IPC::Message* reply_message);
+
+  void SetSharedProxies(base::DictionaryValue* args,
+                        IPC::Message* reply_message);
+
+  void RefreshInternetDetails(base::DictionaryValue* args,
+                              IPC::Message* reply_message);
 
   void ConnectToCellularNetwork(base::DictionaryValue* args,
                             IPC::Message* reply_message);

@@ -22,6 +22,14 @@ using WebKit::WebTransformationMatrix;
 
 namespace cc {
 
+CCScrollAndScaleSet::CCScrollAndScaleSet()
+{
+}
+
+CCScrollAndScaleSet::~CCScrollAndScaleSet()
+{
+}
+
 IntRect CCLayerTreeHostCommon::calculateVisibleRect(const IntRect& targetSurfaceRect, const IntRect& layerBoundRect, const WebTransformationMatrix& transform)
 {
     // Is this layer fully contained within the target surface?
@@ -333,7 +341,7 @@ void setupRootLayerAndSurfaceForRecursion(LayerType* rootLayer, LayerList& rende
         rootLayer->createRenderSurface();
 
     rootLayer->renderSurface()->setContentRect(IntRect(IntPoint::zero(), deviceViewportSize));
-    rootLayer->renderSurface()->clearLayerList();
+    rootLayer->renderSurface()->clearLayerLists();
 
     ASSERT(renderSurfaceLayerList.isEmpty());
     renderSurfaceLayerList.append(rootLayer);
@@ -520,7 +528,7 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
             layer->createRenderSurface();
 
         RenderSurfaceType* renderSurface = layer->renderSurface();
-        renderSurface->clearLayerList();
+        renderSurface->clearLayerLists();
 
         // The origin of the new surface is the upper left corner of the layer.
         renderSurface->setDrawTransform(drawTransform);
@@ -635,7 +643,7 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
 
     IntRect accumulatedDrawableContentRectOfChildren;
     for (size_t i = 0; i < layer->children().size(); ++i) {
-        LayerType* child = layer->children()[i].get();
+        LayerType* child = CCLayerTreeHostCommon::getChildAsRawPtr(layer->children(), i);
         IntRect drawableContentRectOfChildSubtree;
         calculateDrawTransformsInternal<LayerType, LayerList, RenderSurfaceType, LayerSorter>(child, rootLayer, sublayerMatrix, nextHierarchyMatrix, nextScrollCompensationMatrix,
                                                                                               clipRectForSubtree, subtreeShouldBeClipped, nearestAncestorThatMovesPixels,
@@ -689,7 +697,7 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         clippedContentRect.setHeight(std::min(clippedContentRect.height(), maxTextureSize));
 
         if (clippedContentRect.isEmpty())
-            renderSurface->clearLayerList();
+            renderSurface->clearLayerLists();
 
         renderSurface->setContentRect(clippedContentRect);
         renderSurface->setScreenSpaceTransform(layer->screenSpaceTransform());
@@ -745,7 +753,8 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     else
         drawableContentRectOfSubtree = localDrawableContentRectOfSubtree;
 
-    return;
+    if (layer->hasContributingDelegatedRenderPasses())
+        layer->renderTarget()->renderSurface()->addContributingDelegatedRenderPassLayer(layer);
 }
 
 // FIXME: Instead of using the following function to set visibility rects on a second

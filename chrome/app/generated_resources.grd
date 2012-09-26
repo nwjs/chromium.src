@@ -513,6 +513,9 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         <message name="IDS_CONTENT_CONTEXT_INSPECTELEMENT" desc="The name of the Inspect Element command in the content area context menu">
           I&amp;nspect element
         </message>
+        <message name="IDS_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE" desc="The name of the Inspect Background Page command in the packaged app content area context menu">
+          Inspect &amp;background page
+        </message>
         <message name="IDS_CONTENT_CONTEXT_RELOAD" desc="The name of the Reload command in the content area context menu">
           Re&amp;load
         </message>
@@ -718,6 +721,9 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         </message>
         <message name="IDS_CONTENT_CONTEXT_INSPECTELEMENT" desc="In Title Case: The name of the Inspect Element command in the content area context menu">
           I&amp;nspect Element
+        </message>
+        <message name="IDS_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE" desc="The name of the Inspect Background Page command in the packaged app content area context menu">
+          Inspect &amp;Background Page
         </message>
         <message name="IDS_CONTENT_CONTEXT_RELOAD" desc="In Title Case: The name of the Reload command in the content area context menu">
           Re&amp;load
@@ -4769,8 +4775,20 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_EXTENSION_PROMPT_WARNING_SERIAL" desc="Permission string for access to serial devices.">
         Use serial devices attached to your computer
       </message>
-      <message name="IDS_EXTENSION_PROMPT_WARNING_SOCKET" desc="Permission string for access to network.">
-        Exchange data with other computers
+      <message name="IDS_EXTENSION_PROMPT_WARNING_SOCKET_ANY_HOST" desc="Permission string for access to any computer on the local network or internet.">
+        Exchange data with any computer on the local network or internet
+      </message>
+      <message name="IDS_EXTENSION_PROMPT_WARNING_SOCKET_HOSTS_IN_DOMAIN" desc="Permission string for access to any computer within a single domains on the local network or internet.">
+        Exchange data with any computer in the domain <ph name="DOMAIN">$1<ex>example.com</ex></ph>
+      </message>
+      <message name="IDS_EXTENSION_PROMPT_WARNING_SOCKET_HOSTS_IN_DOMAINS" desc="Permission string for access to any computer within multiple domains on the local network or internet.">
+        Exchange data with any computer in the domains: <ph name="DOMAINS">$1<ex>example.com example.org</ex></ph>
+      </message>
+      <message name="IDS_EXTENSION_PROMPT_WARNING_SOCKET_SPECIFIC_HOST" desc="Permission string for access to a single specific computers on the local network or internet.">
+        Exchange data with the computer named <ph name="HOSTNAME">$1<ex>foo.example.com</ex></ph>
+      </message>
+      <message name="IDS_EXTENSION_PROMPT_WARNING_SOCKET_SPECIFIC_HOSTS" desc="Permission string for access to multiple specific computers on the local network or internet.">
+        Exchange data with the computers named: <ph name="HOSTNAMES">$1<ex>foo.example.com bar.example.com</ex></ph>
       </message>
 
       <!-- Extension/App error messages -->
@@ -4979,13 +4997,13 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         This icon will be visible when the extension can act on the current page.
       </message>
       <message name="IDS_EXTENSION_INSTALLED_PAGE_ACTION_INFO_WITH_SHORTCUT" desc="Text displayed in the InfoBubble which explains that the UI of this extension is a Page Action icon which may appear for some pages. Also has a sentence describing how to activate it.">
-        This icon will be visible when the extension can act on the current page. Activate this extension by clicking on the icon or by pressing <ph name="EXTENSION_SHORTCUT">$1<ex>Ctrl+E</ex></ph>.
+        This icon will be visible when the extension can act on the current page. Use this extension by clicking on the icon or by pressing <ph name="EXTENSION_SHORTCUT">$1<ex>Ctrl+E</ex></ph>.
       </message>
       <message name="IDS_EXTENSION_INSTALLED_BROWSER_ACTION_INFO" desc="Text displayed in the InfoBubble which explains that the UI of this extension is a Browser Action icon.">
-        Activate this extension by clicking on this icon.
+        Use this extension by clicking on this icon.
       </message>
       <message name="IDS_EXTENSION_INSTALLED_BROWSER_ACTION_INFO_WITH_SHORTCUT" desc="Text displayed in the InfoBubble which explains that the UI of this extension is a Browser Action icon. Also has a sentence describing how to activate it.">
-        Activate this extension by clicking on this icon or by pressing <ph name="EXTENSION_SHORTCUT">$1<ex>Ctrl+E</ex></ph>.
+        Use this extension by clicking on this icon or by pressing <ph name="EXTENSION_SHORTCUT">$1<ex>Ctrl+E</ex></ph>.
       </message>
       <message name="IDS_EXTENSION_INSTALLED_OMNIBOX_KEYWORD_INFO" desc="Text displayed in the InfoBubble which explains that this extension has an keyword that can be used with the omnibox.">
         To use this extension, type "<ph name="EXTENSION_KEYWORD">$1<ex>search</ex></ph>", then TAB, then your command or search.
@@ -5803,7 +5821,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
         Action box
       </message>
       <message name="IDS_FLAGS_ACTION_BOX_DESCRIPTION" desc="Description of the 'Action Box' lab.">
-        Enables the "Action Box" experimental toolbar UI.
+        Disables the "Action Box" experimental toolbar UI.
       </message>
       <message name="IDS_FLAGS_EXTENSIONS_IN_ACTION_BOX_NAME" desc="Name of the 'Extensions in the Action Box' lab.">
         Extensions in the Action box
@@ -6294,12 +6312,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
         <message name="IDS_FLAGS_ENABLE_DRIVE_V2_API_DESCRIPTION" desc="Description for the flag to enable Drive V2 API.">
           Enables to use Drive V2 API for accessing Google Drive folder.
         </message>
-        <message name="IDS_FLAGS_USE_LEVELDB_FOR_GDATA_NAME" desc="Name for the flag to use level db for drive metadata storage.">
-          Use level db for drive metadata storage.
-        </message>
-        <message name="IDS_FLAGS_USE_LEVELDB_FOR_GDATA_DESCRIPTION" desc="Description for the flag to to use level db for drive metadata storage.">
-          Use level db for drive metadata storage instead of proto file.
-        </message>
         <message name="IDS_FLAGS_DISABLE_HTML5_CAMERA" desc="Name for the flag to disable new camera WebUI.">
           Disable HTML5 camera in WebUI.
         </message>
@@ -6312,11 +6324,35 @@ Keep your key file in a safe place. You will need it to create new versions of y
         <message name="IDS_FLAGS_DISABLE_NEW_OOBE_DESCRIPTION" desc="Description for the flag to disable new design for OOBE / sign in flows.">
           Disables new design for OOBE / sign in flows.
         </message>
+        <message name="IDS_FLAGS_DISABLE_FACTORY_RESET" desc="Name of the experimental option that resets the device to its factory state.">
+          Disable factory reset.
+        </message>
+        <message name="IDS_FLAGS_DISABLE_FACTORY_RESET_DESCRIPTION" desc="Description of the experimental option that resets the device to its factory state.">
+          Disables factory reset shortcut and window on login wizard and options dialog.
+        </message>
         <message name="IDS_FLAGS_DISABLE_BOOT_ANIMATION" desc="Name for the flag to disable wallpaper boot animation (except for OOBE).">
           Disable boot animation.
         </message>
         <message name="IDS_FLAGS_DISABLE_BOOT_ANIMATION_DESCRIPTION" desc="Description for the flag to disable wallpaper boot animation (except for OOBE).">
           Disables wallpaper boot animation (except for OOBE case).
+        </message>
+        <message name="IDS_FLAGS_DISABLE_BOOT_ANIMATION2" desc="Name for the flag to go back to wallpaper boot animation v1.">
+          Disable boot animation v2 (go back to v1).
+        </message>
+        <message name="IDS_FLAGS_DISABLE_BOOT_ANIMATION2_DESCRIPTION" desc="Description for the flag to go back to wallpaper boot animation v2.">
+          Disables wallpaper boot animation v2 - goes back to v1 (except for OOBE case) i.e. login UI is not shown till animation is complete.
+        </message>
+        <message name="IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION" desc="Name for the flag to switch wallpaper boot animation function.">
+          Boot animation function.
+        </message>
+        <message name="IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION_DESCRIPTION" desc="Description for the flag to switch wallpaper boot animation function.">
+          Change boot animation function.
+        </message>
+        <message name="IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION2" desc="Description for the option of boot animation function.">
+          EASE_OUT_2
+        </message>
+        <message name="IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION3" desc="Description for the option of boot animation function.">
+          EASE_OUT_3
         </message>
         <message name="IDS_FLAGS_DISABLE_WORKSPACE2" desc="Description for the flag to turn off workspace2.">
           Disable new window stacking.
@@ -6532,12 +6568,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <!-- Pepper Broker Info bar -->
       <if expr="pp_ifdef('android')">
         <message name="IDS_PEPPER_BROKER_MESSAGE" desc="Mobile: Message shown when a pepper plugin wants to launch its broker. This message is followed by a 'Learn more' link.">
-          The <ph name="PEPPER_PLUGIN_NAME">$1<ex>Shockwave Flash</ex></ph> plugin on <ph name="PEPPER_PLUGIN_DOMAIN">$2<ex>example.com</ex></ph> wants to access your mobile device."
+          <ph name="PEPPER_PLUGIN_NAME">$1<ex>Shockwave Flash</ex></ph> on <ph name="PEPPER_PLUGIN_DOMAIN">$2<ex>example.com</ex></ph> wants to access your mobile device."
         </message>
       </if>
       <if expr="not pp_ifdef('android')">
         <message name="IDS_PEPPER_BROKER_MESSAGE" desc="Message shown when a pepper plugin wants to launch its broker. This message is followed by a 'Learn more' link.">
-          The <ph name="PEPPER_PLUGIN_NAME">$1<ex>Shockwave Flash</ex></ph> plugin on <ph name="PEPPER_PLUGIN_DOMAIN">$2<ex>example.com</ex></ph> wants to access your computer."
+          <ph name="PEPPER_PLUGIN_NAME">$1<ex>Shockwave Flash</ex></ph> on <ph name="PEPPER_PLUGIN_DOMAIN">$2<ex>example.com</ex></ph> wants to access your computer."
         </message>
       </if>
       <message name="IDS_PEPPER_BROKER_ALLOW_BUTTON" desc="Text for the allow button on the pepper broker launch prompt">
@@ -6598,7 +6634,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
         
         <!-- Natural scroll Notifications -->
         <message name="IDS_NATURAL_SCROLL_NOTIFICATION_MESSAGE" desc="Text of the natural scroll notification saying that natural scroll is now default.">
-          Scrolling just changed directions! Simple scrolling lets you use your touchpad the same way you use a touch screen. You can always change it back in settings.
+          Scrolling just changed directions! Simple scrolling lets you use your touchpad the same way you use a touch screen. Click here to change it back.
         </message>        
 
         <!-- about:system strings -->
@@ -6918,6 +6954,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_ACCNAME_CHROME_TO_MOBILE" desc="The accessible name for the Chrome To Mobile button.">
         Chrome To Mobile
+      </message>
+      <message name="IDS_ACCNAME_OPEN_PDF_IN_READER" desc="The accessible name for the Open PDF in Reader button.">
+        Open PDF in Reader
       </message>
       <message name="IDS_ACCNAME_FIND" desc="The accessible name for the find button.">
         Find
@@ -7616,7 +7655,7 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
       </message>
       <if expr="pp_ifdef('chromeos')">
         <message name="IDS_PROTECTED_CONTENT_TAB_LABEL" desc="Label for the Protected Content tab on the Content Settings dialog.">
-          Protected Content
+          Protected content
         </message>
         <message name="IDS_PROTECTED_CONTENT_INFO" desc="Text that is displayed on the Protected Content tab of the Content Settings dialog. This text explains that enabling protected content may require using a uniquely identifiable machine identifier.">
           Machine identifiers may be used to uniquely identify you for the purposes of authorizing access to protected content.
@@ -9965,6 +10004,21 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         Check for server certificate revocation
       </message>
 
+      <if expr="pp_ifdef('chromeos')">
+	<message name="IDS_OPTIONS_FACTORY_RESET" desc="Name of the factory reset option on the chrome settings page">
+	  Factory Reset
+	</message>
+	<message name="IDS_OPTIONS_FACTORY_RESET_DESCRIPTION" desc="Description of the factory reset option on the chrome settings page">
+	  Reset your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device to its original factory state.
+	</message>
+	<message name="IDS_OPTIONS_FACTORY_RESET_BUTTON" desc="Name of the button to activate the factory reset option on the chrome settings page">
+	  Reset
+	</message>
+	<message name="IDS_OPTIONS_FACTORY_RESET_WARNING" desc="Warning text in the 'Factory Reset' window">
+	  A restart is required in order to reset your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device to its original factory state.
+	</message>
+      </if>
+
       <message name="IDS_OPTIONS_MANAGE_DATA_DESCRIPTION" desc="The title of the 'Manage your data' label.">
         Manage your data
       </message>
@@ -11291,7 +11345,7 @@ The following application will be launched if you accept this request:
         Send a ‘Do Not Track’ request with your browsing traffic
       </message>
       <message name="IDS_OPTIONS_ENABLE_DO_NOT_TRACK_BUBBLE_TEXT" desc="The text of a confirmation dialog that confirms that the user want to send the 'Do Not Track' header">
-        This feature is currently under development.
+        Enabling ‘Do Not Track’ means that a request will be included with your browsing traffic. Any effect depends on whether a website responds to the request, and how the request is interpreted. For example, some websites may respond to this request by showing you ads that aren't based on other websites you've visited. Many websites will still collect and use your browsing data - for example to improve security, to provide content, services, ads and recommendations on their websites, and to generate reporting statistics.
       </message>
       <message name="IDS_OPTIONS_ENABLE_DO_NOT_TRACK_BUBBLE_TITLE" desc="The title of a confirmation dialog that confirms that the user want to send the 'Do Not Track' header">
         Do Not Track
@@ -11302,11 +11356,6 @@ The following application will be launched if you accept this request:
       <message name="IDS_OPTIONS_ENABLE_DO_NOT_TRACK_BUBBLE_DISABLE" desc="The label of a button that disables sending the 'Do Not Track' header">
         Cancel
       </message>
-      <if expr="is_win">
-        <message name="IDS_WINDOWS8_PRIVACY_HANDLING_INFO" desc="The text which describes how user data is handled differently in Windows8">
-          Your data is handled differently in Windows 8.
-        </message>
-      </if>
       <message name="IDS_OPTIONS_TABS_TO_LINKS_PREF" desc="The documentation string of the 'Tabs to Links' preference">
         Pressing Tab on a webpage highlights links, as well as form fields
       </message>
@@ -11449,13 +11498,12 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_WALLPAPER_MANAGER_ACCESS_FAIL" desc="The string displayed to user when access wallpaper server failed.">
         Chrome cannot access wallpapers at this time.
       </message>
-      <message name="IDS_WALLPAPER_MANAGER_DOWNLOAD_FAIL" desc="The string displayed to user when download wallpaper failed.">
+      <message name="IDS_WALLPAPER_MANAGER_DOWNLOAD_FAIL" desc="The string displayed to user when downloading the wallpaper failed.">
         Chrome cannot download this wallpaper.
       </message>
-      <message name="IDS_WALLPAPER_MANAGER_DOWNLOAD_CANCEL" desc="The string displayed to user when download wallpaper canceled.">
+      <message name="IDS_WALLPAPER_MANAGER_DOWNLOAD_CANCEL" desc="The string displayed to user when downloading the wallpaper canceled.">
         Download was canceled.
       </message>
-
 
       <!-- File Browser -->
       <message name="IDS_FILE_BROWSER_ROOT_DIRECTORY_LABEL" desc="Root directory label.">
@@ -11503,6 +11551,26 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_SIZE_PB" desc="Peta bytes.">
         PB
       </message>
+      
+      <message name="IDS_FILE_BROWSER_SHORTCUT_CTRL" desc="[Ctrl] key name to use in shortcuts descriptions. Shouldn't be translated in many languages actually.">
+        Ctrl
+      </message>
+      <message name="IDS_FILE_BROWSER_SHORTCUT_ALT" desc="[Alt] key name to use in shortcuts descriptions. Shouldn't be translated in many languages actually.">
+        Alt
+      </message>
+      <message name="IDS_FILE_BROWSER_SHORTCUT_SHIFT" desc="[Shift] key name to use in shortcuts descriptions. Shouldn't be translated in many languages actually.">
+        Shift
+      </message>
+      <message name="IDS_FILE_BROWSER_SHORTCUT_META" desc="[Meta] key name to use in shortcuts descriptions. Shouldn't be translated in many languages actually.">
+        Meta
+      </message>
+      <message name="IDS_FILE_BROWSER_SHORTCUT_SPACE" desc="[Space] key name to use in shortcuts descriptions. Shouldn't be translated in many languages actually.">
+        Space
+      </message>
+      <message name="IDS_FILE_BROWSER_SHORTCUT_ENTER" desc="[Enter] key name to use in shortcuts descriptions. Shouldn't be translated in many languages actually.">
+        Enter
+      </message>
+      
       <message name="IDS_FILE_BROWSER_TYPE_COLUMN_LABEL" desc="Type column label.">
         Type
       </message>
@@ -11721,10 +11789,13 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
 
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_PHOTOS_DRIVE" desc="In the action choice dialog, label of action to import photos to Drive.">
-        Backup photos to Google Drive
+        Import photos to Google Drive
       </message>
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_VIEW_FILES" desc="In the action choice dialog, label of action to view all files.">
         View all files
+      </message>
+      <message name="IDS_FILE_BROWSER_ACTION_CHOICE_WATCH_SINGLE_VIDEO" desc="In the action choice dialog, label of action to watch a single video.">
+        Watch <ph name="VIDEO_NAME">$1<ex>Best movie</ex></ph>
       </message>
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_OK" desc="In the action choice dialog, label of the ok button.">
         Next >
@@ -11736,6 +11807,15 @@ Some features may be unavailable.  Please check that the profile exists and you 
         <ph name="PHOTOS_COUNT">$2<ex>85</ex></ph> photos out of <ph name="FILES_COUNT">$1<ex>123</ex></ph> files
       </message>
 
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_TITLE" desc="In the Photo import, the window title.">
+        Import media
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_IMPORTING" desc="In the Photo import, text informing that import is running.">
+        Importing <ph name="COUNT">$1<ex>42</ex></ph> photos to Drive
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_IMPORT_COMPLETE" desc="In the Photo import, text informing that import is done.">
+        Import complete
+      </message>
       <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_IMPORT_BUTTON" desc="In the Photo import, label of import button.">
         Import
       </message>
@@ -11762,6 +11842,21 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_IMPORTING_ERROR" desc="In the Photo import, importing error message.">
         Cannot import. An error occured.
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_CAPTION" desc="In the Photo import, caption inside the dialog.">
+        Select photos to import
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_DELETE_AFTER" desc="In the Photo import, label of checkbox to remove files after import is done.">
+        Delete photos after import
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_NOTHING_PICKED" desc="In the Photo import, message informing about no photo picked.">
+        Nothing selected
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_ONE_PICKED" desc="In the Photo import, message informing about one photo picked.">
+        1 selected
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_MANY_PICKED" desc="In the Photo import, message informing about multiple photos picked.">
+        <ph name="COUNT">$1<ex>42</ex></ph> selected
       </message>
 
       <message name="IDS_FILE_BROWSER_CONFIRM_OVERWRITE_FILE" desc="Asks the user if they are sure they want to overwrite an existing file with another one.">
@@ -11862,6 +11957,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_DELETED_MESSAGE" desc="Message informing about deleting single item.">
         Deleted "<ph name="FILENAME">$1<ex>photo.jpg</ex></ph>"
+      </message>
+      <message name="IDS_FILE_BROWSER_UNDO_DELETE" desc="Text on the button to undo the delete operation.">
+        Undo
       </message>
 
       <message name="IDS_FILE_BROWSER_CANCEL_LABEL" desc="Cancel label.">
@@ -12707,6 +12805,11 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_SYNC_SYNC_EVERYTHING" desc="The text of the OK button of the 'Confirm Sync Settings' page of the customize sync dialog.">
         OK, sync everything
+      </message>
+
+      <!-- Spinner dialog for waiting sync backend to start up -->
+      <message name="IDS_SYNC_SETUP_SPINNER_TITLE" desc="The title of the sync setup dialog showing spinner.">
+        Please wait...
       </message>
 
       <!-- Notify network connection goes time out -->
@@ -13663,17 +13766,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       This page wants to install a service handler.
     </message>
 
-    <!-- PPAPI broker -->
-    <message name="IDS_PPAPI_BROKER_INFOBAR_QUESTION" desc="Question asked on the infobar when a site wan">
-      <ph name="plugin">$1<ex>Flash</ex></ph> on <ph name="site">$2<ex>google.com</ex></ph> wants to access your computer.
-    </message>
-    <message name="IDS_PPAPI_BROKER_ALLOW_BUTTON" desc="A button in the PPAPI broker infobar for allowing access to the PPAPI broker for a given site.">
-      Allow
-    </message>
-    <message name="IDS_PPAPI_BROKER_DENY_BUTTON" desc="A button in the PPAPI broker infobar for allowing access to the PPAPI broker for a given site.">
-      Deny
-    </message>
-
     <!-- ProcessSingleton -->
     <message name="IDS_PROFILE_IN_USE_LINUX" desc="Message shown when the browser cannot start because the profile is in use on a different host.">
       The profile appears to be in use by process <ph name="PROCESS_ID">$1<ex>12345</ex></ph> on host <ph name="HOST_NAME">$2<ex>example.com</ex></ph>.  If you are sure no other processes are using this profile, delete the file <ph name="LOCK_FILE">$3<ex>/home/user/.config/google-chrome/SingletonLock</ex></ph> and relaunch <ph name="PRODUCT_NAME">$4<ex>Google Chrome</ex></ph>.
@@ -14083,6 +14175,9 @@ Press any key to continue exploring.
       <message name="IDS_EULA_SCREEN_TITLE" desc="Title of the OOBE EULA screen">
         The small print
       </message>
+      <message name="IDS_RESET_SCREEN_TITLE" desc="Title of the reset screen">
+        Factory reset
+      </message>
       <message name="IDS_UPDATE_SCREEN_TITLE" desc="Title of the OOBE update screen">
         Update
       </message>
@@ -14106,6 +14201,18 @@ Press any key to continue exploring.
       </message>
       <message name="IDS_LANGUAGE_SELECTION_SELECT" desc="Label for language selection dropdown">
         Select your language:
+      </message>
+      <message name="IDS_LANGUAGES_MEDIUM_LEN_NAME_CHINESE_SIMPLIFIED" desc="Medium length name for the input method for simplified Chinese which is shown following the text: Your input method has changed to...">
+        Simplified Chinese
+      </message>
+      <message name="IDS_LANGUAGES_MEDIUM_LEN_NAME_CHINESE_TRADITIONAL" desc="Medium length name for the input method for traditional Chinese which is show following the text: Your input method has changed to...">
+       Traditional Chinese
+      </message>
+      <message name="IDS_LANGUAGES_MEDIUM_LEN_NAME_JAPANESE" desc="Medium length name for the input method for Japanese which is show following the text: Your input method has changed to...">
+        Japanese
+      </message>
+      <message name="IDS_LANGUAGES_MEDIUM_LEN_NAME_KOREAN" desc="Medium length name for the input method for Korean which is show following the text: Your input method has changed to...">
+        Korean
       </message>
       <message name="IDS_KEYBOARD_SELECTION_SELECT" desc="Label for keyboard selection dropdown">
         Select your keyboard:
@@ -14207,7 +14314,7 @@ Press any key to continue exploring.
       <message name="IDS_BROWSE_WITHOUT_SIGNING_IN_BUTTON">
         Skip sign-in and browse as Guest
       </message>
-      <message name="IDS_GO_INCOGNITO_BUTTON">
+      <message name="IDS_GO_INCOGNITO_BUTTON" desc="Text shown on Chrome OS login screen button that launches guest session. Should be short.">
         Browse as Guest
       </message>
       <message name="IDS_CREATE_ACCOUNT_HTML" desc="Text shown on side of Google sign-in UI.">
@@ -14376,7 +14483,7 @@ Press any key to continue exploring.
         Enable tap-to-click
       </message>
       <message name="IDS_OPTIONS_SETTINGS_NATURAL_SCROLL_DESCRIPTION" desc="In the settings tab, the text next to the checkbox that enables natural scrolling.">
-        Enable simple scrolling <ph name="BEGIN_LINK">&lt;a href="$1" target="_blank"&gt;<ex>&lt;a href="$1" target="_blank"&gt;</ex></ph>Learn more<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+        Enable simple scrolling direction <ph name="BEGIN_LINK">&lt;a href="$1" target="_blank"&gt;<ex>&lt;a href="$1" target="_blank"&gt;</ex></ph>Learn more<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
       </message>
       <message name="IDS_OPTIONS_SETTINGS_SENSITIVITY_DESCRIPTION" desc="In the settings tab, the text next to the slider for the touchpad touch sensitivity.">
         Speed:
@@ -15188,6 +15295,16 @@ Press any key to continue exploring.
         Trusted Platform Module (TPM) chip is disabled or absent.
       </message>
 
+      <message name="IDS_RESET_SCREEN_WARNING_MSG" desc="Warning text shown on reset screen above the exclamation icon.">
+        Factory Reset your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device
+      </message>
+      <message name="IDS_RESET_SCREEN_WARNING_DETAILS" desc="Warning text shown on reset screen below the exclamation icon.">
+        Your device will be reset into its original factory state. All local files and media will be erased. Would you like to continue?
+      </message>
+      <message name="IDS_RESET_SCREEN_RESET" desc="Reset button text">
+        Reset
+      </message>
+
       <message name="IDS_OPTION_DISABLED_BY_POLICY" desc="Tooltip for options managed by enterprise policy">
         This option is controlled by enterprise policy. Please contact your administrator for more information.
       </message>
@@ -15667,6 +15784,14 @@ Press any key to continue exploring.
       <message name="IDS_OPTIONS_SETTINGS_LANGUAGES_SELECT_PREVIOUS_INPUT_METHOD_HINT"
                desc="Explanatory message about how to select the previous input method">
         Press ctrl+space to select the previous input method.
+      </message>
+      <message name="IDS_OPTIONS_SETTINGS_LANGUAGES_INPUT_METHOD_EXTENSION_IME"
+               desc="Label for extension IMEs">
+        Extension IMEs
+      </message>
+      <message name="IDS_OPTIONS_SETTINGS_LANGUAGES_INPUT_METHOD_EXTENSION_DESCRIPTION"
+               desc="Description of extension IMEs">
+        Select which extension IMEs will be available in the language menu.
       </message>
       <message name="IDS_OPTIONS_SETTINGS_LANGUAGES_M17N_TAMIL_PHONETIC"
                desc="The label for a Tamil input method">
@@ -16456,9 +16581,6 @@ Battery full
       <message name="IDS_KEYBOARD_OVERLAY_CUT" desc="The text in the keyboard overlay to explain the shortcut.">
         Cut
       </message>
-      <message name="IDS_KEYBOARD_OVERLAY_CYCLE_MONITOR" desc="The text in the keyboard overlay to explain the shortcut (cycle through the monitors).">
-        Cycle monitor
-      </message>
       <message name="IDS_KEYBOARD_OVERLAY_CYCLE_THROUGH_INPUT_METHODS" desc="The text in the keyboard overlay to explain the shortcut.">
         Cycle through input methods
       </message>
@@ -16558,6 +16680,9 @@ Battery full
       <message name="IDS_KEYBOARD_OVERLAY_MINIMIZE_WINDOW" desc="The text in the keyboard overlay to explain the shortcut (minimize the window).">
         Minimize window
       </message>
+      <message name="IDS_KEYBOARD_OVERLAY_MIRROR_MONITORS" desc="The text in the keyboard overlay to explain the shortcut (Mirror the monitors).">
+        Mirror monitors
+      </message>
       <message name="IDS_KEYBOARD_OVERLAY_NEW_INCOGNITO_WINDOW" desc="The text in the keyboard overlay to explain the shortcut.">
         New Incognito window
       </message>
@@ -16638,6 +16763,9 @@ Battery full
       </message>
       <message name="IDS_KEYBOARD_OVERLAY_SIGN_OUT" desc="The text in the keyboard overlay to explain the shortcut.">
         Sign out
+      </message>
+      <message name="IDS_KEYBOARD_OVERLAY_SWAP_PRIMARY_MONITOR" desc="The text in the keyboard overlay to explain the shortcut (swap primary monitor).">
+        Swap primary monitor
       </message>
       <message name="IDS_KEYBOARD_OVERLAY_TAKE_SCREENSHOT" desc="The text in the keyboard overlay to explain the shortcut.">
         Take screenshot
@@ -17005,28 +17133,28 @@ Battery full
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_18">
       </message>
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_19">
-        http://www.istockphoto/Kirkham
+        http://www.istockphoto.com/Kirkham
       </message>
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_20">
-        http://www.istockphoto/vectorig
+        http://www.istockphoto.com/vectorig
       </message>
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_21">
         http://www.curious-creature.org/
       </message>
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_22">
-        http://www.istockphoto/barol16
+        http://www.istockphoto.com/barol16
       </message>
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_23">
         http://www.curious-creature.org/
       </message>
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_24">
-        http://www.istockphoto/kikkerdirk
+        http://www.istockphoto.com/kikkerdirk
       </message>
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_25">
-        http://www.istockphoto/pollypic
+        http://www.istockphoto.com/pollypic
       </message>
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_26">
-        http://www.istockphoto/cynoclub
+        http://www.istockphoto.com/cynoclub
       </message>
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_WEBSITE_27">
         http://www.curious-creature.org/
@@ -17486,7 +17614,7 @@ Battery full
       No apps for this action are installed, and there are no app recommendations for this action in the Chrome Web Store either.
     </message>
     <message name="IDS_INTENT_PICKER_USE_ALTERNATE_SERVICE" desc="Link text that, when clicked, allows the user to choose an alternate intent service from the picker.">
-      or use another app...
+      Use another service
     </message>
     <message name="IDS_INTENT_PICKER_USE_ANOTHER_SERVICE" desc="Button text providing a way for the user to not use the web intents service they are on, and select a new one.">
       Use another app 
@@ -17515,17 +17643,21 @@ Battery full
       Which app should be used for saving?
     </message>
 
-    <!-- PDF with unsupported feature Info Bar -->
-    <message name="IDS_PDF_INFOBAR_QUESTION_READER_INSTALLED" desc="Question asked on the info bar when a user views a PDF with an unsupported feature and they have Adobe Reader installed.">
-      Parts of this PDF document could not be displayed. Open in Adobe Reader?
+    <!-- PDF with unsupported feature bubble -->
+    <message name="IDS_PDF_BUBBLE_MESSAGE" desc="Message for the bubble when a user views a PDF with an unsupported feature">
+      Parts of this PDF document could not be displayed.
     </message>
 
-    <message name="IDS_PDF_INFOBAR_QUESTION_READER_NOT_INSTALLED" desc="Question asked on the info bar when a user views a PDF with an unsupported feature and they don't have Adobe Reader installed.">
-      Parts of this PDF document could not be displayed. Install Adobe Reader?
+    <message name="IDS_PDF_BUBBLE_OPEN_IN_READER_LINK" desc="Title of the link to open a PDF with an unsupported feature in Adobe Reader">
+      Open in Adobe Reader
     </message>
 	
-    <message name="IDS_PDF_INFOBAR_QUESTION_READER_METRO_MODE" desc="Question asked on the info bar when a user views a PDF with an unsupported feature in Windows 8 in metro mode.">
-      Parts of this PDF document could not be displayed. Relaunch Chrome in desktop mode?
+    <message name="IDS_PDF_BUBBLE_INSTALL_READER_LINK" desc="Title of the link to open a PDF with an unsupported feature in Adobe Reader">
+      Install Adobe Reader
+    </message>
+
+    <message name="IDS_PDF_BUBBLE_METRO_MODE_LINK" desc="Title of the link to restart Chrome on Windows 8 in metro mode when viewing a PDF with an unsupported feature.">
+      Relaunch Chrome on the desktop
     </message>
 
     <message name="IDS_PDF_INFOBAR_QUESTION_ALWAYS_USE_READER" desc="Question asked on the info bar when a user opens a PDF with Reader and we want to ask them if they always want to use it for viewing PDF files.">
@@ -17828,10 +17960,6 @@ Battery full
              desc="Info Bar message to let user do something about the missing plugin">
       <ph name="PLUGIN_NAME">$1<ex>Quicktime</ex></ph> is required to display some elements on this page.
     </message>
-    <message name="IDS_METRO_SWITCH_TO_DESKTOP_BUTTON"
-             desc="Infobar button to switch from metro to desktop mode">
-      View this page in desktop mode
-    </message>
     <message name="IDS_METRO_SWITCH_WHY_LINK"
              desc="Infobar text for link to help center about metro mode issues">
       Why am I seeing this?
@@ -17845,8 +17973,8 @@ Battery full
       Download complete notification
     </message>
 	<message name="IDS_WIN8_DESKTOP_RESTART"
-             desc="Text for the menu item to restart chrome in desktop. Aplies to Windows 8 only">
-      Relaunch Chrome in desktop mode
+             desc="Text for the menu item to restart chrome in desktop mode. Aplies to Windows 8 only">
+      Relaunch Chrome on the desktop
     </message>
 	<message name="IDS_WIN8_METRO_RESTART"
              desc="Text for the menu item to restart chrome in metro. Aplies to Windows 8 only">

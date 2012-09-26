@@ -6,7 +6,6 @@
 
 #include "chrome/browser/about_flags.h"
 #include "chrome/browser/accessibility/invert_bubble_prefs.h"
-#include "chrome/browser/autocomplete/zero_suggest_provider.h"
 #include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/background/background_mode_manager.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
@@ -41,8 +40,6 @@
 #include "chrome/browser/page_info_model.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/pepper_flash_settings_manager.h"
-#include "chrome/browser/policy/cloud_policy_subsystem.h"
-#include "chrome/browser/policy/url_blacklist_manager.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
@@ -65,6 +62,7 @@
 #include "chrome/browser/ui/tabs/pinned_tab_codec.h"
 #include "chrome/browser/ui/webui/extensions/extension_settings_handler.h"
 #include "chrome/browser/ui/webui/flags_ui.h"
+#include "chrome/browser/ui/webui/instant_ui.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 #include "chrome/browser/ui/webui/plugins_ui.h"
 #include "chrome/browser/ui/webui/print_preview/sticky_settings.h"
@@ -74,6 +72,12 @@
 #include "chrome/browser/web_resource/promo_resource_service.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/render_process_host.h"
+
+#if defined(ENABLE_CONFIGURATION_POLICY)
+#include "chrome/browser/policy/cloud_policy_subsystem.h"
+#include "chrome/browser/policy/policy_statistics_collector.h"
+#include "chrome/browser/policy/url_blacklist_manager.h"
+#endif
 
 #if defined(OS_MACOSX)
 #include "chrome/browser/ui/cocoa/confirm_quit.h"
@@ -151,6 +155,7 @@ void RegisterLocalState(PrefService* local_state) {
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
   policy::CloudPolicySubsystem::RegisterPrefs(local_state);
+  policy::PolicyStatisticsCollector::RegisterPrefs(local_state);
 #endif
 
 #if defined(ENABLE_NOTIFICATIONS)
@@ -224,7 +229,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   TemplateURLPrepopulateData::RegisterUserPrefs(user_prefs);
   TranslatePrefs::RegisterUserPrefs(user_prefs);
   web_intents::RegisterUserPrefs(user_prefs);
-  ZeroSuggestProvider::RegisterUserPrefs(user_prefs);
+  InstantUI::RegisterUserPrefs(user_prefs);
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
   policy::URLBlacklistManager::RegisterPrefs(user_prefs);

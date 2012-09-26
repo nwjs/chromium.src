@@ -25,7 +25,6 @@
 #include "chrome/common/thumbnail_score.h"
 #include "chrome/common/translate_errors.h"
 #include "content/public/common/common_param_traits.h"
-#include "content/public/common/webkit_param_traits.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_platform_file.h"
@@ -125,6 +124,15 @@ IPC_ENUM_TRAITS(WebKit::WebConsoleMessage::Level)
 IPC_STRUCT_TRAITS_BEGIN(ChromeViewHostMsg_GetPluginInfo_Status)
 IPC_STRUCT_TRAITS_MEMBER(value)
 IPC_STRUCT_TRAITS_END()
+
+// Output parameters for ChromeViewHostMsg_GetPluginInfo message.
+IPC_STRUCT_BEGIN(ChromeViewHostMsg_GetPluginInfo_Output)
+  IPC_STRUCT_MEMBER(ChromeViewHostMsg_GetPluginInfo_Status, status)
+  IPC_STRUCT_MEMBER(webkit::WebPluginInfo, plugin)
+  IPC_STRUCT_MEMBER(std::string, actual_mime_type)
+  IPC_STRUCT_MEMBER(std::string, group_identifier)
+  IPC_STRUCT_MEMBER(string16, group_name)
+IPC_STRUCT_END()
 
 IPC_STRUCT_TRAITS_BEGIN(ContentSettingsPattern::PatternParts)
   IPC_STRUCT_TRAITS_MEMBER(scheme)
@@ -303,8 +311,8 @@ IPC_MESSAGE_ROUTED1(ChromeViewMsg_SearchBoxAutocompleteResults,
                     std::vector<InstantAutocompleteResult>
                         /* native_suggestions */)
 
-IPC_MESSAGE_ROUTED1(ChromeViewMsg_SearchBoxKeyPress,
-                    int /* keycode */)
+IPC_MESSAGE_ROUTED1(ChromeViewMsg_SearchBoxUpOrDownKeyPressed,
+                    int /* count */)
 
 // Toggles visual muting of the render view area. This is on when a constrained
 // window is showing.
@@ -433,14 +441,12 @@ IPC_SYNC_MESSAGE_CONTROL4_1(ChromeViewHostMsg_AllowIndexedDB,
 // In contrast to ViewHostMsg_GetPluginInfo in content/, this IPC call knows
 // about specific reasons why a plug-in can't be used, for example because it's
 // disabled.
-IPC_SYNC_MESSAGE_CONTROL4_3(ChromeViewHostMsg_GetPluginInfo,
+IPC_SYNC_MESSAGE_CONTROL4_1(ChromeViewHostMsg_GetPluginInfo,
                             int /* render_view_id */,
                             GURL /* url */,
                             GURL /* top origin url */,
                             std::string /* mime_type */,
-                            ChromeViewHostMsg_GetPluginInfo_Status /* status */,
-                            webkit::WebPluginInfo /* plugin */,
-                            std::string /* actual_mime_type */)
+                            ChromeViewHostMsg_GetPluginInfo_Output /* output */)
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
 // Tells the browser to search for a plug-in that can handle the given MIME

@@ -21,6 +21,9 @@ import re
 import stat
 import subprocess
 import sys
+import time
+import urllib
+import urllib2
 
 import trace_inputs
 import run_test_from_archive
@@ -42,6 +45,12 @@ KEY_UNTRACKED = 'isolate_dependency_untracked'
 
 _GIT_PATH = os.path.sep + '.git'
 _SVN_PATH = os.path.sep + '.svn'
+
+# The maximum number of upload attempts to try when uploading a single file.
+MAX_UPLOAD_ATTEMPTS = 5
+
+# The minimum size of files to upload directly to the blobstore.
+MIN_SIZE_FOR_DIRECT_BLOBSTORE = 1024 * 1024 * 30
 
 
 class ExecutionError(Exception):
@@ -175,7 +184,7 @@ def expand_directories_and_symlinks(indir, infiles, blacklist):
   """Expands the directories and the symlinks, applies the blacklist and
   verifies files exist.
 
-  Files are specified in os native path separatro.
+  Files are specified in os native path separator.
   """
   outfiles = []
   for relfile in infiles:
@@ -230,14 +239,172 @@ def recreate_tree(outdir, indir, infiles, action, as_sha1):
       if not os.path.isdir(outsubdir):
         os.makedirs(outsubdir)
 
-    if metadata.get('touched_only') == True:
-      open(outfile, 'ab').close()
-    elif 'link' in metadata:
+    # TODO(csharp): Fix crbug.com/150823 and enable the touched logic again.
+    # if metadata.get('touched_only') == True:
+    #   open(outfile, 'ab').close()
+    if 'link' in metadata:
       pointed = metadata['link']
       logging.debug('Symlink: %s -> %s' % (outfile, pointed))
       os.symlink(pointed, outfile)
     else:
       run_test_from_archive.link_file(outfile, infile, action)
+
+
+def encode_multipart_formdata(fields, files,
+                              mime_mapper=lambda _: 'application/octet-stream'):
+  """Encodes a Multipart form data object.
+
+  Args:
+    fields: a sequence (name, value) elements for
+      regular form fields.
+    files: a sequence of (name, filename, value) elements for data to be
+      uploaded as files.
+    mime_mapper: function to return the mime type from the filename.
+  Returns:
+    content_type: for httplib.HTTP instance
+    body: for httplib.HTTP instance
+  """
+  boundary = hashlib.md5(str(time.time())).hexdigest()
+  body_list = []
+  for (key, value) in fields:
+    body_list.append('--' + boundary)
+    body_list.append('Content-Disposition: form-data; name="%s"' % key)
+    body_list.append('')
+    body_list.append(value)
+    body_list.append('--' + boundary)
+    body_list.append('')
+  for (key, filename, value) in files:
+    body_list.append('--' + boundary)
+    body_list.append('Content-Disposition: form-data; name="%s"; '
+                     'filename="%s"' % (key, filename))
+    body_list.append('Content-Type: %s' % mime_mapper(filename))
+    body_list.append('')
+    body_list.append(value)
+    body_list.append('--' + boundary)
+    body_list.append('')
+  if body_list:
+    body_list[-2] += '--'
+  body = '\r\n'.join(body_list)
+  content_type = 'multipart/form-data; boundary=%s' % boundary
+  return content_type, body
+
+
+def upload_hash_content(url, params=None, payload=None,
+                        content_type='application/octet-stream'):
+  """Uploads the given hash contents.
+
+  Arguments:
+    url: The url to upload the hash contents to.
+    params: The params to include with the upload.
+    payload: The data to upload.
+    content_type: The content_type of the data being uploaded.
+  """
+  if params:
+    url = url + '?' + urllib.urlencode(params)
+  request = urllib2.Request(url, data=payload)
+  request.add_header('Content-Type', content_type)
+  request.add_header('Content-Length', len(payload or ''))
+
+  return urllib2.urlopen(request)
+
+
+def upload_hash_content_to_blobstore(generate_upload_url, params,
+                                     hash_data):
+  """Uploads the given hash contents directly to the blobsotre via a generated
+  url.
+
+  Arguments:
+    generate_upload_url: The url to get the new upload url from.
+    params: The params to include with the upload.
+    hash_contents: The contents to upload.
+  """
+  content_type, body = encode_multipart_formdata(
+      params.items(), [('hash_contents', 'hash_contest', hash_data)])
+
+  logging.debug('Generating url to directly upload file to blobstore')
+  response = urllib2.urlopen(generate_upload_url)
+  upload_url = response.read()
+
+  if not upload_url:
+    logging.error('Unable to generate upload url')
+    return
+
+  return upload_hash_content(upload_url, payload=body,
+                             content_type=content_type)
+
+
+class UploadRemote(run_test_from_archive.Remote):
+  @staticmethod
+  def get_file_handler(base_url):
+    def upload_file(hash_data, hash_key):
+      params = {'hash_key': hash_key}
+      if len(hash_data) > MIN_SIZE_FOR_DIRECT_BLOBSTORE:
+        upload_hash_content_to_blobstore(
+            base_url.rstrip('/') + '/content/generate_blobstore_url',
+            params, hash_data)
+      else:
+        upload_hash_content(
+            base_url.rstrip('/') + '/content/store', params, hash_data)
+    return upload_file
+
+
+def upload_sha1_tree(base_url, indir, infiles):
+  """Uploads the given tree to the given url.
+
+  Arguments:
+    base_url: The base url, it is assume that |base_url|/has/ can be used to
+              query if an element was already uploaded, and |base_url|/store/
+              can be used to upload a new element.
+    indir:    Root directory the infiles are based in.
+    infiles:  dict of files to map from |indir| to |outdir|.
+  """
+  logging.info('upload tree(base_url=%s, indir=%s, files=%d)' %
+               (base_url, indir, len(infiles)))
+
+  # Generate the list of files that need to be uploaded (since some may already
+  # be on the server.
+  base_url = base_url.rstrip('/')
+  contains_hash_url = base_url + '/content/contains'
+  to_upload = []
+  for relfile, metadata in infiles.iteritems():
+    if 'link' in metadata:
+      # Skip links when uploading.
+      continue
+
+    try:
+      response = urllib2.urlopen(contains_hash_url + '?' + urllib.urlencode(
+          {'hash_key': metadata['sha-1']}))
+      if response.read() == 'True':
+        logging.debug('Hash key, %s, already exists on the server, no need to '
+                      'upload again', metadata['sha-1'])
+        continue
+    except urllib2.URLError:
+      # If we encounter any error checking if the file is already on the server,
+      # assume it isn't present.
+      pass
+    to_upload.append((relfile, metadata))
+
+  # Upload the required files.
+  remote_uploader = run_test_from_archive.Remote(base_url)
+  for relfile, metadata in to_upload:
+    # TODO(csharp): Fix crbug.com/150823 and enable the touched logic again.
+    # if metadata.get('touched_only') == True:
+    #   hash_data = ''
+    infile = os.path.join(indir, relfile)
+    with open(infile, 'rb') as f:
+      hash_data = f.read()
+    remote_uploader.add_item(run_test_from_archive.Remote.MED,
+                             hash_data,
+                             metadata['sha-1'])
+
+  exception = remote_uploader.next_exception()
+  if exception:
+    while exception:
+      logging.error('Error uploading file to server:\n%s', exception[1])
+      exception = remote_uploader.next_exception()
+    raise run_test_from_archive.MappingError(
+        'Encountered errors uploading hash contents to server. See logs for '
+        'exact failures')
 
 
 def process_input(filepath, prevdict, level, read_only):
@@ -262,17 +429,22 @@ def process_input(filepath, prevdict, level, read_only):
   """
   assert level in (NO_INFO, STATS_ONLY, WITH_HASH)
   out = {}
-  if prevdict.get('touched_only') == True:
-    # The file's content is ignored. Skip the time and hard code mode.
-    if get_flavor() != 'win':
-      out['mode'] = stat.S_IRUSR | stat.S_IRGRP
-    out['size'] = 0
-    out['sha-1'] = SHA_1_NULL
-    out['touched_only'] = True
-    return out
+  # TODO(csharp): Fix crbug.com/150823 and enable the touched logic again.
+  # if prevdict.get('touched_only') == True:
+  #   # The file's content is ignored. Skip the time and hard code mode.
+  #   if get_flavor() != 'win':
+  #     out['mode'] = stat.S_IRUSR | stat.S_IRGRP
+  #   out['size'] = 0
+  #   out['sha-1'] = SHA_1_NULL
+  #   out['touched_only'] = True
+  #   return out
 
   if level >= STATS_ONLY:
-    filestats = os.lstat(filepath)
+    try:
+      filestats = os.lstat(filepath)
+    except OSError:
+      # The file is not present.
+      raise run_test_from_archive.MappingError('%s is missing' % filepath)
     is_link = stat.S_ISLNK(filestats.st_mode)
     if get_flavor() != 'win':
       # Ignore file mode on Windows since it's not really useful there.
@@ -1160,7 +1332,7 @@ class SavedState(Flattenable):
 
 class CompleteState(object):
   """Contains all the state to run the task at hand."""
-  def __init__(self, result_file, result, saved_state, out_dir):
+  def __init__(self, result_file, result, saved_state):
     super(CompleteState, self).__init__()
     self.result_file = result_file
     # Contains the data that will be used by run_test_from_archive.py
@@ -1168,17 +1340,15 @@ class CompleteState(object):
     # Contains the data to ease developer's use-case but that is not strictly
     # necessary.
     self.saved_state = saved_state
-    self.out_dir = out_dir
 
   @classmethod
-  def load_files(cls, result_file, out_dir):
+  def load_files(cls, result_file):
     """Loads state from disk."""
     assert os.path.isabs(result_file), result_file
     return cls(
         result_file,
         Result.load_file(result_file),
-        SavedState.load_file(result_to_state(result_file)),
-        out_dir)
+        SavedState.load_file(result_to_state(result_file)))
 
   def load_isolate(self, isolate_file, variables):
     """Updates self.result and self.saved_state with information loaded from a
@@ -1297,11 +1467,11 @@ def load_complete_state(options, level):
   if options.result:
     # Load the previous state if it was present. Namely, "foo.result" and
     # "foo.state".
-    complete_state = CompleteState.load_files(options.result, options.outdir)
+    complete_state = CompleteState.load_files(options.result)
   else:
     # Constructs a dummy object that cannot be saved. Useful for temporary
     # commands like 'run'.
-    complete_state = CompleteState(None, Result(), SavedState(), options.outdir)
+    complete_state = CompleteState(None, Result(), SavedState())
   options.isolate = options.isolate or complete_state.saved_state.isolate_file
   if not options.isolate:
     raise ExecutionError('A .isolate file is required.')
@@ -1394,46 +1564,45 @@ def CMDhashtable(args):
   parser = OptionParserIsolate(command='hashtable')
   options, _ = parser.parse_args(args)
 
-  success = False
-  try:
-    complete_state = load_complete_state(options, WITH_HASH)
-    options.outdir = (
-        options.outdir or os.path.join(complete_state.resultdir, 'hashtable'))
-    recreate_tree(
-        outdir=options.outdir,
-        indir=complete_state.root_dir,
-        infiles=complete_state.result.files,
-        action=run_test_from_archive.HARDLINK,
-        as_sha1=True)
+  with run_test_from_archive.Profiler('GenerateHashtable'):
+    success = False
+    try:
+      complete_state = load_complete_state(options, WITH_HASH)
+      options.outdir = (
+          options.outdir or os.path.join(complete_state.resultdir, 'hashtable'))
+      # Make sure that complete_state isn't modified until save_files() is
+      # called, because any changes made to it here will propagate to the files
+      # created (which is probably not intended).
+      complete_state.save_files()
 
-    complete_state.save_files()
+      logging.info('Creating content addressed object store with %d item',
+                   len(complete_state.result.files))
 
-    # Also archive the .result file.
-    with open(complete_state.result_file, 'rb') as f:
-      result_hash = hashlib.sha1(f.read()).hexdigest()
-    logging.info(
-        '%s -> %s' %
-        (os.path.basename(complete_state.result_file), result_hash))
-    outfile = os.path.join(options.outdir, result_hash)
-    if os.path.isfile(outfile):
-      # Just do a quick check that the file size matches. If they do, skip the
-      # archive. This mean the build result didn't change at all.
-      out_size = os.stat(outfile).st_size
-      in_size = os.stat(complete_state.result_file).st_size
-      if in_size == out_size:
-        success = True
-        return 0
+      with open(complete_state.result_file, 'rb') as f:
+        manifest_hash = hashlib.sha1(f.read()).hexdigest()
+      manifest_metadata = {'sha-1': manifest_hash}
 
-    run_test_from_archive.link_file(
-        outfile, complete_state.result_file,
-        run_test_from_archive.HARDLINK)
-    success = True
-    return 0
-  finally:
-    # If the command failed, delete the .results file if it exists. This is
-    # important so no stale swarm job is executed.
-    if not success and os.path.isfile(options.result):
-      os.remove(options.result)
+      infiles = complete_state.result.files
+      infiles[complete_state.result_file] = manifest_metadata
+
+      if re.match(r'^https?://.+$', options.outdir):
+        upload_sha1_tree(
+            base_url=options.outdir,
+            indir=complete_state.root_dir,
+            infiles=infiles)
+      else:
+        recreate_tree(
+            outdir=options.outdir,
+            indir=complete_state.root_dir,
+            infiles=infiles,
+            action=run_test_from_archive.HARDLINK,
+            as_sha1=True)
+      success = True
+    finally:
+      # If the command failed, delete the .results file if it exists. This is
+      # important so no stale swarm job is executed.
+      if not success and os.path.isfile(options.result):
+        os.remove(options.result)
 
 
 def CMDnoop(args):
@@ -1668,7 +1837,7 @@ class OptionParserIsolate(trace_inputs.OptionParserWithNiceDescription):
           os.path.abspath(
               options.isolate.replace('/', os.path.sep)))
 
-    if options.outdir:
+    if options.outdir and not re.match(r'^https?://.+$', options.outdir):
       options.outdir = os.path.abspath(
           options.outdir.replace('/', os.path.sep))
 

@@ -130,7 +130,7 @@ chrome.fileBrowserPrivate = {
     if (urlList.length == 0)
       return callback([]);
 
-    var extensionId = util.getExtensionId();
+    var internalTaskPrefix = util.getExtensionId() + '|file';
 
     if (!callback)
       throw new Error('Missing callback');
@@ -139,18 +139,18 @@ chrome.fileBrowserPrivate = {
         'R0lGODlhAQABAPABAP///wAAACH5BAEKAAAALAAAAAABAAEAAAICRAEAOw%3D%3D';
 
     var tasks = [
-      { taskId: extensionId + '|play',
+      { taskId: internalTaskPrefix + '|play',
         title: 'Listen',
         regexp: /\.(flac|m4a|mp3|oga|ogg|wav)$/i,
         iconUrl: emptyIcon
       },
-      { taskId: extensionId + '|mount-archive',
+      { taskId: internalTaskPrefix + '|mount-archive',
         title: 'Mount',
         regexp: /\.(rar|tar|tar.bz2|tar.gz|tbz|tbz2|tgz|zip)$/i,
         iconUrl: emptyIcon
       },
       {
-        taskId: extensionId + '|gallery',
+        taskId: internalTaskPrefix + '|gallery',
         title: 'View',
         regexp: /\.(bmp|gif|jpe?g|png|webp|3gp|avi|m4v|mov|mp4|mpeg4?|mpg4?|ogm|ogv|ogx|webm)$/i,
         iconUrl: emptyIcon
@@ -162,19 +162,19 @@ chrome.fileBrowserPrivate = {
         iconUrl: 'chrome://theme/IDR_FILE_MANAGER_IMG_FILETYPE_GENERIC'
       },
       {
-        taskId: 'fake-extension-id|upload',
+        taskId: 'fake-extension-id|file|upload',
         title: 'Upload video',
         regexp: /\.(3gp|avi|m4v|mov|mp4|mpeg4?|mpg4?|ogm|ogv|ogx|webm)$/i,
         iconUrl: 'chrome://theme/IDR_FILE_MANAGER_IMG_FILETYPE_VIDEO'
       },
       {
-        taskId: extensionId + '|view-in-browser',
+        taskId: internalTaskPrefix + '|view-in-browser',
         title: 'View',
         regexp: /\.(html?|log|mht|mhtml|txt)$/i,
         iconUrl: emptyIcon
       },
       {
-        taskId: extensionId + '|view-pdf',
+        taskId: internalTaskPrefix + '|view-pdf',
         title: 'View',
         regexp: /\.pdf$/i,
         iconUrl: emptyIcon
@@ -453,7 +453,6 @@ chrome.fileBrowserPrivate = {
       FILE_IS_DIRECTORY: 'Folder',
 
       CHROMEOS_RELEASE_BOARD: 'stumpy',
-      BROWSER_VERSION_MODIFIER: '',
 
       GDATA_DIRECTORY_LABEL: 'Google Drive',
       ENABLE_GDATA: true,
@@ -472,6 +471,13 @@ chrome.fileBrowserPrivate = {
       TYPE_COLUMN_LABEL: 'Type',
       DATE_COLUMN_LABEL: 'Date modified',
       PREVIEW_COLUMN_LABEL: 'Preview',
+
+      SHORTCUT_CTRL: 'Ctrl',
+      SHORTCUT_ALT: 'Alt',
+      SHORTCUT_SHIFT: 'Shift',
+      SHORTCUT_META: 'Meta',
+      SHORTCUT_SPACE: 'Space',
+      SHORTCUT_ENTER: 'Enter',
 
       ERROR_CREATING_FOLDER: 'Unable to create folder "$1". $2',
       ERROR_INVALID_CHARACTER: 'Invalid character: $1',
@@ -660,6 +666,7 @@ chrome.fileBrowserPrivate = {
 
       DELETED_MESSAGE: 'Deleted $1',
       DELETED_MESSAGE_PLURAL: 'Deleted $1 items',
+      UNDO_DELETE: 'Undo',
 
       UNKNOWN_FILESYSTEM_WARNING: 'This device cannot be opened because its' +
           ' filesystem was not recognized.',
@@ -793,6 +800,18 @@ chrome.tabs = {
   },
   getCurrent: function(callback) {
     callback({id: 0});
+  }
+};
+
+/**
+ * Mock object for |chrome.windows|.
+ */
+chrome.windows = {
+  getCurrent: function(callback) {
+    var maximized = document.body.clientWidth == screen.availableWidth;
+    callback({
+      state: maximized ? 'maximized' : 'normal'
+    });
   }
 };
 

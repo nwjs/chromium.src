@@ -8,6 +8,7 @@
 
 #include "base/callback.h"
 #include "base/file_util.h"
+#include "base/metrics/histogram.h"
 #include "base/sequenced_task_runner.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
@@ -16,11 +17,15 @@ namespace gdata {
 
 namespace {
 
+enum DBOpenStatus {
+  DB_OPEN_SUCCESS,
+  DB_OPEN_FAILURE_CORRUPTION,
+  DB_OPEN_FAILURE_OTHER,
+  DB_OPEN_MAX_VALUE,
+};
+
 // A map table of resource ID to file path.
 typedef std::map<std::string, FilePath> ResourceIdToFilePathMap;
-
-const FilePath::CharType kDriveCacheMetadataDBPath[] =
-    FILE_PATH_LITERAL("cache_metadata.db");
 
 // Returns true if |file_path| is a valid symbolic link as |sub_dir_type|.
 // Otherwise, returns false with the reason.
@@ -459,25 +464,38 @@ void DriveCacheMetadataDB::Initialize(
           kDriveCacheMetadataDBPath);
   DVLOG(1) << "db path=" << db_path.value();
 
-  const bool db_exists = file_util::PathExists(db_path);
+  bool scan_cache = !file_util::PathExists(db_path);
 
   leveldb::DB* level_db = NULL;
   leveldb::Options options;
   options.create_if_missing = true;
   leveldb::Status db_status = leveldb::DB::Open(options, db_path.value(),
                                                 &level_db);
+
+  // Delete the db and scan the physical cache. This will fix a corrupt db, but
+  // perhaps not other causes of failed DB::Open.
+  DBOpenStatus uma_status = DB_OPEN_SUCCESS;
+  if (!db_status.ok()) {
+    LOG(WARNING) << "Cache db failed to open: " << db_status.ToString();
+    uma_status = db_status.IsCorruption() ?
+                 DB_OPEN_FAILURE_CORRUPTION : DB_OPEN_FAILURE_OTHER;
+    const bool deleted = file_util::Delete(db_path, true);
+    DCHECK(deleted);
+    db_status = leveldb::DB::Open(options, db_path.value(), &level_db);
+    // TODO(satorux): Handle the situation where DB::Open fails because of lack
+    // of disk space, permissions, or other causes. crbug.com/150840.
+    CHECK(db_status.ok());  // Must succeed or we'll crash later.
+    scan_cache = true;
+  }
   DCHECK(level_db);
-  // TODO(achuith,hashimoto,satorux): If db cannot be opened, we should try to
-  // recover it. If that fails, we should just delete it and either rescan or
-  // refetch the feed. crbug.com/137545.
-  DCHECK(db_status.ok());
   level_db_.reset(level_db);
+
+  UMA_HISTOGRAM_ENUMERATION(
+      "Drive.CacheDBOpenStatus", uma_status, DB_OPEN_MAX_VALUE);
 
   // We scan the cache directories to initialize the cache database if we
   // were previously using the cache map.
-  // TODO(achuith,hashimoto,satorux): Delete ScanCachePaths in M23.
-  // crbug.com/137542
-  if (!db_exists) {
+  if (scan_cache) {
     CacheMap cache_map;
     ScanCachePaths(cache_paths, &cache_map);
     InsertMapIntoDB(cache_map);
@@ -578,6 +596,11 @@ void DriveCacheMetadataDB::ForceRescanForTesting(
 }
 
 }  // namespace
+
+// static
+const FilePath::CharType* DriveCacheMetadata::kDriveCacheMetadataDBPath =
+    FILE_PATH_LITERAL("cache_metadata.db");
+
 
 DriveCacheMetadata::DriveCacheMetadata(
     base::SequencedTaskRunner* blocking_task_runner)

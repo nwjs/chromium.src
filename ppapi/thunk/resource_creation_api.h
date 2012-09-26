@@ -28,7 +28,7 @@ struct PP_Size;
 
 namespace ppapi {
 
-struct PPB_URLRequestInfo_Data;
+struct URLRequestInfoData;
 
 namespace thunk {
 
@@ -82,7 +82,7 @@ class ResourceCreationAPI {
   virtual PP_Resource CreateURLLoader(PP_Instance instance) = 0;
   virtual PP_Resource CreateURLRequestInfo(
       PP_Instance instance,
-      const PPB_URLRequestInfo_Data& data) = 0;
+      const URLRequestInfoData& data) = 0;
   virtual PP_Resource CreateWheelInputEvent(
       PP_Instance instance,
       PP_TimeTicks time_stamp,
@@ -117,6 +117,10 @@ class ResourceCreationAPI {
                                           PP_Resource share_context,
                                           const int32_t* attrib_list) = 0;
   virtual PP_Resource CreateHostResolverPrivate(PP_Instance instance) = 0;
+  virtual PP_Resource CreateNetworkMonitor(
+      PP_Instance instance,
+      PPB_NetworkMonitor_Callback callback,
+      void* user_data) = 0;
   virtual PP_Resource CreateTCPServerSocketPrivate(PP_Instance instance) = 0;
   virtual PP_Resource CreateTCPSocketPrivate(PP_Instance instace) = 0;
   virtual PP_Resource CreateUDPSocketPrivate(PP_Instance instace) = 0;
@@ -142,10 +146,6 @@ class ResourceCreationAPI {
   virtual PP_Resource CreateFlashMenu(PP_Instance instance,
                                       const PP_Flash_Menu* menu_data) = 0;
   virtual PP_Resource CreateFlashMessageLoop(PP_Instance instance) = 0;
-  virtual PP_Resource CreateNetworkMonitor(
-      PP_Instance instance,
-      PPB_NetworkMonitor_Callback callback,
-      void* user_data) = 0;
   virtual PP_Resource CreatePrinting(PP_Instance instance) = 0;
   virtual PP_Resource CreateScrollbar(PP_Instance instance,
                                       PP_Bool vertical) = 0;

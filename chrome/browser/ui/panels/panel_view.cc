@@ -57,6 +57,9 @@ const AcceleratorMapping kPanelAcceleratorMap[] = {
   { ui::VKEY_NUMPAD0, ui::EF_CONTROL_DOWN, IDC_ZOOM_NORMAL },
   { ui::VKEY_OEM_PLUS, ui::EF_CONTROL_DOWN, IDC_ZOOM_PLUS },
   { ui::VKEY_ADD, ui::EF_CONTROL_DOWN, IDC_ZOOM_PLUS },
+  { ui::VKEY_I, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_DEV_TOOLS },
+  { ui::VKEY_J, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_DEV_TOOLS_CONSOLE },
 };
 
 const std::map<ui::Accelerator, int>& GetAcceleratorTable() {
@@ -286,12 +289,27 @@ void PanelView::AnimationProgressed(const ui::Animation* animation) {
 }
 
 void PanelView::ClosePanel() {
+  // We're already closing. Do nothing.
+  if (!window_)
+    return;
+
+  if (!panel_->ShouldCloseWindow())
+    return;
+
   // Cancel any currently running animation since we're closing down.
   if (bounds_animator_.get())
     bounds_animator_.reset();
 
+  if (panel_->GetWebContents()) {
+    // Still have web contents. Allow renderer to shut down.
+    // When web contents are destroyed, we will be called back again.
+    panel_->OnWindowClosing();
+    return;
+  }
+
   panel_->OnNativePanelClosed();
   window_->Close();
+  window_ = NULL;
 }
 
 void PanelView::ActivatePanel() {
@@ -517,6 +535,14 @@ bool PanelView::CanMaximize() const {
 
 string16 PanelView::GetWindowTitle() const {
   return panel_->GetWindowTitle();
+}
+
+gfx::ImageSkia PanelView::GetWindowAppIcon() {
+  gfx::Image app_icon = panel_->app_icon();
+  if (app_icon.IsEmpty())
+    return GetWindowIcon();
+  else
+    return *app_icon.ToImageSkia();
 }
 
 gfx::ImageSkia PanelView::GetWindowIcon() {

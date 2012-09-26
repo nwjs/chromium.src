@@ -237,6 +237,9 @@ void NativeWidgetAura::InitNativeWidget(const Widget::InitParams& params) {
 
   if (desktop_helper_.get())
     desktop_helper_->PostInitialize();
+
+  window_->SetProperty(aura::client::kCanMaximizeKey,
+                       GetWidget()->widget_delegate()->CanMaximize());
 }
 
 NonClientFrameView* NativeWidgetAura::CreateNonClientFrameView() {
@@ -654,10 +657,6 @@ void NativeWidgetAura::ClearNativeFocus() {
   if (window_ && window_->GetFocusManager() &&
       window_->Contains(window_->GetFocusManager()->GetFocusedWindow()))
     window_->GetFocusManager()->SetFocusedWindow(window_, NULL);
-}
-
-void NativeWidgetAura::FocusNativeView(gfx::NativeView native_view) {
-  window_->GetFocusManager()->SetFocusedWindow(native_view, NULL);
 }
 
 gfx::Rect NativeWidgetAura::GetWorkAreaBoundsInScreen() const {

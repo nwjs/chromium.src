@@ -60,6 +60,10 @@ class ASH_EXPORT Launcher  {
     return background_animator_.paints_background();
   }
 
+  // Causes shelf items to be slightly dimmed.
+  void SetDimsShelf(bool value);
+  bool GetDimsShelf() const;
+
   // Sets the size of the status area.
   void SetStatusSize(const gfx::Size& size);
   const gfx::Size& status_size() const { return status_size_; }
@@ -87,6 +91,9 @@ class ASH_EXPORT Launcher  {
 
   views::View* GetAppListButtonView() const;
 
+  // Sets the bounds of the launcher widget, and the dimmer if visible.
+  void SetWidgetBounds(const gfx::Rect bounds);
+
   // Only to be called for testing. Retrieves the LauncherView.
   // TODO(sky): remove this!
   internal::LauncherView* GetLauncherViewForTest();
@@ -95,6 +102,8 @@ class ASH_EXPORT Launcher  {
 
   LauncherModel* model() { return model_.get(); }
   views::Widget* widget() { return widget_.get(); }
+
+  views::Widget* GetDimmerWidgetForTest() { return dimmer_.get(); }
 
   aura::Window* window_container() { return window_container_; }
 
@@ -105,6 +114,7 @@ class ASH_EXPORT Launcher  {
 
   // Widget hosting the view.
   scoped_ptr<views::Widget> widget_;
+  scoped_ptr<views::Widget> dimmer_;
 
   aura::Window* window_container_;
 

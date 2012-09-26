@@ -9,11 +9,11 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/api/prefs/pref_member.h"
+#include "chrome/browser/api/sync/profile_sync_service_observer.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_setup_handler.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_observer.h"
 #include "chrome/browser/shell_integration.h"
-#include "chrome/browser/sync/profile_sync_service_observer.h"
 #include "chrome/browser/ui/webui/options/options_ui.h"
 #include "ui/base/dialogs/select_file_dialog.h"
 #include "ui/base/models/table_model_observer.h"
@@ -239,6 +239,10 @@ class BrowserOptionsHandler
   void HighContrastChangeCallback(const base::ListValue* args);
   void ScreenMagnifierChangeCallback(const base::ListValue* args);
   void VirtualKeyboardChangeCallback(const base::ListValue* args);
+
+  // Called when the user confirmed factory reset. Chrome will
+  // initiate asynchronous file operation and then log out.
+  void PerformFactoryResetRestart(const base::ListValue* args);
 #endif
 
 #if !defined(OS_MACOSX) && !defined(OS_CHROMEOS)

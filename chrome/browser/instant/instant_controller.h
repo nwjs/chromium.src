@@ -110,6 +110,11 @@ class InstantController : public InstantLoaderDelegate {
   void HandleAutocompleteResults(
       const std::vector<AutocompleteProvider*>& providers);
 
+  // Called when the user presses up or down. |count| is a repeat count,
+  // negative for moving up, positive for moving down. Returns true if Instant
+  // handled the key press.
+  bool OnUpOrDownKeyPressed(int count);
+
   // The preview TabContents. May be NULL if ReleasePreviewContents() has been
   // called, with no subsequent successful call to Update(). InstantController
   // retains ownership of the object.
@@ -156,6 +161,9 @@ class InstantController : public InstantLoaderDelegate {
       InstantLoader* loader,
       const std::vector<InstantSuggestion>& suggestions) OVERRIDE;
   virtual void CommitInstantLoader(InstantLoader* loader) OVERRIDE;
+  virtual void SetInstantPreviewHeight(InstantLoader* loader,
+                                       int height,
+                                       InstantSizeUnits units) OVERRIDE;
   virtual void InstantLoaderPreviewLoaded(InstantLoader* loader) OVERRIDE;
   virtual void InstantSupportDetermined(InstantLoader* loader,
                                         bool supports_instant) OVERRIDE;
@@ -193,8 +201,9 @@ class InstantController : public InstantLoaderDelegate {
   // Destroys the |loader_| and its preview contents.
   void DeleteLoader();
 
-  // Counterpart to Hide(). Asks the |delegate_| to display the preview.
-  void Show();
+  // Counterpart to Hide(). Asks the |delegate_| to display the preview with
+  // the given |height|.
+  void Show(int height, InstantSizeUnits units);
 
   // Send the omnibox dropdown bounds to the page.
   void SendBoundsToPage();
@@ -204,7 +213,12 @@ class InstantController : public InstantLoaderDelegate {
   // Note: If the command-line switch kInstantURL is set, this method uses its
   // value for |instant_url| and returns true without examining |template_url|.
   bool GetInstantURL(const TemplateURL* template_url,
+                     const GURL& tab_url,
                      std::string* instant_url) const;
+
+  // Copies hash state from |tab_url| to |instant_url| when |tab_url| is
+  // navigated to the default search engine.
+  void MaybeSetRefFromURL(const GURL& tab_url, std::string* instant_url) const;
 
   // Returns true if the preview is no longer relevant, say because the last
   // Update() was for a URL and not a search query, or the user switched tabs.

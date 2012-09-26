@@ -52,8 +52,6 @@ class CONTENT_EXPORT DownloadManagerImpl
   virtual content::DownloadManagerDelegate* GetDelegate() const OVERRIDE;
   virtual void Shutdown() OVERRIDE;
   virtual void GetAllDownloads(DownloadVector* result) OVERRIDE;
-  virtual void SearchDownloads(const string16& query,
-                               DownloadVector* result) OVERRIDE;
   virtual bool Init(content::BrowserContext* browser_context) OVERRIDE;
   virtual content::DownloadId StartDownload(
       scoped_ptr<DownloadCreateInfo> info,
@@ -83,11 +81,9 @@ class CONTENT_EXPORT DownloadManagerImpl
   virtual int InProgressCount() const OVERRIDE;
   virtual content::BrowserContext* GetBrowserContext() const OVERRIDE;
   virtual void CheckForHistoryFilesRemoval() OVERRIDE;
-  virtual content::DownloadItem* GetDownloadItem(int id) OVERRIDE;
   virtual content::DownloadItem* GetDownload(int id) OVERRIDE;
   virtual void SavePageDownloadFinished(
       content::DownloadItem* download) OVERRIDE;
-  virtual content::DownloadItem* GetActiveDownloadItem(int id) OVERRIDE;
 
  private:
   typedef std::set<content::DownloadItem*> DownloadSet;

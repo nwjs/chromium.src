@@ -9,6 +9,9 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/sequenced_task_runner_helpers.h"
+#if defined(OS_WIN)
+#include "base/shared_memory.h"
+#endif
 #include "content/renderer/browser_plugin/browser_plugin_backing_store.h"
 #include "content/renderer/browser_plugin/browser_plugin_bindings.h"
 #include "content/renderer/render_view_impl.h"
@@ -32,6 +35,15 @@ class CONTENT_EXPORT BrowserPlugin :
   // Set the src attribute value of the BrowserPlugin instance and reset
   // the guest_crashed_ flag.
   void SetSrcAttribute(const std::string& src);
+  // Returns Chrome's process ID for the current guest.
+  int process_id() const { return process_id_; }
+  // The partition identifier string is stored as UTF-8.
+  std::string GetPartitionAttribute() const;
+  // This method can be successfully called only before the first navigation for
+  // this instance of BrowserPlugin. If an error occurs, the |error_message| is
+  // set appropriately to indicate the failure reason.
+  bool SetPartitionAttribute(const std::string& partition_id,
+                             std::string& error_message);
 
   // Inform the BrowserPlugin to update its backing store with the pixels in
   // its damage buffer.
@@ -40,7 +52,7 @@ class CONTENT_EXPORT BrowserPlugin :
   // Inform the BrowserPlugin that its guest has crashed.
   void GuestCrashed();
   // Informs the BrowserPlugin that the guest has navigated to a new URL.
-  void DidNavigate(const GURL& url);
+  void DidNavigate(const GURL& url, int process_id);
   // Tells the BrowserPlugin to advance the focus to the next (or previous)
   // element.
   void AdvanceFocus(bool reverse);
@@ -54,6 +66,11 @@ class CONTENT_EXPORT BrowserPlugin :
   // Remove a custom event listener from this BrowserPlugin instance.
   bool RemoveEventListener(const std::string& event_name,
                         v8::Local<v8::Function> function);
+
+  // A request from Javascript has been made to stop the loading of the page.
+  void Stop();
+  // A request from Javascript has been made to reload the page.
+  void Reload();
 
   // WebKit::WebPlugin implementation.
   virtual WebKit::WebPluginContainer* container() const OVERRIDE;
@@ -116,10 +133,9 @@ class CONTENT_EXPORT BrowserPlugin :
   // Virtual to allow for mocking in tests.
   virtual float GetDeviceScaleFactor() const;
 
-  // Parses the source URL of the browser plugin from the element's attributes
-  // and outputs them.
-  bool ParseSrcAttribute(const WebKit::WebPluginParams& params,
-                         std::string* src);
+  // Parses the attributes of the browser plugin from the element's attributes
+  // and sets them appropriately.
+  void ParseAttributes(const WebKit::WebPluginParams& params);
 
   // Cleanup event listener state to free v8 resources when a BrowserPlugin
   // is destroyed.
@@ -136,11 +152,19 @@ class CONTENT_EXPORT BrowserPlugin :
   SkBitmap* sad_guest_;
   bool guest_crashed_;
   bool resize_pending_;
-  long long parent_frame_;
+  // True if we have ever sent a NavigateGuest message to the embedder.
+  bool navigate_src_sent_;
+  int64 parent_frame_;
   std::string src_;
+  int process_id_;
+  std::string storage_partition_id_;
+  bool persist_storage_;
   typedef std::vector<v8::Persistent<v8::Function> > EventListeners;
   typedef std::map<std::string, EventListeners> EventListenerMap;
   EventListenerMap event_listener_map_;
+#if defined(OS_WIN)
+  base::SharedMemory shared_memory_;
+#endif
   DISALLOW_COPY_AND_ASSIGN(BrowserPlugin);
 };
 

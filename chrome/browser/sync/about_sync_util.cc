@@ -11,6 +11,8 @@
 #include "chrome/browser/signin/signin_manager.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/common/chrome_version_info.h"
+#include "sync/api/time.h"
+#include "sync/internal_api/public/util/sync_string_conversions.h"
 #include "sync/protocol/proto_enum_conversions.h"
 
 using base::DictionaryValue;
@@ -141,6 +143,15 @@ std::string GetVersionString() {
       version_modifier;
 }
 
+std::string GetKeystoreMigrationTimeStr(base::Time migration_time) {
+  std::string migration_time_str;
+  if (migration_time.is_null())
+    migration_time_str = "Not Migrated";
+  else
+    migration_time_str = syncer::GetTimeDebugString(migration_time);
+  return migration_time_str;
+}
+
 }  // namespace
 
 namespace sync_ui_util {
@@ -193,6 +204,11 @@ scoped_ptr<DictionaryValue> ConstructAboutInformation(
   BoolSyncStat has_pending_keys(section_encryption,
                                 "Cryptographer Has Pending Keys");
   StringSyncStat encrypted_types(section_encryption, "Encrypted Types");
+  BoolSyncStat has_keystore_key(section_encryption, "Has Keystore Key");
+  StringSyncStat keystore_migration_time(section_encryption,
+                                         "Keystore Migration Time");
+  StringSyncStat passphrase_type(section_encryption,
+                                 "Passphrase Type");
 
   ListValue* section_last_session = AddSection(
       stats_list, "Status from Last Completed Session");
@@ -236,6 +252,14 @@ scoped_ptr<DictionaryValue> ConstructAboutInformation(
   IntSyncStat updates_downloaded(section_that_cycle, "Updates Downloaded");
   IntSyncStat committed_count(section_that_cycle, "Committed Count");
   IntSyncStat entries(section_that_cycle, "Entries");
+
+  ListValue* section_nudge_info = AddSection(
+      stats_list, "Nudge Source Counters");
+  IntSyncStat nudge_source_notification(
+      section_nudge_info, "Server Invalidations");
+  IntSyncStat nudge_source_local(section_nudge_info, "Local Changes");
+  IntSyncStat nudge_source_continuation(section_nudge_info, "Continuations");
+  IntSyncStat nudge_source_local_refresh(section_nudge_info, "Local Refreshes");
 
   // This list of sections belongs in the 'details' field of the returned
   // message.
@@ -293,6 +317,11 @@ scoped_ptr<DictionaryValue> ConstructAboutInformation(
     has_pending_keys.SetValue(full_status.crypto_has_pending_keys);
     encrypted_types.SetValue(
         ModelTypeSetToString(full_status.encrypted_types));
+    has_keystore_key.SetValue(full_status.has_keystore_key);
+    keystore_migration_time.SetValue(
+        GetKeystoreMigrationTimeStr(full_status.keystore_migration_time));
+    passphrase_type.SetValue(
+        PassphraseTypeToString(full_status.passphrase_type));
   }
 
   if (snapshot.is_initialized()) {
@@ -336,6 +365,13 @@ scoped_ptr<DictionaryValue> ConstructAboutInformation(
     server_conflicts.SetValue(full_status.server_conflicts);
     committed_items.SetValue(full_status.committed_count);
     updates_remaining.SetValue(full_status.updates_available);
+  }
+
+  if (is_status_valid) {
+    nudge_source_notification.SetValue(full_status.nudge_source_notification);
+    nudge_source_local.SetValue(full_status.nudge_source_local);
+    nudge_source_continuation.SetValue(full_status.nudge_source_continuation);
+    nudge_source_local_refresh.SetValue(full_status.nudge_source_local_refresh);
   }
 
   if (snapshot.is_initialized()) {

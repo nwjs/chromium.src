@@ -10,8 +10,11 @@ namespace chrome {
 
 namespace {
 
+static RemovableDeviceNotificationsMac*
+    g_removable_device_notifications_mac = NULL;
+
 void GetDiskInfoAndUpdateOnFileThread(
-    const base::WeakPtr<RemovableDeviceNotificationsMac>& notifications,
+    const scoped_refptr<RemovableDeviceNotificationsMac>& notifications,
     base::mac::ScopedCFTypeRef<CFDictionaryRef> dict,
     RemovableDeviceNotificationsMac::UpdateType update_type) {
   DiskInfoMac info = DiskInfoMac::BuildDiskInfoOnFileThread(dict);
@@ -28,7 +31,7 @@ void GetDiskInfoAndUpdateOnFileThread(
 }
 
 void GetDiskInfoAndUpdate(
-    const base::WeakPtr<RemovableDeviceNotificationsMac>& notifications,
+    const scoped_refptr<RemovableDeviceNotificationsMac>& notifications,
     DADiskRef disk,
     RemovableDeviceNotificationsMac::UpdateType update_type) {
   base::mac::ScopedCFTypeRef<CFDictionaryRef> dict(DADiskCopyDescription(disk));
@@ -45,6 +48,9 @@ void GetDiskInfoAndUpdate(
 
 RemovableDeviceNotificationsMac::RemovableDeviceNotificationsMac() {
   session_.reset(DASessionCreate(NULL));
+  DCHECK(!g_removable_device_notifications_mac);
+  g_removable_device_notifications_mac = this;
+
   DASessionScheduleWithRunLoop(
       session_, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
 
@@ -69,8 +75,18 @@ RemovableDeviceNotificationsMac::RemovableDeviceNotificationsMac() {
 }
 
 RemovableDeviceNotificationsMac::~RemovableDeviceNotificationsMac() {
+  DCHECK_EQ(this, g_removable_device_notifications_mac);
+  g_removable_device_notifications_mac = NULL;
+
   DASessionUnscheduleFromRunLoop(
       session_, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
+}
+
+// static
+RemovableDeviceNotificationsMac*
+RemovableDeviceNotificationsMac::GetInstance() {
+  DCHECK(g_removable_device_notifications_mac != NULL);
+  return g_removable_device_notifications_mac;
 }
 
 void RemovableDeviceNotificationsMac::UpdateDisk(
@@ -96,6 +112,8 @@ void RemovableDeviceNotificationsMac::UpdateDisk(
       disk_info_map_.erase(it);
   } else {
     disk_info_map_[info.bsd_name()] = info;
+    MediaStorageUtil::RecordDeviceInfoHistogram(true, info.device_id(),
+                                                info.display_name());
     if (ShouldPostNotificationForDisk(info)) {
       base::SystemMonitor::Get()->ProcessRemovableStorageAttached(
           info.device_id(), info.display_name(), info.mount_point().value());
@@ -131,7 +149,7 @@ void RemovableDeviceNotificationsMac::DiskAppearedCallback(
     void* context) {
   RemovableDeviceNotificationsMac* notifications =
       static_cast<RemovableDeviceNotificationsMac*>(context);
-  GetDiskInfoAndUpdate(notifications->AsWeakPtr(),
+  GetDiskInfoAndUpdate(notifications,
                        disk,
                        UPDATE_DEVICE_ADDED);
 }
@@ -142,7 +160,7 @@ void RemovableDeviceNotificationsMac::DiskDisappearedCallback(
     void* context) {
   RemovableDeviceNotificationsMac* notifications =
       static_cast<RemovableDeviceNotificationsMac*>(context);
-  GetDiskInfoAndUpdate(notifications->AsWeakPtr(),
+  GetDiskInfoAndUpdate(notifications,
                        disk,
                        UPDATE_DEVICE_REMOVED);
 }
@@ -154,7 +172,7 @@ void RemovableDeviceNotificationsMac::DiskDescriptionChangedCallback(
     void *context) {
   RemovableDeviceNotificationsMac* notifications =
       static_cast<RemovableDeviceNotificationsMac*>(context);
-  GetDiskInfoAndUpdate(notifications->AsWeakPtr(),
+  GetDiskInfoAndUpdate(notifications,
                        disk,
                        UPDATE_DEVICE_CHANGED);
 }

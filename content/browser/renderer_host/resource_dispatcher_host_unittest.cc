@@ -75,6 +75,7 @@ static int RequestIDForMessage(const IPC::Message& msg) {
     case ResourceMsg_UploadProgress::ID:
     case ResourceMsg_ReceivedResponse::ID:
     case ResourceMsg_ReceivedRedirect::ID:
+    case ResourceMsg_SetDataBuffer::ID:
     case ResourceMsg_DataReceived::ID:
     case ResourceMsg_RequestComplete::ID:
       request_id = IPC::MessageIterator(msg).NextInt();
@@ -388,33 +389,64 @@ class TransfersAllNavigationsContentBrowserClient
 enum {
   DEFER_NONE                = 0,
   DEFER_STARTING_REQUEST    = 1 << 0,
-  DEFER_PROCESSING_RESPONSE = 1 << 1,
+  DEFER_PROCESSING_RESPONSE = 1 << 1
 };
 
+// Throttle that tracks the current throttle blocking a request.  Only one
+// can throttle any request at a time.
 class GenericResourceThrottle : public content::ResourceThrottle {
  public:
-  GenericResourceThrottle(int defer_flags) : defer_flags_(defer_flags) {
+  explicit GenericResourceThrottle(int defer_flags)
+      : defer_flags_(defer_flags) {
   }
 
-  virtual void WillStartRequest(bool* defer) {
-    if (defer_flags_ & DEFER_STARTING_REQUEST)
-      *defer = true;
+  virtual ~GenericResourceThrottle() {
+    if (active_throttle_ == this)
+      active_throttle_ = NULL;
   }
 
-  virtual void WillProcessResponse(bool* defer) {
-    if (defer_flags_ & DEFER_PROCESSING_RESPONSE)
+  // content::ResourceThrottle implementation:
+  virtual void WillStartRequest(bool* defer) OVERRIDE {
+    ASSERT_EQ(NULL, active_throttle_);
+    if (defer_flags_ & DEFER_STARTING_REQUEST) {
+      active_throttle_ = this;
       *defer = true;
+    }
+  }
+
+  virtual void WillProcessResponse(bool* defer) OVERRIDE {
+    ASSERT_EQ(NULL, active_throttle_);
+    if (defer_flags_ & DEFER_PROCESSING_RESPONSE) {
+      active_throttle_ = this;
+      *defer = true;
+    }
+  }
+
+  void Resume() {
+    ASSERT_TRUE(this == active_throttle_);
+    active_throttle_ = NULL;
+    controller()->Resume();
+  }
+
+  static GenericResourceThrottle* active_throttle() {
+    return active_throttle_;
   }
 
  private:
   int defer_flags_;  // bit-wise union of DEFER_XXX flags.
+
+  // The currently active throttle, if any.
+  static GenericResourceThrottle* active_throttle_;
 };
+// static
+GenericResourceThrottle* GenericResourceThrottle::active_throttle_ = NULL;
 
 class TestResourceDispatcherHostDelegate
     : public content::ResourceDispatcherHostDelegate {
  public:
   TestResourceDispatcherHostDelegate()
-      : defer_flags_(DEFER_NONE) {
+      : create_two_throttles_(false),
+        defer_flags_(DEFER_NONE) {
   }
 
   void set_url_request_user_data(base::SupportsUserData::Data* user_data) {
@@ -423,6 +455,10 @@ class TestResourceDispatcherHostDelegate
 
   void set_defer_flags(int value) {
     defer_flags_ = value;
+  }
+
+  void set_create_two_throttles(bool create_two_throttles) {
+    create_two_throttles_ = create_two_throttles;
   }
 
   // ResourceDispatcherHostDelegate implementation:
@@ -441,11 +477,15 @@ class TestResourceDispatcherHostDelegate
       request->SetUserData(key, user_data_.release());
     }
 
-    if (defer_flags_ != DEFER_NONE)
+    if (defer_flags_ != DEFER_NONE) {
       throttles->push_back(new GenericResourceThrottle(defer_flags_));
+      if (create_two_throttles_)
+        throttles->push_back(new GenericResourceThrottle(defer_flags_));
+    }
   }
 
  private:
+  bool create_two_throttles_;
   int defer_flags_;
   scoped_ptr<base::SupportsUserData::Data> user_data_;
 };
@@ -697,40 +737,48 @@ void CheckSuccessfulRequest(const std::vector<IPC::Message>& messages,
                             const std::string& reference_data) {
   // A successful request will have received 4 messages:
   //     ReceivedResponse    (indicates headers received)
-  //     DataReceived        (data)
-  //    XXX DataReceived        (0 bytes remaining from a read)
+  //     SetDataBuffer       (contains shared memory handle)
+  //     DataReceived        (data offset and length into shared memory)
   //     RequestComplete     (request is done)
   //
   // This function verifies that we received 4 messages and that they
   // are appropriate.
-  ASSERT_EQ(3U, messages.size());
+  ASSERT_EQ(4U, messages.size());
 
   // The first messages should be received response
   ASSERT_EQ(ResourceMsg_ReceivedResponse::ID, messages[0].type());
 
-  // followed by the data, currently we only do the data in one chunk, but
-  // should probably test multiple chunks later
-  ASSERT_EQ(ResourceMsg_DataReceived::ID, messages[1].type());
+  ASSERT_EQ(ResourceMsg_SetDataBuffer::ID, messages[1].type());
 
   PickleIterator iter(messages[1]);
   int request_id;
   ASSERT_TRUE(IPC::ReadParam(&messages[1], &iter, &request_id));
   base::SharedMemoryHandle shm_handle;
   ASSERT_TRUE(IPC::ReadParam(&messages[1], &iter, &shm_handle));
-  uint32 data_len;
-  ASSERT_TRUE(IPC::ReadParam(&messages[1], &iter, &data_len));
+  int shm_size;
+  ASSERT_TRUE(IPC::ReadParam(&messages[1], &iter, &shm_size));
 
-  ASSERT_EQ(reference_data.size(), data_len);
+  // Followed by the data, currently we only do the data in one chunk, but
+  // should probably test multiple chunks later
+  ASSERT_EQ(ResourceMsg_DataReceived::ID, messages[2].type());
+
+  PickleIterator iter2(messages[2]);
+  ASSERT_TRUE(IPC::ReadParam(&messages[2], &iter2, &request_id));
+  int data_offset;
+  ASSERT_TRUE(IPC::ReadParam(&messages[2], &iter2, &data_offset));
+  int data_length;
+  ASSERT_TRUE(IPC::ReadParam(&messages[2], &iter2, &data_length));
+
+  ASSERT_EQ(reference_data.size(), static_cast<size_t>(data_length));
+  ASSERT_GE(shm_size, data_length);
+
   base::SharedMemory shared_mem(shm_handle, true);  // read only
-  shared_mem.Map(data_len);
-  const char* data = static_cast<char*>(shared_mem.memory());
-  ASSERT_EQ(0, memcmp(reference_data.c_str(), data, data_len));
+  shared_mem.Map(data_length);
+  const char* data = static_cast<char*>(shared_mem.memory()) + data_offset;
+  ASSERT_EQ(0, memcmp(reference_data.c_str(), data, data_length));
 
-  // followed by a 0-byte read
-  //ASSERT_EQ(ResourceMsg_DataReceived::ID, messages[2].type());
-
-  // the last message should be all data received
-  ASSERT_EQ(ResourceMsg_RequestComplete::ID, messages[2].type());
+  // The last message should be all data received.
+  ASSERT_EQ(ResourceMsg_RequestComplete::ID, messages[3].type());
 }
 
 // Tests whether many messages get dispatched properly.
@@ -843,6 +891,45 @@ TEST_F(ResourceDispatcherHostTest, PausedStartError) {
   MessageLoop::current()->RunAllPending();
 
   EXPECT_EQ(0, host_.pending_requests());
+}
+
+TEST_F(ResourceDispatcherHostTest, ThrottleAndResumeTwice) {
+  EXPECT_EQ(0, host_.GetOutstandingRequestsMemoryCost(0));
+
+  // Arrange to have requests deferred before starting.
+  TestResourceDispatcherHostDelegate delegate;
+  delegate.set_defer_flags(DEFER_STARTING_REQUEST);
+  delegate.set_create_two_throttles(true);
+  host_.SetDelegate(&delegate);
+
+  // Make sure the first throttle blocked the request, and then resume.
+  MakeTestRequest(0, 1, net::URLRequestTestJob::test_url_1());
+  GenericResourceThrottle* first_throttle =
+      GenericResourceThrottle::active_throttle();
+  ASSERT_TRUE(first_throttle);
+  first_throttle->Resume();
+
+  // Make sure the second throttle blocked the request, and then resume.
+  ASSERT_TRUE(GenericResourceThrottle::active_throttle());
+  ASSERT_NE(first_throttle, GenericResourceThrottle::active_throttle());
+  GenericResourceThrottle::active_throttle()->Resume();
+
+  ASSERT_FALSE(GenericResourceThrottle::active_throttle());
+
+  // The request is started asynchronously.
+  MessageLoop::current()->RunAllPending();
+
+  // Flush all the pending requests.
+  while (net::URLRequestTestJob::ProcessOnePendingMessage()) {}
+
+  EXPECT_EQ(0, host_.pending_requests());
+  EXPECT_EQ(0, host_.GetOutstandingRequestsMemoryCost(filter_->child_id()));
+
+  // Make sure the request completed successfully.
+  ResourceIPCAccumulator::ClassifiedMessages msgs;
+  accum_.GetClassifiedMessages(&msgs);
+  ASSERT_EQ(1U, msgs.size());
+  CheckSuccessfulRequest(msgs[0], net::URLRequestTestJob::test_data_1());
 }
 
 // The host delegate acts as a second one so we can have some requests
@@ -1720,7 +1807,8 @@ TEST_F(ResourceDispatcherHostTest, DataReceivedACKs) {
   size_t size = msgs[0].size();
 
   EXPECT_EQ(ResourceMsg_ReceivedResponse::ID, msgs[0][0].type());
-  for (size_t i = 1; i < size - 1; ++i)
+  EXPECT_EQ(ResourceMsg_SetDataBuffer::ID, msgs[0][1].type());
+  for (size_t i = 2; i < size - 1; ++i)
     EXPECT_EQ(ResourceMsg_DataReceived::ID, msgs[0][i].type());
   EXPECT_EQ(ResourceMsg_RequestComplete::ID, msgs[0][size - 1].type());
 }
@@ -1735,15 +1823,17 @@ TEST_F(ResourceDispatcherHostTest, DelayedDataReceivedACKs) {
   ResourceIPCAccumulator::ClassifiedMessages msgs;
   accum_.GetClassifiedMessages(&msgs);
 
-  // We expect 1x ReceivedResponse + Nx ReceivedData messages.
+  // We expect 1x ReceivedResponse, 1x SetDataBuffer, Nx ReceivedData messages.
   EXPECT_EQ(ResourceMsg_ReceivedResponse::ID, msgs[0][0].type());
-  for (size_t i = 1; i < msgs[0].size(); ++i)
+  EXPECT_EQ(ResourceMsg_SetDataBuffer::ID, msgs[0][1].type());
+  for (size_t i = 2; i < msgs[0].size(); ++i)
     EXPECT_EQ(ResourceMsg_DataReceived::ID, msgs[0][i].type());
 
   // NOTE: If we fail the above checks then it means that we probably didn't
   // load a big enough response to trigger the delay mechanism we are trying to
   // test!
 
+  msgs[0].erase(msgs[0].begin());
   msgs[0].erase(msgs[0].begin());
 
   // ACK all DataReceived messages until we find a RequestComplete message.

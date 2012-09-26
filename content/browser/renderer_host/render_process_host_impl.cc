@@ -111,6 +111,7 @@
 #include "ipc/ipc_logging.h"
 #include "ipc/ipc_platform_file.h"
 #include "ipc/ipc_switches.h"
+#include "ipc/ipc_sync_channel.h"
 #include "media/base/media_switches.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "ui/base/ui_base_switches.h"
@@ -343,6 +344,9 @@ RenderProcessHostImpl::RenderProcessHostImpl(
           storage_partition_impl_(storage_partition_impl),
           sudden_termination_allowed_(true),
           ignore_input_events_(false),
+#if defined(OS_ANDROID)
+          dummy_shutdown_event_(false, false),
+#endif
           is_guest_(is_guest) {
   widget_helper_ = new RenderWidgetHelper();
 
@@ -354,7 +358,7 @@ RenderProcessHostImpl::RenderProcessHostImpl(
   // requests them.
   // This is for the filesystem sandbox.
   ChildProcessSecurityPolicyImpl::GetInstance()->GrantPermissionsForFile(
-      GetID(), browser_context->GetPath().Append(
+      GetID(), storage_partition_impl->GetPath().Append(
           fileapi::SandboxMountPointProvider::kNewFileSystemDirectory),
       base::PLATFORM_FILE_OPEN |
       base::PLATFORM_FILE_CREATE |
@@ -371,14 +375,14 @@ RenderProcessHostImpl::RenderProcessHostImpl(
   // This is so that we can read and move stuff out of the old filesystem
   // sandbox.
   ChildProcessSecurityPolicyImpl::GetInstance()->GrantPermissionsForFile(
-      GetID(), browser_context->GetPath().Append(
+      GetID(), storage_partition_impl_->GetPath().Append(
           fileapi::SandboxMountPointProvider::kOldFileSystemDirectory),
       base::PLATFORM_FILE_READ | base::PLATFORM_FILE_WRITE |
       base::PLATFORM_FILE_WRITE_ATTRIBUTES | base::PLATFORM_FILE_ENUMERATE);
   // This is so that we can rename the old sandbox out of the way so that we
   // know we've taken care of it.
   ChildProcessSecurityPolicyImpl::GetInstance()->GrantPermissionsForFile(
-      GetID(), browser_context->GetPath().Append(
+      GetID(), storage_partition_impl_->GetPath().Append(
           fileapi::SandboxMountPointProvider::kRenamedOldFileSystemDirectory),
       base::PLATFORM_FILE_CREATE | base::PLATFORM_FILE_CREATE_ALWAYS |
       base::PLATFORM_FILE_WRITE);
@@ -450,9 +454,19 @@ bool RenderProcessHostImpl::Init() {
   // Setup the IPC channel.
   const std::string channel_id =
       IPC::Channel::GenerateVerifiedChannelID(std::string());
-  channel_.reset(new IPC::ChannelProxy(
-      channel_id, IPC::Channel::MODE_SERVER, this,
-      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO)));
+  channel_.reset(
+#if defined(OS_ANDROID)
+      // Android WebView needs to be able to wait from the UI thread to support
+      // the synchronous legacy APIs.
+      browser_command_line.HasSwitch(switches::kEnableWebViewSynchronousAPIs) ?
+          new IPC::SyncChannel(
+              channel_id, IPC::Channel::MODE_SERVER, this,
+              BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO),
+              true, &dummy_shutdown_event_) :
+#endif
+      new IPC::ChannelProxy(
+          channel_id, IPC::Channel::MODE_SERVER, this,
+          BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO)));
 
   // Call the embedder first so that their IPC filters have priority.
   GetContentClient()->browser()->RenderProcessHostCreated(this);
@@ -562,22 +576,24 @@ void RenderProcessHostImpl::CreateMessageFilters() {
 #endif
   channel_->AddFilter(
       GetContentClient()->browser()->AllowPepperPrivateFileAPI() ?
-      new PepperUnsafeFileMessageFilter(GetID(), browser_context->GetPath()) :
-      new PepperFileMessageFilter(GetID()));
+          new PepperUnsafeFileMessageFilter(
+              GetID(),
+              storage_partition_impl_->GetPath()) :
+          new PepperFileMessageFilter(GetID()));
   channel_->AddFilter(new PepperMessageFilter(PepperMessageFilter::RENDERER,
                                               GetID(), browser_context));
 #if defined(ENABLE_INPUT_SPEECH)
   channel_->AddFilter(new speech::InputTagSpeechDispatcherHost(
-      GetID(), browser_context->GetRequestContext(),
+      GetID(), storage_partition_impl_->GetURLRequestContext(),
       browser_context->GetSpeechRecognitionPreferences()));
   channel_->AddFilter(new speech::SpeechRecognitionDispatcherHost(
-      GetID(), browser_context->GetRequestContext(),
+      GetID(), storage_partition_impl_->GetURLRequestContext(),
       browser_context->GetSpeechRecognitionPreferences()));
 #endif
   channel_->AddFilter(new FileAPIMessageFilter(
       GetID(),
-      browser_context->GetRequestContext(),
-      BrowserContext::GetFileSystemContext(browser_context),
+      storage_partition_impl_->GetURLRequestContext(),
+      storage_partition_impl_->GetFileSystemContext(),
       ChromeBlobStorageContext::GetFor(browser_context)));
   channel_->AddFilter(new OrientationMessageFilter());
   channel_->AddFilter(new FileUtilitiesMessageFilter(GetID()));
@@ -601,6 +617,8 @@ void RenderProcessHostImpl::CreateMessageFilters() {
           GetID(),
           resource_context,
           WorkerStoragePartition(
+              storage_partition_impl_->GetURLRequestContext(),
+              storage_partition_impl_->GetMediaURLRequestContext(),
               storage_partition_impl_->GetAppCacheService(),
               storage_partition_impl_->GetFileSystemContext(),
               storage_partition_impl_->GetDatabaseTracker(),
@@ -759,7 +777,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kDisableJavaScriptI18NAPI,
     switches::kDisableLocalStorage,
     switches::kDisableLogging,
-    switches::kDisablePointerLock,
     switches::kDisableSeccompFilterSandbox,
     switches::kDisableSeccompSandbox,
     switches::kDisableSessionStorage,
@@ -785,13 +802,13 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kEnableGpuBenchmarking,
     switches::kEnableLogging,
     switches::kDisableMediaSource,
+    switches::kEnableWebMediaPlayerMS,
     switches::kEnablePartialSwap,
     switches::kEnablePerTilePainting,
     switches::kEnableRendererSideMixing,
     switches::kEnableStrictSiteIsolation,
     switches::kDisableFullScreen,
     switches::kEnablePepperTesting,
-    switches::kEnablePointerLock,
     switches::kEnablePreparsedJsCaching,
     switches::kEnablePruneGpuCommandBuffers,
     switches::kEnablePinch,
@@ -800,6 +817,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kEnableSandboxLogging,
 #endif
     switches::kEnableSeccompSandbox,
+    switches::kEnableSoftwareCompositingGLAdapter,
     switches::kEnableStatsTable,
     switches::kEnableThreadedCompositing,
     switches::kDisableThreadedCompositing,
@@ -815,12 +833,13 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kInProcessWebGL,
     switches::kJavaScriptFlags,
     switches::kLoggingLevel,
-    switches::kOldCheckboxStyle,
 #if defined(OS_ANDROID)
+    switches::kMediaPlayerInRenderProcess,
     switches::kNetworkCountryIso,
 #endif
     switches::kNoReferrers,
     switches::kNoSandbox,
+    switches::kOldCheckboxStyle,
     switches::kPpapiOutOfProcess,
     switches::kRegisterPepperPlugins,
     switches::kRendererAssertTest,
@@ -847,6 +866,9 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
   if (GetBrowserContext()->IsOffTheRecord() &&
       !browser_cmd.HasSwitch(switches::kDisableDatabases)) {
     renderer_cmd->AppendSwitch(switches::kDisableDatabases);
+#if defined(OS_ANDROID)
+    renderer_cmd->AppendSwitch(switches::kDisableMediaHistoryLogging);
+#endif
   }
 }
 

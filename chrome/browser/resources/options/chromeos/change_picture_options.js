@@ -240,11 +240,12 @@ cr.define('options', function() {
 
     /**
      * Appends default images to the image grid. Should only be called once.
-     * @param {Array.<{url: string, author: string, website: string}>} images
-     *   An array of default images data, including URL, author and website.
+     * @param {Array.<{url: string, author: string, website: string}>}
+     *   imagesData An array of default images data, including URL, author and
+     *   website.
      * @private
      */
-    setDefaultImages_: function(images) {
+    setDefaultImages_: function(imagesData) {
       var imageGrid = $('user-image-grid');
       for (var i = 0, data; data = imagesData[i]; i++) {
         imageGrid.addItem(data.url);
@@ -392,8 +393,9 @@ cr.define('options', function() {
         chrome.send('selectImage', [url]);
       }
       // Start/stop camera on (de)selection.
-      if (!imageGrid.inProgramSelection) {
-        if (imageGrid.selectionType == 'camera' && !imageGrid.cameraOnline) {
+      if (!imageGrid.inProgramSelection &&
+          imageGrid.selectionType != e.oldSelectionType) {
+        if (imageGrid.selectionType == 'camera') {
             imageGrid.checkCameraPresence(
               function() {  // When present.
                 // Start capture if camera is still the selected item.
@@ -402,8 +404,7 @@ cr.define('options', function() {
               function() {  // When absent.
                 return true;  // Check again after some time.
               });
-        } else if (imageGrid.selectionType != 'camera' &&
-                   imageGrid.cameraOnline) {
+        } else {
           imageGrid.stopCamera();
         }
       }
@@ -486,8 +487,9 @@ cr.define('options', function() {
 
     /**
      * Appends default images to the image grid. Should only be called once.
-     * @param {Array.<{url: string, author: string, website: string}>} images
-     *   An array of default images data, including URL, author and website.
+     * @param {Array.<{url: string, author: string, website: string}>}
+     *   imagesData An array of default images data, including URL, author and
+     *   website.
      * @private
      */
     setDefaultImages_: function(imagesData) {

@@ -68,9 +68,10 @@ void ConstrainedPickerSheetDelegate::DeleteDelegate() {
 }  // namespace
 
 // static
-WebIntentPicker* WebIntentPicker::Create(TabContents* tab_contents,
+WebIntentPicker* WebIntentPicker::Create(content::WebContents* web_contents,
                                          WebIntentPickerDelegate* delegate,
                                          WebIntentPickerModel* model) {
+  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
   return new WebIntentPickerCocoa(tab_contents, delegate, model);
 }
 
@@ -188,7 +189,7 @@ void WebIntentPickerCocoa::OnInlineDisposition(const string16& title,
 void WebIntentPickerCocoa::OnCancelled() {
   DCHECK(delegate_);
   if (!service_invoked)
-    delegate_->OnPickerClosed();
+    delegate_->OnUserCancelledPickerDialog();
   delegate_->OnClosing();
   MessageLoop::current()->DeleteSoon(FROM_HERE, this);
 }

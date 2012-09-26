@@ -7,6 +7,7 @@
 
 #include "IntRect.h"
 #include "IntSize.h"
+#include "cc/own_ptr_vector.h"
 #include <public/WebTransformationMatrix.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
@@ -36,6 +37,16 @@ public:
     // from the given root layer (including mask and replica layers).
     template<typename LayerType> static LayerType* findLayerInSubtree(LayerType* rootLayer, int layerId);
 
+    static LayerChromium* getChildAsRawPtr(const Vector<RefPtr<LayerChromium> >& children, size_t index)
+    {
+        return children[index].get();
+    }
+
+    static CCLayerImpl* getChildAsRawPtr(const OwnPtrVector<CCLayerImpl>& children, size_t index)
+    {
+        return children[index];
+    }
+
     struct ScrollUpdateInfo {
         int layerId;
         IntSize scrollDelta;
@@ -43,6 +54,9 @@ public:
 };
 
 struct CCScrollAndScaleSet {
+    CCScrollAndScaleSet();
+    ~CCScrollAndScaleSet();
+
     Vector<CCLayerTreeHostCommon::ScrollUpdateInfo> scrolls;
     float pageScaleDelta;
 };
@@ -74,7 +88,7 @@ LayerType* CCLayerTreeHostCommon::findLayerInSubtree(LayerType* rootLayer, int l
         return rootLayer->replicaLayer();
 
     for (size_t i = 0; i < rootLayer->children().size(); ++i) {
-        if (LayerType* found = findLayerInSubtree(rootLayer->children()[i].get(), layerId))
+        if (LayerType* found = findLayerInSubtree(getChildAsRawPtr(rootLayer->children(), i), layerId))
             return found;
     }
     return 0;

@@ -8,6 +8,8 @@
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
+#include "base/metrics/field_trial.h"
+#include "base/string_piece.h"
 #include "base/stringprintf.h"
 #include "base/sys_info.h"
 #include "base/values.h"
@@ -19,7 +21,9 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/gpu_data_manager_observer.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
+#include "grit/content_resources.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_switches.h"
@@ -33,6 +37,25 @@ using content::BrowserThread;
 using content::GpuDataManagerObserver;
 using content::GpuFeatureType;
 using content::GpuSwitchingOption;
+
+namespace {
+
+// Strip out the non-digital info; if after that, we get an empty string,
+// return "0".
+std::string ProcessVersionString(const std::string& raw_string) {
+  const std::string valid_set = "0123456789.";
+  size_t start_pos = raw_string.find_first_of(valid_set);
+  if (start_pos == std::string::npos)
+    return "0";
+  size_t end_pos = raw_string.find_first_not_of(raw_string, start_pos);
+  std::string version_string = raw_string.substr(
+      start_pos, end_pos - start_pos);
+  if (version_string.empty())
+    return "0";
+  return version_string;
+}
+
+}  // namespace anonymous
 
 // static
 content::GpuDataManager* content::GpuDataManager::GetInstance() {
@@ -48,7 +71,7 @@ GpuDataManagerImpl::GpuDataManagerImpl()
     : complete_gpu_info_already_requested_(false),
       gpu_feature_type_(content::GPU_FEATURE_TYPE_UNKNOWN),
       preliminary_gpu_feature_type_(content::GPU_FEATURE_TYPE_UNKNOWN),
-      gpu_switching_(content::GPU_SWITCHING_AUTOMATIC),
+      gpu_switching_(content::GPU_SWITCHING_OPTION_AUTOMATIC),
       observer_list_(new GpuDataManagerObserverList),
       software_rendering_(false),
       card_blacklisted_(false),
@@ -60,11 +83,21 @@ GpuDataManagerImpl::GpuDataManagerImpl()
   }
   if (command_line->HasSwitch(switches::kDisableGpu))
     BlacklistCard();
+  if (command_line->HasSwitch(switches::kGpuSwitching)) {
+    std::string option_string = command_line->GetSwitchValueASCII(
+        switches::kGpuSwitching);
+    GpuSwitchingOption option = gpu_util::StringToGpuSwitchingOption(
+        option_string);
+    if (option != content::GPU_SWITCHING_OPTION_UNKNOWN)
+      gpu_switching_ = option;
+  }
 }
 
-void GpuDataManagerImpl::Initialize(
-    const std::string& browser_version_string,
-    const std::string& gpu_blacklist_json) {
+void GpuDataManagerImpl::Initialize() {
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kSkipGpuDataLoading))
+    return;
+
   content::GPUInfo gpu_info;
   gpu_info_collector::CollectPreliminaryGraphicsInfo(&gpu_info);
 #if defined(ARCH_CPU_X86_FAMILY)
@@ -72,11 +105,27 @@ void GpuDataManagerImpl::Initialize(
     gpu_info.finalized = true;
 #endif
 
-  Initialize(browser_version_string, gpu_blacklist_json, gpu_info);
+  std::string gpu_blacklist_string;
+  if (!command_line->HasSwitch(switches::kIgnoreGpuBlacklist)) {
+    const base::StringPiece gpu_blacklist_json =
+        content::GetContentClient()->GetDataResource(
+            IDR_GPU_BLACKLIST, ui::SCALE_FACTOR_NONE);
+    gpu_blacklist_string = gpu_blacklist_json.as_string();
+  }
+
+  InitializeImpl(gpu_blacklist_string, gpu_info);
 }
 
-void GpuDataManagerImpl::Initialize(
-    const std::string& browser_version_string,
+void GpuDataManagerImpl::InitializeForTesting(
+    const std::string& gpu_blacklist_json,
+    const content::GPUInfo& gpu_info) {
+  // This function is for testing only, so disable histograms.
+  update_histograms_ = false;
+
+  InitializeImpl(gpu_blacklist_json, gpu_info);
+}
+
+void GpuDataManagerImpl::InitializeImpl(
     const std::string& gpu_blacklist_json,
     const content::GPUInfo& gpu_info) {
   {
@@ -87,10 +136,9 @@ void GpuDataManagerImpl::Initialize(
     gpu_info_ = empty_gpu_info;
   }
 
-  // This function is for testing only, so disable histograms.
-  update_histograms_ = false;
-
   if (!gpu_blacklist_json.empty()) {
+    std::string browser_version_string = ProcessVersionString(
+        content::GetContentClient()->GetProduct());
     CHECK(!browser_version_string.empty());
     gpu_blacklist_.reset(new GpuBlacklist());
     bool succeed = gpu_blacklist_->LoadGpuBlacklist(
@@ -137,7 +185,8 @@ void GpuDataManagerImpl::UpdateGpuInfo(const content::GPUInfo& gpu_info) {
                             decision.blacklisted_features);
     }
     UpdateBlacklistedFeatures(decision.blacklisted_features);
-    gpu_switching_ = decision.gpu_switching;
+    if (decision.gpu_switching != content::GPU_SWITCHING_OPTION_UNKNOWN)
+      gpu_switching_ = decision.gpu_switching;
   }
 
   {
@@ -299,6 +348,18 @@ void GpuDataManagerImpl::AppendGpuCommandLine(
   } else if (!use_gl.empty()) {
     command_line->AppendSwitchASCII(switches::kUseGL, use_gl);
   }
+  switch (gpu_switching_) {
+    case content::GPU_SWITCHING_OPTION_FORCE_DISCRETE:
+      command_line->AppendSwitchASCII(switches::kGpuSwitching,
+          switches::kGpuSwitchingOptionNameForceDiscrete);
+      break;
+    case content::GPU_SWITCHING_OPTION_FORCE_INTEGRATED:
+      command_line->AppendSwitchASCII(switches::kGpuSwitching,
+          switches::kGpuSwitchingOptionNameForceIntegrated);
+      break;
+    default:
+      break;
+  }
 
   if (!swiftshader_path.empty())
     command_line->AppendSwitchPath(switches::kSwiftShaderPath,
@@ -383,6 +444,12 @@ void GpuDataManagerImpl::UpdateVideoMemoryUsageStats(
                          video_memory_usage_stats);
 }
 
+// Experiment to determine whether Stage3D should be blacklisted on XP.
+bool Stage3DBlacklisted() {
+  return base::FieldTrialList::FindFullName(content::kStage3DFieldTrialName) ==
+      content::kStage3DFieldTrialBlacklistedName;
+}
+
 void GpuDataManagerImpl::UpdateBlacklistedFeatures(
     GpuFeatureType features) {
   CommandLine* command_line = CommandLine::ForCurrentProcess();
@@ -398,6 +465,9 @@ void GpuDataManagerImpl::UpdateBlacklistedFeatures(
       command_line->HasSwitch(switches::kBlacklistWebGL)) {
     flags |= content::GPU_FEATURE_TYPE_WEBGL;
   }
+  if (Stage3DBlacklisted()) {
+    flags |= content::GPU_FEATURE_TYPE_FLASH_STAGE3D;
+  }
   gpu_feature_type_ = static_cast<GpuFeatureType>(flags);
 
   EnableSoftwareRenderingIfNecessary();
@@ -411,12 +481,10 @@ void GpuDataManagerImpl::RegisterSwiftShaderPath(const FilePath& path) {
 void GpuDataManagerImpl::EnableSoftwareRenderingIfNecessary() {
   if (!GpuAccessAllowed() ||
       (gpu_feature_type_ & content::GPU_FEATURE_TYPE_WEBGL)) {
-#if defined(ENABLE_SWIFTSHADER)
     if (!swiftshader_path_.empty() &&
         !CommandLine::ForCurrentProcess()->HasSwitch(
              switches::kDisableSoftwareRasterizer))
       software_rendering_ = true;
-#endif
   }
 }
 
@@ -432,4 +500,3 @@ void GpuDataManagerImpl::BlacklistCard() {
   EnableSoftwareRenderingIfNecessary();
   NotifyGpuInfoUpdate();
 }
-

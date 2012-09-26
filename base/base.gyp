@@ -445,6 +445,7 @@
         'message_loop_unittest.cc',
         'message_pump_glib_unittest.cc',
         'message_pump_libevent_unittest.cc',
+        'metrics/sample_vector_unittest.cc',
         'metrics/bucket_ranges_unittest.cc',
         'metrics/field_trial_unittest.cc',
         'metrics/histogram_unittest.cc',
@@ -980,7 +981,7 @@
           ],
           'variables': {
             'package_name': 'base_javatests',
-            'java_in_dir': '../base/android/javatests',
+            'java_in_dir': '../base/test/android/javatests',
           },
           'includes': [ '../build/java.gypi' ],
         },

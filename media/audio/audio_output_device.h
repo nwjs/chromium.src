@@ -160,10 +160,17 @@ class MEDIA_EXPORT AudioOutputDevice
   AudioDeviceThread audio_thread_;
   scoped_ptr<AudioOutputDevice::AudioThreadCallback> audio_callback_;
 
+  // Temporary hack to ignore OnStreamCreated() due to the user calling Stop()
+  // so we don't start the audio thread pointing to a potentially freed
+  // |callback_|.
+  //
+  // TODO(scherkus): Replace this by changing AudioRendererSink to either accept
+  // the callback via Start(). See http://crbug.com/151051 for details.
+  bool stopping_hack_;
+
   DISALLOW_COPY_AND_ASSIGN(AudioOutputDevice);
 };
 
 }  // namespace media
 
 #endif  // MEDIA_AUDIO_AUDIO_OUTPUT_DEVICE_H_
-

@@ -95,7 +95,7 @@ class GtkThemeService : public ThemeService {
   // Builds a GtkLabel that is |color| in chrome theme mode, and the normal
   // text color in gtk-mode. Like the previous two calls, listens for the
   // object's destruction.
-  GtkWidget* BuildLabel(const std::string& text, GdkColor color);
+  GtkWidget* BuildLabel(const std::string& text, const GdkColor& color);
 
   // Creates a theme-aware vertical separator widget.
   GtkWidget* CreateToolbarSeparator();
@@ -138,6 +138,12 @@ class GtkThemeService : public ThemeService {
   }
   SkColor get_inactive_selection_fg_color() const {
     return inactive_selection_fg_color_;
+  }
+  SkColor get_location_bar_text_color() const {
+    return location_bar_text_color_;
+  }
+  SkColor get_location_bar_bg_color() const {
+    return location_bar_bg_color_;
   }
 
   // These functions return an image that is not owned by the caller and should
@@ -280,6 +286,8 @@ class GtkThemeService : public ThemeService {
   SkColor active_selection_fg_color_;
   SkColor inactive_selection_bg_color_;
   SkColor inactive_selection_fg_color_;
+  SkColor location_bar_bg_color_;
+  SkColor location_bar_text_color_;
 
   // A GtkIconSet that has the tinted icons for the NORMAL and PRELIGHT states
   // of the IDR_FULLSCREEN_MENU_BUTTON tinted to the respective menu item label

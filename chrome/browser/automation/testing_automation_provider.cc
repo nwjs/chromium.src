@@ -71,7 +71,7 @@
 #include "chrome/browser/password_manager/password_store_change.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/plugin_prefs.h"
+#include "chrome/browser/plugins/plugin_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/printing/print_preview_tab_controller.h"
 #include "chrome/browser/profiles/profile.h"
@@ -87,8 +87,6 @@
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
-#include "chrome/browser/themes/theme_service.h"
-#include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/app_modal_dialogs/app_modal_dialog.h"
 #include "chrome/browser/ui/app_modal_dialogs/app_modal_dialog_queue.h"
 #include "chrome/browser/ui/app_modal_dialogs/javascript_app_modal_dialog.h"
@@ -158,7 +156,6 @@
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
 #include "chrome/browser/policy/policy_service.h"
-#include "policy/policy_constants.h"
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -1765,8 +1762,6 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
       &TestingAutomationProvider::OpenProfileWindow;
   handler_map_["GetProcessInfo"] =
       &TestingAutomationProvider::GetProcessInfo;
-  handler_map_["GetPolicyDefinitionList"] =
-      &TestingAutomationProvider::GetPolicyDefinitionList;
   handler_map_["RefreshPolicies"] =
       &TestingAutomationProvider::RefreshPolicies;
   handler_map_["InstallExtension"] =
@@ -1875,7 +1870,19 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
   handler_map_["SetMute"] = &TestingAutomationProvider::SetMute;
 
   handler_map_["OpenCrosh"] = &TestingAutomationProvider::OpenCrosh;
+  handler_map_["SetProxySettings"] =
+      &TestingAutomationProvider::SetProxySettings;
+  handler_map_["GetProxySettings"] =
+      &TestingAutomationProvider::GetProxySettings;
+  handler_map_["SetSharedProxies"] =
+      &TestingAutomationProvider::SetSharedProxies;
+  handler_map_["RefreshInternetDetails"] =
+      &TestingAutomationProvider::RefreshInternetDetails;
 
+  browser_handler_map_["CaptureProfilePhoto"] =
+      &TestingAutomationProvider::CaptureProfilePhoto;
+  browser_handler_map_["GetTimeInfo"] =
+      &TestingAutomationProvider::GetTimeInfo;
 #endif  // defined(OS_CHROMEOS)
 
   browser_handler_map_["DisablePlugin"] =
@@ -1948,13 +1955,6 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
   browser_handler_map_["GetSavedPasswords"] =
       &TestingAutomationProvider::GetSavedPasswords;
 
-  handler_map_["ResetToDefaultTheme"] =
-      &TestingAutomationProvider::ResetToDefaultTheme;
-
-  // SetTheme() implemented using InstallExtension().
-  browser_handler_map_["GetThemeInfo"] =
-      &TestingAutomationProvider::GetThemeInfo;
-
   browser_handler_map_["FindInPage"] = &TestingAutomationProvider::FindInPage;
 
   browser_handler_map_["GetAllNotifications"] =
@@ -2014,17 +2014,6 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
       &TestingAutomationProvider::AcceptCurrentFullscreenOrMouseLockRequest;
   browser_handler_map_["DenyCurrentFullscreenOrMouseLockRequest"] =
       &TestingAutomationProvider::DenyCurrentFullscreenOrMouseLockRequest;
-
-#if defined(OS_CHROMEOS)
-  browser_handler_map_["CaptureProfilePhoto"] =
-      &TestingAutomationProvider::CaptureProfilePhoto;
-  browser_handler_map_["GetTimeInfo"] =
-      &TestingAutomationProvider::GetTimeInfo;
-  browser_handler_map_["GetProxySettings"] =
-      &TestingAutomationProvider::GetProxySettings;
-  browser_handler_map_["SetProxySettings"] =
-      &TestingAutomationProvider::SetProxySettings;
-#endif  // defined(OS_CHROMEOS)
 }
 
 scoped_ptr<DictionaryValue> TestingAutomationProvider::ParseJSONRequestCommand(
@@ -3693,23 +3682,6 @@ void TestingAutomationProvider::IsFindInPageVisible(
   reply.SendSuccess(&dict);
 }
 
-// Sample json input: { "command": "GetThemeInfo" }
-// Refer GetThemeInfo() in chrome/test/pyautolib/pyauto.py for sample output.
-void TestingAutomationProvider::GetThemeInfo(
-    Browser* browser,
-    DictionaryValue* args,
-    IPC::Message* reply_message) {
-  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
-  const Extension* theme = ThemeServiceFactory::GetThemeForProfile(profile());
-  if (theme) {
-    return_value->SetString("name", theme->name());
-    return_value->Set("images", theme->GetThemeImages()->DeepCopy());
-    return_value->Set("colors", theme->GetThemeColors()->DeepCopy());
-    return_value->Set("tints", theme->GetThemeTints()->DeepCopy());
-  }
-  AutomationJSONReply(this, reply_message).SendSuccess(return_value.get());
-}
-
 void TestingAutomationProvider::InstallExtension(
     DictionaryValue* args, IPC::Message* reply_message) {
   FilePath::StringType path_string;
@@ -5325,45 +5297,6 @@ void TestingAutomationProvider::WaitForTabToBeRestored(
   new NavigationControllerRestoredObserver(this, &controller, reply_message);
 }
 
-void TestingAutomationProvider::GetPolicyDefinitionList(
-    DictionaryValue* args,
-    IPC::Message* reply_message) {
-  AutomationJSONReply reply(this, reply_message);
-
-#if !defined(ENABLE_CONFIGURATION_POLICY)
-  reply.SendError("Configuration Policy disabled");
-#else
-  DictionaryValue response;
-
-  const policy::PolicyDefinitionList* list =
-      policy::GetChromePolicyDefinitionList();
-  // Value::Type to python type.
-  std::map<Value::Type, std::string> types;
-  types[Value::TYPE_BOOLEAN] = "bool";
-  types[Value::TYPE_DICTIONARY] = "dict";
-  types[Value::TYPE_INTEGER] = "int";
-  types[Value::TYPE_LIST] = "list";
-  types[Value::TYPE_STRING] = "str";
-
-  const policy::PolicyDefinitionList::Entry* entry;
-  for (entry = list->begin; entry != list->end; ++entry) {
-    if (types.find(entry->value_type) == types.end()) {
-      std::string error("Unrecognized policy type for policy ");
-      reply.SendError(error + entry->name);
-      return;
-    }
-    Value* type = Value::CreateStringValue(types[entry->value_type]);
-    Value* device_policy = Value::CreateBooleanValue(entry->device_policy);
-    ListValue* definition = new ListValue;
-    definition->Append(type);
-    definition->Append(device_policy);
-    response.Set(entry->name, definition);
-  }
-
-  reply.SendSuccess(&response);
-#endif
-}
-
 void TestingAutomationProvider::RefreshPolicies(
     base::DictionaryValue* args,
     IPC::Message* reply_message) {
@@ -6282,20 +6215,6 @@ void TestingAutomationProvider::ActivateTabJSON(
   }
   chrome::ActivateTabAt(browser, chrome::GetIndexOfTab(browser, web_contents),
                         true);
-  reply.SendSuccess(NULL);
-}
-
-void TestingAutomationProvider::ResetToDefaultTheme(
-    base::DictionaryValue* args,
-    IPC::Message* reply_message) {
-  AutomationJSONReply reply(this, reply_message);
-  Browser* browser;
-  std::string error_msg;
-  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
-    reply.SendError(error_msg);
-    return;
-  }
-  ThemeServiceFactory::GetForProfile(browser->profile())->UseDefaultTheme();
   reply.SendSuccess(NULL);
 }
 

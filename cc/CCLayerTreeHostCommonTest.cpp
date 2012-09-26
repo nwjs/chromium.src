@@ -51,29 +51,31 @@ void setLayerPropertiesForTesting(CCLayerImpl* layer, const WebTransformationMat
     layer->setContentBounds(bounds);
 }
 
-void executeCalculateDrawTransformsAndVisibility(LayerChromium* rootLayer)
+void executeCalculateDrawTransformsAndVisibility(LayerChromium* rootLayer, float deviceScaleFactor = 1)
 {
     WebTransformationMatrix identityMatrix;
     Vector<RefPtr<LayerChromium> > dummyRenderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
+    IntSize deviceViewportSize = IntSize(rootLayer->bounds().width() * deviceScaleFactor, rootLayer->bounds().height() * deviceScaleFactor);
 
     // We are probably not testing what is intended if the rootLayer bounds are empty.
     ASSERT(!rootLayer->bounds().isEmpty());
-    CCLayerTreeHostCommon::calculateDrawTransforms(rootLayer, rootLayer->bounds(), 1, dummyMaxTextureSize, dummyRenderSurfaceLayerList);
+    CCLayerTreeHostCommon::calculateDrawTransforms(rootLayer, deviceViewportSize, deviceScaleFactor, dummyMaxTextureSize, dummyRenderSurfaceLayerList);
     CCLayerTreeHostCommon::calculateVisibleRects(dummyRenderSurfaceLayerList);
 }
 
-void executeCalculateDrawTransformsAndVisibility(CCLayerImpl* rootLayer)
+void executeCalculateDrawTransformsAndVisibility(CCLayerImpl* rootLayer, float deviceScaleFactor = 1)
 {
     // Note: this version skips layer sorting.
 
     WebTransformationMatrix identityMatrix;
     Vector<CCLayerImpl*> dummyRenderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
+    IntSize deviceViewportSize = IntSize(rootLayer->bounds().width() * deviceScaleFactor, rootLayer->bounds().height() * deviceScaleFactor);
 
     // We are probably not testing what is intended if the rootLayer bounds are empty.
     ASSERT(!rootLayer->bounds().isEmpty());
-    CCLayerTreeHostCommon::calculateDrawTransforms(rootLayer, rootLayer->bounds(), 1, 0, dummyMaxTextureSize, dummyRenderSurfaceLayerList);
+    CCLayerTreeHostCommon::calculateDrawTransforms(rootLayer, deviceViewportSize, deviceScaleFactor, 0, dummyMaxTextureSize, dummyRenderSurfaceLayerList);
     CCLayerTreeHostCommon::calculateVisibleRects(dummyRenderSurfaceLayerList);
 }
 
@@ -122,6 +124,20 @@ public:
 
     virtual bool drawsContent() const OVERRIDE { return true; }
 };
+
+class MockContentLayerChromiumClient : public ContentLayerChromiumClient {
+public:
+    MockContentLayerChromiumClient() { }
+    virtual ~MockContentLayerChromiumClient() { }
+    virtual void paintContents(SkCanvas*, const IntRect& clip, FloatRect& opaque) OVERRIDE { }
+};
+
+PassRefPtr<ContentLayerChromium> createDrawableContentLayerChromium(ContentLayerChromiumClient* delegate)
+{
+    RefPtr<ContentLayerChromium> toReturn = ContentLayerChromium::create(delegate);
+    toReturn->setIsDrawable(true);
+    return toReturn.release();
+}
 
 TEST(CCLayerTreeHostCommonTest, verifyTransformsForNoOpLayer)
 {
@@ -721,8 +737,8 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerWit
 
     DebugScopedSetImplThread scopedImplThread;
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
 
     child->setIsContainerForFixedPositionLayers(true);
     grandChild->setFixedToContainerLayer(true);
@@ -762,8 +778,8 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerWit
 
     DebugScopedSetImplThread scopedImplThread;
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
 
     // This scale will cause child and grandChild to be effectively 200 x 800 with respect to the renderTarget.
     WebTransformationMatrix nonUniformScale;
@@ -805,9 +821,9 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerWit
     DebugScopedSetImplThread scopedImplThread;
 
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
-    CCLayerImpl* greatGrandChild = grandChild->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
+    CCLayerImpl* greatGrandChild = grandChild->children()[0];
 
     child->setIsContainerForFixedPositionLayers(true);
     grandChild->setPosition(FloatPoint(8, 6));
@@ -849,9 +865,9 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerWit
     DebugScopedSetImplThread scopedImplThread;
 
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
-    CCLayerImpl* greatGrandChild = grandChild->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
+    CCLayerImpl* greatGrandChild = grandChild->children()[0];
 
     WebTransformationMatrix rotationAboutZ;
     rotationAboutZ.rotate3d(0, 0, 90);
@@ -911,9 +927,9 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerWit
     DebugScopedSetImplThread scopedImplThread;
 
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
-    CCLayerImpl* greatGrandChild = grandChild->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
+    CCLayerImpl* greatGrandChild = grandChild->children()[0];
 
     WebTransformationMatrix rotationAboutZ;
     rotationAboutZ.rotate3d(0, 0, 90);
@@ -973,9 +989,9 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerWit
     DebugScopedSetImplThread scopedImplThread;
 
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
-    CCLayerImpl* greatGrandChild = grandChild->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
+    CCLayerImpl* greatGrandChild = grandChild->children()[0];
 
     child->setIsContainerForFixedPositionLayers(true);
     grandChild->setPosition(FloatPoint(8, 6));
@@ -1046,9 +1062,9 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerWit
     DebugScopedSetImplThread scopedImplThread;
 
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
-    CCLayerImpl* greatGrandChild = grandChild->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
+    CCLayerImpl* greatGrandChild = grandChild->children()[0];
 
     // Add one more layer to the test tree for this scenario.
     {
@@ -1057,7 +1073,7 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerWit
         setLayerPropertiesForTesting(fixedPositionChild.get(), identity, identity, FloatPoint(0, 0), FloatPoint(0, 0), IntSize(100, 100), false);
         greatGrandChild->addChild(fixedPositionChild.release());
     }
-    CCLayerImpl* fixedPositionChild = greatGrandChild->children()[0].get();
+    CCLayerImpl* fixedPositionChild = greatGrandChild->children()[0];
 
     // Actually set up the scenario here.
     child->setIsContainerForFixedPositionLayers(true);
@@ -1157,8 +1173,8 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerWit
     DebugScopedSetImplThread scopedImplThread;
 
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
 
     child->setIsContainerForFixedPositionLayers(true);
     child->setForceRenderSurface(true);
@@ -1204,8 +1220,8 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerTha
     DebugScopedSetImplThread scopedImplThread;
 
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
 
     child->setIsContainerForFixedPositionLayers(true);
     grandChild->setFixedToContainerLayer(true);
@@ -1241,8 +1257,8 @@ TEST(CCLayerTreeHostCommonTest, verifyScrollCompensationForFixedPositionLayerTha
     DebugScopedSetImplThread scopedImplThread;
 
     OwnPtr<CCLayerImpl> root = createTreeForFixedPositionTests();
-    CCLayerImpl* child = root->children()[0].get();
-    CCLayerImpl* grandChild = child->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
+    CCLayerImpl* grandChild = child->children()[0];
 
     WebTransformationMatrix rotationByZ;
     rotationByZ.rotate3d(0, 0, 90);
@@ -2220,6 +2236,71 @@ TEST(CCLayerTreeHostCommonTest, verifyDrawableAndVisibleContentRectsWithTransfor
     EXPECT_RECT_EQ(unclippedSurfaceContent, child1->drawableContentRect());
 }
 
+TEST(CCLayerTreeHostCommonTest, verifyDrawableAndVisibleContentRectsInHighDPI)
+{
+    MockContentLayerChromiumClient client;
+
+    RefPtr<LayerChromium> root = LayerChromium::create();
+    RefPtr<ContentLayerChromium> renderSurface1 = createDrawableContentLayerChromium(&client);
+    RefPtr<ContentLayerChromium> renderSurface2 = createDrawableContentLayerChromium(&client);
+    RefPtr<ContentLayerChromium> child1 = createDrawableContentLayerChromium(&client);
+    RefPtr<ContentLayerChromium> child2 = createDrawableContentLayerChromium(&client);
+    RefPtr<ContentLayerChromium> child3 = createDrawableContentLayerChromium(&client);
+    root->addChild(renderSurface1);
+    renderSurface1->addChild(renderSurface2);
+    renderSurface2->addChild(child1);
+    renderSurface2->addChild(child2);
+    renderSurface2->addChild(child3);
+
+    WebTransformationMatrix identityMatrix;
+    setLayerPropertiesForTesting(root.get(), identityMatrix, identityMatrix, FloatPoint(0, 0), FloatPoint(0, 0), IntSize(100, 100), false);
+    setLayerPropertiesForTesting(renderSurface1.get(), identityMatrix, identityMatrix, FloatPoint(0, 0), FloatPoint(5, 5), IntSize(3, 4), false);
+    setLayerPropertiesForTesting(renderSurface2.get(), identityMatrix, identityMatrix, FloatPoint(0, 0), FloatPoint(5, 5), IntSize(7, 13), false);
+    setLayerPropertiesForTesting(child1.get(), identityMatrix, identityMatrix, FloatPoint(0, 0), FloatPoint(5, 5), IntSize(50, 50), false);
+    setLayerPropertiesForTesting(child2.get(), identityMatrix, identityMatrix, FloatPoint(0, 0), FloatPoint(75, 75), IntSize(50, 50), false);
+    setLayerPropertiesForTesting(child3.get(), identityMatrix, identityMatrix, FloatPoint(0, 0), FloatPoint(125, 125), IntSize(50, 50), false);
+
+    const double deviceScaleFactor = 2;
+    root->setContentsScale(deviceScaleFactor);
+    renderSurface1->setContentsScale(deviceScaleFactor);
+    renderSurface2->setContentsScale(deviceScaleFactor);
+    child1->setContentsScale(deviceScaleFactor);
+    child2->setContentsScale(deviceScaleFactor);
+    child3->setContentsScale(deviceScaleFactor);
+
+    root->setMasksToBounds(true);
+    renderSurface1->setForceRenderSurface(true);
+    renderSurface2->setForceRenderSurface(true);
+    executeCalculateDrawTransformsAndVisibility(root.get(), deviceScaleFactor);
+
+    ASSERT_TRUE(renderSurface1->renderSurface());
+    ASSERT_TRUE(renderSurface2->renderSurface());
+
+    // DrawableContentRects for all layers and surfaces are scaled by deviceScaleFactor.
+    EXPECT_RECT_EQ(IntRect(0, 0, 200, 200), root->renderSurface()->drawableContentRect());
+    EXPECT_RECT_EQ(IntRect(0, 0, 200, 200), root->drawableContentRect());
+    EXPECT_RECT_EQ(IntRect(10, 10, 190, 190), renderSurface1->renderSurface()->drawableContentRect());
+
+    // renderSurface2 lives in the "unclipped universe" of renderSurface1, and
+    // is only implicitly clipped by renderSurface1.
+    EXPECT_RECT_EQ(IntRect(10, 10, 350, 350), renderSurface2->renderSurface()->drawableContentRect());
+
+    EXPECT_RECT_EQ(IntRect(10, 10, 100, 100), child1->drawableContentRect());
+    EXPECT_RECT_EQ(IntRect(150, 150, 100, 100), child2->drawableContentRect());
+    EXPECT_RECT_EQ(IntRect(250, 250, 100, 100), child3->drawableContentRect());
+
+    // The root layer does not actually draw content of its own.
+    EXPECT_RECT_EQ(IntRect(0, 0, 0, 0), root->visibleContentRect());
+
+    // All layer visibleContentRects are expressed in content space of each
+    // layer, so they are also scaled by the deviceScaleFactor.
+    EXPECT_RECT_EQ(IntRect(0, 0, 6, 8), renderSurface1->visibleContentRect());
+    EXPECT_RECT_EQ(IntRect(0, 0, 14, 26), renderSurface2->visibleContentRect());
+    EXPECT_RECT_EQ(IntRect(0, 0, 100, 100), child1->visibleContentRect());
+    EXPECT_RECT_EQ(IntRect(0, 0, 100, 100), child2->visibleContentRect());
+    EXPECT_RECT_EQ(IntRect(0, 0, 100, 100), child3->visibleContentRect());
+}
+
 TEST(CCLayerTreeHostCommonTest, verifyBackFaceCullingWithoutPreserves3d)
 {
     // Verify the behavior of back-face culling when there are no preserve-3d layers. Note
@@ -2859,7 +2940,7 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForSingleLayerWithScaledContents
 
     // Sanity check the scenario we just created.
     // The visibleContentRect for testLayer is actually 100x100, even though its layout size is 50x50, positioned at 25x25.
-    CCLayerImpl* testLayer = root->children()[0].get();
+    CCLayerImpl* testLayer = root->children()[0];
     EXPECT_RECT_EQ(IntRect(IntPoint::zero(), IntSize(100, 100)), testLayer->visibleContentRect());
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
     ASSERT_EQ(1u, root->renderSurface()->layerList().size());
@@ -3168,9 +3249,9 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForMultipleLayers)
         root->addChild(child2.release());
     }
 
-    CCLayerImpl* child1 = root->children()[0].get();
-    CCLayerImpl* child2 = root->children()[1].get();
-    CCLayerImpl* grandChild1 = child1->children()[0].get();
+    CCLayerImpl* child1 = root->children()[0];
+    CCLayerImpl* child2 = root->children()[1];
+    CCLayerImpl* grandChild1 = child1->children()[0];
 
     Vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
@@ -3277,9 +3358,9 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForMultipleLayerLists)
         root->addChild(child2.release());
     }
 
-    CCLayerImpl* child1 = root->children()[0].get();
-    CCLayerImpl* child2 = root->children()[1].get();
-    CCLayerImpl* grandChild1 = child1->children()[0].get();
+    CCLayerImpl* child1 = root->children()[0];
+    CCLayerImpl* child2 = root->children()[1];
+    CCLayerImpl* grandChild1 = child1->children()[0];
 
     Vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
@@ -3338,20 +3419,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForMultipleLayerLists)
     resultLayer = CCLayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(4, resultLayer->id());
-}
-
-class MockContentLayerChromiumClient : public ContentLayerChromiumClient {
-public:
-    MockContentLayerChromiumClient() { }
-    virtual ~MockContentLayerChromiumClient() { }
-    virtual void paintContents(SkCanvas*, const IntRect& clip, FloatRect& opaque) OVERRIDE { }
-};
-
-PassRefPtr<ContentLayerChromium> createDrawableContentLayerChromium(ContentLayerChromiumClient* delegate)
-{
-    RefPtr<ContentLayerChromium> toReturn = ContentLayerChromium::create(delegate);
-    toReturn->setIsDrawable(true);
-    return toReturn.release();
 }
 
 TEST(CCLayerTreeHostCommonTest, verifyLayerTransformsInHighDPI)

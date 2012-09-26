@@ -78,6 +78,7 @@ WebPreferences::WebPreferences()
       show_composited_layer_borders(false),
       show_composited_layer_tree(false),
       show_fps_counter(false),
+      accelerated_compositing_for_overflow_scroll_enabled(false),
       show_paint_rects(false),
       render_vsync_enabled(true),
       asynchronous_spell_checking_enabled(true),
@@ -98,10 +99,15 @@ WebPreferences::WebPreferences()
       fullscreen_enabled(false),
       allow_displaying_insecure_content(true),
       allow_running_insecure_content(false),
+#if defined(OS_ANDROID)
+      font_scale_factor(1.0f),
+      force_enable_zoom(false),
+#endif
       password_echo_enabled(false),
       should_print_backgrounds(false),
       enable_scroll_animator(false),
       visual_word_movement_enabled(false),
+      css_sticky_position_enabled(false),
       css_regions_enabled(false),
       css_shaders_enabled(false),
       css_variables_enabled(false),
@@ -309,6 +315,10 @@ void WebPreferences::Apply(WebView* web_view) const {
   // Display an FPS indicator if requested on the command line.
   settings->setShowFPSCounter(show_fps_counter);
 
+  // Enables accelerated compositing for overflow scroll.
+  settings->setAcceleratedCompositingForOverflowScrollEnabled(
+      accelerated_compositing_for_overflow_scroll_enabled);
+
   // Display the current compositor tree as overlay if requested on
   // the command line
   settings->setShowPlatformLayerTree(show_composited_layer_tree);
@@ -384,11 +394,16 @@ void WebPreferences::Apply(WebView* web_view) const {
   settings->setFullScreenEnabled(fullscreen_enabled);
   settings->setAllowDisplayOfInsecureContent(allow_displaying_insecure_content);
   settings->setAllowRunningOfInsecureContent(allow_running_insecure_content);
+#if defined(OS_ANDROID)
+  settings->setTextAutosizingFontScaleFactor(font_scale_factor);
+  web_view->setIgnoreViewportTagMaximumScale(force_enable_zoom);
+#endif
   settings->setPasswordEchoEnabled(password_echo_enabled);
   settings->setShouldPrintBackgrounds(should_print_backgrounds);
   settings->setEnableScrollAnimator(enable_scroll_animator);
   settings->setVisualWordMovementEnabled(visual_word_movement_enabled);
 
+  settings->setCSSStickyPositionEnabled(css_sticky_position_enabled);
   settings->setExperimentalCSSRegionsEnabled(css_regions_enabled);
   settings->setExperimentalCSSCustomFilterEnabled(css_shaders_enabled);
   settings->setExperimentalCSSVariablesEnabled(css_variables_enabled);

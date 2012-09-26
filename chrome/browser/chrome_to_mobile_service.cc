@@ -337,10 +337,12 @@ void ChromeToMobileService::Shutdown() {
 }
 
 void ChromeToMobileService::OnURLFetchComplete(const net::URLFetcher* source) {
-  if (source->GetURL() == GetSearchURL(cloud_print_url_))
+  if (source->GetOriginalURL() == GetSearchURL(cloud_print_url_))
     HandleSearchResponse(source);
-  else
+  else if (source->GetOriginalURL() == GetSubmitURL(cloud_print_url_))
     HandleSubmitResponse(source);
+  else
+    NOTREACHED();
 
   // Remove the URLFetcher from the ScopedVector; this deletes the URLFetcher.
   for (ScopedVector<net::URLFetcher>::iterator it = url_fetchers_.begin();
@@ -394,7 +396,13 @@ void ChromeToMobileService::OnGetTokenSuccess(
 
 void ChromeToMobileService::OnGetTokenFailure(
     const GoogleServiceAuthError& error) {
+  // Log a general auth error metric for the "ChromeToMobile.Service" histogram.
   LogMetric(BAD_TOKEN);
+  // Log a more detailed metric for the "ChromeToMobile.AuthError" histogram.
+  UMA_HISTOGRAM_ENUMERATION("ChromeToMobile.AuthError", error.state(),
+                            GoogleServiceAuthError::NUM_STATES);
+  VLOG(0) << "ChromeToMobile auth failed: " << error.ToString();
+
   access_token_.clear();
   access_token_fetcher_.reset();
   auth_retry_timer_.Stop();
@@ -590,33 +598,36 @@ void ChromeToMobileService::RequestDeviceSearch() {
 void ChromeToMobileService::HandleSearchResponse(
     const net::URLFetcher* source) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-  DCHECK_EQ(source->GetURL(), GetSearchURL(cloud_print_url_));
+  DCHECK_EQ(source->GetOriginalURL(), GetSearchURL(cloud_print_url_));
 
   ListValue mobiles;
   std::string data;
+  bool success = false;
   ListValue* list = NULL;
   DictionaryValue* dictionary = NULL;
   source->GetResponseAsString(&data);
   scoped_ptr<Value> json(base::JSONReader::Read(data));
-  if (json.get() && json->GetAsDictionary(&dictionary) && dictionary &&
-      dictionary->GetList(cloud_print::kPrinterListValue, &list)) {
-    std::string type, name, id;
-    DictionaryValue* printer = NULL;
-    DictionaryValue* mobile = NULL;
-    for (size_t index = 0; index < list->GetSize(); ++index) {
-      if (list->GetDictionary(index, &printer) &&
-          printer->GetString("type", &type) &&
-          (type.compare(kTypeAndroid) == 0 || type.compare(kTypeIOS) == 0)) {
-        // Copy just the requisite values from the full |printer| definition.
-        if (printer->GetString("displayName", &name) &&
-            printer->GetString("id", &id)) {
-          mobile = new DictionaryValue();
-          mobile->SetString("type", type);
-          mobile->SetString("name", name);
-          mobile->SetString("id", id);
-          mobiles.Append(mobile);
-        } else {
-          NOTREACHED();
+  if (json.get() && json->GetAsDictionary(&dictionary) && dictionary) {
+    dictionary->GetBoolean("success", &success);
+    if (dictionary->GetList(cloud_print::kPrinterListValue, &list)) {
+      std::string type, name, id;
+      DictionaryValue* printer = NULL;
+      DictionaryValue* mobile = NULL;
+      for (size_t index = 0; index < list->GetSize(); ++index) {
+        if (list->GetDictionary(index, &printer) &&
+            printer->GetString("type", &type) &&
+            (type.compare(kTypeAndroid) == 0 || type.compare(kTypeIOS) == 0)) {
+          // Copy just the requisite values from the full |printer| definition.
+          if (printer->GetString("displayName", &name) &&
+              printer->GetString("id", &id)) {
+            mobile = new DictionaryValue();
+            mobile->SetString("type", type);
+            mobile->SetString("name", name);
+            mobile->SetString("id", id);
+            mobiles.Append(mobile);
+          } else {
+            NOTREACHED();
+          }
         }
       }
     }
@@ -635,14 +646,21 @@ void ChromeToMobileService::HandleSearchResponse(
 
   // Update the cached mobile device list in profile prefs.
   profile_->GetPrefs()->Set(prefs::kChromeToMobileDeviceList, mobiles);
+
   if (HasMobiles())
     LogMetric(DEVICES_AVAILABLE);
+  LogMetric(success ? SEARCH_SUCCESS : SEARCH_ERROR);
+  VLOG_IF(0, !success) << "ChromeToMobile search failed (" <<
+                          source->GetResponseCode() << "): " << data;
+
   UpdateCommandState();
 }
 
 void ChromeToMobileService::HandleSubmitResponse(
     const net::URLFetcher* source) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+  DCHECK_EQ(source->GetOriginalURL(), GetSubmitURL(cloud_print_url_));
+
   // Get the success value from the cloud print server response data.
   std::string data;
   bool success = false;
@@ -662,8 +680,8 @@ void ChromeToMobileService::HandleSubmitResponse(
 
   // Log each URL and [DELAYED_]SNAPSHOT job submission response.
   LogMetric(success ? SEND_SUCCESS : SEND_ERROR);
-  LOG_IF(INFO, !success) << "ChromeToMobile send failed (" <<
-                            source->GetResponseCode() << "): " << data;
+  VLOG_IF(0, !success) << "ChromeToMobile send failed (" <<
+                          source->GetResponseCode() << "): " << data;
 
   // Get the observer for this job submission response.
   base::WeakPtr<Observer> observer;

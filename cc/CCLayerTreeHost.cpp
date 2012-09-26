@@ -36,6 +36,47 @@ namespace cc {
 
 bool CCLayerTreeHost::s_needsFilterContext = false;
 
+CCLayerTreeSettings::CCLayerTreeSettings()
+    : acceleratePainting(false)
+    , showFPSCounter(false)
+    , showPlatformLayerTree(false)
+    , showPaintRects(false)
+    , showPropertyChangedRects(false)
+    , showSurfaceDamageRects(false)
+    , showScreenSpaceRects(false)
+    , showReplicaScreenSpaceRects(false)
+    , showOccludingRects(false)
+    , renderVSyncEnabled(true)
+    , refreshRate(0)
+    , maxPartialTextureUpdates(std::numeric_limits<size_t>::max())
+    , defaultTileSize(IntSize(256, 256))
+    , maxUntiledLayerSize(IntSize(512, 512))
+    , minimumOcclusionTrackingSize(IntSize(160, 160))
+{
+}
+
+CCLayerTreeSettings::~CCLayerTreeSettings()
+{
+}
+
+RendererCapabilities::RendererCapabilities()
+    : bestTextureFormat(0)
+    , contextHasCachedFrontBuffer(false)
+    , usingPartialSwap(false)
+    , usingAcceleratedPainting(false)
+    , usingSetVisibility(false)
+    , usingSwapCompleteCallback(false)
+    , usingGpuMemoryManager(false)
+    , usingDiscardFramebuffer(false)
+    , usingEglImage(false)
+    , maxTextureSize(0)
+{
+}
+
+RendererCapabilities::~RendererCapabilities()
+{
+}
+
 bool CCLayerTreeHost::anyLayerTreeHostInstanceExists()
 {
     return numLayerTreeInstances > 0;
@@ -99,7 +140,11 @@ CCLayerTreeHost::~CCLayerTreeHost()
     numLayerTreeInstances--;
     RateLimiterMap::iterator it = m_rateLimiters.begin();
     if (it != m_rateLimiters.end())
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        it->value->stop();
+#else
         it->second->stop();
+#endif
 }
 
 void CCLayerTreeHost::setSurfaceReady()
@@ -394,18 +439,40 @@ void CCLayerTreeHost::setVisible(bool visible)
     m_proxy->setVisible(visible);
 }
 
-void CCLayerTreeHost::unlinkAllContentTextures()
+void CCLayerTreeHost::reduceContentsTexturesMemoryOnImplThread(size_t limitBytes, CCResourceProvider* resourceProvider)
+{
+    ASSERT(CCProxy::isImplThread());
+    ASSERT(m_contentsTextureManager.get());
+    m_contentsTextureManager->reduceMemoryOnImplThread(limitBytes, resourceProvider);
+}
+
+bool CCLayerTreeHost::evictedContentsTexturesBackingsExist() const
+{
+    ASSERT(CCProxy::isImplThread());
+    ASSERT(m_contentsTextureManager.get());
+    return m_contentsTextureManager->evictedBackingsExist();
+}
+
+void CCLayerTreeHost::getEvictedContentTexturesBackings(CCPrioritizedTextureManager::BackingVector& evictedBackings)
+{
+    ASSERT(CCProxy::isImplThread());
+    evictedBackings.clear();
+    if (m_rendererInitialized)
+        m_contentsTextureManager->getEvictedBackings(evictedBackings);
+}
+
+void CCLayerTreeHost::unlinkEvictedContentTexturesBackings(const CCPrioritizedTextureManager::BackingVector& evictedBackings)
 {
     ASSERT(CCProxy::isMainThread());
     ASSERT(m_contentsTextureManager.get());
-    m_contentsTextureManager->unlinkAllBackings();
+    m_contentsTextureManager->unlinkEvictedBackings(evictedBackings);
 }
 
-void CCLayerTreeHost::deleteUnlinkedTextures()
+bool CCLayerTreeHost::deleteEvictedContentTexturesBackings()
 {
     ASSERT(CCProxy::isImplThread() && CCProxy::isMainThreadBlocked());
     ASSERT(m_contentsTextureManager.get());
-    m_contentsTextureManager->deleteAllUnlinkedBackings();
+    return m_contentsTextureManager->deleteEvictedBackings();
 }
 
 void CCLayerTreeHost::startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, double durationSec)
@@ -685,7 +752,11 @@ void CCLayerTreeHost::startRateLimiter(WebKit::WebGraphicsContext3D* context)
     ASSERT(context);
     RateLimiterMap::iterator it = m_rateLimiters.find(context);
     if (it != m_rateLimiters.end())
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        it->value->start();
+#else
         it->second->start();
+#endif
     else {
         RefPtr<RateLimiter> rateLimiter = RateLimiter::create(context, this);
         m_rateLimiters.set(context, rateLimiter);
@@ -697,7 +768,11 @@ void CCLayerTreeHost::stopRateLimiter(WebKit::WebGraphicsContext3D* context)
 {
     RateLimiterMap::iterator it = m_rateLimiters.find(context);
     if (it != m_rateLimiters.end()) {
+#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
+        it->value->stop();
+#else
         it->second->stop();
+#endif
         m_rateLimiters.remove(it);
     }
 }

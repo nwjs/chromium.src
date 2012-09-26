@@ -44,6 +44,8 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
 
   void EnsureItemVisible(const AppListItemView* item);
 
+  bool HasPageTransition() const;
+
   int tiles_per_page() const { return cols_ * rows_per_page_; }
 
   // Overridden from views::View:
@@ -71,6 +73,7 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // Overridden from ListModelObserver:
   virtual void ListItemsAdded(size_t start, size_t count) OVERRIDE;
   virtual void ListItemsRemoved(size_t start, size_t count) OVERRIDE;
+  virtual void ListItemMoved(size_t index, size_t target_index) OVERRIDE;
   virtual void ListItemsChanged(size_t start, size_t count) OVERRIDE;
 
   // Overridden from PaginationModelObserver:

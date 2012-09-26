@@ -102,7 +102,7 @@ enum AnimationState {
 
 // Returns the current state based on how much time has elapsed.
 - (AnimationState)animationState {
-  if (progress_ <= 0.0 || progress_ >= 1.0)
+  if (progress_ <= 0.0)
     return kNoAnimation;
   if (progress_ <= 1.0)
     return kOpening;
@@ -138,6 +138,14 @@ WebIntentsButtonDecoration::WebIntentsButtonDecoration(
 
 WebIntentsButtonDecoration::~WebIntentsButtonDecoration() {}
 
+void WebIntentsButtonDecoration::SetButtonImages(NSImage* left,
+                                                 NSImage* center,
+                                                 NSImage* right) {
+  leftImage_.reset(left, base::scoped_policy::RETAIN);
+  centerImage_.reset(center, base::scoped_policy::RETAIN);
+  rightImage_.reset(right, base::scoped_policy::RETAIN);
+}
+
 bool WebIntentsButtonDecoration::AcceptsMousePress() {
   return true;
 }
@@ -145,11 +153,12 @@ bool WebIntentsButtonDecoration::AcceptsMousePress() {
 bool WebIntentsButtonDecoration::OnMousePressed(NSRect frame) {
   // Get host. This should be shared on linux/win/osx medium-term.
   Browser* browser = browser::GetLastActiveBrowser();
-  TabContents* tabContents = chrome::GetActiveTabContents(browser);
-  if (!tabContents)
+  content::WebContents* web_contents = chrome::GetActiveWebContents(browser);
+  if (!web_contents)
     return true;
 
-  tabContents->web_intent_picker_controller()->LocationBarPickerToolClicked();
+  WebIntentPickerController::FromWebContents(web_contents)->
+      LocationBarPickerToolClicked();
   return true;
 }
 
@@ -163,13 +172,13 @@ CGFloat WebIntentsButtonDecoration::GetWidthForSpace(CGFloat width) {
   AnimationState state = [animation_ animationState];
   CGFloat progress = [animation_ progress];
   // Set the margins, fixed for all animation states.
-  preferredWidth = kTextMarginPadding;
+  preferredWidth = 2 * kTextMarginPadding;
   // Add the width of the text based on the state of the animation.
   switch (state) {
     case kNoAnimation:
       return preferredWidth;
     case kOpening:
-      return preferredWidth + textWidth_ * progress;
+      return preferredWidth + (textWidth_ * progress);
     case kOpen:
       return preferredWidth + textWidth_;
   }
@@ -178,28 +187,17 @@ CGFloat WebIntentsButtonDecoration::GetWidthForSpace(CGFloat width) {
 void WebIntentsButtonDecoration::DrawInFrame(
     NSRect frame, NSView* control_view) {
   if ([animation_ animationState] == kOpening) {
-    // Draw the background. Cache the gradient.
-    if (!gradient_) {
-      // Colors chosen to match Windows code.
-      NSColor* start_color =
-          [NSColor colorWithCalibratedRed:0.90 green:0.90 blue:0.90 alpha:1.0];
-      NSColor* end_color =
-          [NSColor colorWithCalibratedRed:0.82 green:0.82 blue:0.82 alpha:1.0];
-      NSArray* color_array =
-          [NSArray arrayWithObjects:start_color, end_color, nil];
-      gradient_.reset([[NSGradient alloc] initWithColors:color_array]);
-    }
-
     gfx::ScopedNSGraphicsContextSaveGState scopedGState;
-
     NSRectClip(frame);
-
     frame = NSInsetRect(frame, 0.0, kBubbleYInset);
-    [gradient_ drawInRect:frame angle:90.0];
-    NSColor* border_color =
-        [NSColor colorWithCalibratedRed:0.63 green:0.63 blue:0.63 alpha:1.0];
-    [border_color set];
-    NSFrameRect(frame);
+    NSDrawThreePartImage(frame,
+                         leftImage_.get(),
+                         centerImage_.get(),
+                         rightImage_.get(),
+                         NO,  // NO=horizontal layout
+                         NSCompositeSourceOver,
+                         1.0,
+                         YES);  // use flipped coordinates
 
     // Draw the text, clipped to fit on the right. While handling clipping,
     // NSAttributedString's drawInRect: won't draw a word if it doesn't fit
@@ -215,9 +213,9 @@ void WebIntentsButtonDecoration::DrawInFrame(
 }
 
 void WebIntentsButtonDecoration::Update(TabContents* tab_contents) {
-  WebIntentPickerController* intentsController =
-      tab_contents->web_intent_picker_controller();
-  SetVisible(intentsController->ShowLocationBarPickerTool());
+  WebIntentPickerController* intents_controller =
+      WebIntentPickerController::FromWebContents(tab_contents->web_contents());
+  SetVisible(intents_controller->ShowLocationBarPickerTool());
 
   if (IsVisible()) {
     if (!ranAnimation_ && !animation_) {

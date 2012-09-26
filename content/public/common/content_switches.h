@@ -66,7 +66,6 @@ CONTENT_EXPORT extern const char kDisableLocalStorage[];
 CONTENT_EXPORT extern const char kDisableLogging[];
 CONTENT_EXPORT extern const char kDisableSmoothScrolling[];
 CONTENT_EXPORT extern const char kDisablePlugins[];
-extern const char kDisablePointerLock[];
 extern const char kDisableRemoteFonts[];
 extern const char kDisableRendererAccessibility[];
 extern const char kDisableSSLFalseStart[];
@@ -100,12 +99,12 @@ extern const char kEnableExperimentalWebKitFeatures[];
 extern const char kEnableFastback[];
 CONTENT_EXPORT extern const char kEnableFixedLayout[];
 CONTENT_EXPORT extern const char kDisableFullScreen[];
-extern const char kEnablePointerLock[];
 CONTENT_EXPORT extern const char kEnableTextServicesFramework[];
 extern const char kEnableGestureTapHighlight[];
 extern const char kEnableGpuBenchmarking[];
 CONTENT_EXPORT extern const char kEnableLogging[];
 extern const char kDisableMediaSource[];
+extern const char kEnableWebMediaPlayerMS[];
 extern const char kEnableMonitorProfile[];
 extern const char kEnablePartialSwap[];
 extern const char kEnableUIReleaseFrontSurface[];
@@ -117,6 +116,7 @@ extern const char kEnableRendererSideMixing[];
 extern const char kEnableSSLCachedInfo[];
 extern const char kEnableSandboxLogging[];
 extern const char kEnableSeccompSandbox[];
+CONTENT_EXPORT extern const char kEnableSoftwareCompositingGLAdapter[];
 CONTENT_EXPORT extern const char kEnableSmoothScrolling[];
 CONTENT_EXPORT extern const char kEnableStatsTable[];
 extern const char kEnableStrictSiteIsolation[];
@@ -138,6 +138,7 @@ CONTENT_EXPORT extern const char kGpuProcess[];
 extern const char kGpuStartupDialog[];
 extern const char kGpuVendorID[];
 CONTENT_EXPORT extern const char kGuestRenderer[];
+CONTENT_EXPORT extern const char kIgnoreGpuBlacklist[];
 extern const char kInProcessGPU[];
 extern const char kInProcessPlugins[];
 CONTENT_EXPORT extern const char kInProcessWebGL[];
@@ -174,6 +175,7 @@ CONTENT_EXPORT extern const char kServiceProcess[];
 extern const char kShowCompositedLayerBorders[];
 extern const char kShowCompositedLayerTree[];
 extern const char kShowFPSCounter[];
+extern const char kEnableAcceleratedCompositingForOverflowScroll[];
 extern const char kShowPaintRects[];
 CONTENT_EXPORT extern const char kSimulateTouchScreenWithMouse[];
 CONTENT_EXPORT extern const char kSingleProcess[];
@@ -204,12 +206,15 @@ CONTENT_EXPORT extern const char kDisableFixedPositionCreatesStackingContext[];
 extern const char kEnableVisualWordMovement[];
 
 #if defined(OS_ANDROID)
+extern const char kMediaPlayerInRenderProcess[];
+extern const char kDisableMediaHistoryLogging[];
 extern const char kNetworkCountryIso[];
 extern const char kUseMobileUserAgent[];
 extern const char kGraphicsMode[];
 // Not actual flags, just values: for example, --graphics-mode=compositor
 extern const char kGraphicsModeValueBasic[];
 extern const char kGraphicsModeValueCompositor[];
+extern const char kEnableWebViewSynchronousAPIs[];
 #endif
 
 #if defined(OS_POSIX)

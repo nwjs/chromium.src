@@ -27,7 +27,6 @@ namespace webkit_media {
 
 static const uint8 kFakeKeyId[] = { 0x4b, 0x65, 0x79, 0x20, 0x49, 0x44 };
 static const uint8 kFakeIv[DecryptConfig::kDecryptionKeySize] = { 0 };
-static const uint8 kFakeCheckSum[] = { 0, 0 };
 static const char kFakeKeySystem[] = "system.key.fake";
 static const char kFakeSessionId[] = "FakeSessionId";
 static const uint8 kFakeKey[] = { 0x4b, 0x65, 0x79 };
@@ -45,8 +44,6 @@ static scoped_refptr<DecoderBuffer> CreateFakeEncryptedBuffer() {
                       arraysize(kFakeKeyId)),
           std::string(reinterpret_cast<const char*>(kFakeIv),
                       DecryptConfig::kDecryptionKeySize),
-          std::string(reinterpret_cast<const char*>(kFakeCheckSum),
-                      arraysize(kFakeCheckSum)),
           encrypted_frame_offset,
           std::vector<media::SubsampleEntry>())));
   return encrypted_buffer;
@@ -217,10 +214,10 @@ TEST_F(ProxyDecryptorTest, StopWhenDecryptionsPending) {
   AddKey();  // An irrelevant key is added.
   proxy_decryptor_.Decrypt(encrypted_buffer_, decrypt_cb_);
 
-  EXPECT_CALL(*real_decryptor_, Stop());
+  EXPECT_CALL(*real_decryptor_, CancelDecrypt());
   EXPECT_CALL(*this, BufferDecrypted(Decryptor::kError, null_buffer_))
       .Times(3);
-  proxy_decryptor_.Stop();
+  proxy_decryptor_.CancelDecrypt();
 
   message_loop_.PostTask(FROM_HERE, MessageLoop::QuitClosure());
   message_loop_.Run();

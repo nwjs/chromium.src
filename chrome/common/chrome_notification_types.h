@@ -88,6 +88,13 @@ enum NotificationType {
 
   // Application-wide ----------------------------------------------------------
 
+  // This message is sent when the application is terminating (the last
+  // browser window has shutdown as part of an explicit user-initiated exit,
+  // or the user closed the last browser window on Windows/Linux and there are
+  // no BackgroundContents keeping the browser running). No source or details
+  // are passed.
+  NOTIFICATION_APP_TERMINATING,
+
 #if defined(OS_MACOSX)
   // This notification is sent when the app has no key window, such as when
   // all windows are closed but the app is still active. No source or details
@@ -167,7 +174,7 @@ enum NotificationType {
   NOTIFICATION_TAB_ADDED,
 
   // This notification is sent after a tab has been appended to the tab_strip.
-  // The source is a Source<TabContents> of the tab being added. There
+  // The source is a Source<WebContents> of the tab being added. There
   // are no details.
   NOTIFICATION_TAB_PARENTED,
 
@@ -1022,6 +1029,10 @@ enum NotificationType {
   // First paint event after this fires NOTIFICATION_LOGIN_WEBUI_VISIBLE.
   NOTIFICATION_WIZARD_FIRST_SCREEN_SHOWN,
 
+  // Sent when the EULA has been accepted in the first-run wizard. This is never
+  // sent if the EULA was already accepted at startup.
+  NOTIFICATION_WIZARD_EULA_ACCEPTED,
+
   // Sent when the specific part of login WebUI is considered to be visible.
   // That moment is tracked as the first paint event after one of the:
   // 1. NOTIFICATION_LOGIN_USER_IMAGES_LOADED
@@ -1246,7 +1257,7 @@ enum NotificationType {
   // Blocked content.
   // Sent when content changes to or from the blocked state in
   // BlockedContentTabHelper.
-  // The source is the TabContents of the blocked content and details
+  // The source is the WebContents of the blocked content and details
   // is a boolean: true if the content is entering the blocked state, false
   // if it is leaving.
   NOTIFICATION_CONTENT_BLOCKED_STATE_CHANGED,

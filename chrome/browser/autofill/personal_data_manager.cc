@@ -10,6 +10,9 @@
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/api/prefs/pref_service_base.h"
+#include "chrome/browser/api/sync/profile_sync_service_base.h"
+#include "chrome/browser/api/webdata/autofill_web_data_service.h"
 #include "chrome/browser/autofill/autofill-inl.h"
 #include "chrome/browser/autofill/autofill_field.h"
 #include "chrome/browser/autofill/autofill_metrics.h"
@@ -19,12 +22,9 @@
 #include "chrome/browser/autofill/phone_number.h"
 #include "chrome/browser/autofill/phone_number_i18n.h"
 #include "chrome/browser/autofill/select_control_handler.h"
-#include "chrome/browser/api/prefs/pref_service_base.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sync/profile_sync_service.h"
-#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_source.h"
 
@@ -166,15 +166,14 @@ void PersonalDataManager::OnWebDataServiceRequestDone(
     // As all Autofill data is ready, the Autocomplete data is ready as well.
     // If sync is not set, cull older entries of the autocomplete. Otherwise,
     // the entries will be culled when sync is connected.
-    ProfileSyncService* sync_service =
-        ProfileSyncServiceFactory::GetInstance()->GetForProfile(
-            static_cast<Profile*>(browser_context_));
+    ProfileSyncServiceBase* sync_service =
+        ProfileSyncServiceBase::FromBrowserContext(browser_context_);
     if (sync_service && (!sync_service->HasSyncSetupCompleted() ||
-                         !PrefServiceBase::ForContext(
+                         !PrefServiceBase::FromBrowserContext(
                              browser_context_)->GetBoolean(
                                  prefs::kSyncAutofill))) {
       scoped_ptr<AutofillWebDataService> service(
-          AutofillWebDataService::ForContext(browser_context_));
+          AutofillWebDataService::FromBrowserContext(browser_context_));
       if (service.get())
         service->RemoveExpiredFormElements();
     }
@@ -202,15 +201,14 @@ void PersonalDataManager::OnStateChanged() {
     return;
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get()) {
     NOTREACHED();
     return;
   }
 
-  ProfileSyncService* sync_service =
-      ProfileSyncServiceFactory::GetInstance()->GetForProfile(
-          static_cast<Profile*>(browser_context_));
+  ProfileSyncServiceBase* sync_service =
+      ProfileSyncServiceBase::FromBrowserContext(browser_context_);
   if (!sync_service)
     return;
 
@@ -233,7 +231,7 @@ void PersonalDataManager::Observe(int type,
 
   if (DCHECK_IS_ON()) {
     scoped_ptr<AutofillWebDataService> autofill_data(
-        AutofillWebDataService::ForContext(browser_context_));
+        AutofillWebDataService::FromBrowserContext(browser_context_));
 
     DCHECK(autofill_data.get() &&
            autofill_data->GetNotificationSource() == source);
@@ -372,7 +370,7 @@ void PersonalDataManager::AddProfile(const AutofillProfile& profile) {
     return;
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get())
     return;
 
@@ -400,7 +398,7 @@ void PersonalDataManager::UpdateProfile(const AutofillProfile& profile) {
   }
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get())
     return;
 
@@ -419,7 +417,7 @@ void PersonalDataManager::RemoveProfile(const std::string& guid) {
     return;
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get())
     return;
 
@@ -451,7 +449,7 @@ void PersonalDataManager::AddCreditCard(const CreditCard& credit_card) {
     return;
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get())
     return;
 
@@ -479,7 +477,7 @@ void PersonalDataManager::UpdateCreditCard(const CreditCard& credit_card) {
   }
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get())
     return;
 
@@ -498,7 +496,7 @@ void PersonalDataManager::RemoveCreditCard(const std::string& guid) {
     return;
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get())
     return;
 
@@ -539,7 +537,7 @@ bool PersonalDataManager::IsDataLoaded() const {
 const std::vector<AutofillProfile*>& PersonalDataManager::profiles() const {
   // |browser_context_| is NULL in AutofillManagerTest.
   bool auxiliary_profiles_enabled = browser_context_ ?
-      PrefServiceBase::ForContext(browser_context_)->GetBoolean(
+      PrefServiceBase::FromBrowserContext(browser_context_)->GetBoolean(
           prefs::kAutofillAuxiliaryProfilesEnabled) :
       false;
   if (!auxiliary_profiles_enabled)
@@ -588,7 +586,7 @@ void PersonalDataManager::Init(BrowserContext* browser_context) {
 
   // WebDataService may not be available in tests.
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get())
     return;
 
@@ -602,7 +600,7 @@ void PersonalDataManager::Init(BrowserContext* browser_context) {
 }
 
 bool PersonalDataManager::IsAutofillEnabled() const {
-  return PrefServiceBase::ForContext(browser_context_)->GetBoolean(
+  return PrefServiceBase::FromBrowserContext(browser_context_)->GetBoolean(
       prefs::kAutofillEnabled);
 }
 
@@ -684,7 +682,7 @@ void PersonalDataManager::SetProfiles(std::vector<AutofillProfile>* profiles) {
   AutofillProfile::AdjustInferredLabels(&profile_pointers);
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get())
     return;
 
@@ -736,7 +734,7 @@ void PersonalDataManager::SetCreditCards(
       credit_cards->end());
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get())
     return;
 
@@ -776,7 +774,7 @@ void PersonalDataManager::SetCreditCards(
 
 void PersonalDataManager::LoadProfiles() {
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get()) {
     NOTREACHED();
     return;
@@ -796,7 +794,7 @@ void PersonalDataManager::LoadAuxiliaryProfiles() const {
 
 void PersonalDataManager::LoadCreditCards() {
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get()) {
     NOTREACHED();
     return;
@@ -848,7 +846,7 @@ void PersonalDataManager::CancelPendingQuery(
     WebDataServiceBase::Handle* handle) {
   if (*handle) {
     scoped_ptr<AutofillWebDataService> autofill_data(
-        AutofillWebDataService::ForContext(browser_context_));
+        AutofillWebDataService::FromBrowserContext(browser_context_));
     if (!autofill_data.get()) {
       NOTREACHED();
       return;
@@ -918,15 +916,14 @@ void PersonalDataManager::EmptyMigrationTrash() {
     return;
 
   scoped_ptr<AutofillWebDataService> autofill_data(
-      AutofillWebDataService::ForContext(browser_context_));
+      AutofillWebDataService::FromBrowserContext(browser_context_));
   if (!autofill_data.get()) {
     NOTREACHED();
     return;
   }
 
-  ProfileSyncService* sync_service =
-      ProfileSyncServiceFactory::GetInstance()->GetForProfile(
-          static_cast<Profile*>(browser_context_));
+  ProfileSyncServiceBase* sync_service =
+      ProfileSyncServiceBase::FromBrowserContext(browser_context_);
   if (!sync_service)
     return;
 

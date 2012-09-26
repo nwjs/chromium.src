@@ -4,10 +4,10 @@
 
 package org.chromium.android_webview.test;
 
-import org.chromium.content.browser.test.TestContentViewClient.OnPageStartedHelper;
-import org.chromium.content.browser.test.TestContentViewClient.OnPageFinishedHelper;
-import org.chromium.content.browser.test.TestContentViewClient.OnReceivedErrorHelper;
-import org.chromium.content.browser.test.TestContentViewClient.OnEvaluateJavaScriptResultHelper;
+import org.chromium.content.browser.test.util.TestCallbackHelperContainer.OnPageStartedHelper;
+import org.chromium.content.browser.test.util.TestCallbackHelperContainer.OnPageFinishedHelper;
+import org.chromium.content.browser.test.util.TestCallbackHelperContainer.OnReceivedErrorHelper;
+import org.chromium.content.browser.test.util.TestCallbackHelperContainer.OnEvaluateJavaScriptResultHelper;
 
 class TestAwContentsClient extends NullContentsClient {
     private OnPageStartedHelper mOnPageStartedHelper;
@@ -38,27 +38,18 @@ class TestAwContentsClient extends NullContentsClient {
         return mOnEvaluateJavaScriptResultHelper;
     }
 
-    /**
-     * ATTENTION!: When overriding the following methods, be sure to call
-     * the corresponding methods in the super class. Otherwise
-     * {@link CallbackHelper#waitForCallback()} methods will
-     * stop working!
-     */
     @Override
     public void onPageStarted(String url) {
-        super.onPageStarted(url);
         mOnPageStartedHelper.notifyCalled(url);
     }
 
     @Override
     public void onPageFinished(String url) {
-        super.onPageFinished(url);
         mOnPageFinishedHelper.notifyCalled(url);
     }
 
     @Override
     public void onReceivedError(int errorCode, String description, String failingUrl) {
-        super.onReceivedError(errorCode, description, failingUrl);
         mOnReceivedErrorHelper.notifyCalled(errorCode, description, failingUrl);
     }
 

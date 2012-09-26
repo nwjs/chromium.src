@@ -17,6 +17,7 @@
 #include "chrome/browser/intents/cws_intents_registry.h"
 #include "chrome/browser/intents/web_intents_registry.h"
 #include "chrome/browser/intents/web_intents_reporting.h"
+#include "chrome/browser/tab_contents/web_contents_user_data.h"
 #include "chrome/browser/ui/intents/web_intent_picker_delegate.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -27,7 +28,7 @@
 class Browser;
 struct DefaultWebIntentService;
 class GURL;
-class TabContents;
+class Profile;
 class WebIntentPicker;
 class WebIntentPickerModel;
 
@@ -45,7 +46,8 @@ struct WebIntentServiceData;
 class WebIntentPickerController
     : public content::NotificationObserver,
       public WebIntentPickerDelegate,
-      public extensions::WebstoreInstaller::Delegate {
+      public extensions::WebstoreInstaller::Delegate,
+      public WebContentsUserData<WebIntentPickerController> {
  public:
 
   // The various states that the UI may be in. Public for testing.
@@ -55,6 +57,7 @@ class WebIntentPickerController
     kPickerWaiting, // Displaying "waiting for CWS".
     kPickerWaitLong,  // "waiting" has displayed for longer than min. time.
     kPickerMain,  // Displaying main picker dialog.
+    kPickerInline, // Displaying inline intent handler.
   };
 
   // Events that happen during picker life time. Drive state machine.
@@ -65,7 +68,6 @@ class WebIntentPickerController
     kPickerEventAsyncDataComplete,  // Data from registry and CWS has arrived.
   };
 
-  explicit WebIntentPickerController(TabContents* tab_contents);
   virtual ~WebIntentPickerController();
 
   // Sets the intent data and return pathway handler object for which
@@ -107,7 +109,7 @@ class WebIntentPickerController
       WindowOpenDisposition disposition) OVERRIDE;
   virtual void OnSuggestionsLinkClicked(
       WindowOpenDisposition disposition) OVERRIDE;
-  virtual void OnPickerClosed() OVERRIDE;
+  virtual void OnUserCancelledPickerDialog() OVERRIDE;
   virtual void OnChooseAnotherService() OVERRIDE;
   virtual void OnClosing() OVERRIDE;
 
@@ -117,6 +119,10 @@ class WebIntentPickerController
                                          const std::string& error) OVERRIDE;
 
  private:
+  explicit WebIntentPickerController(content::WebContents* web_contents);
+  static int kUserDataKey;
+  friend class WebContentsUserData<WebIntentPickerController>;
+
   friend class WebIntentPickerControllerTest;
   friend class WebIntentPickerControllerBrowserTest;
   friend class WebIntentPickerControllerIncognitoBrowserTest;
@@ -245,8 +251,11 @@ class WebIntentPickerController
 
   WebIntentPickerState dialog_state_;  // Current state of the dialog.
 
-  // A weak pointer to the tab contents that the picker is displayed on.
-  TabContents* tab_contents_;
+  // A weak pointer to the web contents that the picker is displayed on.
+  content::WebContents* web_contents_;
+
+  // A weak pointer to the profile for the web contents.
+  Profile* profile_;
 
   // A notification registrar, listening for notifications when the tab closes
   // to close the picker ui.
@@ -276,6 +285,15 @@ class WebIntentPickerController
   // case, a picker may be non-NULL before it is shown.
   bool picker_shown_;
 
+#if defined(TOOLKIT_VIEWS)
+  // Set to true if user cancelled the picker dialog. Set to false if the picker
+  // dialog is closing for any other reason.
+  // TODO(rouslan): We need to fix DialogDelegate in Views to notify us when the
+  // user closes the picker dialog. This boolean is a mediocre workaround for
+  // lack of that information.
+  bool cancelled_;
+#endif
+
   // Weak pointer to the source WebContents for the intent if the TabContents
   // with which this controller is associated is hosting a web intents window
   // disposition service.
@@ -297,10 +315,16 @@ class WebIntentPickerController
   // Request consumer used when asynchronously loading favicons.
   CancelableRequestConsumerTSimple<size_t> favicon_consumer_;
 
+  // Factory for weak pointers used in callbacks for async calls to load the
+  // picker model.
   base::WeakPtrFactory<WebIntentPickerController> weak_ptr_factory_;
 
   // Timer factory for minimum display time of "waiting" dialog.
   base::WeakPtrFactory<WebIntentPickerController> timer_factory_;
+
+  // Weak pointers for the dispatcher OnSendReturnMessage will not be
+  // cancelled on picker close.
+  base::WeakPtrFactory<WebIntentPickerController> dispatcher_factory_;
 
   // Bucket identifier for UMA reporting. Saved off in a field
   // to avoid repeated calculation of the bucket across

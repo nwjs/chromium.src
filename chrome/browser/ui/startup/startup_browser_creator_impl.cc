@@ -4,6 +4,9 @@
 
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
 
+#include <algorithm>
+#include <vector>
+
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
@@ -23,8 +26,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
 #include "chrome/browser/defaults.h"
-#include "chrome/browser/extensions/app_restore_service.h"
-#include "chrome/browser/extensions/app_restore_service_factory.h"
 #include "chrome/browser/extensions/extension_creator.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/pack_extension_job.h"
@@ -87,6 +88,12 @@
 #include "grit/locale_settings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/screen.h"
+
+#if defined(USE_ASH)
+#include "ash/launcher/launcher_types.h"
+#endif
 
 #if defined(OS_MACOSX)
 #include "base/mac/mac_util.h"
@@ -208,6 +215,25 @@ bool GetAppLaunchContainer(
 
   *out_extension = extension;
   *out_launch_container = launch_container;
+  return true;
+}
+
+// Parse two comma-separated integers from string. Return true on success.
+bool ParseCommaSeparatedIntegers(const std::string& str,
+                                 int* ret_num1,
+                                 int* ret_num2) {
+  std::vector<std::string> dimensions;
+  base::SplitString(str, ',', &dimensions);
+  if (dimensions.size() != 2)
+    return false;
+
+  int num1, num2;
+  if (!base::StringToInt(dimensions[0], &num1) ||
+      !base::StringToInt(dimensions[1], &num2))
+    return false;
+
+  *ret_num1 = num1;
+  *ret_num2 = num2;
   return true;
 }
 
@@ -405,6 +431,26 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
   return true;
 }
 
+void StartupBrowserCreatorImpl::ExtractOptionalAppWindowSize(
+    gfx::Rect* bounds) {
+  if (command_line_.HasSwitch(switches::kAppWindowSize)) {
+    int width, height;
+    width = height = 0;
+    std::string switch_value =
+        command_line_.GetSwitchValueASCII(switches::kAppWindowSize);
+    if (ParseCommaSeparatedIntegers(switch_value, &width, &height)) {
+      const gfx::Rect work_area = gfx::Screen::GetPrimaryDisplay().work_area();
+      width = std::min(width, work_area.width());
+      height = std::min(height, work_area.height());
+      bounds->set_size(gfx::Size(width, height));
+      bounds->set_x((work_area.width() - bounds->width()) / 2);
+      // TODO(nkostylev): work_area does include launcher but should not.
+      // Launcher auto hide pref is synced and is most likely not applied here.
+      bounds->set_y((work_area.height() - bounds->height()) / 2);
+    }
+  }
+}
+
 bool StartupBrowserCreatorImpl::IsAppLaunch(std::string* app_url,
                                             std::string* app_id) {
   if (command_line_.HasSwitch(switches::kApp)) {
@@ -511,9 +557,13 @@ bool StartupBrowserCreatorImpl::OpenApplicationWindow(
             extension_misc::APP_LAUNCH_CMD_LINE_APP_LEGACY);
       }
 
+      gfx::Rect override_bounds;
+      ExtractOptionalAppWindowSize(&override_bounds);
+
       WebContents* app_tab = application_launch::OpenAppShortcutWindow(
           profile,
-          url);
+          url,
+          override_bounds);
 
       if (out_app_contents)
         *out_app_contents = app_tab;
@@ -595,11 +645,6 @@ bool StartupBrowserCreatorImpl::ProcessStartupURLs(
     VLOG(1) << "Pref: urls";
   else if (pref.type == SessionStartupPref::DEFAULT)
     VLOG(1) << "Pref: default";
-
-  // The only time apps get restored is when the browser process is restarted.
-  if (StartupBrowserCreator::WasRestarted())
-    extensions::AppRestoreServiceFactory::GetForProfile(profile_)->
-        RestoreApps();
 
   if (pref.type == SessionStartupPref::LAST) {
     if (!profile_->DidLastSessionExitCleanly() &&
@@ -804,12 +849,8 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
   // value of StartupBrowserCreated::show_main_browser_window_. If this was set
   // to true ahead of this place, it means another task must have been spawned
   // to take care of that.
-  if (!browser_creator_ || browser_creator_->show_main_browser_window()) {
+  if (!browser_creator_ || browser_creator_->show_main_browser_window())
     browser->window()->Show();
-    // TODO(jcampan): http://crbug.com/8123 we should not need to set the
-    //                initial focus explicitly.
-    chrome::GetActiveWebContents(browser)->GetView()->SetInitialFocus();
-  }
 
   return browser;
 }

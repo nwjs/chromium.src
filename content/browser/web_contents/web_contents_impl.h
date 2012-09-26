@@ -6,6 +6,7 @@
 #define CONTENT_BROWSER_WEB_CONTENTS_WEB_CONTENTS_IMPL_H_
 
 #include <map>
+#include <set>
 #include <string>
 
 #include "base/compiler_specific.h"
@@ -39,12 +40,15 @@ class WebContentsImpl;
 struct ViewMsg_PostMessage_Params;
 
 namespace content {
+class BrowserPluginEmbedder;
+class BrowserPluginGuest;
 class ColorChooser;
 class DownloadItem;
 class JavaScriptDialogCreator;
 class RenderViewHost;
 class RenderViewHostDelegateView;
 class RenderViewHostImpl;
+class RenderWidgetHostImpl;
 class SiteInstance;
 class TestWebContents;
 class WebContentsDelegate;
@@ -88,6 +92,11 @@ class CONTENT_EXPORT WebContentsImpl
       int routing_id,
       const WebContentsImpl* base_web_contents,
       WebContentsImpl* opener);
+
+  // Creates a WebContents to be used as a browser plugin guest.
+  static WebContentsImpl* CreateGuest(content::BrowserContext* browser_context,
+                                      const std::string& host,
+                                      int guest_instance_id);
 
   // Returns the content specific prefs for the given RVH.
   static webkit_glue::WebPreferences GetWebkitPrefs(
@@ -161,6 +170,13 @@ class CONTENT_EXPORT WebContentsImpl
 
   // Expose the render manager for testing.
   RenderViewHostManager* GetRenderManagerForTesting();
+
+  // Returns guest browser plugin object, or NULL if this WebContents is not a
+  // guest.
+  content::BrowserPluginGuest* GetBrowserPluginGuest();
+  // Returns embedder browser plugin object, or NULL if this WebContents is not
+  // an embedder.
+  content::BrowserPluginEmbedder* GetBrowserPluginEmbedder();
 
   // content::WebContents ------------------------------------------------------
   virtual content::WebContentsDelegate* GetDelegate() OVERRIDE;
@@ -404,7 +420,7 @@ class CONTENT_EXPORT WebContentsImpl
   virtual void ShowCreatedFullscreenWidget(int route_id) OVERRIDE;
   virtual void ShowContextMenu(
       const content::ContextMenuParams& params,
-      const content::ContextMenuSourceType& type) OVERRIDE;
+      content::ContextMenuSourceType type) OVERRIDE;
   virtual void RequestMediaAccessPermission(
       const content::MediaStreamRequest* request,
       const content::MediaResponseCallback& callback) OVERRIDE;
@@ -416,6 +432,8 @@ class CONTENT_EXPORT WebContentsImpl
 
   // RenderWidgetHostDelegate --------------------------------------------------
 
+  virtual void RenderWidgetDeleted(
+      content::RenderWidgetHostImpl* render_widget_host) OVERRIDE;
   virtual bool PreHandleKeyboardEvent(
       const content::NativeWebKeyboardEvent& event,
       bool* is_keyboard_shortcut) OVERRIDE;
@@ -427,7 +445,7 @@ class CONTENT_EXPORT WebContentsImpl
   virtual bool CreateRenderViewForRenderManager(
       content::RenderViewHost* render_view_host, int opener_route_id) OVERRIDE;
   virtual void BeforeUnloadFiredFromRenderManager(
-      bool proceed,
+      bool proceed, const base::TimeTicks& proceed_time,
       bool* proceed_to_fire_unload) OVERRIDE;
   virtual void RenderViewGoneFromRenderManager(
       content::RenderViewHost* render_view_host) OVERRIDE;
@@ -553,6 +571,10 @@ class CONTENT_EXPORT WebContentsImpl
   void OnRequestPpapiBrokerPermission(int request_id,
                                       const GURL& url,
                                       const FilePath& plugin_path);
+  void OnBrowserPluginNavigateGuest(int instance_id,
+                                    int64 frame_id,
+                                    const std::string& src,
+                                    const gfx::Size& size);
 
   // Changes the IsLoading state and notifies delegate as needed
   // |details| is used to provide details on the load that just finished
@@ -658,6 +680,9 @@ class CONTENT_EXPORT WebContentsImpl
                                     std::string* embedder_channel_name,
                                     int* embedder_container_id);
 
+  // Removes browser plugin embedder if there is one.
+  void RemoveBrowserPluginEmbedder();
+
   // Data for core operation ---------------------------------------------------
 
   // Delegate for notifying our owner about stuff. Not owned by us.
@@ -705,7 +730,7 @@ class CONTENT_EXPORT WebContentsImpl
       java_bridge_dispatcher_host_manager_;
 
   // TODO(fsamuel): Remove this once upstreaming of the new browser plugin
-  // implmentation is complete.
+  // implementation is complete.
   // Manages the browser plugin instances hosted by this WebContents.
   scoped_ptr<content::old::BrowserPluginHost> old_browser_plugin_host_;
 
@@ -800,6 +825,9 @@ class CONTENT_EXPORT WebContentsImpl
   // The time that we started to close this WebContents.
   base::TimeTicks close_start_time_;
 
+  // The time when onbeforeunload ended.
+  base::TimeTicks before_unload_end_time_;
+
   // The time that this tab was last selected.
   base::TimeTicks last_selected_time_;
 
@@ -824,6 +852,13 @@ class CONTENT_EXPORT WebContentsImpl
   // Color chooser that was opened by this tab.
   content::ColorChooser* color_chooser_;
 
+  // Manages the embedder state for browser plugins, if this WebContents is an
+  // embedder; NULL otherwise.
+  scoped_ptr<content::BrowserPluginEmbedder> browser_plugin_embedder_;
+  // Manages the guest state for browser plugin, if this WebContents is a guest;
+  // NULL otherwise.
+  scoped_ptr<content::BrowserPluginGuest> browser_plugin_guest_;
+
   // This must be at the end, or else we might get notifications and use other
   // member variables that are gone.
   content::NotificationRegistrar registrar_;
@@ -831,6 +866,10 @@ class CONTENT_EXPORT WebContentsImpl
   // Used during IPC message dispatching so that the handlers can get a pointer
   // to the RVH through which the message was received.
   content::RenderViewHost* message_source_;
+
+  // All live RenderWidgetHostImpls that are created by this object and may
+  // outlive it.
+  std::set<content::RenderWidgetHostImpl*> created_widgets_;
 
   // Saved window features
   WebKit::WebWindowFeatures window_features_;

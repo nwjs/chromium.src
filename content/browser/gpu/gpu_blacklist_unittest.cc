@@ -56,9 +56,9 @@ TEST_F(GpuBlacklistTest, CurrentBlacklistValidation) {
   FilePath data_file;
   ASSERT_TRUE(PathService::Get(base::DIR_SOURCE_ROOT, &data_file));
   data_file =
-      data_file.Append(FILE_PATH_LITERAL("chrome"))
+      data_file.Append(FILE_PATH_LITERAL("content"))
                .Append(FILE_PATH_LITERAL("browser"))
-               .Append(FILE_PATH_LITERAL("resources"))
+               .Append(FILE_PATH_LITERAL("gpu"))
                .Append(FILE_PATH_LITERAL("software_rendering_list.json"));
   ASSERT_TRUE(file_util::PathExists(data_file));
   int64 data_file_size64 = 0;
@@ -1032,7 +1032,7 @@ TEST_F(GpuBlacklistTest, GpuSwitching) {
   GpuSwitchingOption switching = blacklist->MakeBlacklistDecision(
       GpuBlacklist::kOsMacosx, &os_version,
       gpu_info()).gpu_switching;
-  EXPECT_EQ(switching, content::GPU_SWITCHING_FORCE_DISCRETE);
+  EXPECT_EQ(switching, content::GPU_SWITCHING_OPTION_FORCE_DISCRETE);
   std::vector<uint32> entries;
   bool disabled = false;
   blacklist->GetDecisionEntries(entries, disabled);
@@ -1045,7 +1045,7 @@ TEST_F(GpuBlacklistTest, GpuSwitching) {
   switching = blacklist->MakeBlacklistDecision(
       GpuBlacklist::kOsWin, &os_version,
       gpu_info()).gpu_switching;
-  EXPECT_EQ(switching, content::GPU_SWITCHING_FORCE_INTEGRATED);
+  EXPECT_EQ(switching, content::GPU_SWITCHING_OPTION_FORCE_INTEGRATED);
   blacklist->GetDecisionEntries(entries, disabled);
   EXPECT_EQ(entries.size(), 1u);
   EXPECT_EQ(entries[0], 2u);
@@ -1056,7 +1056,7 @@ TEST_F(GpuBlacklistTest, GpuSwitching) {
   switching = blacklist->MakeBlacklistDecision(
       GpuBlacklist::kOsLinux, &os_version,
       gpu_info()).gpu_switching;
-  EXPECT_EQ(switching, content::GPU_SWITCHING_AUTOMATIC);
+  EXPECT_EQ(switching, content::GPU_SWITCHING_OPTION_AUTOMATIC);
   blacklist->GetDecisionEntries(entries, disabled);
   EXPECT_EQ(entries.size(), 1u);
   EXPECT_EQ(entries[0], 3u);

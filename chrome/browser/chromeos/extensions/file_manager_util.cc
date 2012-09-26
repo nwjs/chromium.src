@@ -23,8 +23,7 @@
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/google_apis/operation_registry.h"
-#include "chrome/browser/plugin_prefs.h"
+#include "chrome/browser/plugins/plugin_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
@@ -41,8 +40,10 @@
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/plugin_service.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/pepper_plugin_info.h"
 #include "grit/generated_resources.h"
 #include "net/base/escape.h"
 #include "net/base/net_util.h"
@@ -60,7 +61,6 @@ using content::BrowserThread;
 using content::PluginService;
 using content::UserMetricsAction;
 using file_handler_util::FileTaskExecutor;
-using gdata::OperationRegistry;
 
 #define FILEBROWSER_EXTENSON_ID "hhaomjibdihmijegdhdafkllkbggdgoj"
 const char kFileBrowserDomain[] = FILEBROWSER_EXTENSON_ID;
@@ -183,7 +183,7 @@ std::string GetDialogTypeAsString(
 DictionaryValue* ProgessStatusToDictionaryValue(
     Profile* profile,
     const GURL& origin_url,
-    const OperationRegistry::ProgressStatus& status) {
+    const gdata::OperationProgressStatus& status) {
   scoped_ptr<DictionaryValue> result(new DictionaryValue());
   GURL file_url;
   if (file_manager_util::ConvertFileToFileSystemUrl(profile,
@@ -195,10 +195,9 @@ DictionaryValue* ProgessStatusToDictionaryValue(
   }
 
   result->SetString("transferState",
-      OperationRegistry::OperationTransferStateToString(
-          status.transfer_state));
+                    OperationTransferStateToString(status.transfer_state));
   result->SetString("transferType",
-      OperationRegistry::OperationTypeToString(status.operation_type));
+                    OperationTypeToString(status.operation_type));
   result->SetInteger("processed", static_cast<int>(status.progress_current));
   result->SetInteger("total", static_cast<int>(status.progress_total));
   return result.release();
@@ -304,7 +303,8 @@ bool ConvertFileToFileSystemUrl(
 bool ConvertFileToRelativeFileSystemPath(
     Profile* profile, const FilePath& full_file_path, FilePath* virtual_path) {
   fileapi::ExternalFileSystemMountPointProvider* provider =
-      BrowserContext::GetFileSystemContext(profile)->external_provider();
+      BrowserContext::GetDefaultStoragePartition(profile)->
+          GetFileSystemContext()->external_provider();
   if (!provider)
     return false;
 
@@ -587,15 +587,16 @@ bool ExecuteDefaultHandler(Profile* profile, const FilePath& path) {
     // If File Browser has not been open yet then it did not request access
     // to the file system. Do it now.
     fileapi::ExternalFileSystemMountPointProvider* external_provider =
-        BrowserContext::GetFileSystemContext(profile)->external_provider();
+        BrowserContext::GetDefaultStoragePartition(
+            profile)->GetFileSystemContext()->external_provider();
     if (!external_provider)
       return false;
     external_provider->GrantFullAccessToExtension(source_url.host());
 
     std::vector<GURL> urls;
     urls.push_back(url);
-    scoped_refptr<FileTaskExecutor> executor = FileTaskExecutor::Create(
-        profile, source_url, extension_id, action_id);
+    scoped_refptr<FileTaskExecutor> executor = FileTaskExecutor::Create(profile,
+        source_url, extension_id, file_handler_util::kTaskFile, action_id);
     executor->Execute(urls);
     return true;
   }
@@ -783,24 +784,23 @@ bool ShouldBeOpenedWithPdfPlugin(Profile* profile, const char* file_extension) {
   FilePath pdf_path;
   PathService::Get(chrome::FILE_PDF_PLUGIN, &pdf_path);
 
-  webkit::WebPluginInfo plugin;
-  if (!PluginService::GetInstance()->GetPluginInfoByPath(pdf_path, &plugin))
+  content::PepperPluginInfo* pepper_info =
+      PluginService::GetInstance()->GetRegisteredPpapiPluginInfo(pdf_path);
+  if (!pepper_info)
     return false;
 
   PluginPrefs* plugin_prefs = PluginPrefs::GetForProfile(profile);
   if (!plugin_prefs)
     return false;
 
-  return plugin_prefs->IsPluginEnabled(plugin);
+  return plugin_prefs->IsPluginEnabled(pepper_info->ToWebPluginInfo());
 }
 
 ListValue* ProgressStatusVectorToListValue(
     Profile* profile, const GURL& origin_url,
-    const std::vector<OperationRegistry::ProgressStatus>& list) {
+    const gdata::OperationProgressStatusList& list) {
   scoped_ptr<ListValue> result_list(new ListValue());
-  for (std::vector<
-          OperationRegistry::ProgressStatus>::const_iterator iter =
-              list.begin();
+  for (gdata::OperationProgressStatusList::const_iterator iter = list.begin();
        iter != list.end(); ++iter) {
     result_list->Append(
         ProgessStatusToDictionaryValue(profile, origin_url, *iter));

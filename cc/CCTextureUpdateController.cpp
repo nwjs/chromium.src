@@ -9,15 +9,20 @@
 #include "GraphicsContext3D.h"
 #include "TextureCopier.h"
 #include "TextureUploader.h"
+#include "TraceEvent.h"
+#include <limits>
 #include <wtf/CurrentTime.h>
 
 namespace {
 
-// Number of textures to update with each call to updateMoreTexturesIfEnoughTimeRemaining().
-static const size_t textureUpdatesPerTick = 12;
+// Number of partial updates we allow.
+static const size_t partialTextureUpdatesMax = 12;
 
 // Measured in seconds.
 static const double textureUpdateTickRate = 0.004;
+
+// Measured in seconds.
+static const double uploaderBusyTickRate = 0.001;
 
 // Flush interval when performing texture uploads.
 static const int textureUploadFlushPeriod = 4;
@@ -28,78 +33,24 @@ namespace cc {
 
 size_t CCTextureUpdateController::maxPartialTextureUpdates()
 {
-    return textureUpdatesPerTick;
+    return partialTextureUpdatesMax;
 }
 
-void CCTextureUpdateController::updateTextures(CCResourceProvider* resourceProvider, TextureCopier* copier, TextureUploader* uploader, CCTextureUpdateQueue* queue, size_t count)
+size_t CCTextureUpdateController::maxFullUpdatesPerTick(TextureUploader* uploader)
 {
-    if (queue->fullUploadSize() || queue->partialUploadSize()) {
-        if (uploader->isBusy())
-            return;
-
-        uploader->beginUploads();
-
-        size_t fullUploadCount = 0;
-        while (queue->fullUploadSize() && fullUploadCount < count) {
-            uploader->uploadTexture(resourceProvider, queue->takeFirstFullUpload());
-            fullUploadCount++;
-            if (!(fullUploadCount % textureUploadFlushPeriod))
-                resourceProvider->shallowFlushIfSupported();
-        }
-
-        // Make sure there are no dangling uploads without a flush.
-        if (fullUploadCount % textureUploadFlushPeriod)
-            resourceProvider->shallowFlushIfSupported();
-
-        bool moreUploads = queue->fullUploadSize();
-
-        ASSERT(queue->partialUploadSize() <= count);
-        // We need another update batch if the number of updates remaining
-        // in |count| is greater than the remaining partial entries.
-        if ((count - fullUploadCount) < queue->partialUploadSize())
-            moreUploads = true;
-
-        if (moreUploads) {
-            uploader->endUploads();
-            return;
-        }
-
-        size_t partialUploadCount = 0;
-        while (queue->partialUploadSize()) {
-            uploader->uploadTexture(resourceProvider, queue->takeFirstPartialUpload());
-            partialUploadCount++;
-            if (!(partialUploadCount % textureUploadFlushPeriod))
-                resourceProvider->shallowFlushIfSupported();
-        }
-
-        // Make sure there are no dangling partial uploads without a flush.
-        if (partialUploadCount % textureUploadFlushPeriod)
-            resourceProvider->shallowFlushIfSupported();
-
-        uploader->endUploads();
-    }
-
-    size_t copyCount = 0;
-    while (queue->copySize()) {
-        copier->copyTexture(queue->takeFirstCopy());
-        copyCount++;
-    }
-
-    // If we've performed any texture copies, we need to insert a flush here into the compositor context
-    // before letting the main thread proceed as it may make draw calls to the source texture of one of
-    // our copy operations.
-    if (copyCount)
-        copier->flush();
+    double texturesPerSecond = uploader->estimatedTexturesPerSecond();
+    size_t texturesPerTick = floor(textureUpdateTickRate * texturesPerSecond);
+    return texturesPerTick ? texturesPerTick : 1;
 }
 
-CCTextureUpdateController::CCTextureUpdateController(CCTextureUpdateControllerClient* client, CCThread* thread, PassOwnPtr<CCTextureUpdateQueue> queue, CCResourceProvider* resourceProvider, TextureCopier* copier, TextureUploader* uploader)
+CCTextureUpdateController::CCTextureUpdateController(CCTextureUpdateControllerClient* client, CCThread* thread, PassOwnPtr<CCTextureUpdateQueue> queue, CCResourceProvider* resourceProvider, TextureUploader* uploader)
     : m_client(client)
     , m_timer(adoptPtr(new CCTimer(thread, this)))
     , m_queue(queue)
     , m_resourceProvider(resourceProvider)
-    , m_copier(copier)
     , m_uploader(uploader)
     , m_monotonicTimeLimit(0)
+    , m_textureUpdatesPerTick(maxFullUpdatesPerTick(uploader))
     , m_firstUpdateAttempt(true)
 {
 }
@@ -108,7 +59,8 @@ CCTextureUpdateController::~CCTextureUpdateController()
 {
 }
 
-void CCTextureUpdateController::updateMoreTextures(double monotonicTimeLimit)
+void CCTextureUpdateController::performMoreUpdates(
+    double monotonicTimeLimit)
 {
     ASSERT(monotonicTimeLimit >= m_monotonicTimeLimit);
     m_monotonicTimeLimit = monotonicTimeLimit;
@@ -122,7 +74,7 @@ void CCTextureUpdateController::updateMoreTextures(double monotonicTimeLimit)
     // amount of time.
     if (m_firstUpdateAttempt) {
         // Post a 0-delay task when no updates were left. When it runs,
-        // updateTexturesCompleted() will be called.
+        // readyToFinalizeTextureUpdates() will be called.
         if (!updateMoreTexturesIfEnoughTimeRemaining())
             m_timer->startOneShot(0);
 
@@ -131,10 +83,52 @@ void CCTextureUpdateController::updateMoreTextures(double monotonicTimeLimit)
         updateMoreTexturesNow();
 }
 
+void CCTextureUpdateController::discardUploadsToEvictedResources()
+{
+    m_queue->clearUploadsToEvictedResources();
+}
+
+void CCTextureUpdateController::finalize()
+{
+    size_t uploadCount = 0;
+    while (m_queue->fullUploadSize()) {
+        if (!(uploadCount % textureUploadFlushPeriod) && uploadCount)
+            m_resourceProvider->shallowFlushIfSupported();
+
+        m_uploader->uploadTexture(
+            m_resourceProvider, m_queue->takeFirstFullUpload());
+        uploadCount++;
+    }
+
+    while (m_queue->partialUploadSize()) {
+        if (!(uploadCount % textureUploadFlushPeriod) && uploadCount)
+            m_resourceProvider->shallowFlushIfSupported();
+
+        m_uploader->uploadTexture(
+            m_resourceProvider, m_queue->takeFirstPartialUpload());
+        uploadCount++;
+    }
+
+    if (uploadCount)
+        m_resourceProvider->shallowFlushIfSupported();
+
+    if (m_queue->copySize()) {
+        TextureCopier* copier = m_resourceProvider->textureCopier();
+        while (m_queue->copySize())
+            copier->copyTexture(m_queue->takeFirstCopy());
+
+        // If we've performed any texture copies, we need to insert a flush
+        // here into the compositor context before letting the main thread
+        // proceed as it may make draw calls to the source texture of one of
+        // our copy operations.
+        copier->flush();
+    }
+}
+
 void CCTextureUpdateController::onTimerFired()
 {
     if (!updateMoreTexturesIfEnoughTimeRemaining())
-        m_client->updateTexturesCompleted();
+        m_client->readyToFinalizeTextureUpdates();
 }
 
 double CCTextureUpdateController::monotonicTimeNow() const
@@ -149,12 +143,20 @@ double CCTextureUpdateController::updateMoreTexturesTime() const
 
 size_t CCTextureUpdateController::updateMoreTexturesSize() const
 {
-    return textureUpdatesPerTick;
+    return m_textureUpdatesPerTick;
 }
 
 bool CCTextureUpdateController::updateMoreTexturesIfEnoughTimeRemaining()
 {
-    if (!m_queue->hasMoreUpdates())
+    // Uploader might be busy when we're too aggressive in our upload time
+    // estimate. We use a different timeout here to prevent unnecessary
+    // amounts of idle time.
+    if (m_uploader->isBusy()) {
+        m_timer->startOneShot(uploaderBusyTickRate);
+        return true;
+    }
+
+    if (!m_queue->fullUploadSize())
         return false;
 
     bool hasTimeRemaining = monotonicTimeNow() < m_monotonicTimeLimit - updateMoreTexturesTime();
@@ -166,8 +168,24 @@ bool CCTextureUpdateController::updateMoreTexturesIfEnoughTimeRemaining()
 
 void CCTextureUpdateController::updateMoreTexturesNow()
 {
-    m_timer->startOneShot(updateMoreTexturesTime());
-    updateTextures(m_resourceProvider, m_copier, m_uploader, m_queue.get(), updateMoreTexturesSize());
+    size_t uploads = std::min(
+        m_queue->fullUploadSize(), updateMoreTexturesSize());
+    m_timer->startOneShot(
+        updateMoreTexturesTime() / updateMoreTexturesSize() * uploads);
+
+    if (!uploads)
+        return;
+
+    size_t uploadCount = 0;
+    m_uploader->beginUploads();
+    while (m_queue->fullUploadSize() && uploadCount < uploads) {
+        if (!(uploadCount % textureUploadFlushPeriod) && uploadCount)
+            m_resourceProvider->shallowFlushIfSupported();
+        m_uploader->uploadTexture(m_resourceProvider, m_queue->takeFirstFullUpload());
+        uploadCount++;
+    }
+    m_uploader->endUploads();
+    m_resourceProvider->shallowFlushIfSupported();
 }
 
 }

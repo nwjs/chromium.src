@@ -14,10 +14,6 @@
         'content_browser',
         'content_common',
         '../net/net.gyp:net_test_support',
-        '../ppapi/ppapi_internal.gyp:ppapi_host',
-        '../ppapi/ppapi_internal.gyp:ppapi_proxy',
-        '../ppapi/ppapi_internal.gyp:ppapi_shared',
-        '../ppapi/ppapi_internal.gyp:ppapi_unittest_shared',
         '../skia/skia.gyp:skia',
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
@@ -151,10 +147,13 @@
             ['include', '^public/test/content_test_suite_base\\.cc$'],
             ['include', '^public/test/mock_notification_observer\\.cc$'],
             ['include', '^public/test/mock_resource_context\\.cc$'],
-            ['include', '^public/test/test_browser_thread\\.cc$'],
             ['include', '^public/test/test_content_client_initializer\\.cc$'],
             ['include', '^public/test/test_notification_tracker\\.cc$'],
             ['include', '^public/test/test_utils\\.cc$'],
+            ['include', '^public/test/unittest_test_suite\\.cc$'],
+            ['include', '^test/content_test_suite\\.cc$'],
+            ['include', '^test/test_content_browser_client\\.cc$'],
+            ['include', '^test/test_content_client\\.cc$'],
           ],
         }, {  # OS != "ios"
           'dependencies': [
@@ -240,7 +239,6 @@
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         '../ui/ui.gyp:ui',
-        '../webkit/support/webkit_support.gyp:forms',
         '../webkit/support/webkit_support.gyp:user_agent',
       ],
       'include_dirs': [
@@ -307,6 +305,7 @@
         'browser/renderer_host/render_widget_host_view_aura_unittest.cc',
         'browser/renderer_host/render_widget_host_view_mac_editcommand_helper_unittest.mm',
         'browser/renderer_host/render_widget_host_view_mac_unittest.mm',
+        'browser/renderer_host/resource_buffer_unittest.cc',
         'browser/renderer_host/resource_dispatcher_host_unittest.cc',
         'browser/renderer_host/text_input_client_mac_unittest.mm',
         'browser/renderer_host/web_input_event_aura_unittest.cc',
@@ -446,7 +445,7 @@
         '../webkit/mocks/mock_weburlloader.h',
         '../webkit/plugins/npapi/plugin_lib_unittest.cc',
         '../webkit/plugins/npapi/plugin_list_unittest.cc',
-        '../webkit/plugins/npapi/plugin_utils_unittest.cc',        
+        '../webkit/plugins/npapi/plugin_utils_unittest.cc',
         '../webkit/plugins/npapi/webplugin_impl_unittest.cc',
         '../webkit/quota/mock_quota_manager.cc',
         '../webkit/quota/mock_quota_manager.h',
@@ -464,9 +463,7 @@
             # implementation, and re-include what is used.
             ['exclude', '\\.(cc|mm)$'],
             ['include', '_ios\\.(cc|mm)$'],
-            ['include', '^browser/browser_thread_unittest\\.cc$'],
             ['include', '^browser/notification_service_impl_unittest\\.cc$'],
-            ['include', '^browser/speech/.*_unittest\\.cc$'],
             ['include', '^test/run_all_unittests\\.cc$'],
           ],
         }, {  # OS != "ios"
@@ -490,6 +487,7 @@
             '../webkit/support/webkit_support.gyp:database',
             '../webkit/support/webkit_support.gyp:dom_storage',
             '../webkit/support/webkit_support.gyp:fileapi',
+            '../webkit/support/webkit_support.gyp:forms',
             '../webkit/support/webkit_support.gyp:glue',
             '../webkit/support/webkit_support.gyp:quota',
             '../webkit/support/webkit_support.gyp:webkit_base',
@@ -504,7 +502,7 @@
             'browser/renderer_host/p2p/socket_host_tcp_server_unittest.cc',
             'browser/renderer_host/p2p/socket_host_udp_unittest.cc',
             'renderer/media/media_stream_dependency_factory_unittest.cc',
-            'renderer/media/media_stream_dispatcher_unittest.cc',            
+            'renderer/media/media_stream_dispatcher_unittest.cc',
             'renderer/media/media_stream_impl_unittest.cc',
             'renderer/media/peer_connection_handler_jsep_unittest.cc',
             'renderer/media/rtc_peer_connection_handler_unittest.cc',
@@ -637,6 +635,12 @@
             'browser/accessibility/dump_accessibility_tree_helper_win.cc',
             'browser/appcache/appcache_browsertest.cc',
             'browser/audio_browsertest.cc',
+            'browser/bookmarklet_browsertest.cc',
+            'browser/browser_plugin/browser_plugin_host_browsertest.cc',
+            'browser/browser_plugin/test_browser_plugin_embedder.cc',
+            'browser/browser_plugin/test_browser_plugin_embedder.h',
+            'browser/browser_plugin/test_browser_plugin_guest.cc',
+            'browser/browser_plugin/test_browser_plugin_guest.h',
             'browser/child_process_security_policy_browsertest.cc',
             'browser/database_browsertest.cc',
             'browser/device_orientation/device_orientation_browsertest.cc',
@@ -654,6 +658,7 @@
             'browser/plugin_service_impl_browsertest.cc',
             'browser/renderer_host/render_view_host_browsertest.cc',
             'browser/renderer_host/render_view_host_manager_browsertest.cc',
+            'browser/renderer_host/render_widget_host_view_win_browsertest.cc',
             'browser/renderer_host/resource_dispatcher_host_browsertest.cc',
             'browser/session_history_browsertest.cc',
             'browser/speech/speech_recognition_browsertest.cc',
@@ -670,6 +675,7 @@
             'renderer/mouse_lock_dispatcher_browsertest.cc',
             'renderer/pepper/mock_renderer_ppapi_host.cc',
             'renderer/pepper/pepper_file_chooser_host_unittest.cc',
+            'renderer/pepper/pepper_url_request_unittest.cc',
             'renderer/render_view_browsertest.cc',
             'renderer/render_view_browsertest_mac.mm',
             'renderer/renderer_accessibility_browsertest.cc',
@@ -718,6 +724,10 @@
                   },
                 },
               },
+            }, {  # OS!="win"
+              'sources!': [
+                'browser/renderer_host/render_widget_host_view_win_browsertest.cc',
+              ],
             }],
             ['OS=="win" and win_use_allocator_shim==1', {
               'dependencies': [
@@ -868,6 +878,21 @@
           'includes': [ '../build/java.gypi' ],
         },
         {
+          'target_name': 'content_java_test_support',
+          'type': 'none',
+          'dependencies': [
+            '../base/base.gyp:base',
+            '../base/base.gyp:base_java_test_support',
+            'content_common',
+            'content_java',
+          ],
+          'variables': {
+            'package_name': 'content_java_test_support',
+            'java_in_dir': '../content/public/test/android/javatests',
+          },
+          'includes': [ '../build/java.gypi' ],
+        },
+        {
           'target_name': 'content_shell_test_apk',
           'type': 'none',
           'dependencies': [
@@ -882,35 +907,13 @@
             '../net/net.gyp:net_javatests',
             '../tools/android/forwarder/forwarder.gyp:forwarder',
           ],
-          'actions': [
-            {
-              'action_name': 'content_shell_test_generate_apk',
-              'inputs': [
-                '../build/android/ant/common.xml',
-                '../build/android/ant/sdk-targets.xml',
-                '<(DEPTH)/content/shell/android/javatests/content_shell_test_apk.xml',
-                '<(DEPTH)/content/shell/android/javatests/AndroidManifest.xml',
-                '>@(input_jars_paths)',
-                '<!@(find <(DEPTH)/content/shell/android/javatests/ -name "*.java")'
-              ],
-              'outputs': [
-                '<(PRODUCT_DIR)/content_shell_test/ContentShellTest-debug.apk',
-              ],
-              'action': [
-                'ant',
-                '-DPRODUCT_DIR=<(ant_build_out)',
-                '-DAPP_ABI=<(android_app_abi)',
-                '-DANDROID_SDK=<(android_sdk)',
-                '-DANDROID_SDK_ROOT=<(android_sdk_root)',
-                '-DANDROID_SDK_TOOLS=<(android_sdk_tools)',
-                '-DANDROID_SDK_VERSION=<(android_sdk_version)',
-                '-DANDROID_GDBSERVER=<(android_gdbserver)',
-                '-DINPUT_JARS_PATHS=>(input_jars_paths)',
-                '-buildfile',
-                '<(DEPTH)/content/shell/android/javatests/content_shell_test_apk.xml',
-              ]
-            }
-          ],
+          'variables': {
+            'package_name': 'content_shell_test',
+            'apk_name': 'ContentShellTest',
+            'java_in_dir': 'shell/android/javatests',
+            'resource_dir': '../res',
+          },
+          'includes': [ '../build/java_apk.gypi' ],
         },
       ],
     }],

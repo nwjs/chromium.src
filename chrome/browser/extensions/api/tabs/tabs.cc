@@ -660,6 +660,14 @@ bool UpdateWindowFunction::RunImpl() {
   if (!GetWindowFromWindowID(this, window_id, &controller))
     return false;
 
+#if defined(OS_WIN)
+  // Silently ignore changes on the window for metro mode.
+  if (base::win::IsMetroProcess()) {
+    SetResult(controller->CreateWindowValue());
+    return true;
+  }
+#endif
+
   ui::WindowShowState show_state = ui::SHOW_STATE_DEFAULT;  // No change.
   std::string state_str;
   if (update_props->HasKey(keys::kShowStateKey)) {
@@ -1705,8 +1713,7 @@ void CaptureVisibleTabFunction::CopyFromBackingStoreComplete(
                  chrome::NOTIFICATION_TAB_SNAPSHOT_TAKEN,
                  content::Source<WebContents>(web_contents));
   AddRef();  // Balanced in CaptureVisibleTabFunction::Observe().
-  TabContents::FromWebContents(web_contents)->snapshot_tab_helper()->
-      CaptureSnapshot();
+  SnapshotTabHelper::FromWebContents(web_contents)->CaptureSnapshot();
 }
 
 // If a backing store was not available in CaptureVisibleTabFunction::RunImpl,

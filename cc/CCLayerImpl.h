@@ -7,6 +7,7 @@
 
 #include "CCInputHandler.h"
 #include "CCLayerAnimationController.h"
+#include "CCRenderPass.h"
 #include "CCRenderSurface.h"
 #include "CCResourceProvider.h"
 #include "CCSharedQuadState.h"
@@ -14,6 +15,7 @@
 #include "IntRect.h"
 #include "Region.h"
 #include "SkColor.h"
+#include "cc/own_ptr_vector.h"
 #include <public/WebFilterOperations.h>
 #include <public/WebTransformationMatrix.h>
 #include <string>
@@ -43,15 +45,15 @@ public:
     virtual ~CCLayerImpl();
 
     // CCLayerAnimationControllerClient implementation.
-    virtual int id() const OVERRIDE { return m_layerId; }
+    virtual int id() const OVERRIDE;
     virtual void setOpacityFromAnimation(float) OVERRIDE;
-    virtual float opacity() const OVERRIDE { return m_opacity; }
+    virtual float opacity() const OVERRIDE;
     virtual void setTransformFromAnimation(const WebKit::WebTransformationMatrix&) OVERRIDE;
-    virtual const WebKit::WebTransformationMatrix& transform() const OVERRIDE { return m_transform; }
+    virtual const WebKit::WebTransformationMatrix& transform() const OVERRIDE;
 
     // Tree structure.
     CCLayerImpl* parent() const { return m_parent; }
-    const Vector<OwnPtr<CCLayerImpl> >& children() const { return m_children; }
+    const OwnPtrVector<CCLayerImpl>& children() const { return m_children; }
     void addChild(PassOwnPtr<CCLayerImpl>);
     void removeFromParent();
     void removeAllChildren();
@@ -80,6 +82,10 @@ public:
 
     virtual CCResourceProvider::ResourceId contentsResourceId() const;
 
+    virtual bool hasContributingDelegatedRenderPasses() const;
+    virtual CCRenderPass::Id firstContributingRenderPassId() const;
+    virtual CCRenderPass::Id nextContributingRenderPassId(CCRenderPass::Id) const;
+
     // Returns true if this layer has content to draw.
     void setDrawsContent(bool);
     bool drawsContent() const { return m_drawsContent; }
@@ -88,7 +94,7 @@ public:
     void setForceRenderSurface(bool force) { m_forceRenderSurface = force; }
 
     // Returns true if any of the layer's descendants has content to draw.
-    bool descendantDrawsContent();
+    virtual bool descendantDrawsContent();
 
     void setAnchorPoint(const FloatPoint&);
     const FloatPoint& anchorPoint() const { return m_anchorPoint; }
@@ -232,7 +238,7 @@ public:
 
     void resetAllChangeTrackingForSubtree();
 
-    virtual bool layerIsAlwaysDamaged() const { return false; }
+    virtual bool layerIsAlwaysDamaged() const;
 
     CCLayerAnimationController* layerAnimationController() { return m_layerAnimationController.get(); }
 
@@ -256,6 +262,8 @@ protected:
 
     void appendDebugBorderQuad(CCQuadSink&, const CCSharedQuadState*, CCAppendQuadsData&) const;
 
+    IntRect layerRectToContentRect(const WebKit::WebRect& layerRect);
+
     virtual void dumpLayerProperties(std::string*, int indent) const;
     static std::string indentString(int indent);
 
@@ -269,13 +277,13 @@ private:
     // Note carefully this does not affect the current layer.
     void noteLayerPropertyChangedForDescendants();
 
-    virtual const char* layerTypeAsString() const { return "LayerChromium"; }
+    virtual const char* layerTypeAsString() const;
 
     void dumpLayer(std::string*, int indent) const;
 
     // Properties internal to CCLayerImpl
     CCLayerImpl* m_parent;
-    Vector<OwnPtr<CCLayerImpl> > m_children;
+    OwnPtrVector<CCLayerImpl> m_children;
     // m_maskLayer can be temporarily stolen during tree sync, we need this ID to confirm newly assigned layer is still the previous one
     int m_maskLayerId;
     OwnPtr<CCLayerImpl> m_maskLayer;

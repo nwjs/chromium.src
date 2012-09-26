@@ -30,9 +30,11 @@
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/io_thread.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/power_manager_client.h"
@@ -383,6 +385,8 @@ void SigninScreenHandler::GetLocalizedStrings(
       l10n_util::GetStringUTF16(IDS_SHUTDOWN_BUTTON));
   localized_strings->SetString("addUser",
       l10n_util::GetStringUTF16(IDS_ADD_USER_BUTTON));
+  localized_strings->SetString("browseAsGuest",
+      l10n_util::GetStringUTF16(IDS_GO_INCOGNITO_BUTTON));
   localized_strings->SetString("cancel",
       l10n_util::GetStringUTF16(IDS_CANCEL));
   localized_strings->SetString("signOutUser",
@@ -532,6 +536,9 @@ void SigninScreenHandler::RegisterMessages() {
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback("toggleEnrollmentScreen",
       base::Bind(&SigninScreenHandler::HandleToggleEnrollmentScreen,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("toggleResetScreen",
+      base::Bind(&SigninScreenHandler::HandleToggleResetScreen,
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback("launchHelpApp",
       base::Bind(&SigninScreenHandler::HandleLaunchHelpApp,
@@ -926,6 +933,16 @@ void SigninScreenHandler::HandleToggleEnrollmentScreen(
     delegate_->ShowEnterpriseEnrollmentScreen();
 }
 
+void SigninScreenHandler::HandleToggleResetScreen(
+    const base::ListValue* args) {
+  if (delegate_ &&
+      !CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableFactoryReset) &&
+      !g_browser_process->browser_policy_connector()->IsEnterpriseManaged()) {
+    delegate_->ShowResetScreen();
+  }
+}
+
 void SigninScreenHandler::HandleLaunchHelpApp(const base::ListValue* args) {
   if (!delegate_)
     return;
@@ -944,9 +961,8 @@ void SigninScreenHandler::HandleLaunchHelpApp(const base::ListValue* args) {
 void SigninScreenHandler::SendUserList(bool animated) {
   if (!delegate_)
     return;
-  bool show_guest = delegate_->IsShowGuest();
 
-  size_t max_non_owner_users = show_guest ? kMaxUsers - 2 : kMaxUsers - 1;
+  size_t max_non_owner_users = kMaxUsers - 1;
   size_t non_owner_count = 0;
 
   ListValue users_list;
@@ -985,27 +1001,24 @@ void SigninScreenHandler::SendUserList(bool animated) {
     }
   }
 
-  if (show_guest) {
-    // Add the Guest to the user list.
-    DictionaryValue* guest_dict = new DictionaryValue();
-    guest_dict->SetString(kKeyUsername, "");
-    guest_dict->SetString(kKeyEmailAddress, "");
-    guest_dict->SetString(kKeyDisplayName,
-                          l10n_util::GetStringUTF16(IDS_GUEST));
-    guest_dict->SetBoolean(kKeyCanRemove, false);
-    guest_dict->SetInteger(kKeyOauthTokenStatus,
-                           User::OAUTH_TOKEN_STATUS_UNKNOWN);
-    users_list.Append(guest_dict);
-  }
-
-  // Call the Javascript callback
   base::FundamentalValue animated_value(animated);
+  base::FundamentalValue guest_value(delegate_->IsShowGuest());
   web_ui()->CallJavascriptFunction("login.AccountPickerScreen.loadUsers",
-                                   users_list, animated_value);
+                                   users_list, animated_value, guest_value);
 }
 
 void SigninScreenHandler::HandleAccountPickerReady(
     const base::ListValue* args) {
+
+  PrefService* prefs = g_browser_process->local_state();
+  if (prefs->GetBoolean(prefs::kFactoryResetRequested)) {
+    prefs->SetBoolean(prefs::kFactoryResetRequested, false);
+    prefs->CommitPendingWrite();
+    base::ListValue args;
+    HandleToggleResetScreen(&args);
+    return;
+  }
+
   is_account_picker_showing_first_time_ = true;
   MaybePreloadAuthExtension();
 

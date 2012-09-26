@@ -6,10 +6,12 @@ import os
 import tempfile
 import shutil
 
-from gpu_tools import multi_page_benchmark
+from chrome_remote_control import multi_page_benchmark_unittest_base
 from gpu_tools import skpicture_printer
 
-class SkPicturePrinterUnitTest(multi_page_benchmark.MultiPageBenchmarkUnitTest):
+class SkPicturePrinterUnitTest(
+  multi_page_benchmark_unittest_base.MultiPageBenchmarkUnitTestBase):
+
   def setUp(self):
     super(SkPicturePrinterUnitTest, self).setUp()
     self._outdir = tempfile.mkdtemp()
@@ -24,18 +26,13 @@ class SkPicturePrinterUnitTest(multi_page_benchmark.MultiPageBenchmarkUnitTest):
   def testPrintToSkPicture(self):
     ps = self.CreatePageSetFromFileInUnittestDataDir('non_scrollable_page.html')
     printer = skpicture_printer.SkPicturePrinter()
-    rows = self.RunBenchmark(printer, ps)
+    all_results = self.RunBenchmark(printer, ps)
 
-    self.assertEqual(0, len(printer.page_failures))
-    header = rows[0]
-    results = rows[1:]
-    self.assertEqual(['url', 'output_path'], header)
-    self.assertEqual(1, len(results))
+    self.assertEqual(0, len(all_results.page_failures))
+    self.assertEqual(1, len(all_results.page_results))
+    results0 = all_results.page_results[0]['results']
 
-    url = results[0][0]
-    self.assertTrue('non_scrollable_page.html' in url)
-
-    outdir = results[0][1]
+    outdir = results0['output_path']
     self.assertTrue('non_scrollable_page_html' in outdir)
     self.assertTrue(os.path.isdir(outdir))
     self.assertEqual(['layer_0.skp'], os.listdir(outdir))

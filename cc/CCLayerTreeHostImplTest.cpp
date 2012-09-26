@@ -7,6 +7,7 @@
 #include "CCLayerTreeHostImpl.h"
 
 #include "CCAnimationTestCommon.h"
+#include "CCDelegatedRendererLayerImpl.h"
 #include "CCGeometryTestUtils.h"
 #include "CCHeadsUpDisplayLayerImpl.h"
 #include "CCIOSurfaceLayerImpl.h"
@@ -15,6 +16,7 @@
 #include "CCLayerTilingData.h"
 #include "CCQuadSink.h"
 #include "CCRenderPassDrawQuad.h"
+#include "CCRenderPassTestCommon.h"
 #include "CCRendererGL.h"
 #include "CCScrollbarGeometryFixedThumb.h"
 #include "CCScrollbarLayerImpl.h"
@@ -22,6 +24,7 @@
 #include "CCSingleThreadProxy.h"
 #include "CCSolidColorDrawQuad.h"
 #include "CCTestCommon.h"
+#include "CCTextureDrawQuad.h"
 #include "CCTextureLayerImpl.h"
 #include "CCTileDrawQuad.h"
 #include "CCTiledLayerImpl.h"
@@ -58,7 +61,7 @@ public:
         settings.minimumOcclusionTrackingSize = IntSize();
 
         m_hostImpl = CCLayerTreeHostImpl::create(settings, this);
-        m_hostImpl->initializeRenderer(createContext(), UnthrottledUploader);
+        m_hostImpl->initializeRenderer(createContext());
         m_hostImpl->setViewportSize(IntSize(10, 10), IntSize(10, 10));
     }
 
@@ -69,6 +72,7 @@ public:
     virtual void setNeedsRedrawOnImplThread() OVERRIDE { m_didRequestRedraw = true; }
     virtual void setNeedsCommitOnImplThread() OVERRIDE { m_didRequestCommit = true; }
     virtual void postAnimationEventsToMainThreadOnImplThread(PassOwnPtr<CCAnimationEventsVector>, double wallClockTime) OVERRIDE { }
+    virtual void releaseContentsTexturesOnImplThread() OVERRIDE { }
 
     PassOwnPtr<CCLayerTreeHostImpl> createLayerTreeHost(bool partialSwap, PassOwnPtr<CCGraphicsContext> graphicsContext, PassOwnPtr<CCLayerImpl> rootPtr)
     {
@@ -79,7 +83,7 @@ public:
 
         OwnPtr<CCLayerTreeHostImpl> myHostImpl = CCLayerTreeHostImpl::create(settings, this);
 
-        myHostImpl->initializeRenderer(graphicsContext, UnthrottledUploader);
+        myHostImpl->initializeRenderer(graphicsContext);
         myHostImpl->setViewportSize(IntSize(10, 10), IntSize(10, 10));
 
         OwnPtr<CCLayerImpl> root = rootPtr;
@@ -98,7 +102,7 @@ public:
     {
         ASSERT_EQ(layer->scrollDelta(), IntSize());
         for (size_t i = 0; i < layer->children().size(); ++i)
-            expectClearedScrollDeltasRecursive(layer->children()[i].get());
+            expectClearedScrollDeltasRecursive(layer->children()[i]);
     }
 
     static void expectContains(const CCScrollAndScaleSet& scrollInfo, int id, const IntSize& scrollDelta)
@@ -150,7 +154,7 @@ public:
 
     void initializeRendererAndDrawFrame()
     {
-        m_hostImpl->initializeRenderer(createContext(), UnthrottledUploader);
+        m_hostImpl->initializeRenderer(createContext());
         CCLayerTreeHostImpl::FrameData frame;
         EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
         m_hostImpl->drawLayers(frame);
@@ -317,7 +321,7 @@ TEST_F(CCLayerTreeHostImplTest, scrollWithoutRenderer)
     m_hostImpl = CCLayerTreeHostImpl::create(settings, this);
 
     // Initialization will fail here.
-    m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new FakeWebGraphicsContext3DMakeCurrentFails)), UnthrottledUploader);
+    m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new FakeWebGraphicsContext3DMakeCurrentFails)));
     m_hostImpl->setViewportSize(IntSize(10, 10), IntSize(10, 10));
 
     setupScrollAndContentsLayers(IntSize(100, 100));
@@ -729,7 +733,7 @@ TEST_F(CCLayerTreeHostImplTest, didDrawNotCalledOnHiddenLayer)
     root->setMasksToBounds(true);
 
     root->addChild(DidDrawCheckLayer::create(2));
-    DidDrawCheckLayer* layer = static_cast<DidDrawCheckLayer*>(root->children()[0].get());
+    DidDrawCheckLayer* layer = static_cast<DidDrawCheckLayer*>(root->children()[0]);
     // Ensure visibleContentRect for layer is empty
     layer->setPosition(FloatPoint(100, 100));
     layer->setBounds(IntSize(10, 10));
@@ -774,10 +778,10 @@ TEST_F(CCLayerTreeHostImplTest, willDrawNotCalledOnOccludedLayer)
     DidDrawCheckLayer* root = static_cast<DidDrawCheckLayer*>(m_hostImpl->rootLayer());
 
     root->addChild(DidDrawCheckLayer::create(2));
-    DidDrawCheckLayer* occludedLayer = static_cast<DidDrawCheckLayer*>(root->children()[0].get());
+    DidDrawCheckLayer* occludedLayer = static_cast<DidDrawCheckLayer*>(root->children()[0]);
 
     root->addChild(DidDrawCheckLayer::create(3));
-    DidDrawCheckLayer* topLayer = static_cast<DidDrawCheckLayer*>(root->children()[1].get());
+    DidDrawCheckLayer* topLayer = static_cast<DidDrawCheckLayer*>(root->children()[1]);
     // This layer covers the occludedLayer above. Make this layer large so it can occlude.
     topLayer->setBounds(bigSize);
     topLayer->setContentBounds(bigSize);
@@ -806,10 +810,10 @@ TEST_F(CCLayerTreeHostImplTest, didDrawCalledOnAllLayers)
     DidDrawCheckLayer* root = static_cast<DidDrawCheckLayer*>(m_hostImpl->rootLayer());
 
     root->addChild(DidDrawCheckLayer::create(2));
-    DidDrawCheckLayer* layer1 = static_cast<DidDrawCheckLayer*>(root->children()[0].get());
+    DidDrawCheckLayer* layer1 = static_cast<DidDrawCheckLayer*>(root->children()[0]);
 
     layer1->addChild(DidDrawCheckLayer::create(3));
-    DidDrawCheckLayer* layer2 = static_cast<DidDrawCheckLayer*>(layer1->children()[0].get());
+    DidDrawCheckLayer* layer2 = static_cast<DidDrawCheckLayer*>(layer1->children()[0]);
 
     layer1->setOpacity(0.3f);
     layer1->setPreserves3D(false);
@@ -1087,11 +1091,11 @@ TEST_F(CCLayerTreeHostImplTest, pageScaleDeltaAppliedToRootScrollLayerOnly)
     // Create a normal scrollable root layer and another scrollable child layer.
     setupScrollAndContentsLayers(surfaceSize);
     CCLayerImpl* root = m_hostImpl->rootLayer();
-    CCLayerImpl* child = root->children()[0].get();
+    CCLayerImpl* child = root->children()[0];
 
     OwnPtr<CCLayerImpl> scrollableChild = createScrollableLayer(3, surfaceSize);
     child->addChild(scrollableChild.release());
-    CCLayerImpl* grandChild = child->children()[0].get();
+    CCLayerImpl* grandChild = child->children()[0];
 
     // Set new page scale on impl thread by pinching.
     m_hostImpl->pinchGestureBegin();
@@ -1132,7 +1136,7 @@ TEST_F(CCLayerTreeHostImplTest, scrollChildAndChangePageScaleOnMainThread)
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
     initializeRendererAndDrawFrame();
 
-    CCLayerImpl* child = m_hostImpl->rootLayer()->children()[0].get();
+    CCLayerImpl* child = m_hostImpl->rootLayer()->children()[0];
 
     IntSize scrollDelta(0, 10);
     IntSize expectedScrollDelta(scrollDelta);
@@ -1184,8 +1188,8 @@ TEST_F(CCLayerTreeHostImplTest, scrollChildBeyondLimit)
         OwnPtr<CCScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
 
         // The grand child should have scrolled up to its limit.
-        CCLayerImpl* child = m_hostImpl->rootLayer()->children()[0].get();
-        CCLayerImpl* grandChild = child->children()[0].get();
+        CCLayerImpl* child = m_hostImpl->rootLayer()->children()[0];
+        CCLayerImpl* grandChild = child->children()[0];
         expectContains(*scrollInfo.get(), grandChild->id(), IntSize(0, -5));
 
         // The child should have only scrolled on the other axis.
@@ -1466,7 +1470,7 @@ TEST_F(CCLayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
     CCLayerImpl* root = m_hostImpl->rootLayer();
 
     root->addChild(BlendStateCheckLayer::create(2, m_hostImpl->resourceProvider()));
-    BlendStateCheckLayer* layer1 = static_cast<BlendStateCheckLayer*>(root->children()[0].get());
+    BlendStateCheckLayer* layer1 = static_cast<BlendStateCheckLayer*>(root->children()[0]);
     layer1->setPosition(FloatPoint(2, 2));
 
     CCLayerTreeHostImpl::FrameData frame;
@@ -1519,7 +1523,7 @@ TEST_F(CCLayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
     m_hostImpl->didDrawAllLayers(frame);
 
     layer1->addChild(BlendStateCheckLayer::create(3, m_hostImpl->resourceProvider()));
-    BlendStateCheckLayer* layer2 = static_cast<BlendStateCheckLayer*>(layer1->children()[0].get());
+    BlendStateCheckLayer* layer2 = static_cast<BlendStateCheckLayer*>(layer1->children()[0]);
     layer2->setPosition(FloatPoint(4, 4));
 
     // 2 opaque layers, drawn without blending.
@@ -1673,7 +1677,7 @@ TEST_F(CCLayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
 
 TEST_F(CCLayerTreeHostImplTest, viewportCovered)
 {
-    m_hostImpl->initializeRenderer(createContext(), UnthrottledUploader);
+    m_hostImpl->initializeRenderer(createContext());
     m_hostImpl->setBackgroundColor(SK_ColorGRAY);
 
     IntSize viewportSize(1000, 1000);
@@ -1784,7 +1788,7 @@ TEST_F(CCLayerTreeHostImplTest, reshapeNotCalledUntilDraw)
 {
     OwnPtr<CCGraphicsContext> ccContext = FakeWebCompositorOutputSurface::create(adoptPtr(new ReshapeTrackerContext));
     ReshapeTrackerContext* reshapeTracker = static_cast<ReshapeTrackerContext*>(ccContext->context3D());
-    m_hostImpl->initializeRenderer(ccContext.release(), UnthrottledUploader);
+    m_hostImpl->initializeRenderer(ccContext.release());
 
     CCLayerImpl* root = new FakeDrawableCCLayerImpl(1);
     root->setAnchorPoint(FloatPoint(0, 0));
@@ -1833,7 +1837,7 @@ TEST_F(CCLayerTreeHostImplTest, partialSwapReceivesDamageRect)
     CCLayerTreeSettings settings;
     CCSettings::setPartialSwapEnabled(true);
     OwnPtr<CCLayerTreeHostImpl> layerTreeHostImpl = CCLayerTreeHostImpl::create(settings, this);
-    layerTreeHostImpl->initializeRenderer(ccContext.release(), UnthrottledUploader);
+    layerTreeHostImpl->initializeRenderer(ccContext.release());
     layerTreeHostImpl->setViewportSize(IntSize(500, 500), IntSize(500, 500));
 
     CCLayerImpl* root = new FakeDrawableCCLayerImpl(1);
@@ -2120,7 +2124,7 @@ static PassOwnPtr<CCLayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, C
 
     CCLayerTreeSettings settings;
     OwnPtr<CCLayerTreeHostImpl> myHostImpl = CCLayerTreeHostImpl::create(settings, client);
-    myHostImpl->initializeRenderer(context.release(), UnthrottledUploader);
+    myHostImpl->initializeRenderer(context.release());
     myHostImpl->setViewportSize(IntSize(100, 100), IntSize(100, 100));
 
     /*
@@ -2250,16 +2254,16 @@ TEST_F(CCLayerTreeHostImplTest, contextLostAndRestoredNotificationSentToAllLayer
     ContextLostNotificationCheckLayer* root = static_cast<ContextLostNotificationCheckLayer*>(m_hostImpl->rootLayer());
 
     root->addChild(ContextLostNotificationCheckLayer::create(1));
-    ContextLostNotificationCheckLayer* layer1 = static_cast<ContextLostNotificationCheckLayer*>(root->children()[0].get());
+    ContextLostNotificationCheckLayer* layer1 = static_cast<ContextLostNotificationCheckLayer*>(root->children()[0]);
 
     layer1->addChild(ContextLostNotificationCheckLayer::create(2));
-    ContextLostNotificationCheckLayer* layer2 = static_cast<ContextLostNotificationCheckLayer*>(layer1->children()[0].get());
+    ContextLostNotificationCheckLayer* layer2 = static_cast<ContextLostNotificationCheckLayer*>(layer1->children()[0]);
 
     EXPECT_FALSE(root->didLoseContextCalled());
     EXPECT_FALSE(layer1->didLoseContextCalled());
     EXPECT_FALSE(layer2->didLoseContextCalled());
 
-    m_hostImpl->initializeRenderer(createContext(), UnthrottledUploader);
+    m_hostImpl->initializeRenderer(createContext());
 
     EXPECT_TRUE(root->didLoseContextCalled());
     EXPECT_TRUE(layer1->didLoseContextCalled());
@@ -2272,8 +2276,55 @@ TEST_F(CCLayerTreeHostImplTest, finishAllRenderingAfterContextLost)
     m_hostImpl = CCLayerTreeHostImpl::create(settings, this);
 
     // The context initialization will fail, but we should still be able to call finishAllRendering() without any ill effects.
-    m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new FakeWebGraphicsContext3DMakeCurrentFails)), UnthrottledUploader);
+    m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new FakeWebGraphicsContext3DMakeCurrentFails)));
     m_hostImpl->finishAllRendering();
+}
+
+class FakeWebGraphicsContext3DMakeCurrentFailsEventually : public FakeWebGraphicsContext3D {
+public:
+    explicit FakeWebGraphicsContext3DMakeCurrentFailsEventually(unsigned succeedCount) : m_succeedCount(succeedCount) { }
+    virtual bool makeContextCurrent() {
+        if (!m_succeedCount)
+            return false;
+        --m_succeedCount;
+        return true;
+    }
+
+private:
+    unsigned m_succeedCount;
+};
+
+TEST_F(CCLayerTreeHostImplTest, contextLostDuringInitialize)
+{
+    CCLayerTreeSettings settings;
+    m_hostImpl = CCLayerTreeHostImpl::create(settings, this);
+
+    // Initialize into a known successful state.
+    EXPECT_TRUE(m_hostImpl->initializeRenderer(createContext()));
+    EXPECT_TRUE(m_hostImpl->context());
+    EXPECT_TRUE(m_hostImpl->renderer());
+    EXPECT_TRUE(m_hostImpl->resourceProvider());
+
+    // We will make the context get lost after a numer of makeContextCurrent
+    // calls. The exact number of calls to make it succeed is dependent on the
+    // implementation and doesn't really matter (i.e. can be changed to make the
+    // tests pass after some refactoring).
+    const unsigned kMakeCurrentSuccessesNeededForSuccessfulInitialization = 3;
+
+    for (unsigned i = 0; i < kMakeCurrentSuccessesNeededForSuccessfulInitialization; ++i) {
+        // The context will get lost during initialization, we shouldn't crash. We
+        // should also be in a consistent state.
+        EXPECT_FALSE(m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new FakeWebGraphicsContext3DMakeCurrentFailsEventually(i)))));
+        EXPECT_EQ(0, m_hostImpl->context());
+        EXPECT_EQ(0, m_hostImpl->renderer());
+        EXPECT_EQ(0, m_hostImpl->resourceProvider());
+        EXPECT_TRUE(m_hostImpl->initializeRenderer(createContext()));
+    }
+
+    EXPECT_TRUE(m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new FakeWebGraphicsContext3DMakeCurrentFailsEventually(kMakeCurrentSuccessesNeededForSuccessfulInitialization)))));
+    EXPECT_TRUE(m_hostImpl->context());
+    EXPECT_TRUE(m_hostImpl->renderer());
+    EXPECT_TRUE(m_hostImpl->resourceProvider());
 }
 
 // Fake WebGraphicsContext3D that will cause a failure if trying to use a
@@ -2479,13 +2530,29 @@ protected:
     }
 };
 
+static inline PassOwnPtr<CCRenderPass> createRenderPassWithResource(CCResourceProvider* provider)
+{
+    CCResourceProvider::ResourceId resourceId = provider->createResource(0, IntSize(1, 1), GraphicsContext3D::RGBA, CCResourceProvider::TextureUsageAny);
+
+    OwnPtr<CCRenderPass> pass = CCRenderPass::create(CCRenderPass::Id(1, 1), IntRect(0, 0, 1, 1), WebTransformationMatrix());
+    OwnPtr<CCSharedQuadState> sharedState = CCSharedQuadState::create(WebTransformationMatrix(), IntRect(0, 0, 1, 1), IntRect(0, 0, 1, 1), 1, false);
+    OwnPtr<CCTextureDrawQuad> quad = CCTextureDrawQuad::create(sharedState.get(), IntRect(0, 0, 1, 1), resourceId, false, FloatRect(0, 0, 1, 1), false);
+
+    static_cast<CCTestRenderPass*>(pass.get())->appendSharedQuadState(sharedState.release());
+    static_cast<CCTestRenderPass*>(pass.get())->appendQuad(quad.release());
+
+    return pass.release();
+}
+
 TEST_F(CCLayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
 {
-    OwnPtr<CCLayerImpl> rootLayer(CCLayerImpl::create(1));
+    int layerId = 1;
+
+    OwnPtr<CCLayerImpl> rootLayer(CCLayerImpl::create(layerId++));
     rootLayer->setBounds(IntSize(10, 10));
     rootLayer->setAnchorPoint(FloatPoint(0, 0));
 
-    OwnPtr<CCTiledLayerImpl> tileLayer = CCTiledLayerImpl::create(2);
+    OwnPtr<CCTiledLayerImpl> tileLayer = CCTiledLayerImpl::create(layerId++);
     tileLayer->setBounds(IntSize(10, 10));
     tileLayer->setAnchorPoint(FloatPoint(0, 0));
     tileLayer->setContentBounds(IntSize(10, 10));
@@ -2497,7 +2564,7 @@ TEST_F(CCLayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     tileLayer->pushTileProperties(0, 0, 1, IntRect(0, 0, 10, 10));
     rootLayer->addChild(tileLayer.release());
 
-    OwnPtr<CCTextureLayerImpl> textureLayer = CCTextureLayerImpl::create(3);
+    OwnPtr<CCTextureLayerImpl> textureLayer = CCTextureLayerImpl::create(layerId++);
     textureLayer->setBounds(IntSize(10, 10));
     textureLayer->setAnchorPoint(FloatPoint(0, 0));
     textureLayer->setContentBounds(IntSize(10, 10));
@@ -2505,10 +2572,28 @@ TEST_F(CCLayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     textureLayer->setTextureId(1);
     rootLayer->addChild(textureLayer.release());
 
+    OwnPtr<CCTiledLayerImpl> maskLayer = CCTiledLayerImpl::create(layerId++);
+    maskLayer->setBounds(IntSize(10, 10));
+    maskLayer->setAnchorPoint(FloatPoint(0, 0));
+    maskLayer->setContentBounds(IntSize(10, 10));
+    maskLayer->setDrawsContent(true);
+    maskLayer->setSkipsDraw(false);
+    maskLayer->setTilingData(*tilingData);
+    maskLayer->pushTileProperties(0, 0, 1, IntRect(0, 0, 10, 10));
+
+    OwnPtr<CCTextureLayerImpl> textureLayerWithMask = CCTextureLayerImpl::create(layerId++);
+    textureLayerWithMask->setBounds(IntSize(10, 10));
+    textureLayerWithMask->setAnchorPoint(FloatPoint(0, 0));
+    textureLayerWithMask->setContentBounds(IntSize(10, 10));
+    textureLayerWithMask->setDrawsContent(true);
+    textureLayerWithMask->setTextureId(1);
+    textureLayerWithMask->setMaskLayer(maskLayer.release());
+    rootLayer->addChild(textureLayerWithMask.release());
+
     FakeVideoFrame videoFrame;
     FakeVideoFrameProvider provider;
     provider.setFrame(&videoFrame);
-    OwnPtr<CCVideoLayerImpl> videoLayer = CCVideoLayerImpl::create(4, &provider);
+    OwnPtr<CCVideoLayerImpl> videoLayer = CCVideoLayerImpl::create(layerId++, &provider);
     videoLayer->setBounds(IntSize(10, 10));
     videoLayer->setAnchorPoint(FloatPoint(0, 0));
     videoLayer->setContentBounds(IntSize(10, 10));
@@ -2519,7 +2604,7 @@ TEST_F(CCLayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     FakeVideoFrame hwVideoFrame;
     FakeVideoFrameProvider hwProvider;
     hwProvider.setFrame(&hwVideoFrame);
-    OwnPtr<CCVideoLayerImpl> hwVideoLayer = CCVideoLayerImpl::create(5, &hwProvider);
+    OwnPtr<CCVideoLayerImpl> hwVideoLayer = CCVideoLayerImpl::create(layerId++, &hwProvider);
     hwVideoLayer->setBounds(IntSize(10, 10));
     hwVideoLayer->setAnchorPoint(FloatPoint(0, 0));
     hwVideoLayer->setContentBounds(IntSize(10, 10));
@@ -2527,7 +2612,7 @@ TEST_F(CCLayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     hwVideoLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(hwVideoLayer.release());
 
-    OwnPtr<CCIOSurfaceLayerImpl> ioSurfaceLayer = CCIOSurfaceLayerImpl::create(6);
+    OwnPtr<CCIOSurfaceLayerImpl> ioSurfaceLayer = CCIOSurfaceLayerImpl::create(layerId++);
     ioSurfaceLayer->setBounds(IntSize(10, 10));
     ioSurfaceLayer->setAnchorPoint(FloatPoint(0, 0));
     ioSurfaceLayer->setContentBounds(IntSize(10, 10));
@@ -2536,7 +2621,7 @@ TEST_F(CCLayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     ioSurfaceLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(ioSurfaceLayer.release());
 
-    OwnPtr<CCHeadsUpDisplayLayerImpl> hudLayer = CCHeadsUpDisplayLayerImpl::create(7);
+    OwnPtr<CCHeadsUpDisplayLayerImpl> hudLayer = CCHeadsUpDisplayLayerImpl::create(layerId++);
     hudLayer->setBounds(IntSize(10, 10));
     hudLayer->setAnchorPoint(FloatPoint(0, 0));
     hudLayer->setContentBounds(IntSize(10, 10));
@@ -2544,8 +2629,7 @@ TEST_F(CCLayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     hudLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(hudLayer.release());
 
-    OwnPtr<FakeScrollbarLayerImpl> scrollbarLayer(FakeScrollbarLayerImpl::create(8));
-    scrollbarLayer->setLayerTreeHostImpl(m_hostImpl.get());
+    OwnPtr<FakeScrollbarLayerImpl> scrollbarLayer(FakeScrollbarLayerImpl::create(layerId++));
     scrollbarLayer->setBounds(IntSize(10, 10));
     scrollbarLayer->setContentBounds(IntSize(10, 10));
     scrollbarLayer->setDrawsContent(true);
@@ -2553,8 +2637,19 @@ TEST_F(CCLayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     scrollbarLayer->createResources(m_hostImpl->resourceProvider());
     rootLayer->addChild(scrollbarLayer.release());
 
+    OwnPtr<CCDelegatedRendererLayerImpl> delegatedRendererLayer(CCDelegatedRendererLayerImpl::create(layerId++));
+    delegatedRendererLayer->setBounds(IntSize(10, 10));
+    delegatedRendererLayer->setContentBounds(IntSize(10, 10));
+    delegatedRendererLayer->setDrawsContent(true);
+    delegatedRendererLayer->setLayerTreeHostImpl(m_hostImpl.get());
+    OwnPtrVector<CCRenderPass> passList;
+    passList.append(createRenderPassWithResource(m_hostImpl->resourceProvider()));
+    delegatedRendererLayer->setRenderPasses(passList);
+    EXPECT_TRUE(passList.isEmpty());
+    rootLayer->addChild(delegatedRendererLayer.release());
+
     // Use a context that supports IOSurfaces
-    m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new FakeWebGraphicsContext3DWithIOSurface)), UnthrottledUploader);
+    m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new FakeWebGraphicsContext3DWithIOSurface)));
 
     hwVideoFrame.setTextureId(m_hostImpl->resourceProvider()->graphicsContext3D()->createTexture());
 
@@ -2570,7 +2665,7 @@ TEST_F(CCLayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
 
     // Lose the context, replacing it with a StrictWebGraphicsContext3DWithIOSurface,
     // that will warn if any resource from the previous context gets used.
-    m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new StrictWebGraphicsContext3DWithIOSurface)), UnthrottledUploader);
+    m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(adoptPtr(new StrictWebGraphicsContext3DWithIOSurface)));
 
     // Create dummy resources so that looking up an old resource will get an
     // invalid texture id mapping.
@@ -2683,7 +2778,7 @@ TEST_F(CCLayerTreeHostImplTest, layersFreeTextures)
     // Lose the context, replacing it with a TrackingWebGraphicsContext3D (which the CCLayerTreeHostImpl takes ownership of).
     OwnPtr<CCGraphicsContext> ccContext(FakeWebCompositorOutputSurface::create(adoptPtr(new TrackingWebGraphicsContext3D)));
     TrackingWebGraphicsContext3D* trackingWebGraphicsContext = static_cast<TrackingWebGraphicsContext3D*>(ccContext->context3D());
-    m_hostImpl->initializeRenderer(ccContext.release(), UnthrottledUploader);
+    m_hostImpl->initializeRenderer(ccContext.release());
 
     m_hostImpl->setRootLayer(rootLayer.release());
 
@@ -2755,7 +2850,7 @@ static void setupLayersForTextureCaching(CCLayerTreeHostImpl* layerTreeHostImpl,
 {
     OwnPtr<CCGraphicsContext> context = FakeWebCompositorOutputSurface::create(adoptPtr(new PartialSwapContext));
 
-    layerTreeHostImpl->initializeRenderer(context.release(), UnthrottledUploader);
+    layerTreeHostImpl->initializeRenderer(context.release());
     layerTreeHostImpl->setViewportSize(rootSize, rootSize);
 
     OwnPtr<CCLayerImpl> root = CCLayerImpl::create(1);
@@ -2801,7 +2896,7 @@ TEST_F(CCLayerTreeHostImplTest, textureCachingWithClipping)
 
     IntSize rootSize(100, 100);
 
-    myHostImpl->initializeRenderer(context.release(), UnthrottledUploader);
+    myHostImpl->initializeRenderer(context.release());
     myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
 
     OwnPtr<CCLayerImpl> root = CCLayerImpl::create(1);
@@ -2853,7 +2948,7 @@ TEST_F(CCLayerTreeHostImplTest, textureCachingWithClipping)
         EXPECT_RECT_EQ(IntRect(0, 0, 100, 100), frame.renderPasses[0]->outputRect());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
         EXPECT_FALSE(quad->contentsChangedSinceLastFrame().isEmpty());
 
         myHostImpl->drawLayers(frame);
@@ -2913,7 +3008,7 @@ TEST_F(CCLayerTreeHostImplTest, textureCachingWithOcclusion)
 
     IntSize rootSize(1000, 1000);
 
-    myHostImpl->initializeRenderer(context.release(), UnthrottledUploader);
+    myHostImpl->initializeRenderer(context.release());
     myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
 
     OwnPtr<CCLayerImpl> root = CCLayerImpl::create(1);
@@ -3026,7 +3121,7 @@ TEST_F(CCLayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
 
     IntSize rootSize(1000, 1000);
 
-    myHostImpl->initializeRenderer(context.release(), UnthrottledUploader);
+    myHostImpl->initializeRenderer(context.release());
     myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
 
     OwnPtr<CCLayerImpl> root = CCLayerImpl::create(1);
@@ -3140,7 +3235,7 @@ TEST_F(CCLayerTreeHostImplTest, textureCachingWithOcclusionExternalOverInternal)
 
     IntSize rootSize(1000, 1000);
 
-    myHostImpl->initializeRenderer(context.release(), UnthrottledUploader);
+    myHostImpl->initializeRenderer(context.release());
     myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
 
     OwnPtr<CCLayerImpl> root = CCLayerImpl::create(1);
@@ -3223,7 +3318,7 @@ TEST_F(CCLayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
 
     IntSize rootSize(1000, 1000);
 
-    myHostImpl->initializeRenderer(context.release(), UnthrottledUploader);
+    myHostImpl->initializeRenderer(context.release());
     myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
 
     OwnPtr<CCLayerImpl> root = CCLayerImpl::create(1);
@@ -3308,7 +3403,7 @@ TEST_F(CCLayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
 
     IntSize rootSize(1000, 1000);
 
-    myHostImpl->initializeRenderer(context.release(), UnthrottledUploader);
+    myHostImpl->initializeRenderer(context.release());
     myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
 
     OwnPtr<CCLayerImpl> root = CCLayerImpl::create(1);
@@ -3426,7 +3521,7 @@ TEST_F(CCLayerTreeHostImplTest, textureCachingWithScissor)
     IntRect grandChildRect(5, 5, 150, 150);
 
     OwnPtr<CCGraphicsContext> context = FakeWebCompositorOutputSurface::create(adoptPtr(new PartialSwapContext));
-    myHostImpl->initializeRenderer(context.release(), UnthrottledUploader);
+    myHostImpl->initializeRenderer(context.release());
 
     root->setAnchorPoint(FloatPoint(0, 0));
     root->setPosition(FloatPoint(rootRect.x(), rootRect.y()));
@@ -3523,7 +3618,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCaching)
         EXPECT_EQ(1U, frame.renderPasses[1]->quadList().size());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_FALSE(targetPass->damageRect().isEmpty());
 
@@ -3541,7 +3636,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCaching)
 
         EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_TRUE(targetPass->damageRect().isEmpty());
 
@@ -3560,7 +3655,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCaching)
 
         EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_TRUE(targetPass->damageRect().isEmpty());
 
@@ -3581,7 +3676,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCaching)
         EXPECT_EQ(CCDrawQuad::SolidColor, frame.renderPasses[0]->quadList()[0]->material());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_FALSE(targetPass->damageRect().isEmpty());
 
@@ -3608,7 +3703,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCaching)
         EXPECT_EQ(1U, frame.renderPasses[1]->quadList().size());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_TRUE(targetPass->damageRect().isEmpty());
 
@@ -3629,7 +3724,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCaching)
 
         EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_TRUE(targetPass->damageRect().isEmpty());
 
@@ -3650,7 +3745,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCaching)
         EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_TRUE(targetPass->damageRect().isEmpty());
 
@@ -3684,7 +3779,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
         EXPECT_EQ(1U, frame.renderPasses[1]->quadList().size());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_FALSE(targetPass->damageRect().isEmpty());
 
@@ -3726,7 +3821,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
 
         EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_TRUE(targetPass->damageRect().isEmpty());
 
@@ -3747,7 +3842,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
         EXPECT_EQ(CCDrawQuad::SolidColor, frame.renderPasses[0]->quadList()[0]->material());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_FALSE(targetPass->damageRect().isEmpty());
 
@@ -3774,7 +3869,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
         EXPECT_EQ(1U, frame.renderPasses[1]->quadList().size());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_TRUE(targetPass->damageRect().isEmpty());
 
@@ -3813,7 +3908,7 @@ TEST_F(CCLayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
         EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0].get());
+        CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
         CCRenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
         EXPECT_TRUE(targetPass->damageRect().isEmpty());
 
@@ -3861,16 +3956,6 @@ struct RenderPassRemovalTestData : public CCLayerTreeHostImpl::FrameData {
     OwnPtr<CCSharedQuadState> sharedQuadState;
 };
 
-class CCTestRenderPass: public CCRenderPass {
-public:
-    static PassOwnPtr<CCRenderPass> create(CCRenderPass::Id id, IntRect outputRect, const WebTransformationMatrix& rootTransform) { return adoptPtr(new CCTestRenderPass(id, outputRect, rootTransform)); }
-
-    void appendQuad(PassOwnPtr<CCDrawQuad> quad) { m_quadList.append(quad); }
-
-protected:
-    CCTestRenderPass(CCRenderPass::Id id, IntRect outputRect, const WebTransformationMatrix& rootTransform) : CCRenderPass(id, outputRect, rootTransform) { }
-};
-
 class CCTestRenderer : public CCRendererGL, public CCRendererClient {
 public:
     static PassOwnPtr<CCTestRenderer> create(CCResourceProvider* resourceProvider)
@@ -3897,7 +3982,7 @@ public:
     virtual void setMemoryAllocationLimitBytes(size_t) OVERRIDE { }
 
 protected:
-    CCTestRenderer(CCResourceProvider* resourceProvider) : CCRendererGL(this, resourceProvider, UnthrottledUploader) { }
+    CCTestRenderer(CCResourceProvider* resourceProvider) : CCRendererGL(this, resourceProvider) { }
 
 private:
     CCLayerTreeSettings m_settings;
@@ -3916,7 +4001,7 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
 
     // Pre-create root pass
     CCRenderPass::Id rootRenderPassId = CCRenderPass::Id(testScript[0], testScript[1]);
-    OwnPtr<CCRenderPass> rootRenderPass = CCTestRenderPass::create(rootRenderPassId, IntRect(), WebTransformationMatrix());
+    OwnPtr<CCRenderPass> rootRenderPass = CCRenderPass::create(rootRenderPassId, IntRect(), WebTransformationMatrix());
     testData.renderPassCache.insert(std::pair<CCRenderPass::Id, RenderPassCacheEntry>(rootRenderPassId, RenderPassCacheEntry(rootRenderPass.release())));
     while (*currentChar) {
         int layerId = *currentChar;
@@ -4005,7 +4090,7 @@ void dumpRenderPassTestData(const RenderPassRemovalTestData& testData, char* buf
 
         CCQuadList::const_iterator quadListIterator = currentPass->quadList().begin();
         while (quadListIterator != currentPass->quadList().end()) {
-            CCDrawQuad* currentQuad = (*quadListIterator).get();
+            CCDrawQuad* currentQuad = *quadListIterator;
             switch (currentQuad->material()) {
             case CCDrawQuad::SolidColor:
                 *pos = 's';

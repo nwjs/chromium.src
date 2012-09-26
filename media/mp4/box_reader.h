@@ -54,8 +54,9 @@ class MEDIA_EXPORT BufferReader {
   // Advance the stream by this many bytes.
   bool SkipBytes(int nbytes) WARN_UNUSED_RESULT;
 
-  int size() { return size_; }
-  int pos() { return pos_; }
+  const uint8* data() const { return buf_; }
+  int size() const { return size_; }
+  int pos() const { return pos_; }
 
  protected:
   const uint8* buf_;
@@ -118,6 +119,7 @@ class MEDIA_EXPORT BoxReader : public BufferReader {
 
   // Read all children, regardless of FourCC. This is used from exactly one box,
   // corresponding to a rather significant inconsistency in the BMFF spec.
+  // Note that this method is mutually exclusive with ScanChildren().
   template<typename T> bool ReadAllChildren(
       std::vector<T>* children) WARN_UNUSED_RESULT;
 
@@ -185,19 +187,20 @@ bool BoxReader::MaybeReadChildren(std::vector<T>* children) {
 
 template<typename T>
 bool BoxReader::ReadAllChildren(std::vector<T>* children) {
-  DCHECK(scanned_);
-  DCHECK(children->empty());
-  RCHECK(!children_.empty());
+  DCHECK(!scanned_);
+  scanned_ = true;
 
-  children->resize(children_.size());
-  typename std::vector<T>::iterator child_itr = children->begin();
-  for (ChildMap::iterator itr = children_.begin();
-       itr != children_.end(); ++itr) {
-    RCHECK(child_itr->Parse(&itr->second));
-    ++child_itr;
+  bool err = false;
+  while (pos() < size()) {
+    BoxReader child_reader(&buf_[pos_], size_ - pos_);
+    if (!child_reader.ReadHeader(&err)) break;
+    T child;
+    RCHECK(child.Parse(&child_reader));
+    children->push_back(child);
+    pos_ += child_reader.size();
   }
-  children_.clear();
-  return true;
+
+  return !err;
 }
 
 }  // namespace mp4

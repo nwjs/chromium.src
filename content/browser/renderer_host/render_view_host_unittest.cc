@@ -13,6 +13,7 @@
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/page_transition_types.h"
 #include "content/public/test/mock_render_process_host.h"
+#include "net/base/net_util.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDragOperation.h"
 #include "webkit/glue/webdropdata.h"
 
@@ -84,7 +85,7 @@ class MockDraggingRenderViewHostDelegateView
   virtual ~MockDraggingRenderViewHostDelegateView() {}
   virtual void ShowContextMenu(
       const content::ContextMenuParams& params,
-      const content::ContextMenuSourceType& type) OVERRIDE {}
+      content::ContextMenuSourceType type) OVERRIDE {}
   virtual void ShowPopupMenu(const gfx::Rect& bounds,
                              int item_height,
                              double item_font_size,

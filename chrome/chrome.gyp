@@ -319,6 +319,8 @@
         'service/cloud_print/cloud_print_url_fetcher.h',
         'service/cloud_print/cloud_print_wipeout.cc',
         'service/cloud_print/cloud_print_wipeout.h',
+        'service/cloud_print/connector_settings.cc',
+        'service/cloud_print/connector_settings.h',
         'service/cloud_print/job_status_updater.cc',
         'service/cloud_print/job_status_updater.h',
         'service/cloud_print/print_system_dummy.cc',
@@ -1081,11 +1083,13 @@
             '../base/base.gyp:base',
             '../chrome/browser/component/components.gyp:web_contents_delegate_android_java',
             '../content/content.gyp:content_java',
+            '../ui/ui.gyp:ui_java',
           ],
           'export_dependent_settings': [
             '../base/base.gyp:base',
             '../chrome/browser/component/components.gyp:web_contents_delegate_android_java',
             '../content/content.gyp:content_java',
+            '../ui/ui.gyp:ui_java',
           ],
           'variables': {
             'package_name': 'chrome',

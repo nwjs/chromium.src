@@ -154,9 +154,47 @@ void AllStatus::SetCryptoHasPendingKeys(bool has_pending_keys) {
   status_.crypto_has_pending_keys = has_pending_keys;
 }
 
+void AllStatus::SetPassphraseType(PassphraseType type) {
+  ScopedStatusLock lock(this);
+  status_.passphrase_type = type;
+}
+
+void AllStatus::SetHasKeystoreKey(bool has_keystore_key) {
+  ScopedStatusLock lock(this);
+  status_.has_keystore_key = has_keystore_key;
+}
+
+void AllStatus::SetKeystoreMigrationTime(const base::Time& migration_time) {
+  ScopedStatusLock lock(this);
+  status_.keystore_migration_time = migration_time;
+}
+
 void AllStatus::SetUniqueId(const std::string& guid) {
   ScopedStatusLock lock(this);
   status_.unique_id = guid;
+}
+
+void AllStatus::IncrementNudgeCounter(NudgeSource source) {
+  ScopedStatusLock lock(this);
+  switch(source) {
+    case NUDGE_SOURCE_LOCAL_REFRESH:
+      status_.nudge_source_local_refresh++;
+      return;
+    case NUDGE_SOURCE_LOCAL:
+      status_.nudge_source_local++;
+      return;
+    case NUDGE_SOURCE_NOTIFICATION:
+      status_.nudge_source_notification++;
+      return;
+    case NUDGE_SOURCE_CONTINUATION:
+      status_.nudge_source_continuation++;
+      return;
+    case NUDGE_SOURCE_UNKNOWN:
+      break;
+  }
+  // If we're here, the source is most likely
+  // NUDGE_SOURCE_UNKNOWN. That shouldn't happen.
+  NOTREACHED();
 }
 
 ScopedStatusLock::ScopedStatusLock(AllStatus* allstatus)

@@ -756,6 +756,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kDisableSeccompFilterSandbox,
       ::switches::kDisableSeccompSandbox,
       ::switches::kDisableThreadedAnimation,
+      ::switches::kEnableBrowserTextSubpixelPositioning,
       ::switches::kEnableCompositingForFixedPosition,
       ::switches::kEnableGView,
       ::switches::kEnableLogging,
@@ -768,6 +769,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kEnableTouchCalibration,
       ::switches::kEnableTouchEvents,
       ::switches::kEnableViewport,
+      ::switches::kEnableWebkitTextSubpixelPositioning,
       ::switches::kDisableThreadedCompositing,
       ::switches::kForceCompositingMode,
       ::switches::kGpuStartupDialog,
@@ -789,7 +791,6 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ash::switches::kAshWindowAnimationsDisabled,
       ash::switches::kAuraLegacyPowerButton,
       ash::switches::kAuraNoShadows,
-      ash::switches::kAshNotifyDisabled,
       ::switches::kUIEnablePartialSwap,
       ::switches::kUIPrioritizeInGpuProcess,
 #if defined(USE_CRAS)

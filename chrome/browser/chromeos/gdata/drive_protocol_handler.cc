@@ -21,8 +21,8 @@
 #include "chrome/browser/chromeos/gdata/drive_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/drive_system_service.h"
-#include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
+#include "chrome/browser/google_apis/gdata_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/url_constants.h"
@@ -120,8 +120,7 @@ void GetFileSystemOnUIThread(DriveFileSystemInterface** file_system) {
 void CancelDriveDownloadOnUIThread(const FilePath& drive_file_path) {
   DriveSystemService* system_service = GetSystemService();
   if (system_service)
-    system_service->drive_service()->operation_registry()->CancelForFilePath(
-        drive_file_path);
+    system_service->drive_service()->CancelForFilePath(drive_file_path);
 }
 
 // DriveURLRequesetJob is the gateway between network-level drive://...

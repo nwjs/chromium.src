@@ -36,7 +36,7 @@ bool BrowserPluginManagerImpl::OnControlMessageReceived(
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(BrowserPluginManagerImpl, message)
     IPC_MESSAGE_HANDLER(BrowserPluginMsg_UpdateRect, OnUpdateRect)
-    IPC_MESSAGE_HANDLER(BrowserPluginMsg_GuestCrashed,OnGuestCrashed)
+    IPC_MESSAGE_HANDLER(BrowserPluginMsg_GuestCrashed, OnGuestCrashed)
     IPC_MESSAGE_HANDLER(BrowserPluginMsg_DidNavigate, OnDidNavigate)
     IPC_MESSAGE_HANDLER(BrowserPluginMsg_AdvanceFocus, OnAdvanceFocus)
     IPC_MESSAGE_UNHANDLED(handled = false)
@@ -59,10 +59,12 @@ void BrowserPluginManagerImpl::OnGuestCrashed(int instance_id) {
     plugin->GuestCrashed();
 }
 
-void BrowserPluginManagerImpl::OnDidNavigate(int instance_id, const GURL& url) {
+void BrowserPluginManagerImpl::OnDidNavigate(int instance_id,
+                                             const GURL& url,
+                                             int process_id) {
   BrowserPlugin* plugin = GetBrowserPlugin(instance_id);
   if (plugin)
-    plugin->DidNavigate(url);
+    plugin->DidNavigate(url, process_id);
 }
 
 void BrowserPluginManagerImpl::OnAdvanceFocus(int instance_id, bool reverse) {

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <deque>
 #include <string>
 #include <vector>
 
@@ -40,7 +39,6 @@ static const gfx::Rect kVisibleRect(320, 240);
 static const gfx::Size kNaturalSize(320, 240);
 static const uint8 kFakeKeyId[] = { 0x4b, 0x65, 0x79, 0x20, 0x49, 0x44 };
 static const uint8 kFakeIv[DecryptConfig::kDecryptionKeySize] = { 0 };
-static const uint8 kFakeCheckSum[] = { 0, 0 };
 
 // Create a fake non-empty encrypted buffer.
 static scoped_refptr<DecoderBuffer> CreateFakeEncryptedBuffer() {
@@ -52,8 +50,6 @@ static scoped_refptr<DecoderBuffer> CreateFakeEncryptedBuffer() {
                   arraysize(kFakeKeyId)),
       std::string(reinterpret_cast<const char*>(kFakeIv),
                   DecryptConfig::kDecryptionKeySize),
-      std::string(reinterpret_cast<const char*>(kFakeCheckSum),
-                  arraysize(kFakeCheckSum)),
       encrypted_frame_offset,
       std::vector<SubsampleEntry>())));
   return buffer;
@@ -65,6 +61,10 @@ ACTION_P(ReturnBuffer, buffer) {
 
 ACTION_P2(RunDecryptCB, status, buffer) {
   arg1.Run(status, buffer);
+}
+
+ACTION_P3(RunDecryptCB3, decrypt_cb, status, buffer) {
+  decrypt_cb.Run(status, buffer);
 }
 
 class FFmpegVideoDecoderTest : public testing::Test {
@@ -88,15 +88,21 @@ class FFmpegVideoDecoderTest : public testing::Test {
     i_frame_buffer_ = ReadTestDataFile("vp8-I-frame-320x240");
     corrupt_i_frame_buffer_ = ReadTestDataFile("vp8-corrupt-I-frame");
     encrypted_i_frame_buffer_ = CreateFakeEncryptedBuffer();
-
-    config_.Initialize(kCodecVP8, VIDEO_CODEC_PROFILE_UNKNOWN,
-                       kVideoFormat, kCodedSize, kVisibleRect, kNaturalSize,
-                       NULL, 0, true);
   }
 
   virtual ~FFmpegVideoDecoderTest() {}
 
   void Initialize() {
+    config_.Initialize(kCodecVP8, VIDEO_CODEC_PROFILE_UNKNOWN, kVideoFormat,
+                       kCodedSize, kVisibleRect, kNaturalSize,
+                       NULL, 0, false, true);
+    InitializeWithConfig(config_);
+  }
+
+  void InitializeWithEncryptedConfig() {
+    config_.Initialize(kCodecVP8, VIDEO_CODEC_PROFILE_UNKNOWN, kVideoFormat,
+                       kCodedSize, kVisibleRect, kNaturalSize,
+                       NULL, 0, true, true);
     InitializeWithConfig(config_);
   }
 
@@ -133,7 +139,7 @@ class FFmpegVideoDecoderTest : public testing::Test {
     scoped_refptr<VideoFrame> video_frame;
     DecodeSingleFrame(i_frame_buffer_, &status, &video_frame);
 
-    EXPECT_EQ(status, VideoDecoder::kOk);
+    EXPECT_EQ(VideoDecoder::kOk, status);
     ASSERT_TRUE(video_frame);
     EXPECT_FALSE(video_frame->IsEndOfStream());
   }
@@ -144,7 +150,7 @@ class FFmpegVideoDecoderTest : public testing::Test {
     scoped_refptr<VideoFrame> video_frame;
     VideoDecoder::Status status;
     Read(&status, &video_frame);
-    EXPECT_EQ(status, VideoDecoder::kOk);
+    EXPECT_EQ(VideoDecoder::kOk, status);
     ASSERT_TRUE(video_frame);
     EXPECT_TRUE(video_frame->IsEndOfStream());
   }
@@ -192,8 +198,8 @@ class FFmpegVideoDecoderTest : public testing::Test {
     Read(&status_b, &video_frame_b);
 
     gfx::Size original_size = kVisibleRect.size();
-    EXPECT_EQ(status_a, VideoDecoder::kOk);
-    EXPECT_EQ(status_b, VideoDecoder::kOk);
+    EXPECT_EQ(VideoDecoder::kOk, status_a);
+    EXPECT_EQ(VideoDecoder::kOk, status_b);
     ASSERT_TRUE(video_frame_a);
     ASSERT_TRUE(video_frame_b);
     EXPECT_EQ(original_size.width(), video_frame_a->data_size().width());
@@ -231,9 +237,6 @@ class FFmpegVideoDecoderTest : public testing::Test {
   scoped_refptr<DecoderBuffer> corrupt_i_frame_buffer_;
   scoped_refptr<DecoderBuffer> encrypted_i_frame_buffer_;
 
-  // Used for generating timestamped buffers.
-  std::deque<int64> timestamps_;
-
  private:
   DISALLOW_COPY_AND_ASSIGN(FFmpegVideoDecoderTest);
 };
@@ -247,7 +250,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_UnsupportedDecoder) {
   VideoDecoderConfig config(kUnknownVideoCodec, VIDEO_CODEC_PROFILE_UNKNOWN,
                             kVideoFormat,
                             kCodedSize, kVisibleRect, kNaturalSize,
-                            NULL, 0);
+                            NULL, 0, false);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
 
@@ -256,7 +259,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_UnsupportedPixelFormat) {
   VideoDecoderConfig config(kCodecVP8, VIDEO_CODEC_PROFILE_UNKNOWN,
                             VideoFrame::INVALID,
                             kCodedSize, kVisibleRect, kNaturalSize,
-                            NULL, 0);
+                            NULL, 0, false);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
 
@@ -265,7 +268,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_OpenDecoderFails) {
   VideoDecoderConfig config(kCodecTheora, VIDEO_CODEC_PROFILE_UNKNOWN,
                             kVideoFormat,
                             kCodedSize, kVisibleRect, kNaturalSize,
-                            NULL, 0);
+                            NULL, 0, false);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
 
@@ -274,7 +277,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioNumeratorZero) {
   VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
                             kVideoFormat,
                             kCodedSize, kVisibleRect, natural_size,
-                            NULL, 0);
+                            NULL, 0, false);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
 
@@ -283,7 +286,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioDenominatorZero) {
   VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
                             kVideoFormat,
                             kCodedSize, kVisibleRect, natural_size,
-                            NULL, 0);
+                            NULL, 0, false);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
 
@@ -292,7 +295,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioNumeratorNegative) {
   VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
                             kVideoFormat,
                             kCodedSize, kVisibleRect, natural_size,
-                            NULL, 0);
+                            NULL, 0, false);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
 
@@ -301,7 +304,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioDenominatorNegative) {
   VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
                             kVideoFormat,
                             kCodedSize, kVisibleRect, natural_size,
-                            NULL, 0);
+                            NULL, 0, false);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
 
@@ -312,7 +315,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioNumeratorTooLarge) {
   VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
                             kVideoFormat,
                             kCodedSize, kVisibleRect, natural_size,
-                            NULL, 0);
+                            NULL, 0, false);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
 
@@ -322,7 +325,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioDenominatorTooLarge) {
   VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
                             kVideoFormat,
                             kCodedSize, kVisibleRect, natural_size,
-                            NULL, 0);
+                            NULL, 0, false);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
 
@@ -334,7 +337,7 @@ TEST_F(FFmpegVideoDecoderTest, DecodeFrame_Normal) {
   scoped_refptr<VideoFrame> video_frame;
   DecodeSingleFrame(i_frame_buffer_, &status, &video_frame);
 
-  EXPECT_EQ(status, VideoDecoder::kOk);
+  EXPECT_EQ(VideoDecoder::kOk, status);
   ASSERT_TRUE(video_frame);
   EXPECT_FALSE(video_frame->IsEndOfStream());
 }
@@ -366,9 +369,9 @@ TEST_F(FFmpegVideoDecoderTest, DecodeFrame_0ByteFrame) {
   Read(&status_b, &video_frame_b);
   Read(&status_c, &video_frame_c);
 
-  EXPECT_EQ(status_a, VideoDecoder::kOk);
-  EXPECT_EQ(status_b, VideoDecoder::kOk);
-  EXPECT_EQ(status_c, VideoDecoder::kOk);
+  EXPECT_EQ(VideoDecoder::kOk, status_a);
+  EXPECT_EQ(VideoDecoder::kOk, status_b);
+  EXPECT_EQ(VideoDecoder::kOk, status_c);
 
   ASSERT_TRUE(video_frame_a);
   ASSERT_TRUE(video_frame_b);
@@ -396,7 +399,7 @@ TEST_F(FFmpegVideoDecoderTest, DecodeFrame_DecodeError) {
   VideoDecoder::Status status;
   scoped_refptr<VideoFrame> video_frame;
   Read(&status, &video_frame);
-  EXPECT_EQ(status, VideoDecoder::kDecodeError);
+  EXPECT_EQ(VideoDecoder::kDecodeError, status);
   EXPECT_FALSE(video_frame);
 
   message_loop_.RunAllPending();
@@ -414,7 +417,7 @@ TEST_F(FFmpegVideoDecoderTest, DecodeFrame_DecodeErrorAtEndOfStream) {
   scoped_refptr<VideoFrame> video_frame;
   DecodeSingleFrame(corrupt_i_frame_buffer_, &status, &video_frame);
 
-  EXPECT_EQ(status, VideoDecoder::kOk);
+  EXPECT_EQ(VideoDecoder::kOk, status);
   ASSERT_TRUE(video_frame);
   EXPECT_TRUE(video_frame->IsEndOfStream());
 }
@@ -444,7 +447,7 @@ TEST_F(FFmpegVideoDecoderTest, DecodeFrame_SmallerHeight) {
 }
 
 TEST_F(FFmpegVideoDecoderTest, DecodeEncryptedFrame_Normal) {
-  Initialize();
+  InitializeWithEncryptedConfig();
 
   // Simulate decoding a single encrypted frame.
   EXPECT_CALL(*decryptor_, Decrypt(encrypted_i_frame_buffer_, _))
@@ -454,14 +457,14 @@ TEST_F(FFmpegVideoDecoderTest, DecodeEncryptedFrame_Normal) {
   scoped_refptr<VideoFrame> video_frame;
   DecodeSingleFrame(encrypted_i_frame_buffer_, &status, &video_frame);
 
-  EXPECT_EQ(status, VideoDecoder::kOk);
+  EXPECT_EQ(VideoDecoder::kOk, status);
   ASSERT_TRUE(video_frame);
   EXPECT_FALSE(video_frame->IsEndOfStream());
 }
 
 // Test the case that the decryptor fails to decrypt the encrypted buffer.
 TEST_F(FFmpegVideoDecoderTest, DecodeEncryptedFrame_DecryptError) {
-  Initialize();
+  InitializeWithEncryptedConfig();
 
   // Simulate decoding a single encrypted frame.
   EXPECT_CALL(*demuxer_, Read(_))
@@ -483,7 +486,7 @@ TEST_F(FFmpegVideoDecoderTest, DecodeEncryptedFrame_DecryptError) {
 
 // Test the case that the decryptor has no key to decrypt the encrypted buffer.
 TEST_F(FFmpegVideoDecoderTest, DecodeEncryptedFrame_NoDecryptionKey) {
-  Initialize();
+  InitializeWithEncryptedConfig();
 
   // Simulate decoding a single encrypted frame.
   EXPECT_CALL(*demuxer_, Read(_))
@@ -506,7 +509,7 @@ TEST_F(FFmpegVideoDecoderTest, DecodeEncryptedFrame_NoDecryptionKey) {
 // Test the case that the decryptor fails to decrypt the encrypted buffer but
 // cannot detect the decryption error and returns a corrupted buffer.
 TEST_F(FFmpegVideoDecoderTest, DecodeEncryptedFrame_CorruptedBufferReturned) {
-  Initialize();
+  InitializeWithEncryptedConfig();
 
   // Simulate decoding a single encrypted frame.
   EXPECT_CALL(*demuxer_, Read(_))
@@ -571,6 +574,30 @@ TEST_F(FFmpegVideoDecoderTest, Reset_DuringPendingRead) {
   message_loop_.RunAllPending();
 }
 
+// Test resetting when there is a pending decrypt on the decryptor.
+TEST_F(FFmpegVideoDecoderTest, Reset_DuringPendingDecrypt) {
+  InitializeWithEncryptedConfig();
+
+  EXPECT_CALL(*demuxer_, Read(_))
+      .WillRepeatedly(ReturnBuffer(encrypted_i_frame_buffer_));
+
+  Decryptor::DecryptCB decrypt_cb;
+  EXPECT_CALL(*decryptor_, Decrypt(encrypted_i_frame_buffer_, _))
+      .WillOnce(SaveArg<1>(&decrypt_cb));
+
+  decoder_->Read(read_cb_);
+  message_loop_.RunAllPending();
+  // Make sure the Read() on the decoder triggers a Decrypt() on the decryptor.
+  EXPECT_FALSE(decrypt_cb.is_null());
+
+  EXPECT_CALL(*decryptor_, CancelDecrypt())
+      .WillOnce(RunDecryptCB3(decrypt_cb, Decryptor::kError,
+                              scoped_refptr<DecoderBuffer>(NULL)));
+  EXPECT_CALL(*this, FrameReady(VideoDecoder::kOk, IsNull()));
+  Reset();
+  message_loop_.RunAllPending();
+}
+
 // Test stopping when decoder has initialized but not decoded.
 TEST_F(FFmpegVideoDecoderTest, Stop_Initialized) {
   Initialize();
@@ -603,8 +630,7 @@ TEST_F(FFmpegVideoDecoderTest, Stop_DuringPendingRead) {
   decoder_->Read(read_cb_);
   message_loop_.RunAllPending();
 
-  // Make sure the Read() on the decoder triggers a Read() on
-  // the demuxer.
+  // Make sure the Read() on the decoder triggers a Read() on the demuxer.
   EXPECT_FALSE(read_cb.is_null());
 
   Stop();
@@ -615,6 +641,29 @@ TEST_F(FFmpegVideoDecoderTest, Stop_DuringPendingRead) {
   message_loop_.RunAllPending();
 }
 
+// Test stopping when there is a pending decrypt on the decryptor.
+TEST_F(FFmpegVideoDecoderTest, Stop_DuringPendingDecrypt) {
+  InitializeWithEncryptedConfig();
+
+  EXPECT_CALL(*demuxer_, Read(_))
+      .WillRepeatedly(ReturnBuffer(encrypted_i_frame_buffer_));
+
+  Decryptor::DecryptCB decrypt_cb;
+  EXPECT_CALL(*decryptor_, Decrypt(encrypted_i_frame_buffer_, _))
+      .WillOnce(SaveArg<1>(&decrypt_cb));
+
+  decoder_->Read(read_cb_);
+  message_loop_.RunAllPending();
+  // Make sure the Read() on the decoder triggers a Decrypt() on the decryptor.
+  EXPECT_FALSE(decrypt_cb.is_null());
+
+  EXPECT_CALL(*decryptor_, CancelDecrypt())
+      .WillOnce(RunDecryptCB3(decrypt_cb, Decryptor::kError,
+                              scoped_refptr<DecoderBuffer>(NULL)));
+  EXPECT_CALL(*this, FrameReady(VideoDecoder::kOk, IsNull()));
+  Stop();
+  message_loop_.RunAllPending();
+}
 
 // Test aborted read on the demuxer stream.
 TEST_F(FFmpegVideoDecoderTest, AbortPendingRead) {
@@ -628,7 +677,7 @@ TEST_F(FFmpegVideoDecoderTest, AbortPendingRead) {
 
   Read(&status, &video_frame);
 
-  EXPECT_EQ(status, VideoDecoder::kOk);
+  EXPECT_EQ(VideoDecoder::kOk, status);
   EXPECT_FALSE(video_frame);
 }
 

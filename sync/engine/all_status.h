@@ -17,6 +17,7 @@
 #include "sync/engine/syncer_types.h"
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/internal_api/public/engine/sync_status.h"
+#include "sync/engine/nudge_source.h"
 
 namespace syncer {
 
@@ -53,8 +54,13 @@ class AllStatus : public SyncEngineEventListener {
   void SetEncryptedTypes(ModelTypeSet types);
   void SetCryptographerReady(bool ready);
   void SetCryptoHasPendingKeys(bool has_pending_keys);
+  void SetPassphraseType(PassphraseType type);
+  void SetHasKeystoreKey(bool has_keystore_key);
+  void SetKeystoreMigrationTime(const base::Time& migration_time);
 
   void SetUniqueId(const std::string& guid);
+
+  void IncrementNudgeCounter(NudgeSource source);
 
  protected:
   // Examines syncer to calculate syncing and the unsynced count,

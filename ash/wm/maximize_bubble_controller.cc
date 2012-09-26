@@ -86,7 +86,7 @@ MaximizeBubbleBorder::MaximizeBubbleBorder(views::View* content_view,
     : views::BubbleBorder(views::BubbleBorder::TOP_RIGHT,
                           views::BubbleBorder::NO_SHADOW),
       anchor_size_(anchor->size()),
-      anchor_screen_origin_(0,0),
+      anchor_screen_origin_(0, 0),
       content_view_(content_view) {
   views::View::ConvertPointToScreen(anchor, &anchor_screen_origin_);
   set_alignment(views::BubbleBorder::ALIGN_EDGE_TO_ANCHOR_EDGE);
@@ -399,7 +399,7 @@ MaximizeBubbleController::Bubble::Bubble(
   set_parent_window(parent);
 
   set_notify_enter_exit_on_child(true);
-  set_try_mirroring_arrow(false);
+  set_adjust_if_offscreen(false);
   SetPaintToLayer(true);
   SetFillsBoundsOpaquely(false);
   set_color(kBubbleBackgroundColor);
@@ -731,8 +731,8 @@ void BubbleContentsView::SetSnapType(SnapType snap_type) {
       break;
     default:
       // If nothing is selected, we automatically select the click operation.
-      id = bubble_->controller()->maximize_type() ? IDS_ASH_RESTORE_WINDOW :
-               IDS_ASH_MAXIMIZE_WINDOW;
+      id = bubble_->controller()->maximize_type() == FRAME_STATE_FULL ?
+               IDS_ASH_RESTORE_WINDOW : IDS_ASH_MAXIMIZE_WINDOW;
       break;
   }
   label_view_->SetText(rb.GetLocalizedString(id));
