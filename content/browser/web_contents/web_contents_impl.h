@@ -6,6 +6,7 @@
 #define CONTENT_BROWSER_WEB_CONTENTS_WEB_CONTENTS_IMPL_H_
 
 #include <map>
+#include <set>
 #include <string>
 
 #include "base/compiler_specific.h"
@@ -45,6 +46,7 @@ class JavaScriptDialogCreator;
 class RenderViewHost;
 class RenderViewHostDelegateView;
 class RenderViewHostImpl;
+class RenderWidgetHostImpl;
 class SiteInstance;
 class TestWebContents;
 class WebContentsDelegate;
@@ -415,6 +417,8 @@ class CONTENT_EXPORT WebContentsImpl
 
   // RenderWidgetHostDelegate --------------------------------------------------
 
+  virtual void RenderWidgetDeleted(
+      content::RenderWidgetHostImpl* render_widget_host) OVERRIDE;
   virtual bool PreHandleKeyboardEvent(
       const content::NativeWebKeyboardEvent& event,
       bool* is_keyboard_shortcut) OVERRIDE;
@@ -830,6 +834,10 @@ class CONTENT_EXPORT WebContentsImpl
   // Used during IPC message dispatching so that the handlers can get a pointer
   // to the RVH through which the message was received.
   content::RenderViewHost* message_source_;
+
+  // All live RenderWidgetHostImpls that are created by this object and may
+  // outlive it.
+  std::set<content::RenderWidgetHostImpl*> created_widgets_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsImpl);
 };
