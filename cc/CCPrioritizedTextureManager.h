@@ -33,8 +33,6 @@ public:
     }
     ~CCPrioritizedTextureManager();
 
-    typedef Vector<CCPrioritizedTexture::Backing*> BackingVector;
-
     // FIXME (http://crbug.com/137094): This 64MB default is a straggler from the
     // old texture manager and is just to give us a default memory allocation before
     // we get a callback from the GPU memory manager. We should probaby either:
@@ -56,18 +54,12 @@ public:
     void prioritizeTextures();
     void clearPriorities();
 
-    void reduceMemoryOnImplThread(size_t limitBytes, CCResourceProvider*);
-    void getEvictedBackings(BackingVector& evictedBackings);
-    void unlinkEvictedBackings(const BackingVector& evictedBackings);
-    // Deletes all evicted backings, unlinking them from their owning textures if needed.
-    // Returns true if this function to unlinked any backings from their owning texture while
-    // destroying them.
-    bool deleteEvictedBackings();
-
     bool requestLate(CCPrioritizedTexture*);
 
     void reduceMemory(CCResourceProvider*);
     void clearAllMemory(CCResourceProvider*);
+    void unlinkAllBackings();
+    void deleteAllUnlinkedBackings();
 
     void acquireBackingTextureIfNeeded(CCPrioritizedTexture*, CCResourceProvider*);
 
@@ -75,14 +67,11 @@ public:
     void unregisterTexture(CCPrioritizedTexture*);
     void returnBackingTexture(CCPrioritizedTexture*);
 
+#if !ASSERT_DISABLED
+    void assertInvariants();
+#endif
+
 private:
-    friend class CCPrioritizedTextureTest;
-
-    enum EvictionPriorityPolicy {
-        RespectManagerPriorityCutoff,
-        DoNotRespectManagerPriorityCutoff,
-    };
-
     // Compare textures. Highest priority first.
     static inline bool compareTextures(CCPrioritizedTexture* a, CCPrioritizedTexture* b)
     {
@@ -93,29 +82,19 @@ private:
     // Compare backings. Lowest priority first.
     static inline bool compareBackings(CCPrioritizedTexture::Backing* a, CCPrioritizedTexture::Backing* b)
     {
-        int priorityA = a->requestPriorityAtLastPriorityUpdate();
-        int priorityB = b->requestPriorityAtLastPriorityUpdate();
-        if (priorityA != priorityB)
-            return CCPriorityCalculator::priorityIsLower(priorityA, priorityB);
-        bool aboveCutoffA = a->wasAbovePriorityCutoffAtLastPriorityUpdate();
-        bool aboveCutoffB = b->wasAbovePriorityCutoffAtLastPriorityUpdate();
-        if (!aboveCutoffA && aboveCutoffB)
-            return true;
-        if (aboveCutoffA && !aboveCutoffB)
-            return false;
-        return a < b;
+        int priorityA = a->owner() ? a->owner()->requestPriority() : CCPriorityCalculator::lowestPriority();
+        int priorityB = b->owner() ? b->owner()->requestPriority() : CCPriorityCalculator::lowestPriority();
+        if (priorityA == priorityB)
+            return a < b;
+        return CCPriorityCalculator::priorityIsLower(priorityA, priorityB);
     }
 
     CCPrioritizedTextureManager(size_t maxMemoryLimitBytes, int maxTextureSize, int pool);
 
-    void updateBackingsPriorities();
-    void evictBackingsToReduceMemory(size_t limitBytes, EvictionPriorityPolicy, CCResourceProvider*);
-    CCPrioritizedTexture::Backing* createBacking(IntSize, GC3Denum format, CCResourceProvider*);
-    void evictBackingResource(CCPrioritizedTexture::Backing*, CCResourceProvider*);
+    void reduceMemory(size_t limit, CCResourceProvider*);
 
-#if !ASSERT_DISABLED
-    void assertInvariants();
-#endif
+    CCPrioritizedTexture::Backing* createBacking(IntSize, GC3Denum format, CCResourceProvider*);
+    void destroyBacking(CCPrioritizedTexture::Backing*, CCResourceProvider*);
 
     size_t m_maxMemoryLimitBytes;
     unsigned m_priorityCutoff;
@@ -127,17 +106,13 @@ private:
     typedef HashSet<CCPrioritizedTexture*> TextureSet;
     typedef ListHashSet<CCPrioritizedTexture::Backing*> BackingSet;
     typedef Vector<CCPrioritizedTexture*> TextureVector;
+    typedef Vector<CCPrioritizedTexture::Backing*> BackingVector;
 
     TextureSet m_textures;
     BackingSet m_backings;
-    BackingVector m_evictedBackings;
 
     TextureVector m_tempTextureVector;
     BackingVector m_tempBackingVector;
-
-    // Set by the main thread when it adjust priorities in such a way that
-    // the m_backings array's view of priorities is now out of date.
-    bool m_needsUpdateBackingsPrioritites;
 };
 
 } // cc

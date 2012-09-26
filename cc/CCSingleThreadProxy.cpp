@@ -249,12 +249,6 @@ void CCSingleThreadProxy::postAnimationEventsToMainThreadOnImplThread(PassOwnPtr
     m_layerTreeHost->setAnimationEvents(events, wallClockTime);
 }
 
-void CCSingleThreadProxy::releaseContentsTexturesOnImplThread()
-{
-    ASSERT(isImplThread());
-    m_layerTreeHost->reduceContentsTexturesMemoryOnImplThread(0, m_layerTreeHostImpl->resourceProvider());
-}
-
 // Called by the legacy scheduling path (e.g. where render_widget does the scheduling)
 void CCSingleThreadProxy::compositeImmediately()
 {
@@ -280,23 +274,15 @@ bool CCSingleThreadProxy::commitAndComposite()
     if (!m_layerTreeHost->initializeRendererIfNeeded())
         return false;
 
-    // Unlink any texture backings that were deleted
-    CCPrioritizedTextureManager::BackingVector evictedContentsTexturesBackings;
-    {
-        DebugScopedSetImplThread implThread;
-        m_layerTreeHost->getEvictedContentTexturesBackings(evictedContentsTexturesBackings);
-    }
-    m_layerTreeHost->unlinkEvictedContentTexturesBackings(evictedContentsTexturesBackings);
-    {
+    if (m_layerTreeHostImpl->contentsTexturesPurged()) {
+        m_layerTreeHost->unlinkAllContentTextures();
         DebugScopedSetImplThreadAndMainThreadBlocked implAndMainBlocked;
-        m_layerTreeHost->deleteEvictedContentTexturesBackings();
+        m_layerTreeHost->deleteUnlinkedTextures();
     }
 
     CCTextureUpdateQueue queue;
     m_layerTreeHost->updateLayers(queue, m_layerTreeHostImpl->memoryAllocationLimitBytes());
-
-    if (m_layerTreeHostImpl->contentsTexturesPurged())
-        m_layerTreeHostImpl->resetContentsTexturesPurged();
+    m_layerTreeHostImpl->resetContentsTexturesPurged();
 
     m_layerTreeHost->willCommit();
     doCommit(queue);
