@@ -17,8 +17,7 @@ using content::Geoposition;
 
 namespace {
 
-const char* kDefaultNetworkProviderUrl =
-    "https://www.googleapis.com/geolocation/v1/geolocate";
+const char* kDefaultNetworkProviderUrl = "https://maps.googleapis.com/maps/api/browserlocation/json";
 GeolocationArbitratorDependencyFactory* g_dependency_factory_for_test = NULL;
 
 }  // namespace
@@ -55,10 +54,6 @@ GeolocationArbitrator* GeolocationArbitrator::Create(
   return arbitrator;
 }
 
-GURL GeolocationArbitrator::DefaultNetworkProviderURL() {
-  return GURL(kDefaultNetworkProviderUrl);
-}
-
 void GeolocationArbitrator::OnPermissionGranted() {
   is_permission_granted_ = true;
   for (ScopedVector<LocationProviderBase>::iterator i = providers_.begin();
@@ -72,7 +67,7 @@ void GeolocationArbitrator::StartProviders(
   // Stash options as OnAccessTokenStoresLoaded has not yet been called.
   current_provider_options_ = options;
   if (providers_.empty()) {
-    DCHECK(DefaultNetworkProviderURL().is_valid());
+    DCHECK(GURL(kDefaultNetworkProviderUrl).is_valid());
     access_token_store_->LoadAccessTokens(
         base::Bind(&GeolocationArbitrator::OnAccessTokenStoresLoaded,
                    base::Unretained(this)));
@@ -102,7 +97,7 @@ void GeolocationArbitrator::OnAccessTokenStoresLoaded(
   }
   // If there are no access tokens, boot strap it with the default server URL.
   if (access_token_set.empty())
-    access_token_set[DefaultNetworkProviderURL()];
+    access_token_set[GURL(kDefaultNetworkProviderUrl)];
   for (AccessTokenStore::AccessTokenSet::iterator i =
            access_token_set.begin();
       i != access_token_set.end(); ++i) {
