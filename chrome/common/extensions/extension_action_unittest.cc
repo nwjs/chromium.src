@@ -170,7 +170,7 @@ TEST_F(ExtensionActionTest, GetAttention) {
   EXPECT_TRUE(script_badge.GetIconAnimation(1));
 
   // Simulate waiting long enough for the animation to end.
-  action.GetIconAnimation(1)->Stop();
+  script_badge.GetIconAnimation(1)->Stop();
   EXPECT_FALSE(script_badge.GetIconAnimation(1));  // Sanity check.
 
   script_badge.SetAppearance(1, ExtensionAction::ACTIVE);
