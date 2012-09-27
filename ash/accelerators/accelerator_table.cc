@@ -81,7 +81,7 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_F5, ui::EF_CONTROL_DOWN, TAKE_SCREENSHOT },
   { true, ui::VKEY_F5, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
     TAKE_PARTIAL_SCREENSHOT },
-  { true, ui::VKEY_PRINT, ui::EF_NONE, TAKE_SCREENSHOT_BY_PRTSCN_KEY },
+  { true, ui::VKEY_PRINT, ui::EF_NONE, TAKE_SCREENSHOT },
   // On Chrome OS, Search key is mapped to LWIN.
   { true, ui::VKEY_LWIN, ui::EF_NONE, TOGGLE_APP_LIST },
   { true, ui::VKEY_MEDIA_LAUNCH_APP2, ui::EF_NONE, TOGGLE_APP_LIST },
@@ -168,27 +168,8 @@ const AcceleratorAction kReservedActions[] = {
   CYCLE_FORWARD_MRU,  // Alt+Tab
 
 #if defined(OS_CHROMEOS)
-  // Chrome OS top-row keys.
-  FOCUS_PREVIOUS_PANE,  // Control+F1
-  FOCUS_NEXT_PANE,  // Control+F2
-  CYCLE_DISPLAY_MODE,  // Control+F4
-  TOGGLE_MAXIMIZED, // F4
-  CYCLE_FORWARD_LINEAR,  // F5
-  CYCLE_BACKWARD_LINEAR,  // Shift+F5
-  TAKE_SCREENSHOT,  // Control+F5
-  TAKE_PARTIAL_SCREENSHOT,  // Shift+Control+F5
-  BRIGHTNESS_DOWN,  // F6
-  KEYBOARD_BRIGHTNESS_DOWN,  // Alt+F6
-  MAGNIFY_SCREEN_ZOOM_OUT,  // Control+F6
-  BRIGHTNESS_UP,  // F7
-  KEYBOARD_BRIGHTNESS_UP,  // Alt+F7
-  MAGNIFY_SCREEN_ZOOM_IN,  // Control+F7
-  VOLUME_MUTE,  // F8
-  VOLUME_DOWN,  // F9
-  VOLUME_UP,  // F10
   POWER_PRESSED,
   POWER_RELEASED,
-  // TODO(yusukes): Handle F1, F2, F3, and F4 without modifiers in BrowserView.
 #endif
 };
 

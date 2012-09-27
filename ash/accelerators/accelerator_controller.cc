@@ -475,7 +475,6 @@ bool AcceleratorController::PerformAction(int action,
     case RESTORE_TAB:
       return HandleRestoreTab();
     case TAKE_SCREENSHOT:
-    case TAKE_SCREENSHOT_BY_PRTSCN_KEY:
       if (screenshot_delegate_.get() &&
           screenshot_delegate_->CanTakeScreenshot()) {
         screenshot_delegate_->HandleTakeScreenshotForAllRootWindows();
