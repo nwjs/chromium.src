@@ -58,6 +58,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
  public:
   // routing_id can be MSG_ROUTING_NONE, in which case the next available
   // routing id is taken from the RenderProcessHost.
+  // If this object outlives |delegate|, DetachDelegate() must be called when
+  // |delegate| goes away.
   RenderWidgetHostImpl(RenderWidgetHostDelegate* delegate,
                        RenderProcessHost* process,
                        int routing_id);
@@ -390,6 +392,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
     allow_privileged_mouse_lock_ = allow;
   }
 
+  void DetachDelegate();
+
  protected:
   virtual RenderWidgetHostImpl* AsRenderWidgetHostImpl() OVERRIDE;
 
@@ -410,10 +414,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // when accelerated compositing is enabled.
   gfx::GLSurfaceHandle GetCompositingSurface();
 
-  // "RenderWidgetHostDelegate" ------------------------------------------------
-  // There is no RenderWidgetHostDelegate but the following methods serve the
-  // same purpose. They are overridden by RenderViewHost to send upwards to its
-  // delegate.
+  // ---------------------------------------------------------------------------
+  // The following methods are overridden by RenderViewHost to send upwards to
+  // its delegate.
 
   // Called when a mousewheel event was not processed by the renderer.
   virtual void UnhandledWheelEvent(const WebKit::WebMouseWheelEvent& event) {}
@@ -603,6 +606,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void TickActiveSmoothScrollGesture();
 
   // Our delegate, which wants to know mainly about keyboard events.
+  // It will remain non-NULL until DetachDelegate() is called.
   RenderWidgetHostDelegate* delegate_;
 
   // Created during construction but initialized during Init*(). Therefore, it
