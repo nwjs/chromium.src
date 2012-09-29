@@ -215,7 +215,6 @@
 
 #if defined(OS_WIN)
 #include <windows.h>  // Needed for STATUS_* codes
-#include "sandbox/win/src/sandbox_types.h"  // For termination codes.
 #endif
 
 using base::Time;
@@ -347,12 +346,6 @@ std::vector<int> GetAllCrashExitCodes() {
 
   for (size_t i = 0; i < arraysize(kExceptionCodes); ++i)
     codes.push_back(MapCrashExitCodeForHistogram(kExceptionCodes[i]));
-
-  // Add the sandbox fatal termination codes.
-  for (int i = sandbox::SBOX_FATAL_INTEGRITY;
-       i <= sandbox::SBOX_FATAL_LAST; ++i) {
-    codes.push_back(MapCrashExitCodeForHistogram(i));
-  }
 #endif
 
   return codes;
