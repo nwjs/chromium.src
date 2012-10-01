@@ -348,6 +348,11 @@ void ResourceDispatcher::OnReceivedData(const IPC::Message& message,
                                         int encoded_data_length) {
   PendingRequestInfo* request_info = GetPendingRequestInfo(request_id);
   if (request_info && data_length > 0) {
+    // Ensure that the SHM buffer remains valid for the duration of this scope.
+    // It is possible for CancelPendingRequest() to be called before we exit
+    // this scope.
+    linked_ptr<base::SharedMemory> retain_buffer(request_info->buffer);
+
     base::TimeTicks time_start = base::TimeTicks::Now();
 
     request_info->peer->OnReceivedData(
