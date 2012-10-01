@@ -458,8 +458,9 @@ class WebNotificationView : public views::View,
     const int message_width = kWebNotificationWidth - kWebNotificationIconSize -
         kWebNotificationButtonWidth - (padding_width * 3);
     columns->AddColumn(views::GridLayout::FILL, views::GridLayout::LEADING,
-                       100, /* resize percent */
-                       views::GridLayout::FIXED, message_width, message_width);
+                       0, /* resize percent */
+                       views::GridLayout::FIXED,
+                       message_width, message_width);
 
     columns->AddPaddingColumn(0, padding_width);
 
