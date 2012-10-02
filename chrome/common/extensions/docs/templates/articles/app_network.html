@@ -40,7 +40,7 @@ to the manifest:
 Packaged apps can make connections to any service that supports TCP.
 </p>
 
-<h3>Connecting to a socket</h3>
+<h3 id="connecting">Connecting to a socket</h3>
 
 <p>
 Here's a sample showing how to connect to a socket:
@@ -61,7 +61,7 @@ you can later read and write to this socket.
 chrome.socket.write(socketId, arrayBuffer, onWriteCompleteCallback);
 </pre>
 
-<h3>Reading to and writing from a socket</h3>
+<h3 id="reading">Reading to & writing from a socket</h3>
 
 <p>
 Reading and writing from a socket uses ArrayBuffer objects.
@@ -75,7 +75,7 @@ chrome.socket.read(socketId, null, function(readInfo) {
 });
 </pre>
 
-<h3>Disconnecting from a socket</h3>
+<h3 id="disconnecting">Disconnecting from a socket</h3>
 
 <p>Here's how to disconnect:</p>
 
@@ -87,7 +87,7 @@ chrome.socket.read(socketId, null, function(readInfo) {
 Packaged apps can make connections to any service that supports UDP.
 </p>
 
-<h3>Sending data</h3>
+<h3 id="sending">Sending data</h3>
 
 <p>
 Here's a sample showing how to send data
@@ -112,7 +112,7 @@ chrome.experimental.socket.create('udp', '127.0.0.1', 1337, {},
 );
 </pre>
 
-<h3>Receiving data</h3>
+<h3 id="receiving">Receiving data</h3>
 
 <p>
 This example is very similar to the 'Sending data' example
