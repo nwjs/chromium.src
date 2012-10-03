@@ -4,6 +4,9 @@
 
 #include "crypto/keychain_mac.h"
 
+#include "base/synchronization/lock.h"
+#include "crypto/mac_security_services_lock.h"
+
 namespace crypto {
 
 MacKeychain::MacKeychain() {}
@@ -17,6 +20,7 @@ OSStatus MacKeychain::ItemCopyAttributesAndData(
     SecKeychainAttributeList** attrList,
     UInt32* length,
     void** outData) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainItemCopyAttributesAndData(itemRef, info, itemClass,
                                               attrList, length, outData);
 }
@@ -26,6 +30,7 @@ OSStatus MacKeychain::ItemModifyAttributesAndData(
     const SecKeychainAttributeList* attrList,
     UInt32 length,
     const void* data) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainItemModifyAttributesAndData(itemRef, attrList, length,
                                                 data);
 }
@@ -33,10 +38,12 @@ OSStatus MacKeychain::ItemModifyAttributesAndData(
 OSStatus MacKeychain::ItemFreeAttributesAndData(
     SecKeychainAttributeList* attrList,
     void* data) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainItemFreeAttributesAndData(attrList, data);
 }
 
 OSStatus MacKeychain::ItemDelete(SecKeychainItemRef itemRef) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainItemDelete(itemRef);
 }
 
@@ -45,12 +52,14 @@ OSStatus MacKeychain::SearchCreateFromAttributes(
     SecItemClass itemClass,
     const SecKeychainAttributeList* attrList,
     SecKeychainSearchRef* searchRef) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainSearchCreateFromAttributes(keychainOrArray, itemClass,
                                                attrList, searchRef);
 }
 
 OSStatus MacKeychain::SearchCopyNext(SecKeychainSearchRef searchRef,
                                      SecKeychainItemRef* itemRef) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainSearchCopyNext(searchRef, itemRef);
 }
 
@@ -70,6 +79,7 @@ OSStatus MacKeychain::AddInternetPassword(
     UInt32 passwordLength,
     const void* passwordData,
     SecKeychainItemRef* itemRef) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainAddInternetPassword(keychain,
                                         serverNameLength, serverName,
                                         securityDomainLength, securityDomain,
@@ -88,6 +98,7 @@ OSStatus MacKeychain::FindGenericPassword(CFTypeRef keychainOrArray,
                                           UInt32* passwordLength,
                                           void** passwordData,
                                           SecKeychainItemRef* itemRef) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainFindGenericPassword(keychainOrArray,
                                         serviceNameLength,
                                         serviceName,
@@ -100,6 +111,7 @@ OSStatus MacKeychain::FindGenericPassword(CFTypeRef keychainOrArray,
 
 OSStatus MacKeychain::ItemFreeContent(SecKeychainAttributeList* attrList,
                                       void* data) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainItemFreeContent(attrList, data);
 }
 
@@ -111,6 +123,7 @@ OSStatus MacKeychain::AddGenericPassword(SecKeychainRef keychain,
                                          UInt32 passwordLength,
                                          const void* passwordData,
                                          SecKeychainItemRef* itemRef) const {
+  base::AutoLock lock(GetMacSecurityServicesLock());
   return SecKeychainAddGenericPassword(keychain,
                                        serviceNameLength,
                                        serviceName,
