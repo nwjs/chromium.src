@@ -31,6 +31,13 @@ static const double contextRecreationTickRate = 0.03;
 
 namespace cc {
 
+namespace {
+
+// Type of texture uploader to use for texture updates.
+static TextureUploaderOption textureUploader = ThrottledUploader;
+
+} // anonymous namespace
+
 PassOwnPtr<CCProxy> CCThreadProxy::create(CCLayerTreeHost* layerTreeHost)
 {
     return adoptPtr(new CCThreadProxy(layerTreeHost));
@@ -866,7 +873,7 @@ void CCThreadProxy::initializeRendererOnImplThread(CCCompletionEvent* completion
     TRACE_EVENT0("cc", "CCThreadProxy::initializeRendererOnImplThread");
     ASSERT(isImplThread());
     ASSERT(m_contextBeforeInitializationOnImplThread);
-    *initializeSucceeded = m_layerTreeHostImpl->initializeRenderer(m_contextBeforeInitializationOnImplThread.release());
+    *initializeSucceeded = m_layerTreeHostImpl->initializeRenderer(m_contextBeforeInitializationOnImplThread.release(), textureUploader);
     if (*initializeSucceeded) {
         *capabilities = m_layerTreeHostImpl->rendererCapabilities();
         m_schedulerOnImplThread->setSwapBuffersCompleteSupported(
@@ -905,7 +912,7 @@ void CCThreadProxy::recreateContextOnImplThread(CCCompletionEvent* completion, C
     ASSERT(isImplThread());
     if (!m_layerTreeHostImpl->contentsTexturesPurged())
         m_layerTreeHost->deleteContentsTexturesOnImplThread(m_layerTreeHostImpl->resourceProvider());
-    *recreateSucceeded = m_layerTreeHostImpl->initializeRenderer(adoptPtr(contextPtr));
+    *recreateSucceeded = m_layerTreeHostImpl->initializeRenderer(adoptPtr(contextPtr), textureUploader);
     if (*recreateSucceeded) {
         *capabilities = m_layerTreeHostImpl->rendererCapabilities();
         m_schedulerOnImplThread->didRecreateContext();

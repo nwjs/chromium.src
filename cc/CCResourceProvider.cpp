@@ -49,10 +49,10 @@ static bool isTextureFormatSupportedForStorage(GC3Denum format)
     return (format == GraphicsContext3D::RGBA || format == Extensions3D::BGRA_EXT);
 }
 
-PassOwnPtr<CCResourceProvider> CCResourceProvider::create(CCGraphicsContext* context)
+PassOwnPtr<CCResourceProvider> CCResourceProvider::create(CCGraphicsContext* context, TextureUploaderOption option)
 {
     OwnPtr<CCResourceProvider> resourceProvider(adoptPtr(new CCResourceProvider(context)));
-    if (!resourceProvider->initialize())
+    if (!resourceProvider->initialize(option))
         return nullptr;
     return resourceProvider.release();
 }
@@ -389,7 +389,7 @@ CCResourceProvider::CCResourceProvider(CCGraphicsContext* context)
 {
 }
 
-bool CCResourceProvider::initialize()
+bool CCResourceProvider::initialize(TextureUploaderOption textureUploaderOption)
 {
     ASSERT(CCProxy::isImplThread());
     WebGraphicsContext3D* context3d = m_context->context3D();
@@ -424,7 +424,10 @@ bool CCResourceProvider::initialize()
     m_texSubImage = adoptPtr(new LayerTextureSubImage(useMapSub));
     m_textureCopier = AcceleratedTextureCopier::create(context3d, useBindUniform);
 
-    m_textureUploader = ThrottledTextureUploader::create(context3d);
+    if (textureUploaderOption == ThrottledUploader)
+        m_textureUploader = ThrottledTextureUploader::create(context3d);
+    else
+        m_textureUploader = UnthrottledTextureUploader::create();
     GLC(context3d, context3d->getIntegerv(GraphicsContext3D::MAX_TEXTURE_SIZE, &m_maxTextureSize));
     return true;
 }
