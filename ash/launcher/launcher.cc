@@ -121,7 +121,7 @@ class DimmerView : public views::WidgetDelegateView,
                                      const gfx::Rect& old_bounds,
                                      const gfx::Rect& new_bounds) OVERRIDE {
     CHECK_EQ(window, launcher_->GetNativeWindow());
-    GetWidget()->SetBounds(launcher_->GetWindowBoundsInScreen());
+    GetWidget()->GetNativeWindow()->SetBounds(window->bounds());
   }
 
   virtual void OnWindowDestroying(aura::Window* window) OVERRIDE {
@@ -282,6 +282,8 @@ void Launcher::SetDimsShelf(bool value) {
   dimmer_->set_focus_on_creation(false);
   dimmer_->SetContentsView(new DimmerView(widget_.get()));
   dimmer_->GetNativeView()->SetName("LauncherDimmerView");
+  dimmer_->GetNativeView()->SetProperty(internal::kStayInSameRootWindowKey,
+                                        true);
   dimmer_->Show();
 }
 
