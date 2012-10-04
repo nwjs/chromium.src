@@ -43,6 +43,7 @@ CompositorOutputSurface::~CompositorOutputSurface() {
   DCHECK(CalledOnValidThread());
   if (!client_)
     return;
+  output_surface_proxy_->ClearOutputSurface();
   output_surface_filter_->RemoveRoute(routing_id_);
 }
 
@@ -61,10 +62,11 @@ bool CompositorOutputSurface::bindToClient(
 
   client_ = client;
 
+  output_surface_proxy_ = new CompositorOutputSurfaceProxy(this);
   output_surface_filter_->AddRoute(
       routing_id_,
-      base::Bind(&CompositorOutputSurface::OnMessageReceived,
-                 base::Unretained(this)));
+      base::Bind(&CompositorOutputSurfaceProxy::OnMessageReceived,
+                 output_surface_proxy_));
 
   return true;
 }
