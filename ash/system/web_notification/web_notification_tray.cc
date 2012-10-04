@@ -1002,7 +1002,8 @@ class WebNotificationTray::PopupBubble : public WebNotificationTray::Bubble {
   explicit PopupBubble(WebNotificationTray* tray) :
       WebNotificationTray::Bubble(tray),
       contents_view_(NULL),
-      num_popups_(0) {
+      num_popups_(0),
+      dirty_(false) {
     TrayBubbleView::InitParams init_params = GetInitParams();
     init_params.arrow_color = kBackgroundColor;
     init_params.close_on_deactivate = false;
@@ -1018,6 +1019,9 @@ class WebNotificationTray::PopupBubble : public WebNotificationTray::Bubble {
   size_t MessageViewsForTest() const {
     return contents_view_->MessageViewsForTest();
   }
+
+  bool dirty() const { return dirty_; }
+  void set_dirty(bool dirty) { dirty_ = dirty; }
 
   // Overridden from TrayBubbleView::Host.
   virtual void BubbleViewDestroyed() OVERRIDE {
@@ -1046,7 +1050,8 @@ class WebNotificationTray::PopupBubble : public WebNotificationTray::Bubble {
     }
     // Only update the popup tray if the number of visible popup notifications
     // has changed.
-    if (popup_notifications.size() != num_popups_) {
+    if (popup_notifications.size() != num_popups_ || dirty()) {
+      set_dirty(false);
       num_popups_ = popup_notifications.size();
       contents_view_->Update(popup_notifications);
       bubble_view_->Show();
@@ -1074,6 +1079,7 @@ class WebNotificationTray::PopupBubble : public WebNotificationTray::Bubble {
   base::OneShotTimer<PopupBubble> autoclose_;
   internal::PopupBubbleContentsView* contents_view_;
   size_t num_popups_;
+  bool dirty_;
 
   DISALLOW_COPY_AND_ASSIGN(PopupBubble);
 };
@@ -1142,6 +1148,7 @@ void WebNotificationTray::SetNotificationImage(const std::string& id,
   if (!notification_list_->SetNotificationImage(id, image))
     return;
   UpdateTrayAndBubble();
+  popup_bubble()->set_dirty(true);
   ShowPopupBubble();
 }
 
