@@ -85,13 +85,20 @@ private:
         WTF_MAKE_NONCOPYABLE(Backing);
     public:
         Backing(unsigned id, IntSize size, GC3Denum format)
-            : CCTexture(id, size, format), m_owner(0) { }
+            : CCTexture(id, size, format), m_owner(0), m_inUse(false) { }
         ~Backing() { ASSERT(!m_owner); }
+
+        // A backing is in use if the impl tree may have a reference to its
+        // resource id. One cannot recycle backings that are in use, as it
+        // may cause corruption or crashes when drawing the impl tree.
+        void setInUse(bool inUse) { m_inUse = inUse; }
+        bool isInUse() const { return m_inUse; }
 
         CCPrioritizedTexture* owner() { return m_owner; }
     private:
         friend class CCPrioritizedTexture;
         CCPrioritizedTexture* m_owner;
+        bool m_inUse;
     };
 
     CCPrioritizedTexture(CCPrioritizedTextureManager*, IntSize, GC3Denum format);

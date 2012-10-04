@@ -50,9 +50,8 @@ void CCPrioritizedTextureManager::prioritizeTextures()
     // sort them (if performance of the sort becomes an issue).
 
     TextureVector& sortedTextures = m_tempTextureVector;
-    BackingVector& sortedBackings = m_tempBackingVector;
     sortedTextures.clear();
-    sortedBackings.clear();
+
 
     // Copy all textures into a vector and sort them.
     for (TextureSet::iterator it = m_textures.begin(); it != m_textures.end(); ++it)
@@ -98,6 +97,21 @@ void CCPrioritizedTextureManager::prioritizeTextures()
     }
     ASSERT(m_memoryAboveCutoffBytes <= m_memoryAvailableBytes);
 
+    sortedTextures.clear();
+
+    sortBackings();
+
+#if !ASSERT_DISABLED
+    assertInvariants();
+    ASSERT(memoryAboveCutoffBytes() <= maxMemoryLimitBytes());
+#endif
+}
+
+void CCPrioritizedTextureManager::sortBackings()
+{
+    BackingVector& sortedBackings = m_tempBackingVector;
+    sortedBackings.clear();
+
     // Put backings in eviction/recycling order.
     for (BackingSet::iterator it = m_backings.begin(); it != m_backings.end(); ++it)
         sortedBackings.append(*it);
@@ -108,13 +122,50 @@ void CCPrioritizedTextureManager::prioritizeTextures()
         m_backings.add(*it);
     }
 
-    sortedTextures.clear();
     sortedBackings.clear();
 
 #if !ASSERT_DISABLED
-    assertInvariants();
-    ASSERT(memoryAboveCutoffBytes() <= maxMemoryLimitBytes());
+    // Make sure that the backings are sorted as expected
+    bool reachedInUse = false;
+    bool reachedUnavailable = false;
+    for (BackingSet::iterator it = m_backings.begin(); it != m_backings.end(); ++it) {
+        CCPrioritizedTexture::Backing* backing = (*it);
+        bool isUnavailable = false;
+        if (backing->isInUse()) {
+            reachedInUse = true;
+            isUnavailable = true;
+            reachedUnavailable = true;
+        }
+        if (backing->owner() && backing->owner()->isAbovePriorityCutoff()) {
+            isUnavailable = true;
+            reachedUnavailable = true;
+        }
+        if (reachedInUse)
+            ASSERT(backing->isInUse());
+        if (reachedUnavailable)
+            ASSERT(isUnavailable);
+    }
 #endif
+}
+
+void CCPrioritizedTextureManager::markAllBackingsNotInUse()
+{
+    for (BackingSet::iterator it = m_backings.begin(); it != m_backings.end(); ++it)
+        (*it)->setInUse(false);
+
+    // Re-sort the backings so that backings that had been important because they
+    // were in-use can now be marked as not-important.
+    sortBackings();
+}
+
+void CCPrioritizedTextureManager::markLinkedBackingsInUse()
+{
+    for (BackingSet::iterator it = m_backings.begin(); it != m_backings.end(); ++it)
+        (*it)->setInUse(!!(*it)->owner());
+
+    // Re-sort the backings so that the now-in-use backings are counted as the most
+    // important.
+    sortBackings();
 }
 
 void CCPrioritizedTextureManager::clearPriorities()
@@ -158,6 +209,10 @@ void CCPrioritizedTextureManager::acquireBackingTextureIfNeeded(CCPrioritizedTex
     ASSERT(CCProxy::isImplThread() && CCProxy::isMainThreadBlocked());
     ASSERT(!texture->isSelfManaged());
     ASSERT(texture->isAbovePriorityCutoff());
+
+    // In theory, we should never be uploading to a texture which has
+    // an in-use backing. In practice, this happens regularly.
+
     if (texture->backing() || !texture->isAbovePriorityCutoff())
         return;
 
@@ -166,6 +221,8 @@ void CCPrioritizedTextureManager::acquireBackingTextureIfNeeded(CCPrioritizedTex
 
     // First try to recycle
     for (BackingSet::iterator it = m_backings.begin(); it != m_backings.end(); ++it) {
+        if ((*it)->isInUse())
+            break;
         if ((*it)->owner() && (*it)->owner()->isAbovePriorityCutoff())
             break;
         if ((*it)->size() == texture->size() && (*it)->format() == texture->format()) {
@@ -193,10 +250,13 @@ void CCPrioritizedTextureManager::reduceMemory(size_t limitBytes, CCResourceProv
     ASSERT(CCProxy::isImplThread() && CCProxy::isMainThreadBlocked());
     if (memoryUseBytes() <= limitBytes)
         return;
+
     // Destroy backings until we are below the limit,
     // or until all backings remaining are above the cutoff.
     while (memoryUseBytes() > limitBytes && m_backings.size() > 0) {
         BackingSet::iterator it = m_backings.begin();
+        if ((*it)->isInUse())
+            break;
         if ((*it)->owner() && (*it)->owner()->isAbovePriorityCutoff())
             break;
         destroyBacking((*it), resourceProvider);
@@ -332,17 +392,6 @@ void CCPrioritizedTextureManager::assertInvariants()
             ASSERT(m_backings.find((*it)->backing()) != m_backings.end());
             ASSERT((*it)->backing()->owner() == (*it));
         }
-    }
-
-    // At all times, backings that can be evicted must always come before
-    // backings that can't be evicted in the backing texture list (otherwise
-    // reduceMemory will not find all textures available for eviction/recycling).
-    bool reachedProtected = false;
-    for (BackingSet::iterator it = m_backings.begin(); it != m_backings.end(); ++it) {
-        if ((*it)->owner() && (*it)->owner()->isAbovePriorityCutoff())
-            reachedProtected = true;
-        if (reachedProtected)
-            ASSERT((*it)->owner() && (*it)->owner()->isAbovePriorityCutoff());
     }
 }
 #endif

@@ -620,6 +620,11 @@ void CCThreadProxy::scheduledActionCommit()
     ASSERT(m_commitCompletionEventOnImplThread);
     ASSERT(m_currentTextureUpdateControllerOnImplThread);
 
+    // Mark that we won't be drawing any backings right now (because
+    // drawing is blocked by the commit). This allows aggressive recycling
+    // during the final uploads.
+    m_layerTreeHost->contentsTextureManager()->markAllBackingsNotInUse();
+
     // Complete all remaining texture updates.
     m_currentTextureUpdateControllerOnImplThread->finalize();
     m_currentTextureUpdateControllerOnImplThread.clear();
@@ -627,6 +632,11 @@ void CCThreadProxy::scheduledActionCommit()
     m_layerTreeHostImpl->beginCommit();
 
     m_layerTreeHost->beginCommitOnImplThread(m_layerTreeHostImpl.get());
+
+    // Mark that all backings that are linked to a texture may be drawn (because
+    // their resource ids were be put into the impl thread during tree synchronize).
+    m_layerTreeHost->contentsTextureManager()->markLinkedBackingsInUse();
+
     m_layerTreeHost->finishCommitOnImplThread(m_layerTreeHostImpl.get());
 
     if (m_resetContentsTexturesPurgedAfterCommitOnImplThread) {

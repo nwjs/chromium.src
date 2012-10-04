@@ -53,6 +53,8 @@ public:
 
     void prioritizeTextures();
     void clearPriorities();
+    void markAllBackingsNotInUse();
+    void markLinkedBackingsInUse();
 
     bool requestLate(CCPrioritizedTexture*);
 
@@ -81,6 +83,11 @@ private:
     // Compare backings. Lowest priority first.
     static inline bool compareBackings(CCPrioritizedTexture::Backing* a, CCPrioritizedTexture::Backing* b)
     {
+        // Backings that are in use have the highest priority (they cannot be evicted or recycled).
+        if (b->isInUse() && !a->isInUse())
+            return true;
+        if (a->isInUse() && !b->isInUse())
+            return false;
         int priorityA = a->owner() ? a->owner()->requestPriority() : CCPriorityCalculator::lowestPriority();
         int priorityB = b->owner() ? b->owner()->requestPriority() : CCPriorityCalculator::lowestPriority();
         if (priorityA == priorityB)
@@ -89,6 +96,8 @@ private:
     }
 
     CCPrioritizedTextureManager(size_t maxMemoryLimitBytes, int maxTextureSize, int pool);
+
+    void sortBackings();
 
     void reduceMemory(size_t limit, CCResourceProvider*);
 
