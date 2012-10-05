@@ -1193,9 +1193,9 @@ void CCLayerTreeHostImpl::animateLayers(double monotonicTime, double wallClockTi
     setBackgroundTickingEnabled(!m_visible && m_needsAnimateLayers);
 }
 
-double CCLayerTreeHostImpl::lowFrequencyAnimationInterval() const
+base::TimeDelta CCLayerTreeHostImpl::lowFrequencyAnimationInterval() const
 {
-    return 1;
+    return base::TimeDelta::FromSeconds(1);
 }
 
 void CCLayerTreeHostImpl::sendDidLoseContextRecursive(CCLayerImpl* current)
