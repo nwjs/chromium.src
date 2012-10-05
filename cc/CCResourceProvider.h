@@ -26,8 +26,6 @@ class WebGraphicsContext3D;
 
 namespace cc {
 
-enum TextureUploaderOption { ThrottledUploader, UnthrottledUploader };
-
 class IntRect;
 class LayerTextureSubImage;
 class TextureCopier;
@@ -61,7 +59,7 @@ public:
         unsigned syncPoint;
     };
 
-    static PassOwnPtr<CCResourceProvider> create(CCGraphicsContext*, TextureUploaderOption);
+    static PassOwnPtr<CCResourceProvider> create(CCGraphicsContext*);
 
     virtual ~CCResourceProvider();
 
@@ -264,7 +262,7 @@ private:
     typedef HashMap<int, Child> ChildMap;
 
     explicit CCResourceProvider(CCGraphicsContext*);
-    bool initialize(TextureUploaderOption);
+    bool initialize();
 
     const Resource* lockForRead(ResourceId);
     void unlockForRead(ResourceId);
