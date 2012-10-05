@@ -15,11 +15,23 @@
 
 namespace {
 
+static uv_async_t g_wakeup_event;
+static uv_idle_t idle_handle;
+static bool timer_cb_called;
+
 static void wakeup_callback(uv_async_t* handle, int status) {
-  // Do nothing
+  // do nothing
+}
+
+static void idle_null_cb(uv_idle_t* handle, int status) {
 }
 
 static void timer_callback(uv_timer_t* timer, int status) {
+  // libuv would block unexpectedly with zero-timeout timer
+  // this is a workaround of libuv bug #574:
+  //  https://github.com/joyent/libuv/issues/574
+  timer_cb_called = true;
+  uv_idle_start(&idle_handle, idle_null_cb);
 }
 
 }
@@ -29,7 +41,7 @@ namespace base {
 MessagePumpUV::MessagePumpUV()
     : keep_running_(true)
 {
-  uv_async_init(uv_default_loop(), &wakeup_event_, wakeup_callback);
+  uv_async_init(uv_default_loop(), &g_wakeup_event, wakeup_callback);
 }
 
 MessagePumpUV::~MessagePumpUV()
@@ -41,8 +53,9 @@ void MessagePumpUV::Run(Delegate* delegate) {
 
   uv_timer_t delay_timer;
   uv_timer_init(uv_default_loop(), &delay_timer);
-
+  uv_idle_init(uv_default_loop(), &idle_handle);
   // Enter Loop
+
   for (;;) {
 #if defined(OS_MACOSX)
     mac::ScopedNSAutoreleasePool autorelease_pool;
@@ -74,6 +87,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
         uv_timer_start(&delay_timer, (uv_timer_cb)timer_callback,
                        delay.InMilliseconds(), 0);
         uv_run_once(uv_default_loop());
+        uv_idle_stop(&idle_handle);
         uv_timer_stop(&delay_timer);
       } else {
         // It looks like delayed_work_time_ indicates a time in the past, so we
@@ -95,7 +109,7 @@ void MessagePumpUV::Quit() {
 void MessagePumpUV::ScheduleWork() {
   // Since this can be called on any thread, we need to ensure that our Run
   // loop wakes up.
-  uv_async_send(&wakeup_event_);
+  uv_async_send(&g_wakeup_event);
 }
 
 void MessagePumpUV::ScheduleDelayedWork(

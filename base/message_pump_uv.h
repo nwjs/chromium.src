@@ -29,8 +29,6 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
   // This flag is set to false when Run should return.
   bool keep_running_;
 
-  struct uv_async_s wakeup_event_;
-
   TimeTicks delayed_work_time_;
 
   DISALLOW_COPY_AND_ASSIGN(MessagePumpUV);
