@@ -19,7 +19,8 @@ public:
     }
     virtual ~UnthrottledTextureUploader() { }
 
-    virtual size_t numPendingUploads() OVERRIDE { return 0; }
+    virtual size_t numBlockingUploads() OVERRIDE { return 0; }
+    virtual void markPendingUploadsAsNonBlocking() OVERRIDE { }
     virtual double estimatedTexturesPerSecond() { return std::numeric_limits<double>::max(); }
     virtual void beginUploads() OVERRIDE { }
     virtual void endUploads() OVERRIDE { }

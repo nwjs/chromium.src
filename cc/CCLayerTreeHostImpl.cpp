@@ -27,6 +27,7 @@
 #include "CCScrollbarLayerImpl.h"
 #include "CCSettings.h"
 #include "CCSingleThreadProxy.h"
+#include "TextureUploader.h"
 #include "TraceEvent.h"
 #include <wtf/CurrentTime.h>
 
@@ -561,6 +562,10 @@ void CCLayerTreeHostImpl::didDrawAllLayers(const FrameData& frame)
 {
     for (size_t i = 0; i < frame.willDrawLayers.size(); ++i)
         frame.willDrawLayers[i]->didDraw(m_resourceProvider.get());
+
+    // Once all layers have been drawn, pending texture uploads should no
+    // longer block future uploads.
+    m_resourceProvider->textureUploader()->markPendingUploadsAsNonBlocking();
 }
 
 void CCLayerTreeHostImpl::finishAllRendering()
