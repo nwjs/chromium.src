@@ -130,7 +130,7 @@ protected:
 
 class FakeTextureUploader : public cc::TextureUploader {
 public:
-    virtual bool isBusy() OVERRIDE;
+    virtual size_t numPendingUploads() OVERRIDE;
     virtual double estimatedTexturesPerSecond() OVERRIDE { return std::numeric_limits<double>::max(); }
     virtual void beginUploads() OVERRIDE { }
     virtual void endUploads() OVERRIDE { }
