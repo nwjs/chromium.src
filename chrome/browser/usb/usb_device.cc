@@ -116,16 +116,31 @@ void UsbDevice::TransferComplete(PlatformUsbTransferHandle handle) {
   DCHECK(ContainsKey(transfers_, handle)) << "Missing transfer completed";
   Transfer* const transfer = &transfers_[handle];
 
+  DCHECK(handle->actual_length >= 0) << "Negative actual length received";
+  size_t actual_length =
+      static_cast<size_t>(std::max(handle->actual_length, 0));
+
+  DCHECK(transfer->length >= actual_length) <<
+      "data too big for our buffer (libusb failure?)";
+
   // If the transfer is a control transfer we do not expose the control transfer
-  // setup header to the caller, this logic strips off the header from the
-  // buffer before invoking the callback provided with the transfer with it.
+  // setup header to the caller, this logic strips off the header (if present)
+  // before invoking the callback provided with the transfer with it.
   scoped_refptr<net::IOBuffer> buffer = transfer->buffer;
-  if (transfer->control_transfer) {
-    scoped_refptr<net::IOBuffer> resized_buffer = new net::IOBuffer(
-        handle->actual_length - LIBUSB_CONTROL_SETUP_SIZE);
-    memcpy(resized_buffer->data(), buffer->data() + LIBUSB_CONTROL_SETUP_SIZE,
-           handle->actual_length - LIBUSB_CONTROL_SETUP_SIZE);
-    buffer = resized_buffer;
+  if (transfer->control_transfer && actual_length > 0) {
+    CHECK(transfer->length >= LIBUSB_CONTROL_SETUP_SIZE) <<
+        "buffer was not correctly set: too small for the control header";
+
+    if (transfer->length >= actual_length &&
+        actual_length >= LIBUSB_CONTROL_SETUP_SIZE) {
+      // If the payload is zero bytes long, pad out the allocated buffer size to
+      // one byte so that an IOBuffer of that size can be allocated.
+      scoped_refptr<net::IOBuffer> resized_buffer = new net::IOBuffer(
+          std::max(actual_length, static_cast<size_t>(1)));
+      memcpy(resized_buffer->data(), buffer->data() + LIBUSB_CONTROL_SETUP_SIZE,
+          actual_length);
+      buffer = resized_buffer;
+    }
   }
 
   transfer->callback.Run(ConvertTransferStatus(handle->status), buffer,
@@ -133,6 +148,35 @@ void UsbDevice::TransferComplete(PlatformUsbTransferHandle handle) {
 
   transfers_.erase(handle);
   libusb_free_transfer(handle);
+}
+
+void UsbDevice::ClaimInterface(const int interface_number,
+                               const UsbInterfaceCallback& callback) {
+  CheckDevice();
+
+  const int claim_result = libusb_claim_interface(handle_, interface_number);
+  callback.Run(claim_result == 0);
+}
+
+void UsbDevice::ReleaseInterface(const int interface_number,
+                                 const UsbInterfaceCallback& callback) {
+  CheckDevice();
+
+  const int release_result = libusb_release_interface(handle_,
+                                                      interface_number);
+  callback.Run(release_result == 0);
+}
+
+void UsbDevice::SetInterfaceAlternateSetting(
+    const int interface_number,
+    const int alternate_setting,
+    const UsbInterfaceCallback& callback) {
+  CheckDevice();
+
+  const int setting_result = libusb_set_interface_alt_setting(handle_,
+      interface_number, alternate_setting);
+
+  callback.Run(setting_result == 0);
 }
 
 void UsbDevice::ControlTransfer(const TransferDirection direction,

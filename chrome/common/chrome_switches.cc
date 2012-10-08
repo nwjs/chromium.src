@@ -223,13 +223,13 @@ const char kCrashOnLive[]                   = "crash-on-live";
 const char kCreateBrowserOnStartupForTests[] =
     "create-browser-on-startup-for-tests";
 
-// Path to the inspector files on disk (allows reloading of devtool files
-// without having to restart the browser).
-const char kDebugDevToolsFrontend[]         = "debug-devtools-frontend";
-
 // Enables a frame context menu item that toggles the frame in and out of glass
 // mode (Windows Vista and up only).
 const char kDebugEnableFrameToggle[]        = "debug-enable-frame-toggle";
+
+// Adds debugging entries such as Inspect Element to context menus of packed
+// apps.
+const char kDebugPackedApps[]        = "debug-packed-apps";
 
 // Enables support to debug printing subsystem.
 const char kDebugPrint[]                    = "debug-print";
@@ -325,11 +325,6 @@ const char kDisableFlashSandbox[]           = "disable-flash-sandbox";
 // Disables improved SafeBrowsing download protection.
 const char kDisableImprovedDownloadProtection[] =
     "disable-improved-download-protection";
-
-// Disables the in-browser thumbnailing, which is more efficient than the
-// in-renderer thumbnailing, as we can use more information to determine if we
-// need to update thumbnails.
-const char kDisableInBrowserThumbnailing[]  = "disable-in-browser-thumbnailing";
 
 // Disable the Infinite Cache.
 const char kDisableInfiniteCache[]          = "disable-infinite-cache";
@@ -478,12 +473,12 @@ const char kEnableAutologin[]               = "enable-autologin";
 // Enables the benchmarking extensions.
 const char kEnableBenchmarking[]            = "enable-benchmarking";
 
+// Enables browser plugin for regular pages as well (not just apps).
+const char kEnableBrowserPluginForAllViewTypes[] =
+    "enable-browser-plugin-for-all-view-types";
+
 // Enables the bundled PPAPI version of Flash.
 const char kEnableBundledPpapiFlash[]       = "enable-bundled-ppapi-flash";
-
-// Enables the new ClientOAuth signin flow for connecting a profile a Google
-// account.  When disabled, Chrome will use the ClientLogin flow instead.
-const char kEnableClientOAuthSignin[]       = "enable-client-oauth-signin";
 
 // Enables the new cloud policy stack.
 const char kEnableCloudPolicyService[]      = "enable-cloud-policy-service";
@@ -505,12 +500,6 @@ const char kEnableCrxlessWebApps[]          = "enable-crxless-web-apps";
 
 // If true devtools experimental settings are enabled.
 const char kEnableDevToolsExperiments[]     = "enable-devtools-experiments";
-
-// Enables experimental discovery slots in New Tab page.
-const char kEnableDiscoveryInNewTabPage[]   = "enable-discovery-ntp";
-
-// Enables Drive v2 API instead of Google Documents List API.
-const char kEnableDriveV2Api[]              = "enable-drive-v2-api";
 
 // Enables extensions to be easily installed from sites other than the web
 // store. Without this flag, they can still be installed, but must be manually
@@ -588,6 +577,16 @@ const char kEnableNaCl[]                    = "enable-nacl";
 
 // Enables debugging via RSP over a socket.
 const char kEnableNaClDebug[]               = "enable-nacl-debug";
+
+// Uses NaCl manifest URL to choose whether NaCl program will be debugged by
+// debug stub.
+// Switch value format: [!]pattern1,pattern2,...,patternN. Each pattern uses
+// the same syntax as patterns in Chrome extension manifest. The only difference
+// is that * scheme matches all schemes instead of matching only http and https.
+// If the value doesn't start with !, a program will be debugged if manifest URL
+// matches any pattern. If the value starts with !, a program will be debugged
+// if manifest URL does not match any pattern.
+const char kNaClDebugMask[]                 = "nacl-debug-mask";
 
 // Enables the Chrome IPC-based Proxy for NaCl.
 const char kEnableNaClIPCProxy[]            = "enable-nacl-ipc-proxy";
@@ -768,9 +767,6 @@ const char kHostResolverParallelism[]       = "host-resolver-parallelism";
 // The maximum number of retry attempts to resolve the host. Set this to zero
 // to disable host resolver retry attempts.
 const char kHostResolverRetryAttempts[]     = "host-resolver-retry-attempts";
-
-// These mappings only apply to the host resolver.
-const char kHostResolverRules[]             = "host-resolver-rules";
 
 // Takes the JSON-formatted HSTS specification and loads it as if it were a
 // preloaded HSTS entry. Takes precedence over both website-specified rules and
@@ -996,8 +992,13 @@ const char kParentProfile[]                 = "parent-profile";
 // usage, and will also store information about events which may be of interest,
 // such as extension-related occurrences and crashes. Optionally, this may be
 // run with an integer value representing the interval between the timed
-// metric gatherings (if invalid or not provided, the default interval is used).
+// metric gatherings, measured in seconds (if invalid or not provided, the
+// default interval is used).
 const char kPerformanceMonitorGathering[]  = "performance-monitor-gathering";
+
+// Enable the post crash analyzer which uploads detailed crash information in
+// situations where a crash is determined to be particularly interesting.
+const char kPerformCrashAnalysis[]          = "perform-crash-analysis";
 
 // Read previously recorded data from the cache. Only cached data is read.
 // See kRecordMode.
@@ -1157,6 +1158,10 @@ const char kSavePageAsMHTML[] = "save-page-as-mhtml";
 // malware.
 const char kSbURLPrefix[] = "safebrowsing-url-prefix";
 
+// Enable an icon in the URL bar that tells you how many extensions are running
+// scripts on a page.
+const char kScriptBubbleEnabled[] = "script-bubble-enabled";
+
 // If present, safebrowsing only performs update when
 // SafeBrowsingProtocolManager::ForceScheduleNextUpdate() is explicitly called.
 // This is used for testing only.
@@ -1173,9 +1178,6 @@ const char kSbDisableDownloadProtection[] =
 // Enables the showing of an info-bar instructing user they can search directly
 // from the omnibox.
 const char kSearchInOmniboxHint[]           = "search-in-omnibox-hint";
-
-// The LSID of the account to use for the service process.
-const char kServiceAccountLsid[]            = "service-account-lsid";
 
 // Sets a token in the token service, for testing.
 const char kSetToken[]                      = "set-token";
@@ -1210,6 +1212,9 @@ const char kSimulateUpgrade[]               = "simulate-upgrade";
 // Socket reuse policy. The value should be of type enum
 // ClientSocketReusePolicy.
 const char kSocketReusePolicy[]             = "socket-reuse-policy";
+
+// Origin for which SpdyProxy authentication is supported.
+const char kSpdyProxyOrigin[]               = "spdy-proxy-origin";
 
 // Speculative resource prefetching.
 const char kSpeculativeResourcePrefetching[] =
@@ -1296,10 +1301,6 @@ const char kTestType[]                      = "test-type";
 // channel with the given ID.
 const char kTestingChannelID[]              = "testing-channel";
 
-// Allows for forcing socket connections to http/https to use fixed ports.
-const char kTestingFixedHttpPort[]          = "testing-fixed-http-port";
-const char kTestingFixedHttpsPort[]         = "testing-fixed-https-port";
-
 // Disables same-origin check on HTTP resources pushed via a SPDY proxy.
 // The value is the host:port of the trusted proxy.
 const char kTrustedSpdyProxy[] = "trusted-spdy-proxy";
@@ -1310,6 +1311,9 @@ const char kTryChromeAgain[]                = "try-chrome-again";
 
 // Runs un-installation steps that were done by chrome first-run.
 const char kUninstall[]                     = "uninstall";
+
+// Use hardware gpu, if available, for tests.
+const char kUseGpuInTests[] = "use-gpu-in-tests";
 
 // Uses Spdy for the transport protocol instead of HTTP. This is a temporary
 // testing flag.
@@ -1338,6 +1342,10 @@ const char kVersion[]                       = "version";
 // Cycle through a series of URLs listed in the specified file.
 const char kVisitURLs[]                     = "visit-urls";
 
+// Enable the "native services" feature of web-intents.
+const char kWebIntentsNativeServicesEnabled[] =
+    "web-intents-native-services-enabled";
+
 // Adds the given extension ID to all the permission whitelists.
 const char kWhitelistedExtensionID[]        = "whitelisted-extension-id";
 
@@ -1350,6 +1358,11 @@ const char kWindowSize[]                    = "window-size";
 // Uses WinHTTP to fetch and evaluate PAC scripts. Otherwise the default is to
 // use Chromium's network stack to fetch, and V8 to evaluate.
 const char kWinHttpProxyResolver[]          = "winhttp-proxy-resolver";
+
+#if defined(ENABLE_PLUGIN_INSTALLATION)
+// Specifies a custom URL for fetching plug-ins metadata. Used for testing.
+const char kPluginsMetadataServerURL[]      = "plugins-metadata-server-url";
+#endif
 
 #if defined(OS_ANDROID)
 // Use the tablet specific UI components when available.
@@ -1413,11 +1426,6 @@ const char kEnableRequestTabletSite[]       = "enable-request-tablet-site";
 // Enables static ip configuration. This flag should be removed when it's on by
 // default.
 const char kEnableStaticIPConfig[]          = "enable-static-ip-config";
-
-// Enables discovery and interaction with Bluetooth devices that may not be
-// supported by ChromeOS.
-const char kEnableUnsupportedBluetoothDevices[] =
-    "enable-unsupported-bluetooth-devices";
 
 // Passed to Chrome on first boot. Not passed on restart after sign out.
 const char kFirstBoot[] = "first-boot";
@@ -1554,6 +1562,11 @@ const char kDisableTCVA[]                    = "disable-tcva";
 
 // Opens an Ash window on startup.
 extern const char kOpenAsh[]                 = "open-ash";
+#endif
+
+#if defined(USE_ASH)
+// Enables the wrench menu items to open/close the Ash desktop.
+const char kEnableAsh[]                     = "enable-ash";
 #endif
 
 #ifndef NDEBUG

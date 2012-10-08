@@ -36,7 +36,6 @@ namespace syncer {
 using sessions::ScopedSessionContextConflictResolver;
 using sessions::StatusController;
 using sessions::SyncSession;
-using sessions::ConflictProgress;
 using syncable::IS_UNAPPLIED_UPDATE;
 using syncable::SERVER_CTIME;
 using syncable::SERVER_IS_DEL;
@@ -109,7 +108,7 @@ void Syncer::SyncShare(sessions::SyncSession* session,
       case DOWNLOAD_UPDATES: {
         // TODO(akalin): We may want to propagate this switch up
         // eventually.
-#if defined(OS_ANDROID)
+#if defined(OS_ANDROID) || defined(OS_IOS)
         const bool kCreateMobileBookmarksFolder = true;
 #else
         const bool kCreateMobileBookmarksFolder = false;
@@ -197,10 +196,10 @@ void Syncer::SyncShare(sessions::SyncSession* session,
         // We only care to resolve conflicts again if we made progress on the
         // simple conflicts.
         int before_blocking_conflicting_updates =
-            status->TotalNumSimpleConflictingItems();
+            status->num_simple_conflicts();
         apply_updates.Execute(session);
         int after_blocking_conflicting_updates =
-            status->TotalNumSimpleConflictingItems();
+            status->num_simple_conflicts();
         // If the following call sets the conflicts_resolved value to true,
         // SyncSession::HasMoreToSync() will send us into another sync cycle
         // after this one completes.

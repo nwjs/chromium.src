@@ -16,7 +16,6 @@
 #include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "content/browser/plugin_loader_posix.h"
 #include "content/browser/ppapi_plugin_process_host.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
@@ -30,10 +29,16 @@
 #include "content/public/browser/resource_context.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/process_type.h"
-#include "webkit/plugins/npapi/plugin_constants_win.h"
-#include "webkit/plugins/npapi/plugin_group.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #include "webkit/plugins/webplugininfo.h"
+
+#if defined(OS_WIN)
+#include "webkit/plugins/npapi/plugin_constants_win.h"
+#endif
+
+#if defined(OS_POSIX)
+#include "content/browser/plugin_loader_posix.h"
+#endif
 
 #if defined(OS_POSIX) && !defined(OS_OPENBSD)
 using ::base::files::FilePathWatcher;
@@ -44,16 +49,6 @@ using content::PluginService;
 using content::PluginServiceFilter;
 
 namespace {
-
-// A callback for GetPlugins() that then gets the freshly loaded plugin groups
-// and runs the callback for GetPluginGroups().
-static void GetPluginsForGroupsCallback(
-    const PluginService::GetPluginGroupsCallback& callback,
-    const std::vector<webkit::WebPluginInfo>& plugins) {
-  std::vector<webkit::npapi::PluginGroup> groups;
-  webkit::npapi::PluginList::Singleton()->GetPluginGroups(false, &groups);
-  callback.Run(groups);
-}
 
 // Callback set on the PluginList to assert that plugin loading happens on the
 // correct thread.
@@ -538,11 +533,6 @@ void PluginServiceImpl::GetPlugins(const GetPluginsCallback& callback) {
 #endif
 }
 
-void PluginServiceImpl::GetPluginGroups(
-    const GetPluginGroupsCallback& callback) {
-  GetPlugins(base::Bind(&GetPluginsForGroupsCallback, callback));
-}
-
 #if defined(OS_WIN)
 void PluginServiceImpl::GetPluginsInternal(
      base::MessageLoopProxy* target_loop,
@@ -613,7 +603,7 @@ content::PepperPluginInfo* PluginServiceImpl::GetRegisteredPpapiPluginInfo(
 #if defined(OS_POSIX) && !defined(OS_OPENBSD)
 // static
 void PluginServiceImpl::RegisterFilePathWatcher(
-    FilePathWatcher *watcher,
+    FilePathWatcher* watcher,
     const FilePath& path,
     FilePathWatcher::Delegate* delegate) {
   bool result = watcher->Watch(path, delegate);
@@ -714,10 +704,6 @@ void PluginServiceImpl::RegisterInternalPlugin(
     const webkit::WebPluginInfo& info,
     bool add_at_beginning) {
   plugin_list_->RegisterInternalPlugin(info, add_at_beginning);
-}
-
-string16 PluginServiceImpl::GetPluginGroupName(const std::string& plugin_name) {
-  return plugin_list_->GetPluginGroupName(plugin_name);
 }
 
 webkit::npapi::PluginList* PluginServiceImpl::GetPluginList() {

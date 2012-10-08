@@ -54,6 +54,7 @@ CCThreadProxy::CCThreadProxy(CCLayerTreeHost* layerTreeHost)
     , m_resetContentsTexturesPurgedAfterCommitOnImplThread(false)
     , m_nextFrameIsNewlyCommittedFrameOnImplThread(false)
     , m_renderVSyncEnabled(layerTreeHost->settings().renderVSyncEnabled)
+    , m_totalCommitCount(0)
 {
     TRACE_EVENT0("cc", "CCThreadProxy::CCThreadProxy");
     ASSERT(isMainThread());
@@ -105,7 +106,7 @@ void CCThreadProxy::requestReadbackOnImplThread(ReadbackRequest* request)
 {
     ASSERT(CCProxy::isImplThread());
     ASSERT(!m_readbackRequestOnImplThread);
-    if (!m_layerTreeHostImpl) {
+    if (!m_layerTreeHostImpl.get()) {
         request->success = false;
         request->completion.signal();
         return;
@@ -125,7 +126,7 @@ void CCThreadProxy::startPageScaleAnimation(const IntSize& targetPosition, bool 
 void CCThreadProxy::requestStartPageScaleAnimationOnImplThread(IntSize targetPosition, bool useAnchor, float scale, double duration)
 {
     ASSERT(CCProxy::isImplThread());
-    if (m_layerTreeHostImpl)
+    if (m_layerTreeHostImpl.get())
         m_layerTreeHostImpl->startPageScaleAnimation(targetPosition, useAnchor, scale, monotonicallyIncreasingTime(), duration);
 }
 
@@ -149,12 +150,12 @@ bool CCThreadProxy::isStarted() const
 bool CCThreadProxy::initializeContext()
 {
     TRACE_EVENT0("cc", "CCThreadProxy::initializeContext");
-    OwnPtr<CCGraphicsContext> context = m_layerTreeHost->createContext();
-    if (!context)
+    scoped_ptr<CCGraphicsContext> context = m_layerTreeHost->createContext();
+    if (!context.get())
         return false;
 
     CCProxy::implThread()->postTask(createCCThreadTask(this, &CCThreadProxy::initializeContextOnImplThread,
-                                                       context.leakPtr()));
+                                                       context.release()));
     return true;
 }
 
@@ -215,8 +216,8 @@ bool CCThreadProxy::recreateContext()
     ASSERT(isMainThread());
 
     // Try to create the context.
-    OwnPtr<CCGraphicsContext> context = m_layerTreeHost->createContext();
-    if (!context)
+    scoped_ptr<CCGraphicsContext> context = m_layerTreeHost->createContext();
+    if (!context.get())
         return false;
     if (m_layerTreeHost->needsSharedContext())
         if (!WebSharedGraphicsContext3D::createCompositorThreadContext())
@@ -231,7 +232,7 @@ bool CCThreadProxy::recreateContext()
     DebugScopedSetMainThreadBlocked mainThreadBlocked;
     CCProxy::implThread()->postTask(createCCThreadTask(this, &CCThreadProxy::recreateContextOnImplThread,
                                                        &completion,
-                                                       context.leakPtr(),
+                                                       context.release(),
                                                        &recreateSucceeded,
                                                        &capabilities));
     completion.wait();
@@ -241,15 +242,18 @@ bool CCThreadProxy::recreateContext()
     return recreateSucceeded;
 }
 
-void CCThreadProxy::implSideRenderingStats(CCRenderingStats& stats)
+void CCThreadProxy::renderingStats(CCRenderingStats* stats)
 {
     ASSERT(isMainThread());
 
     DebugScopedSetMainThreadBlocked mainThreadBlocked;
     CCCompletionEvent completion;
-    CCProxy::implThread()->postTask(createCCThreadTask(this, &CCThreadProxy::implSideRenderingStatsOnImplThread,
+    CCProxy::implThread()->postTask(createCCThreadTask(this, &CCThreadProxy::renderingStatsOnImplThread,
                                                        &completion,
-                                                       &stats));
+                                                       stats));
+    stats->totalCommitTimeInSeconds = m_totalCommitTime.InSecondsF();
+    stats->totalCommitCount = m_totalCommitCount;
+
     completion.wait();
 }
 
@@ -349,7 +353,11 @@ void CCThreadProxy::postAnimationEventsToMainThreadOnImplThread(PassOwnPtr<CCAni
 void CCThreadProxy::releaseContentsTexturesOnImplThread()
 {
     ASSERT(isImplThread());
+
+    CCResourceProvider::debugNotifyEnterZone(0x1000000);
     m_layerTreeHost->reduceContentsTexturesMemoryOnImplThread(0, m_layerTreeHostImpl->resourceProvider());
+    CCResourceProvider::debugNotifyLeaveZone();
+
     // Make sure that we get a new commit before drawing again.
     m_resetContentsTexturesPurgedAfterCommitOnImplThread = false;
     // The texture upload queue may reference textures that were just purged, clear
@@ -386,7 +394,7 @@ void CCThreadProxy::start()
     // Create LayerTreeHostImpl.
     DebugScopedSetMainThreadBlocked mainThreadBlocked;
     CCCompletionEvent completion;
-    OwnPtr<CCInputHandler> handler = m_layerTreeHost->createInputHandler();
+    scoped_ptr<CCInputHandler> handler = m_layerTreeHost->createInputHandler();
     CCProxy::implThread()->postTask(createCCThreadTask(this, &CCThreadProxy::initializeImplOnImplThread, &completion, handler.release()));
     completion.wait();
 
@@ -410,7 +418,7 @@ void CCThreadProxy::stop()
 
     m_mainThreadProxy->shutdown(); // Stop running tasks posted to us.
 
-    ASSERT(!m_layerTreeHostImpl); // verify that the impl deleted.
+    ASSERT(!m_layerTreeHostImpl.get()); // verify that the impl deleted.
     m_layerTreeHost = 0;
     m_started = false;
 }
@@ -559,11 +567,17 @@ void CCThreadProxy::beginFrame()
     // coordinated by the CCScheduler.
     {
         TRACE_EVENT0("cc", "commit");
+
         DebugScopedSetMainThreadBlocked mainThreadBlocked;
 
+        base::TimeTicks startTime = base::TimeTicks::HighResNow();
         CCCompletionEvent completion;
         CCProxy::implThread()->postTask(createCCThreadTask(this, &CCThreadProxy::beginFrameCompleteOnImplThread, &completion, queue.release()));
         completion.wait();
+        base::TimeTicks endTime = base::TimeTicks::HighResNow();
+
+        m_totalCommitTime += endTime - startTime;
+        m_totalCommitCount++;
     }
 
     m_layerTreeHost->commitComplete();
@@ -578,7 +592,7 @@ void CCThreadProxy::beginFrameCompleteOnImplThread(CCCompletionEvent* completion
     ASSERT(m_schedulerOnImplThread);
     ASSERT(m_schedulerOnImplThread->commitPending());
 
-    if (!m_layerTreeHostImpl) {
+    if (!m_layerTreeHostImpl.get()) {
         TRACE_EVENT0("cc", "EarlyOut_NoLayerTree");
         completion->signal();
         return;
@@ -602,11 +616,13 @@ void CCThreadProxy::beginFrameCompleteOnImplThread(CCCompletionEvent* completion
             m_resetContentsTexturesPurgedAfterCommitOnImplThread = true;
     }
 
-    bool hasResourceUpdates = !!queue->fullUploadSize();
     m_currentTextureUpdateControllerOnImplThread = CCTextureUpdateController::create(this, CCProxy::implThread(), queue, m_layerTreeHostImpl->resourceProvider(), m_layerTreeHostImpl->resourceProvider()->textureUploader());
-    m_commitCompletionEventOnImplThread = completion;
+    CCResourceProvider::debugNotifyEnterZone(0x2000000);
+    m_currentTextureUpdateControllerOnImplThread->performMoreUpdates(
+        m_schedulerOnImplThread->anticipatedDrawTime());
+    CCResourceProvider::debugNotifyLeaveZone();
 
-    m_schedulerOnImplThread->beginFrameComplete(hasResourceUpdates);
+    m_commitCompletionEventOnImplThread = completion;
 }
 
 void CCThreadProxy::beginFrameAbortedOnImplThread()
@@ -619,14 +635,6 @@ void CCThreadProxy::beginFrameAbortedOnImplThread()
     m_schedulerOnImplThread->beginFrameAborted();
 }
 
-void CCThreadProxy::scheduledActionUpdateMoreResources(base::TimeTicks timeLimit)
-{
-    TRACE_EVENT0("cc", "CCThreadProxy::scheduledActionUpdateMoreResources");
-    ASSERT(m_currentTextureUpdateControllerOnImplThread);
-    double monotonicTimeLimit = timeLimit.ToInternalValue() / static_cast<double>(base::Time::kMicrosecondsPerSecond);
-    m_currentTextureUpdateControllerOnImplThread->performMoreUpdates(monotonicTimeLimit);
-}
-
 void CCThreadProxy::scheduledActionCommit()
 {
     TRACE_EVENT0("cc", "CCThreadProxy::scheduledActionCommit");
@@ -635,13 +643,17 @@ void CCThreadProxy::scheduledActionCommit()
     ASSERT(m_currentTextureUpdateControllerOnImplThread);
 
     // Complete all remaining texture updates.
+    CCResourceProvider::debugNotifyEnterZone(0x3000000);
     m_currentTextureUpdateControllerOnImplThread->finalize();
     m_currentTextureUpdateControllerOnImplThread.clear();
+    CCResourceProvider::debugNotifyLeaveZone();
 
     m_layerTreeHostImpl->beginCommit();
 
+    CCResourceProvider::debugNotifyEnterZone(0x4000000);
     m_layerTreeHost->beginCommitOnImplThread(m_layerTreeHostImpl.get());
     m_layerTreeHost->finishCommitOnImplThread(m_layerTreeHostImpl.get());
+    CCResourceProvider::debugNotifyLeaveZone();
 
     if (m_resetContentsTexturesPurgedAfterCommitOnImplThread) {
         m_resetContentsTexturesPurgedAfterCommitOnImplThread = false;
@@ -672,8 +684,8 @@ CCScheduledActionDrawAndSwapResult CCThreadProxy::scheduledActionDrawAndSwapInte
     result.didDraw = false;
     result.didSwap = false;
     ASSERT(isImplThread());
-    ASSERT(m_layerTreeHostImpl);
-    if (!m_layerTreeHostImpl)
+    ASSERT(m_layerTreeHostImpl.get());
+    if (!m_layerTreeHostImpl.get())
         return result;
 
     ASSERT(m_layerTreeHostImpl->renderer());
@@ -684,7 +696,7 @@ CCScheduledActionDrawAndSwapResult CCThreadProxy::scheduledActionDrawAndSwapInte
     double monotonicTime = monotonicallyIncreasingTime();
     double wallClockTime = currentTime();
 
-    if (m_inputHandlerOnImplThread)
+    if (m_inputHandlerOnImplThread.get())
         m_inputHandlerOnImplThread->animate(monotonicTime);
     m_layerTreeHostImpl->animate(monotonicTime, wallClockTime);
 
@@ -773,10 +785,20 @@ CCScheduledActionDrawAndSwapResult CCThreadProxy::scheduledActionDrawAndSwapForc
     return scheduledActionDrawAndSwapInternal(true);
 }
 
+void CCThreadProxy::didAnticipatedDrawTimeChange(base::TimeTicks time)
+{
+    if (!m_currentTextureUpdateControllerOnImplThread)
+        return;
+
+    CCResourceProvider::debugNotifyEnterZone(0x5000000);
+    m_currentTextureUpdateControllerOnImplThread->performMoreUpdates(time);
+    CCResourceProvider::debugNotifyLeaveZone();
+}
+
 void CCThreadProxy::readyToFinalizeTextureUpdates()
 {
     ASSERT(isImplThread());
-    m_schedulerOnImplThread->updateResourcesComplete();
+    m_schedulerOnImplThread->beginFrameComplete();
 }
 
 void CCThreadProxy::didCommitAndDrawFrame()
@@ -844,7 +866,7 @@ void CCThreadProxy::tryToRecreateContext()
         m_contextRecreationTimer.clear();
 }
 
-void CCThreadProxy::initializeImplOnImplThread(CCCompletionEvent* completion, PassOwnPtr<CCInputHandler> popHandler)
+void CCThreadProxy::initializeImplOnImplThread(CCCompletionEvent* completion, CCInputHandler* handler)
 {
     TRACE_EVENT0("cc", "CCThreadProxy::initializeImplOnImplThread");
     ASSERT(isImplThread());
@@ -858,8 +880,8 @@ void CCThreadProxy::initializeImplOnImplThread(CCCompletionEvent* completion, Pa
     m_schedulerOnImplThread = CCScheduler::create(this, frameRateController.release());
     m_schedulerOnImplThread->setVisible(m_layerTreeHostImpl->visible());
 
-    m_inputHandlerOnImplThread = popHandler;
-    if (m_inputHandlerOnImplThread)
+    m_inputHandlerOnImplThread = scoped_ptr<CCInputHandler>(handler);
+    if (m_inputHandlerOnImplThread.get())
         m_inputHandlerOnImplThread->bindToClient(m_layerTreeHostImpl.get());
 
     completion->signal();
@@ -869,15 +891,15 @@ void CCThreadProxy::initializeContextOnImplThread(CCGraphicsContext* context)
 {
     TRACE_EVENT0("cc", "CCThreadProxy::initializeContextOnImplThread");
     ASSERT(isImplThread());
-    m_contextBeforeInitializationOnImplThread = adoptPtr(context);
+    m_contextBeforeInitializationOnImplThread = scoped_ptr<CCGraphicsContext>(context).Pass();
 }
 
 void CCThreadProxy::initializeRendererOnImplThread(CCCompletionEvent* completion, bool* initializeSucceeded, RendererCapabilities* capabilities)
 {
     TRACE_EVENT0("cc", "CCThreadProxy::initializeRendererOnImplThread");
     ASSERT(isImplThread());
-    ASSERT(m_contextBeforeInitializationOnImplThread);
-    *initializeSucceeded = m_layerTreeHostImpl->initializeRenderer(m_contextBeforeInitializationOnImplThread.release());
+    ASSERT(m_contextBeforeInitializationOnImplThread.get());
+    *initializeSucceeded = m_layerTreeHostImpl->initializeRenderer(m_contextBeforeInitializationOnImplThread.Pass());
     if (*initializeSucceeded) {
         *capabilities = m_layerTreeHostImpl->rendererCapabilities();
         m_schedulerOnImplThread->setSwapBuffersCompleteSupported(
@@ -891,9 +913,11 @@ void CCThreadProxy::layerTreeHostClosedOnImplThread(CCCompletionEvent* completio
 {
     TRACE_EVENT0("cc", "CCThreadProxy::layerTreeHostClosedOnImplThread");
     ASSERT(isImplThread());
+    CCResourceProvider::debugNotifyEnterZone(0x6000000);
     m_layerTreeHost->deleteContentsTexturesOnImplThread(m_layerTreeHostImpl->resourceProvider());
-    m_inputHandlerOnImplThread.clear();
-    m_layerTreeHostImpl.clear();
+    CCResourceProvider::debugNotifyLeaveZone();
+    m_inputHandlerOnImplThread.reset();
+    m_layerTreeHostImpl.reset();
     m_schedulerOnImplThread.clear();
     completion->signal();
 }
@@ -913,8 +937,10 @@ void CCThreadProxy::recreateContextOnImplThread(CCCompletionEvent* completion, C
 {
     TRACE_EVENT0("cc", "CCThreadProxy::recreateContextOnImplThread");
     ASSERT(isImplThread());
+    CCResourceProvider::debugNotifyEnterZone(0x7000000);
     m_layerTreeHost->deleteContentsTexturesOnImplThread(m_layerTreeHostImpl->resourceProvider());
-    *recreateSucceeded = m_layerTreeHostImpl->initializeRenderer(adoptPtr(contextPtr));
+    CCResourceProvider::debugNotifyLeaveZone();
+    *recreateSucceeded = m_layerTreeHostImpl->initializeRenderer(scoped_ptr<CCGraphicsContext>(contextPtr).Pass());
     if (*recreateSucceeded) {
         *capabilities = m_layerTreeHostImpl->rendererCapabilities();
         m_schedulerOnImplThread->didRecreateContext();
@@ -922,10 +948,10 @@ void CCThreadProxy::recreateContextOnImplThread(CCCompletionEvent* completion, C
     completion->signal();
 }
 
-void CCThreadProxy::implSideRenderingStatsOnImplThread(CCCompletionEvent* completion, CCRenderingStats* stats)
+void CCThreadProxy::renderingStatsOnImplThread(CCCompletionEvent* completion, CCRenderingStats* stats)
 {
     ASSERT(isImplThread());
-    m_layerTreeHostImpl->renderingStats(*stats);
+    m_layerTreeHostImpl->renderingStats(stats);
     completion->signal();
 }
 

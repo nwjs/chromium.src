@@ -63,7 +63,7 @@ TEST(ExtensionCSPValidator, IsSecure) {
   EXPECT_TRUE(ContentSecurityPolicyIsSecure(
       "default-src 'unsafe-eval'", Extension::TYPE_EXTENSION));
   EXPECT_TRUE(ContentSecurityPolicyIsSecure(
-      "default-src 'unsafe-eval'", Extension::TYPE_PACKAGED_APP));
+      "default-src 'unsafe-eval'", Extension::TYPE_LEGACY_PACKAGED_APP));
 
   EXPECT_FALSE(ContentSecurityPolicyIsSecure(
       "default-src 'unsafe-eval'", Extension::TYPE_PLATFORM_APP));
@@ -145,13 +145,15 @@ TEST(ExtensionCSPValidator, IsSandboxed) {
   EXPECT_TRUE(ContentSecurityPolicyIsSandboxed(
       "sandbox; img-src https://google.com", Extension::TYPE_EXTENSION));
 
-  // Extensions allow navigation and popups, platform apps don't.
+  // Extensions allow navigation, platform apps don't.
   EXPECT_TRUE(ContentSecurityPolicyIsSandboxed(
       "sandbox allow-top-navigation", Extension::TYPE_EXTENSION));
   EXPECT_FALSE(ContentSecurityPolicyIsSandboxed(
       "sandbox allow-top-navigation", Extension::TYPE_PLATFORM_APP));
+
+  // Popups are OK.
   EXPECT_TRUE(ContentSecurityPolicyIsSandboxed(
       "sandbox allow-popups", Extension::TYPE_EXTENSION));
-  EXPECT_FALSE(ContentSecurityPolicyIsSandboxed(
+  EXPECT_TRUE(ContentSecurityPolicyIsSandboxed(
       "sandbox allow-popups", Extension::TYPE_PLATFORM_APP));
 }

@@ -118,6 +118,13 @@ class ASH_EXPORT AcceleratorController : public ui::AcceleratorTarget {
   // Reserved actions. See accelerator_table.h for details.
   std::set<int> reserved_actions_;
 
+  // Used to suppress accelerator handling on key repeat.
+  bool toggle_maximized_suppressed_;
+  bool cycle_backward_linear_suppressed_;
+  bool cycle_forward_linear_suppressed_;
+  bool cycle_backward_mru_suppressed_;
+  bool cycle_forward_mru_suppressed_;
+
   DISALLOW_COPY_AND_ASSIGN(AcceleratorController);
 };
 

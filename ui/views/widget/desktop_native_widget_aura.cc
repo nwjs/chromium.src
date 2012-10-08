@@ -4,12 +4,16 @@
 
 #include "ui/views/widget/desktop_native_widget_aura.h"
 
+#include "base/bind.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/root_window_host.h"
 #include "ui/aura/window.h"
 #include "ui/base/hit_test.h"
 #include "ui/compositor/layer.h"
+#include "ui/gfx/canvas.h"
+#include "ui/views/ime/input_method.h"
 #include "ui/views/widget/desktop_root_window_host.h"
+#include "ui/views/widget/widget.h"
 
 namespace views {
 
@@ -18,12 +22,19 @@ namespace views {
 
 DesktopNativeWidgetAura::DesktopNativeWidgetAura(
     internal::NativeWidgetDelegate* delegate)
-    : ALLOW_THIS_IN_INITIALIZER_LIST(window_(new aura::Window(this))),
-      ownership_(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET),
+    : ALLOW_THIS_IN_INITIALIZER_LIST(close_widget_factory_(this)),
+      desktop_root_window_host_(NULL),
+      ALLOW_THIS_IN_INITIALIZER_LIST(window_(new aura::Window(this))),
       native_widget_delegate_(delegate) {
 }
 
 DesktopNativeWidgetAura::~DesktopNativeWidgetAura() {
+}
+
+void DesktopNativeWidgetAura::OnHostClosed() {
+  // This will, through a long list of callbacks, trigger |root_window_| going
+  // away. See OnWindowDestroyed()
+  delete window_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -31,12 +42,16 @@ DesktopNativeWidgetAura::~DesktopNativeWidgetAura() {
 
 void DesktopNativeWidgetAura::InitNativeWidget(
     const Widget::InitParams& params) {
+  window_->SetTransparent(true);
   window_->Init(params.layer_type);
   window_->Show();
 
-  desktop_root_window_host_ =
-      DesktopRootWindowHost::Create(native_widget_delegate_, params.bounds);
-  desktop_root_window_host_->Init(window_, params);
+  desktop_root_window_host_ = params.desktop_root_window_host ?
+      params.desktop_root_window_host :
+      DesktopRootWindowHost::Create(native_widget_delegate_,
+                                    this, params.bounds);
+  root_window_.reset(
+      desktop_root_window_host_->Init(window_, params));
 }
 
 NonClientFrameView* DesktopNativeWidgetAura::CreateNonClientFrameView() {
@@ -335,7 +350,7 @@ void DesktopNativeWidgetAura::SetVisibilityChangedAnimationsEnabled(
 // DesktopNativeWidgetAura, aura::WindowDelegate implementation:
 
 gfx::Size DesktopNativeWidgetAura::GetMinimumSize() const {
-  return gfx::Size(100, 100);
+  return native_widget_delegate_->GetMinimumSize();
 }
 
 void DesktopNativeWidgetAura::OnBoundsChanged(const gfx::Rect& old_bounds,
@@ -347,10 +362,17 @@ void DesktopNativeWidgetAura::OnBoundsChanged(const gfx::Rect& old_bounds,
 }
 
 void DesktopNativeWidgetAura::OnFocus(aura::Window* old_focused_window) {
-  // This space intentionally left blank.
+  // This used to have the comment "This space intentionally left
+  // blank," except that alerting the input method of focus events is actually
+  // really important because input methods directly call InsertChar() on
+  // widgets instead of going through normal ui::Events.
+  //
+  // TODO(erg): Check that my understanding of the above is correct.
+  GetWidget()->GetInputMethod()->OnFocus();
 }
 
 void DesktopNativeWidgetAura::OnBlur() {
+  GetWidget()->GetInputMethod()->OnBlur();
 }
 
 gfx::NativeCursor DesktopNativeWidgetAura::GetCursor(const gfx::Point& point) {
@@ -385,9 +407,13 @@ void DesktopNativeWidgetAura::OnDeviceScaleFactorChanged(
 }
 
 void DesktopNativeWidgetAura::OnWindowDestroying() {
+  native_widget_delegate_->OnNativeWidgetDestroying();
 }
 
 void DesktopNativeWidgetAura::OnWindowDestroyed() {
+  window_ = NULL;
+  native_widget_delegate_->OnNativeWidgetDestroyed();
+  delete this;
 }
 
 void DesktopNativeWidgetAura::OnWindowTargetVisibilityChanged(bool visible) {
@@ -436,8 +462,9 @@ ui::EventResult DesktopNativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {
       ui::ER_HANDLED : ui::ER_UNHANDLED;
 }
 
-ui::TouchStatus DesktopNativeWidgetAura::OnTouchEvent(ui::TouchEvent* event) {
-  return native_widget_delegate_->OnTouchEvent(*event);
+ui::EventResult DesktopNativeWidgetAura::OnTouchEvent(ui::TouchEvent* event) {
+  ui::TouchStatus status = native_widget_delegate_->OnTouchEvent(*event);
+  return ui::EventResultFromTouchStatus(status);
 }
 
 ui::EventResult DesktopNativeWidgetAura::OnGestureEvent(

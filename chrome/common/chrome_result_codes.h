@@ -72,9 +72,18 @@ enum ResultCode {
   // running browser.
   RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFIED,
 
+  // A dummy value we should not use. See crbug.com/152285.
+  RESULT_CODE_NOTUSED_1,
+
   // Failed to install an item from the webstore when the kInstallFromWebstore
   // command line flag was present.
-  RESULT_CODE_INSTALL_FROM_WEBSTORE_ERROR,
+  RESULT_CODE_INSTALL_FROM_WEBSTORE_ERROR_2,
+
+  // A dummy value we should not use. See crbug.com/152285.
+  RESULT_CODE_NOTUSED_2,
+
+  // Returned when the user has not yet accepted the EULA.
+  RESULT_CODE_EULA_REFUSED,
 
   // Last return code (keep this last).
   RESULT_CODE_CHROME_LAST_CODE,

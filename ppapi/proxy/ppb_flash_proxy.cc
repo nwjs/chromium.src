@@ -88,10 +88,8 @@ const PPB_Flash_Print_1_0* PPB_Flash_Proxy::GetFlashPrintInterface() {
 }
 
 bool PPB_Flash_Proxy::OnMessageReceived(const IPC::Message& msg) {
-  // Prevent the dispatcher from going away during a call to Navigate.
-  // This must happen OUTSIDE of OnMsgNavigate since the handling code use
-  // the dispatcher upon return of the function (sending the reply message).
-  ScopedModuleReference death_grip(dispatcher());
+  if (!dispatcher()->permissions().HasPermission(PERMISSION_FLASH))
+    return false;
 
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PPB_Flash_Proxy, msg)

@@ -87,14 +87,16 @@ class SourceBufferRange {
   // Deletes all buffers in range.
   bool DeleteAll(BufferQueue* deleted_buffers);
 
-  // Attempts to free |bytes| data from the range, preferring to delete at the
-  // beginning of the range. Deletes data in GOPS at a time so that the range
-  // always begins with a keyframe. Returns the number of bytes freed.
-  int FreeFromStart(int bytes);
+  // Deletes a GOP from the front or back of the range and moves these
+  // buffers into |deleted_buffers|. Returns the number of bytes deleted from
+  // the range (i.e. the size in bytes of |deleted_buffers|).
+  int DeleteGOPFromFront(BufferQueue* deleted_buffers);
+  int DeleteGOPFromBack(BufferQueue* deleted_buffers);
 
-  // Attempts to free |bytes| data from the range, preferring to delete at the
-  // end of the range. Returns the number of bytes freed.
-  int FreeFromEnd(int bytes);
+  // Indicates whether the GOP at the beginning or end of the range contains the
+  // next buffer position.
+  bool FirstGOPContainsNextBufferPosition() const;
+  bool LastGOPContainsNextBufferPosition() const;
 
   // Updates |out_buffer| with the next buffer in presentation order. Seek()
   // must be called before calls to GetNextBuffer(), and buffers are returned
@@ -157,7 +159,7 @@ class SourceBufferRange {
   int size_in_bytes() const { return size_in_bytes_; }
 
  private:
-  typedef std::map<base::TimeDelta, size_t> KeyframeMap;
+  typedef std::map<base::TimeDelta, int> KeyframeMap;
 
   // Seeks the range to the next keyframe after |timestamp|. If
   // |skip_given_timestamp| is true, the seek will go to a keyframe with a
@@ -420,15 +422,23 @@ bool SourceBufferStream::Append(
   if (deleted_next_buffer) {
     DCHECK(!seek_pending_);
     SetSelectedRange(*range_for_new_buffers);
-    if (!deleted_buffers.empty()) {
-      // Seek the range to the keyframe at or after |next_buffer_timestamp|.
+    if (next_buffer_timestamp != kNoTimestamp()) {
+      // Seek ahead to the keyframe at or after |next_buffer_timestamp|, the
+      // timestamp of the deleted next buffer.
       selected_range_->SeekAheadTo(next_buffer_timestamp);
-      UpdateTrackBuffer(deleted_buffers);
+      // Update track buffer with non-keyframe buffers leading up to the current
+      // position of |selected_range_|.
+      PruneTrackBuffer();
+      if (!deleted_buffers.empty())
+        UpdateTrackBuffer(deleted_buffers);
     } else {
-      // If we've deleted the next buffer but |deleted_buffers| is empty,
-      // that means we need to seek past the timestamp of the last buffer in
-      // the range (i.e. the keyframe timestamp needs to be strictly greater
-      // than |end_buffer_timestamp|).
+      // If |next_buffer_timestamp| is kNoTimestamp(), it means the range
+      // we've overlapped didn't actually have the next buffer buffered, and it
+      // was waiting for the next buffer whose timestamp was greater than
+      // |end_buffer_timestamp|. Seek the |selected_range_| to the next keyframe
+      // after |end_buffer_timestamp|.
+      DCHECK(track_buffer_.empty());
+      DCHECK(deleted_buffers.empty());
       selected_range_->SeekAheadPast(end_buffer_timestamp);
     }
   }
@@ -524,34 +534,87 @@ void SourceBufferStream::GarbageCollectIfNeeded() {
   int bytes_to_free = ranges_size - memory_limit_;
 
   // Begin deleting from the front.
-  while (!ranges_.empty() && bytes_to_free > 0) {
-    SourceBufferRange* current_range = ranges_.front();
-    bytes_to_free -= current_range->FreeFromStart(bytes_to_free);
-
-    // If the |current_range| still has data left after freeing, we should not
-    // delete any more data in this direction.
-    if (current_range->size_in_bytes() > 0)
-      break;
-
-    DCHECK_NE(current_range, selected_range_);
-    delete current_range;
-    ranges_.pop_front();
-  }
+  int bytes_freed = FreeBuffers(bytes_to_free, false);
 
   // Begin deleting from the back.
+  if (bytes_to_free - bytes_freed > 0)
+    FreeBuffers(bytes_to_free - bytes_freed, true);
+}
+
+int SourceBufferStream::FreeBuffers(int total_bytes_to_free,
+                                    bool reverse_direction) {
+  DCHECK_GT(total_bytes_to_free, 0);
+  int bytes_to_free = total_bytes_to_free;
+  int bytes_freed = 0;
+
+  // This range will save the last GOP appended to |range_for_next_append_|
+  // if the buffers surrounding it get deleted during garbage collection.
+  SourceBufferRange* new_range_for_append = NULL;
+
   while (!ranges_.empty() && bytes_to_free > 0) {
-    SourceBufferRange* current_range = ranges_.back();
-    bytes_to_free -= current_range->FreeFromEnd(bytes_to_free);
 
-    // If the |current_range| still has data left after freeing, we should not
-    // delete any more data in this direction.
-    if (current_range->size_in_bytes() > 0)
-      break;
+    SourceBufferRange* current_range = NULL;
+    BufferQueue buffers;
+    int bytes_deleted = 0;
 
-    DCHECK_NE(current_range, selected_range_);
-    delete current_range;
-    ranges_.pop_back();
+    if (reverse_direction) {
+      current_range = ranges_.back();
+      if (current_range->LastGOPContainsNextBufferPosition()) {
+        DCHECK_EQ(current_range, selected_range_);
+        break;
+      }
+      bytes_deleted = current_range->DeleteGOPFromBack(&buffers);
+    } else {
+      current_range = ranges_.front();
+      if (current_range->FirstGOPContainsNextBufferPosition()) {
+        DCHECK_EQ(current_range, selected_range_);
+        break;
+      }
+      bytes_deleted = current_range->DeleteGOPFromFront(&buffers);
+    }
+
+    // Check to see if we've just deleted the GOP that was last appended.
+    if (buffers.back()->GetDecodeTimestamp() == last_buffer_timestamp_) {
+      DCHECK(last_buffer_timestamp_ != kNoTimestamp());
+      DCHECK(!new_range_for_append);
+      // Create a new range containing these buffers.
+      new_range_for_append = new SourceBufferRange(
+            buffers, kNoTimestamp(),
+            base::Bind(&SourceBufferStream::GetMaxInterbufferDistance,
+                       base::Unretained(this)));
+      range_for_next_append_ = ranges_.end();
+    } else {
+      bytes_to_free -= bytes_deleted;
+      bytes_freed += bytes_deleted;
+    }
+
+    if (current_range->size_in_bytes() == 0) {
+      DCHECK_NE(current_range, selected_range_);
+      DCHECK(range_for_next_append_ == ranges_.end() ||
+             *range_for_next_append_ != current_range);
+      delete current_range;
+      reverse_direction ? ranges_.pop_back() : ranges_.pop_front();
+    }
   }
+
+  // Insert |new_range_for_append| into |ranges_|, if applicable.
+  if (new_range_for_append) {
+    range_for_next_append_ = AddToRanges(new_range_for_append);
+    DCHECK(range_for_next_append_ != ranges_.end());
+
+    // Check to see if we need to merge |new_range_for_append| with the range
+    // before or after it. |new_range_for_append| is created whenever the last
+    // GOP appended is encountered, regardless of whether any buffers after it
+    // are ultimately deleted. Merging is necessary if there were no buffers
+    // (or very few buffers) deleted after creating |new_range_for_append|.
+    if (range_for_next_append_ != ranges_.begin()) {
+      RangeList::iterator range_before_next = range_for_next_append_;
+      --range_before_next;
+      MergeWithAdjacentRangeIfNecessary(range_before_next);
+    }
+    MergeWithAdjacentRangeIfNecessary(range_for_next_append_);
+  }
+  return bytes_freed;
 }
 
 void SourceBufferStream::InsertIntoExistingRange(
@@ -699,23 +762,40 @@ void SourceBufferStream::ResolveEndOverlap(
   SetSelectedRange(NULL);
 }
 
+void SourceBufferStream::PruneTrackBuffer() {
+  DCHECK(selected_range_);
+  DCHECK(selected_range_->HasNextBufferPosition());
+  base::TimeDelta next_timestamp = selected_range_->GetNextTimestamp();
+
+  // If we don't have the next timestamp, we don't have anything to delete.
+  if (next_timestamp == kNoTimestamp())
+    return;
+
+  while (!track_buffer_.empty() &&
+         track_buffer_.back()->GetDecodeTimestamp() >= next_timestamp) {
+    track_buffer_.pop_back();
+  }
+}
+
 void SourceBufferStream::UpdateTrackBuffer(const BufferQueue& deleted_buffers) {
   DCHECK(!deleted_buffers.empty());
   DCHECK(selected_range_);
   DCHECK(selected_range_->HasNextBufferPosition());
 
   base::TimeDelta next_keyframe_timestamp = selected_range_->GetNextTimestamp();
+  base::TimeDelta start_of_deleted =
+      deleted_buffers.front()->GetDecodeTimestamp();
+
+  // |deleted_buffers| should always come after the buffers in |track_buffer|.
+  if (!track_buffer_.empty())
+    DCHECK(track_buffer_.back()->GetDecodeTimestamp() < start_of_deleted);
 
   // If there is no gap between what was deleted and what was added, nothing
   // should be added to the track buffer.
   if (selected_range_->HasNextBuffer() &&
-      (next_keyframe_timestamp ==
-       deleted_buffers.front()->GetDecodeTimestamp())) {
+      next_keyframe_timestamp <= start_of_deleted) {
     return;
   }
-
-  DCHECK(next_keyframe_timestamp >=
-         deleted_buffers.front()->GetDecodeTimestamp());
 
   // If the |selected_range_| is ready to return data, fill the track buffer
   // with all buffers that come before |next_keyframe_timestamp| and return.
@@ -730,7 +810,8 @@ void SourceBufferStream::UpdateTrackBuffer(const BufferQueue& deleted_buffers) {
 
   // Otherwise, the |selected_range_| is not ready to return data, so add all
   // the deleted buffers into the |track_buffer_|.
-  track_buffer_ = deleted_buffers;
+  track_buffer_.insert(track_buffer_.end(),
+                       deleted_buffers.begin(), deleted_buffers.end());
 
   // See if the next range contains the keyframe after the end of the
   // |track_buffer_|, and if so, change |selected_range_|.
@@ -767,6 +848,9 @@ void SourceBufferStream::MergeWithAdjacentRangeIfNecessary(
     // merges.
     if (transfer_current_position)
       SetSelectedRange(range_with_new_buffers);
+
+    if (next_range_itr == range_for_next_append_)
+      range_for_next_append_ = range_with_new_buffers_itr;
 
     delete *next_range_itr;
     ranges_.erase(next_range_itr);
@@ -838,6 +922,7 @@ SourceBufferStream::Status SourceBufferStream::GetNextBuffer(
   CHECK(!config_change_pending_);
 
   if (!track_buffer_.empty()) {
+    DCHECK(selected_range_);
     if (track_buffer_.front()->GetConfigId() != current_config_index_) {
       config_change_pending_ = true;
       return kConfigChange;
@@ -861,10 +946,14 @@ SourceBufferStream::Status SourceBufferStream::GetNextBuffer(
 }
 
 base::TimeDelta SourceBufferStream::GetNextBufferTimestamp() {
-  if (!selected_range_)
+  if (!selected_range_) {
+    DCHECK(track_buffer_.empty());
     return kNoTimestamp();
+  }
 
   DCHECK(selected_range_->HasNextBufferPosition());
+  if (!track_buffer_.empty())
+    return track_buffer_.front()->GetDecodeTimestamp();
   return selected_range_->GetNextTimestamp();
 }
 
@@ -1054,7 +1143,7 @@ void SourceBufferRange::AppendBuffersToEnd(const BufferQueue& new_buffers) {
       if (waiting_for_keyframe_ &&
           (*itr)->GetDecodeTimestamp() >= next_keyframe_timestamp_) {
         next_buffer_index_ = buffers_.size() - 1;
-        next_keyframe_timestamp_ = base::TimeDelta();
+        next_keyframe_timestamp_ = kNoTimestamp();
         waiting_for_keyframe_ = false;
       }
     }
@@ -1065,7 +1154,7 @@ void SourceBufferRange::Seek(base::TimeDelta timestamp) {
   DCHECK(CanSeekTo(timestamp));
   DCHECK(!keyframe_map_.empty());
 
-  next_keyframe_timestamp_ = base::TimeDelta();
+  next_keyframe_timestamp_ = kNoTimestamp();
   waiting_for_keyframe_ = false;
 
   KeyframeMap::iterator result = GetFirstKeyframeBefore(timestamp);
@@ -1195,60 +1284,40 @@ bool SourceBufferRange::TruncateAt(
   return TruncateAt(starting_point, removed_buffers);
 }
 
-int SourceBufferRange::FreeFromStart(int bytes) {
-  KeyframeMap::iterator deletion_limit = keyframe_map_.end();
-  if (HasNextBufferPosition()) {
-    base::TimeDelta next_timestamp = GetNextTimestamp();
-    if (next_timestamp != kNoTimestamp()) {
-      deletion_limit = GetFirstKeyframeBefore(next_timestamp);
-    } else {
-      // If |next_timestamp| is kNoTimestamp(), that means that the next buffer
-      // hasn't been buffered yet, so just save the keyframe before the end.
-      --deletion_limit;
-    }
-  }
+int SourceBufferRange::DeleteGOPFromFront(BufferQueue* deleted_buffers) {
+  DCHECK(!FirstGOPContainsNextBufferPosition());
+  DCHECK(deleted_buffers);
 
   int buffers_deleted = 0;
   int total_bytes_deleted = 0;
 
-  while (total_bytes_deleted < bytes) {
-    KeyframeMap::iterator front = keyframe_map_.begin();
-    if (front == deletion_limit)
-      break;
-    DCHECK(front != keyframe_map_.end());
+  KeyframeMap::iterator front = keyframe_map_.begin();
+  DCHECK(front != keyframe_map_.end());
 
-    // If we haven't reached |deletion_limit|, we begin by deleting the
-    // keyframe at the start of |keyframe_map_|.
-    keyframe_map_.erase(front);
-    front = keyframe_map_.begin();
+  // Delete the keyframe at the start of |keyframe_map_|.
+  keyframe_map_.erase(front);
 
-    // Now we need to delete all the buffers that depend on the keyframe we've
-    // just deleted. Determine the index in |buffers_| at which we should stop
-    // deleting.
-    int end_index = buffers_.size();
-    if (front != keyframe_map_.end()) {
-      // The indexes in |keyframe_map_| will be out of date after the first GOP
-      // is deleted, so adjust |front->second| by the |buffers_deleted| to get
-      // the proper index value.
-      end_index = front->second - buffers_deleted;
-    }
+  // Now we need to delete all the buffers that depend on the keyframe we've
+  // just deleted.
+  int end_index = keyframe_map_.size() > 0 ?
+      keyframe_map_.begin()->second : buffers_.size();
 
-    // Delete buffers from the beginning of the buffered range up until (but not
-    // including) the next keyframe.
-    for (int i = 0; i < end_index; i++) {
-      int bytes_deleted = buffers_.front()->GetDataSize();
-      size_in_bytes_ -= bytes_deleted;
-      total_bytes_deleted += bytes_deleted;
-      buffers_.pop_front();
-      ++buffers_deleted;
-    }
+  // Delete buffers from the beginning of the buffered range up until (but not
+  // including) the next keyframe.
+  for (int i = 0; i < end_index; i++) {
+    int bytes_deleted = buffers_.front()->GetDataSize();
+    size_in_bytes_ -= bytes_deleted;
+    total_bytes_deleted += bytes_deleted;
+    deleted_buffers->push_back(buffers_.front());
+    buffers_.pop_front();
+    ++buffers_deleted;
   }
 
   // Update indices to account for the deleted buffers.
   for (KeyframeMap::iterator itr = keyframe_map_.begin();
        itr != keyframe_map_.end(); ++itr) {
     itr->second -= buffers_deleted;
-    DCHECK_GE(itr->second, 0u);
+    DCHECK_GE(itr->second, 0);
   }
   if (next_buffer_index_ > -1) {
     next_buffer_index_ -= buffers_deleted;
@@ -1263,34 +1332,59 @@ int SourceBufferRange::FreeFromStart(int bytes) {
   return total_bytes_deleted;
 }
 
-int SourceBufferRange::FreeFromEnd(int bytes) {
-  // Don't delete anything if we're stalled waiting for more data.
-  if (HasNextBufferPosition() && !HasNextBuffer())
-    return 0;
+int SourceBufferRange::DeleteGOPFromBack(BufferQueue* deleted_buffers) {
+  DCHECK(!LastGOPContainsNextBufferPosition());
+  DCHECK(deleted_buffers);
 
-  // Delete until the current buffer or until we reach the beginning of the
-  // range.
-  int deletion_limit = next_buffer_index_;
-  DCHECK(HasNextBufferPosition() || next_buffer_index_ == -1);
+  // Remove the last GOP's keyframe from the |keyframe_map_|.
+  KeyframeMap::iterator back = keyframe_map_.end();
+  DCHECK_GT(keyframe_map_.size(), 0u);
+  --back;
+
+  // The index of the first buffer in the last GOP is equal to the new size of
+  // |buffers_| after that GOP is deleted.
+  size_t goal_size = back->second;
+  keyframe_map_.erase(back);
 
   int total_bytes_deleted = 0;
-  while (total_bytes_deleted < bytes &&
-         static_cast<int>(buffers_.size() - 1) > deletion_limit) {
+  while (buffers_.size() != goal_size) {
     int bytes_deleted = buffers_.back()->GetDataSize();
     size_in_bytes_ -= bytes_deleted;
     total_bytes_deleted += bytes_deleted;
-
-    // Delete the corresponding |keyframe_map_| entry if we're about to delete a
-    // keyframe buffer.
-    if (buffers_.back()->IsKeyframe()) {
-      DCHECK(keyframe_map_.rbegin()->first ==
-             buffers_.back()->GetDecodeTimestamp());
-      keyframe_map_.erase(buffers_.back()->GetDecodeTimestamp());
-    }
-
+    // We're removing buffers from the back, so push each removed buffer to the
+    // front of |deleted_buffers| so that |deleted_buffers| are in nondecreasing
+    // order.
+    deleted_buffers->push_front(buffers_.back());
     buffers_.pop_back();
   }
+
   return total_bytes_deleted;
+}
+
+bool SourceBufferRange::FirstGOPContainsNextBufferPosition() const {
+  if (!HasNextBufferPosition())
+    return false;
+
+  // If there is only one GOP, it must contain the next buffer position.
+  if (keyframe_map_.size() == 1u)
+    return true;
+
+  KeyframeMap::const_iterator second_gop = keyframe_map_.begin();
+  ++second_gop;
+  return !waiting_for_keyframe_ && next_buffer_index_ < second_gop->second;
+}
+
+bool SourceBufferRange::LastGOPContainsNextBufferPosition() const {
+  if (!HasNextBufferPosition())
+    return false;
+
+  // If there is only one GOP, it must contain the next buffer position.
+  if (keyframe_map_.size() == 1u)
+    return true;
+
+  KeyframeMap::const_iterator last_gop = keyframe_map_.end();
+  --last_gop;
+  return waiting_for_keyframe_ || last_gop->second <= next_buffer_index_;
 }
 
 void SourceBufferRange::FreeBufferRange(
@@ -1367,11 +1461,10 @@ base::TimeDelta SourceBufferRange::GetNextTimestamp() const {
   DCHECK(!buffers_.empty());
   DCHECK(HasNextBufferPosition());
 
-  if (waiting_for_keyframe_)
-    return next_keyframe_timestamp_;
-
-  if (next_buffer_index_ >= static_cast<int>(buffers_.size()))
+  if (waiting_for_keyframe_ ||
+      next_buffer_index_ >= static_cast<int>(buffers_.size())) {
     return kNoTimestamp();
+  }
 
   return buffers_.at(next_buffer_index_)->GetDecodeTimestamp();
 }

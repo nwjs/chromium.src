@@ -20,9 +20,15 @@
 #include "base/synchronization/lock.h"
 #include "win8/metro_driver/chrome_url_launch_handler.h"
 #include "win8/metro_driver/devices_handler.h"
+#include "win8/metro_driver/direct3d_helper.h"
 #include "win8/metro_driver/metro_dialog_box.h"
 #include "win8/metro_driver/settings_handler.h"
 #include "win8/metro_driver/toast_notification_handler.h"
+
+namespace IPC {
+  class Listener;
+  class ChannelProxy;
+}
 
 class ChromeAppView
     : public mswr::RuntimeClass<winapp::Core::IFrameworkView> {
@@ -76,6 +82,15 @@ class ChromeAppView
   HRESULT OnSizeChanged(winui::Core::ICoreWindow* sender,
                         winui::Core::IWindowSizeChangedEventArgs* args);
 
+  HRESULT OnPointerMoved(winui::Core::ICoreWindow* sender,
+                         winui::Core::IPointerEventArgs* args);
+
+  HRESULT OnPointerPressed(winui::Core::ICoreWindow* sender,
+                           winui::Core::IPointerEventArgs* args);
+
+  HRESULT OnPointerReleased(winui::Core::ICoreWindow* sender,
+                            winui::Core::IPointerEventArgs* args);
+
   HRESULT OnEdgeGestureCompleted(winui::Input::IEdgeGesture* gesture,
                                  winui::Input::IEdgeGestureEventArgs* args);
 
@@ -109,6 +124,9 @@ class ChromeAppView
   EventRegistrationToken input_pane_visible_token_;
   EventRegistrationToken input_pane_hiding_token_;
   EventRegistrationToken app_exit_token_;
+  EventRegistrationToken pointermoved_token_;
+  EventRegistrationToken pointerpressed_token_;
+  EventRegistrationToken pointerreleased_token_;
 
   ChromeUrlLaunchHandler url_launch_handler_;
   metro_driver::DevicesHandler devices_handler_;
@@ -132,6 +150,11 @@ class ChromeAppView
   int osk_offset_adjustment_;
 
   MetroDialogBox dialog_box_;
+
+  metro_driver::Direct3DHelper direct3d_helper_;
+
+  IPC::Listener* ui_channel_listener_;
+  IPC::ChannelProxy* ui_channel_;
 };
 
 class ChromeAppViewFactory

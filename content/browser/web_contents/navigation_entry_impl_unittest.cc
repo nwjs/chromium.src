@@ -4,6 +4,7 @@
 
 #include "base/string16.h"
 #include "base/string_util.h"
+#include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/web_contents/navigation_entry_impl.h"
@@ -171,8 +172,10 @@ TEST_F(NavigationEntryTest, NavigationEntryAccessors) {
   // Restored
   EXPECT_EQ(NavigationEntryImpl::RESTORE_NONE, entry1_->restore_type());
   EXPECT_EQ(NavigationEntryImpl::RESTORE_NONE, entry2_->restore_type());
-  entry2_->set_restore_type(NavigationEntryImpl::RESTORE_LAST_SESSION);
-  EXPECT_EQ(NavigationEntryImpl::RESTORE_LAST_SESSION, entry2_->restore_type());
+  entry2_->set_restore_type(
+      NavigationEntryImpl::RESTORE_LAST_SESSION_EXITED_CLEANLY);
+  EXPECT_EQ(NavigationEntryImpl::RESTORE_LAST_SESSION_EXITED_CLEANLY,
+            entry2_->restore_type());
 
   // Original URL
   EXPECT_EQ(GURL(), entry1_->GetOriginalRequestURL());
@@ -198,6 +201,14 @@ TEST_F(NavigationEntryTest, NavigationEntryAccessors) {
   entry2_->SetBrowserInitiatedPostData(post_data.get());
   EXPECT_EQ(post_data->front(),
       entry2_->GetBrowserInitiatedPostData()->front());
+}
+
+// Test timestamps.
+TEST_F(NavigationEntryTest, NavigationEntryTimestamps) {
+  EXPECT_EQ(base::Time(), entry1_->GetTimestamp());
+  const base::Time now = base::Time::Now();
+  entry1_->SetTimestamp(now);
+  EXPECT_EQ(now, entry1_->GetTimestamp());
 }
 
 }  // namespace content

@@ -12,6 +12,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
+using testing::_;
+
 namespace chromeos {
 
 namespace {
@@ -65,16 +67,29 @@ TEST_F(ShillProfileClientTest, PropertyChanged) {
   // Set expectations.
   base::ListValue value;
   value.Append(base::Value::CreateStringValue(kExampleEntryPath));
+  MockPropertyChangeObserver observer;
+  EXPECT_CALL(observer,
+              OnPropertyChanged(
+                  flimflam::kEntriesProperty,
+                  ValueEq(value))).Times(1);
 
-  client_->SetPropertyChangedHandler(dbus::ObjectPath(kDefaultProfilePath),
-                                     base::Bind(&ExpectPropertyChanged,
-                                                flimflam::kEntriesProperty,
-                                                &value));
+  // Add the observer
+  client_->AddPropertyChangedObserver(
+      dbus::ObjectPath(kDefaultProfilePath),
+      &observer);
+
   // Run the signal callback.
   SendPropertyChangedSignal(&signal);
 
-  // Reset the handler.
-  client_->ResetPropertyChangedHandler(dbus::ObjectPath(kDefaultProfilePath));
+  // Remove the observer.
+  client_->RemovePropertyChangedObserver(
+      dbus::ObjectPath(kDefaultProfilePath),
+      &observer);
+
+  EXPECT_CALL(observer, OnPropertyChanged(_, _)).Times(0);
+
+  // Run the signal callback again and make sure the observer isn't called.
+  SendPropertyChangedSignal(&signal);
 }
 
 TEST_F(ShillProfileClientTest, GetProperties) {
@@ -101,8 +116,13 @@ TEST_F(ShillProfileClientTest, GetProperties) {
                        base::Bind(&ExpectNoArgument),
                        response.get());
   // Call method.
+  MockErrorCallback error_callback;
   client_->GetProperties(dbus::ObjectPath(kDefaultProfilePath),
-                         base::Bind(&ExpectDictionaryValueResult, &value));
+                         base::Bind(&ExpectDictionaryValueResultWithoutStatus,
+                                    &value),
+                         error_callback.GetCallback());
+  EXPECT_CALL(error_callback, Run(_, _)).Times(0);
+
   // Run the message loop.
   message_loop_.RunAllPending();
 }
@@ -130,9 +150,13 @@ TEST_F(ShillProfileClientTest, GetEntry) {
                        base::Bind(&ExpectStringArgument, kExampleEntryPath),
                        response.get());
   // Call method.
+  MockErrorCallback error_callback;
   client_->GetEntry(dbus::ObjectPath(kDefaultProfilePath),
                     kExampleEntryPath,
-                    base::Bind(&ExpectDictionaryValueResult, &value));
+                    base::Bind(&ExpectDictionaryValueResultWithoutStatus,
+                               &value),
+                    error_callback.GetCallback());
+  EXPECT_CALL(error_callback, Run(_, _)).Times(0);
   // Run the message loop.
   message_loop_.RunAllPending();
 }
@@ -150,9 +174,15 @@ TEST_F(ShillProfileClientTest, DeleteEntry) {
                        base::Bind(&ExpectStringArgument, kExampleEntryPath),
                        response.get());
   // Call method.
+  MockClosure mock_closure;
+  MockErrorCallback mock_error_callback;
   client_->DeleteEntry(dbus::ObjectPath(kDefaultProfilePath),
                        kExampleEntryPath,
-                       base::Bind(&ExpectNoResultValue));
+                       mock_closure.GetCallback(),
+                       mock_error_callback.GetCallback());
+  EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Run the message loop.
   message_loop_.RunAllPending();
 }

@@ -111,6 +111,7 @@ namespace extension_info_keys {
   const char kOptionsUrlKey[] = "optionsUrl";
   const char kDetailsUrlKey[] = "detailsUrl";
   const char kVersionKey[] = "version";
+  const char kPackagedAppKey[] = "packagedApp";
 
 }  // namespace extension_filenames
 
@@ -126,10 +127,6 @@ const char kCroshBuiltinAppId[] = "nkoccljplnhpfnfiajclkommnmllphnl";
 const char kWebStoreAppId[] = "ahfgeienlihckogmohjhadlkjgocpleb";
 const char kCloudPrintAppId[] = "mfehgcgbbipciphmccgaenjidiccnmng";
 const char kChromeAppId[] = "mgndgikekgjfcpckkfioiadnlibdjbkf";
-const char kTalkExtensionId[] = "nckgahadagoaajjgafhacjanaoiihapd";
-const char kTalkBetaExtensionId[] = "eggnbpckecmjlblplehfpjjdhhidfdoj";
-const char kTalkAlphaExtensionId[] = "ppleadejekpmccmnpjdimmlfljlkdfej";
-const char kTalkDebugExtensionId[] = "ljclpkphhpbpinifbeabbhlfddcpfdde";
 const char kAppLaunchHistogram[] = "Extensions.AppLaunch";
 #if defined(OS_CHROMEOS)
 const char kAccessExtensionPath[] =

@@ -4,10 +4,12 @@
 
 #include "chrome/renderer/page_load_histograms.h"
 
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/time.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/url_pattern.h"
 #include "chrome/renderer/chrome_content_renderer_client.h"
 #include "chrome/renderer/prerender/prerender_helper.h"
@@ -349,6 +351,15 @@ void PageLoadHistograms::Dump(WebFrame* frame) {
       default:
         break;
     }
+  }
+
+  if (document_state->was_fetched_via_proxy() &&
+      document_state->was_fetched_via_spdy() &&
+      CommandLine::ForCurrentProcess()->HasSwitch(switches::kSpdyProxyOrigin)) {
+    UMA_HISTOGRAM_ENUMERATION(
+        "PLT.Abandoned_SpdyProxy", abandoned_page ? 1 : 0, 2);
+    PLT_HISTOGRAM("PLT.BeginToFinishDoc_SpdyProxy", begin_to_finish_doc);
+    PLT_HISTOGRAM("PLT.BeginToFinish_SpdyProxy", begin_to_finish_all_loads);
   }
 
   // Histograms to determine if prefetch & prerender has an impact on PLT.
@@ -930,6 +941,18 @@ void PageLoadHistograms::Dump(WebFrame* frame) {
   prerender::PrerenderHelper::RecordHistograms(render_view(),
                                                finish_all_loads,
                                                begin_to_finish_all_loads);
+
+  // Record histograms for cache sensitivity analysis.
+  static const bool cache_sensitivity_histogram =
+      base::FieldTrialList::TrialExists("CacheSensitivityAnalysis");
+  if (cache_sensitivity_histogram) {
+    PLT_HISTOGRAM(base::FieldTrial::MakeName(
+        "PLT.BeginToFinishDoc_CacheSensitivity", "CacheSensitivityAnalysis"),
+                  begin_to_finish_doc);
+    PLT_HISTOGRAM(base::FieldTrial::MakeName(
+        "PLT.BeginToFinish_CacheSensitivity", "CacheSensitivityAnalysis"),
+                  begin_to_finish_all_loads);
+  }
 
   // Since there are currently no guarantees that renderer histograms will be
   // sent to the browser, we initiate a PostTask here to be sure that we send

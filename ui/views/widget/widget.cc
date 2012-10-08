@@ -54,11 +54,12 @@ void BuildRootLayers(View* view, std::vector<ui::Layer*>* layers) {
 // Finally, make a default one.
 NativeWidget* CreateNativeWidget(NativeWidget* native_widget,
                                  internal::NativeWidgetDelegate* delegate,
+                                 Widget::InitParams::Type type,
                                  gfx::NativeView parent) {
   if (!native_widget) {
     if (ViewsDelegate::views_delegate) {
-      native_widget =
-          ViewsDelegate::views_delegate->CreateNativeWidget(delegate, parent);
+      native_widget = ViewsDelegate::views_delegate->CreateNativeWidget(
+          type, delegate, parent);
     }
     if (!native_widget) {
       native_widget =
@@ -156,6 +157,7 @@ Widget::InitParams::InitParams()
       parent(NULL),
       parent_widget(NULL),
       native_widget(NULL),
+      desktop_root_window_host(NULL),
       top_level(false),
       layer_type(ui::LAYER_TEXTURED) {
 }
@@ -180,6 +182,7 @@ Widget::InitParams::InitParams(Type type)
       parent(NULL),
       parent_widget(NULL),
       native_widget(NULL),
+      desktop_root_window_host(NULL),
       top_level(false),
       layer_type(ui::LAYER_TEXTURED) {
 }
@@ -330,8 +333,8 @@ void Widget::Init(const InitParams& params) {
   widget_delegate_ = params.delegate ?
       params.delegate : new DefaultWidgetDelegate(this, params);
   ownership_ = params.ownership;
-  native_widget_ =
-      CreateNativeWidget(params.native_widget, this, params.GetParent())->
+  native_widget_ = CreateNativeWidget(
+      params.native_widget, this, params.type, params.GetParent())->
           AsNativeWidgetPrivate();
   GetRootView();
   default_theme_provider_.reset(new DefaultThemeProvider);
@@ -734,10 +737,6 @@ void Widget::UpdateWindowTitle() {
   if (!non_client_view_)
     return;
 
-  // If the non-client view is rendering its own title, it'll need to relayout
-  // now.
-  non_client_view_->Layout();
-
   // Update the native frame's text. We do this regardless of whether or not
   // the native frame is being used, since this also updates the taskbar, etc.
   string16 window_title;
@@ -748,6 +747,11 @@ void Widget::UpdateWindowTitle() {
   }
   base::i18n::AdjustStringForLocaleDirection(&window_title);
   native_widget_->SetWindowTitle(window_title);
+  non_client_view_->UpdateWindowTitle();
+
+  // If the non-client view is rendering its own title, it'll need to relayout
+  // now and to get a paint update later on.
+  non_client_view_->Layout();
 }
 
 void Widget::UpdateWindowIcon() {
@@ -1102,7 +1106,7 @@ bool Widget::OnMouseEvent(const ui::MouseEvent& event) {
         native_widget_->ReleaseCapture();
       }
       GetRootView()->OnMouseReleased(event);
-      return (event.flags() & ui::EF_IS_NON_CLIENT) ? false : true;
+      return ((event.flags() & ui::EF_IS_NON_CLIENT) == 0);
     case ui::ET_MOUSE_MOVED:
     case ui::ET_MOUSE_DRAGGED:
       if (native_widget_->HasCapture() && is_mouse_button_pressed_) {
@@ -1185,12 +1189,12 @@ const std::vector<ui::Layer*>& Widget::GetRootLayers() {
 }
 
 bool Widget::HasHitTestMask() const {
-  return widget_delegate_->HasHitTestMask();
+  return widget_delegate_->WidgetHasHitTestMask();
 }
 
 void Widget::GetHitTestMask(gfx::Path* mask) const {
   DCHECK(mask);
-  widget_delegate_->GetHitTestMask(mask);
+  widget_delegate_->GetWidgetHitTestMask(mask);
 }
 
 Widget* Widget::AsWidget() {

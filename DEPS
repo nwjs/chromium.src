@@ -8,43 +8,43 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "129516",
+  "webkit_revision": "130552",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9834",
+  "nacl_revision": "9930",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
   "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
   "gtm_revision": "578",
 
-  "libjingle_revision": "193",
+  "libjingle_revision": "199",
   "libphonenumber_revision": "456",
   "libvpx_revision": "152423",
   "lss_revision": "13",
 
   # These two FFmpeg variables must be updated together.  One is used for SVN
   # checkouts and the other for Git checkouts.
-  "ffmpeg_revision": "155401",
-  "ffmpeg_hash": "4a1909e22211b340ee859a8c9d12e8825fe499b7",
+  "ffmpeg_revision": "159317",
+  "ffmpeg_hash": "3a9bce0eec65d13e2cf071e51757b7e90d082a4f",
 
   "sfntly_revision": "134",
-  "skia_revision": "5655",
+  "skia_revision": "5820",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
-  "v8_revision": "12514",
+  "v8_revision": "12666",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling WebRTC
   # and V8 without interference from each other.
   "webrtc_revision": "2718",
   "jsoncpp_revision": "248",
-  "nss_revision": "158129",
+  "nss_revision": "159459",
 }
 
 deps = {
   "src/breakpad/src":
-    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1020",
+    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1052",
 
   "src/googleurl":
     (Var("googlecode_url") % "google-url") + "/trunk@179",
@@ -62,7 +62,7 @@ deps = {
     (Var("googlecode_url") % "googlemock") + "/trunk@405",
 
   "src/third_party/angle":
-    (Var("googlecode_url") % "angleproject") + "/trunk@1275",
+    (Var("googlecode_url") % "angleproject") + "/trunk@1289",
 
   "src/third_party/trace-viewer":
     (Var("googlecode_url") % "trace-viewer") + "/trunk@168",
@@ -100,10 +100,13 @@ deps = {
     (Var("googlecode_url") % "snappy") + "/trunk@63",
 
   "src/tools/grit":
-    (Var("googlecode_url") % "grit-i18n") + "/trunk@67",
+    (Var("googlecode_url") % "grit-i18n") + "/trunk@73",
 
   "src/tools/gyp":
-    (Var("googlecode_url") % "gyp") + "/trunk@1501",
+    (Var("googlecode_url") % "gyp") + "/trunk@1514",
+
+  "src/tools/swarm_client":
+    "/trunk/tools/swarm_client@160586",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
@@ -162,7 +165,7 @@ deps = {
     (Var("googlecode_url") % "bidichecker") + "/trunk/lib@4",
 
   "src/third_party/v8-i18n":
-    (Var("googlecode_url") % "v8-i18n") + "/trunk@143",
+    (Var("googlecode_url") % "v8-i18n") + "/trunk@150",
 
   # When roll to another webgl conformance tests revision, please goto
   # chrome/test/gpu and run generate_webgl_conformance_test_list.py.
@@ -253,7 +256,7 @@ deps = {
     "/trunk/deps/third_party/libsrtp@157430",
 
   "src/third_party/speex":
-    "/trunk/deps/third_party/speex@149334",
+    "/trunk/deps/third_party/speex@160092",
 
   "src/third_party/yasm/source/patched-yasm":
     "/trunk/deps/third_party/yasm/patched-yasm@154708",
@@ -283,7 +286,7 @@ deps = {
         "/trunk/jsoncpp/src/lib_json@" + Var("jsoncpp_revision"),
 
   "src/third_party/libyuv":
-    (Var("googlecode_url") % "libyuv") + "/trunk@364",
+    (Var("googlecode_url") % "libyuv") + "/trunk@389",
 
   "src/third_party/mozc/session":
     (Var("googlecode_url") % "mozc") + "/trunk/src/session@83",
@@ -428,7 +431,6 @@ deps_os = {
     "src/chrome/test/data/perf/frame_rate/content": None,
     "src/native_client": None,
     "src/native_client/src/third_party/ppapi": None,
-    "src/native_client_sdk/src/site_scons": None,
     "src/sandbox/linux/seccomp-legacy": None,
     "src/third_party/angle": None,
     "src/third_party/bidichecker": None,
@@ -521,7 +523,7 @@ deps_os = {
       "/trunk/deps/third_party/gold@149858",
 
     "src/third_party/libmtp":
-      "/trunk/deps/third_party/libmtp@149713",
+      "/trunk/deps/third_party/libmtp@160216",
 
     # For Chromium OS.
     "src/third_party/cros_system_api":

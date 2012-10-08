@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "content/public/browser/web_contents_observer.h"
 
 namespace content {
@@ -50,7 +50,6 @@ class OneClickSigninHelper : public content::WebContentsObserver,
 
  private:
   explicit OneClickSigninHelper(content::WebContents* web_contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<OneClickSigninHelper>;
 
   // The portion of ShowInfoBarIfPossible() that needs to run on the UI thread.

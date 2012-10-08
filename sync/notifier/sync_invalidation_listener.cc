@@ -51,7 +51,7 @@ void SyncInvalidationListener::Start(
     const CreateInvalidationClientCallback&
         create_invalidation_client_callback,
     const std::string& client_id, const std::string& client_info,
-    const std::string& state,
+    const std::string& invalidation_bootstrap_data,
     const InvalidationVersionMap& initial_max_invalidation_versions,
     const WeakHandle<InvalidationStateTracker>& invalidation_state_tracker,
     Delegate* delegate) {
@@ -64,7 +64,8 @@ void SyncInvalidationListener::Start(
   // The Storage resource is implemented as a write-through cache.  We populate
   // it with the initial state on startup, so subsequent writes go to disk and
   // update the in-memory cache, while reads just return the cached state.
-  sync_system_resources_.storage()->SetInitialState(state);
+  sync_system_resources_.storage()->SetInitialState(
+      invalidation_bootstrap_data);
 
   max_invalidation_versions_ = initial_max_invalidation_versions;
   if (max_invalidation_versions_.empty()) {
@@ -161,9 +162,9 @@ void SyncInvalidationListener::Invalidate(
   if (invalidation.has_payload())
     payload = invalidation.payload();
 
-  ObjectIdStateMap id_state_map;
-  id_state_map[id].payload = payload;
-  EmitInvalidation(id_state_map);
+  ObjectIdInvalidationMap invalidation_map;
+  invalidation_map[id].payload = payload;
+  EmitInvalidation(invalidation_map);
   // TODO(akalin): We should really acknowledge only after we get the
   // updates from the sync server. (see http://crbug.com/78462).
   client->Acknowledge(ack_handle);
@@ -177,9 +178,9 @@ void SyncInvalidationListener::InvalidateUnknownVersion(
   DCHECK_EQ(client, invalidation_client_.get());
   DVLOG(1) << "InvalidateUnknownVersion";
 
-  ObjectIdStateMap id_state_map;
-  id_state_map[object_id].payload = std::string();
-  EmitInvalidation(id_state_map);
+  ObjectIdInvalidationMap invalidation_map;
+  invalidation_map[object_id].payload = std::string();
+  EmitInvalidation(invalidation_map);
   // TODO(akalin): We should really acknowledge only after we get the
   // updates from the sync server. (see http://crbug.com/78462).
   client->Acknowledge(ack_handle);
@@ -194,21 +195,18 @@ void SyncInvalidationListener::InvalidateAll(
   DCHECK_EQ(client, invalidation_client_.get());
   DVLOG(1) << "InvalidateAll";
 
-  ObjectIdStateMap id_state_map;
-  for (ObjectIdSet::const_iterator it = registered_ids_.begin();
-       it != registered_ids_.end(); ++it) {
-    id_state_map[*it].payload = std::string();
-  }
-  EmitInvalidation(id_state_map);
+  const ObjectIdInvalidationMap& invalidation_map =
+      ObjectIdSetToInvalidationMap(registered_ids_, std::string());
+  EmitInvalidation(invalidation_map);
   // TODO(akalin): We should really acknowledge only after we get the
   // updates from the sync server. (see http://crbug.com/76482).
   client->Acknowledge(ack_handle);
 }
 
 void SyncInvalidationListener::EmitInvalidation(
-    const ObjectIdStateMap& id_state_map) {
+    const ObjectIdInvalidationMap& invalidation_map) {
   DCHECK(CalledOnValidThread());
-  delegate_->OnInvalidate(id_state_map);
+  delegate_->OnInvalidate(invalidation_map);
 }
 
 void SyncInvalidationListener::InformRegistrationStatus(
@@ -285,7 +283,7 @@ void SyncInvalidationListener::WriteState(const std::string& state) {
   DCHECK(CalledOnValidThread());
   DVLOG(1) << "WriteState";
   invalidation_state_tracker_.Call(
-      FROM_HERE, &InvalidationStateTracker::SetInvalidationState, state);
+      FROM_HERE, &InvalidationStateTracker::SetBootstrapData, state);
 }
 
 void SyncInvalidationListener::DoRegistrationUpdate() {

@@ -123,9 +123,8 @@ chrome.app.runtime.onLaunched(function(intent) {
       };
 
       // Create a new Blob and write it to log.txt.
-      var bb = new BlobBuilder(); // Note: window.WebKitBlobBuilder in Chrome 12.
-      bb.append('Lorem Ipsum');
-      writer.write(bb.getBlob('text/plain'));
+      var blob = new Blob(['Lorem Ipsum'], {type: 'text/plain'});
+      writer.write(blob);
     });
   }
 });
@@ -198,7 +197,7 @@ window.navigator.webkitStartActivity(intent, function(data) {
    that something has gone wrong.
 </p>
 
-<h3>Client</h3>
+<h3 id="client">Client</h3>
 
 <pre>
 var intent = new WebKitIntent("http://webintents.org/edit", "image/png", "dataUri://");
@@ -209,7 +208,7 @@ var onError = function() {};
 window.navigator.webkitStartActivity(intent, onSuccess, onError);
 </pre>
 
-<h3>Service</h3>
+<h3 id="service">Service</h3>
 <pre>
 chrome.app.runtime.onLaunched(function(intent) {
   // App Launched

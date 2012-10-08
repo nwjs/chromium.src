@@ -194,12 +194,6 @@ class TestingValueStoreFactory : public SettingsStorageFactory {
   std::map<std::string, TestingValueStore*> created_;
 };
 
-void AssignSettingsService(syncer::SyncableService** dst,
-                           const SettingsFrontend* frontend,
-                           syncer::ModelType type) {
-  *dst = frontend->GetBackendForSync(type);
-}
-
 }  // namespace
 
 class ExtensionSettingsSyncTest : public testing::Test {
@@ -300,7 +294,7 @@ TEST_F(ExtensionSettingsSyncTest, NoDataDoesNotInvokeSync) {
 
 TEST_F(ExtensionSettingsSyncTest, InSyncDataDoesNotInvokeSync) {
   syncer::ModelType model_type = syncer::APP_SETTINGS;
-  Extension::Type type = Extension::TYPE_PACKAGED_APP;
+  Extension::Type type = Extension::TYPE_LEGACY_PACKAGED_APP;
 
   StringValue value1("fooValue");
   ListValue value2;
@@ -382,7 +376,7 @@ TEST_F(ExtensionSettingsSyncTest, LocalDataWithNoSyncDataIsPushedToSync) {
 
 TEST_F(ExtensionSettingsSyncTest, AnySyncDataOverwritesLocalData) {
   syncer::ModelType model_type = syncer::APP_SETTINGS;
-  Extension::Type type = Extension::TYPE_PACKAGED_APP;
+  Extension::Type type = Extension::TYPE_LEGACY_PACKAGED_APP;
 
   StringValue value1("fooValue");
   ListValue value2;
@@ -495,7 +489,7 @@ TEST_F(ExtensionSettingsSyncTest, ProcessSyncChanges) {
 
 TEST_F(ExtensionSettingsSyncTest, PushToSync) {
   syncer::ModelType model_type = syncer::APP_SETTINGS;
-  Extension::Type type = Extension::TYPE_PACKAGED_APP;
+  Extension::Type type = Extension::TYPE_LEGACY_PACKAGED_APP;
 
   StringValue value1("fooValue");
   ListValue value2;
@@ -644,7 +638,7 @@ TEST_F(ExtensionSettingsSyncTest, ExtensionAndAppSettingsSyncSeparately) {
   ValueStore* storage1 = AddExtensionAndGetStorage(
       "s1", Extension::TYPE_EXTENSION);
   ValueStore* storage2 = AddExtensionAndGetStorage(
-      "s2", Extension::TYPE_PACKAGED_APP);
+      "s2", Extension::TYPE_LEGACY_PACKAGED_APP);
 
   storage1->Set(DEFAULTS, "foo", value1);
   storage2->Set(DEFAULTS, "bar", value2);
@@ -893,7 +887,7 @@ TEST_F(ExtensionSettingsSyncTest, FailingProcessChangesDisablesSync) {
   // The test above tests a failing ProcessSyncChanges too, but here test with
   // an initially passing MergeDataAndStartSyncing.
   syncer::ModelType model_type = syncer::APP_SETTINGS;
-  Extension::Type type = Extension::TYPE_PACKAGED_APP;
+  Extension::Type type = Extension::TYPE_LEGACY_PACKAGED_APP;
 
   StringValue fooValue("fooValue");
   StringValue barValue("barValue");
@@ -1046,7 +1040,7 @@ TEST_F(ExtensionSettingsSyncTest, FailingGetAllSyncDataDoesntStopSync) {
 
 TEST_F(ExtensionSettingsSyncTest, FailureToReadChangesToPushDisablesSync) {
   syncer::ModelType model_type = syncer::APP_SETTINGS;
-  Extension::Type type = Extension::TYPE_PACKAGED_APP;
+  Extension::Type type = Extension::TYPE_LEGACY_PACKAGED_APP;
 
   StringValue fooValue("fooValue");
   StringValue barValue("barValue");
@@ -1339,7 +1333,7 @@ TEST_F(ExtensionSettingsSyncTest, FailureToPushLocalChangeDisablesSync) {
 TEST_F(ExtensionSettingsSyncTest,
        LargeOutgoingChangeRejectedButIncomingAccepted) {
   syncer::ModelType model_type = syncer::APP_SETTINGS;
-  Extension::Type type = Extension::TYPE_PACKAGED_APP;
+  Extension::Type type = Extension::TYPE_LEGACY_PACKAGED_APP;
 
   // This value should be larger than the limit in settings_backend.cc.
   std::string string_5k;

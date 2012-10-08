@@ -8,7 +8,6 @@
 #include <string>
 
 #include "base/bind.h"
-#include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/string16.h"
 #include "base/string_split.h"
@@ -39,44 +38,74 @@ namespace content {
 namespace {
 
 const char kAddEventListener[] = "addEventListener";
+const char kBackMethod[] = "back";
+const char kForwardMethod[] = "forward";
 const char kGetProcessId[] = "getProcessId";
+const char kGoMethod[] = "go";
 const char kPartitionAttribute[] = "partition";
 const char kReloadMethod[] = "reload";
 const char kRemoveEventListener[] = "removeEventListener";
 const char kSrcAttribute[] = "src";
 const char kStopMethod[] = "stop";
+const char kTerminateMethod[] = "terminate";
 
 BrowserPluginBindings* GetBindings(NPObject* object) {
   return static_cast<BrowserPluginBindings::BrowserPluginNPObject*>(object)->
       message_channel;
 }
 
-bool IdentifierIsReload(NPIdentifier identifier) {
-  return WebBindings::getStringIdentifier(kReloadMethod) == identifier;
-}
-
-bool IdentifierIsStop(NPIdentifier identifier) {
-  return WebBindings::getStringIdentifier(kStopMethod) == identifier;
-}
-
 bool IdentifierIsAddEventListener(NPIdentifier identifier) {
   return WebBindings::getStringIdentifier(kAddEventListener) == identifier;
 }
 
-bool IdentifierIsRemoveEventListener(NPIdentifier identifier) {
-  return WebBindings::getStringIdentifier(kRemoveEventListener) == identifier;
+bool IdentifierIsBackMethod(NPIdentifier identifier) {
+  return WebBindings::getStringIdentifier(kBackMethod) == identifier;
+}
+
+bool IdentifierIsForwardMethod(NPIdentifier identifier) {
+  return WebBindings::getStringIdentifier(kForwardMethod) == identifier;
 }
 
 bool IdentifierIsGetProcessID(NPIdentifier identifier) {
   return WebBindings::getStringIdentifier(kGetProcessId) == identifier;
 }
 
-bool IdentifierIsSrcAttribute(NPIdentifier identifier) {
-  return WebBindings::getStringIdentifier(kSrcAttribute) == identifier;
+bool IdentifierIsGoMethod(NPIdentifier identifier) {
+  return WebBindings::getStringIdentifier(kGoMethod) == identifier;
 }
 
 bool IdentifierIsPartitionAttribute(NPIdentifier identifier) {
   return WebBindings::getStringIdentifier(kPartitionAttribute) == identifier;
+}
+
+bool IdentifierIsReload(NPIdentifier identifier) {
+  return WebBindings::getStringIdentifier(kReloadMethod) == identifier;
+}
+
+bool IdentifierIsRemoveEventListener(NPIdentifier identifier) {
+  return WebBindings::getStringIdentifier(kRemoveEventListener) == identifier;
+}
+
+bool IdentifierIsSrcAttribute(NPIdentifier identifier) {
+  return WebBindings::getStringIdentifier(kSrcAttribute) == identifier;
+}
+
+bool IdentifierIsStop(NPIdentifier identifier) {
+  return WebBindings::getStringIdentifier(kStopMethod) == identifier;
+}
+
+bool IdentifierIsTerminate(NPIdentifier identifier) {
+  return WebBindings::getStringIdentifier(kTerminateMethod) == identifier;
+}
+
+int Int32FromNPVariant(const NPVariant& variant) {
+  if (NPVARIANT_IS_INT32(variant))
+    return NPVARIANT_TO_INT32(variant);
+
+  if (NPVARIANT_IS_DOUBLE(variant))
+    return NPVARIANT_TO_DOUBLE(variant);
+
+  return 0;
 }
 
 std::string StringFromNPVariant(const NPVariant& variant) {
@@ -84,16 +113,6 @@ std::string StringFromNPVariant(const NPVariant& variant) {
     return std::string();
   const NPString& np_string = NPVARIANT_TO_STRING(variant);
   return std::string(np_string.UTF8Characters, np_string.UTF8Length);
-}
-
-string16 String16FromNPVariant(const NPVariant& variant) {
-  if (!NPVARIANT_IS_STRING(variant))
-    return string16();
-  const NPString& np_string = NPVARIANT_TO_STRING(variant);
-  string16 wstr;
-  if (!UTF8ToUTF16(np_string.UTF8Characters, np_string.UTF8Length, &wstr))
-    return string16();
-  return wstr;
 }
 
 bool StringToNPVariant(const std::string &in, NPVariant *variant) {
@@ -129,7 +148,16 @@ bool BrowserPluginBindingsHasMethod(NPObject* np_obj, NPIdentifier name) {
   if (IdentifierIsAddEventListener(name))
     return true;
 
+  if (IdentifierIsBackMethod(name))
+    return true;
+
+  if (IdentifierIsForwardMethod(name))
+    return true;
+
   if (IdentifierIsGetProcessID(name))
+    return true;
+
+  if (IdentifierIsGoMethod(name))
     return true;
 
   if (IdentifierIsReload(name))
@@ -139,6 +167,9 @@ bool BrowserPluginBindingsHasMethod(NPObject* np_obj, NPIdentifier name) {
     return true;
 
   if (IdentifierIsStop(name))
+    return true;
+
+  if (IdentifierIsTerminate(name))
     return true;
 
   return false;
@@ -165,13 +196,31 @@ bool BrowserPluginBindingsInvoke(NPObject* np_obj, NPIdentifier name,
       return false;
 
     v8::Local<v8::Function> function = v8::Local<v8::Function>::Cast(value);
-    return bindings->instance()->AddEventListener(event_name, function);
+    result->type = NPVariantType_Bool;
+    result->value.boolValue =
+        bindings->instance()->AddEventListener(event_name, function);
+    return true;
+  }
+
+  if (IdentifierIsBackMethod(name) && !arg_count) {
+    bindings->instance()->Back();
+    return true;
+  }
+
+  if (IdentifierIsForwardMethod(name) && !arg_count) {
+    bindings->instance()->Forward();
+    return true;
   }
 
   if (IdentifierIsGetProcessID(name) && !arg_count) {
     int process_id = bindings->instance()->process_id();
     result->type = NPVariantType_Int32;
     result->value.intValue = process_id;
+    return true;
+  }
+
+  if (IdentifierIsGoMethod(name) && arg_count == 1) {
+    bindings->instance()->Go(Int32FromNPVariant(args[0]));
     return true;
   }
 
@@ -192,12 +241,19 @@ bool BrowserPluginBindingsInvoke(NPObject* np_obj, NPIdentifier name,
       return false;
 
     v8::Local<v8::Function> function = v8::Local<v8::Function>::Cast(value);
-    return bindings->instance()->RemoveEventListener(event_name, function);
+    result->type = NPVariantType_Bool;
+    result->value.boolValue =
+        bindings->instance()->RemoveEventListener(event_name, function);
+    return true;
   }
 
   if (IdentifierIsStop(name) && !arg_count) {
     bindings->instance()->Stop();
     return true;
+  }
+
+  if (IdentifierIsTerminate(name)) {
+    bindings->instance()->TerminateGuest();
   }
 
   return false;
@@ -222,10 +278,6 @@ bool BrowserPluginBindingsGetProperty(NPObject* np_obj, NPIdentifier name,
     return false;
 
   if (!result)
-    return false;
-
-  if (IdentifierIsAddEventListener(name) ||
-      IdentifierIsRemoveEventListener(name))
     return false;
 
   // All attributes from here on rely on the bindings, so retrieve it once and

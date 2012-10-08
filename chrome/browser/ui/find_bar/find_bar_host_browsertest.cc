@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
+#include "chrome/browser/ui/find_bar/find_bar_host_unittest_util.h"
 #include "chrome/browser/ui/find_bar/find_notification_details.h"
 #include "chrome/browser/ui/find_bar/find_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -37,13 +38,7 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 
-#if defined(TOOLKIT_VIEWS)
-#include "chrome/browser/ui/views/find_bar_host.h"
-#include "ui/views/focus/focus_manager.h"
-#include "ui/views/widget/widget.h"
-#elif defined(TOOLKIT_GTK)
-#include "chrome/browser/ui/gtk/slide_animator_gtk.h"
-#elif defined(OS_MACOSX)
+#if defined(OS_MACOSX)
 #include "chrome/browser/ui/cocoa/find_bar/find_bar_bridge.h"
 #endif
 
@@ -86,10 +81,8 @@ void HistoryServiceQueried(int) {
 class FindInPageControllerTest : public InProcessBrowserTest {
  public:
   FindInPageControllerTest() {
-#if defined(TOOLKIT_VIEWS)
-    DropdownBarHost::disable_animations_during_testing_ = true;
-#elif defined(TOOLKIT_GTK)
-    SlideAnimatorGtk::SetAnimationsForTesting(false);
+#if defined(TOOLKIT_VIEWS) || defined(TOOLKIT_GTK)
+    chrome::DisableFindBarAnimationsDuringTesting(true);
 #elif defined(OS_MACOSX)
     FindBarBridge::disable_animations_during_testing_ = true;
 #endif
@@ -483,6 +476,8 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, FindInPageEndState) {
 
   TabContents* tab_contents = chrome::GetActiveTabContents(browser());
   ASSERT_TRUE(NULL != tab_contents);
+  FindTabHelper* find_tab_helper =
+      FindTabHelper::FromWebContents(tab_contents->web_contents());
 
   // Verify that nothing has focus.
   std::string result;
@@ -496,8 +491,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, FindInPageEndState) {
   EXPECT_EQ(1, ordinal);
 
   // End the find session, which should set focus to the link.
-  tab_contents->
-      find_tab_helper()->StopFinding(FindBarController::kKeepSelectionOnPage);
+  find_tab_helper->StopFinding(FindBarController::kKeepSelectionOnPage);
 
   // Verify that the link is focused.
   ASSERT_TRUE(FocusedOnPage(tab_contents->web_contents(), &result));
@@ -516,8 +510,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, FindInPageEndState) {
       &result));
 
   // End the find session.
-  tab_contents->
-      find_tab_helper()->StopFinding(FindBarController::kKeepSelectionOnPage);
+  find_tab_helper->StopFinding(FindBarController::kKeepSelectionOnPage);
 
   // Verify that link2 is not focused.
   ASSERT_TRUE(FocusedOnPage(tab_contents->web_contents(), &result));
@@ -571,6 +564,9 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   // Search for a text that exists within a link on the page.
   TabContents* tab = chrome::GetActiveTabContents(browser());
   ASSERT_TRUE(NULL != tab);
+  FindTabHelper* find_tab_helper =
+      FindTabHelper::FromWebContents(tab->web_contents());
+
   int ordinal = 0;
   EXPECT_EQ(4, FindInPageWchar(tab,
                                L"google",
@@ -593,7 +589,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   EXPECT_EQ(3, ordinal);
 
   // End the find session.
-  tab->find_tab_helper()->StopFinding(FindBarController::kKeepSelectionOnPage);
+  find_tab_helper->StopFinding(FindBarController::kKeepSelectionOnPage);
 }
 
 // This tests that we start searching after selected text.
@@ -1066,50 +1062,6 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   EXPECT_EQ(0, ordinal);
 }
 
-#if defined(TOOLKIT_VIEWS)
-// Make sure Find box grabs the Esc accelerator and restores it again.
-IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, AcceleratorRestoring) {
-  // First we navigate to any page.
-  GURL url = GetURL(kSimple);
-  ui_test_utils::NavigateToURL(browser(), url);
-
-  gfx::NativeWindow window = browser()->window()->GetNativeWindow();
-  views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window);
-  views::FocusManager* focus_manager = widget->GetFocusManager();
-
-  // See where Escape is registered.
-  ui::Accelerator escape(ui::VKEY_ESCAPE, ui::EF_NONE);
-  ui::AcceleratorTarget* old_target =
-      focus_manager->GetCurrentTargetForAccelerator(escape);
-  EXPECT_TRUE(old_target != NULL);
-
-  chrome::ShowFindBar(browser());
-
-  // Our Find bar should be the new target.
-  ui::AcceleratorTarget* new_target =
-      focus_manager->GetCurrentTargetForAccelerator(escape);
-
-  EXPECT_TRUE(new_target != NULL);
-  EXPECT_NE(new_target, old_target);
-
-  // Close the Find box.
-  browser()->GetFindBarController()->EndFindSession(
-      FindBarController::kKeepSelectionOnPage,
-      FindBarController::kKeepResultsInFindBox);
-
-  // The accelerator for Escape should be back to what it was before.
-  EXPECT_EQ(old_target,
-            focus_manager->GetCurrentTargetForAccelerator(escape));
-
-  // Show find bar again with animation on, and the target should be
-  // on find bar.
-  DropdownBarHost::disable_animations_during_testing_ = false;
-  chrome::ShowFindBar(browser());
-  EXPECT_EQ(new_target,
-            focus_manager->GetCurrentTargetForAccelerator(escape));
-}
-#endif  // TOOLKIT_VIEWS
-
 // Make sure Find box does not become UI-inactive when no text is in the box as
 // we switch to a tab contents with an empty find string. See issue 13570.
 IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, StayActive) {
@@ -1124,7 +1076,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, StayActive) {
   // backspace, but that's been proven flaky in the past, so we go straight to
   // tab_contents.
   FindTabHelper* find_tab_helper =
-      chrome::GetActiveTabContents(browser())->find_tab_helper();
+      FindTabHelper::FromWebContents(chrome::GetActiveWebContents(browser()));
   // Stop the (non-existing) find operation, and clear the selection (which
   // signals the UI is still active).
   find_tab_helper->StopFinding(FindBarController::kClearSelectionOnPage);
@@ -1195,7 +1147,8 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, PreferPreviousSearch) {
   // Simulate F3.
   ui_test_utils::FindInPage(tab1, string16(), kFwd, kIgnoreCase, &ordinal,
                             NULL);
-  EXPECT_EQ(tab1->find_tab_helper()->find_text(), WideToUTF16(L"text"));
+  EXPECT_EQ(FindTabHelper::FromWebContents(tab1->web_contents())->find_text(),
+            WideToUTF16(L"text"));
 }
 
 // This tests that whenever you close and reopen the Find bar, it should show
@@ -1412,6 +1365,9 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, ActivateLinkNavigatesPage) {
   ui_test_utils::NavigateToURL(browser(), url);
 
   TabContents* tab = chrome::GetActiveTabContents(browser());
+  FindTabHelper* find_tab_helper =
+      FindTabHelper::FromWebContents(tab->web_contents());
+
   int ordinal = 0;
   FindInPageWchar(tab, L"link", kFwd, kIgnoreCase, &ordinal);
   EXPECT_EQ(ordinal, 1);
@@ -1421,8 +1377,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, ActivateLinkNavigatesPage) {
       content::NOTIFICATION_LOAD_STOP,
       content::Source<NavigationController>(
           &tab->web_contents()->GetController()));
-  tab->find_tab_helper()->StopFinding(
-      FindBarController::kActivateSelectionOnPage);
+  find_tab_helper->StopFinding(FindBarController::kActivateSelectionOnPage);
   observer.Wait();
 }
 

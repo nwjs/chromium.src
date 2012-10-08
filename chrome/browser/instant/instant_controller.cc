@@ -321,27 +321,11 @@ void InstantController::Hide() {
 }
 
 bool InstantController::IsCurrent() const {
-  DCHECK(IsOutOfDate() || GetPreviewContents());
   return !IsOutOfDate() && GetPreviewContents() &&
          loader_->supports_instant() && last_match_was_search_;
 }
 
-TabContents* InstantController::CommitCurrentPreview(InstantCommitType type) {
-  const TabContents* active_tab = delegate_->GetActiveTabContents();
-  TabContents* preview = ReleasePreviewContents(type);
-  AddSessionStorageHistogram(mode_, active_tab, preview);
-  preview->web_contents()->GetController().CopyStateFromAndPrune(
-      &active_tab->web_contents()->GetController());
-  delegate_->CommitInstant(preview);
-
-  // Try to create another loader immediately so that it is ready for the next
-  // user interaction.
-  CreateDefaultLoader();
-
-  return preview;
-}
-
-TabContents* InstantController::ReleasePreviewContents(InstantCommitType type) {
+void InstantController::CommitCurrentPreview(InstantCommitType type) {
   TabContents* preview = loader_->ReleasePreviewContents(type, last_full_text_);
 
   // If the preview page has navigated since the last Update(), we need to add
@@ -355,10 +339,12 @@ TabContents* InstantController::ReleasePreviewContents(InstantCommitType type) {
     DCHECK_EQ(last_navigation.url, entry->GetURL());
 
     // Add the page to history.
-    preview->history_tab_helper()->UpdateHistoryForNavigation(last_navigation);
+    HistoryTabHelper* history_tab_helper =
+        HistoryTabHelper::FromWebContents(preview->web_contents());
+    history_tab_helper->UpdateHistoryForNavigation(last_navigation);
 
     // Update the page title.
-    preview->history_tab_helper()->UpdateHistoryPageTitle(*entry);
+    history_tab_helper->UpdateHistoryPageTitle(*entry);
 
     // Update the favicon.
     FaviconService* favicon_service = FaviconServiceFactory::GetForProfile(
@@ -372,9 +358,8 @@ TabContents* InstantController::ReleasePreviewContents(InstantCommitType type) {
 
   // Add a fake history entry with a non-Instant search URL, so that search
   // terms extraction (for autocomplete history matches) works.
-  HistoryService* history = HistoryServiceFactory::GetForProfile(
-      preview->profile(), Profile::EXPLICIT_ACCESS);
-  if (history) {
+  if (HistoryService* history = HistoryServiceFactory::GetForProfile(
+          preview->profile(), Profile::EXPLICIT_ACCESS)) {
     history->AddPage(url_for_history_, base::Time::Now(), NULL, 0, GURL(),
                      history::RedirectList(), last_transition_type_,
                      history::SOURCE_BROWSED, false);
@@ -390,16 +375,37 @@ TabContents* InstantController::ReleasePreviewContents(InstantCommitType type) {
   // because it was just released to DeleteSoon().
   DeleteLoader();
 
-  return preview;
+  preview->web_contents()->GetController().PruneAllButActive();
+
+  if (type != INSTANT_COMMIT_PRESSED_ALT_ENTER) {
+    const TabContents* active_tab = delegate_->GetActiveTabContents();
+    AddSessionStorageHistogram(mode_, active_tab, preview);
+    preview->web_contents()->GetController().CopyStateFromAndPrune(
+        &active_tab->web_contents()->GetController());
+  }
+
+  // Delegate takes ownership of the preview.
+  delegate_->CommitInstant(preview, type == INSTANT_COMMIT_PRESSED_ALT_ENTER);
+
+  content::NotificationService::current()->Notify(
+      chrome::NOTIFICATION_INSTANT_COMMITTED,
+      content::Source<TabContents>(preview),
+      content::NotificationService::NoDetails());
+
+  // Try to create another loader immediately so that it is ready for the next
+  // user interaction.
+  CreateDefaultLoader();
 }
 
 void InstantController::OnAutocompleteLostFocus(
     gfx::NativeView view_gaining_focus) {
-  DCHECK(!is_showing_ || GetPreviewContents());
+  is_omnibox_focused_ = false;
 
   // If there is no preview, nothing to do.
   if (!GetPreviewContents())
     return;
+
+  loader_->OnAutocompleteLostFocus();
 
   // If the preview is not showing, only need to check for loader staleness.
   if (!is_showing_) {
@@ -477,6 +483,9 @@ void InstantController::OnAutocompleteLostFocus(
 }
 
 void InstantController::OnAutocompleteGotFocus() {
+  is_omnibox_focused_ = true;
+  if (GetPreviewContents())
+    loader_->OnAutocompleteGotFocus();
   CreateDefaultLoader();
 }
 
@@ -487,7 +496,6 @@ bool InstantController::commit_on_pointer_release() const {
 void InstantController::SetSuggestions(
     InstantLoader* loader,
     const std::vector<InstantSuggestion>& suggestions) {
-  DCHECK_EQ(loader_.get(), loader);
   if (loader_ != loader || IsOutOfDate() || mode_ == SILENT || mode_ == HIDDEN)
     return;
 
@@ -509,13 +517,23 @@ void InstantController::SetSuggestions(
     last_match_was_search_ = suggestion.type == INSTANT_SUGGESTION_SEARCH;
     delegate_->SetSuggestedText(suggestion.text, suggestion.behavior);
   } else {
-    string16 suggestion_lower = base::i18n::ToLower(suggestion.text);
-    string16 user_text_lower = base::i18n::ToLower(last_user_text_);
-    if (user_text_lower.size() >= suggestion_lower.size() ||
-        suggestion_lower.compare(0, user_text_lower.size(), user_text_lower))
-      suggestion.text.clear();
-    else
+    // Match case-sensitively first, to preserve suggestion case if possible.
+    // If that fails, match case-insensitively. http://crbug.com/150728
+    if (last_user_text_.size() < suggestion.text.size() &&
+        !suggestion.text.compare(0, last_user_text_.size(), last_user_text_)) {
       suggestion.text.erase(0, last_user_text_.size());
+    } else {
+      string16 suggestion_lower = base::i18n::ToLower(suggestion.text);
+      string16 user_text_lower = base::i18n::ToLower(last_user_text_);
+      if (user_text_lower.size() < suggestion_lower.size() &&
+          !suggestion_lower.compare(0, user_text_lower.size(),
+                                    user_text_lower)) {
+        suggestion.text.assign(suggestion_lower, user_text_lower.size(),
+            suggestion_lower.size() - user_text_lower.size());
+      } else {
+        suggestion.text.clear();
+      }
+    }
 
     last_suggestion_ = suggestion;
     if (!last_verbatim_)
@@ -527,8 +545,6 @@ void InstantController::SetSuggestions(
 }
 
 void InstantController::CommitInstantLoader(InstantLoader* loader) {
-  DCHECK_EQ(loader_.get(), loader);
-  DCHECK(is_showing_ && !IsOutOfDate()) << is_showing_;
   if (loader_ != loader || !is_showing_ || IsOutOfDate())
     return;
 
@@ -538,21 +554,21 @@ void InstantController::CommitInstantLoader(InstantLoader* loader) {
 void InstantController::SetInstantPreviewHeight(InstantLoader* loader,
                                                 int height,
                                                 InstantSizeUnits units) {
-  DCHECK_EQ(loader_.get(), loader);
-  if (loader_ != loader || mode_ != EXTENDED)
+  // TODO(samarth): we need to relax the IsOutOfDate() check to support cases
+  // where we may want to show the overlay even if the overlay does not reflect
+  // what the user has typed (e.g. doodle).
+  if (loader_ != loader || mode_ != EXTENDED || IsOutOfDate())
     return;
 
   Show(height, units);
 }
 
 void InstantController::InstantLoaderPreviewLoaded(InstantLoader* loader) {
-  DCHECK_EQ(loader_.get(), loader);
   AddPreviewUsageForHistogram(mode_, PREVIEW_LOADED);
 }
 
 void InstantController::InstantSupportDetermined(InstantLoader* loader,
                                                  bool supports_instant) {
-  DCHECK_EQ(loader_.get(), loader);
   if (supports_instant) {
     blacklisted_urls_.erase(loader->instant_url());
   } else {
@@ -567,22 +583,18 @@ void InstantController::InstantSupportDetermined(InstantLoader* loader,
     }
   }
 
-  content::Details<const bool> details(&supports_instant);
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_INSTANT_SUPPORT_DETERMINED,
-      content::NotificationService::AllSources(),
-      details);
+      content::Source<InstantController>(this),
+      content::NotificationService::NoDetails());
 }
 
 void InstantController::SwappedTabContents(InstantLoader* loader) {
-  DCHECK_EQ(loader_.get(), loader);
   if (loader_ == loader && is_showing_)
     delegate_->ShowInstant(100, INSTANT_SIZE_PERCENT);
 }
 
 void InstantController::InstantLoaderContentsFocused(InstantLoader* loader) {
-  DCHECK_EQ(loader_.get(), loader);
-  DCHECK(is_showing_ && !IsOutOfDate()) << is_showing_;
 #if defined(USE_AURA)
   // On aura the omnibox only receives a focus lost if we initiate the focus
   // change. This does that.
@@ -600,7 +612,8 @@ InstantController::InstantController(InstantControllerDelegate* delegate,
       last_transition_type_(content::PAGE_TRANSITION_LINK),
       last_match_was_search_(false),
       is_showing_(false),
-      loader_processed_last_update_(false) {
+      loader_processed_last_update_(false),
+      is_omnibox_focused_(false) {
 }
 
 void InstantController::ResetLoader(const std::string& instant_url,
@@ -609,9 +622,13 @@ void InstantController::ResetLoader(const std::string& instant_url,
     DeleteLoader();
 
   if (!GetPreviewContents()) {
-    DCHECK(!loader_.get());
     loader_.reset(new InstantLoader(this, instant_url, active_tab));
     loader_->Init();
+    // Ensure the searchbox API has the correct focus state.
+    if (is_omnibox_focused_)
+      loader_->OnAutocompleteGotFocus();
+    else
+      loader_->OnAutocompleteLostFocus();
     AddPreviewUsageForHistogram(mode_, PREVIEW_CREATED);
 
     // Reset the loader timer.
@@ -663,7 +680,6 @@ void InstantController::DeleteLoader() {
   last_user_text_.clear();
   last_verbatim_ = false;
   last_suggestion_ = InstantSuggestion();
-  last_transition_type_ = content::PAGE_TRANSITION_LINK;
   last_match_was_search_ = false;
   is_showing_ = false;
   loader_processed_last_update_ = false;

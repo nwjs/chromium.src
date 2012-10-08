@@ -36,7 +36,15 @@ const char kIsGooglePlusUser[] = "is_google_plus_user";
 // Used to determine if the last session exited cleanly. Set to false when
 // first opened, and to true when closing. On startup if the value is false,
 // it means the profile didn't exit cleanly.
+// DEPRECATED: this is replaced by kSessionExitType and exists for backwards
+// compatability.
 const char kSessionExitedCleanly[] = "profile.exited_cleanly";
+
+// A string pref whose values is one of the values defined by
+// |ProfileImpl::kPrefExitTypeXXX|. Set to |kPrefExitTypeCrashed| on startup and
+// one of |kPrefExitTypeNormal| or |kPrefExitTypeSessionEnded| during
+// shutdown. Used to determine the exit type the last time the profile was open.
+const char kSessionExitType[] = "profile.exit_type";
 
 // An integer pref. Holds one of several values:
 // 0: (deprecated) open the homepage on startup.
@@ -169,6 +177,8 @@ const char kWebKitCursiveFontFamilyMap[] =
     "webkit.webprefs.fonts.cursive";
 const char kWebKitFantasyFontFamilyMap[] =
     "webkit.webprefs.fonts.fantasy";
+const char kWebKitPictographFontFamilyMap[] =
+    "webkit.webprefs.fonts.pictograph";
 
 // If these change, the corresponding enums in the extension API
 // experimental.fontSettings.json must also change.
@@ -283,6 +293,8 @@ const char kWebKitSansSerifFontFamily[] =
     "webkit.webprefs.fonts.sansserif.Zyyy";
 const char kWebKitCursiveFontFamily[] = "webkit.webprefs.fonts.cursive.Zyyy";
 const char kWebKitFantasyFontFamily[] = "webkit.webprefs.fonts.fantasy.Zyyy";
+const char kWebKitPictographFontFamily[] =
+    "webkit.webprefs.fonts.pictograph.Zyyy";
 const char kWebKitDefaultFontSize[] = "webkit.webprefs.default_font_size";
 const char kWebKitDefaultFixedFontSize[] =
     "webkit.webprefs.default_fixed_font_size";
@@ -479,6 +491,9 @@ const char kExperimentalZeroSuggestUrlPrefix[] =
 // Boolean pref indicating if instant search provider logo should be shown.
 const char kInstantShowSearchProviderLogo[] =
     "instant.show_search_provider_logo";
+
+// Boolean pref indicating a white NTP background is desired.
+const char kInstantShowWhiteNTP[] = "instant.show_white_ntp";
 
 // Used to migrate preferences from local state to user preferences to
 // enable multiple profiles.
@@ -710,6 +725,8 @@ const char kSpokenFeedbackEnabled[] = "settings.accessibility";
 const char kHighContrastEnabled[] = "settings.a11y.high_contrast_enabled";
 // A boolean pref which determines whether screen magnifier is enabled.
 const char kScreenMagnifierEnabled[] = "settings.a11y.screen_magnifier";
+// A double pref which determines a zooming scale of the screen magnifier.
+const char kScreenMagnifierScale[] = "settings.a11y.screen_magnifier_scale";
 // A boolean pref which determines whether virtual keyboard is enabled.
 // TODO(hashimoto): Remove this pref.
 const char kVirtualKeyboardEnabled[] = "settings.a11y.virtual_keyboard";
@@ -747,6 +764,9 @@ const char kOAuth1Secret[] = "settings.account.oauth1_secret";
 
 // A boolean pref that enables the (private) pepper GetID() call.
 const char kEnableCrosDRM[] = "settings.privacy.drm_enabled";
+
+// A 64bit integer pref that specifies the name of the primary display device.
+const char kPrimaryDisplayID[] = "settings.display.primary_id";
 
 // An enumeration that specifies the layout of the secondary display.
 //  0 - The secondary display is at the top of the primary display.
@@ -851,6 +871,10 @@ const char kPluginsDisabledPluginsExceptions[] =
 // List pref containing names of plugins that are enabled by policy.
 const char kPluginsEnabledPlugins[] = "plugins.plugins_enabled";
 
+// List pref containing names and versions of plugins disabled by policy.
+const char kPluginsDisabledPluginsByVersion[] =
+    "plugins.plugins_disabled_by_version";
+
 // When first shipped, the pdf plugin will be disabled by default.  When we
 // enable it by default, we'll want to do so only once.
 const char kPluginsEnabledInternalPDF[] = "plugins.enabled_internal_pdf3";
@@ -865,9 +889,6 @@ const char kPluginsEnabledNaCl[] = "plugins.enabled_nacl";
 const char kPluginsMigratedToPepperFlash[] = "plugins.migrated_to_pepper_flash";
 
 #if !defined(OS_ANDROID)
-const char kPluginsShowSetReaderDefaultInfobar[] =
-    "plugins.show_set_reader_default";
-
 // Whether about:plugins is shown in the details mode or not.
 const char kPluginsShowDetails[] = "plugins.show_details";
 #endif
@@ -878,6 +899,14 @@ const char kPluginsAllowOutdated[] = "plugins.allow_outdated";
 // Boolean that indicates whether plugins that require authorization should
 // be always allowed or not.
 const char kPluginsAlwaysAuthorize[] = "plugins.always_authorize";
+
+#if defined(ENABLE_PLUGIN_INSTALLATION)
+// Dictionary holding plug-ins metadata.
+const char kPluginsMetadata[] = "plugins.metadata";
+
+// Last update time of plug-ins resource cache.
+const char kPluginsResourceCacheUpdate[] = "plugins.resource_cache_update";
+#endif
 
 // Boolean that indicates whether we should check if we are the default browser
 // on start-up.
@@ -1573,6 +1602,11 @@ const char kDevToolsRemoteEnabled[] = "devtools.remote_enabled";
 // Integer location of the vertical split bar in the browser view.
 const char kDevToolsVSplitLocation[] = "devtools.v_split_location";
 
+#if defined(OS_ANDROID)
+// A boolean specifying whether a SPDY proxy is enabled.
+const char kSpdyProxyEnabled[] = "spdy_proxy.enabled";
+#endif
+
 // 64-bit integer serialization of the base::Time when the last sync occurred.
 const char kSyncLastSyncedTime[] = "sync.last_synced_time";
 
@@ -1755,17 +1789,25 @@ const char kAuthSchemes[] = "auth.schemes";
 // Kerberos SPN.
 const char kDisableAuthNegotiateCnameLookup[] =
     "auth.disable_negotiate_cname_lookup";
+
 // Boolean that specifies whether to include the port in a generated Kerberos
 // SPN.
 const char kEnableAuthNegotiatePort[] = "auth.enable_negotiate_port";
+
 // Whitelist containing servers for which Integrated Authentication is enabled.
 const char kAuthServerWhitelist[] = "auth.server_whitelist";
+
 // Whitelist containing servers Chrome is allowed to do Kerberos delegation
 // with.
 const char kAuthNegotiateDelegateWhitelist[] =
     "auth.negotiate_delegate_whitelist";
+
 // String that specifies the name of a custom GSSAPI library to load.
 const char kGSSAPILibraryName[] = "auth.gssapi_library_name";
+
+// String that specifies the origin allowed to use SpdyProxy
+// authentication, if any.
+const char kSpdyProxyOrigin[] = "auth.spdyproxy.origin";
 
 // Boolean that specifies whether to allow basic auth prompting on cross-
 // domain sub-content requests.
@@ -1884,8 +1926,10 @@ const char kCloudPrintPrintSystemSettings[] =
 const char kCloudPrintEnableJobPoll[] = "cloud_print.enable_job_poll";
 const char kCloudPrintRobotRefreshToken[] = "cloud_print.robot_refresh_token";
 const char kCloudPrintRobotEmail[] = "cloud_print.robot_email";
-// Indicates whether the Mac Virtual driver is enabled.
-const char kVirtualPrinterDriverEnabled[] = "cloud_print.enable_virtual_driver";
+// A boolean indicating whether we should connect to cloud print new printers.
+const char kCloudPrintConnectNewPrinters[] = "cloud_print.connect_new_printers";
+// List of printers which should not be connected.
+const char kCloudPrintPrinterBlacklist[] = "cloud_print.printer_blacklist";
 // A boolean indicating whether submitting jobs to Google Cloud Print is
 // blocked by policy.
 const char kCloudPrintSubmitEnabled[] = "cloud_print.submit_enabled";

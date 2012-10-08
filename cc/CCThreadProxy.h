@@ -11,6 +11,7 @@
 #include "CCProxy.h"
 #include "CCScheduler.h"
 #include "CCTextureUpdateController.h"
+#include <base/time.h>
 #include <wtf/OwnPtr.h>
 
 namespace cc {
@@ -39,7 +40,7 @@ public:
     virtual void setVisible(bool) OVERRIDE;
     virtual bool initializeRenderer() OVERRIDE;
     virtual bool recreateContext() OVERRIDE;
-    virtual void implSideRenderingStats(CCRenderingStats&) OVERRIDE;
+    virtual void renderingStats(CCRenderingStats*) OVERRIDE;
     virtual const RendererCapabilities& rendererCapabilities() const OVERRIDE;
     virtual void loseContext() OVERRIDE;
     virtual void setNeedsAnimate() OVERRIDE;
@@ -67,10 +68,10 @@ public:
     virtual void scheduledActionBeginFrame() OVERRIDE;
     virtual CCScheduledActionDrawAndSwapResult scheduledActionDrawAndSwapIfPossible() OVERRIDE;
     virtual CCScheduledActionDrawAndSwapResult scheduledActionDrawAndSwapForced() OVERRIDE;
-    virtual void scheduledActionUpdateMoreResources(base::TimeTicks timeLimit) OVERRIDE;
     virtual void scheduledActionCommit() OVERRIDE;
     virtual void scheduledActionBeginContextRecreation() OVERRIDE;
     virtual void scheduledActionAcquireLayerTexturesForMainThread() OVERRIDE;
+    virtual void didAnticipatedDrawTimeChange(base::TimeTicks) OVERRIDE;
 
     // CCTextureUpdateControllerClient implementation
     virtual void readyToFinalizeTextureUpdates() OVERRIDE;
@@ -112,7 +113,7 @@ private:
     void requestReadbackOnImplThread(ReadbackRequest*);
     void requestStartPageScaleAnimationOnImplThread(IntSize targetPosition, bool useAnchor, float scale, double durationSec);
     void finishAllRenderingOnImplThread(CCCompletionEvent*);
-    void initializeImplOnImplThread(CCCompletionEvent*, PassOwnPtr<CCInputHandler>);
+    void initializeImplOnImplThread(CCCompletionEvent*, CCInputHandler*);
     void setSurfaceReadyOnImplThread();
     void setVisibleOnImplThread(CCCompletionEvent*, bool);
     void initializeContextOnImplThread(CCGraphicsContext*);
@@ -121,7 +122,7 @@ private:
     void setFullRootLayerDamageOnImplThread();
     void acquireLayerTexturesForMainThreadOnImplThread(CCCompletionEvent*);
     void recreateContextOnImplThread(CCCompletionEvent*, CCGraphicsContext*, bool* recreateSucceeded, RendererCapabilities*);
-    void implSideRenderingStatsOnImplThread(CCCompletionEvent*, CCRenderingStats*);
+    void renderingStatsOnImplThread(CCCompletionEvent*, CCRenderingStats*);
     CCScheduledActionDrawAndSwapResult scheduledActionDrawAndSwapInternal(bool forcedDraw);
     void forceSerializeOnSwapBuffersOnImplThread(CCCompletionEvent*);
     void setNeedsForcedCommitOnImplThread();
@@ -139,9 +140,9 @@ private:
     bool m_texturesAcquired;
     bool m_inCompositeAndReadback;
 
-    OwnPtr<CCLayerTreeHostImpl> m_layerTreeHostImpl;
+    scoped_ptr<CCLayerTreeHostImpl> m_layerTreeHostImpl;
 
-    OwnPtr<CCInputHandler> m_inputHandlerOnImplThread;
+    scoped_ptr<CCInputHandler> m_inputHandlerOnImplThread;
 
     OwnPtr<CCScheduler> m_schedulerOnImplThread;
 
@@ -149,7 +150,7 @@ private:
 
     // Holds on to the context we might use for compositing in between initializeContext()
     // and initializeRenderer() calls.
-    OwnPtr<CCGraphicsContext> m_contextBeforeInitializationOnImplThread;
+    scoped_ptr<CCGraphicsContext> m_contextBeforeInitializationOnImplThread;
 
     // Set when the main thread is waiting on a scheduledActionBeginFrame to be issued.
     CCCompletionEvent* m_beginFrameCompletionEventOnImplThread;
@@ -173,6 +174,9 @@ private:
     bool m_nextFrameIsNewlyCommittedFrameOnImplThread;
 
     bool m_renderVSyncEnabled;
+
+    base::TimeDelta m_totalCommitTime;
+    size_t m_totalCommitCount;
 };
 
 }

@@ -7,9 +7,7 @@
 
 #include "CCLayerTreeHostCommon.h"
 
-#include <wtf/PassOwnPtr.h>
-#include <wtf/RefPtr.h>
-#include <wtf/Vector.h>
+#include "base/memory/ref_counted.h"
 
 namespace cc {
 
@@ -17,7 +15,7 @@ namespace cc {
 
 // Example code follows, for a tree of LayerChromium/RenderSurfaceChromium objects. See below for details.
 //
-// void doStuffOnLayers(const Vector<RefPtr<LayerChromium> >& renderSurfaceLayerList)
+// void doStuffOnLayers(const std::vector<scoped_refptr<LayerChromium> >& renderSurfaceLayerList)
 // {
 //     typedef CCLayerIterator<LayerChromium, RenderSurfaceChromium, CCLayerIteratorActions::FrontToBack> CCLayerIteratorType;
 //
@@ -133,13 +131,13 @@ private:
             }
         }
 
-        if (start && !renderSurfaceLayerList->isEmpty())
+        if (start && !renderSurfaceLayerList->empty())
             m_actions.begin(*this);
         else
             m_actions.end(*this);
     }
 
-    inline static LayerChromium* getRawPtr(const RefPtr<LayerChromium>& ptr) { return ptr.get(); }
+    inline static LayerChromium* getRawPtr(const scoped_refptr<LayerChromium>& ptr) { return ptr.get(); }
     inline static CCLayerImpl* getRawPtr(CCLayerImpl* ptr) { return ptr; }
 
     inline LayerType* currentLayer() const { return currentLayerRepresentsTargetRenderSurface() ? targetRenderSurfaceLayer() : getRawPtr(targetRenderSurfaceChildren()[m_currentLayerIndex]); }

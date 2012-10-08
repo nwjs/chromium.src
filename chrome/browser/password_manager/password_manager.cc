@@ -6,6 +6,7 @@
 
 #include "base/metrics/histogram.h"
 #include "base/threading/platform_thread.h"
+#include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/password_manager/password_form_manager.h"
 #include "chrome/browser/password_manager/password_manager_delegate.h"
@@ -20,10 +21,12 @@
 
 using content::UserMetricsAction;
 using content::WebContents;
-using webkit::forms::PasswordForm;
-using webkit::forms::PasswordFormMap;
+using content::PasswordForm;
+using content::PasswordFormMap;
 
 namespace {
+
+const char kSpdyProxyRealm[] = "/SpdyProxy";
 
 // This routine is called when PasswordManagers are constructed.
 //
@@ -212,6 +215,11 @@ void PasswordManager::OnPasswordFormsParsed(
 
   for (std::vector<PasswordForm>::const_iterator iter = forms.begin();
        iter != forms.end(); ++iter) {
+    // Don't involve the password manager if this form corresponds to
+    // SpdyProxy authentication, as indicated by the realm.
+    if (EndsWith(iter->signon_realm, kSpdyProxyRealm, true))
+      continue;
+
     bool ssl_valid = iter->origin.SchemeIsSecure() && !had_ssl_error;
     PasswordFormManager* manager =
         new PasswordFormManager(delegate_->GetProfile(),
@@ -277,12 +285,12 @@ void PasswordManager::Autofill(
     case PasswordForm::SCHEME_HTML: {
       // Note the check above is required because the observer_ for a non-HTML
       // schemed password form may have been freed, so we need to distinguish.
-      webkit::forms::PasswordFormFillData fill_data;
-      webkit::forms::PasswordFormDomManager::InitFillData(form_for_autofill,
-                                                          best_matches,
-                                                          &preferred_match,
-                                                          wait_for_username,
-                                                          &fill_data);
+      PasswordFormFillData fill_data;
+      InitPasswordFormFillData(form_for_autofill,
+                               best_matches,
+                               &preferred_match,
+                               wait_for_username,
+                               &fill_data);
       delegate_->FillPasswordForm(fill_data);
       return;
     }

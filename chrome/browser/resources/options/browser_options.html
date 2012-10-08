@@ -255,7 +255,8 @@
               pref="cros.metrics.reportingEnabled" type="checkbox">
 </if>
 <if expr="not pp_ifdef('chromeos')">
-          <input id="metricsReportingEnabled" type="checkbox">
+          <input id="metricsReportingEnabled"
+              pref="user_experience_metrics.reporting_enabled" type="checkbox">
 </if>
           <span i18n-content="enableLogging"></span>
         </label>
@@ -454,7 +455,8 @@
 </if>
         <div class="checkbox">
           <label>
-            <input id="sslCheckRevocation" type="checkbox">
+            <input id="sslCheckRevocation" pref="ssl.rev_checking.enabled"
+                type="checkbox">
             <span i18n-content="sslCheckRevocation"></span>
           </label>
         </div>
@@ -540,7 +542,8 @@
     <h3 i18n-content="advancedSectionTitleBackground"></h3>
     <div class="checkbox">
       <label>
-        <input id="backgroundModeCheckbox" type="checkbox">
+        <input id="backgroundModeCheckbox" pref="background_mode.enabled"
+            type="checkbox">
         <span i18n-content="backgroundModeCheckbox"></span>
       </label>
     </div>

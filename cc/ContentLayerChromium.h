@@ -8,6 +8,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "base/basictypes.h"
 #include "LayerPainterChromium.h"
 #include "TiledLayerChromium.h"
 
@@ -21,7 +22,6 @@ class IntRect;
 class LayerTextureUpdater;
 
 class ContentLayerPainter : public LayerPainterChromium {
-    WTF_MAKE_NONCOPYABLE(ContentLayerPainter);
 public:
     static PassOwnPtr<ContentLayerPainter> create(ContentLayerChromiumClient*);
 
@@ -31,14 +31,14 @@ private:
     explicit ContentLayerPainter(ContentLayerChromiumClient*);
 
     ContentLayerChromiumClient* m_client;
+
+    DISALLOW_COPY_AND_ASSIGN(ContentLayerPainter);
 };
 
 // A layer that renders its contents into an SkCanvas.
 class ContentLayerChromium : public TiledLayerChromium {
 public:
-    static PassRefPtr<ContentLayerChromium> create(ContentLayerChromiumClient*);
-
-    virtual ~ContentLayerChromium();
+    static scoped_refptr<ContentLayerChromium> create(ContentLayerChromiumClient*);
 
     void clearClient() { m_client = 0; }
 
@@ -47,11 +47,11 @@ public:
     virtual void update(CCTextureUpdateQueue&, const CCOcclusionTracker*, CCRenderingStats&) OVERRIDE;
     virtual bool needMoreUpdates() OVERRIDE;
 
-    virtual void setOpaque(bool) OVERRIDE;
+    virtual void setContentsOpaque(bool) OVERRIDE;
 
 protected:
     explicit ContentLayerChromium(ContentLayerChromiumClient*);
-
+    virtual ~ContentLayerChromium();
 
 private:
     virtual LayerTextureUpdater* textureUpdater() const OVERRIDE;

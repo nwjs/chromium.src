@@ -8,7 +8,9 @@
 
 #include "base/logging.h"
 #include "base/stl_util.h"
+#include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/ui/intents/web_intent_picker_model_observer.h"
+#include "content/public/browser/download_item.h"
 #include "grit/generated_resources.h"
 #include "grit/ui_resources.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -24,7 +26,8 @@ const size_t kMaxSuggestionCount = 5;  // Maximum number of visible suggestions.
 WebIntentPickerModel::WebIntentPickerModel()
     : observer_(NULL),
       waiting_for_suggestions_(true),
-      default_service_hash_(0) {
+      default_service_hash_(0),
+      pending_extension_install_download_progress_(0) {
 }
 
 WebIntentPickerModel::~WebIntentPickerModel() {
@@ -62,6 +65,7 @@ void WebIntentPickerModel::Clear() {
   type_.clear();
   inline_disposition_url_ = GURL::EmptyGURL();
   waiting_for_suggestions_ = true;
+  ClearPendingExtensionInstall();
   if (observer_)
     observer_->OnModelChanged(this);
 }
@@ -109,6 +113,17 @@ const WebIntentPickerModel::SuggestedExtension&
   return suggested_extensions_[index];
 }
 
+const WebIntentPickerModel::SuggestedExtension*
+WebIntentPickerModel::GetSuggestedExtensionWithId(
+    const std::string& id) const {
+  for (size_t i = 0; i < suggested_extensions_.size(); ++i) {
+    const SuggestedExtension* extension = &suggested_extensions_[i];
+    if (extension->id == id)
+      return extension;
+  }
+  return NULL;
+}
+
 size_t WebIntentPickerModel::GetSuggestedExtensionCount() const {
   return std::min(suggested_extensions_.size(), kMaxSuggestionCount);
 }
@@ -123,7 +138,7 @@ string16 WebIntentPickerModel::GetSuggestionsLinkText() const {
 }
 
 void WebIntentPickerModel::SetSuggestedExtensionIconWithId(
-    const string16& id,
+    const std::string& id,
     const gfx::Image& image) {
   for (size_t i = 0; i < suggested_extensions_.size(); ++i) {
     SuggestedExtension& extension = suggested_extensions_[i];
@@ -139,7 +154,12 @@ void WebIntentPickerModel::SetSuggestedExtensionIconWithId(
 
 void WebIntentPickerModel::SetInlineDisposition(const GURL& url) {
   inline_disposition_url_ = url;
-  if (observer_) {
+  if (!observer_)
+    return;
+
+  if (url.is_empty()) {
+    observer_->OnModelChanged(this);
+  } else {
     const InstalledService* service = GetInstalledServiceWithURL(url);
     DCHECK(service);
     observer_->OnInlineDisposition(service->title, url);
@@ -156,6 +176,43 @@ bool WebIntentPickerModel::IsWaitingForSuggestions() const {
 
 void WebIntentPickerModel::SetWaitingForSuggestions(bool waiting) {
   waiting_for_suggestions_ = waiting;
+  if (observer_)
+    observer_->OnModelChanged(this);
+}
+
+void WebIntentPickerModel::SetPendingExtensionInstallId(const std::string& id) {
+  pending_extension_install_id_ = id;
+  if (observer_)
+    observer_->OnModelChanged(this);
+}
+
+void WebIntentPickerModel::UpdateExtensionDownloadState(
+    content::DownloadItem* item) {
+  pending_extension_install_download_progress_ = item->PercentComplete();
+  DownloadItemModel download_model(item);
+  pending_extension_install_status_string_ = download_model.GetStatusText();
+  if (observer_)
+    observer_->OnModelChanged(this);
+}
+
+void WebIntentPickerModel::SetPendingExtensionInstallDownloadProgress(
+    int progress) {
+  pending_extension_install_download_progress_ = progress;
+  if (observer_)
+    observer_->OnModelChanged(this);
+}
+
+void WebIntentPickerModel::SetPendingExtensionInstallStatusString(
+    const string16& status) {
+  pending_extension_install_status_string_ = status;
+  if (observer_)
+    observer_->OnModelChanged(this);
+}
+
+void WebIntentPickerModel::ClearPendingExtensionInstall() {
+  pending_extension_install_id_.clear();
+  pending_extension_install_download_progress_ = 0;
+  pending_extension_install_status_string_.clear();
   if (observer_)
     observer_->OnModelChanged(this);
 }
@@ -180,7 +237,7 @@ WebIntentPickerModel::InstalledService::~InstalledService() {
 
 WebIntentPickerModel::SuggestedExtension::SuggestedExtension(
     const string16& title,
-    const string16& id,
+    const std::string& id,
     double average_rating)
     : title(title),
       id(id),

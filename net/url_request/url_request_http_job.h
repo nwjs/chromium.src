@@ -98,7 +98,6 @@ class URLRequestHttpJob : public URLRequestJob {
 
   std::vector<std::string> response_cookies_;
   size_t response_cookies_save_index_;
-  base::Time response_date_;
 
   // Auth states for proxy and origin server.
   AuthState proxy_auth_state_;
@@ -159,6 +158,9 @@ class URLRequestHttpJob : public URLRequestJob {
   // Starts the transaction if extensions using the webrequest API do not
   // object.
   void StartTransaction();
+  // If |result| is net::OK, calls StartTransactionInternal. Otherwise notifies
+  // cancellation.
+  void MaybeStartTransactionInternal(int result);
   void StartTransactionInternal();
 
   void RecordPerfHistograms(CompletionCause reason);

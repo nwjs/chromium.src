@@ -31,7 +31,7 @@
 #include "ui/base/ui_base_switches.h"
 #include "ui/base/view_prop.h"
 #include "ui/base/x/valuators.h"
-#include "ui/base/x/x11_util.h"
+#include "ui/compositor/dip_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/screen.h"
@@ -330,15 +330,15 @@ class TouchEventCalibrate : public base::MessagePumpObserver {
 
 }  // namespace internal
 
-RootWindowHostLinux::RootWindowHostLinux(RootWindowHostDelegate* delegate,
-                                         const gfx::Rect& bounds)
-    : delegate_(delegate),
+RootWindowHostLinux::RootWindowHostLinux(const gfx::Rect& bounds)
+    : delegate_(NULL),
       xdisplay_(base::MessagePumpAuraX11::GetDefaultXDisplay()),
       xwindow_(0),
       x_root_window_(DefaultRootWindow(xdisplay_)),
       current_cursor_(ui::kCursorNull),
       window_mapped_(false),
       cursor_shown_(true),
+      invisible_cursor_(ui::CreateInvisibleCursor(), xdisplay_),
       bounds_(bounds),
       focus_when_shown_(false),
       pointer_barriers_(NULL),
@@ -380,8 +380,6 @@ RootWindowHostLinux::RootWindowHostLinux(RootWindowHostDelegate* delegate,
   XGetWindowAttributes(xdisplay_, x_root_window_, &attrs);
   x_root_bounds_.SetRect(attrs.x, attrs.y, attrs.width, attrs.height);
 
-  invisible_cursor_ = ui::CreateInvisibleCursor();
-
   // TODO(erg): We currently only request window deletion events. We also
   // should listen for activation events and anything else that GTK+ listens
   // for, and do something useful.
@@ -422,8 +420,6 @@ RootWindowHostLinux::~RootWindowHostLinux() {
   UnConfineCursor();
 
   XDestroyWindow(xdisplay_, xwindow_);
-
-  XFreeCursor(xdisplay_, invisible_cursor_);
 }
 
 bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
@@ -497,13 +493,11 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
         if (client) {
           gfx::Point p = gfx::Screen::GetCursorScreenPoint();
           client->ConvertPointFromScreen(root, &p);
-          // TODO(oshima): Make sure the pointer is on one of root windows.
-          if (root->ContainsPoint(p))
+          if (root->ContainsPoint(p)) {
             root->ConvertPointToNativeScreen(&p);
-          else
-            p.SetPoint(0, 0);
-          XWarpPointer(
-              xdisplay_, None, x_root_window_, 0, 0, 0, 0, p.x(), p.y());
+            XWarpPointer(
+                xdisplay_, None, x_root_window_, 0, 0, 0, 0, p.x(), p.y());
+          }
         }
         ConfineCursorToRootWindow();
       }
@@ -699,6 +693,10 @@ void RootWindowHostLinux::DispatchXI2Event(const base::NativeEvent& event) {
     XFreeEventData(xev->xgeneric.display, &last_event.xcookie);
 }
 
+void RootWindowHostLinux::SetDelegate(RootWindowHostDelegate* delegate) {
+  delegate_ = delegate;
+}
+
 RootWindow* RootWindowHostLinux::GetRootWindow() {
   return delegate_->AsRootWindow();
 }
@@ -751,18 +749,18 @@ void RootWindowHostLinux::SetBounds(const gfx::Rect& bounds) {
   float current_scale = delegate_->GetDeviceScaleFactor();
   float new_scale = gfx::Screen::GetDisplayNearestWindow(
       delegate_->AsRootWindow()).device_scale_factor();
-  bool size_changed = bounds_.size() != bounds.size() ||
-      current_scale != new_scale;
+  bool origin_changed = bounds_.origin() != bounds.origin();
+  bool size_changed = bounds_.size() != bounds.size();
   XWindowChanges changes = {0};
   unsigned value_mask = 0;
 
-  if (bounds.size() != bounds_.size()) {
+  if (size_changed) {
     changes.width = bounds.width();
     changes.height = bounds.height();
     value_mask = CWHeight | CWWidth;
   }
 
-  if (bounds.origin() != bounds_.origin()) {
+  if (origin_changed) {
     changes.x = bounds.x();
     changes.y = bounds.y();
     value_mask |= CWX | CWY;
@@ -776,7 +774,9 @@ void RootWindowHostLinux::SetBounds(const gfx::Rect& bounds) {
   // (possibly synthetic) ConfigureNotify about the actual size and correct
   // |bounds_| later.
   bounds_ = bounds;
-  if (size_changed) {
+  if (origin_changed)
+    delegate_->OnHostMoved(bounds.origin());
+  if (size_changed || current_scale != new_scale) {
     delegate_->OnHostResized(bounds.size());
   } else {
     delegate_->AsRootWindow()->SchedulePaintInRect(
@@ -809,7 +809,7 @@ void RootWindowHostLinux::ShowCursor(bool show) {
   if (show == cursor_shown_)
     return;
   cursor_shown_ = show;
-  SetCursorInternal(show ? current_cursor_ : invisible_cursor_);
+  SetCursorInternal(show ? current_cursor_ : invisible_cursor_.get());
 }
 
 bool RootWindowHostLinux::QueryMouseLocation(gfx::Point* location_return) {
@@ -1000,6 +1000,9 @@ void RootWindowHostLinux::TranslateAndDispatchMouseEvent(
     gfx::Point location(event->location());
     screen_position_client->ConvertNativePointToScreen(root, &location);
     screen_position_client->ConvertPointFromScreen(root, &location);
+    // |delegate_|'s OnHoustMouseEvent expects native coordinates relative to
+    // root.
+    location = ui::ConvertPointToPixel(root->layer(), location);
     event->set_location(location);
     event->set_root_location(location);
   }
@@ -1007,9 +1010,8 @@ void RootWindowHostLinux::TranslateAndDispatchMouseEvent(
 }
 
 // static
-RootWindowHost* RootWindowHost::Create(RootWindowHostDelegate* delegate,
-                                       const gfx::Rect& bounds) {
-  return new RootWindowHostLinux(delegate, bounds);
+RootWindowHost* RootWindowHost::Create(const gfx::Rect& bounds) {
+  return new RootWindowHostLinux(bounds);
 }
 
 // static

@@ -72,6 +72,7 @@
 #include "chrome/browser/ui/views/toolbar_view.h"
 #include "chrome/browser/ui/views/update_recommended_message_box.h"
 #include "chrome/browser/ui/views/website_settings/website_settings_popup_view.h"
+#include "chrome/browser/ui/webui/instant_ui.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -906,7 +907,9 @@ gfx::ImageSkia* BrowserView::GetToolbarBackgroundImage(
   switch (mode) {
     case chrome::search::Mode::MODE_NTP_LOADING:
     case chrome::search::Mode::MODE_NTP:
-      return theme_provider->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND);
+      return InstantUI::ShouldShowWhiteNTP(browser()->profile()) ?
+          theme_provider->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND_WHITE) :
+          theme_provider->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND);
 
     case chrome::search::Mode::MODE_SEARCH_SUGGESTIONS:
     case chrome::search::Mode::MODE_SEARCH_RESULTS:
@@ -1361,10 +1364,6 @@ void BrowserView::ShowInstant(TabContents* preview,
   contents_->SetPreview(preview_container_, preview->web_contents(),
                         height, units);
   preview_container_->SetWebContents(preview->web_contents());
-#if defined(USE_AURA)
-  if (search_view_controller_.get())
-    search_view_controller_->InstantReady();
-#endif
   RestackLocationBarContainer();
 }
 
@@ -1403,6 +1402,10 @@ WindowOpenDisposition BrowserView::GetDispositionForPopupBounds(
 
 FindBar* BrowserView::CreateFindBar() {
   return chrome::CreateFindBar(this);
+}
+
+bool BrowserView::GetConstrainedWindowTopY(int* top_y) {
+  return GetBrowserViewLayout()->GetConstrainedWindowTopY(top_y);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1468,6 +1471,10 @@ void BrowserView::TabReplacedAt(TabStripModel* tab_strip_model,
     return;
 
   if (contents_->preview_web_contents() == new_contents->web_contents()) {
+#if defined(USE_AURA)
+    if (search_view_controller_.get())
+      search_view_controller_->WillCommitInstant();
+#endif
     // If 'preview' is becoming active, swap the 'active' and 'preview' and
     // delete what was the active.
     contents_->MakePreviewContentsActiveContents();
@@ -1951,9 +1958,7 @@ void BrowserView::Init() {
   BrowserTabStripController* tabstrip_controller =
       new BrowserTabStripController(browser_.get(),
                                     browser_->tab_strip_model());
-  tabstrip_ = new TabStrip(tabstrip_controller,
-                           chrome::search::IsInstantExtendedAPIEnabled(
-                               browser_->profile()));
+  tabstrip_ = new TabStrip(tabstrip_controller);
   AddChildView(tabstrip_);
   tabstrip_controller->InitFromModel(tabstrip_);
 
@@ -2583,7 +2588,7 @@ void BrowserView::ShowAvatarBubbleFromAvatarButton() {
 
 void BrowserView::ShowPasswordGenerationBubble(
     const gfx::Rect& rect,
-    const webkit::forms::PasswordForm& form,
+    const content::PasswordForm& form,
     autofill::PasswordGenerator* password_generator) {
   // Create a rect in the content bounds that the bubble will point to.
   gfx::Point origin(rect.origin());

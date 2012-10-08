@@ -10,8 +10,8 @@
 #include "FakeWebGraphicsContext3D.h"
 #include "GraphicsContext3D.h"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include <wtf/RefPtr.h>
 
 using namespace cc;
@@ -43,30 +43,69 @@ private:
     unsigned m_resultAvailable;
 };
 
-TEST(ThrottledTextureUploaderTest, IsBusy)
+class FakeTexture : public cc::LayerTextureUpdater::Texture {
+public:
+  FakeTexture() : LayerTextureUpdater::Texture(
+      CCPrioritizedTexture::create(NULL, IntSize(256,256), GL_RGBA)) {
+  }
+
+  virtual void updateRect(cc::CCResourceProvider* , const cc::IntRect&, const cc::IntSize&) OVERRIDE { }
+
+};
+
+
+TEST(ThrottledTextureUploaderTest, NumBlockingUploads)
 {
     OwnPtr<FakeWebGraphicsContext3DWithQueryTesting> fakeContext(adoptPtr(new FakeWebGraphicsContext3DWithQueryTesting));
-    OwnPtr<ThrottledTextureUploader> uploader = ThrottledTextureUploader::create(fakeContext.get(), 2);
+    OwnPtr<ThrottledTextureUploader> uploader = ThrottledTextureUploader::create(fakeContext.get());
+    OwnPtr<FakeTexture> texture = adoptPtr(new FakeTexture);
+    TextureUploader::Parameters upload;
+    upload.texture = texture.get();
+    upload.sourceRect = IntRect(IntPoint(0,0), texture->texture()->size());
+    upload.destOffset = IntSize();
 
     fakeContext->setResultAvailable(0);
-    EXPECT_FALSE(uploader->isBusy());
-    uploader->beginUploads();
-    uploader->endUploads();
-    EXPECT_FALSE(uploader->isBusy());
-    uploader->beginUploads();
-    uploader->endUploads();
-    EXPECT_TRUE(uploader->isBusy());
+    EXPECT_EQ(0, uploader->numBlockingUploads());
+    uploader->uploadTexture(NULL, upload);
+    EXPECT_EQ(1, uploader->numBlockingUploads());
+    uploader->uploadTexture(NULL, upload);
+    EXPECT_EQ(2, uploader->numBlockingUploads());
 
     fakeContext->setResultAvailable(1);
-    EXPECT_FALSE(uploader->isBusy());
-    uploader->beginUploads();
-    uploader->endUploads();
-    EXPECT_FALSE(uploader->isBusy());
-    uploader->beginUploads();
-    uploader->endUploads();
-    EXPECT_FALSE(uploader->isBusy());
-    uploader->beginUploads();
-    uploader->endUploads();
+    EXPECT_EQ(0, uploader->numBlockingUploads());
+    uploader->uploadTexture(NULL, upload);
+    EXPECT_EQ(0, uploader->numBlockingUploads());
+    uploader->uploadTexture(NULL, upload);
+    uploader->uploadTexture(NULL, upload);
+    EXPECT_EQ(0, uploader->numBlockingUploads());
+}
+
+TEST(ThrottledTextureUploaderTest, MarkPendingUploadsAsNonBlocking)
+{
+    OwnPtr<FakeWebGraphicsContext3DWithQueryTesting> fakeContext(adoptPtr(new FakeWebGraphicsContext3DWithQueryTesting));
+    OwnPtr<ThrottledTextureUploader> uploader = ThrottledTextureUploader::create(fakeContext.get());
+    OwnPtr<FakeTexture> texture = adoptPtr(new FakeTexture);
+    TextureUploader::Parameters upload;
+    upload.texture = texture.get();
+    upload.sourceRect = IntRect(IntPoint(0,0), texture->texture()->size());
+    upload.destOffset = IntSize();
+
+    fakeContext->setResultAvailable(0);
+    EXPECT_EQ(0, uploader->numBlockingUploads());
+    uploader->uploadTexture(NULL, upload);
+    uploader->uploadTexture(NULL, upload);
+    EXPECT_EQ(2, uploader->numBlockingUploads());
+
+    uploader->markPendingUploadsAsNonBlocking();
+    EXPECT_EQ(0, uploader->numBlockingUploads());
+    uploader->uploadTexture(NULL, upload);
+    EXPECT_EQ(1, uploader->numBlockingUploads());
+
+    fakeContext->setResultAvailable(1);
+    EXPECT_EQ(0, uploader->numBlockingUploads());
+    uploader->uploadTexture(NULL, upload);
+    uploader->markPendingUploadsAsNonBlocking();
+    EXPECT_EQ(0, uploader->numBlockingUploads());
 }
 
 } // namespace

@@ -4,10 +4,13 @@
 
 #include "chrome/browser/debugger/browser_list_tabcontents_provider.h"
 
+#include "base/path_service.h"
 #include "chrome/browser/history/top_sites.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/common/chrome_paths.h"
 #include "content/public/browser/browser_thread.h"
 #include "grit/devtools_discovery_page_resources.h"
 #include "net/url_request/url_request_context_getter.h"
@@ -47,11 +50,32 @@ std::string BrowserListTabContentsProvider::GetDiscoveryPageHTML() {
 }
 
 bool BrowserListTabContentsProvider::BundlesFrontendResources() {
-  // We'd like front-end to be served from the WebUI via proxy, hence
-  // pretend we don't have it bundled.
-  return false;
+  return true;
 }
 
-std::string BrowserListTabContentsProvider::GetFrontendResourcesBaseURL() {
-  return "chrome-devtools://devtools/";
+FilePath BrowserListTabContentsProvider::GetDebugFrontendDir() {
+#if defined(DEBUG_DEVTOOLS)
+  FilePath inspector_dir;
+  PathService::Get(chrome::DIR_INSPECTOR, &inspector_dir);
+  return inspector_dir;
+#else
+  return FilePath();
+#endif
+}
+
+std::string BrowserListTabContentsProvider::GetPageThumbnailData(
+    const GURL& url) {
+  for (BrowserList::const_iterator it = BrowserList::begin(),
+       end = BrowserList::end(); it != end; ++it) {
+    Profile* profile = (*it)->profile();
+    history::TopSites* top_sites = profile->GetTopSites();
+    if (!top_sites)
+      continue;
+    scoped_refptr<base::RefCountedMemory> data;
+    if (top_sites->GetPageThumbnail(url, &data))
+      return std::string(
+          reinterpret_cast<const char*>(data->front()), data->size());
+  }
+
+  return std::string();
 }

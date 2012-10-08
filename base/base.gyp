@@ -125,7 +125,6 @@
             }],
           ],
           'dependencies': [
-            'base_java',
             'base_jni_headers',
             'symbolize',
             '../third_party/ashmem/ashmem.gyp:ashmem',
@@ -144,6 +143,11 @@
           ],
           'sources!': [
             'debug/stack_trace_posix.cc',
+          ],
+        }],
+        ['OS == "android" and _toolset == "target" and android_build_type == 0', {
+          'dependencies': [
+            'base_java',
           ],
           'export_dependent_settings': [
             'base_java',
@@ -445,6 +449,7 @@
         'message_loop_unittest.cc',
         'message_pump_glib_unittest.cc',
         'message_pump_libevent_unittest.cc',
+        'metrics/sample_map_unittest.cc',
         'metrics/sample_vector_unittest.cc',
         'metrics/bucket_ranges_unittest.cc',
         'metrics/field_trial_unittest.cc',
@@ -725,6 +730,8 @@
         'test/perf_test_suite.h',
         'test/scoped_locale.cc',
         'test/scoped_locale.h',
+        'test/scoped_path_override.cc',
+        'test/scoped_path_override.h',
         'test/sequenced_task_runner_test_template.cc',
         'test/sequenced_task_runner_test_template.h',
         'test/task_runner_test_template.cc',
@@ -1045,11 +1052,11 @@
                 '<@(isolate_dependency_tracked)',
               ],
               'outputs': [
-                '<(PRODUCT_DIR)/base_unittests.results',
+                '<(PRODUCT_DIR)/base_unittests.isolated',
               ],
               'action': [
                 'python',
-                '../tools/isolate/isolate.py',
+                '../tools/swarm_client/isolate.py',
                 '<(test_isolation_mode)',
                 '--outdir', '<(test_isolation_outdir)',
                 '--variable', 'PRODUCT_DIR', '<(PRODUCT_DIR)',

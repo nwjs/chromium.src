@@ -18,7 +18,6 @@
 #include "chrome/browser/chrome_gpu_util.h"
 #include "chrome/browser/extensions/default_apps_trial.h"
 #include "chrome/browser/google/google_util.h"
-#include "chrome/browser/instant/instant_field_trials.h"
 #include "chrome/browser/net/predictor.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
 #include "chrome/browser/safe_browsing/safe_browsing_blocking_page.h"
@@ -116,7 +115,6 @@ void ChromeBrowserFieldTrials::SetupFieldTrials(bool proxy_policy_is_set) {
   if (!proxy_policy_is_set)
     ProxyConnectionsFieldTrial();
   prerender::ConfigurePrefetchAndPrerender(parsed_command_line_);
-  instant::SetupInstantFieldTrials();
   SpdyFieldTrial();
   ConnectBackupJobsFieldTrial();
   WarmConnectionFieldTrial();
@@ -130,6 +128,7 @@ void ChromeBrowserFieldTrials::SetupFieldTrials(bool proxy_policy_is_set) {
   DisableNewTabFieldTrialIfNecesssary();
   SetUpSafeBrowsingInterstitialFieldTrial();
   SetUpInfiniteCacheFieldTrial();
+  SetUpCacheSensitivityAnalysisFieldTrial();
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   OneClickSigninHelper::InitializeFieldTrial();
 #endif
@@ -564,4 +563,27 @@ void ChromeBrowserFieldTrials::SetUpInfiniteCacheFieldTrial() {
   trial->UseOneTimeRandomization();
   trial->AppendGroup("Yes", infinite_cache_probability);
   trial->AppendGroup("Control", infinite_cache_probability);
+}
+
+void ChromeBrowserFieldTrials::SetUpCacheSensitivityAnalysisFieldTrial() {
+  const base::FieldTrial::Probability kDivisor = 100;
+
+#if (defined(OS_ANDROID) || defined(OS_IOS))
+  base::FieldTrial::Probability sensitivity_analysis_probability = 0;
+#else
+  base::FieldTrial::Probability sensitivity_analysis_probability = 8;
+#endif
+
+  scoped_refptr<base::FieldTrial> trial(
+      base::FieldTrialList::FactoryGetFieldTrial("CacheSensitivityAnalysis",
+                                                 kDivisor, "No",
+                                                 2012, 12, 31, NULL));
+  trial->AppendGroup("ControlA", sensitivity_analysis_probability);
+  trial->AppendGroup("ControlB", sensitivity_analysis_probability);
+  trial->AppendGroup("100A", sensitivity_analysis_probability);
+  trial->AppendGroup("100B", sensitivity_analysis_probability);
+  trial->AppendGroup("200A", sensitivity_analysis_probability);
+  trial->AppendGroup("200B", sensitivity_analysis_probability);
+  trial->AppendGroup("400A", sensitivity_analysis_probability);
+  trial->AppendGroup("400B", sensitivity_analysis_probability);
 }

@@ -44,11 +44,6 @@ static base::LazyInstance<std::set<WebGraphicsContext3DCommandBufferImpl*> >
 
 namespace {
 
-void ClearSharedContexts() {
-  base::AutoLock lock(g_all_shared_contexts_lock.Get());
-  g_all_shared_contexts.Pointer()->clear();
-}
-
 void ClearSharedContextsIfInShareSet(
     WebGraphicsContext3DCommandBufferImpl* context) {
   // If the given context isn't in the share set, that means that it
@@ -1544,6 +1539,20 @@ void WebGraphicsContext3DCommandBufferImpl::pushGroupMarkerEXT(
 }
 
 DELEGATE_TO_GL(popGroupMarkerEXT, PopGroupMarkerEXT);
+
+WebGLId WebGraphicsContext3DCommandBufferImpl::createVertexArrayOES() {
+  GLuint array;
+  gl_->GenVertexArraysOES(1, &array);
+  return array;
+}
+
+void WebGraphicsContext3DCommandBufferImpl::deleteVertexArrayOES(
+    WebGLId array) {
+  gl_->DeleteVertexArraysOES(1, &array);
+}
+
+DELEGATE_TO_GL_1R(isVertexArrayOES, IsVertexArrayOES, WebGLId, WGC3Dboolean)
+DELEGATE_TO_GL_1(bindVertexArrayOES, BindVertexArrayOES, WebGLId)
 
 GrGLInterface* WebGraphicsContext3DCommandBufferImpl::onCreateGrGLInterface() {
   return webkit_glue::CreateCommandBufferSkiaGLBinding();

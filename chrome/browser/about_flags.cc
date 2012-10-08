@@ -149,6 +149,17 @@ const Experiment::Choice kAsyncDnsChoices[] = {
     switches::kEnableAsyncDns, ""}
 };
 
+const Experiment::Choice kNaClDebugMaskChoices[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
+  // Secure shell can be used on ChromeOS for forwarding the TCP port opened by
+  // debug stub to a remote machine. Since secure shell uses NaCl, we provide
+  // an option to switch off its debugging.
+  { IDS_NACL_DEBUG_MASK_CHOICE_EXCLUDE_UTILS,
+      switches::kNaClDebugMask, "!*://*/*ssh_client.nmf" },
+  { IDS_NACL_DEBUG_MASK_CHOICE_INCLUDE_DEBUG,
+      switches::kNaClDebugMask, "*://*/*debug.nmf" }
+};
+
 #if defined(OS_CHROMEOS)
 const Experiment::Choice kAshBootAnimationFunction[] = {
   { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
@@ -327,7 +338,7 @@ const Experiment kExperiments[] = {
     kOsAll,
     MULTI_VALUE_TYPE(kFixedPositionCreatesStackingContextChoices)
   },
-  // TODO(dspringer): When NaCl is on by default, remove this flag entry.
+  // TODO(bbudge): When NaCl is on by default, remove this flag entry.
   {
     "enable-nacl",  // FLAGS:RECORD_UMA
     IDS_FLAGS_ENABLE_NACL_NAME,
@@ -352,11 +363,27 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableNaClDebug)
   },
   {
+    "nacl-debug-mask",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_NACL_DEBUG_MASK_NAME,
+    IDS_FLAGS_NACL_DEBUG_MASK_DESCRIPTION,
+    kOsAll,
+    MULTI_VALUE_TYPE(kNaClDebugMaskChoices)
+  },
+  {
     "enable-pnacl",  // FLAGS:RECORD_UMA
     IDS_FLAGS_ENABLE_PNACL_NAME,
     IDS_FLAGS_ENABLE_PNACL_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnablePnacl)
+  },
+  // TODO(bbudge): When NaCl switches to the IPC-based proxy, remove this
+  // flag entry.
+  {
+    "enable-nacl-ipc-proxy",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_ENABLE_NACL_IPC_PROXY_NAME,
+    IDS_FLAGS_ENABLE_NACL_IPC_PROXY_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnableNaClIPCProxy)
   },
   {
     "enable-scripted-speech",  // FLAGS:RECORD_UMA
@@ -653,13 +680,6 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableSuggestionsTabPage)
   },
-  {
-    "enable-discovery-ntp",
-    IDS_FLAGS_ENABLE_NTP_DISCOVERY_NAME,
-    IDS_FLAGS_ENABLE_NTP_DISCOVERY_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableDiscoveryInNewTabPage)
-  },
 #if defined(GOOGLE_CHROME_BUILD)
   {
     "disable-asynchronous-spellchecking",
@@ -687,7 +707,7 @@ const Experiment kExperiments[] = {
     "enable-touch-events",
     IDS_ENABLE_TOUCH_EVENTS_NAME,
     IDS_ENABLE_TOUCH_EVENTS_DESCRIPTION,
-    kOsAll,
+    kOsWin | kOsMac | kOsLinux,
     SINGLE_VALUE_TYPE(switches::kEnableTouchEvents)
   },
 #if defined(OS_CHROMEOS)
@@ -743,13 +763,6 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableTouchpadThreeFingerClick)
   },
 #endif
-  {
-    "enable-client-oauth-signin",
-    IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_NAME,
-    IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_DESCRIPTION,
-    kOsMac | kOsWin | kOsLinux,
-    SINGLE_VALUE_TYPE(switches::kEnableClientOAuthSignin)
-  },
 #if defined(USE_ASH)
   {
     "show-launcher-alignment-menu",
@@ -787,13 +800,6 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_DISABLE_NEW_WALLPAPER_UI_DESCRIPTION,
     kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kDisableNewWallpaperUI)
-  },
-  {
-    "enable-drive-v2-api",
-    IDS_FLAGS_ENABLE_DRIVE_V2_API,
-    IDS_FLAGS_ENABLE_DRIVE_V2_API_DESCRIPTION,
-    kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kEnableDriveV2Api),
   },
   {
     "disable-html5-camera",
@@ -866,15 +872,6 @@ const Experiment kExperiments[] = {
     kOsWin | kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kEnableFramelessConstrainedDialogs),
   },
-#if defined(OS_CHROMEOS)
-  {
-    "enable-unsupported-bluetooth-devices",
-    IDS_FLAGS_UNSUPPORTED_BLUETOOTH_DEVICES_NAME,
-    IDS_FLAGS_UNSUPPORTED_BLUETOOTH_DEVICES_DESCRIPTION,
-    kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kEnableUnsupportedBluetoothDevices)
-  },
-#endif
   { "disable-accelerated-video-decode",
     IDS_FLAGS_DISABLE_ACCELERATED_VIDEO_DECODE_NAME,
     IDS_FLAGS_DISABLE_ACCELERATED_VIDEO_DECODE_DESCRIPTION,
@@ -928,6 +925,13 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableRequestTabletSite)
   },
 #endif
+  {
+    "debug-packed-apps",
+    IDS_FLAGS_DEBUG_PACKED_APP_NAME,
+    IDS_FLAGS_DEBUG_PACKED_APP_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kDebugPackedApps)
+  },
 };
 
 const Experiment* experiments = kExperiments;

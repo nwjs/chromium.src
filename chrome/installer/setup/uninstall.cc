@@ -272,51 +272,37 @@ void DeleteChromeShortcuts(const InstallerState& installer_state,
     return;
   }
 
-  FilePath shortcut_path;
-  if (installer_state.system_install()) {
-    PathService::Get(base::DIR_COMMON_START_MENU, &shortcut_path);
-    if (!ShellUtil::RemoveChromeDesktopShortcut(
-        product.distribution(),
-        ShellUtil::CURRENT_USER | ShellUtil::SYSTEM_LEVEL,
-        ShellUtil::SHORTCUT_NO_OPTIONS)) {
-      ShellUtil::RemoveChromeDesktopShortcut(
-          product.distribution(),
-          ShellUtil::CURRENT_USER | ShellUtil::SYSTEM_LEVEL,
-          ShellUtil::SHORTCUT_ALTERNATE);
-    }
+  BrowserDistribution* dist = product.distribution();
 
-    ShellUtil::RemoveChromeQuickLaunchShortcut(
-        product.distribution(),
-        ShellUtil::CURRENT_USER | ShellUtil::SYSTEM_LEVEL);
-  } else {
-    PathService::Get(base::DIR_START_MENU, &shortcut_path);
-    if (!ShellUtil::RemoveChromeDesktopShortcut(
-        product.distribution(),
-        ShellUtil::CURRENT_USER, ShellUtil::SHORTCUT_NO_OPTIONS)) {
-      ShellUtil::RemoveChromeDesktopShortcut(
-          product.distribution(),
-          ShellUtil::CURRENT_USER, ShellUtil::SHORTCUT_ALTERNATE);
-    }
+  // The per-user shortcut for this user, if present on a system-level install,
+  // has already been deleted in chrome_browser_main_win.cc::DoUninstallTasks().
+  ShellUtil::ShellChange install_level = installer_state.system_install() ?
+      ShellUtil::SYSTEM_LEVEL : ShellUtil::CURRENT_USER;
 
-    ShellUtil::RemoveChromeQuickLaunchShortcut(
-        product.distribution(), ShellUtil::CURRENT_USER);
+  VLOG(1) << "Deleting Desktop shortcut.";
+  if (!ShellUtil::RemoveChromeShortcut(
+          ShellUtil::SHORTCUT_DESKTOP, dist, install_level, NULL)) {
+    LOG(WARNING) << "Failed to delete Desktop shortcut.";
   }
-  if (shortcut_path.empty()) {
-    LOG(ERROR) << "Failed to get location for shortcut.";
-  } else {
-    const string16 product_name(product.distribution()->GetAppShortCutName());
-    shortcut_path = shortcut_path.Append(product_name);
+  // Also try to delete the alternate desktop shortcut. It is not sufficient
+  // to do so upon failure of the above call as ERROR_FILE_NOT_FOUND on
+  // delete is considered success.
+  if (!ShellUtil::RemoveChromeShortcut(
+          ShellUtil::SHORTCUT_DESKTOP, dist, install_level,
+          &dist->GetAlternateApplicationName())) {
+    LOG(WARNING) << "Failed to delete alternate Desktop shortcut.";
+  }
 
-    FilePath shortcut_link(shortcut_path.Append(product_name + L".lnk"));
+  VLOG(1) << "Deleting Quick Launch shortcut.";
+  if (!ShellUtil::RemoveChromeShortcut(
+          ShellUtil::SHORTCUT_QUICK_LAUNCH, dist, install_level, NULL)) {
+    LOG(WARNING) << "Failed to delete Quick Launch shortcut.";
+  }
 
-    VLOG(1) << "Unpinning shortcut at " << shortcut_link.value()
-            << " from taskbar";
-    // Ignore return value: keep uninstalling if the unpin fails.
-    base::win::TaskbarUnpinShortcutLink(shortcut_link.value().c_str());
-
-    VLOG(1) << "Deleting shortcut " << shortcut_path.value();
-    if (!file_util::Delete(shortcut_path, true))
-      LOG(ERROR) << "Failed to delete folder: " << shortcut_path.value();
+  VLOG(1) << "Deleting Start Menu shortcuts.";
+  if (!ShellUtil::RemoveChromeShortcut(
+          ShellUtil::SHORTCUT_START_MENU, dist, install_level, NULL)) {
+    LOG(WARNING) << "Failed to delete Start Menu shortcuts.";
   }
 
   ShellUtil::RemoveChromeStartScreenShortcuts(product.distribution(),
@@ -642,7 +628,7 @@ void RemoveFiletypeRegistration(const InstallerState& installer_state,
     for (const wchar_t* const* filetype = &ShellUtil::kFileAssociations[0];
          *filetype != NULL; ++filetype) {
       if (InstallUtil::DeleteRegistryValueIf(
-              root, (classes_path + *filetype).c_str(), L"",
+              root, (classes_path + *filetype).c_str(), NULL,
               prog_id_pred) == InstallUtil::DELETED) {
         cleared_assocs.push_back(*filetype);
       }
@@ -730,12 +716,12 @@ bool DeleteChromeRegistrationKeys(const InstallerState& installer_state,
           .append(1, L'\\')
           .append(client_name);
       open_key.assign(client_key).append(ShellUtil::kRegShellOpen);
-      if (InstallUtil::DeleteRegistryKeyIf(root, client_key, open_key, L"",
+      if (InstallUtil::DeleteRegistryKeyIf(root, client_key, open_key, NULL,
               open_command_pred) != InstallUtil::NOT_FOUND) {
         // Delete the default value of SOFTWARE\Clients\StartMenuInternet if it
         // references this Chrome (i.e., if it was made the default browser).
         InstallUtil::DeleteRegistryValueIf(
-            root, ShellUtil::kRegStartMenuInternet, L"",
+            root, ShellUtil::kRegStartMenuInternet, NULL,
             InstallUtil::ValueEquals(client_name));
         // Also delete the value for the default user if we're operating in
         // HKLM.
@@ -744,7 +730,7 @@ bool DeleteChromeRegistrationKeys(const InstallerState& installer_state,
               HKEY_USERS,
               string16(L".DEFAULT\\").append(
                   ShellUtil::kRegStartMenuInternet).c_str(),
-              L"", InstallUtil::ValueEquals(client_name));
+              NULL, InstallUtil::ValueEquals(client_name));
         }
       }
     }
@@ -798,7 +784,7 @@ bool DeleteChromeRegistrationKeys(const InstallerState& installer_state,
   // being processed; the iteration above will have no hits since registration
   // lives in HKLM.
   InstallUtil::DeleteRegistryValueIf(
-      root, ShellUtil::kRegStartMenuInternet, L"",
+      root, ShellUtil::kRegStartMenuInternet, NULL,
       InstallUtil::ValueEquals(dist->GetBaseAppName() + browser_entry_suffix));
 
   // Delete each protocol association if it references this Chrome.
@@ -814,7 +800,7 @@ bool DeleteChromeRegistrationKeys(const InstallerState& installer_state,
     parent_key.resize(base_length);
     parent_key.append(*proto);
     child_key.assign(parent_key).append(ShellUtil::kRegShellOpen);
-    InstallUtil::DeleteRegistryKeyIf(root, parent_key, child_key, L"",
+    InstallUtil::DeleteRegistryKeyIf(root, parent_key, child_key, NULL,
                                      open_command_pred);
   }
 

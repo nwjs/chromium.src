@@ -203,6 +203,18 @@ void FilterDisabledTests() {
     "URLRequestTestHTTP.VaryHeader",
     "URLRequestTestHTTP.GetZippedTest",
 
+    // Tests that requests can be blocked asynchronously in states
+    // OnBeforeURLRequest, OnBeforeSendHeaders and OnHeadersReceived. At least
+    // the second state is not supported by CF.
+    "URLRequestTestHTTP.NetworkDelegateBlockAsynchronously",
+
+    // Tests for cancelling requests in states OnBeforeSendHeaders and
+    // OnHeadersReceived, which do not seem supported by CF.
+    "URLRequestTestHTTP.NetworkDelegateCancelRequestSynchronously2",
+    "URLRequestTestHTTP.NetworkDelegateCancelRequestSynchronously3",
+    "URLRequestTestHTTP.NetworkDelegateCancelRequestAsynchronously2",
+    "URLRequestTestHTTP.NetworkDelegateCancelRequestAsynchronously3",
+
     // Tests that requests can be cancelled while blocking in
     // OnBeforeSendHeaders state. But this state is not supported by CF.
     "URLRequestTestHTTP.NetworkDelegateCancelWhileWaiting2",

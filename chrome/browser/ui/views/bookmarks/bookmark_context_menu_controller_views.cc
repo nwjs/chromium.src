@@ -13,6 +13,7 @@
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/chrome_pages.h"
@@ -67,8 +68,8 @@ void BookmarkContextMenuControllerViews::ExecuteCommand(int id) {
         content::RecordAction(
             UserMetricsAction("BookmarkBar_ContextMenu_OpenAllIncognito"));
       }
-      bookmark_utils::OpenAll(parent_widget_->GetNativeWindow(), navigator_,
-                              selection_, initial_disposition);
+      chrome::OpenAll(parent_widget_->GetNativeWindow(), navigator_,
+                      selection_, initial_disposition);
       bookmark_utils::RecordBookmarkLaunch(bookmark_utils::LAUNCH_CONTEXT_MENU);
       break;
     }
@@ -201,14 +202,14 @@ bool BookmarkContextMenuControllerViews::IsCommandEnabled(int id) const {
              incognito_avail != IncognitoModePrefs::DISABLED;
 
     case IDC_BOOKMARK_BAR_OPEN_ALL_INCOGNITO:
-      return HasURLs() &&
+      return chrome::HasBookmarkURLs(selection_) &&
              !profile_->IsOffTheRecord() &&
              incognito_avail != IncognitoModePrefs::DISABLED;
 
     case IDC_BOOKMARK_BAR_OPEN_ALL:
-      return HasURLs();
+      return chrome::HasBookmarkURLs(selection_);
     case IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW:
-      return HasURLs() &&
+      return chrome::HasBookmarkURLs(selection_) &&
              incognito_avail != IncognitoModePrefs::FORCED;
 
     case IDC_BOOKMARK_BAR_RENAME_FOLDER:
@@ -319,12 +320,4 @@ BookmarkModel* BookmarkContextMenuControllerViews::RemoveModelObserver() {
   model_->RemoveObserver(this);
   model_ = NULL;
   return model;
-}
-
-bool BookmarkContextMenuControllerViews::HasURLs() const {
-  for (size_t i = 0; i < selection_.size(); ++i) {
-    if (bookmark_utils::NodeHasURLs(selection_[i]))
-      return true;
-  }
-  return false;
 }

@@ -21,10 +21,13 @@ class AppListControllerAsh : public AppListController {
   virtual void PinApp(const std::string& extension_id) OVERRIDE;
   virtual void UnpinApp(const std::string& extension_id) OVERRIDE;
   virtual bool CanPin() OVERRIDE;
+  virtual bool CanShowCreateShortcutsDialog() OVERRIDE;
+  virtual void ShowCreateShortcutsDialog(
+      Profile* profile,
+      const std::string& extension_id) OVERRIDE;
   virtual void ActivateApp(Profile* profile,
                            const std::string& extension_id,
                            int event_flags) OVERRIDE;
-  virtual gfx::ImageSkia GetWindowAppIcon() OVERRIDE;
 
   DISALLOW_COPY_AND_ASSIGN(AppListControllerAsh);
 };

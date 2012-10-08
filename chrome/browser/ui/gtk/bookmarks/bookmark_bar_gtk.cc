@@ -20,6 +20,7 @@
 #include "chrome/browser/ntp_background_util.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/chrome_pages.h"
@@ -1148,8 +1149,7 @@ void BookmarkBarGtk::OnClicked(GtkWidget* sender) {
   DCHECK(page_navigator_);
 
   RecordAppLaunch(browser_->profile(), node->url());
-  bookmark_utils::OpenAll(
-      window_->GetNativeWindow(), page_navigator_, node,
+  chrome::OpenAll(window_->GetNativeWindow(), page_navigator_, node,
       event_utils::DispositionForCurrentButtonPressEvent());
 
   content::RecordAction(UserMetricsAction("ClickedBookmarkBarURLButton"));
@@ -1235,8 +1235,8 @@ void BookmarkBarGtk::OnFolderClicked(GtkWidget* sender) {
     PopupForButton(sender);
   } else if (event->button.button == 2) {
     const BookmarkNode* node = GetNodeForToolButton(sender);
-    bookmark_utils::OpenAll(window_->GetNativeWindow(), page_navigator_, node,
-                            NEW_BACKGROUND_TAB);
+    chrome::OpenAll(window_->GetNativeWindow(), page_navigator_, node,
+                    NEW_BACKGROUND_TAB);
   }
 }
 

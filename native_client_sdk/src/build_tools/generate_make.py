@@ -37,6 +37,10 @@ def WriteReplaced(srcpath, dstpath, replacements):
   open(dstpath, 'wb').write(text)
 
 
+def ShouldProcessHTML(desc):
+  return desc['DEST'] in ('examples', 'tests')
+
+
 def GenerateSourceCopyList(desc):
   sources = []
   # Add sources for each target
@@ -46,7 +50,7 @@ def GenerateSourceCopyList(desc):
   # And HTML and data files
   sources.extend(desc.get('DATA', []))
 
-  if desc['DEST'] == 'examples':
+  if ShouldProcessHTML(desc):
     sources.append('common.js')
 
   return sources
@@ -202,6 +206,7 @@ DSC_FORMAT = {
         'SOURCES': (list, '', True),
         'CCFLAGS': (list, '', False),
         'CXXFLAGS': (list, '', False),
+        'DEFINES': (list, '', False),
         'LDFLAGS': (list, '', False),
         'INCLUDES': (list, '', False),
         'LIBS' : (list, '', False)
@@ -213,7 +218,7 @@ DSC_FORMAT = {
     'SEARCH': (list, '', False),
     'POST': (str, '', False),
     'PRE': (str, '', False),
-    'DEST': (str, ['examples', 'src', 'testing'], True),
+    'DEST': (str, ['examples', 'src', 'testlibs', 'tests'], True),
     'NAME': (str, '', False),
     'DATA': (list, '', False),
     'TITLE': (str, '', False),
@@ -414,9 +419,12 @@ def FindAndCopyFiles(src_files, root, search_dirs, dst_dir):
   for src_name in src_files:
     src_file = FindFile(src_name, root, search_dirs)
     if not src_file:
-      ErrorMsgFunc('Failed to find: ' + src_name)
-      return None
+      ErrorExit('Failed to find: ' + src_name)
     dst_file = os.path.join(dst_dir, src_name)
+    if os.path.exists(dst_file):
+      if os.stat(src_file).st_mtime <= os.stat(dst_file).st_mtime:
+        print 'Skipping "%s", destination "%s" is newer.' % (src_file, dst_file)
+        continue
     buildbot_common.CopyFile(src_file, dst_file)
 
 
@@ -481,7 +489,33 @@ def ProcessProject(srcroot, dstroot, desc, toolchains):
 
 def GenerateMasterMakefile(in_path, out_path, projects):
   """Generate a Master Makefile that builds all examples. """
-  replace = { '__PROJECT_LIST__' : SetVar('PROJECTS', projects) }
+  project_names = [project['NAME'] for project in projects]
+
+  # TODO(binji): This is kind of a hack; we use the target's LIBS to determine
+  # dependencies. This project-level dependency is then injected into the
+  # master Makefile.
+  dependencies = []
+  for project in projects:
+    project_deps_set = set()
+    for target in project['TARGETS']:
+      target_libs = target.get('LIBS', [])
+      dependent_libs = set(target_libs) & set(project_names)
+      project_deps_set.update(dependent_libs)
+
+    if project_deps_set:
+      # If project foo depends on projects bar and baz, generate:
+      #   "foo_TARGET: bar_TARGET baz_TARGET"
+      # _TARGET is appended for all targets in the master makefile template.
+      project_deps = ' '.join(p + '_TARGET' for p in project_deps_set)
+      project_deps_string = '%s_TARGET: %s' % (project['NAME'], project_deps)
+      dependencies.append(project_deps_string)
+
+  dependencies_string = '\n'.join(dependencies)
+
+  replace = {
+      '__PROJECT_LIST__' : SetVar('PROJECTS', project_names),
+      '__DEPENDENCIES__': dependencies_string,
+  }
 
   WriteReplaced(in_path, out_path, replace)
 
@@ -545,12 +579,12 @@ def main(argv):
       ErrorExit('\n*** Failed to process project: %s ***' % filename)
 
     # if this is an example update the html
-    if desc['DEST'] == 'examples':
+    if ShouldProcessHTML(desc):
       ProcessHTML(srcroot, options.dstroot, desc, toolchains)
 
     # Create a list of projects for each DEST. This will be used to generate a
     # master makefile.
-    master_projects.setdefault(desc['DEST'], []).append(desc['NAME'])
+    master_projects.setdefault(desc['DEST'], []).append(desc)
 
   if options.master:
     if use_gyp:

@@ -103,7 +103,7 @@ bool TestBrowserWindow::IsDownloadShelfVisible() const {
 }
 
 DownloadShelf* TestBrowserWindow::GetDownloadShelf() {
-  return NULL;
+  return &download_shelf_;
 }
 
 int TestBrowserWindow::GetExtraRenderViewHeight() const {
@@ -131,6 +131,10 @@ bool TestBrowserWindow::IsInstantTabShowing() {
 
 FindBar* TestBrowserWindow::CreateFindBar() {
   return NULL;
+}
+
+bool TestBrowserWindow::GetConstrainedWindowTopY(int* top_y) {
+  return false;
 }
 
 namespace chrome {

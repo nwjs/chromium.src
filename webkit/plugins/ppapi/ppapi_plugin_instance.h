@@ -262,8 +262,8 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   bool Decrypt(const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
                const media::Decryptor::DecryptCB& decrypt_cb);
   // TODO(xhwang): Update this when we need to support decrypt and decode.
-  bool DecryptAndDecode(
-      const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
+  bool DecryptAndDecodeFrame(
+      const scoped_refptr<media::DecoderBuffer>& encrypted_frame,
       const media::Decryptor::DecryptCB& decrypt_cb);
 
   // There are 2 implementations of the fullscreen interface
@@ -457,7 +457,7 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
                             const PP_DecryptedBlockInfo* block_info) OVERRIDE;
   virtual void DeliverFrame(PP_Instance instance,
                             PP_Resource decrypted_frame,
-                            const PP_DecryptedBlockInfo* block_info) OVERRIDE;
+                            const PP_DecryptedFrameInfo* frame_info) OVERRIDE;
   virtual void DeliverSamples(PP_Instance instance,
                               PP_Resource decrypted_samples,
                               const PP_DecryptedBlockInfo* block_info) OVERRIDE;
@@ -620,6 +620,7 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   scoped_ptr< ::ppapi::thunk::ResourceCreationAPI> resource_creation_;
 
   // The plugin-provided interfaces.
+  // When adding PPP interfaces, make sure to reset them in ResetAsProxied.
   const PPP_ContentDecryptor_Private* plugin_decryption_interface_;
   const PPP_Find_Dev* plugin_find_interface_;
   const PPP_InputEvent* plugin_input_event_interface_;
@@ -633,6 +634,7 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
 
   // Flags indicating whether we have asked this plugin instance for the
   // corresponding interfaces, so that we can ask only once.
+  // When adding flags, make sure to reset them in ResetAsProxied.
   bool checked_for_plugin_input_event_interface_;
   bool checked_for_plugin_messaging_interface_;
   bool checked_for_plugin_pdf_interface_;

@@ -205,9 +205,9 @@ class SSLUITest : public InProcessBrowserTest {
     observer.Wait();
   }
 
-  int GetConstrainedWindowCount() const {
-    return static_cast<int>(chrome::GetActiveTabContents(browser())->
-        constrained_window_tab_helper()->constrained_window_count());
+  size_t GetConstrainedWindowCount() const {
+    return ConstrainedWindowTabHelper::FromWebContents(
+        chrome::GetActiveWebContents(browser()))->constrained_window_count();
   }
 
   static bool GetFilePathWithHostAndPortReplacement(
@@ -707,8 +707,15 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestBadHTTPSDownload) {
 // Insecure content
 //
 
+#if defined(OS_WIN)
+// http://crbug.com/152940 Flaky on win.
+#define MAYBE_TestDisplaysInsecureContent DISABLED_TestDisplaysInsecureContent
+#else
+#define MAYBE_TestDisplaysInsecureContent TestDisplaysInsecureContent
+#endif
+
 // Visits a page that displays insecure content.
-IN_PROC_BROWSER_TEST_F(SSLUITest, TestDisplaysInsecureContent) {
+IN_PROC_BROWSER_TEST_F(SSLUITest, MAYBE_TestDisplaysInsecureContent) {
   ASSERT_TRUE(test_server()->Start());
   ASSERT_TRUE(https_server_.Start());
 
@@ -765,7 +772,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestUnsafeContents) {
   // opened (the iframe content opens one).
   // Note: because of bug 1115868, no constrained window is opened right now.
   //       Once the bug is fixed, this will do the real check.
-  EXPECT_EQ(0, GetConstrainedWindowCount());
+  EXPECT_EQ(0U, GetConstrainedWindowCount());
 
   int img_width;
   EXPECT_TRUE(content::ExecuteJavaScriptAndExtractInt(
@@ -1054,7 +1061,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, DISABLED_TestCloseTabWithUnsafePopup) {
         FROM_HERE, MessageLoop::QuitClosure(), base::TimeDelta::FromSeconds(1));
     content::RunMessageLoop();
   }
-  ASSERT_EQ(1, GetConstrainedWindowCount());
+  ASSERT_EQ(1U, GetConstrainedWindowCount());
 
   // Let's add another tab to make sure the browser does not exit when we close
   // the first tab.

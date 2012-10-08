@@ -5,8 +5,9 @@
 #ifndef CHROME_BROWSER_PLUGINS_PLUGIN_OBSERVER_H_
 #define CHROME_BROWSER_PLUGINS_PLUGIN_OBSERVER_H_
 
+#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "content/public/browser/web_contents_observer.h"
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
@@ -16,6 +17,8 @@
 class GURL;
 class InfoBarDelegate;
 class PluginFinder;
+class PluginMetadata;
+class TabContents;
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
 class PluginInstaller;
@@ -37,13 +40,13 @@ class PluginObserver : public content::WebContentsObserver,
 
  private:
   explicit PluginObserver(content::WebContents* web_contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<PluginObserver>;
 
   class PluginPlaceholderHost;
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
-  void InstallMissingPlugin(PluginInstaller* installer);
+  void InstallMissingPlugin(PluginInstaller* installer,
+                            scoped_ptr<PluginMetadata> plugin_metadata);
 #endif
 
   // Message handlers:
@@ -54,12 +57,6 @@ class PluginObserver : public content::WebContentsObserver,
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   void OnFindMissingPlugin(int placeholder_id, const std::string& mime_type);
 
-  void FindMissingPlugin(int placeholder_id,
-                         const std::string& mime_type,
-                         PluginFinder* plugin_finder);
-  void FindPluginToUpdate(int placeholder_id,
-                          const std::string& identifier,
-                          PluginFinder* plugin_finder);
   void OnRemovePluginPlaceholderHost(int placeholder_id);
 #endif
   void OnOpenAboutPlugins();

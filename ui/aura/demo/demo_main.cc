@@ -27,8 +27,6 @@
 #include "base/message_pump_aurax11.h"
 #endif
 
-extern int ViewerProcessMain();
-
 namespace {
 
 // Trivial WindowDelegate implementation that draws a colored background.
@@ -77,8 +75,8 @@ class DemoWindowDelegate : public aura::WindowDelegate {
   virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
     return ui::ER_HANDLED;
   }
-  virtual ui::TouchStatus OnTouchEvent(ui::TouchEvent* event) OVERRIDE {
-    return ui::TOUCH_STATUS_END;
+  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE {
+    return ui::ER_UNHANDLED;
   }
   virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
     return ui::ER_UNHANDLED;
@@ -163,15 +161,6 @@ int DemoMain() {
   return 0;
 }
 
-int RunMain() {
-  // TODO(scottmg): Something not crappy.
-  if (CommandLine::ForCurrentProcess()->HasSwitch("viewer")) {
-    return ViewerProcessMain();
-  } else {
-    return DemoMain();
-  }
-}
-
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -184,5 +173,5 @@ int main(int argc, char** argv) {
   icu_util::Initialize();
   ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
 
-  return RunMain();
+  return DemoMain();
 }

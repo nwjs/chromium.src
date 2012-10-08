@@ -263,7 +263,6 @@ void CCPrioritizedTextureManager::reduceMemoryOnImplThread(size_t limitBytes, CC
 {
     ASSERT(CCProxy::isImplThread());
     ASSERT(resourceProvider);
-
     evictBackingsToReduceMemory(limitBytes, DoNotRespectManagerPriorityCutoff, resourceProvider);
 }
 

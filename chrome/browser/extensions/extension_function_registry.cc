@@ -10,6 +10,7 @@
 #include "chrome/browser/extensions/api/app/app_api.h"
 #include "chrome/browser/extensions/api/browsing_data/browsing_data_api.h"
 #include "chrome/browser/extensions/api/cloud_print_private/cloud_print_private_api.h"
+#include "chrome/browser/extensions/api/commands/commands.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_api.h"
 #include "chrome/browser/extensions/api/context_menu/context_menu_api.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api.h"
@@ -155,7 +156,6 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<RemoveHistoryFunction>();
   RegisterFunction<RemoveIndexedDBFunction>();
   RegisterFunction<RemoveLocalStorageFunction>();
-  RegisterFunction<RemoveServerBoundCertsFunction>();
   RegisterFunction<RemovePluginDataFunction>();
   RegisterFunction<RemovePasswordsFunction>();
   RegisterFunction<RemoveWebSQLFunction>();
@@ -196,6 +196,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<DeleteAllHistoryFunction>();
   RegisterFunction<DeleteRangeHistoryFunction>();
   RegisterFunction<DeleteUrlHistoryFunction>();
+  RegisterFunction<GetMostVisitedHistoryFunction>();
   RegisterFunction<GetVisitsHistoryFunction>();
   RegisterFunction<SearchHistoryFunction>();
 
@@ -260,6 +261,9 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<ExtensionTtsIsSpeakingFunction>();
   RegisterFunction<ExtensionTtsSpeakFunction>();
   RegisterFunction<ExtensionTtsStopSpeakingFunction>();
+
+  // Commands.
+  RegisterFunction<GetAllCommandsFunction>();
 
   // Context Menus.
   RegisterFunction<extensions::CreateContextMenuFunction>();

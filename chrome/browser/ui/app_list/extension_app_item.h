@@ -19,6 +19,7 @@ class Profile;
 class SkBitmap;
 
 namespace extensions {
+class ContextMenuMatcher;
 class Extension;
 }
 
@@ -42,9 +43,6 @@ class ExtensionAppItem : public ChromeAppListItem,
   const std::string& extension_id() const { return extension_id_; }
 
  private:
-  // Returns true if this item represents a version of the Talk extension.
-  bool IsTalkExtension() const;
-
   // Loads extension icon.
   void LoadImage(const extensions::Extension* extension);
 
@@ -76,6 +74,7 @@ class ExtensionAppItem : public ChromeAppListItem,
 
   scoped_ptr<extensions::IconImage> icon_;
   scoped_ptr<ui::SimpleMenuModel> context_menu_model_;
+  scoped_ptr<extensions::ContextMenuMatcher> extension_menu_items_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionAppItem);
 };

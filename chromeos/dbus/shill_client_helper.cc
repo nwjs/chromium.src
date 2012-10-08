@@ -13,8 +13,15 @@
 
 namespace chromeos {
 
+namespace {
+
+const char kInvalidResponseErrorName[] = "";  // No error name.
+const char kInvalidResponseErrorMessage[] = "Invalid response.";
+
+}  // namespace
+
 ShillClientHelper::ShillClientHelper(dbus::Bus* bus,
-                                           dbus::ObjectProxy* proxy)
+                                     dbus::ObjectProxy* proxy)
     : blocking_method_caller_(bus, proxy),
       proxy_(proxy),
       weak_ptr_factory_(this) {
@@ -23,13 +30,14 @@ ShillClientHelper::ShillClientHelper(dbus::Bus* bus,
 ShillClientHelper::~ShillClientHelper() {
 }
 
-void ShillClientHelper::SetPropertyChangedHandler(
-    const PropertyChangedHandler& handler) {
-  property_changed_handler_ = handler;
+void ShillClientHelper::AddPropertyChangedObserver(
+    ShillPropertyChangedObserver* observer) {
+  observer_list_.AddObserver(observer);
 }
 
-void ShillClientHelper::ResetPropertyChangedHandler() {
-  property_changed_handler_.Reset();
+void ShillClientHelper::RemovePropertyChangedObserver(
+    ShillPropertyChangedObserver* observer) {
+  observer_list_.RemoveObserver(observer);
 }
 
 void ShillClientHelper::MonitorPropertyChanged(
@@ -60,6 +68,22 @@ void ShillClientHelper::CallObjectPathMethod(
                      base::Bind(&ShillClientHelper::OnObjectPathMethod,
                                 weak_ptr_factory_.GetWeakPtr(),
                                 callback));
+}
+
+void ShillClientHelper::CallObjectPathMethodWithErrorCallback(
+    dbus::MethodCall* method_call,
+    const ObjectPathCallback& callback,
+    const ErrorCallback& error_callback) {
+  proxy_->CallMethodWithErrorCallback(
+      method_call,
+      dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+      base::Bind(&ShillClientHelper::OnObjectPathMethodWithoutStatus,
+                 weak_ptr_factory_.GetWeakPtr(),
+                 callback,
+                 error_callback),
+      base::Bind(&ShillClientHelper::OnError,
+                 weak_ptr_factory_.GetWeakPtr(),
+                 error_callback));
 }
 
 void ShillClientHelper::CallDictionaryValueMethod(
@@ -144,7 +168,7 @@ base::DictionaryValue* ShillClientHelper::CallDictionaryValueMethodAndBlock(
 
 // static
 void ShillClientHelper::AppendValueDataAsVariant(dbus::MessageWriter* writer,
-                                                    const base::Value& value) {
+                                                 const base::Value& value) {
   // Support basic types and string-to-string dictionary.
   switch (value.GetType()) {
     case base::Value::TYPE_DICTIONARY: {
@@ -185,14 +209,14 @@ void ShillClientHelper::AppendValueDataAsVariant(dbus::MessageWriter* writer,
 }
 
 void ShillClientHelper::OnSignalConnected(const std::string& interface,
-                                             const std::string& signal,
-                                             bool success) {
+                                          const std::string& signal,
+                                          bool success) {
   LOG_IF(ERROR, !success) << "Connect to " << interface << " " << signal
                           << " failed.";
 }
 
 void ShillClientHelper::OnPropertyChanged(dbus::Signal* signal) {
-  if (property_changed_handler_.is_null())
+  if (!observer_list_.might_have_observers())
     return;
 
   dbus::MessageReader reader(signal);
@@ -202,11 +226,13 @@ void ShillClientHelper::OnPropertyChanged(dbus::Signal* signal) {
   scoped_ptr<base::Value> value(dbus::PopDataAsValue(&reader));
   if (!value.get())
     return;
-  property_changed_handler_.Run(name, *value);
+
+  FOR_EACH_OBSERVER(ShillPropertyChangedObserver, observer_list_,
+                    OnPropertyChanged(name, *value));
 }
 
 void ShillClientHelper::OnVoidMethod(const VoidDBusMethodCallback& callback,
-                                        dbus::Response* response) {
+                                     dbus::Response* response) {
   if (!response) {
     callback.Run(DBUS_METHOD_CALL_FAILURE);
     return;
@@ -228,6 +254,23 @@ void ShillClientHelper::OnObjectPathMethod(
     return;
   }
   callback.Run(DBUS_METHOD_CALL_SUCCESS, result);
+}
+
+void ShillClientHelper::OnObjectPathMethodWithoutStatus(
+    const ObjectPathCallback& callback,
+    const ErrorCallback& error_callback,
+    dbus::Response* response) {
+  if (!response) {
+    error_callback.Run(kInvalidResponseErrorName, kInvalidResponseErrorMessage);
+    return;
+  }
+  dbus::MessageReader reader(response);
+  dbus::ObjectPath result;
+  if (!reader.PopObjectPath(&result)) {
+    error_callback.Run(kInvalidResponseErrorName, kInvalidResponseErrorMessage);
+    return;
+  }
+  callback.Run(result);
 }
 
 void ShillClientHelper::OnDictionaryValueMethod(
@@ -263,16 +306,14 @@ void ShillClientHelper::OnDictionaryValueMethodWithErrorCallback(
   scoped_ptr<base::Value> value(dbus::PopDataAsValue(&reader));
   base::DictionaryValue* result = NULL;
   if (!value.get() || !value->GetAsDictionary(&result)) {
-    const std::string error_name;  // No error name.
-    const std::string error_message = "Invalid response.";
-    error_callback.Run(error_name, error_message);
+    error_callback.Run(kInvalidResponseErrorName, kInvalidResponseErrorMessage);
     return;
   }
   callback.Run(*result);
 }
 
 void ShillClientHelper::OnError(const ErrorCallback& error_callback,
-                                   dbus::ErrorResponse* response) {
+                                dbus::ErrorResponse* response) {
   std::string error_name;
   std::string error_message;
   if (response) {

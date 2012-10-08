@@ -6,6 +6,8 @@
 
 #include "content/browser/renderer_host/backing_store_mac.h"
 
+#include <cmath>
+
 #include "base/logging.h"
 #include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
@@ -18,6 +20,18 @@
 #include "ui/gfx/rect.h"
 #include "ui/gfx/scoped_cg_context_save_gstate_mac.h"
 #include "ui/surface/transport_dib.h"
+
+namespace {
+
+// Returns a Rect obtained by flooring the values of the given RectF.
+gfx::Rect ToFlooredRect(const gfx::RectF& rect) {
+  return gfx::Rect(static_cast<int>(std::floor(rect.x())),
+                   static_cast<int>(std::floor(rect.y())),
+                   static_cast<int>(std::floor(rect.width())),
+                   static_cast<int>(std::floor(rect.height())));
+}
+
+} // namespace
 
 namespace content {
 
@@ -85,7 +99,8 @@ void BackingStoreMac::PaintToBackingStore(
     return;
 
   gfx::Size pixel_size = size().Scale(device_scale_factor_);
-  gfx::Rect pixel_bitmap_rect = bitmap_rect.Scale(scale_factor);
+  gfx::Rect pixel_bitmap_rect =
+      ToFlooredRect(bitmap_rect.Scale(scale_factor));
 
   size_t bitmap_byte_count =
       pixel_bitmap_rect.width() * pixel_bitmap_rect.height() * 4;
@@ -104,7 +119,8 @@ void BackingStoreMac::PaintToBackingStore(
 
   for (size_t i = 0; i < copy_rects.size(); i++) {
     const gfx::Rect& copy_rect = copy_rects[i];
-    gfx::Rect pixel_copy_rect = copy_rect.Scale(scale_factor);
+    gfx::Rect pixel_copy_rect =
+        ToFlooredRect(copy_rect.Scale(scale_factor));
 
     // Only the subpixels given by copy_rect have pixels to copy.
     base::mac::ScopedCFTypeRef<CGImageRef> image(

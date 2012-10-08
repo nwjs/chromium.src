@@ -28,8 +28,8 @@
 #include "ipc/ipc_channel_proxy.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_message_macros.h"
-#include "remoting/host/constants.h"
 #include "remoting/host/chromoting_messages.h"
+#include "remoting/host/host_exit_codes.h"
 #include "remoting/host/win/launch_process_with_token.h"
 #include "remoting/host/win/wts_console_monitor.h"
 
@@ -44,10 +44,10 @@ const int kMaxLaunchDelaySeconds = 60;
 const int kMinLaunchDelaySeconds = 1;
 
 const FilePath::CharType kMe2meHostBinaryName[] =
-    FILE_PATH_LITERAL("remoting_me2me_host.exe");
+    FILE_PATH_LITERAL("remoting_host.exe");
 
-const FilePath::CharType kMe2meServiceBinaryName[] =
-    FILE_PATH_LITERAL("remoting_service.exe");
+const FilePath::CharType kDaemonBinaryName[] =
+    FILE_PATH_LITERAL("remoting_daemon.exe");
 
 // The command line switch specifying the name of the daemon IPC endpoint.
 const char kDaemonIpcSwitchName[] = "daemon-pipe";
@@ -74,9 +74,6 @@ class WtsSessionProcessLauncherImpl
   // Returns the exit code of the worker process.
   virtual DWORD GetExitCode() = 0;
 
-  // Sets the token to be used to launch the worker process.
-  virtual void ResetUserToken(ScopedHandle* user_token) = 0;
-
   // Stops the object asynchronously.
   virtual void Stop() = 0;
 
@@ -93,6 +90,7 @@ namespace {
 class SingleProcessLauncher : public WtsSessionProcessLauncherImpl {
  public:
   SingleProcessLauncher(
+      uint32 session_id,
       const FilePath& binary_path,
       scoped_refptr<base::SingleThreadTaskRunner> main_task_runner);
 
@@ -104,7 +102,6 @@ class SingleProcessLauncher : public WtsSessionProcessLauncherImpl {
 
   // WtsSessionProcessLauncherImpl implementation.
   virtual DWORD GetExitCode() OVERRIDE;
-  virtual void ResetUserToken(ScopedHandle* user_token) OVERRIDE;
   virtual void Stop() OVERRIDE;
 
  private:
@@ -134,6 +131,7 @@ class ElevatedProcessLauncher : public WtsSessionProcessLauncherImpl,
                                 public base::MessagePumpForIO::IOHandler {
  public:
   ElevatedProcessLauncher(
+      uint32 session_id,
       const FilePath& binary_path,
       scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> io_task_runner);
@@ -151,7 +149,6 @@ class ElevatedProcessLauncher : public WtsSessionProcessLauncherImpl,
 
   // WtsSessionProcessLauncherImpl implementation.
   virtual DWORD GetExitCode() OVERRIDE;
-  virtual void ResetUserToken(ScopedHandle* user_token) OVERRIDE;
   virtual void Stop() OVERRIDE;
 
  private:
@@ -197,10 +194,12 @@ class ElevatedProcessLauncher : public WtsSessionProcessLauncherImpl,
 };
 
 SingleProcessLauncher::SingleProcessLauncher(
+    uint32 session_id,
     const FilePath& binary_path,
     scoped_refptr<base::SingleThreadTaskRunner> main_task_runner)
     : binary_path_(binary_path),
       main_task_runner_(main_task_runner) {
+  CHECK(CreateSessionToken(session_id, &user_token_));
 }
 
 bool SingleProcessLauncher::DoLaunchProcess(
@@ -272,17 +271,12 @@ DWORD SingleProcessLauncher::GetExitCode() {
   return exit_code;
 }
 
-void SingleProcessLauncher::ResetUserToken(ScopedHandle* user_token) {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
-
-  user_token_ = user_token->Pass();
-}
-
 void SingleProcessLauncher::Stop() {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
 }
 
 ElevatedProcessLauncher::ElevatedProcessLauncher(
+    uint32 session_id,
     const FilePath& binary_path,
     scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
     scoped_refptr<base::SingleThreadTaskRunner> io_task_runner)
@@ -291,6 +285,8 @@ ElevatedProcessLauncher::ElevatedProcessLauncher(
       io_task_runner_(io_task_runner) {
   process_exit_event_.Set(CreateEvent(NULL, TRUE, FALSE, NULL));
   CHECK(process_exit_event_.IsValid());
+
+  CHECK(CreateSessionToken(session_id, &user_token_));
 
   // To receive job object notifications the job object is registered with
   // the completion port represented by |io_task_runner|. The registration has
@@ -330,11 +326,11 @@ bool ElevatedProcessLauncher::DoLaunchProcess(
     LOG(ERROR) << "Failed to get the executable file name.";
     return false;
   }
-  FilePath service_binary = dir_path.Append(kMe2meServiceBinaryName);
+  FilePath daemon_binary = dir_path.Append(kDaemonBinaryName);
 
   // Create the command line passing the name of the IPC channel to use and
   // copying known switches from the caller's command line.
-  CommandLine command_line(service_binary);
+  CommandLine command_line(daemon_binary);
   command_line.AppendSwitchPath(kElevateSwitchName, binary_path_);
   command_line.AppendSwitchNative(kDaemonIpcSwitchName,
                                   UTF8ToWide(channel_name));
@@ -348,7 +344,7 @@ bool ElevatedProcessLauncher::DoLaunchProcess(
   // handle so that we get notified when the process terminates.
   ScopedHandle worker_process;
   ScopedHandle worker_thread;
-  if (!LaunchProcessWithToken(service_binary,
+  if (!LaunchProcessWithToken(daemon_binary,
                               command_line.GetCommandLineString(),
                               user_token_,
                               CREATE_SUSPENDED,
@@ -409,13 +405,6 @@ DWORD ElevatedProcessLauncher::GetExitCode() {
   }
 
   return exit_code;
-}
-
-void ElevatedProcessLauncher::ResetUserToken(
-    ScopedHandle* user_token) {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
-
-  user_token_ = user_token->Pass();
 }
 
 void ElevatedProcessLauncher::Stop() {
@@ -543,25 +532,7 @@ WtsSessionProcessLauncher::WtsSessionProcessLauncher(
     Stop();
     return;
   }
-  FilePath host_binary = dir_path.Append(kMe2meHostBinaryName);
-
-  // The workaround we use to launch a process in a not yet logged in session
-  // (see CreateRemoteSessionProcess()) on Windows XP/2K3 does not let us to
-  // assign the started process to a job. However on Vista+ we have to start
-  // the host via a helper process. The helper process calls ShellExecute() that
-  // does not work across the session boundary but it required to launch
-  // a binary specifying uiAccess='true' in its manifest.
-  //
-  // Below we choose which implementation of |WorkerProcessLauncher::Delegate|
-  // to use. A single process is launched on XP (since uiAccess='true' does not
-  // have effect any way). Vista+ utilizes a helper process and assign it to
-  // a job object to control it.
-  if (base::win::GetVersion() == base::win::VERSION_XP) {
-    impl_ = new SingleProcessLauncher(host_binary, main_message_loop);
-  } else {
-    impl_ = new ElevatedProcessLauncher(host_binary, main_message_loop,
-                                        ipc_message_loop);
-  }
+  host_binary_ = dir_path.Append(kMe2meHostBinaryName);
 }
 
 WtsSessionProcessLauncher::~WtsSessionProcessLauncher() {
@@ -598,10 +569,34 @@ void WtsSessionProcessLauncher::OnSessionAttached(uint32 session_id) {
 
   attached_ = true;
 
-  // Create a session token and launch the host.
-  ScopedHandle user_token;
-  if (CreateSessionToken(session_id, &user_token)) {
-    impl_->ResetUserToken(&user_token);
+  // Reset the backoff timeout every time the session is switched.
+  launch_backoff_ = base::TimeDelta();
+
+  // The workaround we use to launch a process in a not yet logged in session
+  // (see CreateRemoteSessionProcess()) on Windows XP/2K3 does not let us to
+  // assign the started process to a job. However on Vista+ we have to start
+  // the host via a helper process. The helper process calls ShellExecute() that
+  // does not work across the session boundary but it required to launch
+  // a binary specifying uiAccess='true' in its manifest.
+  //
+  // Below we choose which implementation of |WorkerProcessLauncher::Delegate|
+  // to use. A single process is launched on XP (since uiAccess='true' does not
+  // have effect any way). Vista+ utilizes a helper process and assign it to
+  // a job object to control it.
+  if (new_impl_.get()) {
+    new_impl_->Stop();
+    new_impl_ = NULL;
+  }
+  if (base::win::GetVersion() == base::win::VERSION_XP) {
+    new_impl_ = new SingleProcessLauncher(session_id, host_binary_,
+                                          main_message_loop_);
+  } else {
+    new_impl_ = new ElevatedProcessLauncher(session_id, host_binary_,
+                                            main_message_loop_,
+                                            ipc_message_loop_);
+  }
+
+  if (launcher_.get() == NULL) {
     LaunchProcess();
   }
 }
@@ -631,7 +626,11 @@ void WtsSessionProcessLauncher::DoStop() {
     return;
   }
 
-  // Tear down the core asynchromously.
+  // Tear down implementation objects asynchromously.
+  if (new_impl_.get()) {
+    new_impl_->Stop();
+    new_impl_ = NULL;
+  }
   if (impl_.get()) {
     impl_->Stop();
     impl_ = NULL;
@@ -645,6 +644,18 @@ void WtsSessionProcessLauncher::LaunchProcess() {
   DCHECK(attached_);
   DCHECK(launcher_.get() == NULL);
   DCHECK(!timer_.IsRunning());
+
+  // Switch to a new implementation object if needed.
+  if (new_impl_.get() != NULL) {
+    if (impl_.get() != NULL) {
+      impl_->Stop();
+      impl_ = NULL;
+    }
+
+    impl_.swap(new_impl_);
+  }
+
+  DCHECK(impl_.get() != NULL);
 
   launch_time_ = base::Time::Now();
   launcher_.reset(new WorkerProcessLauncher(

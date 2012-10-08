@@ -7,29 +7,38 @@
 
 #include "base/values.h"
 #include "chromeos/dbus/shill_profile_client.h"
+#include "chromeos/dbus/shill_property_changed_observer.h"
 #include "dbus/object_path.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace chromeos {
+
+class ShillPropertyChangedObserver;
 
 class MockShillProfileClient : public ShillProfileClient {
  public:
   MockShillProfileClient();
   virtual ~MockShillProfileClient();
 
-  MOCK_METHOD2(SetPropertyChangedHandler,
+  MOCK_METHOD2(AddPropertyChangedObserver,
                void(const dbus::ObjectPath& profile_path,
-                    const PropertyChangedHandler& handler));
-  MOCK_METHOD1(ResetPropertyChangedHandler,
-               void(const dbus::ObjectPath& profile_path));
-  MOCK_METHOD2(GetProperties, void(const dbus::ObjectPath& profile_path,
-                                   const DictionaryValueCallback& callback));
-  MOCK_METHOD3(GetEntry, void(const dbus::ObjectPath& profile_path,
-                              const std::string& entry_path,
-                              const DictionaryValueCallback& callback));
-  MOCK_METHOD3(DeleteEntry, void(const dbus::ObjectPath& profile_path,
+                    ShillPropertyChangedObserver* observer));
+  MOCK_METHOD2(RemovePropertyChangedObserver,
+               void(const dbus::ObjectPath& profile_path,
+                    ShillPropertyChangedObserver* observer));
+  MOCK_METHOD3(GetProperties, void(
+      const dbus::ObjectPath& profile_path,
+      const DictionaryValueCallbackWithoutStatus& callback,
+      const ErrorCallback& error_callback));
+  MOCK_METHOD4(GetEntry, void(
+      const dbus::ObjectPath& profile_path,
+      const std::string& entry_path,
+      const DictionaryValueCallbackWithoutStatus& callback,
+      const ErrorCallback& error_callback));
+  MOCK_METHOD4(DeleteEntry, void(const dbus::ObjectPath& profile_path,
                                  const std::string& entry_path,
-                                 const VoidDBusMethodCallback& callback));
+                                 const base::Closure& callback,
+                                 const ErrorCallback& error_callback));
 };
 
 }  // namespace chromeos

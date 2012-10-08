@@ -53,6 +53,20 @@ void ResetBoundsIfNecessary(const BoundsMap& bounds_map, aura::Window* window) {
     ResetBoundsIfNecessary(bounds_map, window->children()[i]);
 }
 
+// Resets |window|s bounds from |bounds_map| if |window| is marked as a
+// constrained window. Recusively invokes this for all children.
+// TODO(sky): this should key off window type.
+void ResetConstrainedWindowBoundsIfNecessary(const BoundsMap& bounds_map,
+                                             aura::Window* window) {
+  if (window->GetProperty(aura::client::kConstrainedWindowKey)) {
+    BoundsMap::const_iterator i = bounds_map.find(window);
+    if (i != bounds_map.end())
+      window->SetBounds(i->second);
+  }
+  for (size_t i = 0; i < window->children().size(); ++i)
+    ResetConstrainedWindowBoundsIfNecessary(bounds_map, window->children()[i]);
+}
+
 }  // namespace
 
 WorkspaceLayoutManager2::WorkspaceLayoutManager2(Workspace2* workspace)
@@ -115,6 +129,10 @@ void WorkspaceLayoutManager2::OnChildWindowVisibilityChanged(Window* child,
 void WorkspaceLayoutManager2::SetChildBounds(
     Window* child,
     const gfx::Rect& requested_bounds) {
+  if (!GetTrackedByWorkspace(child)) {
+    SetChildBoundsDirect(child, requested_bounds);
+    return;
+  }
   gfx::Rect child_bounds(requested_bounds);
   // Some windows rely on this to set their initial bounds.
   if (!SetMaximizedOrFullscreenBounds(child))
@@ -176,6 +194,9 @@ void WorkspaceLayoutManager2::OnWindowPropertyChanged(Window* window,
           new_state != ui::SHOW_STATE_MINIMIZED))) {
       BuildWindowBoundsMap(window, &bounds_map);
       cloned_layer = wm::RecreateWindowLayers(window, false);
+      // Constrained windows don't get their bounds reset when we update the
+      // window bounds. Leaving them empty is unexpected, so we reset them now.
+      ResetConstrainedWindowBoundsIfNecessary(bounds_map, window);
     }
     UpdateBoundsFromShowState(window);
 
@@ -192,6 +213,11 @@ void WorkspaceLayoutManager2::OnWindowPropertyChanged(Window* window,
     // Set the restore rectangle to the previously set restore rectangle.
     if (!restore.IsEmpty())
       SetRestoreBoundsInScreen(window, restore);
+  }
+
+  if (key == internal::kWindowTrackedByWorkspaceKey &&
+      GetTrackedByWorkspace(window)) {
+    workspace_manager()->OnTrackedByWorkspaceChanged(workspace_, window);
   }
 
   if (key == aura::client::kAlwaysOnTopKey &&
@@ -257,7 +283,8 @@ void WorkspaceLayoutManager2::AdjustWindowSizesForScreenChange(
 void WorkspaceLayoutManager2::AdjustWindowSizeForScreenChange(
     Window* window,
     AdjustWindowReason reason) {
-  if (!SetMaximizedOrFullscreenBounds(window)) {
+  if (GetTrackedByWorkspace(window) &&
+      !SetMaximizedOrFullscreenBounds(window)) {
     if (reason == ADJUST_WINDOW_SCREEN_SIZE_CHANGED) {
       // The work area may be smaller than the full screen.  Put as much of the
       // window as possible within the display area.
@@ -322,6 +349,9 @@ void WorkspaceLayoutManager2::UpdateBoundsFromShowState(Window* window) {
 
 bool WorkspaceLayoutManager2::SetMaximizedOrFullscreenBounds(
     aura::Window* window) {
+  if (!GetTrackedByWorkspace(window))
+    return false;
+
   // During animations there is a transform installed on the workspace
   // windows. For this reason this code uses the parent so that the transform is
   // ignored.

@@ -179,10 +179,11 @@ void FFmpegVideoDecoder::Reset(const base::Closure& closure) {
     return;
   }
 
+  DCHECK(reset_cb_.is_null());
+  reset_cb_ = closure;
+
   if (decryptor_)
     decryptor_->CancelDecrypt();
-
-  reset_cb_ = closure;
 
   // Defer the reset if a read is pending.
   if (!read_cb_.is_null())
@@ -207,10 +208,17 @@ void FFmpegVideoDecoder::Stop(const base::Closure& closure) {
     return;
   }
 
-  if (decryptor_)
-    decryptor_->CancelDecrypt();
+  DCHECK(stop_cb_.is_null());
+
+  if (state_ == kUninitialized) {
+    closure.Run();
+    return;
+  }
 
   stop_cb_ = closure;
+
+  if (decryptor_)
+    decryptor_->CancelDecrypt();
 
   // Defer stopping if a read is pending.
   if (!read_cb_.is_null())
@@ -226,7 +234,9 @@ void FFmpegVideoDecoder::DoStop() {
 }
 
 FFmpegVideoDecoder::~FFmpegVideoDecoder() {
-  ReleaseFFmpegResources();
+  DCHECK_EQ(kUninitialized, state_);
+  DCHECK(!codec_context_);
+  DCHECK(!av_frame_);
 }
 
 void FFmpegVideoDecoder::DoRead(const ReadCB& read_cb) {
@@ -528,11 +538,10 @@ bool FFmpegVideoDecoder::ConfigureDecoder() {
   codec_context_->release_buffer = ReleaseVideoBufferImpl;
 
   AVCodec* codec = avcodec_find_decoder(codec_context_->codec_id);
-  if (!codec)
+  if (!codec || avcodec_open2(codec_context_, codec, NULL) < 0) {
+    ReleaseFFmpegResources();
     return false;
-
-  if (avcodec_open2(codec_context_, codec, NULL) < 0)
-    return false;
+  }
 
   av_frame_ = avcodec_alloc_frame();
   return true;

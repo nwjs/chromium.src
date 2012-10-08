@@ -31,6 +31,7 @@ UI_EXPORT bool OpenItemViaShellNoZoneCheck(const FilePath& full_path);
 // registered for the item, it behaves the same as OpenItemViaShell.
 UI_EXPORT bool OpenAnyViaShell(const string16& full_path,
                                const string16& directory,
+                               const string16& args,
                                DWORD mask);
 
 // Ask the user, via the Windows "Open With" dialog, for an application to use
@@ -45,6 +46,13 @@ UI_EXPORT void SetAppIdForWindow(const string16& app_id, HWND hwnd);
 
 // Sets the application icon for the window specified.
 UI_EXPORT void SetAppIconForWindow(const string16& app_icon, HWND hwnd);
+
+// Sets the relaunch command and relaunch display name for the window specified.
+// Windows will use this information for grouping on the taskbar, and to create
+// a shortcut if the window is pinned to the taskbar.
+UI_EXPORT void SetRelaunchDetailsForWindow(const string16& relaunch_command,
+                                           const string16& display_name,
+                                           HWND hwnd);
 
 // Returns true if composition is available and turned on on the current
 // platform.

@@ -25,8 +25,20 @@ class FileSystemQuotaUtil;
 class FILEAPI_EXPORT_PRIVATE FileWriterDelegate
     : public net::URLRequest::Delegate {
  public:
+  enum WriteProgressStatus {
+    SUCCESS_IO_PENDING,
+    SUCCESS_COMPLETED,
+    ERROR_WRITE_STARTED,
+    ERROR_WRITE_NOT_STARTED,
+  };
+
+  typedef base::Callback<void(
+      base::PlatformFileError result,
+      int64 bytes,
+      WriteProgressStatus write_status)> DelegateWriteCallback;
+
   FileWriterDelegate(
-      const FileSystemOperation::WriteCallback& write_callback,
+      const DelegateWriteCallback& write_callback,
       scoped_ptr<FileStreamWriter> file_writer);
   virtual ~FileWriterDelegate();
 
@@ -65,12 +77,21 @@ class FILEAPI_EXPORT_PRIVATE FileWriterDelegate
   void OnError(base::PlatformFileError error);
   void OnProgress(int bytes_read, bool done);
   void OnWriteCancelled(int status);
+  void FlushForCompletion(base::PlatformFileError error,
+                          int bytes_written,
+                          WriteProgressStatus progress_status);
+  void OnFlushed(base::PlatformFileError error,
+                 int bytes_written,
+                 WriteProgressStatus progress_status,
+                 int flush_error);
 
   FileSystemQuotaUtil* quota_util() const;
+  WriteProgressStatus GetCompletionStatusOnError() const;
 
-  FileSystemOperation::WriteCallback write_callback_;
+  DelegateWriteCallback write_callback_;
   scoped_ptr<FileStreamWriter> file_stream_writer_;
   base::Time last_progress_event_time_;
+  bool writing_started_;
   int bytes_written_backlog_;
   int bytes_written_;
   int bytes_read_;

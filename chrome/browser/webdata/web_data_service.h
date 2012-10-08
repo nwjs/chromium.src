@@ -23,8 +23,8 @@
 #include "chrome/browser/api/webdata/web_data_results.h"
 #include "chrome/browser/api/webdata/web_data_service_base.h"
 #include "chrome/browser/api/webdata/web_data_service_consumer.h"
-#include "chrome/browser/common/url_database/template_url_id.h"
 #include "chrome/browser/search_engines/template_url.h"
+#include "chrome/browser/search_engines/template_url_id.h"
 #include "chrome/browser/webdata/keyword_table.h"
 #include "content/public/browser/browser_thread.h"
 #include "sql/init_status.h"
@@ -375,7 +375,7 @@ class WebDataService
 
   // AutofillWebData implementation.
   virtual void AddFormFields(
-      const std::vector<webkit::forms::FormField>& fields) OVERRIDE;
+      const std::vector<FormFieldData>& fields) OVERRIDE;
   virtual Handle GetFormValuesForElementName(
       const string16& name,
       const string16& prefix,
@@ -550,7 +550,7 @@ class WebDataService
   //
   //////////////////////////////////////////////////////////////////////////////
   void AddFormElementsImpl(
-      GenericRequest<std::vector<webkit::forms::FormField> >* request);
+      GenericRequest<std::vector<FormFieldData> >* request);
   void GetFormValuesForElementNameImpl(WebDataRequest* request,
       const string16& name, const string16& prefix, int limit);
   void RemoveFormElementsAddedBetweenImpl(

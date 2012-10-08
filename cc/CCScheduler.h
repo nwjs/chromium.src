@@ -5,10 +5,10 @@
 #ifndef CCScheduler_h
 #define CCScheduler_h
 
+#include "base/basictypes.h"
+#include "base/time.h"
 #include "CCFrameRateController.h"
 #include "CCSchedulerStateMachine.h"
-#include "base/time.h"
-#include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace cc {
@@ -35,17 +35,16 @@ public:
     virtual void scheduledActionBeginFrame() = 0;
     virtual CCScheduledActionDrawAndSwapResult scheduledActionDrawAndSwapIfPossible() = 0;
     virtual CCScheduledActionDrawAndSwapResult scheduledActionDrawAndSwapForced() = 0;
-    virtual void scheduledActionUpdateMoreResources(base::TimeTicks timeLimit) = 0;
     virtual void scheduledActionCommit() = 0;
     virtual void scheduledActionBeginContextRecreation() = 0;
     virtual void scheduledActionAcquireLayerTexturesForMainThread() = 0;
+    virtual void didAnticipatedDrawTimeChange(base::TimeTicks) = 0;
 
 protected:
     virtual ~CCSchedulerClient() { }
 };
 
 class CCScheduler : CCFrameRateControllerClient {
-    WTF_MAKE_NONCOPYABLE(CCScheduler);
 public:
     static PassOwnPtr<CCScheduler> create(CCSchedulerClient* client, PassOwnPtr<CCFrameRateController> frameRateController)
     {
@@ -71,7 +70,7 @@ public:
     // Like setNeedsRedraw(), but ensures the draw will definitely happen even if we are not visible.
     void setNeedsForcedRedraw();
 
-    void beginFrameComplete(bool hasResourceUpdates);
+    void beginFrameComplete();
     void beginFrameAborted();
 
     void setMaxFramesPending(int);
@@ -86,10 +85,10 @@ public:
 
     void setTimebaseAndInterval(base::TimeTicks timebase, base::TimeDelta interval);
 
-    // CCFrameRateControllerClient implementation
-    virtual void vsyncTick() OVERRIDE;
+    base::TimeTicks anticipatedDrawTime();
 
-    void updateResourcesComplete();
+    // CCFrameRateControllerClient implementation
+    virtual void vsyncTick(bool throttled) OVERRIDE;
 
 private:
     CCScheduler(CCSchedulerClient*, PassOwnPtr<CCFrameRateController>);
@@ -99,7 +98,9 @@ private:
     CCSchedulerClient* m_client;
     OwnPtr<CCFrameRateController> m_frameRateController;
     CCSchedulerStateMachine m_stateMachine;
-    bool m_updateResourcesCompletePending;
+    bool m_insideProcessScheduledActions;
+
+    DISALLOW_COPY_AND_ASSIGN(CCScheduler);
 };
 
 }

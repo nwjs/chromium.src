@@ -111,7 +111,7 @@ const char kDefaultPlatformAppContentSecurityPolicy[] =
     "media-src *;";
 
 const char kDefaultSandboxedPageContentSecurityPolicy[] =
-    "sandbox allow-scripts allow-forms";
+    "sandbox allow-scripts allow-forms allow-popups";
 
 // Converts a normal hexadecimal string into the alphabet used by extensions.
 // We use the characters 'a'-'p' instead of '0'-'f' to avoid ever having a
@@ -509,6 +509,7 @@ void Extension::GetBasicInfo(bool enabled,
                   GetHomepageURL().possibly_invalid_spec());
   info->SetString(info_keys::kDetailsUrlKey,
                   details_url().possibly_invalid_spec());
+  info->SetBoolean(info_keys::kPackagedAppKey, is_platform_app());
 }
 
 Extension::Type Extension::GetType() const {
@@ -543,8 +544,8 @@ bool Extension::is_hosted_app() const {
   return manifest()->is_hosted_app();
 }
 
-bool Extension::is_packaged_app() const {
-  return manifest()->is_packaged_app();
+bool Extension::is_legacy_packaged_app() const {
+  return manifest()->is_legacy_packaged_app();
 }
 
 bool Extension::is_theme() const {
@@ -1225,7 +1226,7 @@ bool Extension::LoadLaunchURL(string16* error) {
     }
 
     launch_web_url_ = launch_url;
-  } else if (is_packaged_app() || is_hosted_app()) {
+  } else if (is_legacy_packaged_app() || is_hosted_app()) {
     *error = ASCIIToUTF16(errors::kLaunchURLRequired);
     return false;
   }
@@ -1513,6 +1514,7 @@ bool Extension::LoadCommands(string16* error) {
 bool Extension::LoadPlugins(string16* error) {
   if (!manifest_->HasKey(keys::kPlugins))
     return true;
+
   ListValue* list_value = NULL;
   if (!manifest_->GetList(keys::kPlugins, &list_value)) {
     *error = ASCIIToUTF16(errors::kInvalidPlugins);
@@ -1543,24 +1545,20 @@ bool Extension::LoadPlugins(string16* error) {
       }
     }
 
+    // We don't allow extensions to load NPAPI plugins on Chrome OS, or under
+    // Windows 8 Metro mode, but still parse the entries to display consistent
+    // error messages. If the extension actually requires the plugins then
+    // LoadRequirements will prevent it loading.
 #if defined(OS_CHROMEOS)
-    // We don't allow extension plugins to run on Chrome OS. We still
-    // parse the manifest entry so that error messages are consistently
-    // displayed across platforms.
-#else
-#if defined(OS_WIN)
-    // Like Chrome OS, we don't support NPAPI plugins in Windows 8 metro mode
-    // but in this case we want to fail with an error.
+    continue;
+#elif defined(OS_WIN)
     if (base::win::IsMetroProcess()) {
-      *error = l10n_util::GetStringUTF16(
-          IDS_EXTENSION_INSTALL_PLUGIN_NOT_SUPPORTED);
-      return false;
+      continue;
     }
 #endif  // defined(OS_WIN).
     plugins_.push_back(PluginInfo());
     plugins_.back().path = path().Append(FilePath::FromUTF8Unsafe(path_str));
     plugins_.back().is_public = is_public;
-#endif  // defined(OS_CHROMEOS).
   }
   return true;
 }
@@ -1688,9 +1686,11 @@ bool Extension::LoadSandboxedPages(string16* error) {
 }
 
 bool Extension::LoadRequirements(string16* error) {
-  // If the extension has plugins, then |requirements_.npapi| defaults to true.
-  if (plugins_.size() > 0)
-    requirements_.npapi = true;
+  // Before parsing requirements from the manifest, automatically default the
+  // NPAPI plugin requirement based on whether it includes NPAPI plugins.
+  ListValue* list_value = NULL;
+  requirements_.npapi =
+    manifest_->GetList(keys::kPlugins, &list_value) && !list_value->empty();
 
   if (!manifest_->HasKey(keys::kRequirements))
     return true;
@@ -2002,7 +2002,7 @@ bool Extension::LoadWebIntentAction(const std::string& action_name,
   if (href.empty()) {
     if (is_hosted_app()) {
       href = launch_web_url();
-    } else if (is_packaged_app()) {
+    } else if (is_legacy_packaged_app()) {
       href = launch_local_path();
     }
   }
@@ -2431,7 +2431,7 @@ bool Extension::LoadScriptBadge(string16* error) {
 
   for (size_t i = 0; i < extension_misc::kNumScriptBadgeIconSizes; i++) {
     std::string path = icons().Get(extension_misc::kScriptBadgeIconSizes[i],
-                                   ExtensionIconSet::MATCH_EXACTLY);
+                                   ExtensionIconSet::MATCH_BIGGER);
     if (!path.empty())
       icon_set->Add(extension_misc::kScriptBadgeIconSizes[i], path);
   }
@@ -2628,7 +2628,7 @@ bool Extension::LoadChromeURLOverrides(string16* error) {
     chrome_url_overrides_[page] = GetResourceURL(val);
 
     // For component extensions, add override URL to extent patterns.
-    if (is_packaged_app() && location() == COMPONENT) {
+    if (is_legacy_packaged_app() && location() == COMPONENT) {
       URLPattern pattern(URLPattern::SCHEME_CHROMEUI);
       std::string url = base::StringPrintf(kOverrideExtentUrlPatternFormat,
                                            page.c_str());
@@ -3803,7 +3803,7 @@ Extension::SyncType Extension::GetSyncType() const {
         return SYNC_TYPE_NONE;
 
     case Extension::TYPE_HOSTED_APP:
-    case Extension::TYPE_PACKAGED_APP:
+    case Extension::TYPE_LEGACY_PACKAGED_APP:
         return SYNC_TYPE_APP;
 
     default:

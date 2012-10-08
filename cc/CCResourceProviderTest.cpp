@@ -11,7 +11,7 @@
 #include "CompositorFakeWebGraphicsContext3D.h"
 #include "Extensions3DChromium.h"
 #include "FakeWebCompositorOutputSurface.h"
-#include <gtest/gtest.h>
+#include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebGraphicsContext3D.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnArrayPtr.h>
@@ -301,7 +301,7 @@ public:
 protected:
     DebugScopedSetImplThread implThread;
     OwnPtr<ContextSharedData> m_sharedData;
-    OwnPtr<CCGraphicsContext> m_context;
+    scoped_ptr<CCGraphicsContext> m_context;
     OwnPtr<CCResourceProvider> m_resourceProvider;
 };
 
@@ -416,7 +416,7 @@ TEST_P(CCResourceProviderTest, TransferResources)
     if (GetParam() != CCResourceProvider::GLTexture)
         return;
 
-    OwnPtr<CCGraphicsContext> childContext(FakeWebCompositorOutputSurface::create(ResourceProviderContext::create(m_sharedData.get())));
+    scoped_ptr<CCGraphicsContext> childContext(FakeWebCompositorOutputSurface::create(ResourceProviderContext::create(m_sharedData.get())));
     OwnPtr<CCResourceProvider> childResourceProvider(CCResourceProvider::create(childContext.get()));
 
     IntSize size(1, 1);

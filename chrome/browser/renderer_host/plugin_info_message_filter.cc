@@ -5,6 +5,7 @@
 #include "chrome/browser/renderer_host/plugin_info_message_filter.h"
 
 #include "base/bind.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/metrics/histogram.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/content_settings/content_settings_utils.h"
@@ -21,7 +22,6 @@
 #include "content/public/browser/plugin_service.h"
 #include "content/public/browser/plugin_service_filter.h"
 #include "googleurl/src/gurl.h"
-#include "webkit/plugins/npapi/plugin_group.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 
 using content::PluginService;
@@ -130,8 +130,8 @@ void PluginInfoMessageFilter::Context::DecidePluginStatus(
     ChromeViewHostMsg_GetPluginInfo_Status* status,
     std::string* group_identifier,
     string16* group_name) const {
-  PluginMetadata* plugin_metadata =
-      PluginFinder::GetInstance()->GetPluginMetadata(plugin);
+  scoped_ptr<PluginMetadata> plugin_metadata(
+      PluginFinder::GetInstance()->GetPluginMetadata(plugin));
   *group_name = plugin_metadata->name();
   *group_identifier = plugin_metadata->identifier();
 

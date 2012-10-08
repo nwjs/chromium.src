@@ -111,15 +111,6 @@ BOOL CALLBACK ShowWindowsCallback(HWND window, LPARAM param) {
 }
 #endif
 
-ui::TouchStatus DecideTouchStatus(const WebKit::WebTouchEvent& event,
-                                  WebKit::WebTouchPoint* point) {
-  if (event.type == WebKit::WebInputEvent::TouchEnd &&
-      event.touchesLength == 0)
-    return ui::TOUCH_STATUS_QUEUED_END;
-
-  return ui::TOUCH_STATUS_QUEUED;
-}
-
 void UpdateWebTouchEventAfterDispatch(WebKit::WebTouchEvent* event,
                                       WebKit::WebTouchPoint* point) {
   if (point->state != WebKit::WebTouchPoint::StateReleased)
@@ -378,10 +369,13 @@ void RenderWidgetHostViewAura::WasHidden() {
   AdjustSurfaceProtection();
 
 #if defined(OS_WIN)
-  HWND parent = window_->GetRootWindow()->GetAcceleratedWidget();
-  LPARAM lparam = reinterpret_cast<LPARAM>(this);
+  aura::RootWindow* root_window = window_->GetRootWindow();
+  if (root_window) {
+    HWND parent = root_window->GetAcceleratedWidget();
+    LPARAM lparam = reinterpret_cast<LPARAM>(this);
 
-  EnumChildWindows(parent, HideWindowsCallback, lparam);
+    EnumChildWindows(parent, HideWindowsCallback, lparam);
+  }
 #endif
 }
 
@@ -1464,6 +1458,12 @@ ui::EventResult RenderWidgetHostViewAura::OnKeyEvent(ui::KeyEvent* event) {
 ui::EventResult RenderWidgetHostViewAura::OnMouseEvent(ui::MouseEvent* event) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnMouseEvent");
   if (mouse_locked_) {
+    // Hide the cursor if someone else has shown it.
+    aura::client::CursorClient* cursor_client =
+        aura::client::GetCursorClient(window_->GetRootWindow());
+    if (cursor_client && cursor_client->IsCursorVisible())
+      cursor_client->ShowCursor(false);
+
     WebKit::WebMouseEvent mouse_event = MakeWebMouseEvent(event);
     gfx::Point center(gfx::Rect(window_->bounds().size()).CenterPoint());
 
@@ -1540,8 +1540,7 @@ ui::EventResult RenderWidgetHostViewAura::OnMouseEvent(ui::MouseEvent* event) {
   return ui::ER_HANDLED;
 }
 
-ui::TouchStatus RenderWidgetHostViewAura::OnTouchEvent(
-    ui::TouchEvent* event) {
+ui::EventResult RenderWidgetHostViewAura::OnTouchEvent(ui::TouchEvent* event) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnTouchEvent");
   // Update the touch event first.
   WebKit::WebTouchPoint* point = UpdateWebTouchEvent(event,
@@ -1552,10 +1551,10 @@ ui::TouchStatus RenderWidgetHostViewAura::OnTouchEvent(
   if (point && host_->has_touch_handler()) {
     host_->ForwardTouchEvent(touch_event_);
     UpdateWebTouchEventAfterDispatch(&touch_event_, point);
-    return DecideTouchStatus(touch_event_, point);
+    return ui::ER_ASYNC;
   }
 
-  return ui::TOUCH_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 ui::EventResult RenderWidgetHostViewAura::OnGestureEvent(

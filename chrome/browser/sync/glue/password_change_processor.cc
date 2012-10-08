@@ -18,12 +18,12 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
+#include "content/public/common/password_form.h"
 #include "sync/internal_api/public/change_record.h"
 #include "sync/internal_api/public/read_node.h"
 #include "sync/internal_api/public/write_node.h"
 #include "sync/internal_api/public/write_transaction.h"
 #include "sync/protocol/password_specifics.pb.h"
-#include "webkit/forms/password_form.h"
 
 using content::BrowserThread;
 
@@ -36,7 +36,6 @@ PasswordChangeProcessor::PasswordChangeProcessor(
     : ChangeProcessor(error_handler),
       model_associator_(model_associator),
       password_store_(password_store),
-      observing_(false),
       expected_loop_(MessageLoop::current()) {
   DCHECK(model_associator);
   DCHECK(error_handler);
@@ -45,7 +44,6 @@ PasswordChangeProcessor::PasswordChangeProcessor(
 #else
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::DB));
 #endif
-  StartObserving();
 }
 
 PasswordChangeProcessor::~PasswordChangeProcessor() {
@@ -58,10 +56,6 @@ void PasswordChangeProcessor::Observe(
     const content::NotificationDetails& details) {
   DCHECK(expected_loop_ == MessageLoop::current());
   DCHECK(chrome::NOTIFICATION_LOGINS_CHANGED == type);
-  if (!observing_)
-    return;
-
-  DCHECK(running());
 
   syncer::WriteTransaction trans(FROM_HERE, share_handle());
 
@@ -168,8 +162,6 @@ void PasswordChangeProcessor::ApplyChangesFromSyncModel(
     const syncer::BaseTransaction* trans,
     const syncer::ImmutableChangeRecordList& changes) {
   DCHECK(expected_loop_ == MessageLoop::current());
-  if (!running())
-    return;
 
   syncer::ReadNode password_root(trans);
   if (password_root.InitByTagLookup(kPasswordTag) !=
@@ -192,7 +184,7 @@ void PasswordChangeProcessor::ApplyChangesFromSyncModel(
       syncer::ExtraPasswordChangeRecordData* extra =
           it->extra.get();
       const sync_pb::PasswordSpecificsData& password = extra->unencrypted();
-      webkit::forms::PasswordForm form;
+      content::PasswordForm form;
       PasswordModelAssociator::CopyPassword(password, &form);
       deleted_passwords_.push_back(form);
       model_associator_->Disassociate(it->id);
@@ -212,7 +204,7 @@ void PasswordChangeProcessor::ApplyChangesFromSyncModel(
 
     const sync_pb::PasswordSpecificsData& password_data =
         sync_node.GetPasswordSpecifics();
-    webkit::forms::PasswordForm password;
+    content::PasswordForm password;
     PasswordModelAssociator::CopyPassword(password_data, &password);
 
     if (syncer::ChangeRecord::ACTION_ADD == it->action) {
@@ -228,8 +220,6 @@ void PasswordChangeProcessor::ApplyChangesFromSyncModel(
 
 void PasswordChangeProcessor::CommitChangesFromSyncModel() {
   DCHECK(expected_loop_ == MessageLoop::current());
-  if (!running())
-    return;
   ScopedStopObserving<PasswordChangeProcessor> stop_observing(this);
 
   syncer::SyncError error = model_associator_->WriteToPasswordStore(
@@ -249,14 +239,8 @@ void PasswordChangeProcessor::CommitChangesFromSyncModel() {
 
 void PasswordChangeProcessor::StartImpl(Profile* profile) {
   DCHECK(expected_loop_ == MessageLoop::current());
-  observing_ = true;
+  StartObserving();
 }
-
-void PasswordChangeProcessor::StopImpl() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  observing_ = false;
-}
-
 
 void PasswordChangeProcessor::StartObserving() {
   DCHECK(expected_loop_ == MessageLoop::current());

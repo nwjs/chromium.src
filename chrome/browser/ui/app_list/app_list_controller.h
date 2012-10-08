@@ -7,10 +7,6 @@
 
 #include <string>
 
-namespace gfx {
-class ImageSkia;
-}
-
 class Profile;
 
 // Interface to allow the view delegate to call out to whatever is controlling
@@ -29,13 +25,15 @@ class AppListController {
   virtual void UnpinApp(const std::string& extension_id) = 0;
   virtual bool CanPin() = 0;
 
+  // Whether the controller supports showing the Create Shortcuts dialog.
+  virtual bool CanShowCreateShortcutsDialog() = 0;
+  virtual void ShowCreateShortcutsDialog(Profile* profile,
+                                         const std::string& extension_id) = 0;
+
   // App has been clicked on in the app list.
   virtual void ActivateApp(Profile* profile,
                            const std::string& extension_id,
                            int event_flags) = 0;
-
-  // Get the window icon to show, if any.
-  virtual gfx::ImageSkia GetWindowAppIcon() = 0;
 };
 
 namespace app_list_controller {

@@ -64,9 +64,9 @@ std::set<EventType> GetEventSetForCategory(EventCategory category) {
       event_set.insert(EVENT_CHROME_UPDATE);
       break;
     case EVENT_CATEGORY_EXCEPTIONS:
-      event_set.insert(EVENT_RENDERER_FREEZE);
+      event_set.insert(EVENT_RENDERER_HANG);
       event_set.insert(EVENT_RENDERER_CRASH);
-      event_set.insert(EVENT_KILLED_BY_OS_CRASH);
+      event_set.insert(EVENT_RENDERER_KILLED);
       event_set.insert(EVENT_UNCLEAN_EXIT);
       break;
     default:
@@ -325,7 +325,8 @@ void DoGetMetric(DictionaryValue* results,
       results,
       metric_type,
       db->GetMaxStatsForActivityAndMetric(metric_type),
-      AggregateMetric(metric_vector.get(),
+      AggregateMetric(metric_type,
+                      metric_vector.get(),
                       start,
                       resolution).get());
 }

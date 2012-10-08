@@ -54,7 +54,6 @@
 #include "chrome/browser/view_type_utils.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/thumbnail_support.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
 
@@ -114,47 +113,53 @@ TabContents::TabContents(WebContents* contents)
   SessionTabHelper::CreateForWebContents(contents);
 
   AlternateErrorPageTabObserver::CreateForWebContents(contents);
-  autocomplete_history_manager_.reset(new AutocompleteHistoryManager(contents));
-  autofill_delegate_.reset(new TabAutofillManagerDelegate(this));
-  autofill_manager_ = new AutofillManager(autofill_delegate_.get(), this);
+  AutocompleteHistoryManager::CreateForWebContents(contents);
+  TabAutofillManagerDelegate::CreateForWebContents(contents);
+  autofill_manager_ =
+      new AutofillManager(TabAutofillManagerDelegate::FromWebContents(contents),
+                          this);
   if (CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kExternalAutofillPopup)) {
     autofill_external_delegate_.reset(
         AutofillExternalDelegate::Create(this, autofill_manager_.get()));
     autofill_manager_->SetExternalDelegate(autofill_external_delegate_.get());
-    autocomplete_history_manager_->SetExternalDelegate(
+    AutocompleteHistoryManager::FromWebContents(contents)->SetExternalDelegate(
         autofill_external_delegate_.get());
   }
   BlockedContentTabHelper::CreateForWebContents(contents);
   BookmarkTabHelper::CreateForWebContents(contents);
   chrome_browser_net::LoadTimeStatsTabHelper::CreateForWebContents(contents);
-  constrained_window_tab_helper_.reset(new ConstrainedWindowTabHelper(this));
-  content_settings_.reset(new TabSpecificContentSettings(contents));
+  ConstrainedWindowTabHelper::CreateForWebContents(contents);
   CoreTabHelper::CreateForWebContents(contents);
   extensions::TabHelper::CreateForWebContents(contents);
   extensions::WebNavigationTabObserver::CreateForWebContents(contents);
-  favicon_tab_helper_.reset(new FaviconTabHelper(contents));
-  find_tab_helper_.reset(new FindTabHelper(contents));
-  history_tab_helper_.reset(new HistoryTabHelper(contents));
+  ExternalProtocolObserver::CreateForWebContents(contents);
+  FaviconTabHelper::CreateForWebContents(contents);
+  FindTabHelper::CreateForWebContents(contents);
+  HistoryTabHelper::CreateForWebContents(contents);
   HungPluginTabHelper::CreateForWebContents(contents);
   infobar_tab_helper_.reset(new InfoBarTabHelper(contents));
   MetroPinTabHelper::CreateForWebContents(contents);
+  NavigationMetricsRecorder::CreateForWebContents(contents);
   password_manager_delegate_.reset(new PasswordManagerDelegateImpl(this));
   password_manager_.reset(
       new PasswordManager(contents, password_manager_delegate_.get()));
+  PepperBrokerObserver::CreateForWebContents(contents);
   PluginObserver::CreateForWebContents(contents);
-  prefs_tab_helper_.reset(new PrefsTabHelper(contents));
-  prerender_tab_helper_.reset(new prerender::PrerenderTabHelper(this));
+  PrefsTabHelper::CreateForWebContents(contents);
+  prerender::PrerenderTabHelper::CreateForWebContents(contents);
+  safe_browsing::SafeBrowsingTabObserver::CreateForWebContents(contents);
   SearchEngineTabHelper::CreateForWebContents(contents);
   chrome::search::SearchTabHelper::CreateForWebContents(contents);
   SnapshotTabHelper::CreateForWebContents(contents);
   SSLTabHelper::CreateForWebContents(contents);
-  synced_tab_delegate_.reset(new TabContentsSyncedTabDelegate(this));
-  translate_tab_helper_.reset(new TranslateTabHelper(contents));
+  TabContentsSyncedTabDelegate::CreateForWebContents(contents);
+  TabSpecificContentSettings::CreateForWebContents(contents);
+  TranslateTabHelper::CreateForWebContents(contents);
   ZoomController::CreateForWebContents(contents);
 
 #if defined(ENABLE_AUTOMATION)
-  automation_tab_helper_.reset(new AutomationTabHelper(contents));
+  AutomationTabHelper::CreateForWebContents(contents);
 #endif
 
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
@@ -169,22 +174,13 @@ TabContents::TabContents(WebContents* contents)
   WebIntentPickerController::CreateForWebContents(contents);
 #endif
 
-  external_protocol_observer_.reset(new ExternalProtocolObserver(contents));
-  navigation_metrics_recorder_.reset(new NavigationMetricsRecorder(contents));
-  pepper_broker_observer_.reset(new PepperBrokerObserver(contents));
-  safe_browsing_tab_observer_.reset(
-      new safe_browsing::SafeBrowsingTabObserver(this));
-
 #if defined(ENABLE_PRINTING)
   printing::PrintPreviewMessageHandler::CreateForWebContents(contents);
   printing::PrintViewManager::CreateForWebContents(contents);
 #endif
 
-  // Start the in-browser thumbnailing if the feature is enabled.
-  if (ShouldEnableInBrowserThumbnailing()) {
-    thumbnail_generator_.reset(new ThumbnailGenerator);
-    thumbnail_generator_->StartThumbnailing(web_contents_.get());
-  }
+  thumbnail_generator_.reset(new ThumbnailGenerator);
+  thumbnail_generator_->StartThumbnailing(web_contents_.get());
 
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   // If this is not an incognito window, setup to handle one-click login.

@@ -16,8 +16,6 @@
       ],
       'sources': [
         'android/audio_decoder_android.cc',
-        'android/media_metadata_android.cc',
-        'android/media_metadata_android.h',
         'android/media_player_bridge_manager_impl.cc',
         'android/media_player_bridge_manager_impl.h',
         'android/stream_texture_factory_android.h',
@@ -124,7 +122,7 @@
       'conditions': [
         ['os_posix==1 and OS!="mac"', {
           'cflags': ['-fvisibility=hidden'],
-          'type': 'shared_library',
+          'type': 'loadable_module',
           # -gstabs, used in the official builds, causes an ICE. Simply remove
           # it.
           'cflags!': ['-gstabs'],

@@ -4,6 +4,8 @@
 
 #include "content/shell/webkit_test_runner_host.h"
 
+#include <iostream>
+
 #include "base/command_line.h"
 #include "base/message_loop.h"
 #include "base/run_loop.h"
@@ -25,8 +27,12 @@ const int kTestTimeoutMilliseconds = 30 * 1000;
 
 // WebKitTestResultPrinter ----------------------------------------------------
 
-WebKitTestResultPrinter::WebKitTestResultPrinter()
-    : state_(BEFORE_TEST) {
+WebKitTestResultPrinter::WebKitTestResultPrinter(
+    std::ostream* output, std::ostream* error)
+    : state_(BEFORE_TEST),
+      capture_text_only_(false),
+      output_(output),
+      error_(error) {
 }
 
 WebKitTestResultPrinter::~WebKitTestResultPrinter() {
@@ -34,60 +40,70 @@ WebKitTestResultPrinter::~WebKitTestResultPrinter() {
 
 void WebKitTestResultPrinter::PrintTextHeader() {
   DCHECK_EQ(state_, BEFORE_TEST);
-  printf("Content-Type: text/plain\n");
+  if (!capture_text_only_)
+    *output_ << "Content-Type: text/plain\n";
   state_ = IN_TEXT_BLOCK;
 }
 
 void WebKitTestResultPrinter::PrintTextBlock(const std::string& block) {
   DCHECK_EQ(state_, IN_TEXT_BLOCK);
-  printf("%s", block.c_str());
+  *output_ << block;
 }
 
 void WebKitTestResultPrinter::PrintTextFooter() {
   if (state_ != IN_TEXT_BLOCK)
     return;
-  printf("#EOF\n");
-  fprintf(stderr, "#EOF\n");
+  if (!capture_text_only_) {
+    *output_ << "#EOF\n";
+    *error_ << "#EOF\n";
+    output_->flush();
+    error_->flush();
+  }
   state_ = IN_IMAGE_BLOCK;
 }
 
 void WebKitTestResultPrinter::PrintImageHeader(
     const std::string& actual_hash,
     const std::string& expected_hash) {
-  if (state_ != IN_IMAGE_BLOCK)
+  if (state_ != IN_IMAGE_BLOCK || capture_text_only_)
     return;
-  printf("\nActualHash: %s\n", actual_hash.c_str());
+  *output_ << "\nActualHash: " << actual_hash << "%s\n";
   if (!expected_hash.empty())
-    printf("\nExpectedHash: %s\n", expected_hash.c_str());
+    *output_ << "\nExpectedHash: " << expected_hash << "%s\n";
 }
 
 void WebKitTestResultPrinter::PrintImageBlock(
     const std::vector<unsigned char>& png_image) {
-  if (state_ != IN_IMAGE_BLOCK)
+  if (state_ != IN_IMAGE_BLOCK || capture_text_only_)
     return;
-  printf("Content-Type: image/png\n");
-  printf("Content-Length: %u\n", static_cast<unsigned>(png_image.size()));
-  fwrite(&png_image[0], 1, png_image.size(), stdout);
+  *output_ << "Content-Type: image/png\n";
+  *output_ << "Content-Length: " << png_image.size() << "\n";
+  output_->write(
+      reinterpret_cast<const char*>(&png_image[0]), png_image.size());
 }
 
 void WebKitTestResultPrinter::PrintImageFooter() {
   if (state_ != IN_IMAGE_BLOCK)
     return;
-  printf("#EOF\n");
+  if (!capture_text_only_) {
+    *output_ << "#EOF\n";
+    output_->flush();
+  }
   state_ = AFTER_TEST;
 }
 
 void WebKitTestResultPrinter::AddMessage(const std::string& message) {
   if (state_ != IN_TEXT_BLOCK)
     return;
-  printf("%s\n", message.c_str());
+  *output_ << message << "\n";
 }
 
 void WebKitTestResultPrinter::AddErrorMessage(const std::string& message) {
   if (state_ != IN_TEXT_BLOCK)
     return;
-  printf("%s\n", message.c_str());
-  fprintf(stderr, "%s\n", message.c_str());
+  *output_ << message << "\n";
+  if (!capture_text_only_)
+    *error_ << message << "\n";
   PrintTextFooter();
   PrintImageFooter();
   MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
@@ -106,17 +122,7 @@ WebKitTestController* WebKitTestController::Get() {
 WebKitTestController::WebKitTestController() {
   CHECK(!instance_);
   instance_ = this;
-
-  content::ShellBrowserContext* browser_context =
-      static_cast<content::ShellContentBrowserClient*>(
-          content::GetContentClient()->browser())->browser_context();
-  main_window_ = content::Shell::CreateNewWindow(
-      browser_context,
-      GURL("about:blank"),
-      NULL,
-      MSG_ROUTING_NONE,
-      NULL);
-  Observe(main_window_->web_contents());
+  printer_.reset(new WebKitTestResultPrinter(&std::cout, &std::cerr));
   ResetAfterLayoutTest();
 }
 
@@ -133,21 +139,27 @@ bool WebKitTestController::PrepareForLayoutTest(
     bool enable_pixel_dumping,
     const std::string& expected_pixel_hash) {
   DCHECK(CalledOnValidThread());
-  if (!main_window_)
-    return false;
   enable_pixel_dumping_ = enable_pixel_dumping;
   expected_pixel_hash_ = expected_pixel_hash;
-  printer_.reset();
-  printer_.PrintTextHeader();
-  main_window_->LoadURL(test_url);
+  printer_->reset();
+  printer_->PrintTextHeader();
+  content::ShellBrowserContext* browser_context =
+      static_cast<content::ShellContentBrowserClient*>(
+          content::GetContentClient()->browser())->browser_context();
+  main_window_ = content::Shell::CreateNewWindow(
+      browser_context,
+      test_url,
+      NULL,
+      MSG_ROUTING_NONE,
+      NULL);
+  Observe(main_window_->web_contents());
   return true;
 }
 
 bool WebKitTestController::ResetAfterLayoutTest() {
   DCHECK(CalledOnValidThread());
-  printer_.PrintTextFooter();
-  printer_.PrintImageFooter();
-  pumping_messages_ = false;
+  printer_->PrintTextFooter();
+  printer_->PrintImageFooter();
   enable_pixel_dumping_ = false;
   expected_pixel_hash_.clear();
   captured_dump_ = false;
@@ -157,24 +169,16 @@ bool WebKitTestController::ResetAfterLayoutTest() {
   should_stay_on_page_after_handling_before_unload_ = false;
   wait_until_done_ = false;
   watchdog_.Cancel();
-  if (!main_window_)
-    return false;
-  if (main_window_->web_contents()->GetController().GetEntryCount() > 0) {
-    // Reset the WebContents for the next test.
-    // TODO(jochen): Reset it more thoroughly.
-    main_window_->web_contents()->GetController().GoToIndex(0);
+  if (main_window_) {
+    Observe(NULL);
+    main_window_ = NULL;
   }
-  renderer_crashed_ = false;
-  // Wait for the main_window_ to finish loading.
-  pumping_messages_ = true;
-  base::RunLoop run_loop;
-  run_loop.Run();
-  pumping_messages_ = false;
-  return !renderer_crashed_;
+  Shell::CloseAllWindows();
+  return true;
 }
 
 void WebKitTestController::RendererUnresponsive() {
-  printer_.AddErrorMessage("#PROCESS UNRESPONSIVE - renderer");
+  printer_->AddErrorMessage("#PROCESS UNRESPONSIVE - renderer");
 }
 
 void WebKitTestController::NotifyDone() {
@@ -201,7 +205,7 @@ void WebKitTestController::WaitUntilDone() {
 void WebKitTestController::NotImplemented(
     const std::string& object_name,
     const std::string& property_name) {
-  printer_.AddErrorMessage(
+  printer_->AddErrorMessage(
       std::string("FAIL: NOT IMPLEMENTED: ") +
       object_name + "." + property_name);
 }
@@ -219,21 +223,20 @@ bool WebKitTestController::OnMessageReceived(const IPC::Message& message) {
 }
 
 void WebKitTestController::PluginCrashed(const FilePath& plugin_path) {
-  printer_.AddErrorMessage("#CRASHED - plugin");
+  printer_->AddErrorMessage("#CRASHED - plugin");
 }
 
 void WebKitTestController::RenderViewGone(base::TerminationStatus status) {
-  renderer_crashed_ = true;
-  printer_.AddErrorMessage("#CRASHED - renderer");
+  printer_->AddErrorMessage("#CRASHED - renderer");
 }
 
 void WebKitTestController::WebContentsDestroyed(WebContents* web_contents) {
   main_window_ = NULL;
-  printer_.AddErrorMessage("FAIL: main window was destroyed");
+  printer_->AddErrorMessage("FAIL: main window was destroyed");
 }
 
 void WebKitTestController::CaptureDump() {
-  if (captured_dump_ || !main_window_ || !printer_.in_text_block())
+  if (captured_dump_ || !main_window_ || !printer_->in_text_block())
     return;
   captured_dump_ = true;
 
@@ -253,15 +256,11 @@ void WebKitTestController::CaptureDump() {
 }
 
 void WebKitTestController::TimeoutHandler() {
-  printer_.AddErrorMessage(
+  printer_->AddErrorMessage(
       "FAIL: Timed out waiting for notifyDone to be called");
 }
 
 void WebKitTestController::OnDidFinishLoad() {
-  if (pumping_messages_) {
-    MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
-    return;
-  }
   if (wait_until_done_)
     return;
   CaptureDump();
@@ -272,7 +271,7 @@ void WebKitTestController::OnImageDump(
     const SkBitmap& image) {
   SkAutoLockPixels image_lock(image);
 
-  printer_.PrintImageHeader(actual_pixel_hash, expected_pixel_hash_);
+  printer_->PrintImageHeader(actual_pixel_hash, expected_pixel_hash_);
 
   // Only encode and dump the png if the hashes don't match. Encoding the
   // image is really expensive.
@@ -307,17 +306,17 @@ void WebKitTestController::OnImageDump(
         &png);
 #endif
     if (success)
-      printer_.PrintImageBlock(png);
+      printer_->PrintImageBlock(png);
   }
-  printer_.PrintImageFooter();
+  printer_->PrintImageFooter();
   MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
 }
 
 void WebKitTestController::OnTextDump(const std::string& dump) {
-  printer_.PrintTextBlock(dump);
-  printer_.PrintTextFooter();
+  printer_->PrintTextBlock(dump);
+  printer_->PrintTextFooter();
   if (dump_as_text_ || !enable_pixel_dumping_) {
-    printer_.PrintImageFooter();
+    printer_->PrintImageFooter();
     MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
   }
 }

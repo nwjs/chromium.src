@@ -4,8 +4,10 @@
 
 package org.chromium.content.browser;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.os.Build;
 import android.util.AttributeSet;
@@ -18,6 +20,8 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.webkit.DownloadListener;
 import android.widget.FrameLayout;
+
+import java.util.ArrayList;
 
 import org.chromium.content.browser.ContentViewCore;
 import org.chromium.ui.gfx.NativeWindow;
@@ -58,6 +62,22 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     public static final int MAX_RENDERERS_LIMIT = AndroidBrowserProcess.MAX_RENDERERS_LIMIT;
 
     /**
+     * Allow a callback to be notified when the SurfaceTexture of the TextureView has been
+     * updated.
+     *
+     * TODO(nileshagrawal): Remove this interface.
+     */
+    public static interface SurfaceTextureUpdatedListener {
+        /**
+         * Called when the {@link SurfaceTexture} of the {@link TextureView} held in this
+         * ContentView has been updated.
+         *
+         * @param view The ContentView that was updated.
+         */
+        public void onSurfaceTextureUpdated(ContentView view);
+    }
+
+    /**
      * Enable multi-process ContentView. This should be called by the application before
      * constructing any ContentView instances. If enabled, ContentView will run renderers in
      * separate processes up to the number of processes specified by maxRenderProcesses. If this is
@@ -89,6 +109,10 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     public static boolean initChromiumBrowserProcess(Context context, int maxRendererProcesses) {
         return ContentViewCore.initChromiumBrowserProcess(context, maxRendererProcesses);
     }
+
+    // Used for showing a temporary bitmap while the actual texture is being drawn.
+    private final ArrayList<SurfaceTextureUpdatedListener> mSurfaceTextureUpdatedListeners =
+            new ArrayList<SurfaceTextureUpdatedListener>();
 
     private ContentViewCore mContentViewCore;
 
@@ -168,6 +192,36 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     }
 
     /**
+     * Allows an external source to listen to SurfaceTexture updates.
+     *
+     * @param listener
+     */
+    public void registerSurfaceTextureListener(SurfaceTextureUpdatedListener listener) {
+        if (!mSurfaceTextureUpdatedListeners.contains(listener)) {
+            mSurfaceTextureUpdatedListeners.add(listener);
+        }
+    }
+
+    /**
+     * Unregisters the current external listener that waits for SurfaceTexture updates.
+     */
+    public void unregisterSurfaceTextureListener(SurfaceTextureUpdatedListener listener) {
+        mSurfaceTextureUpdatedListeners.remove(listener);
+    }
+
+    /**
+     * Returns true if the given Activity has hardware acceleration enabled
+     * in its manifest, or in its foreground window.
+     *
+     * TODO(husky): Remove when ContentViewCore.initialize() is refactored (see TODO there)
+     * TODO(dtrainor) This is still used by other classes.  Make sure to pull some version of this
+     * out before removing it.
+     */
+    public static boolean hasHardwareAcceleration(Activity activity) {
+        return ContentViewCore.hasHardwareAcceleration(activity);
+    }
+
+    /**
      * @return Whether the configured personality of this ContentView is {@link #PERSONALITY_VIEW}.
      */
     boolean isPersonalityView() {
@@ -208,6 +262,10 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
         return mContentViewCore.getContentViewClient();
     }
 
+    public int getBackgroundColor() {
+        return mContentViewCore.getBackgroundColor();
+    }
+
     /**
      * Load url without fixing up the url string. Consumers of ContentView are responsible for
      * ensuring the URL passed in is properly formatted (i.e. the scheme has been added if left
@@ -246,6 +304,27 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
      */
     public String getTitle() {
         return mContentViewCore.getTitle();
+    }
+
+    public Bitmap getBitmap() {
+        return getBitmap(getWidth(), getHeight());
+    }
+
+    public Bitmap getBitmap(int width, int height) {
+        return getBitmap(width, height, Bitmap.Config.ARGB_8888);
+    }
+
+    public Bitmap getBitmap(int width, int height, Bitmap.Config config) {
+        return mContentViewCore.getBitmap(width, height, config);
+    }
+
+    /**
+     * @return Whether the ContentView is covered by an overlay that is more than half
+     *         of it's surface. This is used to determine if we need to do a slow bitmap capture or
+     *         to show the ContentView without them.
+     */
+    public boolean hasLargeOverlay() {
+        return mContentViewCore.hasLargeOverlay();
     }
 
     /**
@@ -309,16 +388,53 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     }
 
     /**
-     * Start pinch zoom. You must call {@link #pinchEnd} to stop.
+     * Start profiling the update speed. You must call {@link #stopFpsProfiling}
+     * to stop profiling.
+     *
+     * @VisibleForTesting
      */
-    void pinchBegin(long timeMs, int x, int y) {
+    public void startFpsProfiling() {
+        // TODO(nileshagrawal): Implement this.
+    }
+
+    /**
+     * Stop profiling the update speed.
+     *
+     * @VisibleForTesting
+     */
+    public float stopFpsProfiling() {
+        // TODO(nileshagrawal): Implement this.
+        return 0.0f;
+    }
+
+    /**
+     * Fling the ContentView from the current position.
+     * @param x Fling touch starting position
+     * @param y Fling touch starting position
+     * @param velocityX Initial velocity of the fling (X) measured in pixels per second.
+     * @param velocityY Initial velocity of the fling (Y) measured in pixels per second.
+     *
+     * @VisibleForTesting
+     */
+    public void fling(long timeMs, int x, int y, int velocityX, int velocityY) {
+        // TODO(nileshagrawal): Implement this.
+    }
+
+    /**
+     * Start pinch zoom. You must call {@link #pinchEnd} to stop.
+     *
+     * @VisibleForTesting
+     */
+    public void pinchBegin(long timeMs, int x, int y) {
         mContentViewCore.getContentViewGestureHandler().pinchBegin(timeMs, x, y);
     }
 
     /**
      * Stop pinch zoom.
+     *
+     * @VisibleForTesting
      */
-    void pinchEnd(long timeMs) {
+    public void pinchEnd(long timeMs) {
         mContentViewCore.getContentViewGestureHandler().pinchEnd(timeMs);
     }
 
@@ -337,9 +453,26 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
      *            coordinate.
      * @param anchorY The magnification anchor (Y) in the current view
      *            coordinate.
+     *
+     * @VisibleForTesting
      */
-    void pinchBy(long timeMs, int anchorX, int anchorY, float delta) {
+    public void pinchBy(long timeMs, int anchorX, int anchorY, float delta) {
         mContentViewCore.getContentViewGestureHandler().pinchBy(timeMs, anchorX, anchorY, delta);
+    }
+
+    /**
+     * Injects the passed JavaScript code in the current page and evaluates it.
+     * Once evaluated, an asynchronous call to
+     * ContentViewClient.onJavaScriptEvaluationResult is made. Used in automation
+     * tests.
+     *
+     * @return an id that is passed along in the asynchronous onJavaScriptEvaluationResult callback
+     * @throws IllegalStateException If the ContentView has been destroyed.
+     *
+     * TODO(nileshagrawal): Remove this method from the public interface.
+     */
+    public int evaluateJavaScript(String script) throws IllegalStateException {
+        return mContentViewCore.evaluateJavaScript(script);
     }
 
     /**
@@ -382,6 +515,13 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
      */
     public ContentSettings getContentSettings() {
         return mContentViewCore.getContentSettings();
+    }
+
+    /**
+     * Hides the select action bar.
+     */
+    public void hideSelectActionBar() {
+        mContentViewCore.hideSelectActionBar();
     }
 
     // FrameLayout overrides.
@@ -428,6 +568,14 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     @Override
     public boolean awakenScrollBars() {
         return super.awakenScrollBars();
+    }
+
+    public int getSingleTapX()  {
+        return mContentViewCore.getContentViewGestureHandler().getSingleTapX();
+    }
+
+    public int getSingleTapY()  {
+        return mContentViewCore.getContentViewGestureHandler().getSingleTapY();
     }
 
     @Override
@@ -497,11 +645,38 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
         return mContentViewCore.getDownloadDelegate();
     }
 
+    public boolean getUseDesktopUserAgent() {
+        return mContentViewCore.getUseDesktopUserAgent();
+    }
+
+    /**
+     * Set whether or not we're using a desktop user agent for the currently loaded page.
+     * @param override If true, use a desktop user agent.  Use a mobile one otherwise.
+     * @param reloadOnChange Reload the page if the UA has changed.
+     */
+    public void setUseDesktopUserAgent(boolean override, boolean reloadOnChange) {
+        mContentViewCore.setUseDesktopUserAgent(override, reloadOnChange);
+    }
+
     /**
      * @return Whether the native ContentView has crashed.
      */
     public boolean isCrashed() {
         return mContentViewCore.isCrashed();
+    }
+
+    /**
+     * In order to make sure we don't show white when we have a bitmap containing the previously
+     * drawn frame of this ContentView before it was hidden, we want to show the bitmap while we
+     * render the content and then swap them out, so the user perceived latency is shorter.  In
+     * software rendering mode we can just prime the backing store at the native level.  However
+     * for hardware rendering mode we have to show an ImageView in front of the TextureView, but
+     * behind the NTP Toolbar View.
+     *
+     * @param bitmap The bitmap to show while this ContentView is rendering content.
+     */
+    public void usePrimeBitmap(Bitmap bitmap) {
+        // TODO(nileshagrawal): Implement this.
     }
 
     /**
@@ -577,6 +752,44 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     // this method returns built-in zoom controls. This method is used in tests.
     public View getZoomControlsForTest() {
         return mContentViewCore.getZoomControlsForTest();
+    }
+
+    /**
+     * If the view is ready to draw contents to the screen. In hardware mode,
+     * the initialization of the surface texture may not occur until after the
+     * view has been added to the layout. This method will return {@code true}
+     * once the texture is actually ready.
+     */
+    public boolean isReady() {
+        return mContentViewCore.isReady();
+    }
+
+    /**
+     * @return Whether or not the texture view is available or not.
+     */
+    public boolean isAvailable() {
+        return mContentViewCore.isAvailable();
+    }
+
+    /**
+     * Returns whether or not accessibility injection is being used.
+     */
+    public boolean isInjectingAccessibilityScript() {
+        return mContentViewCore.isInjectingAccessibilityScript();
+    }
+
+    /**
+     * Enable or disable accessibility features.
+     */
+    public void setAccessibilityState(boolean state) {
+        mContentViewCore.setAccessibilityState(state);
+    }
+
+    /**
+     * Stop any TTS notifications that are currently going on.
+     */
+    public void stopCurrentAccessibilityNotifications() {
+        mContentViewCore.stopCurrentAccessibilityNotifications();
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

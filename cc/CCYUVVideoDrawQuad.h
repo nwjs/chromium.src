@@ -5,16 +5,16 @@
 #ifndef CCYUVVideoDrawQuad_h
 #define CCYUVVideoDrawQuad_h
 
+#include "base/basictypes.h"
+#include "base/memory/scoped_ptr.h"
 #include "CCDrawQuad.h"
 #include "CCVideoLayerImpl.h"
-#include <wtf/PassOwnPtr.h>
 
 namespace cc {
 
 class CCYUVVideoDrawQuad : public CCDrawQuad {
-    WTF_MAKE_NONCOPYABLE(CCYUVVideoDrawQuad);
 public:
-    static PassOwnPtr<CCYUVVideoDrawQuad> create(const CCSharedQuadState*, const IntRect&, const CCVideoLayerImpl::FramePlane& yPlane, const CCVideoLayerImpl::FramePlane& uPlane, const CCVideoLayerImpl::FramePlane& vPlane);
+    static scoped_ptr<CCYUVVideoDrawQuad> create(const CCSharedQuadState*, const IntRect&, const CCVideoLayerImpl::FramePlane& yPlane, const CCVideoLayerImpl::FramePlane& uPlane, const CCVideoLayerImpl::FramePlane& vPlane);
 
     const CCVideoLayerImpl::FramePlane& yPlane() const { return m_yPlane; }
     const CCVideoLayerImpl::FramePlane& uPlane() const { return m_uPlane; }
@@ -27,6 +27,8 @@ private:
     CCVideoLayerImpl::FramePlane m_yPlane;
     CCVideoLayerImpl::FramePlane m_uPlane;
     CCVideoLayerImpl::FramePlane m_vPlane;
+
+    DISALLOW_COPY_AND_ASSIGN(CCYUVVideoDrawQuad);
 };
 
 }

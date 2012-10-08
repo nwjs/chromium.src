@@ -8,6 +8,7 @@
 #include "CCAnimationEvents.h"
 #include "CCLayerTreeHostImpl.h"
 #include "CCProxy.h"
+#include <base/time.h>
 #include <limits>
 #include <wtf/OwnPtr.h>
 
@@ -30,7 +31,7 @@ public:
     virtual void setVisible(bool) OVERRIDE;
     virtual bool initializeRenderer() OVERRIDE;
     virtual bool recreateContext() OVERRIDE;
-    virtual void implSideRenderingStats(CCRenderingStats&) OVERRIDE;
+    virtual void renderingStats(CCRenderingStats*) OVERRIDE;
     virtual const RendererCapabilities& rendererCapabilities() const OVERRIDE;
     virtual void loseContext() OVERRIDE;
     virtual void setNeedsAnimate() OVERRIDE;
@@ -71,14 +72,17 @@ private:
 
     // Holds on to the context between initializeContext() and initializeRenderer() calls. Shouldn't
     // be used for anything else.
-    OwnPtr<CCGraphicsContext> m_contextBeforeInitialization;
+    scoped_ptr<CCGraphicsContext> m_contextBeforeInitialization;
 
     // Used on the CCThread, but checked on main thread during initialization/shutdown.
-    OwnPtr<CCLayerTreeHostImpl> m_layerTreeHostImpl;
+    scoped_ptr<CCLayerTreeHostImpl> m_layerTreeHostImpl;
     bool m_rendererInitialized;
     RendererCapabilities m_RendererCapabilitiesForMainThread;
 
     bool m_nextFrameIsNewlyCommittedFrame;
+
+    base::TimeDelta m_totalCommitTime;
+    size_t m_totalCommitCount;
 };
 
 // For use in the single-threaded case. In debug builds, it pretends that the

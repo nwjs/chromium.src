@@ -11,6 +11,7 @@
 #include "base/command_line.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/metrics/field_trial.h"
+#include "base/metrics/histogram.h"
 #include "base/version.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/metrics/proto/trials_seed.pb.h"
@@ -24,6 +25,7 @@
 #include "net/base/load_flags.h"
 #include "net/base/network_change_notifier.h"
 #include "net/http/http_response_headers.h"
+#include "net/http/http_util.h"
 #include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
 
@@ -181,6 +183,8 @@ void VariationsService::DoActualFetch() {
                                                  variations_serial_number_);
   }
   pending_seed_request_->Start();
+
+  last_request_started_time_ = base::TimeTicks::Now();
 }
 
 void VariationsService::FetchVariationsSeed() {
@@ -204,11 +208,24 @@ void VariationsService::OnURLFetchComplete(const net::URLFetcher* source) {
     return;
   }
 
+  // Log the response code.
+  UMA_HISTOGRAM_CUSTOM_ENUMERATION("Variations.SeedFetchResponseCode",
+      net::HttpUtil::MapStatusCodeForHistogram(request->GetResponseCode()),
+      net::HttpUtil::GetStatusCodesForHistogram());
+
+  const base::TimeDelta latency =
+      base::TimeTicks::Now() - last_request_started_time_;
+
   if (request->GetResponseCode() != 200) {
     DVLOG(1) << "Variations server request returned non-200 response code: "
              << request->GetResponseCode();
+    if (request->GetResponseCode() == 304)
+      UMA_HISTOGRAM_MEDIUM_TIMES("Variations.FetchNotModifiedLatency", latency);
+    else
+      UMA_HISTOGRAM_MEDIUM_TIMES("Variations.FetchOtherLatency", latency);
     return;
   }
+  UMA_HISTOGRAM_MEDIUM_TIMES("Variations.FetchSuccessLatency", latency);
 
   std::string seed_data;
   bool success = request->GetResponseAsString(&seed_data);

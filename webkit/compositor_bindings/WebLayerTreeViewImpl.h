@@ -5,10 +5,9 @@
 #ifndef WebLayerTreeViewImpl_h
 #define WebLayerTreeViewImpl_h
 
+#include "base/memory/scoped_ptr.h"
 #include "CCLayerTreeHostClient.h"
 #include <public/WebLayerTreeView.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 
 namespace cc {
 class CCLayerTreeHost;
@@ -57,9 +56,9 @@ public:
     virtual void animate(double monotonicFrameBeginTime) OVERRIDE;
     virtual void layout() OVERRIDE;
     virtual void applyScrollAndScale(const cc::IntSize& scrollDelta, float pageScale) OVERRIDE;
-    virtual PassOwnPtr<WebCompositorOutputSurface> createOutputSurface() OVERRIDE;
+    virtual scoped_ptr<WebCompositorOutputSurface> createOutputSurface() OVERRIDE;
     virtual void didRecreateOutputSurface(bool success) OVERRIDE;
-    virtual PassOwnPtr<cc::CCInputHandler> createInputHandler() OVERRIDE;
+    virtual scoped_ptr<cc::CCInputHandler> createInputHandler() OVERRIDE;
     virtual void willCommit() OVERRIDE;
     virtual void didCommit() OVERRIDE;
     virtual void didCommitAndDrawFrame() OVERRIDE;
@@ -68,7 +67,7 @@ public:
 
 private:
     WebLayerTreeViewClient* m_client;
-    OwnPtr<cc::CCLayerTreeHost> m_layerTreeHost;
+    scoped_ptr<cc::CCLayerTreeHost> m_layerTreeHost;
 };
 
 } // namespace WebKit

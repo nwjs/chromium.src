@@ -16,6 +16,10 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebContextMenuData.h"
 #include "webkit/glue/webmenuitem.h"
 
+#if defined(OS_ANDROID)
+#include "ui/gfx/point.h"
+#endif
+
 namespace content {
 
 struct CONTENT_EXPORT CustomContextMenuContext {
@@ -52,6 +56,11 @@ struct CONTENT_EXPORT ContextMenuParams {
   // This is the URL of the link that encloses the node the context menu was
   // invoked on.
   GURL link_url;
+
+  // The text associated with the link. May be an empty string if the contents
+  // of the link are an image.
+  // Will be empty if link_url is empty.
+  string16 link_text;
 
   // The link URL to be used ONLY for "copy link address". We don't validate
   // this field in the frontend process.
@@ -133,6 +142,14 @@ struct CONTENT_EXPORT ContextMenuParams {
 
   CustomContextMenuContext custom_context;
   std::vector<WebMenuItem> custom_items;
+
+#if defined(OS_ANDROID)
+  // Points representing the coordinates in the document space of the start and
+  // end of the selection, if there is one.
+  gfx::Point selection_start;
+  gfx::Point selection_end;
+#endif
+
 };
 
 }  // namespace content

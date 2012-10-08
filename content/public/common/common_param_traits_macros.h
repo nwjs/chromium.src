@@ -9,12 +9,12 @@
 #define CONTENT_PUBLIC_COMMON_COMMON_PARAM_TRAITS_MACROS_H_
 
 #include "content/public/common/console_message_level.h"
+#include "content/public/common/password_form.h"
 #include "content/public/common/security_style.h"
 #include "ipc/ipc_message_macros.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebPoint.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebReferrerPolicy.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebRect.h"
-#include "webkit/forms/password_form.h"
 #include "webkit/glue/window_open_disposition.h"
 #include "webkit/plugins/webplugininfo.h"
 
@@ -38,7 +38,7 @@ IPC_STRUCT_TRAITS_BEGIN(WebKit::WebRect)
   IPC_STRUCT_TRAITS_MEMBER(height)
 IPC_STRUCT_TRAITS_END()
 
-IPC_STRUCT_TRAITS_BEGIN(webkit::forms::PasswordForm)
+IPC_STRUCT_TRAITS_BEGIN(content::PasswordForm)
 IPC_STRUCT_TRAITS_MEMBER(signon_realm)
 IPC_STRUCT_TRAITS_MEMBER(origin)
 IPC_STRUCT_TRAITS_MEMBER(action)
@@ -69,6 +69,7 @@ IPC_STRUCT_TRAITS_BEGIN(webkit::WebPluginInfo)
   IPC_STRUCT_TRAITS_MEMBER(desc)
   IPC_STRUCT_TRAITS_MEMBER(mime_types)
   IPC_STRUCT_TRAITS_MEMBER(type)
+  IPC_STRUCT_TRAITS_MEMBER(pepper_permissions)
 IPC_STRUCT_TRAITS_END()
 
 #endif  // CONTENT_PUBLIC_COMMON_COMMON_PARAM_TRAITS_MACROS_H_

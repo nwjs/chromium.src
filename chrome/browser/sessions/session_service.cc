@@ -521,10 +521,6 @@ void SessionService::Save() {
 
 void SessionService::Init() {
   // Register for the notifications we're interested in.
-  registrar_.Add(this, chrome::NOTIFICATION_TAB_PARENTED,
-                 content::NotificationService::AllSources());
-  registrar_.Add(this, chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
-                 content::NotificationService::AllSources());
   registrar_.Add(this, content::NOTIFICATION_NAV_LIST_PRUNED,
                  content::NotificationService::AllSources());
   registrar_.Add(this, content::NOTIFICATION_NAV_ENTRY_CHANGED,
@@ -602,58 +598,6 @@ void SessionService::Observe(int type,
       break;
     }
 
-    case chrome::NOTIFICATION_TAB_PARENTED: {
-      WebContents* web_contents = content::Source<WebContents>(source).ptr();
-      if (web_contents->GetBrowserContext() != profile())
-        return;
-      SessionTabHelper* session_tab_helper =
-          SessionTabHelper::FromWebContents(web_contents);
-      SetTabWindow(session_tab_helper->window_id(),
-                   session_tab_helper->session_id());
-      extensions::TabHelper* extensions_tab_helper =
-          extensions::TabHelper::FromWebContents(web_contents);
-      if (extensions_tab_helper &&
-          extensions_tab_helper->extension_app()) {
-        SetTabExtensionAppID(
-            session_tab_helper->window_id(),
-            session_tab_helper->session_id(),
-            extensions_tab_helper->extension_app()->id());
-      }
-
-      // Record the association between the SessionStorageNamespace and the
-      // tab.
-      //
-      // TODO(ajwong): This should be processing the whole map rather than
-      // just the default. This in particular will not work for tabs with only
-      // isolated apps which won't have a default partition.
-      content::SessionStorageNamespace* session_storage_namespace =
-          web_contents->GetController().GetDefaultSessionStorageNamespace();
-      ScheduleCommand(CreateSessionStorageAssociatedCommand(
-          session_tab_helper->session_id(),
-          session_storage_namespace->persistent_id()));
-      session_storage_namespace->SetShouldPersist(true);
-      break;
-    }
-
-    case chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED: {
-      TabContents* tab = content::Source<TabContents>(source).ptr();
-      if (!tab || tab->profile() != profile())
-        return;
-      // Allow the associated sessionStorage to get deleted; it won't be needed
-      // in the session restore.
-      content::SessionStorageNamespace* session_storage_namespace =
-          tab->web_contents()->GetController().
-              GetDefaultSessionStorageNamespace();
-      session_storage_namespace->SetShouldPersist(false);
-      SessionTabHelper* session_tab_helper =
-          SessionTabHelper::FromWebContents(tab->web_contents());
-      TabClosed(session_tab_helper->window_id(),
-                session_tab_helper->session_id(),
-                tab->web_contents()->GetClosedByUserGesture());
-      RecordSessionUpdateHistogramData(type, &last_updated_tab_closed_time_);
-      break;
-    }
-
     case content::NOTIFICATION_NAV_LIST_PRUNED: {
       WebContents* web_contents =
           content::Source<content::NavigationController>(source).ptr()->
@@ -690,8 +634,7 @@ void SessionService::Observe(int type,
       content::Details<content::EntryChangedDetails> changed(details);
       const TabNavigation navigation =
           TabNavigation::FromNavigationEntry(
-              changed->index, *changed->changed_entry,
-              base::Time::Now());
+              changed->index, *changed->changed_entry);
       UpdateTabNavigation(session_tab_helper->window_id(),
                           session_tab_helper->session_id(),
                           navigation);
@@ -716,8 +659,7 @@ void SessionService::Observe(int type,
           TabNavigation::FromNavigationEntry(
               current_entry_index,
               *web_contents->GetController().GetEntryAtIndex(
-                  current_entry_index),
-              base::Time::Now());
+                  current_entry_index));
       UpdateTabNavigation(
           session_tab_helper->window_id(),
           session_tab_helper->session_id(),
@@ -1361,7 +1303,7 @@ void SessionService::BuildCommandsForTab(
     DCHECK(entry);
     if (ShouldTrackEntry(entry->GetVirtualURL())) {
       const TabNavigation navigation =
-          TabNavigation::FromNavigationEntry(i, *entry, base::Time::Now());
+          TabNavigation::FromNavigationEntry(i, *entry);
       commands->push_back(
           CreateUpdateTabNavigationCommand(
               kCommandUpdateTabNavigation, session_id.id(), navigation));
@@ -1762,4 +1704,48 @@ void SessionService::RecordUpdatedSaveTime(base::TimeDelta delta,
         save_delay_in_hrs_,
         50);
   }
+}
+
+void SessionService::TabInserted(WebContents* contents) {
+  SessionTabHelper* session_tab_helper =
+      SessionTabHelper::FromWebContents(contents);
+  SetTabWindow(session_tab_helper->window_id(),
+               session_tab_helper->session_id());
+  extensions::TabHelper* extensions_tab_helper =
+      extensions::TabHelper::FromWebContents(contents);
+  if (extensions_tab_helper &&
+      extensions_tab_helper->extension_app()) {
+    SetTabExtensionAppID(
+        session_tab_helper->window_id(),
+        session_tab_helper->session_id(),
+        extensions_tab_helper->extension_app()->id());
+  }
+
+  // Record the association between the SessionStorageNamespace and the
+  // tab.
+  //
+  // TODO(ajwong): This should be processing the whole map rather than
+  // just the default. This in particular will not work for tabs with only
+  // isolated apps which won't have a default partition.
+  content::SessionStorageNamespace* session_storage_namespace =
+      contents->GetController().GetDefaultSessionStorageNamespace();
+  ScheduleCommand(CreateSessionStorageAssociatedCommand(
+      session_tab_helper->session_id(),
+      session_storage_namespace->persistent_id()));
+  session_storage_namespace->SetShouldPersist(true);
+}
+
+void SessionService::TabClosing(WebContents* contents) {
+  // Allow the associated sessionStorage to get deleted; it won't be needed
+  // in the session restore.
+  content::SessionStorageNamespace* session_storage_namespace =
+      contents->GetController().GetDefaultSessionStorageNamespace();
+  session_storage_namespace->SetShouldPersist(false);
+  SessionTabHelper* session_tab_helper =
+      SessionTabHelper::FromWebContents(contents);
+  TabClosed(session_tab_helper->window_id(),
+            session_tab_helper->session_id(),
+            contents->GetClosedByUserGesture());
+  RecordSessionUpdateHistogramData(chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
+                                   &last_updated_tab_closed_time_);
 }

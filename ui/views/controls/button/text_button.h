@@ -170,6 +170,8 @@ class VIEWS_EXPORT TextButtonBase : public CustomButton,
   // current size.
   void ClearMaxTextSize();
 
+  void set_min_width(int min_width) { min_width_ = min_width; }
+  void set_min_height(int min_height) { min_height_ = min_height; }
   void set_max_width(int max_width) { max_width_ = max_width; }
   void SetFont(const gfx::Font& font);
   // Return the font used by this button.
@@ -179,20 +181,20 @@ class VIEWS_EXPORT TextButtonBase : public CustomButton,
   void SetDisabledColor(SkColor color);
   void SetHighlightColor(SkColor color);
   void SetHoverColor(SkColor color);
-  void SetTextHaloColor(SkColor color);
-  // The shadow color used is determined by whether the widget is active or
-  // inactive. Both possible colors are set in this method, and the
-  // appropriate one is chosen during Paint.
+
+  // Enables a drop shadow underneath the text.
   void SetTextShadowColors(SkColor active_color, SkColor inactive_color);
+
+  // Sets the drop shadow's offset from the text.
   void SetTextShadowOffset(int x, int y);
+
+  // Disables shadows.
+  void ClearEmbellishing();
 
   // Sets whether or not to show the hot and pushed states for the button icon
   // (if present) in addition to the normal state.  Defaults to true.
   bool show_multiple_icon_states() const { return show_multiple_icon_states_; }
   void SetShowMultipleIconStates(bool show_multiple_icon_states);
-
-  // Clears halo and shadow settings.
-  void ClearEmbellishing();
 
   // Paint the button into the specified canvas. If |mode| is |PB_FOR_DRAG|, the
   // function paints a drag image representation into the canvas.
@@ -267,16 +269,17 @@ class VIEWS_EXPORT TextButtonBase : public CustomButton,
   SkColor color_highlight_;
   SkColor color_hover_;
 
-  // An optional halo around text.
-  SkColor text_halo_color_;
-  bool has_text_halo_;
-
+  // Flag indicating if a shadow should be drawn behind the text.
+  bool has_text_shadow_;
   // Optional shadow text colors for active and inactive widget states.
   SkColor active_text_shadow_color_;
   SkColor inactive_text_shadow_color_;
-  bool has_shadow_;
-  // Space between text and shadow. Defaults to (1,1).
-  gfx::Point shadow_offset_;
+  // Space between the text and its shadow. Defaults to (1,1).
+  gfx::Point text_shadow_offset_;
+
+  // The dimensions of the button will be at least these values.
+  int min_width_;
+  int min_height_;
 
   // The width of the button will never be larger than this value. A value <= 0
   // indicates the width is not constrained.
@@ -344,7 +347,6 @@ class VIEWS_EXPORT TextButton : public TextButtonBase {
   // Overridden from View:
   virtual gfx::Size GetPreferredSize() OVERRIDE;
   virtual std::string GetClassName() const OVERRIDE;
-  virtual void OnPaintFocusBorder(gfx::Canvas* canvas) OVERRIDE;
 
   // Overridden from TextButtonBase:
   virtual void PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) OVERRIDE;
@@ -402,9 +404,6 @@ class VIEWS_EXPORT NativeTextButton : public TextButton {
 
   explicit NativeTextButton(ButtonListener* listener);
   NativeTextButton(ButtonListener* listener, const string16& text);
-
-  // Overridden from View:
-  virtual void OnPaintFocusBorder(gfx::Canvas* canvas) OVERRIDE;
 
   // Overridden from TextButton:
   virtual gfx::Size GetMinimumSize() OVERRIDE;

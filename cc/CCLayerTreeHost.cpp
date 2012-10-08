@@ -82,12 +82,12 @@ bool CCLayerTreeHost::anyLayerTreeHostInstanceExists()
     return numLayerTreeInstances > 0;
 }
 
-PassOwnPtr<CCLayerTreeHost> CCLayerTreeHost::create(CCLayerTreeHostClient* client, const CCLayerTreeSettings& settings)
+scoped_ptr<CCLayerTreeHost> CCLayerTreeHost::create(CCLayerTreeHostClient* client, const CCLayerTreeSettings& settings)
 {
-    OwnPtr<CCLayerTreeHost> layerTreeHost = adoptPtr(new CCLayerTreeHost(client, settings));
+    scoped_ptr<CCLayerTreeHost> layerTreeHost(new CCLayerTreeHost(client, settings));
     if (!layerTreeHost->initialize())
-        return nullptr;
-    return layerTreeHost.release();
+        return scoped_ptr<CCLayerTreeHost>();
+    return layerTreeHost.Pass();
 }
 
 CCLayerTreeHost::CCLayerTreeHost(CCLayerTreeHostClient* client, const CCLayerTreeSettings& settings)
@@ -280,9 +280,9 @@ void CCLayerTreeHost::finishCommitOnImplThread(CCLayerTreeHostImpl* hostImpl)
     m_commitNumber++;
 }
 
-void CCLayerTreeHost::setFontAtlas(PassOwnPtr<CCFontAtlas> fontAtlas)
+void CCLayerTreeHost::setFontAtlas(scoped_ptr<CCFontAtlas> fontAtlas)
 {
-    m_fontAtlas = fontAtlas;
+    m_fontAtlas = fontAtlas.Pass();
     setNeedsCommit();
 }
 
@@ -293,8 +293,8 @@ void CCLayerTreeHost::willCommit()
         if (!m_hudLayer)
             m_hudLayer = HeadsUpDisplayLayerChromium::create();
 
-        if (m_fontAtlas)
-            m_hudLayer->setFontAtlas(m_fontAtlas.release());
+        if (m_fontAtlas.get())
+            m_hudLayer->setFontAtlas(m_fontAtlas.Pass());
 
         if (!m_hudLayer->parent())
             m_rootLayer->addChild(m_hudLayer);
@@ -307,17 +307,17 @@ void CCLayerTreeHost::commitComplete()
     m_client->didCommit();
 }
 
-PassOwnPtr<CCGraphicsContext> CCLayerTreeHost::createContext()
+scoped_ptr<CCGraphicsContext> CCLayerTreeHost::createContext()
 {
     return m_client->createOutputSurface();
 }
 
-PassOwnPtr<CCInputHandler> CCLayerTreeHost::createInputHandler()
+scoped_ptr<CCInputHandler> CCLayerTreeHost::createInputHandler()
 {
     return m_client->createInputHandler();
 }
 
-PassOwnPtr<CCLayerTreeHostImpl> CCLayerTreeHost::createLayerTreeHostImpl(CCLayerTreeHostImplClient* client)
+scoped_ptr<CCLayerTreeHostImpl> CCLayerTreeHost::createLayerTreeHostImpl(CCLayerTreeHostImplClient* client)
 {
     return CCLayerTreeHostImpl::create(m_settings, client);
 }
@@ -346,10 +346,10 @@ void CCLayerTreeHost::finishAllRendering()
     m_proxy->finishAllRendering();
 }
 
-void CCLayerTreeHost::renderingStats(CCRenderingStats& stats) const
+void CCLayerTreeHost::renderingStats(CCRenderingStats* stats) const
 {
-    stats = m_renderingStats;
-    m_proxy->implSideRenderingStats(stats);
+    *stats = m_renderingStats;
+    m_proxy->renderingStats(stats);
 }
 
 const RendererCapabilities& CCLayerTreeHost::rendererCapabilities() const
@@ -392,7 +392,7 @@ void CCLayerTreeHost::didAddAnimation()
     m_proxy->didAddAnimation();
 }
 
-void CCLayerTreeHost::setRootLayer(PassRefPtr<LayerChromium> rootLayer)
+void CCLayerTreeHost::setRootLayer(scoped_refptr<LayerChromium> rootLayer)
 {
     if (m_rootLayer == rootLayer)
         return;
@@ -554,7 +554,7 @@ static void updateLayerScale(LayerChromium* layer, float deviceScaleFactor, floa
     if (replicaMaskLayer)
         setScale(replicaMaskLayer, deviceScaleFactor, pageScaleFactor);
 
-    const Vector<RefPtr<LayerChromium> >& children = layer->children();
+    const std::vector<scoped_refptr<LayerChromium> >& children = layer->children();
     for (unsigned int i = 0; i < children.size(); ++i)
         updateLayerScale(children[i].get(), deviceScaleFactor, pageScaleFactor);
 }
@@ -596,7 +596,7 @@ void CCLayerTreeHost::setPrioritiesForSurfaces(size_t surfaceMemoryBytes)
 void CCLayerTreeHost::setPrioritiesForLayers(const LayerList& updateList)
 {
     // Use BackToFront since it's cheap and this isn't order-dependent.
-    typedef CCLayerIterator<LayerChromium, Vector<RefPtr<LayerChromium> >, RenderSurfaceChromium, CCLayerIteratorActions::BackToFront> CCLayerIteratorType;
+    typedef CCLayerIterator<LayerChromium, LayerList, RenderSurfaceChromium, CCLayerIteratorActions::BackToFront> CCLayerIteratorType;
 
     CCPriorityCalculator calculator;
     CCLayerIteratorType end = CCLayerIteratorType::end(&updateList);
@@ -676,7 +676,7 @@ bool CCLayerTreeHost::paintMasksForRenderSurface(LayerChromium* renderSurfaceLay
 bool CCLayerTreeHost::paintLayerContents(const LayerList& renderSurfaceLayerList, CCTextureUpdateQueue& queue)
 {
     // Use FrontToBack to allow for testing occlusion and performing culling during the tree walk.
-    typedef CCLayerIterator<LayerChromium, Vector<RefPtr<LayerChromium> >, RenderSurfaceChromium, CCLayerIteratorActions::FrontToBack> CCLayerIteratorType;
+    typedef CCLayerIterator<LayerChromium, LayerList, RenderSurfaceChromium, CCLayerIteratorActions::FrontToBack> CCLayerIteratorType;
 
     bool needMoreUpdates = false;
     bool recordMetricsForFrame = true; // FIXME: In the future, disable this when about:tracing is off.

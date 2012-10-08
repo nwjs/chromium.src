@@ -24,7 +24,7 @@
 #include "content/public/browser/web_contents.h"
 #include "sync/api/sync_error.h"
 #include "sync/internal_api/public/base/model_type.h"
-#include "sync/internal_api/public/base/model_type_state_map.h"
+#include "sync/internal_api/public/base/model_type_invalidation_map.h"
 #include "sync/internal_api/public/change_record.h"
 #include "sync/internal_api/public/read_node.h"
 #include "sync/protocol/session_specifics.pb.h"
@@ -45,11 +45,8 @@ static const char kNTPOpenTabSyncURL[] = "chrome://newtab/#open_tabs";
 // from a NavigationController, if it exists. Returns |NULL| otherwise.
 SyncedTabDelegate* ExtractSyncedTabDelegate(
     const content::NotificationSource& source) {
-  TabContents* tab = TabContents::FromWebContents(
+  return TabContentsSyncedTabDelegate::FromWebContents(
       content::Source<NavigationController>(source).ptr()->GetWebContents());
-  if (!tab)
-    return NULL;
-  return tab->synced_tab_delegate();
 }
 
 }  // namespace
@@ -88,7 +85,6 @@ void SessionChangeProcessor::Observe(
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(running());
   DCHECK(profile_);
 
   // Track which windows and/or tabs are modified.
@@ -112,9 +108,9 @@ void SessionChangeProcessor::Observe(
     }
 
     case chrome::NOTIFICATION_TAB_PARENTED: {
-      TabContents* tab_contents = TabContents::FromWebContents(
-          content::Source<WebContents>(source).ptr());
-      SyncedTabDelegate* tab = tab_contents->synced_tab_delegate();
+      WebContents* web_contents = content::Source<WebContents>(source).ptr();
+      SyncedTabDelegate* tab =
+          TabContentsSyncedTabDelegate::FromWebContents(web_contents);
       if (!tab || tab->profile() != profile_) {
         return;
       }
@@ -124,12 +120,9 @@ void SessionChangeProcessor::Observe(
     }
 
     case content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME: {
-      TabContents* tab_contents = TabContents::FromWebContents(
-          content::Source<WebContents>(source).ptr());
-      if (!tab_contents) {
-        return;
-      }
-      SyncedTabDelegate* tab = tab_contents->synced_tab_delegate();
+      WebContents* web_contents = content::Source<WebContents>(source).ptr();
+      SyncedTabDelegate* tab =
+          TabContentsSyncedTabDelegate::FromWebContents(web_contents);
       if (!tab || tab->profile() != profile_) {
         return;
       }
@@ -140,7 +133,8 @@ void SessionChangeProcessor::Observe(
 
     case chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED: {
       TabContents* tab_contents = content::Source<TabContents>(source).ptr();
-      SyncedTabDelegate* tab = tab_contents->synced_tab_delegate();
+      SyncedTabDelegate* tab = TabContentsSyncedTabDelegate::FromWebContents(
+          tab_contents->web_contents());
       if (!tab || tab->profile() != profile_)
         return;
       modified_tabs.push_back(tab);
@@ -187,9 +181,9 @@ void SessionChangeProcessor::Observe(
         return;
       }
       if (extension_tab_helper->extension_app()) {
-        TabContents* tab_contents =
-            TabContents::FromWebContents(extension_tab_helper->web_contents());
-        modified_tabs.push_back(tab_contents->synced_tab_delegate());
+        SyncedTabDelegate* tab = TabContentsSyncedTabDelegate::FromWebContents(
+            extension_tab_helper->web_contents());
+        modified_tabs.push_back(tab);
       }
       DVLOG(1) << "Received TAB_CONTENTS_APPLICATION_EXTENSION_CHANGED "
                << "for profile " << profile_;
@@ -213,13 +207,14 @@ void SessionChangeProcessor::Observe(
         entry->GetVirtualURL().is_valid() &&
         entry->GetVirtualURL().spec() == kNTPOpenTabSyncURL) {
       DVLOG(1) << "Triggering sync refresh for sessions datatype.";
-      const syncer::ModelType type = syncer::SESSIONS;
-      syncer::ModelTypeStateMap state_map;
-      state_map.insert(std::make_pair(type, syncer::InvalidationState()));
+      const syncer::ModelTypeSet types(syncer::SESSIONS);
+      const syncer::ModelTypeInvalidationMap& invalidation_map =
+          ModelTypeSetToInvalidationMap(types, std::string());
       content::NotificationService::current()->Notify(
           chrome::NOTIFICATION_SYNC_REFRESH_LOCAL,
           content::Source<Profile>(profile_),
-          content::Details<const syncer::ModelTypeStateMap>(&state_map));
+          content::Details<const syncer::ModelTypeInvalidationMap>(
+              &invalidation_map));
     }
   }
 
@@ -255,9 +250,6 @@ void SessionChangeProcessor::ApplyChangesFromSyncModel(
     const syncer::BaseTransaction* trans,
     const syncer::ImmutableChangeRecordList& changes) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  if (!running()) {
-    return;
-  }
 
   ScopedStopObserving<SessionChangeProcessor> stop_observing(this);
 
@@ -333,12 +325,6 @@ void SessionChangeProcessor::StartImpl(Profile* profile) {
   DCHECK(profile_ == NULL);
   profile_ = profile;
   StartObserving();
-}
-
-void SessionChangeProcessor::StopImpl() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  StopObserving();
-  profile_ = NULL;
 }
 
 void SessionChangeProcessor::StartObserving() {

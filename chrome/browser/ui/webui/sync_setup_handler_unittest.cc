@@ -26,6 +26,7 @@
 #include "content/public/browser/web_ui.h"
 #include "grit/generated_resources.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/layout.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using ::testing::_;
@@ -256,8 +257,8 @@ class TestWebUI : public content::WebUI {
     return NULL;
   }
   virtual void SetController(content::WebUIController* controller) OVERRIDE {}
-  virtual float GetDeviceScale() const OVERRIDE {
-    return 1.0f;
+  virtual ui::ScaleFactor GetDeviceScaleFactor() const OVERRIDE {
+    return ui::SCALE_FACTOR_100P;
   }
   virtual bool ShouldHideFavicon() const OVERRIDE {
     return false;
@@ -351,26 +352,17 @@ static ProfileKeyedService* BuildSigninManagerMock(Profile* profile) {
 
 // The boolean parameter indicates whether the test is run with ClientOAuth
 // or not.
-class SyncSetupHandlerTest : public testing::TestWithParam<bool> {
+class SyncSetupHandlerTest : public testing::Test {
  public:
   SyncSetupHandlerTest() : error_(GoogleServiceAuthError::NONE) {}
   virtual void SetUp() OVERRIDE {
-    // If the parameter is true, then use ClientOAuth for the tests.  Otherwise
-    // use ClientLogin for the tests.
-    if (GetParam()) {
-      CommandLine::ForCurrentProcess()->AppendSwitch(
-          switches::kEnableClientOAuthSignin);
-    } else {
-      ASSERT_FALSE(CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableClientOAuthSignin));
-    }
-
     error_ = GoogleServiceAuthError::None();
     profile_.reset(ProfileSyncServiceMock::MakeSignedInTestingProfile());
     mock_pss_ = static_cast<ProfileSyncServiceMock*>(
         ProfileSyncServiceFactory::GetInstance()->SetTestingFactoryAndUse(
             profile_.get(),
             ProfileSyncServiceMock::BuildMockProfileSyncService));
+    mock_pss_->Initialize();
     mock_signin_ = static_cast<SigninManagerMock*>(
         SigninManagerFactory::GetInstance()->SetTestingFactoryAndUse(
             profile_.get(), BuildSigninManagerMock));
@@ -428,10 +420,10 @@ class SyncSetupHandlerTest : public testing::TestWithParam<bool> {
   scoped_ptr<TestingSyncSetupHandler> handler_;
 };
 
-TEST_P(SyncSetupHandlerTest, Basic) {
+TEST_F(SyncSetupHandlerTest, Basic) {
 }
 
-TEST_P(SyncSetupHandlerTest, DisplayBasicLogin) {
+TEST_F(SyncSetupHandlerTest, DisplayBasicLogin) {
   EXPECT_CALL(*mock_pss_, IsSyncEnabledAndLoggedIn())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsSyncTokenAvailable())
@@ -459,7 +451,7 @@ TEST_P(SyncSetupHandlerTest, DisplayBasicLogin) {
                 profile_.get())->current_login_ui());
 }
 
-TEST_P(SyncSetupHandlerTest, DisplayForceLogin) {
+TEST_F(SyncSetupHandlerTest, DisplayForceLogin) {
   EXPECT_CALL(*mock_pss_, IsSyncEnabledAndLoggedIn())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsSyncTokenAvailable())
@@ -489,7 +481,7 @@ TEST_P(SyncSetupHandlerTest, DisplayForceLogin) {
                 profile_.get())->current_login_ui());
 }
 
-TEST_P(SyncSetupHandlerTest, DisplayConfigureWithBackendDisabledAndCancel) {
+TEST_F(SyncSetupHandlerTest, DisplayConfigureWithBackendDisabledAndCancel) {
   EXPECT_CALL(*mock_pss_, IsSyncEnabledAndLoggedIn())
       .WillRepeatedly(Return(true));
   EXPECT_CALL(*mock_pss_, IsSyncTokenAvailable())
@@ -517,7 +509,7 @@ TEST_P(SyncSetupHandlerTest, DisplayConfigureWithBackendDisabledAndCancel) {
                 profile_.get())->current_login_ui());
 }
 
-TEST_P(SyncSetupHandlerTest,
+TEST_F(SyncSetupHandlerTest,
        DisplayConfigureWithBackendDisabledAndSigninSuccess) {
   EXPECT_CALL(*mock_pss_, IsSyncEnabledAndLoggedIn())
       .WillRepeatedly(Return(true));
@@ -560,7 +552,7 @@ TEST_P(SyncSetupHandlerTest,
   CheckBool(dictionary, "usePassphrase", false);
 }
 
-TEST_P(SyncSetupHandlerTest,
+TEST_F(SyncSetupHandlerTest,
        DisplayConfigureWithBackendDisabledAndSigninFalied) {
   EXPECT_CALL(*mock_pss_, IsSyncEnabledAndLoggedIn())
       .WillRepeatedly(Return(true));
@@ -587,7 +579,7 @@ TEST_P(SyncSetupHandlerTest,
                 profile_.get())->current_login_ui());
 }
 
-TEST_P(SyncSetupHandlerTest, HandleGaiaAuthFailure) {
+TEST_F(SyncSetupHandlerTest, HandleGaiaAuthFailure) {
   EXPECT_CALL(*mock_pss_, IsSyncEnabledAndLoggedIn())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsSyncTokenAvailable())
@@ -619,7 +611,7 @@ TEST_P(SyncSetupHandlerTest, HandleGaiaAuthFailure) {
       kTestUser, true, "");
 }
 
-TEST_P(SyncSetupHandlerTest, HandleCaptcha) {
+TEST_F(SyncSetupHandlerTest, HandleCaptcha) {
   EXPECT_CALL(*mock_pss_, IsSyncEnabledAndLoggedIn())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsSyncTokenAvailable())
@@ -653,7 +645,7 @@ TEST_P(SyncSetupHandlerTest, HandleCaptcha) {
 }
 
 // TODO(kochi): We need equivalent tests for ChromeOS.
-TEST_P(SyncSetupHandlerTest, UnrecoverableErrorInitializingSync) {
+TEST_F(SyncSetupHandlerTest, UnrecoverableErrorInitializingSync) {
   EXPECT_CALL(*mock_pss_, IsSyncEnabledAndLoggedIn())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsSyncTokenAvailable())
@@ -692,7 +684,7 @@ TEST_P(SyncSetupHandlerTest, UnrecoverableErrorInitializingSync) {
       kTestUser, true, "");
 }
 
-TEST_P(SyncSetupHandlerTest, GaiaErrorInitializingSync) {
+TEST_F(SyncSetupHandlerTest, GaiaErrorInitializingSync) {
   EXPECT_CALL(*mock_pss_, IsSyncEnabledAndLoggedIn())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsSyncTokenAvailable())
@@ -732,7 +724,7 @@ TEST_P(SyncSetupHandlerTest, GaiaErrorInitializingSync) {
       kTestUser, true, "");
 }
 
-TEST_P(SyncSetupHandlerTest, TestSyncEverything) {
+TEST_F(SyncSetupHandlerTest, TestSyncEverything) {
   std::string args = GetConfiguration(
       NULL, SYNC_ALL_DATA, GetAllTypes(), "", ENCRYPT_PASSWORDS);
   ListValue list_args;
@@ -750,7 +742,7 @@ TEST_P(SyncSetupHandlerTest, TestSyncEverything) {
   ExpectDone();
 }
 
-TEST_P(SyncSetupHandlerTest, TurnOnEncryptAll) {
+TEST_F(SyncSetupHandlerTest, TurnOnEncryptAll) {
   std::string args = GetConfiguration(
       NULL, SYNC_ALL_DATA, GetAllTypes(), "", ENCRYPT_ALL_DATA);
   ListValue list_args;
@@ -769,7 +761,7 @@ TEST_P(SyncSetupHandlerTest, TurnOnEncryptAll) {
   ExpectDone();
 }
 
-TEST_P(SyncSetupHandlerTest, TestPassphraseStillRequired) {
+TEST_F(SyncSetupHandlerTest, TestPassphraseStillRequired) {
   std::string args = GetConfiguration(
       NULL, SYNC_ALL_DATA, GetAllTypes(), "", ENCRYPT_PASSWORDS);
   ListValue list_args;
@@ -790,7 +782,7 @@ TEST_P(SyncSetupHandlerTest, TestPassphraseStillRequired) {
   ExpectConfig();
 }
 
-TEST_P(SyncSetupHandlerTest, SuccessfullySetPassphrase) {
+TEST_F(SyncSetupHandlerTest, SuccessfullySetPassphrase) {
   DictionaryValue dict;
   dict.SetBoolean("isGooglePassphrase", true);
   std::string args = GetConfiguration(&dict,
@@ -817,7 +809,7 @@ TEST_P(SyncSetupHandlerTest, SuccessfullySetPassphrase) {
   ExpectDone();
 }
 
-TEST_P(SyncSetupHandlerTest, SelectCustomEncryption) {
+TEST_F(SyncSetupHandlerTest, SelectCustomEncryption) {
   DictionaryValue dict;
   dict.SetBoolean("isGooglePassphrase", false);
   std::string args = GetConfiguration(&dict,
@@ -844,7 +836,7 @@ TEST_P(SyncSetupHandlerTest, SelectCustomEncryption) {
   ExpectDone();
 }
 
-TEST_P(SyncSetupHandlerTest, UnsuccessfullySetPassphrase) {
+TEST_F(SyncSetupHandlerTest, UnsuccessfullySetPassphrase) {
   DictionaryValue dict;
   dict.SetBoolean("isGooglePassphrase", true);
   std::string args = GetConfiguration(&dict,
@@ -881,7 +873,7 @@ TEST_P(SyncSetupHandlerTest, UnsuccessfullySetPassphrase) {
 
 // Walks through each user selectable type, and tries to sync just that single
 // data type.
-TEST_P(SyncSetupHandlerTest, TestSyncIndividualTypes) {
+TEST_F(SyncSetupHandlerTest, TestSyncIndividualTypes) {
   for (size_t i = 0; i < arraysize(kUserSelectableTypes); ++i) {
     syncer::ModelTypeSet type_to_set;
     type_to_set.Put(kUserSelectableTypes[i]);
@@ -904,7 +896,7 @@ TEST_P(SyncSetupHandlerTest, TestSyncIndividualTypes) {
   }
 }
 
-TEST_P(SyncSetupHandlerTest, TestSyncAllManually) {
+TEST_F(SyncSetupHandlerTest, TestSyncAllManually) {
   std::string args = GetConfiguration(
       NULL, CHOOSE_WHAT_TO_SYNC, GetAllTypes(), "", ENCRYPT_PASSWORDS);
   ListValue list_args;
@@ -921,7 +913,7 @@ TEST_P(SyncSetupHandlerTest, TestSyncAllManually) {
   ExpectDone();
 }
 
-TEST_P(SyncSetupHandlerTest, ShowSyncSetup) {
+TEST_F(SyncSetupHandlerTest, ShowSyncSetup) {
   EXPECT_CALL(*mock_pss_, IsPassphraseRequired())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsUsingSecondaryPassphrase())
@@ -934,7 +926,7 @@ TEST_P(SyncSetupHandlerTest, ShowSyncSetup) {
   ExpectConfig();
 }
 
-TEST_P(SyncSetupHandlerTest, ShowSyncSetupWithAuthError) {
+TEST_F(SyncSetupHandlerTest, ShowSyncSetupWithAuthError) {
   // Initialize the system to a signed in state, but with an auth error.
   error_ = GoogleServiceAuthError(
       GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS);
@@ -972,7 +964,7 @@ TEST_P(SyncSetupHandlerTest, ShowSyncSetupWithAuthError) {
                          "");
 }
 
-TEST_P(SyncSetupHandlerTest, ShowSetupSyncEverything) {
+TEST_F(SyncSetupHandlerTest, ShowSetupSyncEverything) {
   EXPECT_CALL(*mock_pss_, IsPassphraseRequired())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsUsingSecondaryPassphrase())
@@ -1004,7 +996,7 @@ TEST_P(SyncSetupHandlerTest, ShowSetupSyncEverything) {
   CheckConfigDataTypeArguments(dictionary, SYNC_ALL_DATA, GetAllTypes());
 }
 
-TEST_P(SyncSetupHandlerTest, ShowSetupManuallySyncAll) {
+TEST_F(SyncSetupHandlerTest, ShowSetupManuallySyncAll) {
   EXPECT_CALL(*mock_pss_, IsPassphraseRequired())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsUsingSecondaryPassphrase())
@@ -1023,7 +1015,7 @@ TEST_P(SyncSetupHandlerTest, ShowSetupManuallySyncAll) {
   CheckConfigDataTypeArguments(dictionary, CHOOSE_WHAT_TO_SYNC, GetAllTypes());
 }
 
-TEST_P(SyncSetupHandlerTest, ShowSetupSyncForAllTypesIndividually) {
+TEST_F(SyncSetupHandlerTest, ShowSetupSyncForAllTypesIndividually) {
   for (size_t i = 0; i < arraysize(kUserSelectableTypes); ++i) {
     EXPECT_CALL(*mock_pss_, IsPassphraseRequired())
         .WillRepeatedly(Return(false));
@@ -1055,7 +1047,7 @@ TEST_P(SyncSetupHandlerTest, ShowSetupSyncForAllTypesIndividually) {
   }
 }
 
-TEST_P(SyncSetupHandlerTest, ShowSetupGaiaPassphraseRequired) {
+TEST_F(SyncSetupHandlerTest, ShowSetupGaiaPassphraseRequired) {
   EXPECT_CALL(*mock_pss_, IsPassphraseRequired())
       .WillRepeatedly(Return(true));
   EXPECT_CALL(*mock_pss_, IsUsingSecondaryPassphrase())
@@ -1075,7 +1067,7 @@ TEST_P(SyncSetupHandlerTest, ShowSetupGaiaPassphraseRequired) {
   CheckBool(dictionary, "passphraseFailed", false);
 }
 
-TEST_P(SyncSetupHandlerTest, ShowSetupCustomPassphraseRequired) {
+TEST_F(SyncSetupHandlerTest, ShowSetupCustomPassphraseRequired) {
   EXPECT_CALL(*mock_pss_, IsPassphraseRequired())
       .WillRepeatedly(Return(true));
   EXPECT_CALL(*mock_pss_, IsUsingSecondaryPassphrase())
@@ -1095,7 +1087,7 @@ TEST_P(SyncSetupHandlerTest, ShowSetupCustomPassphraseRequired) {
   CheckBool(dictionary, "passphraseFailed", false);
 }
 
-TEST_P(SyncSetupHandlerTest, ShowSetupEncryptAll) {
+TEST_F(SyncSetupHandlerTest, ShowSetupEncryptAll) {
   EXPECT_CALL(*mock_pss_, IsPassphraseRequired())
       .WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_pss_, IsUsingSecondaryPassphrase())
@@ -1117,7 +1109,7 @@ TEST_P(SyncSetupHandlerTest, ShowSetupEncryptAll) {
 
 // Tests that trying to log in with an invalid username results in an error
 // displayed to the user.
-TEST_P(SyncSetupHandlerTest, SubmitAuthWithInvalidUsername) {
+TEST_F(SyncSetupHandlerTest, SubmitAuthWithInvalidUsername) {
   EXPECT_CALL(*mock_signin_, IsAllowedUsername(_)).
       WillRepeatedly(Return(false));
 
@@ -1156,6 +1148,3 @@ TEST_P(SyncSetupHandlerTest, SubmitAuthWithInvalidUsername) {
             LoginUIServiceFactory::GetForProfile(
                 profile_.get())->current_login_ui());
 }
-
-INSTANTIATE_TEST_CASE_P(SyncSetupHandlerTest, SyncSetupHandlerTest,
-                        Values(true, false));

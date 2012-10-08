@@ -10,6 +10,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/test/gpu/gpu_test_config.h"
 #include "content/test/gpu/gpu_test_expectations_parser.h"
 #include "net/base/net_util.h"
@@ -58,7 +59,7 @@ class WebGLConformanceTests : public InProcessBrowserTest {
       return;
     }
 
-    ui_test_utils::DOMMessageQueue message_queue;
+    content::DOMMessageQueue message_queue;
     ui_test_utils::NavigateToURL(browser(), net::FilePathToFileURL(test_path_));
     ui_test_utils::NavigateToURL(
         browser(), GURL("javascript:start('" + url + "');"));

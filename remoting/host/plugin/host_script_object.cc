@@ -27,7 +27,6 @@
 #include "remoting/host/it2me_host_user_interface.h"
 #include "remoting/host/network_settings.h"
 #include "remoting/host/pin_hash.h"
-#include "remoting/host/plugin/daemon_controller.h"
 #include "remoting/host/plugin/host_log_handler.h"
 #include "remoting/host/policy_hack/policy_watcher.h"
 #include "remoting/host/register_support_host_request.h"
@@ -94,10 +93,7 @@ HostNPScriptObject::HostNPScriptObject(
       np_thread_id_(base::PlatformThread::CurrentId()),
       plugin_task_runner_(
           new PluginThreadTaskRunner(plugin_thread_delegate)),
-      desktop_environment_factory_(new DesktopEnvironmentFactory()),
       failed_login_attempts_(0),
-      disconnected_event_(true, false),
-      stopped_event_(true, false),
       nat_traversal_enabled_(false),
       policy_received_(false),
       daemon_controller_(DaemonController::Create()),
@@ -110,12 +106,6 @@ HostNPScriptObject::~HostNPScriptObject() {
 
   HostLogHandler::UnregisterLoggingScriptObject(this);
 
-  // Stop the message loop. Any attempt to post a task to
-  // |context_.ui_task_runner()| will result in a CHECK() after this point.
-  // TODO(alexeypa): Enable posting messages to |plugin_task_runner_| during
-  // shutdown to avoid this hack.
-  plugin_task_runner_->Detach();
-
   // Stop listening for policy updates.
   if (policy_watcher_.get()) {
     base::WaitableEvent policy_watcher_stopped_(true, false);
@@ -125,35 +115,17 @@ HostNPScriptObject::~HostNPScriptObject() {
   }
 
   if (host_context_.get()) {
-    // Disconnect synchronously. We cannot disconnect asynchronously
-    // here because |host_context_| needs to be stopped on the plugin
-    // thread, but the plugin thread may not exist after the instance
-    // is destroyed.
-    disconnected_event_.Reset();
     DisconnectInternal();
-
-    // |disconnected_event_| is signalled when the host is completely stopped.
-    disconnected_event_.Wait();
-
-    // UI needs to be shut down on the UI thread before we destroy the
-    // host context (because it depends on the context object), but
-    // only after the host has been shut down (becase the UI object is
-    // registered as status observer for the host, and we can't
-    // unregister it from this thread).
-    it2me_host_user_interface_.reset();
-
-    // Release the context's TaskRunner references for the threads, so they can
-    // exit when no objects need them.
-    host_context_->ReleaseTaskRunners();
-
-    // |stopped_event_| is signalled when the last reference to the plugin
-    // thread is dropped.
-    stopped_event_.Wait();
-
-    // Stop all threads.
-    host_context_.reset();
+  } else {
+    plugin_task_runner_->Quit();
   }
 
+  // Stop the message loop and run the remaining tasks. The loop will exit
+  // once the wrapping AutoThreadTaskRunner is destroyed.
+  plugin_task_runner_->DetachAndRunShutdownLoop();
+
+  // Stop all threads.
+  host_context_.reset();
   worker_thread_.Stop();
 }
 
@@ -161,15 +133,23 @@ bool HostNPScriptObject::Init() {
   DCHECK(plugin_task_runner_->BelongsToCurrentThread());
   VLOG(2) << "Init";
 
-  host_context_.reset(new ChromotingHostContext(new AutoThreadTaskRunner(
-      plugin_task_runner_,
-      base::Bind(&base::WaitableEvent::Signal,
-                 base::Unretained(&stopped_event_)))));
+  // Create threads for the Chromoting host & desktop environment to use.
+  scoped_refptr<AutoThreadTaskRunner> auto_plugin_task_runner =
+      new AutoThreadTaskRunner(plugin_task_runner_,
+                               base::Bind(&PluginThreadTaskRunner::Quit,
+                                          plugin_task_runner_));
+  host_context_.reset(new ChromotingHostContext(auto_plugin_task_runner));
+  auto_plugin_task_runner = NULL;
   if (!host_context_->Start()) {
     host_context_.reset();
     return false;
   }
 
+  // Create the desktop environment factory.
+  desktop_environment_factory_.reset(new DesktopEnvironmentFactory(
+      host_context_->input_task_runner(), host_context_->ui_task_runner()));
+
+  // Start monitoring configured policies.
   policy_watcher_.reset(
       policy_hack::PolicyWatcher::Create(host_context_->network_task_runner()));
   policy_watcher_->StartWatching(
@@ -586,10 +566,13 @@ void HostNPScriptObject::FinishConnect(
 
   // Create the host.
   host_ = new ChromotingHost(
-      host_context_.get(), signal_strategy_.get(),
+      signal_strategy_.get(),
       desktop_environment_factory_.get(),
       CreateHostSessionManager(network_settings,
-                               host_context_->url_request_context_getter()));
+                               host_context_->url_request_context_getter()),
+      host_context_->capture_task_runner(),
+      host_context_->encode_task_runner(),
+      host_context_->network_task_runner());
   host_->AddStatusObserver(this);
   log_to_server_.reset(
       new LogToServer(host_, ServerLogEntry::IT2ME, signal_strategy_.get()));
@@ -880,6 +863,9 @@ bool HostNPScriptObject::StopDaemon(const NPVariant* args,
 }
 
 void HostNPScriptObject::DisconnectInternal() {
+  if (!host_context_->network_task_runner())
+    return;
+
   if (!host_context_->network_task_runner()->BelongsToCurrentThread()) {
     host_context_->network_task_runner()->PostTask(
         FROM_HERE, base::Bind(&HostNPScriptObject::DisconnectInternal,
@@ -889,13 +875,13 @@ void HostNPScriptObject::DisconnectInternal() {
 
   switch (state_) {
     case kDisconnected:
-      disconnected_event_.Signal();
+      OnShutdownFinished();
       return;
 
     case kStarting:
       SetState(kDisconnecting);
       SetState(kDisconnected);
-      disconnected_event_.Signal();
+      OnShutdownFinished();
       return;
 
     case kDisconnecting:
@@ -922,9 +908,26 @@ void HostNPScriptObject::DisconnectInternal() {
 }
 
 void HostNPScriptObject::OnShutdownFinished() {
-  DCHECK(host_context_->network_task_runner()->BelongsToCurrentThread());
+  if (!host_context_->ui_task_runner()->BelongsToCurrentThread()) {
+    host_context_->ui_task_runner()->PostTask(
+        FROM_HERE, base::Bind(&HostNPScriptObject::OnShutdownFinished,
+                              base::Unretained(this)));
+    return;
+  }
 
-  disconnected_event_.Signal();
+  // UI needs to be shut down on the UI thread before we destroy the
+  // host context (because it depends on the context object), but
+  // only after the host has been shut down (becase the UI object is
+  // registered as status observer for the host, and we can't
+  // unregister it from this thread).
+  it2me_host_user_interface_.reset();
+
+  // Destroy the DesktopEnvironmentFactory, to free thread references.
+  desktop_environment_factory_.reset();
+
+  // Release the context's TaskRunner references for the threads, so they can
+  // exit when no objects need them.
+  host_context_->ReleaseTaskRunners();
 }
 
 void HostNPScriptObject::OnPolicyUpdate(

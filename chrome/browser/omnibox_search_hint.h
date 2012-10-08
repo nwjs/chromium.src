@@ -9,7 +9,7 @@
 #include <string>
 
 #include "base/compiler_specific.h"
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
@@ -47,7 +47,6 @@ class OmniboxSearchHint : public content::NotificationObserver,
 
  private:
   explicit OmniboxSearchHint(content::WebContents* web_contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<OmniboxSearchHint>;
 
   void ShowInfoBar();

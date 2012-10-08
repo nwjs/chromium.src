@@ -81,6 +81,8 @@ class LocationBarViewMac : public LocationBar,
   virtual ExtensionAction* GetPageAction(size_t index) OVERRIDE;
   virtual ExtensionAction* GetVisiblePageAction(size_t index) OVERRIDE;
   virtual void TestPageActionPressed(size_t index) OVERRIDE;
+  virtual void TestActionBoxMenuItemSelected(int command_id) OVERRIDE;
+  virtual bool GetBookmarkStarVisibility() OVERRIDE;
 
   // Set/Get the editable state of the field.
   void SetEditable(bool editable);
@@ -177,6 +179,8 @@ class LocationBarViewMac : public LocationBar,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  Browser* browser() const { return browser_; }
 
  private:
   // Posts |notification| to the default notification center.

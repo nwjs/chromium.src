@@ -11,6 +11,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/memory/ref_counted_memory.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
@@ -44,7 +45,6 @@
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "webkit/plugins/npapi/plugin_group.h"
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/ui/webui/chromeos/ui_account_tweaks.h"
@@ -53,7 +53,6 @@
 using content::PluginService;
 using content::WebContents;
 using content::WebUIMessageHandler;
-using webkit::npapi::PluginGroup;
 using webkit::WebPluginInfo;
 
 namespace {
@@ -78,6 +77,8 @@ ChromeWebUIDataSource* CreatePluginsUIHTMLSource() {
                              IDS_PLUGINS_DISABLED_BY_POLICY_PLUGIN);
   source->AddLocalizedString("pluginEnabledByPolicy",
                              IDS_PLUGINS_ENABLED_BY_POLICY_PLUGIN);
+  source->AddLocalizedString("pluginGroupManagedByPolicy",
+                             IDS_PLUGINS_GROUP_MANAGED_BY_POLICY);
   source->AddLocalizedString("pluginDownload", IDS_PLUGINS_DOWNLOAD);
   source->AddLocalizedString("pluginName", IDS_PLUGINS_NAME);
   source->AddLocalizedString("pluginVersion", IDS_PLUGINS_VERSION);
@@ -249,7 +250,7 @@ void PluginsDOMHandler::HandleEnablePluginMessage(const ListValue* args) {
     if (enable) {
       // See http://crbug.com/50105 for background.
       string16 adobereader = ASCIIToUTF16(
-          PluginGroup::kAdobeReaderGroupName);
+          PluginMetadata::kAdobeReaderGroupName);
       string16 internalpdf =
           ASCIIToUTF16(chrome::ChromeContentClient::kPDFPluginName);
       if (group_name == adobereader)
@@ -339,7 +340,8 @@ void PluginsDOMHandler::PluginsLoaded(
   // the plug-ins in UI in a grouped fashion.
   PluginGroups groups;
   for (size_t i = 0; i < plugins.size(); ++i) {
-    PluginMetadata* plugin = plugin_finder->GetPluginMetadata(plugins[i]);
+    scoped_ptr<PluginMetadata> plugin(
+        plugin_finder->GetPluginMetadata(plugins[i]));
     groups[plugin->identifier()].push_back(&plugins[i]);
   }
 
@@ -349,13 +351,14 @@ void PluginsDOMHandler::PluginsLoaded(
       it != groups.end(); ++it) {
     const std::vector<const WebPluginInfo*>& group_plugins = it->second;
     ListValue* plugin_files = new ListValue();
-    PluginMetadata* plugin_metadata =
-        plugin_finder->GetPluginMetadata(*group_plugins[0]);
+    scoped_ptr<PluginMetadata> plugin_metadata(
+        plugin_finder->GetPluginMetadata(*group_plugins[0]));
     string16 group_name = plugin_metadata->name();
     std::string group_identifier = plugin_metadata->identifier();
     bool group_enabled = false;
     bool all_plugins_enabled_by_policy = true;
     bool all_plugins_disabled_by_policy = true;
+    bool all_plugins_managed_by_policy = true;
     const WebPluginInfo* active_plugin = NULL;
     for (size_t j = 0; j < group_plugins.size(); ++j) {
       const WebPluginInfo& group_plugin = *group_plugins[j];
@@ -394,12 +397,15 @@ void PluginsDOMHandler::PluginsLoaded(
 
       std::string enabled_mode;
       PluginPrefs::PolicyStatus plugin_status =
-          plugin_prefs->PolicyStatusForPlugin(group_plugin.name);
+          plugin_prefs->PolicyStatusForPlugin(group_plugin.name,
+                                              group_plugin.version);
       PluginPrefs::PolicyStatus group_status =
-          plugin_prefs->PolicyStatusForPlugin(group_name);
+          plugin_prefs->PolicyStatusForPlugin(group_name, group_plugin.version);
+
       if (plugin_status == PluginPrefs::POLICY_ENABLED ||
           group_status == PluginPrefs::POLICY_ENABLED) {
         enabled_mode = "enabledByPolicy";
+        all_plugins_disabled_by_policy = false;
       } else {
         all_plugins_enabled_by_policy = false;
         if (plugin_status == PluginPrefs::POLICY_DISABLED ||
@@ -407,6 +413,7 @@ void PluginsDOMHandler::PluginsLoaded(
           enabled_mode = "disabledByPolicy";
         } else {
           all_plugins_disabled_by_policy = false;
+          all_plugins_managed_by_policy = false;
           if (plugin_enabled) {
             enabled_mode = "enabledByUser";
           } else {
@@ -438,6 +445,8 @@ void PluginsDOMHandler::PluginsLoaded(
       enabled_mode = "enabledByPolicy";
     } else if (all_plugins_disabled_by_policy) {
       enabled_mode = "disabledByPolicy";
+    } else if (all_plugins_managed_by_policy) {
+      enabled_mode = "managedByPolicy";
     } else if (group_enabled) {
       enabled_mode = "enabledByUser";
     } else {
@@ -487,9 +496,6 @@ base::RefCountedMemory* PluginsUI::GetFaviconResourceBytes(
 void PluginsUI::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterBooleanPref(prefs::kPluginsShowDetails,
                              false,
-                             PrefService::UNSYNCABLE_PREF);
-  prefs->RegisterBooleanPref(prefs::kPluginsShowSetReaderDefaultInfobar,
-                             true,
                              PrefService::UNSYNCABLE_PREF);
   prefs->RegisterDictionaryPref(prefs::kContentSettingsPluginWhitelist,
                                 PrefService::SYNCABLE_PREF);

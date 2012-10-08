@@ -25,7 +25,8 @@ class BrowserListTabContentsProvider
   // DevToolsHttpProtocolHandler::Delegate overrides.
   virtual std::string GetDiscoveryPageHTML() OVERRIDE;
   virtual bool BundlesFrontendResources() OVERRIDE;
-  virtual std::string GetFrontendResourcesBaseURL() OVERRIDE;
+  virtual FilePath GetDebugFrontendDir() OVERRIDE;
+  virtual std::string GetPageThumbnailData(const GURL& url) OVERRIDE;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BrowserListTabContentsProvider);

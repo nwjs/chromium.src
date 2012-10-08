@@ -21,6 +21,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/time_format.h"
@@ -153,7 +154,8 @@ void NetworkMessageObserver::OpenMobileSetupPage(
 
 void NetworkMessageObserver::OpenMoreInfoPage(const ListValue* args) {
   Browser* browser = browser::FindOrCreateTabbedBrowser(
-      ProfileManager::GetDefaultProfileOrOffTheRecord());
+      ProfileManager::GetDefaultProfileOrOffTheRecord(),
+      chrome::HOST_DESKTOP_TYPE_ASH);
   chromeos::NetworkLibrary* lib =
       chromeos::CrosLibrary::Get()->GetNetworkLibrary();
   const chromeos::CellularNetwork* cellular = lib->cellular_network();
@@ -279,6 +281,7 @@ void NetworkMessageObserver::OnNetworkManagerChanged(NetworkLibrary* cros) {
 
   // Show connection error notification if necessary.
   if (new_failed_network) {
+    VLOG(1) << "Failed Network: " << new_failed_network->service_path();
     notification_connection_error_->ShowAlways(
         l10n_util::GetStringFUTF16(
             IDS_NETWORK_CONNECTION_ERROR_MESSAGE_WITH_DETAILS,

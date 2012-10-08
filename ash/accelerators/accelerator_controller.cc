@@ -332,7 +332,12 @@ bool HandlePrintWindowHierarchy() {
 // AcceleratorController, public:
 
 AcceleratorController::AcceleratorController()
-    : accelerator_manager_(new ui::AcceleratorManager) {
+    : accelerator_manager_(new ui::AcceleratorManager),
+      toggle_maximized_suppressed_(false),
+      cycle_backward_linear_suppressed_(false),
+      cycle_forward_linear_suppressed_(false),
+      cycle_backward_mru_suppressed_(false),
+      cycle_forward_mru_suppressed_(false) {
   Init();
 }
 
@@ -393,9 +398,6 @@ bool AcceleratorController::IsReservedAccelerator(
   const ui::Accelerator remapped_accelerator = ime_control_delegate_.get() ?
       ime_control_delegate_->RemapAccelerator(accelerator) : accelerator;
 
-  if (!accelerator_manager_->ShouldHandle(remapped_accelerator))
-    return false;
-
   std::map<ui::Accelerator, int>::const_iterator iter =
       accelerators_.find(remapped_accelerator);
   if (iter == accelerators_.end())
@@ -425,29 +427,57 @@ bool AcceleratorController::PerformAction(int action,
   }
   const ui::KeyboardCode key_code = accelerator.key_code();
 
+  const ui::AcceleratorManagerContext& context =
+      accelerator_manager_->GetContext();
+  const ui::EventType last_event_type = context.GetLastEventType();
+
   // You *MUST* return true when some action is performed. Otherwise, this
   // function might be called *twice*, via BrowserView::PreHandleKeyboardEvent
   // and BrowserView::HandleKeyboardEvent, for a single accelerator press.
   switch (action) {
-    case CYCLE_BACKWARD_MRU:
+    case CYCLE_BACKWARD_MRU_PRESSED:
+      if (cycle_backward_mru_suppressed_)
+        return true;
+      cycle_backward_mru_suppressed_ = true;
       if (key_code == ui::VKEY_TAB && shell->delegate())
         shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_PREVWINDOW_TAB);
       return HandleCycleWindowMRU(WindowCycleController::BACKWARD,
                                   accelerator.IsAltDown());
-    case CYCLE_FORWARD_MRU:
+    case CYCLE_BACKWARD_MRU_RELEASED:
+      cycle_backward_mru_suppressed_ = false;
+      return true;
+    case CYCLE_FORWARD_MRU_PRESSED:
+      if (cycle_forward_mru_suppressed_)
+        return true;
+      cycle_forward_mru_suppressed_ = true;
       if (key_code == ui::VKEY_TAB && shell->delegate())
         shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_NEXTWINDOW_TAB);
       return HandleCycleWindowMRU(WindowCycleController::FORWARD,
                                   accelerator.IsAltDown());
-    case CYCLE_BACKWARD_LINEAR:
+    case CYCLE_FORWARD_MRU_RELEASED:
+      cycle_forward_mru_suppressed_ = false;
+      return true;
+    case CYCLE_BACKWARD_LINEAR_PRESSED:
+      if (cycle_backward_linear_suppressed_)
+        return true;
+      cycle_backward_linear_suppressed_ = true;
       if (key_code == ui::VKEY_F5 && shell->delegate())
         shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_PREVWINDOW_F5);
       HandleCycleWindowLinear(CYCLE_BACKWARD);
       return true;
-    case CYCLE_FORWARD_LINEAR:
+    case CYCLE_BACKWARD_LINEAR_RELEASED:
+      cycle_backward_linear_suppressed_ = false;
+      return true;
+    case CYCLE_FORWARD_LINEAR_PRESSED:
+      if (cycle_forward_linear_suppressed_)
+        return true;
+      cycle_forward_linear_suppressed_ = true;
       if (key_code == ui::VKEY_F5 && shell->delegate())
         shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_NEXTWINDOW_F5);
       HandleCycleWindowLinear(CYCLE_FORWARD);
+      return true;
+    case CYCLE_FORWARD_LINEAR_RELEASED:
+      cycle_forward_linear_suppressed_ = false;
       return true;
 #if defined(OS_CHROMEOS)
     case CYCLE_DISPLAY_MODE:
@@ -513,6 +543,11 @@ bool AcceleratorController::PerformAction(int action,
       ash::Shell::GetInstance()->ToggleAppList();
       return true;
     case DISABLE_CAPS_LOCK:
+      // See: case NEXT_IME.
+      if (last_event_type == ui::ET_KEY_RELEASED) {
+        // We totally ignore this accelerator.
+        return false;
+      }
       if (shell->caps_lock_delegate()->IsCapsLockEnabled())
         shell->caps_lock_delegate()->SetCapsLockEnabled(false);
       return true;
@@ -575,6 +610,14 @@ bool AcceleratorController::PerformAction(int action,
     case SHOW_TASK_MANAGER:
       return HandleShowTaskManager();
     case NEXT_IME:
+      // This check is necessary e.g. not to process the Shift+Alt+
+      // ET_KEY_RELEASED accelerator for Chrome OS (see ash/accelerators/
+      // accelerator_controller.cc) when Shift+Alt+Tab is pressed and then Tab
+      // is released.
+      if (last_event_type == ui::ET_KEY_RELEASED) {
+        // We totally ignore this accelerator.
+        return false;
+      }
       if (ime_control_delegate_.get())
         return ime_control_delegate_->HandleNextIme();
       break;
@@ -660,7 +703,12 @@ bool AcceleratorController::PerformAction(int action,
       }
       break;
     }
-    case TOGGLE_MAXIMIZED: {
+    case TOGGLE_MAXIMIZED_PRESSED: {
+      // We do not want to toggle maximization on the acceleration key
+      // repeating.
+      if (toggle_maximized_suppressed_)
+        return true;
+      toggle_maximized_suppressed_ = true;
       if (key_code == ui::VKEY_F4 && shell->delegate()) {
         shell->delegate()->RecordUserMetricsAction(
             UMA_ACCEL_MAXIMIZE_RESTORE_F4);
@@ -678,6 +726,10 @@ bool AcceleratorController::PerformAction(int action,
         wm::RestoreWindow(window);
       else if (wm::CanMaximizeWindow(window))
         wm::MaximizeWindow(window);
+      return true;
+    }
+    case TOGGLE_MAXIMIZED_RELEASED: {
+      toggle_maximized_suppressed_ = false;
       return true;
     }
     case WINDOW_POSITION_CENTER: {
@@ -731,9 +783,13 @@ bool AcceleratorController::PerformAction(int action,
 
 void AcceleratorController::SetBrightnessControlDelegate(
     scoped_ptr<BrightnessControlDelegate> brightness_control_delegate) {
-  // TODO(oshima): Show brightness control regardless of display type
-  // temporarily. crbug.com/152003.
-  brightness_control_delegate_.swap(brightness_control_delegate);
+  internal::MultiDisplayManager* display_manager =
+      static_cast<internal::MultiDisplayManager*>(
+          aura::Env::GetInstance()->display_manager());
+  // Install brightness control delegate only when internal
+  // display exists.
+  if (display_manager->HasInternalDisplay())
+    brightness_control_delegate_.swap(brightness_control_delegate);
 }
 
 void AcceleratorController::SetImeControlDelegate(

@@ -49,7 +49,7 @@ void FakeLayerTextureUpdater::prepareToUpdate(const IntRect& contentRect, const 
     if (!m_rectToInvalidate.isEmpty()) {
         m_layer->invalidateContentRect(m_rectToInvalidate);
         m_rectToInvalidate = IntRect();
-        m_layer = 0;
+        m_layer = NULL;
     }
     resultingOpaqueRect = m_opaquePaintRect;
 }
@@ -95,6 +95,10 @@ FakeTiledLayerWithScaledBounds::FakeTiledLayerWithScaledBounds(CCPrioritizedText
 {
 }
 
+FakeTiledLayerWithScaledBounds::~FakeTiledLayerWithScaledBounds()
+{
+}
+
 FakeTiledLayerChromium::~FakeTiledLayerChromium()
 {
 }
@@ -137,9 +141,13 @@ cc::IntSize FakeTiledLayerWithScaledBounds::contentBounds() const
     return m_forcedContentBounds;
 }
 
-bool FakeTextureUploader::isBusy()
+size_t FakeTextureUploader::numBlockingUploads()
 {
-    return false;
+    return 0;
+}
+
+void FakeTextureUploader::markPendingUploadsAsNonBlocking()
+{
 }
 
 void FakeTextureUploader::uploadTexture(cc::CCResourceProvider* resourceProvider, Parameters upload)

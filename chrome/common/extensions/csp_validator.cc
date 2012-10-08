@@ -61,7 +61,7 @@ bool HasOnlySecureTokens(StringTokenizer& tokenizer, Extension::Type type) {
 
     // crbug.com/146487
     if (type == Extension::TYPE_EXTENSION ||
-        type == Extension::TYPE_PACKAGED_APP) {
+        type == Extension::TYPE_LEGACY_PACKAGED_APP) {
       if (source == "'unsafe-eval'")
         continue;
     }
@@ -169,10 +169,9 @@ bool ContentSecurityPolicyIsSandboxed(
       if (token == kAllowSameOriginToken)
         return false;
 
-      // Platform apps don't allow navigation (and have a separate windowing
-      // API that should be used for popups)
+      // Platform apps don't allow navigation.
       if (type == Extension::TYPE_PLATFORM_APP) {
-        if (token == kAllowTopNavigation || token == kAllowPopups)
+        if (token == kAllowTopNavigation)
           return false;
       }
     }

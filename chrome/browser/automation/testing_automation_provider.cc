@@ -103,6 +103,7 @@
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/fullscreen/fullscreen_controller.h"
 #include "chrome/browser/ui/fullscreen/fullscreen_exit_bubble_type.h"
+#include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/login/login_prompt.h"
 #include "chrome/browser/ui/media_stream_infobar_delegate.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
@@ -220,24 +221,6 @@ void DidEnablePlugin(base::WeakPtr<AutomationProvider> automation,
 // Helper to resolve the overloading of PostTask.
 void PostTask(BrowserThread::ID id, const base::Closure& callback) {
   BrowserThread::PostTask(id, FROM_HERE, callback);
-}
-
-void SendMouseClick(int flags) {
-  ui_controls::MouseButton button = ui_controls::LEFT;
-  if ((flags & ui::EF_LEFT_MOUSE_BUTTON) ==
-      ui::EF_LEFT_MOUSE_BUTTON) {
-    button = ui_controls::LEFT;
-  } else if ((flags & ui::EF_RIGHT_MOUSE_BUTTON) ==
-             ui::EF_RIGHT_MOUSE_BUTTON) {
-    button = ui_controls::RIGHT;
-  } else if ((flags & ui::EF_MIDDLE_MOUSE_BUTTON) ==
-             ui::EF_MIDDLE_MOUSE_BUTTON) {
-    button = ui_controls::MIDDLE;
-  } else {
-    NOTREACHED();
-  }
-
-  ui_controls::SendMouseClick(button);
 }
 
 class AutomationInterstitialPage : public content::InterstitialPageDelegate {
@@ -1108,7 +1091,8 @@ void TestingAutomationProvider::OpenNewBrowserWindowWithNewProfile(
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   new BrowserOpenedWithNewProfileNotificationObserver(this, reply_message);
   profile_manager->CreateMultiProfileAsync(
-      string16(), string16(), ProfileManager::CreateCallback());
+      string16(), string16(), ProfileManager::CreateCallback(),
+      chrome::HOST_DESKTOP_TYPE_NATIVE);
 }
 
 // Sample json input: { "command": "GetMultiProfileInfo" }
@@ -1213,7 +1197,8 @@ void TestingAutomationProvider::OpenProfileWindow(
       profile,
       chrome::startup::IS_NOT_PROCESS_STARTUP,
       chrome::startup::IS_NOT_FIRST_RUN,
-      0);
+      chrome::HOST_DESKTOP_TYPE_NATIVE,
+      false);
   }
 
 void TestingAutomationProvider::GetWindowForBrowser(int browser_handle,
@@ -3415,7 +3400,7 @@ void TestingAutomationProvider::ImportSettings(Browser* browser,
 namespace {
 
 // Translates a dictionary password to a PasswordForm struct.
-webkit::forms::PasswordForm GetPasswordFormFromDict(
+content::PasswordForm GetPasswordFormFromDict(
     const DictionaryValue& password_dict) {
 
   // If the time is specified, change time to the specified time.
@@ -3455,7 +3440,7 @@ webkit::forms::PasswordForm GetPasswordFormFromDict(
   GURL origin_gurl(origin_url_text);
   GURL action_target(action_target_text);
 
-  webkit::forms::PasswordForm password_form;
+  content::PasswordForm password_form;
   password_form.signon_realm = signon_realm;
   password_form.username_value = username_value;
   password_form.password_value = password_value;
@@ -3494,7 +3479,7 @@ void TestingAutomationProvider::AddSavedPassword(
     return;
   }
 
-  webkit::forms::PasswordForm new_password =
+  content::PasswordForm new_password =
       GetPasswordFormFromDict(*password_dict);
 
   // Use IMPLICIT_ACCESS since new passwords aren't added in incognito mode.
@@ -3540,7 +3525,7 @@ void TestingAutomationProvider::RemoveSavedPassword(
         "Password must include a value for 'signon_realm.'");
     return;
   }
-  webkit::forms::PasswordForm to_remove =
+  content::PasswordForm to_remove =
       GetPasswordFormFromDict(*password_dict);
 
   // Use EXPLICIT_ACCESS since passwords can be removed in incognito mode.
@@ -4199,8 +4184,9 @@ void TestingAutomationProvider::HeapProfilerDump(
       return;
     }
 
-    TabContents* tab_contents = TabContents::FromWebContents(web_contents);
-    tab_contents->automation_tab_helper()->HeapProfilerDump(reason_string);
+    AutomationTabHelper* automation_tab_helper =
+        AutomationTabHelper::FromWebContents(web_contents);
+    automation_tab_helper->HeapProfilerDump(reason_string);
     reply.SendSuccess(NULL);
     return;
   }

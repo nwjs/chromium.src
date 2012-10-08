@@ -76,12 +76,13 @@ enum InstallStatus {
   INCONSISTENT_UPDATE_POLICY,  // 43. Inconsistent update policy GP settings.
   APP_HOST_REQUIRES_USER_LEVEL,  // 44. --system-level is forbidden.
   APP_HOST_REQUIRES_BINARIES,  // 45. No Chrome binaries at either level.
+  INSTALL_OF_GOOGLE_UPDATE_FAILED,  // 46. Failed to install Google Update.
   // Friendly reminder: note the COMPILE_ASSERT below.
 };
 
 
 // Existing InstallStatus values must not change.  Always add to the end.
-COMPILE_ASSERT(installer::APP_HOST_REQUIRES_BINARIES == 45,
+COMPILE_ASSERT(installer::INSTALL_OF_GOOGLE_UPDATE_FAILED == 46,
                dont_change_enum);
 
 // The type of an update archive.
@@ -142,6 +143,7 @@ extern const char kDoNotLaunchChrome[];
 extern const char kDoNotRegisterForUpdateLaunch[];
 extern const char kDoNotRemoveSharedItems[];
 extern const char kEnableLogging[];
+extern const char kEnsureGoogleUpdatePresent[];
 extern const char kForceUninstall[];
 extern const char kInstallArchive[];
 extern const char kInstallerData[];
@@ -162,6 +164,7 @@ extern const char kUninstall[];
 extern const char kUpdateSetupExe[];
 extern const char kVerboseLogging[];
 extern const char kShowEula[];
+extern const char kShowEulaForMetro[];
 extern const char kAltDesktopShortcut[];
 extern const char kInactiveUserToast[];
 extern const char kSystemLevelToast[];
@@ -184,12 +187,14 @@ extern const wchar_t kCmdOnOsUpgrade[];
 extern const wchar_t kCmdQuickEnableApplicationHost[];
 extern const wchar_t kCmdQuickEnableCf[];
 extern const wchar_t kDelegateExecuteExe[];
+extern const char kEULASentinelFile[];
 extern const wchar_t kGoogleChromeInstallSubDir1[];
 extern const wchar_t kGoogleChromeInstallSubDir2[];
 extern const wchar_t kInstallBinaryDir[];
 extern const wchar_t kInstallerDir[];
 extern const wchar_t kInstallTempDir[];
 extern const wchar_t kInstallUserDataDir[];
+extern const wchar_t kLnkExt[];
 extern const wchar_t kNaClExe[];
 extern const wchar_t kSetupExe[];
 extern const wchar_t kSxSSuffix[];

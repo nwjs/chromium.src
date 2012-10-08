@@ -20,8 +20,9 @@ namespace cdm {
 class Allocator;
 class Buffer;
 class ContentDecryptionModule;
+class DecryptedBlock;
 class KeyMessage;
-class OutputBuffer;
+class VideoFrame;
 }
 
 extern "C" {
@@ -37,7 +38,9 @@ enum Status {
   kSuccess = 0,
   kNeedMoreData,  // Decoder needs more data to produce a decoded frame/sample.
   kNoKey,  // The required decryption key is not available.
-  kError
+  kSessionError,  // Session management error.
+  kDecryptError,  // Decryption failed.
+  kDecodeError  // Error decoding audio or video.
 };
 
 // An input buffer can be split into several continuous subsamples.
@@ -117,28 +120,6 @@ struct Size {
 
   int32_t width;
   int32_t height;
-};
-
-struct VideoFrame {
-  static const int32_t kMaxPlanes = 3;
-
-  VideoFrame()
-      : timestamp(0) {
-    for (int i = 0; i < kMaxPlanes; ++i) {
-      strides[i] = 0;
-      data[i] = NULL;
-    }
-  }
-
-  // Array of strides for each plane, typically greater or equal to the width
-  // of the surface divided by the horizontal sampling period.  Note that
-  // strides can be negative.
-  int32_t strides[kMaxPlanes];
-
-  // Array of data pointers to each plane.
-  uint8_t* data[kMaxPlanes];
-
-  int64_t timestamp;  // Presentation timestamp in microseconds.
 };
 
 struct VideoDecoderConfig {
@@ -224,10 +205,10 @@ class ContentDecryptionModule {
   // allocated memory over library boundaries. Fix it after related PPAPI change
   // and sample CDM are landed.
   virtual Status Decrypt(const InputBuffer& encrypted_buffer,
-                         OutputBuffer* decrypted_buffer) = 0;
+                         DecryptedBlock* decrypted_buffer) = 0;
 
   // Initializes the CDM video decoder with |video_decoder_config|. This
-  // function must be called before DecryptAndDecodeVideo() is called.
+  // function must be called before DecryptAndDecodeFrame() is called.
   //
   // Returns kSuccess if the |video_decoder_config| is supported and the CDM
   // video decoder is successfully initialized.
@@ -258,7 +239,7 @@ class ContentDecryptionModule {
   // TODO(xhwang): It's not safe to pass the ownership of the dynamically
   // allocated memory over library boundaries. Fix it after related PPAPI change
   // and sample CDM are landed.
-  virtual Status DecryptAndDecodeVideo(const InputBuffer& encrypted_buffer,
+  virtual Status DecryptAndDecodeFrame(const InputBuffer& encrypted_buffer,
                                        VideoFrame* video_frame) = 0;
 
   // Resets the CDM video decoder to an initialized clean state. All internal
@@ -280,7 +261,7 @@ class Buffer {
   // Destroys the buffer in the same context as it was created.
   virtual void Destroy() = 0;
 
-  virtual uint8_t* buffer() = 0;
+  virtual uint8_t* data() = 0;
   virtual int32_t size() const = 0;
 
  protected:
@@ -305,6 +286,22 @@ class Allocator {
   virtual ~Allocator() {}
 };
 
+// Represents a decrypted block that has not been decoded.
+class DecryptedBlock {
+ public:
+  virtual void set_buffer(Buffer* buffer) = 0;
+  virtual Buffer* buffer() = 0;
+
+  // TODO(tomfinegan): Figure out if timestamp is really needed. If it is not,
+  // we can just pass Buffer pointers around.
+  virtual void set_timestamp(int64_t timestamp) = 0;
+  virtual int64_t timestamp() const = 0;
+
+ protected:
+  DecryptedBlock() {}
+  virtual ~DecryptedBlock() {}
+};
+
 // Represents a key message sent by the CDM.
 class KeyMessage {
  public:
@@ -313,7 +310,7 @@ class KeyMessage {
   virtual int32_t session_id_length() const = 0;
 
   virtual void set_message(Buffer* message) = 0;
-  virtual Buffer* message() const = 0;
+  virtual Buffer* message() = 0;
 
   virtual void set_default_url(const char* default_url, int32_t length) = 0;
   virtual const char* default_url() const = 0;
@@ -324,20 +321,33 @@ class KeyMessage {
   virtual ~KeyMessage() {}
 };
 
-// Represents an output decrypted buffer.
-class OutputBuffer {
+class VideoFrame {
  public:
-  virtual void set_buffer(Buffer* buffer) = 0;
-  virtual Buffer* buffer() const = 0;
+  enum VideoPlane {
+   kYPlane = 0,
+   kUPlane = 1,
+   kVPlane = 2,
+   kMaxPlanes = 3,
+  };
 
-  // TODO(tomfinegan): Figure out if timestamp is really needed. If it is not,
-  // we can just pass Buffer*s around.
+  virtual void set_format(VideoFormat format) = 0;
+  virtual VideoFormat format() const = 0;
+
+  virtual void set_frame_buffer(Buffer* frame_buffer) = 0;
+  virtual Buffer* frame_buffer() = 0;
+
+  virtual void set_plane_offset(VideoPlane plane, int32_t offset) = 0;
+  virtual int32_t plane_offset(VideoPlane plane) = 0;
+
+  virtual void set_stride(VideoPlane plane, int32_t stride) = 0;
+  virtual int32_t stride(VideoPlane plane) = 0;
+
   virtual void set_timestamp(int64_t timestamp) = 0;
   virtual int64_t timestamp() const = 0;
 
  protected:
-  OutputBuffer() {}
-  virtual ~OutputBuffer() {}
+   VideoFrame() {}
+   virtual ~VideoFrame() {}
 };
 
 }  // namespace cdm

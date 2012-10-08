@@ -13,10 +13,12 @@
 #include "base/win/metro.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/toolbar/wrench_menu_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -90,20 +92,6 @@ views::Button* MakeWindowSwitcherButton(views::ButtonListener* listener,
   return switcher_button;
 }
 
-static int GetMinimizeButtonOffsetForWindow(gfx::NativeView window) {
-  // The WM_GETTITLEBARINFOEX message can fail if we are not active/visible.
-  TITLEBARINFOEX titlebar_info = {0};
-  titlebar_info.cbSize = sizeof(TITLEBARINFOEX);
-  SendMessage(window, WM_GETTITLEBARINFOEX, 0,
-              reinterpret_cast<WPARAM>(&titlebar_info));
-
-  CPoint minimize_button_corner(titlebar_info.rgrect[2].left,
-                                titlebar_info.rgrect[2].top);
-  MapWindowPoints(HWND_DESKTOP, window, &minimize_button_corner, 1);
-  return minimize_button_corner.x;
-}
-
-
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserFrameWin, public:
 
@@ -113,8 +101,7 @@ BrowserFrameWin::BrowserFrameWin(BrowserFrame* browser_frame,
       browser_view_(browser_view),
       browser_frame_(browser_frame),
       system_menu_delegate_(new SystemMenuModelDelegate(browser_view,
-          browser_view->browser())),
-      cached_minimize_button_x_delta_(0) {
+          browser_view->browser())) {
   if (base::win::IsMetroProcess()) {
     browser_view->SetWindowSwitcherButton(
         MakeWindowSwitcherButton(this, browser_view->IsOffTheRecord()));
@@ -217,7 +204,7 @@ bool BrowserFrameWin::PreHandleMSG(UINT message,
   switch (message) {
   case WM_ACTIVATE:
     if (LOWORD(w_param) != WA_INACTIVE)
-      CacheMinimizeButtonDelta();
+      minimize_button_metrics_.OnHWNDActivated();
     return false;
   case WM_PRINT:
     if (base::win::IsMetroProcess()) {
@@ -250,6 +237,9 @@ void BrowserFrameWin::PostHandleMSG(UINT message,
                                     WPARAM w_param,
                                     LPARAM l_param) {
   switch (message) {
+  case WM_CREATE:
+    minimize_button_metrics_.Init(GetNativeView());
+    break;
   case WM_WINDOWPOSCHANGED:
     UpdateDWMFrame();
 
@@ -354,9 +344,11 @@ void BrowserFrameWin::Activate() {
   // The Activate code path is typically called when a new browser window is
   // being activated. In metro we need to ensure that the window currently
   // being displayed is hidden and the new window being activated becomes
-  // visible. This is achieved by calling Show.
+  // visible. This is achieved by calling AdjustFrameForImmersiveMode()
+  // followed by ShowWindow().
   if (base::win::IsMetroProcess()) {
-    Show();
+    AdjustFrameForImmersiveMode();
+    ::ShowWindow(browser_frame_->GetNativeWindow(), SW_SHOWNORMAL);
   } else {
     views::NativeWidgetWin::Activate();
   }
@@ -388,25 +380,7 @@ void BrowserFrameWin::InitSystemContextMenu() {
 }
 
 int BrowserFrameWin::GetMinimizeButtonOffset() const {
-  int minimize_button_offset =
-      GetMinimizeButtonOffsetForWindow(GetNativeView());
-
-  if (minimize_button_offset > 0)
-    return minimize_button_offset;
-
-  // If we fail to get the minimize button offset via the WM_GETTITLEBARINFOEX
-  // message then calculate and return this via the
-  // cached_minimize_button_x_delta_ member value. Please see
-  // CacheMinimizeButtonDelta() for more details.
-  DCHECK(cached_minimize_button_x_delta_);
-
-  RECT client_rect = {0};
-  GetClientRect(GetNativeView(), &client_rect);
-
-  if (base::i18n::IsRTL())
-    return cached_minimize_button_x_delta_;
-  else
-    return client_rect.right - cached_minimize_button_x_delta_;
+  return minimize_button_metrics_.GetMinimizeButtonOffsetX();
 }
 
 void BrowserFrameWin::TabStripDisplayModeChanged() {
@@ -418,12 +392,35 @@ void BrowserFrameWin::ButtonPressed(views::Button* sender,
   HMODULE metro = base::win::GetMetroModule();
   if (!metro)
     return;
-  // Tell the metro_driver to flip our window. This causes the current
-  // browser window to be hidden and the next window to be shown.
-  static FlipFrameWindows flip_window_fn = reinterpret_cast<FlipFrameWindows>(
-      ::GetProcAddress(metro, "FlipFrameWindows"));
-  if (flip_window_fn)
-    flip_window_fn();
+
+  // Toggle the profile and switch to the corresponding browser window in the
+  // profile. The GetOffTheRecordProfile function is documented to create an
+  // incognito profile if one does not exist. That is not a concern as the
+  // windows 8 window switcher button shows up on the caption only when a
+  // normal window and an incognito window are open simultaneously.
+  Profile* profile_to_switch_to = NULL;
+  Profile* current_profile = browser_view()->browser()->profile();
+  if (current_profile->IsOffTheRecord())
+    profile_to_switch_to = current_profile->GetOriginalProfile();
+  else
+    profile_to_switch_to = current_profile->GetOffTheRecordProfile();
+
+  DCHECK(profile_to_switch_to);
+
+  Browser* browser_to_switch_to =
+      browser::FindTabbedBrowser(profile_to_switch_to, false);
+
+  DCHECK(browser_to_switch_to);
+
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(
+      browser_to_switch_to);
+
+  // Tell the metro_driver to switch to the Browser we found above. This
+  // causes the current browser window to be hidden.
+  SetFrameWindow set_frame_window = reinterpret_cast<SetFrameWindow>(
+      ::GetProcAddress(metro, "SetFrameWindow"));
+  set_frame_window(browser_view->frame()->GetNativeWindow());
+  ::ShowWindow(browser_view->frame()->GetNativeWindow(), SW_SHOWNORMAL);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -596,24 +593,6 @@ void BrowserFrameWin::GetMetroCurrentTabInfo(WPARAM w_param) {
 
   current_tab_info->url = base::win::LocalAllocAndCopyString(
       UTF8ToWide(current_tab->GetURL().spec()));
-}
-
-void BrowserFrameWin::CacheMinimizeButtonDelta() {
-  int minimize_offset = GetMinimizeButtonOffsetForWindow(GetNativeView());
-  if (!minimize_offset)
-    return;
-
-  RECT rect = {0};
-  GetClientRect(GetNativeView(), &rect);
-  // Calculate and cache the value of the minimize button delta, i.e. the
-  // offset to be applied to the left or right edge of the client rect
-  // depending on whether the language is RTL or not.
-  // This cached value is only used if the WM_GETTITLEBARINFOEX message fails
-  // to get the offset of the minimize button.
-  if (base::i18n::IsRTL())
-    cached_minimize_button_x_delta_ = minimize_offset;
-  else
-    cached_minimize_button_x_delta_ = rect.right - minimize_offset;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

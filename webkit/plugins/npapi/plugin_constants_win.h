@@ -8,14 +8,15 @@
 #include "base/string16.h"
 #include "webkit/plugins/webkit_plugins_export.h"
 
+#if !defined(OS_WIN)
+#error "Windows-only header"
+#endif
+
 namespace webkit {
 namespace npapi {
 
 // The window class name for a plugin window.
 extern const char16 kNativeWindowClassName[];
-
-// If property is non-zero window reparenting must add UIPI message filters.
-WEBKIT_PLUGINS_EXPORT extern const char16 kNativeWindowClassFilterProp[];
 
 // The name of the window class name for the wrapper HWND around the actual
 // plugin window that's used when running in multi-process mode.  This window
@@ -34,7 +35,6 @@ WEBKIT_PLUGINS_EXPORT extern const char16 kNewWMPPlugin[];
 extern const char16 kOldWMPPlugin[];
 extern const char16 kYahooApplicationStatePlugin[];
 extern const char16 kWanWangProtocolHandlerPlugin[];
-extern const char16 kBuiltinFlashPlugin[];
 extern const char16 kFlashPlugin[];
 extern const char16 kAcrobatReaderPlugin[];
 extern const char16 kRealPlayerPlugin[];

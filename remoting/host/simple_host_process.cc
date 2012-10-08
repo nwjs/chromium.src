@@ -37,13 +37,14 @@
 #include "remoting/host/audio_capturer.h"
 #include "remoting/host/chromoting_host_context.h"
 #include "remoting/host/chromoting_host.h"
-#include "remoting/host/constants.h"
 #include "remoting/host/desktop_environment.h"
-#include "remoting/host/dns_blackhole_checker.h"
-#include "remoting/host/event_executor.h"
 #include "remoting/host/desktop_environment.h"
 #include "remoting/host/desktop_environment_factory.h"
+#include "remoting/host/dns_blackhole_checker.h"
+#include "remoting/host/event_executor.h"
+#include "remoting/host/event_executor_fake.h"
 #include "remoting/host/heartbeat_sender.h"
+#include "remoting/host/host_exit_codes.h"
 #include "remoting/host/host_key_pair.h"
 #include "remoting/host/host_secret.h"
 #include "remoting/host/it2me_host_user_interface.h"
@@ -101,27 +102,24 @@ class FakeDesktopEnvironmentFactory : public DesktopEnvironmentFactory {
   FakeDesktopEnvironmentFactory();
   virtual ~FakeDesktopEnvironmentFactory();
 
-  virtual scoped_ptr<DesktopEnvironment> Create(
-      ChromotingHostContext* context) OVERRIDE;
+  virtual scoped_ptr<DesktopEnvironment> Create() OVERRIDE;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(FakeDesktopEnvironmentFactory);
 };
 
-FakeDesktopEnvironmentFactory::FakeDesktopEnvironmentFactory() {
+  FakeDesktopEnvironmentFactory::FakeDesktopEnvironmentFactory()
+    : DesktopEnvironmentFactory(NULL, NULL) {
 }
 
 FakeDesktopEnvironmentFactory::~FakeDesktopEnvironmentFactory() {
 }
 
-scoped_ptr<DesktopEnvironment> FakeDesktopEnvironmentFactory::Create(
-    ChromotingHostContext* context) {
+scoped_ptr<DesktopEnvironment> FakeDesktopEnvironmentFactory::Create() {
   scoped_ptr<VideoFrameCapturer> capturer(new VideoFrameCapturerFake());
-  scoped_ptr<EventExecutor> event_executor = EventExecutor::Create(
-      context->desktop_task_runner(),
-      context->ui_task_runner());
-  scoped_ptr<AudioCapturer> audio_capturer(NULL);
+  scoped_ptr<EventExecutor> event_executor(new EventExecutorFake());
   return scoped_ptr<DesktopEnvironment>(new DesktopEnvironment(
-      audio_capturer.Pass(),
+      scoped_ptr<AudioCapturer>(NULL),
       event_executor.Pass(),
       capturer.Pass()));
 }
@@ -255,21 +253,28 @@ class SimpleHost : public HeartbeatSender::Listener {
         context_.url_request_context_getter(),
         xmpp_login_, xmpp_auth_token_, xmpp_auth_service_));
     scoped_ptr<DnsBlackholeChecker> dns_blackhole_checker(
-        new DnsBlackholeChecker(&context_, kDefaultHostTalkGadgetPrefix));
+        new DnsBlackholeChecker(context_.url_request_context_getter(),
+                                kDefaultHostTalkGadgetPrefix));
     signaling_connector_.reset(new SignalingConnector(
-        signal_strategy_.get(), &context_, dns_blackhole_checker.Pass(),
+        signal_strategy_.get(),
+        context_.url_request_context_getter(),
+        dns_blackhole_checker.Pass(),
         base::Bind(&SimpleHost::OnAuthFailed, base::Unretained(this))));
 
     if (fake_) {
       desktop_environment_factory_.reset(new FakeDesktopEnvironmentFactory());
     } else {
-      desktop_environment_factory_.reset(new DesktopEnvironmentFactory());
+      desktop_environment_factory_.reset(new DesktopEnvironmentFactory(
+          context_.input_task_runner(), context_.ui_task_runner()));
     }
 
     host_ = new ChromotingHost(
-        &context_, signal_strategy_.get(), desktop_environment_factory_.get(),
+        signal_strategy_.get(), desktop_environment_factory_.get(),
         CreateHostSessionManager(network_settings_,
-                                 context_.url_request_context_getter()));
+                                 context_.url_request_context_getter()),
+        context_.capture_task_runner(),
+        context_.encode_task_runner(),
+        context_.network_task_runner());
 
     ServerLogEntry::Mode mode =
         is_it2me_ ? ServerLogEntry::IT2ME : ServerLogEntry::ME2ME;

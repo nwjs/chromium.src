@@ -41,7 +41,6 @@
 #include "sync/internal_api/public/util/experiments.h"
 #include "sync/internal_api/public/util/unrecoverable_error_handler.h"
 #include "sync/js/sync_js_controller.h"
-#include "sync/notifier/invalidator_registrar.h"
 
 class Profile;
 class ProfileSyncComponentsFactory;
@@ -60,6 +59,7 @@ namespace sessions { class SyncSessionSnapshot; }
 
 namespace syncer {
 class BaseTransaction;
+class InvalidatorRegistrar;
 struct SyncCredentials;
 struct UserShare;
 }
@@ -218,8 +218,8 @@ class ProfileSyncService : public ProfileSyncServiceBase,
                      StartBehavior start_behavior);
   virtual ~ProfileSyncService();
 
-  // Initializes the object. This should be called every time an object of this
-  // class is constructed.
+  // Initializes the object. This must be called at most once, and
+  // immediately after an object of this class is constructed.
   void Initialize();
 
   virtual void SetSyncSetupCompleted();
@@ -269,7 +269,7 @@ class ProfileSyncService : public ProfileSyncServiceBase,
   virtual void OnInvalidatorStateChange(
       syncer::InvalidatorState state) OVERRIDE;
   virtual void OnIncomingInvalidation(
-      const syncer::ObjectIdStateMap& id_state_map,
+      const syncer::ObjectIdInvalidationMap& invalidation_map,
       syncer::IncomingInvalidationSource source) OVERRIDE;
 
   // SyncFrontend implementation.
@@ -552,7 +552,8 @@ class ProfileSyncService : public ProfileSyncServiceBase,
   // been cleared yet. Virtual for testing purposes.
   virtual bool waiting_for_auth() const;
 
-  // InvalidationFrontend implementation.
+  // InvalidationFrontend implementation.  It is an error to have
+  // registered handlers when Shutdown() is called.
   virtual void RegisterInvalidationHandler(
       syncer::InvalidationHandler* handler) OVERRIDE;
   virtual void UpdateRegisteredInvalidationIds(
@@ -562,7 +563,8 @@ class ProfileSyncService : public ProfileSyncServiceBase,
       syncer::InvalidationHandler* handler) OVERRIDE;
   virtual syncer::InvalidatorState GetInvalidatorState() const OVERRIDE;
 
-  // ProfileKeyedService implementation.
+  // ProfileKeyedService implementation.  This must be called exactly
+  // once (before this object is destroyed).
   virtual void Shutdown() OVERRIDE;
 
   // Simulate an incoming notification for the given id and payload.
@@ -713,6 +715,11 @@ class ProfileSyncService : public ProfileSyncServiceBase,
                                     bool delete_sync_database,
                                     UnrecoverableErrorReason reason);
 
+  // Must be called every time |backend_initialized_| or
+  // |invalidator_state_| is changed (but only if
+  // |invalidator_registrar_| is not NULL).
+  void UpdateInvalidatorRegistrarState();
+
   // Destroys / recreates an instance of ProfileSyncService. Used exclusively by
   // the sync integration tests so they can restart sync from scratch without
   // tearing down and recreating the browser process. Needed because simply
@@ -841,8 +848,15 @@ class ProfileSyncService : public ProfileSyncServiceBase,
   // Factory the backend will use to build the SyncManager.
   syncer::SyncManagerFactory sync_manager_factory_;
 
-  // Dispatches invalidations to handlers.
-  syncer::InvalidatorRegistrar invalidator_registrar_;
+  // Holds the current invalidator state as updated by
+  // OnInvalidatorStateChange().  Note that this is different from the
+  // state known by |invalidator_registrar_| (See
+  // UpdateInvalidatorState()).
+  syncer::InvalidatorState invalidator_state_;
+
+  // Dispatches invalidations to handlers.  Set in Initialize() and
+  // unset in Shutdown().
+  scoped_ptr<syncer::InvalidatorRegistrar> invalidator_registrar_;
 
   DISALLOW_COPY_AND_ASSIGN(ProfileSyncService);
 };

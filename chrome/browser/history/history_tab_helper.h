@@ -6,22 +6,22 @@
 #define CHROME_BROWSER_HISTORY_HISTORY_TAB_HELPER_H_
 
 #include "base/memory/ref_counted.h"
+#include "base/time.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class HistoryService;
-class SkBitmap;
-struct ThumbnailScore;
 
 namespace history {
 struct HistoryAddPageArgs;
 }
 
 class HistoryTabHelper : public content::WebContentsObserver,
-                         public content::NotificationObserver {
+                         public content::NotificationObserver,
+                         public WebContentsUserData<HistoryTabHelper> {
  public:
-  explicit HistoryTabHelper(content::WebContents* web_contents);
   virtual ~HistoryTabHelper();
 
   // Updates history with the specified navigation. This is called by
@@ -37,10 +37,14 @@ class HistoryTabHelper : public content::WebContentsObserver,
   // history.
   history::HistoryAddPageArgs CreateHistoryAddPageArgs(
       const GURL& virtual_url,
-      const content::LoadCommittedDetails& details,
+      base::Time timestamp,
+      bool did_replace_entry,
       const content::FrameNavigateParams& params);
 
  private:
+  explicit HistoryTabHelper(content::WebContents* web_contents);
+  friend class WebContentsUserData<HistoryTabHelper>;
+
   // content::WebContentsObserver implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
   virtual void DidNavigateMainFrame(
@@ -59,9 +63,6 @@ class HistoryTabHelper : public content::WebContentsObserver,
   void OnPageContents(const GURL& url,
                       int32 page_id,
                       const string16& contents);
-  void OnThumbnail(const GURL& url,
-                   const ThumbnailScore& score,
-                   const SkBitmap& bitmap);
 
   // Helper function to return the history service.  May return NULL.
   HistoryService* GetHistoryService();

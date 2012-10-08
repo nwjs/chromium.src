@@ -29,6 +29,8 @@ class ObjectPath;
 
 namespace chromeos {
 
+class ShillPropertyChangedObserver;
+
 // ShillDeviceClient is used to communicate with the Shill Device service.
 // All methods should be called from the origin thread which initializes the
 // DBusThreadManager instance.
@@ -45,14 +47,15 @@ class CHROMEOS_EXPORT ShillDeviceClient {
   static ShillDeviceClient* Create(DBusClientImplementationType type,
                                       dbus::Bus* bus);
 
-  // Sets PropertyChanged signal handler.
-  virtual void SetPropertyChangedHandler(
+  // Adds a property changed |observer| for the device at |device_path|.
+  virtual void AddPropertyChangedObserver(
       const dbus::ObjectPath& device_path,
-      const PropertyChangedHandler& handler) = 0;
+      ShillPropertyChangedObserver* observer) = 0;
 
-  // Resets PropertyChanged signal handler.
-  virtual void ResetPropertyChangedHandler(
-      const dbus::ObjectPath& device_path) = 0;
+  // Removes a property changed |observer| for the device at |device_path|.
+  virtual void RemovePropertyChangedObserver(
+      const dbus::ObjectPath& device_path,
+      ShillPropertyChangedObserver* observer) = 0;
 
   // Calls GetProperties method.
   // |callback| is called after the method call finishes.
@@ -78,7 +81,8 @@ class CHROMEOS_EXPORT ShillDeviceClient {
   virtual void SetProperty(const dbus::ObjectPath& device_path,
                            const std::string& name,
                            const base::Value& value,
-                           const VoidDBusMethodCallback& callback) = 0;
+                           const base::Closure& callback,
+                           const ErrorCallback& error_callback) = 0;
 
   // Calls ClearProperty method.
   // |callback| is called after the method call finishes.

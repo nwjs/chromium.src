@@ -13,7 +13,6 @@
 #include "base/memory/mru_cache.h"
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/common/cancelable_request.h"
-#include "chrome/browser/common/url_database/template_url_id.h"
 #include "chrome/browser/history/archived_database.h"
 #include "chrome/browser/history/expire_history_backend.h"
 #include "chrome/browser/history/history_database.h"
@@ -22,6 +21,7 @@
 #include "chrome/browser/history/text_database_manager.h"
 #include "chrome/browser/history/thumbnail_database.h"
 #include "chrome/browser/history/visit_tracker.h"
+#include "chrome/browser/search_engines/template_url_id.h"
 #include "sql/init_status.h"
 #include "ui/base/layout.h"
 
@@ -145,6 +145,7 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
 
   // Navigation ----------------------------------------------------------------
 
+  // |request.time| must be unique with high probability.
   void AddPage(const HistoryAddPageArgs& request);
   virtual void SetPageTitle(const GURL& url, const string16& title);
   void AddPageNoVisitForBookmark(const GURL& url, const string16& title);
@@ -285,7 +286,6 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
       const std::vector<ui::ScaleFactor>& desired_scale_factors);
 
   void MergeFavicon(const GURL& page_url,
-                    const GURL& icon_url,
                     IconType icon_type,
                     scoped_refptr<base::RefCountedMemory> bitmap_data,
                     const gfx::Size& pixel_size);
@@ -503,7 +503,6 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
                            SetFaviconsSameFaviconURLForTwoPages);
   FRIEND_TEST_ALL_PREFIXES(HistoryBackendTest, MergeFaviconPageURLNotInDB);
   FRIEND_TEST_ALL_PREFIXES(HistoryBackendTest, MergeFaviconPageURLInDB);
-  FRIEND_TEST_ALL_PREFIXES(HistoryBackendTest, MergeFaviconIconURLInDB);
   FRIEND_TEST_ALL_PREFIXES(HistoryBackendTest, MergeFaviconMaxFaviconsPerPage);
   FRIEND_TEST_ALL_PREFIXES(HistoryBackendTest,
                            MergeFaviconMaxFaviconBitmapsPerIconURL);
@@ -846,19 +845,6 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // destination of the redirect (i.e., the key into recent_redirects_);
   typedef base::MRUCache<GURL, history::RedirectList> RedirectCache;
   RedirectCache recent_redirects_;
-
-  // Timestamp of the last page addition request. We use this to detect when
-  // multiple additions are requested at the same time (within the resolution
-  // of the timer), so we can try to ensure they're unique when they're added
-  // to the database by using the last_recorded_time_ (q.v.). We still can't
-  // enforce or guarantee uniqueness, since the user might set his clock back.
-  base::Time last_requested_time_;
-
-  // Timestamp of the last page addition, as it was recorded in the database.
-  // If two or more requests come in at the same time, we increment that time
-  // by 1 us between them so it's more likely to be unique in the database.
-  // This keeps track of that higher-resolution timestamp.
-  base::Time last_recorded_time_;
 
   // Timestamp of the first entry in our database.
   base::Time first_recorded_time_;

@@ -5,7 +5,7 @@
 #ifndef CHROME_BROWSER_UI_SNAPSHOT_TAB_HELPER_H_
 #define CHROME_BROWSER_UI_SNAPSHOT_TAB_HELPER_H_
 
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class SkBitmap;
@@ -21,7 +21,6 @@ class SnapshotTabHelper : public content::WebContentsObserver,
 
  private:
   explicit SnapshotTabHelper(content::WebContents* web_contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<SnapshotTabHelper>;
 
   // content::WebContentsObserver overrides:

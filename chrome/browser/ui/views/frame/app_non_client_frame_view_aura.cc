@@ -223,6 +223,9 @@ void AppNonClientFrameViewAura::ResetWindowControls() {
 void AppNonClientFrameViewAura::UpdateWindowIcon() {
 }
 
+void AppNonClientFrameViewAura::UpdateWindowTitle() {
+}
+
 gfx::Rect AppNonClientFrameViewAura::GetBoundsForTabStrip(
     views::View* tabstrip) const {
   return gfx::Rect();
@@ -250,10 +253,8 @@ gfx::Rect AppNonClientFrameViewAura::GetControlBounds() const {
   if (!control_view_)
     return gfx::Rect();
   gfx::Size preferred = control_view_->GetPreferredSize();
-  gfx::Point location(width() - preferred.width(), 0);
-  ConvertPointToWidget(this, &location);
   return gfx::Rect(
-      location.x(), location.y(),
+      width() - preferred.width(), 0,
       preferred.width(), preferred.height());
 }
 

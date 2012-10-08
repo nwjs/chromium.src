@@ -5,6 +5,10 @@
 #ifndef CCLayerTreeHost_h
 #define CCLayerTreeHost_h
 
+#include "base/basictypes.h"
+#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
+#include "cc/own_ptr_vector.h"
 #include "CCAnimationEvents.h"
 #include "CCGraphicsContext.h"
 #include "CCLayerTreeHostClient.h"
@@ -16,12 +20,10 @@
 #include "IntRect.h"
 #include "RateLimiter.h"
 #include "SkColor.h"
-#include "cc/own_ptr_vector.h"
 #include <limits>
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
-#include <wtf/PassRefPtr.h>
 
 namespace cc {
 
@@ -77,9 +79,8 @@ struct RendererCapabilities {
 };
 
 class CCLayerTreeHost : public RateLimiterClient {
-    WTF_MAKE_NONCOPYABLE(CCLayerTreeHost);
 public:
-    static PassOwnPtr<CCLayerTreeHost> create(CCLayerTreeHostClient*, const CCLayerTreeSettings&);
+    static scoped_ptr<CCLayerTreeHost> create(CCLayerTreeHostClient*, const CCLayerTreeSettings&);
     virtual ~CCLayerTreeHost();
 
     void setSurfaceReady();
@@ -100,9 +101,9 @@ public:
     void finishCommitOnImplThread(CCLayerTreeHostImpl*);
     void willCommit();
     void commitComplete();
-    PassOwnPtr<CCGraphicsContext> createContext();
-    PassOwnPtr<CCInputHandler> createInputHandler();
-    virtual PassOwnPtr<CCLayerTreeHostImpl> createLayerTreeHostImpl(CCLayerTreeHostImplClient*);
+    scoped_ptr<CCGraphicsContext> createContext();
+    scoped_ptr<CCInputHandler> createInputHandler();
+    virtual scoped_ptr<CCLayerTreeHostImpl> createLayerTreeHostImpl(CCLayerTreeHostImplClient*);
     void didLoseContext();
     enum RecreateResult {
         RecreateSucceeded,
@@ -133,7 +134,7 @@ public:
 
     int commitNumber() const { return m_commitNumber; }
 
-    void renderingStats(CCRenderingStats&) const;
+    void renderingStats(CCRenderingStats*) const;
 
     const RendererCapabilities& rendererCapabilities() const;
 
@@ -151,7 +152,7 @@ public:
 
     LayerChromium* rootLayer() { return m_rootLayer.get(); }
     const LayerChromium* rootLayer() const { return m_rootLayer.get(); }
-    void setRootLayer(PassRefPtr<LayerChromium>);
+    void setRootLayer(scoped_refptr<LayerChromium>);
 
     const CCLayerTreeSettings& settings() const { return m_settings; }
 
@@ -204,7 +205,7 @@ public:
     void setDeviceScaleFactor(float);
     float deviceScaleFactor() const { return m_deviceScaleFactor; }
 
-    void setFontAtlas(PassOwnPtr<CCFontAtlas>);
+    void setFontAtlas(scoped_ptr<CCFontAtlas>);
 
     HeadsUpDisplayLayerChromium* hudLayer() const { return m_hudLayer.get(); }
 
@@ -213,7 +214,7 @@ protected:
     bool initialize();
 
 private:
-    typedef Vector<RefPtr<LayerChromium> > LayerList;
+    typedef std::vector<scoped_refptr<LayerChromium> > LayerList;
 
     void initializeRenderer();
 
@@ -246,9 +247,9 @@ private:
     int m_numTimesRecreateShouldFail;
     int m_numFailedRecreateAttempts;
 
-    RefPtr<LayerChromium> m_rootLayer;
-    RefPtr<HeadsUpDisplayLayerChromium> m_hudLayer;
-    OwnPtr<CCFontAtlas> m_fontAtlas;
+    scoped_refptr<LayerChromium> m_rootLayer;
+    scoped_refptr<HeadsUpDisplayLayerChromium> m_hudLayer;
+    scoped_ptr<CCFontAtlas> m_fontAtlas;
 
     OwnPtr<CCPrioritizedTextureManager> m_contentsTextureManager;
     OwnPtr<CCPrioritizedTexture> m_surfaceMemoryPlaceholder;
@@ -276,8 +277,10 @@ private:
     size_t m_partialTextureUpdateRequests;
 
     static bool s_needsFilterContext;
+
+    DISALLOW_COPY_AND_ASSIGN(CCLayerTreeHost);
 };
 
-}
+}  // namespace cc
 
 #endif

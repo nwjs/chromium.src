@@ -33,11 +33,12 @@ class TestBrowserPluginEmbedder : public BrowserPluginEmbedder {
   // Waits until at least one guest is added to this embedder.
   void WaitForGuestAdded();
 
+  WebContentsImpl* web_contents() const;
+
  private:
   // Overridden to intercept in test.
   virtual void AddGuest(int instance_id,
-                        WebContents* guest_web_contents,
-                        int64 frame_id) OVERRIDE;
+                        WebContents* guest_web_contents) OVERRIDE;
 
   scoped_refptr<MessageLoopRunner> message_loop_runner_;
 

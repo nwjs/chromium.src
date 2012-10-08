@@ -35,14 +35,14 @@ const char kFormDataKey[] = "formData";
 const char kHistoryKey[] = "history";
 const char kIndexedDBKey[] = "indexedDB";
 const char kLocalStorageKey[] = "localStorage";
-const char kServerBoundCertsKey[] = "serverBoundCerts";
+const char kServerBoundCertsKey[] = "serverBoundCertificates";
 const char kPasswordsKey[] = "passwords";
 const char kPluginDataKey[] = "pluginData";
 const char kWebSQLKey[] = "webSQL";
 
 // Option Keys.
 const char kExtensionsKey[] = "extension";
-const char kOriginTypesKey[] = "originType";
+const char kOriginTypesKey[] = "originTypes";
 const char kProtectedWebKey[] = "protectedWeb";
 const char kSinceKey[] = "since";
 const char kUnprotectedWebKey[] = "unprotectedWeb";
@@ -54,12 +54,6 @@ const char kOneAtATimeError[] = "Only one 'browsingData' API call can run at "
 }  // namespace extension_browsing_data_api_constants
 
 namespace {
-// Converts the JavaScript API's numeric input (miliseconds since epoch) into an
-// appropriate base::Time that we can pass into the BrowsingDataRemove.
-bool ParseTimeFromValue(const double& ms_since_epoch, base::Time* time) {
-  return true;
-}
-
 // Given a DictionaryValue |dict|, returns either the value stored as |key|, or
 // false, if the given key doesn't exist in the dictionary.
 bool RemoveType(base::DictionaryValue* dict, const std::string& key) {
@@ -119,11 +113,6 @@ bool BrowsingDataExtensionFunction::RunImpl() {
   // If we don't have a profile, something's pretty wrong.
   DCHECK(profile());
 
-  if (BrowsingDataRemover::is_removing()) {
-    error_ = extension_browsing_data_api_constants::kOneAtATimeError;
-    return false;
-  }
-
   // Grab the initial |options| parameter, and parse out the arguments.
   DictionaryValue* options;
   EXTENSION_FUNCTION_VALIDATE(args_->GetDictionary(0, &options));
@@ -175,6 +164,12 @@ void BrowsingDataExtensionFunction::CheckRemovingPluginDataSupported(
 }
 
 void BrowsingDataExtensionFunction::StartRemoving() {
+  if (BrowsingDataRemover::is_removing()) {
+    error_ = extension_browsing_data_api_constants::kOneAtATimeError;
+    SendResponse(false);
+    return;
+  }
+
   // If we're good to go, add a ref (Balanced in OnBrowsingDataRemoverDone)
   AddRef();
 
@@ -246,7 +241,8 @@ int RemoveCacheFunction::GetRemovalMask() const {
 }
 
 int RemoveCookiesFunction::GetRemovalMask() const {
-  return BrowsingDataRemover::REMOVE_COOKIES;
+  return BrowsingDataRemover::REMOVE_COOKIES |
+         BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS;
 }
 
 int RemoveDownloadsFunction::GetRemovalMask() const {
@@ -271,10 +267,6 @@ int RemoveIndexedDBFunction::GetRemovalMask() const {
 
 int RemoveLocalStorageFunction::GetRemovalMask() const {
   return BrowsingDataRemover::REMOVE_LOCAL_STORAGE;
-}
-
-int RemoveServerBoundCertsFunction::GetRemovalMask() const {
-  return BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS;
 }
 
 int RemovePluginDataFunction::GetRemovalMask() const {

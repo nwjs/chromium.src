@@ -34,6 +34,7 @@
 #include "chrome/browser/browser_process_impl.h"
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
+#include "chrome/browser/chrome_gpu_util.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/extension_protocols.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -468,6 +469,12 @@ bool HasImportSwitch(const CommandLine& command_line) {
           command_line.HasSwitch(switches::kImportFromFile));
 }
 
+#if defined(ENABLE_RLZ)
+bool IsGoogleUrl(const GURL& url) {
+  return google_util::IsGoogleHomePageUrl(url.possibly_invalid_spec());
+}
+#endif
+
 }  // namespace
 
 namespace chrome_browser {
@@ -821,8 +828,14 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
   // is initialized.
   first_run_ui_bypass_ = false;  // True to skip first run UI.
   if (is_first_run_) {
-    first_run_ui_bypass_ = !first_run::ProcessMasterPreferences(
-        user_data_dir_, master_prefs_.get());
+    first_run::ProcessMasterPreferencesResult pmp_result =
+        first_run::ProcessMasterPreferences(user_data_dir_,
+                                            master_prefs_.get());
+    if (pmp_result == first_run::EULA_EXIT_NOW)
+      return chrome::RESULT_CODE_EULA_REFUSED;
+
+    first_run_ui_bypass_ = (pmp_result == first_run::SKIP_FIRST_RUN);
+
     AddFirstRunNewTabs(browser_creator_.get(), master_prefs_->new_tabs);
 
     // If we are running in App mode, we do not want to show the importer
@@ -917,6 +930,9 @@ void ChromeBrowserMainParts::PostProfileInit() {
 void ChromeBrowserMainParts::PreBrowserStart() {
   for (size_t i = 0; i < chrome_extra_parts_.size(); ++i)
     chrome_extra_parts_[i]->PreBrowserStart();
+#if !defined(OS_ANDROID)
+  gpu_util::InstallBrowserMonitor();
+#endif
 }
 
 void ChromeBrowserMainParts::PostBrowserStart() {
@@ -1205,23 +1221,34 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // Init the RLZ library. This just binds the dll and schedules a task on the
   // file thread to be run sometime later. If this is the first run we record
   // the installation event.
-  bool google_search_default = false;
+  bool is_google_default_search = false;
   TemplateURLService* template_url_service =
       TemplateURLServiceFactory::GetForProfile(profile_);
   if (template_url_service) {
     const TemplateURL* url_template =
         template_url_service->GetDefaultSearchProvider();
-    google_search_default =
+    is_google_default_search =
         url_template && url_template->url_ref().HasGoogleBaseURLs();
   }
 
   PrefService* pref_service = profile_->GetPrefs();
-  bool google_search_homepage = pref_service &&
+  bool is_google_homepage = pref_service &&
       google_util::IsGoogleHomePageUrl(
           pref_service->GetString(prefs::kHomePage));
 
+  bool is_google_in_startpages = false;
+  SessionStartupPref session_startup_prefs =
+      StartupBrowserCreator::GetSessionStartupPref(parsed_command_line(),
+                                                   profile_);
+  if (session_startup_prefs.type == SessionStartupPref::URLS) {
+    is_google_in_startpages = std::count_if(session_startup_prefs.urls.begin(),
+                                            session_startup_prefs.urls.end(),
+                                            IsGoogleUrl) > 0;
+  }
+
   RLZTracker::InitRlzDelayed(is_first_run_, master_prefs_->ping_delay,
-                             google_search_default, google_search_homepage);
+                             is_google_default_search, is_google_homepage,
+                             is_google_in_startpages);
 
   // Prime the RLZ cache for the home page access point so that its avaiable
   // for the startup page if needed (i.e., when the startup page is set to
@@ -1307,7 +1334,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
     extensions::StartupHelper helper;
     if (helper.InstallFromWebstore(parsed_command_line(), profile_))
       return content::RESULT_CODE_NORMAL_EXIT;
-    return chrome::RESULT_CODE_INSTALL_FROM_WEBSTORE_ERROR;
+    return chrome::RESULT_CODE_INSTALL_FROM_WEBSTORE_ERROR_2;
   }
 
 
@@ -1371,6 +1398,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   std::vector<Profile*> last_opened_profiles =
       g_browser_process->profile_manager()->GetLastOpenedProfiles();
 #endif
+
   if (browser_creator_->Start(parsed_command_line(), FilePath(),
                               profile_, last_opened_profiles, &result_code)) {
 #if defined(OS_WIN) || (defined(OS_LINUX) && !defined(OS_CHROMEOS))
@@ -1502,6 +1530,10 @@ void ChromeBrowserMainParts::PostMainMessageLoopRun() {
 
   for (size_t i = 0; i < chrome_extra_parts_.size(); ++i)
     chrome_extra_parts_[i]->PostMainMessageLoopRun();
+
+#if !defined(OS_ANDROID)
+  gpu_util::UninstallBrowserMonitor();
+#endif
 
 #if defined(OS_WIN)
   // Log the search engine chosen on first run. Do this at shutdown, after any

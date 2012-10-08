@@ -112,6 +112,12 @@ class MEDIA_EXPORT SourceBufferStream {
   // Frees up space if the SourceBufferStream is taking up too much memory.
   void GarbageCollectIfNeeded();
 
+  // Attempts to delete approximately |total_bytes_to_free| amount of data
+  // |ranges_|, starting at the front of |ranges_| and moving linearly forward
+  // through the buffers. Deletes starting from the back if |reverse_direction|
+  // is true. Returns the number of bytes freed.
+  int FreeBuffers(int total_bytes_to_free, bool reverse_direction);
+
   // Appends |new_buffers| into |range_for_new_buffers_itr|, handling start and
   // end overlaps if necessary.
   // |deleted_next_buffer| is an output parameter that is true if the next
@@ -149,6 +155,10 @@ class MEDIA_EXPORT SourceBufferStream {
   // wants to save any buffers into |track_buffer_|.
   // TODO(vrk): This is a little crazy! Ideas for cleanup in crbug.com/129623.
   void UpdateTrackBuffer(const BufferQueue& deleted_buffers);
+
+  // Removes buffers that come before |selected_range_|'s next buffer from the
+  // |track_buffer_|.
+  void PruneTrackBuffer();
 
   // Checks to see if |range_with_new_buffers_itr| can be merged with the range
   // next to it, and merges them if so.

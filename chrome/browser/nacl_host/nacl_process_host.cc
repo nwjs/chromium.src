@@ -28,6 +28,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
+#include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/nacl_cmd_line.h"
 #include "chrome/common/nacl_messages.h"
@@ -131,8 +132,10 @@ bool NaClProcessHost::PluginListener::OnMessageReceived(
   return host_->OnUntrustedMessageForwarded(msg);
 }
 
+// TODO(brettw) bug 153036 set the pepper permissions up for dev interfaces.
 NaClProcessHost::NaClProcessHost(const GURL& manifest_url, bool off_the_record)
     : manifest_url_(manifest_url),
+      permissions_(ppapi::PpapiPermissions::GetForCommandLine(0)),
 #if defined(OS_WIN)
       process_launched_by_broker_(false),
 #elif defined(OS_LINUX)
@@ -226,6 +229,8 @@ void NaClProcessHost::EarlyStartup() {
   UMA_HISTOGRAM_BOOLEAN(
       "NaCl.enable-nacl-debug",
       cmd->HasSwitch(switches::kEnableNaClDebug));
+  NaClBrowser::GetInstance()->SetDebugPatterns(
+      cmd->GetSwitchValueASCII(switches::kNaClDebugMask));
 }
 
 void NaClProcessHost::Launch(
@@ -669,7 +674,8 @@ bool NaClProcessHost::StartNaClExecution() {
   params.validation_cache_key = nacl_browser->GetValidationCacheKey();
   params.version = chrome::VersionInfo().CreateVersionString();
   params.enable_exception_handling = enable_exception_handling_;
-  params.enable_debug_stub = enable_debug_stub_;
+  params.enable_debug_stub = enable_debug_stub_ &&
+      NaClBrowser::GetInstance()->URLMatchesDebugPatterns(manifest_url_);
   params.enable_ipc_proxy = enable_ipc_proxy_;
 
   base::PlatformFile irt_file = nacl_browser->IrtFile();
@@ -758,6 +764,7 @@ void NaClProcessHost::OnPpapiChannelCreated(
     ipc_proxy_channel_->Send(
         new PpapiMsg_CreateNaClChannel(
             chrome_render_message_filter_->render_process_id(),
+            permissions_,
             chrome_render_message_filter_->off_the_record(),
             SerializedHandle(SerializedHandle::CHANNEL_HANDLE,
                              IPC::InvalidPlatformFileForTransit())));

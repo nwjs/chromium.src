@@ -11,8 +11,9 @@
 #include "ui/gfx/rect.h"
 #include "ui/views/widget/widget.h"
 
-class TabContents;
-
+namespace content {
+class WebContents;
+}
 namespace views {
 namespace internal {
 class NativeWidgetDelegate;
@@ -58,18 +59,21 @@ class ConstrainedWindowViews : public views::Widget,
                                public ConstrainedWindow,
                                public NativeConstrainedWindowDelegate {
  public:
-  ConstrainedWindowViews(TabContents* tab_contents,
+  ConstrainedWindowViews(content::WebContents* web_contents,
                          views::WidgetDelegate* widget_delegate);
   virtual ~ConstrainedWindowViews();
 
-  // Returns the TabContents that constrains this Constrained Window.
-  TabContents* owner() const { return tab_contents_; }
+  // Returns the WebContents that constrains this Constrained Window.
+  content::WebContents* owner() const { return web_contents_; }
 
   // Overridden from ConstrainedWindow:
   virtual void ShowConstrainedWindow() OVERRIDE;
   virtual void CloseConstrainedWindow() OVERRIDE;
   virtual void FocusConstrainedWindow() OVERRIDE;
   virtual gfx::NativeWindow GetNativeWindow() OVERRIDE;
+
+  // Respond to resize of this window.
+  void OnSizeChanged();
 
  private:
   // Overridden from views::Widget:
@@ -82,7 +86,13 @@ class ConstrainedWindowViews : public views::Widget,
       AsNativeWidgetDelegate() OVERRIDE;
   virtual int GetNonClientComponent(const gfx::Point& point) OVERRIDE;
 
-  TabContents* tab_contents_;
+  // Set the top of the window to overlap the browser chrome.
+  void PositionWindow();
+
+  content::WebContents* web_contents_;
+
+  // Whether the window is frameless.
+  bool frameless_;
 
   NativeConstrainedWindow* native_constrained_window_;
 

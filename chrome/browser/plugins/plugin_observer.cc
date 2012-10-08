@@ -17,8 +17,8 @@
 #include "chrome/browser/plugins/plugin_finder.h"
 #include "chrome/browser/plugins/plugin_infobar_delegates.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_modal_confirm_dialog.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/plugin_service.h"
@@ -46,7 +46,7 @@ using content::PluginService;
 using content::Referrer;
 using content::WebContents;
 
-int PluginObserver::kUserDataKey;
+DEFINE_WEB_CONTENTS_USER_DATA_KEY(PluginObserver)
 
 namespace {
 
@@ -58,7 +58,8 @@ class ConfirmInstallDialogDelegate : public TabModalConfirmDialogDelegate,
                                      public WeakPluginInstallerObserver {
  public:
   ConfirmInstallDialogDelegate(content::WebContents* web_contents,
-                               PluginInstaller* installer);
+                               PluginInstaller* installer,
+                               scoped_ptr<PluginMetadata> plugin_metadata);
 
   // TabModalConfirmDialogDelegate methods:
   virtual string16 GetTitle() OVERRIDE;
@@ -73,24 +74,27 @@ class ConfirmInstallDialogDelegate : public TabModalConfirmDialogDelegate,
 
  private:
   content::WebContents* web_contents_;
+  scoped_ptr<PluginMetadata> plugin_metadata_;
 };
 
 ConfirmInstallDialogDelegate::ConfirmInstallDialogDelegate(
     content::WebContents* web_contents,
-    PluginInstaller* installer)
+    PluginInstaller* installer,
+    scoped_ptr<PluginMetadata> plugin_metadata)
     : TabModalConfirmDialogDelegate(web_contents),
       WeakPluginInstallerObserver(installer),
-      web_contents_(web_contents) {
+      web_contents_(web_contents),
+      plugin_metadata_(plugin_metadata.Pass()) {
 }
 
 string16 ConfirmInstallDialogDelegate::GetTitle() {
   return l10n_util::GetStringFUTF16(
-      IDS_PLUGIN_CONFIRM_INSTALL_DIALOG_TITLE, installer()->name());
+      IDS_PLUGIN_CONFIRM_INSTALL_DIALOG_TITLE, plugin_metadata_->name());
 }
 
 string16 ConfirmInstallDialogDelegate::GetMessage() {
   return l10n_util::GetStringFUTF16(IDS_PLUGIN_CONFIRM_INSTALL_DIALOG_MSG,
-                                    installer()->name());
+                                    plugin_metadata_->name());
 }
 
 string16 ConfirmInstallDialogDelegate::GetAcceptButtonTitle() {
@@ -99,7 +103,8 @@ string16 ConfirmInstallDialogDelegate::GetAcceptButtonTitle() {
 }
 
 void ConfirmInstallDialogDelegate::OnAccepted() {
-  installer()->StartInstalling(TabContents::FromWebContents(web_contents_));
+  installer()->StartInstalling(plugin_metadata_->plugin_url(),
+                               TabContents::FromWebContents(web_contents_));
 }
 
 void ConfirmInstallDialogDelegate::OnCanceled() {
@@ -123,6 +128,7 @@ class PluginObserver::PluginPlaceholderHost : public PluginInstallerObserver {
  public:
   PluginPlaceholderHost(PluginObserver* observer,
                         int routing_id,
+                        string16 plugin_name,
                         PluginInstaller* installer)
       : PluginInstallerObserver(installer),
         observer_(observer),
@@ -131,7 +137,7 @@ class PluginObserver::PluginPlaceholderHost : public PluginInstallerObserver {
     switch (installer->state()) {
       case PluginInstaller::INSTALLER_STATE_IDLE: {
         observer->Send(new ChromeViewMsg_FoundMissingPlugin(routing_id_,
-                                                            installer->name()));
+                                                            plugin_name));
         break;
       }
       case PluginInstaller::INSTALLER_STATE_DOWNLOADING: {
@@ -232,9 +238,23 @@ void PluginObserver::OnBlockedUnauthorizedPlugin(
 void PluginObserver::OnBlockedOutdatedPlugin(int placeholder_id,
                                              const std::string& identifier) {
 #if defined(ENABLE_PLUGIN_INSTALLATION)
-  PluginFinder::Get(base::Bind(&PluginObserver::FindPluginToUpdate,
-                               weak_ptr_factory_.GetWeakPtr(),
-                               placeholder_id, identifier));
+  PluginFinder* finder = PluginFinder::GetInstance();
+  // Find plugin to update.
+  PluginInstaller* installer = NULL;
+  scoped_ptr<PluginMetadata> plugin;
+  if (!finder->FindPluginWithIdentifier(identifier, &installer, &plugin)) {
+    NOTREACHED();
+    return;
+  }
+
+  plugin_placeholders_[placeholder_id] =
+      new PluginPlaceholderHost(this, placeholder_id,
+                                plugin->name(), installer);
+  TabContents* tab_contents = TabContents::FromWebContents(web_contents());
+  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
+  infobar_helper->AddInfoBar(
+      OutdatedPluginInfoBarDelegate::Create(web_contents(),
+                                            installer, plugin.Pass()));
 #else
   // If we don't support third-party plug-in installation, we shouldn't have
   // outdated plug-ins.
@@ -243,67 +263,58 @@ void PluginObserver::OnBlockedOutdatedPlugin(int placeholder_id,
 }
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
-void PluginObserver::FindPluginToUpdate(int placeholder_id,
-                                        const std::string& identifier,
-                                        PluginFinder* plugin_finder) {
-  PluginInstaller* installer =
-      plugin_finder->FindPluginWithIdentifier(identifier);
-  DCHECK(installer) << "Couldn't find PluginInstaller for identifier "
-                    << identifier;
-  plugin_placeholders_[placeholder_id] =
-      new PluginPlaceholderHost(this, placeholder_id, installer);
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents());
-  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
-  infobar_helper->AddInfoBar(
-      OutdatedPluginInfoBarDelegate::Create(web_contents(), installer));
-}
-
 void PluginObserver::OnFindMissingPlugin(int placeholder_id,
                                          const std::string& mime_type) {
-PluginFinder::Get(base::Bind(&PluginObserver::FindMissingPlugin,
-                             weak_ptr_factory_.GetWeakPtr(),
-                             placeholder_id, mime_type));
-}
-
-void PluginObserver::FindMissingPlugin(int placeholder_id,
-                                       const std::string& mime_type,
-                                       PluginFinder* plugin_finder) {
   std::string lang = "en-US";  // Oh yes.
-  PluginInstaller* installer = plugin_finder->FindPlugin(mime_type, lang);
-  if (!installer) {
+  scoped_ptr<PluginMetadata> plugin_metadata;
+  PluginInstaller* installer = NULL;
+  bool found_plugin = PluginFinder::GetInstance()->FindPlugin(
+      mime_type, lang, &installer, &plugin_metadata);
+  if (!found_plugin) {
     Send(new ChromeViewMsg_DidNotFindMissingPlugin(placeholder_id));
     return;
   }
+  DCHECK(installer);
+  DCHECK(plugin_metadata.get());
 
   plugin_placeholders_[placeholder_id] =
-      new PluginPlaceholderHost(this, placeholder_id, installer);
+      new PluginPlaceholderHost(this, placeholder_id,
+                                plugin_metadata->name(),
+                                installer);
   TabContents* tab_contents = TabContents::FromWebContents(web_contents());
   InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
+  base::Closure callback =  base::Bind(&PluginObserver::InstallMissingPlugin,
+                                       weak_ptr_factory_.GetWeakPtr(),
+                                       installer,
+                                       base::Passed(plugin_metadata->Clone()));
   InfoBarDelegate* delegate;
 #if !defined(OS_WIN)
   delegate = PluginInstallerInfoBarDelegate::Create(
       infobar_helper, installer,
-      base::Bind(&PluginObserver::InstallMissingPlugin,
-                 weak_ptr_factory_.GetWeakPtr(), installer));
+      plugin_metadata.Pass(),
+      callback);
 #else
   delegate = base::win::IsMetroProcess() ?
       PluginMetroModeInfoBarDelegate::Create(
-          infobar_helper, installer->name()) :
+          infobar_helper, plugin_metadata->name()) :
       PluginInstallerInfoBarDelegate::Create(
           infobar_helper, installer,
-          base::Bind(&PluginObserver::InstallMissingPlugin,
-              weak_ptr_factory_.GetWeakPtr(), installer));
+          plugin_metadata.Pass(),
+          callback);
 #endif
   infobar_helper->AddInfoBar(delegate);
 }
 
-void PluginObserver::InstallMissingPlugin(PluginInstaller* installer) {
-  if (installer->url_for_display()) {
-    installer->OpenDownloadURL(web_contents());
+void PluginObserver::InstallMissingPlugin(
+    PluginInstaller* installer,
+    scoped_ptr<PluginMetadata> plugin_metadata) {
+  if (plugin_metadata->url_for_display()) {
+    installer->OpenDownloadURL(plugin_metadata->plugin_url(), web_contents());
   } else {
-    chrome::ShowTabModalConfirmDialog(
-        new ConfirmInstallDialogDelegate(web_contents(), installer),
-        TabContents::FromWebContents(web_contents()));
+    TabModalConfirmDialog::Create(
+        new ConfirmInstallDialogDelegate(
+            web_contents(), installer, plugin_metadata.Pass()),
+            TabContents::FromWebContents(web_contents()));
   }
 }
 

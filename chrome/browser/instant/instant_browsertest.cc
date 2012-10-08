@@ -79,7 +79,7 @@ class InstantTest : public InProcessBrowserTest {
 
   void SetOmniboxText(const std::string& text) {
     FocusOmnibox();
-    omnibox()->SetUserText(ASCIIToUTF16(text));
+    omnibox()->SetUserText(UTF8ToUTF16(text));
   }
 
   void SetOmniboxTextAndWaitForInstantToShow(const std::string& text) {
@@ -121,6 +121,8 @@ class InstantTest : public InProcessBrowserTest {
            GetIntFromJS(rvh, "onsubmitcalls", &onsubmitcalls_) &&
            GetIntFromJS(rvh, "oncancelcalls", &oncancelcalls_) &&
            GetIntFromJS(rvh, "onresizecalls", &onresizecalls_) &&
+           GetIntFromJS(rvh, "onfocuscalls", &onfocuscalls_) &&
+           GetIntFromJS(rvh, "onblurcalls", &onblurcalls_) &&
            GetStringFromJS(rvh, "value", &value_) &&
            GetBoolFromJS(rvh, "verbatim", &verbatim_) &&
            GetIntFromJS(rvh, "height", &height_);
@@ -129,7 +131,7 @@ class InstantTest : public InProcessBrowserTest {
   bool ExecuteScript(const std::string& script) WARN_UNUSED_RESULT {
     return content::ExecuteJavaScript(
         instant()->GetPreviewContents()->web_contents()->GetRenderViewHost(),
-        std::wstring(), ASCIIToWide(script));
+        std::wstring(), UTF8ToWide(script));
   }
 
   bool CheckVisibilityIs(TabContents* tab, bool expected) WARN_UNUSED_RESULT {
@@ -145,6 +147,8 @@ class InstantTest : public InProcessBrowserTest {
   int onsubmitcalls_;
   int oncancelcalls_;
   int onresizecalls_;
+  int onfocuscalls_;
+  int onblurcalls_;
 
   std::string value_;
   bool verbatim_;
@@ -361,6 +365,28 @@ IN_PROC_BROWSER_TEST_F(InstantTest, OnResizeEvent) {
   EXPECT_TRUE(UpdateSearchState(instant()->GetPreviewContents()));
   EXPECT_EQ(2, onresizecalls_);
   EXPECT_LT(0, height_);
+}
+
+// Test that the searchbox isFocused property and focus and blur events work.
+IN_PROC_BROWSER_TEST_F(InstantTest, Focus) {
+  ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
+  FocusOmniboxAndWaitForInstantSupport();
+
+  TabContents* preview_tab = instant()->GetPreviewContents();
+  EXPECT_TRUE(preview_tab);
+  bool is_focused = false;
+  EXPECT_TRUE(GetBoolFromJS(preview_tab->web_contents()->GetRenderViewHost(),
+                            "chrome.searchBox.isFocused", &is_focused));
+  EXPECT_TRUE(is_focused);
+  instant()->OnAutocompleteGotFocus();
+  instant()->OnAutocompleteLostFocus(NULL);
+  EXPECT_TRUE(GetBoolFromJS(preview_tab->web_contents()->GetRenderViewHost(),
+                            "chrome.searchBox.isFocused", &is_focused));
+  EXPECT_FALSE(is_focused);
+
+  EXPECT_TRUE(UpdateSearchState(instant()->GetPreviewContents()));
+  EXPECT_EQ(1, onfocuscalls_);
+  EXPECT_EQ(1, onblurcalls_);
 }
 
 // Test that the INSTANT_COMPLETE_NOW behavior works as expected.
@@ -821,7 +847,6 @@ IN_PROC_BROWSER_TEST_F(InstantTest, History) {
 IN_PROC_BROWSER_TEST_F(InstantTest, NewWindowDismissesInstant) {
   ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
   EXPECT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
-  base::RunLoop().RunUntilIdle();
   SetOmniboxTextAndWaitForInstantToShow("search");
 
   Browser* previous_window = browser();
@@ -866,4 +891,50 @@ IN_PROC_BROWSER_TEST_F(InstantTest, InstantLoaderRefresh) {
   EXPECT_TRUE(instant()->loader()->supports_instant());
   instant()->OnAutocompleteLostFocus(NULL);
   EXPECT_FALSE(instant()->loader()->supports_instant());
+}
+
+// Test that suggestions are case insensitive. http://crbug.com/150728
+IN_PROC_BROWSER_TEST_F(InstantTest, SuggestionsAreCaseInsensitive) {
+  ASSERT_NO_FATAL_FAILURE(SetupInstant("instant.html"));
+  FocusOmniboxAndWaitForInstantSupport();
+
+  EXPECT_TRUE(ExecuteScript("suggestion = [ { value: 'INSTANT' } ]"));
+
+  SetOmniboxTextAndWaitForInstantToShow("in");
+  EXPECT_EQ(ASCIIToUTF16("instant"), omnibox()->GetText());
+
+  instant()->Hide();
+  SetOmniboxTextAndWaitForInstantToShow("IN");
+  EXPECT_EQ(ASCIIToUTF16("INSTANT"), omnibox()->GetText());
+
+  // U+0130 == LATIN CAPITAL LETTER I WITH DOT ABOVE
+  EXPECT_TRUE(ExecuteScript("suggestion = [ { value: '\\u0130NSTANT' } ]"));
+
+  instant()->Hide();
+  SetOmniboxTextAndWaitForInstantToShow("i");
+  EXPECT_EQ(WideToUTF16(L"i\u0307nstant"), omnibox()->GetText());
+
+  instant()->Hide();
+  SetOmniboxTextAndWaitForInstantToShow("I");
+  EXPECT_EQ(WideToUTF16(L"I\u0307nstant"), omnibox()->GetText());
+
+  instant()->Hide();
+  SetOmniboxTextAndWaitForInstantToShow(WideToUTF8(L"i\u0307"));
+  EXPECT_EQ(WideToUTF16(L"i\u0307nstant"), omnibox()->GetText());
+
+  instant()->Hide();
+  SetOmniboxTextAndWaitForInstantToShow(WideToUTF8(L"I\u0307"));
+  EXPECT_EQ(WideToUTF16(L"I\u0307nstant"), omnibox()->GetText());
+
+  instant()->Hide();
+  SetOmniboxTextAndWaitForInstantToShow(WideToUTF8(L"\u0130"));
+  EXPECT_EQ(WideToUTF16(L"\u0130NSTANT"), omnibox()->GetText());
+
+  instant()->Hide();
+  SetOmniboxTextAndWaitForInstantToShow("in");
+  EXPECT_EQ(ASCIIToUTF16("in"), omnibox()->GetText());
+
+  instant()->Hide();
+  SetOmniboxTextAndWaitForInstantToShow("IN");
+  EXPECT_EQ(ASCIIToUTF16("IN"), omnibox()->GetText());
 }

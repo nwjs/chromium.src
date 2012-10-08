@@ -12,7 +12,7 @@
 #include "CCTiledLayerTestCommon.h"
 #include "FakeCCGraphicsContext.h"
 #include "WebCompositorInitializer.h"
-#include <gtest/gtest.h>
+#include "testing/gtest/include/gtest/gtest.h"
 
 using namespace cc;
 using namespace WebKitTests;
@@ -95,7 +95,7 @@ protected:
     const IntSize m_textureSize;
     const GC3Denum m_textureFormat;
     WebCompositorInitializer m_compositorInitializer;
-    OwnPtr<CCGraphicsContext> m_context;
+    scoped_ptr<CCGraphicsContext> m_context;
     OwnPtr<CCResourceProvider> m_resourceProvider;
 };
 

@@ -232,6 +232,8 @@ v8.log
 /third_party/webgl_conformance
 /third_party/webpagereplay/
 /third_party/webrtc
+/third_party/widevine/cdm/binaries
+/third_party/widevine/cdm/symbols
 /third_party/wix
 /third_party/xdg-utils
 /third_party/xulrunner-sdk
@@ -246,6 +248,8 @@ v8.log
 /tools/histograms
 /tools/json_schema_compiler/test/json_schema_compiler_tests.xml
 /tools/page_cycler/acid3
+/tools/perf/data
+/tools/swarm_client
 /tools/tryserver
 /tools/win/link_limiter/build
 /ui/resources/aura/google_wallpapers
@@ -257,6 +261,7 @@ v8.log
 /webkit/data/layout_tests/LayoutTests
 /webkit/data/test_shell/plugins
 /webkit/data/xbm_decoder
+/webpagereplay_logs/
 /x86-generic_out/
 /xcodebuild
 # Dependencies of the node-webkit project

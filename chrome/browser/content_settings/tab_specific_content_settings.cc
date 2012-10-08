@@ -40,10 +40,9 @@ using content::NavigationEntry;
 using content::RenderViewHost;
 using content::WebContents;
 
+DEFINE_WEB_CONTENTS_USER_DATA_KEY(TabSpecificContentSettings)
+
 namespace {
-typedef std::list<TabSpecificContentSettings*> TabSpecificList;
-static base::LazyInstance<TabSpecificList> g_tab_specific =
-    LAZY_INSTANCE_INITIALIZER;
 
 class InterstitialHostObserver : public content::RenderViewHostObserver {
  public:
@@ -57,7 +56,7 @@ class InterstitialHostObserver : public content::RenderViewHostObserver {
   }
 };
 
-}
+}  // namespace
 
 TabSpecificContentSettings::SiteDataObserver::SiteDataObserver(
     TabSpecificContentSettings* tab_specific_content_settings)
@@ -66,7 +65,12 @@ TabSpecificContentSettings::SiteDataObserver::SiteDataObserver(
 }
 
 TabSpecificContentSettings::SiteDataObserver::~SiteDataObserver() {
-  tab_specific_content_settings_->RemoveSiteDataObserver(this);
+  if (tab_specific_content_settings_)
+    tab_specific_content_settings_->RemoveSiteDataObserver(this);
+}
+
+void TabSpecificContentSettings::SiteDataObserver::ContentSettingsDestroyed() {
+  tab_specific_content_settings_ = NULL;
 }
 
 TabSpecificContentSettings::TabSpecificContentSettings(WebContents* tab)
@@ -81,7 +85,6 @@ TabSpecificContentSettings::TabSpecificContentSettings(WebContents* tab)
       load_plugins_link_enabled_(true) {
   ClearBlockedContentSettingsExceptForCookies();
   ClearCookieSpecificContentSettings();
-  g_tab_specific.Get().push_back(this);
 
   registrar_.Add(this, chrome::NOTIFICATION_CONTENT_SETTINGS_CHANGED,
                  content::Source<HostContentSettingsMap>(
@@ -89,26 +92,21 @@ TabSpecificContentSettings::TabSpecificContentSettings(WebContents* tab)
 }
 
 TabSpecificContentSettings::~TabSpecificContentSettings() {
-  g_tab_specific.Get().remove(this);
+  FOR_EACH_OBSERVER(
+      SiteDataObserver, observer_list_, ContentSettingsDestroyed());
 }
 
 TabSpecificContentSettings* TabSpecificContentSettings::Get(
     int render_process_id, int render_view_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  RenderViewHost* view = RenderViewHost::FromID(
-      render_process_id, render_view_id);
+
+  RenderViewHost* view = RenderViewHost::FromID(render_process_id,
+                                                render_view_id);
   if (!view)
     return NULL;
-  // We loop through the tab contents and compare them with |view|, instead of
-  // getting the RVH from each tab contents and comparing its IDs because the
-  // latter will miss provisional RenderViewHosts.
-  for (TabSpecificList::iterator i = g_tab_specific.Get().begin();
-       i != g_tab_specific.Get().end(); ++i) {
-    if (WebContents::FromRenderViewHost(view) == (*i)->web_contents())
-      return (*i);
-  }
 
-  return NULL;
+  return TabSpecificContentSettings::FromWebContents(
+      WebContents::FromRenderViewHost(view));
 }
 
 // static
@@ -543,5 +541,5 @@ void TabSpecificContentSettings::RemoveSiteDataObserver(
 }
 
 void TabSpecificContentSettings::NotifySiteDataObservers() {
-   FOR_EACH_OBSERVER(SiteDataObserver, observer_list_, OnSiteDataAccessed());
+  FOR_EACH_OBSERVER(SiteDataObserver, observer_list_, OnSiteDataAccessed());
 }

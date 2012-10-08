@@ -281,7 +281,7 @@ class WaitingView : public views::View {
 WaitingView::WaitingView(views::ButtonListener* listener,
                          bool use_close_button) {
   views::GridLayout* layout = new views::GridLayout(this);
-  layout->set_minimum_size(gfx::Size(WebIntentPicker::kWindowWidth, 0));
+  layout->set_minimum_size(gfx::Size(WebIntentPicker::kWindowMinWidth, 0));
   layout->SetInsets(WebIntentPicker::kContentAreaBorder,
                     WebIntentPicker::kContentAreaBorder,
                     WebIntentPicker::kContentAreaBorder,
@@ -422,11 +422,11 @@ class IntentRowView : public views::View,
   class Delegate {
    public:
     // Called when the user clicks the "Add to Chrome" button.
-    virtual void OnExtensionInstallClicked(const string16& extension_id) = 0;
+    virtual void OnExtensionInstallClicked(const std::string& extension_id) = 0;
 
     // Called when the user clicks the extension title link.
     virtual void OnExtensionLinkClicked(
-        const string16& extension_id,
+        const std::string& extension_id,
         WindowOpenDisposition disposition) = 0;
 
     // Called when the action button is clicked. |type| indicates the requested
@@ -460,7 +460,7 @@ class IntentRowView : public views::View,
   // install button.
   void StartThrobber();
 
-  void MarkBusy(const string16& extension_id);
+  void MarkBusy(const std::string& extension_id);
 
   // Stop the throbber for this row, and show the star rating and the install
   // button.
@@ -478,7 +478,7 @@ class IntentRowView : public views::View,
   string16 GetActionButtonMessage();
 
   // Identifier for the suggested extension displayed in this row.
-  string16 extension_id_;
+  std::string extension_id_;
 
   // A delegate to respond to button presses and clicked links.
   Delegate* delegate_;
@@ -598,7 +598,7 @@ void IntentRowView::LinkClicked(views::Link* source,
       chrome::DispositionFromEventFlags(event_flags));
 }
 
-void IntentRowView::MarkBusy(const string16& extension_id) {
+void IntentRowView::MarkBusy(const std::string& extension_id) {
   SetEnabled(false);
   if (extension_id == extension_id_)
     StartThrobber();
@@ -659,7 +659,7 @@ class IntentsView : public views::View {
 
   // Show the install throbber for the row containing |extension_id|. This
   // function also hides hides and disables other buttons and links.
-  void StartThrobber(const string16& extension_id);
+  void StartThrobber(const std::string& extension_id);
 
   // Hide the install throbber. This function re-enables all buttons and links.
   void StopThrobber();
@@ -731,7 +731,7 @@ void IntentsView::Update() {
   }
 }
 
-void IntentsView::StartThrobber(const string16& extension_id) {
+void IntentsView::StartThrobber(const std::string& extension_id) {
   for (int i = 0; i < child_count(); ++i)
     static_cast<IntentRowView*>(child_at(i))->MarkBusy(extension_id);
 }
@@ -803,14 +803,15 @@ class WebIntentPickerViews : public views::ButtonListener,
   virtual void OnFaviconChanged(WebIntentPickerModel* model,
                                 size_t index) OVERRIDE;
   virtual void OnExtensionIconChanged(WebIntentPickerModel* model,
-                                      const string16& extension_id) OVERRIDE;
+                                      const std::string& extension_id) OVERRIDE;
   virtual void OnInlineDisposition(const string16& title,
                                    const GURL& url) OVERRIDE;
 
   // SuggestedExtensionsRowView::Delegate implementation.
-  virtual void OnExtensionInstallClicked(const string16& extension_id) OVERRIDE;
+  virtual void OnExtensionInstallClicked(
+      const std::string& extension_id) OVERRIDE;
   virtual void OnExtensionLinkClicked(
-      const string16& extension_id,
+      const std::string& extension_id,
       WindowOpenDisposition disposition) OVERRIDE;
   virtual void OnActionButtonClicked(
       IntentRowView::ActionType type,
@@ -834,6 +835,9 @@ class WebIntentPickerViews : public views::ButtonListener,
 
   // Resize the constrained window to the size of its contents.
   void SizeToContents();
+
+  // Clear the contents of the picker.
+  void ClearContents();
 
   // Returns the service selection question text used in the title
   // of the picker.
@@ -938,7 +942,7 @@ WebIntentPickerViews::WebIntentPickerViews(TabContents* tab_contents,
   model_->set_observer(this);
   contents_ = new views::View();
   // Show the dialog.
-  window_ = new ConstrainedWindowViews(tab_contents, this);
+  window_ = new ConstrainedWindowViews(tab_contents->web_contents(), this);
 
   UpdateContents();
 }
@@ -1032,8 +1036,7 @@ void WebIntentPickerViews::OnPendingAsyncCompleted() {
 }
 
 void WebIntentPickerViews::ShowNoServicesMessage() {
-  contents_->RemoveAllChildViews(true);
-  more_suggestions_link_ = NULL;
+  ClearContents();
 
   views::GridLayout* grid_layout = new views::GridLayout(contents_);
   contents_->SetLayoutManager(grid_layout);
@@ -1063,8 +1066,8 @@ void WebIntentPickerViews::ShowNoServicesMessage() {
   body->SetText(l10n_util::GetStringUTF16(IDS_INTENT_PICKER_NO_SERVICES));
   grid_layout->AddView(body);
 
-  int height = contents_->GetHeightForWidth(kWindowWidth);
-  contents_->SetSize(gfx::Size(kWindowWidth, height));
+  int height = contents_->GetHeightForWidth(kWindowMinWidth);
+  contents_->SetSize(gfx::Size(kWindowMinWidth, height));
 }
 
 void WebIntentPickerViews::OnInlineDispositionWebContentsLoaded(
@@ -1073,8 +1076,7 @@ void WebIntentPickerViews::OnInlineDispositionWebContentsLoaded(
     return;
 
   // Replace the picker with the inline disposition.
-  contents_->RemoveAllChildViews(true);
-  more_suggestions_link_ = NULL;
+  ClearContents();
 
   views::GridLayout* grid_layout = new views::GridLayout(contents_);
   contents_->SetLayoutManager(grid_layout);
@@ -1160,7 +1162,7 @@ void WebIntentPickerViews::OnFaviconChanged(WebIntentPickerModel* model,
 
 void WebIntentPickerViews::OnExtensionIconChanged(
     WebIntentPickerModel* model,
-    const string16& extension_id) {
+    const std::string& extension_id) {
   if (extensions_)
     extensions_->Update();
 
@@ -1204,18 +1206,18 @@ void WebIntentPickerViews::OnInlineDisposition(
 }
 
 void WebIntentPickerViews::OnExtensionInstallClicked(
-    const string16& extension_id) {
+    const std::string& extension_id) {
   can_close_ = false;
   extensions_->StartThrobber(extension_id);
   more_suggestions_link_->SetEnabled(false);
   contents_->Layout();
-  delegate_->OnExtensionInstallRequested(UTF16ToUTF8(extension_id));
+  delegate_->OnExtensionInstallRequested(extension_id);
 }
 
 void WebIntentPickerViews::OnExtensionLinkClicked(
-    const string16& extension_id,
+    const std::string& extension_id,
     WindowOpenDisposition disposition) {
-  delegate_->OnExtensionLinkClicked(UTF16ToUTF8(extension_id), disposition);
+  delegate_->OnExtensionLinkClicked(extension_id, disposition);
 }
 
 void WebIntentPickerViews::OnActionButtonClicked(
@@ -1228,12 +1230,12 @@ void WebIntentPickerViews::OnActionButtonClicked(
 
 void WebIntentPickerViews::UpdateContents() {
   if (model_ && model_->IsWaitingForSuggestions()) {
-    contents_->RemoveAllChildViews(true);
+    ClearContents();
     contents_->SetLayoutManager(new views::FillLayout());
     waiting_view_ = new WaitingView(this, use_close_button_);
     contents_->AddChildView(waiting_view_);
-    int height = contents_->GetHeightForWidth(kWindowWidth);
-    contents_->SetSize(gfx::Size(kWindowWidth, height));
+    int height = contents_->GetHeightForWidth(kWindowMinWidth);
+    contents_->SetSize(gfx::Size(kWindowMinWidth, height));
     contents_->Layout();
   } else if (model_->GetInstalledServiceCount() ||
       model_->GetSuggestedExtensionCount()) {
@@ -1251,14 +1253,13 @@ const string16 WebIntentPickerViews::GetActionTitle() {
 }
 
 void WebIntentPickerViews::ShowAvailableServices() {
-  DCHECK(contents_);
   enum {
     kHeaderRowColumnSet,  // Column set for header layout.
     kFullWidthColumnSet,  // Column set with a single full-width column.
     kIndentedFullWidthColumnSet,  // Single full-width column, indented.
   };
 
-  contents_->RemoveAllChildViews(true);
+  ClearContents();
   displaying_web_contents_ = false;
 
   extensions_ = new IntentsView(model_, this);
@@ -1267,7 +1268,7 @@ void WebIntentPickerViews::ShowAvailableServices() {
   contents_->SetLayoutManager(grid_layout);
 
   grid_layout->set_minimum_size(
-      gfx::Size(extensions_->AdjustWidth(kWindowWidth), 0));
+      gfx::Size(extensions_->AdjustWidth(kWindowMinWidth), 0));
   grid_layout->SetInsets(kContentAreaBorder, kContentAreaBorder,
                          kContentAreaBorder, kContentAreaBorder);
   views::ColumnSet* header_cs = grid_layout->AddColumnSet(kHeaderRowColumnSet);
@@ -1358,9 +1359,28 @@ void WebIntentPickerViews::ResetContents() {
 }
 
 void WebIntentPickerViews::SizeToContents() {
-  gfx::Size client_size = contents_->GetPreferredSize();
-  gfx::Rect client_bounds(client_size);
-  gfx::Rect new_window_bounds = window_->non_client_view()->frame_view()->
-      GetWindowBoundsForClientBounds(client_bounds);
-  window_->CenterWindow(new_window_bounds.size());
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableFramelessConstrainedDialogs)) {
+    window_->OnSizeChanged();
+  } else {
+    gfx::Size client_size = contents_->GetPreferredSize();
+    gfx::Rect client_bounds(client_size);
+    gfx::Rect new_window_bounds = window_->non_client_view()->frame_view()->
+        GetWindowBoundsForClientBounds(client_bounds);
+    window_->CenterWindow(new_window_bounds.size());
+  }
+}
+
+void WebIntentPickerViews::ClearContents() {
+  DCHECK(contents_);
+  // The call RemoveAllChildViews(true) deletes all children of |contents|. If
+  // we do not set our weak pointers to NULL, then they will continue to point
+  // to where the deleted objects used to be, i.e. unitialized memory. This
+  // would cause hard-to-explain crashes.
+  contents_->RemoveAllChildViews(true);
+  action_label_ = NULL;
+  suggestions_label_ = NULL;
+  extensions_ = NULL;
+  more_suggestions_link_ = NULL;
+  choose_another_service_link_ = NULL;
 }

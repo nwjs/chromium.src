@@ -13,6 +13,10 @@
 #include "ui/gfx/image/image.h"
 #include "webkit/glue/web_intent_service_data.h"
 
+namespace content {
+class DownloadItem;
+}
+
 class WebIntentPickerModelObserver;
 
 // Model for the WebIntentPicker.
@@ -42,7 +46,7 @@ class WebIntentPickerModel {
   // A suggested extension to display in the picker.
   struct SuggestedExtension {
     SuggestedExtension(const string16& title,
-                       const string16& id,
+                       const std::string& id,
                        double average_rating);
     ~SuggestedExtension();
 
@@ -50,7 +54,7 @@ class WebIntentPickerModel {
     string16 title;
 
     // The id of the extension that provides the intent service.
-    string16 id;
+    std::string id;
 
     // The average rating of the extension.
     double average_rating;
@@ -116,6 +120,10 @@ class WebIntentPickerModel {
   // Return the suggested extension at |index|.
   const SuggestedExtension& GetSuggestedExtensionAt(size_t index) const;
 
+  // Return the suggested extension for the given id or NULL if none.
+  const SuggestedExtension* GetSuggestedExtensionWithId(
+      const std::string& id) const;
+
   // Return the number of suggested extensions to be displayed.
   size_t GetSuggestedExtensionCount() const;
 
@@ -124,10 +132,11 @@ class WebIntentPickerModel {
   string16 GetSuggestionsLinkText() const;
 
   // Set the icon image for the suggested extension with |id|.
-  void SetSuggestedExtensionIconWithId(const string16& id,
+  void SetSuggestedExtensionIconWithId(const std::string& id,
                                        const gfx::Image& image);
 
   // Set the picker to display the intent service with |url| inline.
+  // To clear the current inline disposition set |url| to an empty URL.
   void SetInlineDisposition(const GURL& url);
 
   // Returns true if the picker is currently displaying an inline service.
@@ -142,6 +151,37 @@ class WebIntentPickerModel {
   // Returns the url of the intent service that is being displayed inline, or
   // GURL::EmptyGURL() if none.
   const GURL& inline_disposition_url() const { return inline_disposition_url_; }
+
+  // Sets the ID of the extension currently being installed.
+  void SetPendingExtensionInstallId(const std::string& id);
+
+  // Gets the ID of the extension currently being installed.
+  const std::string& pending_extension_install_id() const {
+    return pending_extension_install_id_;
+  }
+
+  // Updates the pending install download state.
+  void UpdateExtensionDownloadState(content::DownloadItem* item);
+
+  // Sets the download progress of the extension currently being downloaded.
+  void SetPendingExtensionInstallDownloadProgress(int progress);
+
+  // Gets the download progress of the extension currently being downloaded.
+  // Returns -1 if progress is indeterminate, otherwise a value from 0 to 100.
+  int pending_extension_install_download_progress() const {
+    return pending_extension_install_download_progress_;
+  }
+
+  // Sets the status of extension install process.
+  void SetPendingExtensionInstallStatusString(const string16& status);
+
+  // Gets the status of extension install process.
+  const string16& pending_extension_install_status_string() const {
+    return pending_extension_install_status_string_;
+  }
+
+  // Removes any pending extension install state.
+  void ClearPendingExtensionInstall();
 
  private:
   // Delete all elements in |installed_services_| and |suggested_extensions_|.
@@ -177,6 +217,11 @@ class WebIntentPickerModel {
 
   // The hash context for the default service, if there is one.
   int64 default_service_hash_;
+
+  // Information about the pending extension install.
+  std::string pending_extension_install_id_;
+  int pending_extension_install_download_progress_;
+  string16 pending_extension_install_status_string_;
 
   DISALLOW_COPY_AND_ASSIGN(WebIntentPickerModel);
 };

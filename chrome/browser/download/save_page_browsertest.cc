@@ -53,21 +53,14 @@ using content::DownloadManager;
 using content::DownloadPersistentStoreInfo;
 using content::WebContents;
 
-namespace {
+const FilePath::CharType kTestDir[] = FILE_PATH_LITERAL("save_page");
 
-static const FilePath::CharType* kTestDir = FILE_PATH_LITERAL("save_page");
-
-static const char* kAppendedExtension =
+const char kAppendedExtension[] =
 #if defined(OS_WIN)
     ".htm";
 #else
     ".html";
 #endif
-
-void NullFunction() {
-}
-
-}  // namespace
 
 // Loosely based on logic in DownloadTestObserver.
 class DownloadItemCreatedObserver : public DownloadManager::Observer {
@@ -339,7 +332,8 @@ class SavePageBrowserTest : public InProcessBrowserTest {
     if (found == history_entries_.end()) {
       LOG(ERROR) << "Missing url=" << url.spec()
                  << " path=" << path.value()
-                 << " received=" << num_files;
+                 << " received=" << num_files
+                 << " state=" << state;
       for (size_t index = 0; index < history_entries_.size(); ++index) {
         LOG(ERROR) << "History@" << index << ": url="
                    << history_entries_[index].url.spec()
@@ -628,8 +622,7 @@ class SavePageAsMHTMLBrowserTest : public SavePageBrowserTest {
 SavePageAsMHTMLBrowserTest::~SavePageAsMHTMLBrowserTest() {
 }
 
-// http://crbug.com/149135
-IN_PROC_BROWSER_TEST_F(SavePageAsMHTMLBrowserTest, DISABLED_SavePageAsMHTML) {
+IN_PROC_BROWSER_TEST_F(SavePageAsMHTMLBrowserTest, SavePageAsMHTML) {
   static const int64 kFileSizeMin = 2758;
   GURL url = NavigateToMockURL("b");
   FilePath download_dir = DownloadPrefs::FromDownloadManager(
@@ -641,11 +634,10 @@ IN_PROC_BROWSER_TEST_F(SavePageAsMHTMLBrowserTest, DISABLED_SavePageAsMHTML) {
 #else
   SavePackageFilePicker::SetShouldPromptUser(false);
 #endif
-  content::WindowedNotificationObserver observer(
-        content::NOTIFICATION_SAVE_PACKAGE_SUCCESSFULLY_FINISHED,
-        content::NotificationService::AllSources());
   chrome::SavePage(browser());
-  observer.Wait();
+  GURL output_url;
+  ASSERT_TRUE(WaitForSavePackageToFinish(&output_url));
+  EXPECT_EQ(url, output_url);
   CheckDownloadHistory(url, full_file_name, -1, DownloadItem::COMPLETE);
 
   EXPECT_TRUE(file_util::PathExists(full_file_name));

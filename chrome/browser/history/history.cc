@@ -265,6 +265,31 @@ history::URLDatabase* HistoryService::InMemoryDatabase() {
   return NULL;
 }
 
+bool HistoryService::GetTypedCountForURL(const GURL& url, int* typed_count) {
+  history::URLRow url_row;
+  if (!GetRowForURL(url, &url_row))
+    return false;
+  *typed_count = url_row.typed_count();
+  return true;
+}
+
+bool HistoryService::GetLastVisitTimeForURL(const GURL& url,
+                                            base::Time* last_visit) {
+  history::URLRow url_row;
+  if (!GetRowForURL(url, &url_row))
+    return false;
+  *last_visit = url_row.last_visit();
+  return true;
+}
+
+bool HistoryService::GetVisitCountForURL(const GURL& url, int* visit_count) {
+  history::URLRow url_row;
+  if (!GetRowForURL(url, &url_row))
+    return false;
+  *visit_count = url_row.visit_count();
+  return true;
+}
+
 void HistoryService::ShutdownOnUIThread() {
   // It's possible that bookmarks haven't loaded and history is waiting for
   // bookmarks to complete loading. In such a situation history can't shutdown
@@ -528,7 +553,6 @@ void HistoryService::UpdateFaviconMappingsAndFetch(
 
 void HistoryService::MergeFavicon(
     const GURL& page_url,
-    const GURL& icon_url,
     history::IconType icon_type,
     scoped_refptr<base::RefCountedMemory> bitmap_data,
     const gfx::Size& pixel_size) {
@@ -536,7 +560,7 @@ void HistoryService::MergeFavicon(
     return;
 
   ScheduleAndForget(PRIORITY_NORMAL, &HistoryBackend::MergeFavicon, page_url,
-      icon_url, icon_type, bitmap_data, pixel_size);
+                    icon_type, bitmap_data, pixel_size);
 }
 
 void HistoryService::SetFavicons(
@@ -921,6 +945,11 @@ void HistoryService::OnDBLoaded(int backend_id) {
     if (ts)
       ts->HistoryLoaded();
   }
+}
+
+bool HistoryService::GetRowForURL(const GURL& url, history::URLRow* url_row) {
+  history::URLDatabase* db = InMemoryDatabase();
+  return db && (db->GetRowForURL(url, url_row) != 0);
 }
 
 void HistoryService::StartTopSitesMigration(int backend_id) {

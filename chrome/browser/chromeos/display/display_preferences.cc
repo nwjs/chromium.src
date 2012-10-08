@@ -38,6 +38,55 @@ std::string UnescapeDisplayName(const std::string& name) {
   return UTF16ToASCII(string16(decoded.data(), decoded.length()));
 }
 
+void NotifyDisplayLayoutChanged(PrefService* pref_service) {
+  ash::DisplayController* display_controller =
+      ash::Shell::GetInstance()->display_controller();
+
+  ash::DisplayLayout default_layout(
+      static_cast<ash::DisplayLayout::Position>(pref_service->GetInteger(
+          prefs::kSecondaryDisplayLayout)),
+      pref_service->GetInteger(prefs::kSecondaryDisplayOffset));
+  display_controller->SetDefaultDisplayLayout(default_layout);
+
+  const base::DictionaryValue* layouts = pref_service->GetDictionary(
+      prefs::kSecondaryDisplays);
+  for (base::DictionaryValue::key_iterator it = layouts->begin_keys();
+       it != layouts->end_keys(); ++it) {
+    const base::Value* value = NULL;
+    if (!layouts->Get(*it, &value) || value == NULL)
+      continue;
+
+    ash::DisplayLayout layout;
+    if (!ash::DisplayLayout::ConvertFromValue(*value, &layout)) {
+      LOG(WARNING) << "Invalid preference value for " << *it;
+      continue;
+    }
+
+    display_controller->SetLayoutForDisplayName(
+        UnescapeDisplayName(*it), layout);
+  }
+}
+
+// Notification is currently sent when the pref is initialized and the pref is
+// updated.  It means that the primary display isn't set when it's connected to
+// the system later.
+void NotifyPrimaryDisplayIDChanged(PrefService* pref_service) {
+  int64 id = pref_service->GetInt64(prefs::kPrimaryDisplayID);
+  if (id == gfx::Display::kInvalidDisplayID)
+    return;
+
+  aura::DisplayManager* display_manager =
+      aura::Env::GetInstance()->display_manager();
+  for (size_t i = 0; i < display_manager->GetNumDisplays(); ++i) {
+    gfx::Display* display = display_manager->GetDisplayAt(i);
+    if (display->id() == id) {
+      ash::Shell::GetInstance()->display_controller()->
+          SetPrimaryDisplay(*display);
+      return;
+    }
+  }
+}
+
 }  // namespace
 
 void RegisterDisplayPrefs(PrefService* pref_service) {
@@ -53,6 +102,11 @@ void RegisterDisplayPrefs(PrefService* pref_service) {
   // Per-display preference.
   pref_service->RegisterDictionaryPref(prefs::kSecondaryDisplays,
                                        PrefService::UNSYNCABLE_PREF);
+
+  // Primary output name.
+  pref_service->RegisterInt64Pref(prefs::kPrimaryDisplayID,
+                                  gfx::Display::kInvalidDisplayID,
+                                  PrefService::UNSYNCABLE_PREF);
 }
 
 void SetDisplayLayoutPref(PrefService* pref_service,
@@ -85,34 +139,17 @@ void SetDisplayLayoutPref(PrefService* pref_service,
   pref_service->SetInteger(prefs::kSecondaryDisplayLayout, layout);
   pref_service->SetInteger(prefs::kSecondaryDisplayOffset, offset);
 
-  NotifyDisplayPrefChanged(pref_service);
+  NotifyDisplayLayoutChanged(pref_service);
+}
+
+void SetPrimaryDisplayIDPref(PrefService* pref_service, int64 display_id) {
+  pref_service->SetInt64(prefs::kPrimaryDisplayID, display_id);
+  NotifyPrimaryDisplayIDChanged(pref_service);
 }
 
 void NotifyDisplayPrefChanged(PrefService* pref_service) {
-  ash::DisplayController* display_controller =
-      ash::Shell::GetInstance()->display_controller();
-
-  ash::DisplayLayout default_layout(
-      static_cast<ash::DisplayLayout::Position>(pref_service->GetInteger(
-          prefs::kSecondaryDisplayLayout)),
-      pref_service->GetInteger(prefs::kSecondaryDisplayOffset));
-  display_controller->SetDefaultDisplayLayout(default_layout);
-
-  const base::DictionaryValue* layouts = pref_service->GetDictionary(
-      prefs::kSecondaryDisplays);
-  for (base::DictionaryValue::key_iterator it = layouts->begin_keys();
-       it != layouts->end_keys(); ++it) {
-    const base::Value* value = NULL;
-    if (!layouts->Get(*it, &value) || value == NULL)
-      continue;
-
-    ash::DisplayLayout layout;
-    if (!ash::DisplayLayout::ConvertFromValue(*value, &layout))
-      continue;
-
-    display_controller->SetLayoutForDisplayName(
-        UnescapeDisplayName(*it), layout);
-  }
+  NotifyDisplayLayoutChanged(pref_service);
+  NotifyPrimaryDisplayIDChanged(pref_service);
 }
 
 }  // namespace chromeos

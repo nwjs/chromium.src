@@ -94,8 +94,6 @@ namespace {
 
 const char kTestChromeVersion[] = "test chrome version";
 
-void DoNothing() {}
-
 void ExpectInt64Value(int64 expected_value,
                       const DictionaryValue& value, const std::string& key) {
   std::string int64_str;
@@ -913,10 +911,11 @@ class SyncManagerTest : public testing::Test,
 
   void TriggerOnIncomingNotificationForTest(ModelTypeSet model_types) {
     DCHECK(sync_manager_.thread_checker_.CalledOnValidThread());
-    ModelTypeStateMap type_state_map =
-        ModelTypeSetToStateMap(model_types, std::string());
+    ModelTypeInvalidationMap invalidation_map =
+        ModelTypeSetToInvalidationMap(model_types, std::string());
     sync_manager_.OnIncomingInvalidation(
-        ModelTypeStateMapToObjectIdStateMap(type_state_map),
+        ModelTypeInvalidationMapToObjectIdInvalidationMap(
+            invalidation_map),
         REMOTE_INVALIDATION);
   }
 

@@ -6,6 +6,7 @@
 #define WEBKIT_FILEAPI_SYNCABLE_LOCAL_FILE_CHANGE_TRACKER_H_
 
 #include <map>
+#include <string>
 #include <vector>
 
 #include "base/basictypes.h"
@@ -18,14 +19,13 @@
 #include "webkit/fileapi/file_system_url.h"
 #include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/syncable/file_change.h"
+#include "webkit/fileapi/syncable/sync_status_code.h"
 
 namespace base {
 class SequencedTaskRunner;
 }
 
 namespace fileapi {
-
-class LocalFileSyncStatus;
 
 // Tracks local file changes for cloud-backed file systems.
 // All methods must be called on the file_task_runner given to the constructor.
@@ -40,7 +40,7 @@ class FILEAPI_EXPORT LocalFileChangeTracker
   // |file_task_runner| must be the one where the observee file operations run.
   // (So that we can make sure DB operations are done before actual update
   // happens)
-  LocalFileChangeTracker(LocalFileSyncStatus* sync_status,
+  LocalFileChangeTracker(const FilePath& base_path,
                          base::SequencedTaskRunner* file_task_runner);
   virtual ~LocalFileChangeTracker();
 
@@ -66,28 +66,33 @@ class FILEAPI_EXPORT LocalFileChangeTracker
   void GetChangesForURL(const FileSystemURL& url, FileChangeList* changes);
 
   // Called by FileSyncService to notify that the changes are synced for |url|.
-  // This removes |url| from the internal change map and re-enables writing
-  // for |url|.
+  // This removes |url| from the internal change map.
   void FinalizeSyncForURL(const FileSystemURL& url);
 
   // Called by FileSyncService at the startup time to collect last
   // dirty changes left after the last shutdown (if any).
-  void CollectLastDirtyChanges(FileChangeMap* changes);
+  SyncStatusCode CollectLastDirtyChanges(FileChangeMap* changes);
+
+ protected:
+  // Database related methods. These methods are virtual for testing.
+  virtual SyncStatusCode MarkDirtyOnDatabase(const FileSystemURL& url);
+  virtual SyncStatusCode ClearDirtyOnDatabase(const FileSystemURL& url);
 
  private:
+  class TrackerDB;
+  friend class LocalFileChangeTrackerTest;
+
   void RecordChange(const FileSystemURL& url, const FileChange& change);
 
-  // Database related methods.
-  void MarkDirtyOnDatabase(const FileSystemURL& url);
-  void ClearDirtyOnDatabase(const FileSystemURL& url);
-
-  // Not owned; this must have the same lifetime with us (both owned
-  // by FileSystemContext).
-  LocalFileSyncStatus *sync_status_;
+  std::string SerializeExternalFileSystemURL(const FileSystemURL& url);
+  bool DeserializeExternalFileSystemURL(
+      const std::string& serialized_url, FileSystemURL* url);
 
   scoped_refptr<base::SequencedTaskRunner> file_task_runner_;
 
   FileChangeMap changes_;
+
+  scoped_ptr<TrackerDB> tracker_db_;
 
   DISALLOW_COPY_AND_ASSIGN(LocalFileChangeTracker);
 };

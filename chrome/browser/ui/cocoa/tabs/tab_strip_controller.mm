@@ -568,16 +568,19 @@ private:
 
   // Make sure the new tabs's sheets are visible (necessary when a background
   // tab opened a sheet while it was in the background and now becomes active).
-  TabContents* newTab = tabStripModel_->GetTabContentsAt(modelIndex);
-  DCHECK(newTab);
+  TabContents* tabContents = tabStripModel_->GetTabContentsAt(modelIndex);
+  DCHECK(tabContents);
+  WebContents* newTab = tabContents->web_contents();
   if (newTab && ![sheetController sheetCount]) {
+    ConstrainedWindowTabHelper* constrained_window_tab_helper =
+      ConstrainedWindowTabHelper::FromWebContents(newTab);
+
     ConstrainedWindowTabHelper::ConstrainedWindowList::iterator it, end;
-    end = newTab->constrained_window_tab_helper()->constrained_window_end();
+    end = constrained_window_tab_helper->constrained_window_end();
     NSWindowController* controller = [[newView window] windowController];
     DCHECK([controller isKindOfClass:[BrowserWindowController class]]);
 
-    for (it = newTab->constrained_window_tab_helper()->
-              constrained_window_begin();
+    for (it = constrained_window_tab_helper->constrained_window_begin();
          it != end;
          ++it) {
       ConstrainedWindow* constrainedWindow = *it;
@@ -1205,6 +1208,8 @@ private:
   // for layout.
   availableResizeWidth_ = kUseFullAvailableWidth;
 
+  [delegate_ onInsertTabWithContents:contents->web_contents()];
+
   // We don't need to call |-layoutTabs| if the tab will be in the foreground
   // because it will get called when the new tab is selected by the tab model.
   // Whenever |-layoutTabs| is called, it'll also add the new subview.
@@ -1276,7 +1281,9 @@ private:
     newContents->web_contents()->WasShown();
     newContents->web_contents()->GetView()->RestoreFocus();
 
-    if (newContents->find_tab_helper()->find_ui_active())
+    FindTabHelper* findTabHelper =
+        FindTabHelper::FromWebContents(newContents->web_contents());
+    if (findTabHelper->find_ui_active())
       browser_->GetFindBarController()->find_bar()->SetFocusAndSelection();
   }
 }
@@ -1464,8 +1471,10 @@ private:
   NSInteger index = [self indexFromModelIndex:modelIndex];
   TabController* tabController = [tabArray_ objectAtIndex:index];
 
+  FaviconTabHelper* favicon_tab_helper =
+      FaviconTabHelper::FromWebContents(contents->web_contents());
   bool oldHasIcon = [tabController iconView] != nil;
-  bool newHasIcon = contents->favicon_tab_helper()->ShouldDisplayFavicon() ||
+  bool newHasIcon = favicon_tab_helper->ShouldDisplayFavicon() ||
       tabStripModel_->IsMiniTab(modelIndex);  // Always show icon if mini.
 
   TabLoadingState oldState = [tabController loadingState];

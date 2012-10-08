@@ -683,6 +683,8 @@ class RenderViewImpl : public RenderWidget,
                               const WebKit::WebIntentRequest& intentRequest);
   virtual void willOpenSocketStream(
       WebKit::WebSocketStreamHandle* handle);
+  virtual void willStartUsingPeerConnectionHandler(WebKit::WebFrame* frame,
+      WebKit::WebRTCPeerConnectionHandler* handler) OVERRIDE;
   virtual bool willCheckAndDispatchMessageEvent(
       WebKit::WebFrame* sourceFrame,
       WebKit::WebFrame* targetFrame,
@@ -1096,9 +1098,9 @@ class RenderViewImpl : public RenderWidget,
   // If this is a swapped out RenderView, which maintains a copy of the frame
   // tree of an active RenderView, we keep a map from frame ids in this view to
   // the frame ids of the active view for each corresponding frame.
-  // This method uses the map to find the frame in this RenderView that
-  // corresponds to the frame in the active RenderView specified by |frame_id|.
-  WebKit::WebFrame* GetFrameByMappedID(int frame_id);
+  // This method returns the frame in this RenderView that corresponds to the
+  // frame in the active RenderView specified by |remote_frame_id|.
+  WebKit::WebFrame* GetFrameByRemoteID(int remote_frame_id);
 
   void EnsureMediaStreamImpl();
 

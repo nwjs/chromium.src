@@ -1415,6 +1415,7 @@
    fun:gfx::GetDefaultWebKitFontRenderParams
    fun:renderer_preferences_util::UpdateFromSystemSettings
    fun:PrefsTabHelper::PrefsTabHelper
+   fun:WebContentsUserData::CreateForWebContents
    fun:TabContents::TabContents
    fun:TabContents::Factory::CreateTabContents
    fun:TabContentsTestHarness::SetContents
@@ -1543,4 +1544,13 @@
    fun:v8::InitializeHelper
    fun:v8::V8::Initialize
    fun:WebKit::initialize
+}
+{
+   bug_153791
+   Heapcheck:Leak
+   ...
+   fun:PluginFinder::GetPluginMetadata
+   fun:PluginPrefs::EnablePlugin
+   fun:PluginPrefsTest::EnablePluginSynchronously
+   fun:PluginPrefsTest_UnifiedPepperFlashState_Test::TestBody
 }

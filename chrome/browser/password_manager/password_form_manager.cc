@@ -16,11 +16,11 @@
 #include "chrome/common/autofill_messages.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "webkit/forms/password_form_dom_manager.h"
+#include "content/public/common/password_form.h"
 
 using base::Time;
-using webkit::forms::PasswordForm;
-using webkit::forms::PasswordFormMap;
+using content::PasswordForm;
+using content::PasswordFormMap;
 
 PasswordFormManager::PasswordFormManager(Profile* profile,
                                          PasswordManager* password_manager,
@@ -208,6 +208,9 @@ void PasswordFormManager::ProvisionallySave(const PasswordForm& credentials) {
 
   pending_credentials_.password_value = credentials.password_value;
   pending_credentials_.preferred = credentials.preferred;
+
+  if (has_generated_password_)
+    pending_credentials_.type = PasswordForm::TYPE_GENERATED;
 }
 
 void PasswordFormManager::Save() {

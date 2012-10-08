@@ -28,7 +28,10 @@ class GpuBlacklistTest : public testing::Test {
   }
 
   GpuBlacklist* Create() {
-    return new GpuBlacklist();
+    GpuBlacklist* rt = new GpuBlacklist();
+    // Set up machine model to avoid triggering collection code on Mac.
+    rt->SetCurrentMachineModelInfoForTesting("Test", "1.0");
+    return rt;
   }
 
  protected:
@@ -78,10 +81,10 @@ TEST_F(GpuBlacklistTest, DefaultBlacklistSettings) {
   Version os_version("10.6.4");
   scoped_ptr<GpuBlacklist> blacklist(Create());
   // Default blacklist settings: all feature are allowed.
-  GpuFeatureType type = blacklist->MakeBlacklistDecision(
-      GpuBlacklist::kOsMacosx, &os_version,
-      gpu_info()).blacklisted_features;
-  EXPECT_EQ(type, 0);
+  GpuBlacklist::Decision decision = blacklist->MakeBlacklistDecision(
+      GpuBlacklist::kOsMacosx, &os_version, gpu_info());
+  EXPECT_EQ(decision.blacklisted_features, 0);
+  EXPECT_EQ(decision.gpu_switching, content::GPU_SWITCHING_OPTION_UNKNOWN);
 }
 
 TEST_F(GpuBlacklistTest, EmptyBlacklist) {
@@ -99,10 +102,10 @@ TEST_F(GpuBlacklistTest, EmptyBlacklist) {
   EXPECT_TRUE(blacklist->LoadGpuBlacklist(
       empty_list_json, GpuBlacklist::kAllOs));
   EXPECT_EQ(blacklist->GetVersion(), std::string("2.5"));
-  GpuFeatureType type = blacklist->MakeBlacklistDecision(
-      GpuBlacklist::kOsMacosx, &os_version,
-      gpu_info()).blacklisted_features;
-  EXPECT_EQ(type, 0);
+  GpuBlacklist::Decision decision = blacklist->MakeBlacklistDecision(
+      GpuBlacklist::kOsMacosx, &os_version, gpu_info());
+  EXPECT_EQ(decision.blacklisted_features, 0);
+  EXPECT_EQ(decision.gpu_switching, content::GPU_SWITCHING_OPTION_UNKNOWN);
 }
 
 TEST_F(GpuBlacklistTest, DetailedEntryAndInvalidJson) {
@@ -1091,3 +1094,110 @@ TEST_F(GpuBlacklistTest, VideoDecode) {
       gpu_info()).blacklisted_features;
   EXPECT_EQ(type, content::GPU_FEATURE_TYPE_ACCELERATED_VIDEO_DECODE);
 }
+
+TEST_F(GpuBlacklistTest, DualGpuModel) {
+  const std::string model_json =
+      "{\n"
+      "  \"name\": \"gpu blacklist\",\n"
+      "  \"version\": \"0.1\",\n"
+      "  \"entries\": [\n"
+      "    {\n"
+      "      \"id\": 5,\n"
+      "      \"os\": {\n"
+      "        \"type\": \"macosx\",\n"
+      "        \"version\": {\n"
+      "          \"op\": \">=\",\n"
+      "          \"number\": \"10.7\"\n"
+      "        }\n"
+      "      },\n"
+      "      \"machine_model\": {\n"
+      "        \"name\": {\n"
+      "          \"op\": \"=\",\n"
+      "          \"value\": \"MacBookPro\"\n"
+      "        },\n"
+      "        \"version\": {\n"
+      "          \"op\": \"<\",\n"
+      "          \"number\": \"8\"\n"
+      "        }\n"
+      "      },\n"
+      "      \"gpu_count\": {\n"
+      "        \"op\": \"=\",\n"
+      "        \"value\": \"2\"\n"
+      "      },\n"
+      "      \"gpu_switching\": \"force_discrete\"\n"
+      "    }\n"
+      "  ]\n"
+      "}";
+  Version os_version("10.7");
+  scoped_ptr<GpuBlacklist> blacklist(Create());
+  EXPECT_TRUE(blacklist->LoadGpuBlacklist(model_json, GpuBlacklist::kAllOs));
+  // Setup model name and version.
+  blacklist->SetCurrentMachineModelInfoForTesting("MacBookPro", "7.1");
+  // Insert a second GPU.
+  content::GPUInfo gpu_info;
+  gpu_info.secondary_gpus.push_back(content::GPUInfo::GPUDevice());
+  GpuSwitchingOption switching = blacklist->MakeBlacklistDecision(
+      GpuBlacklist::kOsMacosx, &os_version, gpu_info).gpu_switching;
+  EXPECT_EQ(switching, content::GPU_SWITCHING_OPTION_FORCE_DISCRETE);
+}
+
+TEST_F(GpuBlacklistTest, Css3D) {
+  const std::string css_3d_json =
+      "{\n"
+      "  \"name\": \"gpu blacklist\",\n"
+      "  \"version\": \"0.1\",\n"
+      "  \"entries\": [\n"
+      "    {\n"
+      "      \"id\": 1,\n"
+      "      \"os\": {\n"
+      "        \"type\": \"macosx\"\n"
+      "      },\n"
+      "      \"vendor_id\": \"0x10de\",\n"
+      "      \"device_id\": [\"0x0640\"],\n"
+      "      \"blacklist\": [\n"
+      "        \"3d_css\"\n"
+      "      ]\n"
+      "    }\n"
+      "  ]\n"
+      "}";
+  Version os_version("10.6.4");
+
+  scoped_ptr<GpuBlacklist> blacklist(Create());
+  EXPECT_TRUE(blacklist->LoadGpuBlacklist(
+      css_3d_json, GpuBlacklist::kAllOs));
+  GpuFeatureType type = blacklist->MakeBlacklistDecision(
+      GpuBlacklist::kOsMacosx, &os_version,
+      gpu_info()).blacklisted_features;
+  EXPECT_EQ(type, content::GPU_FEATURE_TYPE_3D_CSS);
+}
+
+TEST_F(GpuBlacklistTest, Video) {
+  const std::string video_json =
+      "{\n"
+      "  \"name\": \"gpu blacklist\",\n"
+      "  \"version\": \"0.1\",\n"
+      "  \"entries\": [\n"
+      "    {\n"
+      "      \"id\": 1,\n"
+      "      \"os\": {\n"
+      "        \"type\": \"macosx\"\n"
+      "      },\n"
+      "      \"vendor_id\": \"0x10de\",\n"
+      "      \"device_id\": [\"0x0640\"],\n"
+      "      \"blacklist\": [\n"
+      "        \"accelerated_video\"\n"
+      "      ]\n"
+      "    }\n"
+      "  ]\n"
+      "}";
+  Version os_version("10.6.4");
+
+  scoped_ptr<GpuBlacklist> blacklist(Create());
+  EXPECT_TRUE(blacklist->LoadGpuBlacklist(
+      video_json, GpuBlacklist::kAllOs));
+  GpuFeatureType type = blacklist->MakeBlacklistDecision(
+      GpuBlacklist::kOsMacosx, &os_version,
+      gpu_info()).blacklisted_features;
+  EXPECT_EQ(type, content::GPU_FEATURE_TYPE_ACCELERATED_VIDEO);
+}
+

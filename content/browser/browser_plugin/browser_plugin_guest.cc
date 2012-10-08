@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/string_util.h"
 #include "content/browser/browser_plugin/browser_plugin_guest_helper.h"
 #include "content/browser/browser_plugin/browser_plugin_host_factory.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
@@ -13,11 +14,17 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/browser_plugin_messages.h"
 #include "content/common/view_messages.h"
+#include "content/public/browser/notification_service.h"
+#include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/resource_request_details.h"
+#include "content/public/browser/user_metrics.h"
 #include "content/public/common/result_codes.h"
 #include "content/browser/browser_plugin/browser_plugin_host_factory.h"
+#include "net/base/net_errors.h"
 #include "ui/surface/transport_dib.h"
+#include "webkit/glue/resource_type.h"
 
 namespace content {
 
@@ -37,12 +44,17 @@ BrowserPluginGuest::BrowserPluginGuest(int instance_id,
 #if defined(OS_WIN)
       damage_buffer_size_(0),
 #endif
+      damage_buffer_scale_factor_(1.0f),
       pending_update_counter_(0),
       guest_hang_timeout_(
           base::TimeDelta::FromMilliseconds(kGuestHangTimeoutMs)) {
   DCHECK(web_contents);
   // |render_view_host| manages the ownership of this BrowserPluginGuestHelper.
   new BrowserPluginGuestHelper(this, render_view_host);
+
+  notification_registrar_.Add(
+      this, content::NOTIFICATION_RESOURCE_RECEIVED_REDIRECT,
+      content::Source<content::WebContents>(web_contents));
 }
 
 BrowserPluginGuest::~BrowserPluginGuest() {
@@ -53,6 +65,7 @@ BrowserPluginGuest* BrowserPluginGuest::Create(
     int instance_id,
     WebContentsImpl* web_contents,
     content::RenderViewHost* render_view_host) {
+  RecordAction(UserMetricsAction("BrowserPlugin.Guest.Create"));
   if (factory_) {
     return factory_->CreateBrowserPluginGuest(instance_id,
                                               web_contents,
@@ -61,9 +74,52 @@ BrowserPluginGuest* BrowserPluginGuest::Create(
   return new BrowserPluginGuest(instance_id, web_contents, render_view_host);
 }
 
+void BrowserPluginGuest::Observe(int type,
+                                 const NotificationSource& source,
+                                 const NotificationDetails& details) {
+  switch (type) {
+    case NOTIFICATION_RESOURCE_RECEIVED_REDIRECT: {
+      DCHECK_EQ(Source<WebContents>(source).ptr(), web_contents());
+      ResourceRedirectDetails* resource_redirect_details =
+            Details<ResourceRedirectDetails>(details).ptr();
+      bool is_top_level =
+          resource_redirect_details->resource_type == ResourceType::MAIN_FRAME;
+      LoadRedirect(resource_redirect_details->url,
+                   resource_redirect_details->new_url,
+                   is_top_level);
+      break;
+    }
+    default:
+      NOTREACHED() << "Unexpected notification sent.";
+      break;
+  }
+}
+
 bool BrowserPluginGuest::ViewTakeFocus(bool reverse) {
   SendMessageToEmbedder(
       new BrowserPluginMsg_AdvanceFocus(instance_id(), reverse));
+  return true;
+}
+
+void BrowserPluginGuest::Go(int relative_index) {
+  web_contents()->GetController().GoToOffset(relative_index);
+}
+
+bool BrowserPluginGuest::CanDownload(RenderViewHost* render_view_host,
+                                    int request_id,
+                                    const std::string& request_method) {
+  // TODO(fsamuel): We disable downloads in guests for now, but we will later
+  // expose API to allow embedders to handle them.
+  // Note: it seems content_shell ignores this. This should be fixed
+  // for debugging and test purposes.
+  return false;
+}
+
+bool BrowserPluginGuest::HandleContextMenu(
+    const ContextMenuParams& params) {
+  // TODO(fsamuel): We have a do nothing context menu handler for now until
+  // we implement the Apps Context Menu API for Browser Plugin (see
+  // http://crbug.com/140315).
   return true;
 }
 
@@ -71,10 +127,23 @@ void BrowserPluginGuest::RendererUnresponsive(WebContents* source) {
   base::ProcessHandle process_handle =
       web_contents()->GetRenderProcessHost()->GetHandle();
   base::KillProcess(process_handle, RESULT_CODE_HUNG, false);
+  RecordAction(UserMetricsAction("BrowserPlugin.Guest.Hung"));
+}
+
+void BrowserPluginGuest::SetIsAcceptingTouchEvents(bool accept) {
+  SendMessageToEmbedder(
+      new BrowserPluginMsg_ShouldAcceptTouchEvents(instance_id(), accept));
 }
 
 WebContents* BrowserPluginGuest::GetWebContents() {
   return web_contents();
+}
+
+void BrowserPluginGuest::Terminate() {
+  RecordAction(UserMetricsAction("BrowserPlugin.Guest.Terminate"));
+  base::ProcessHandle process_handle =
+      web_contents()->GetRenderProcessHost()->GetHandle();
+  base::KillProcess(process_handle, RESULT_CODE_KILLED, false);
 }
 
 void BrowserPluginGuest::SetDamageBuffer(
@@ -258,6 +327,46 @@ void BrowserPluginGuest::SetCursor(const WebCursor& cursor) {
   cursor_ = cursor;
 }
 
+void BrowserPluginGuest::DidStartProvisionalLoadForFrame(
+    int64 frame_id,
+    bool is_main_frame,
+    const GURL& validated_url,
+    bool is_error_page,
+    RenderViewHost* render_view_host) {
+  // Inform the embedder of the loadStart.
+  SendMessageToEmbedder(
+      new BrowserPluginMsg_LoadStart(instance_id(),
+                                     validated_url,
+                                     is_main_frame));
+}
+
+void BrowserPluginGuest::DidFailProvisionalLoad(
+    int64 frame_id,
+    bool is_main_frame,
+    const GURL& validated_url,
+    int error_code,
+    const string16& error_description,
+    RenderViewHost* render_view_host) {
+  // Translate the |error_code| into an error string.
+  std::string error_type;
+  RemoveChars(net::ErrorToString(error_code), "net::", &error_type);
+  // Inform the embedder of the loadAbort.
+  SendMessageToEmbedder(
+      new BrowserPluginMsg_LoadAbort(instance_id(),
+                                     validated_url,
+                                     is_main_frame,
+                                     error_type));
+}
+
+void BrowserPluginGuest::LoadRedirect(
+    const GURL& old_url,
+    const GURL& new_url,
+    bool is_top_level) {
+  SendMessageToEmbedder(
+      new BrowserPluginMsg_LoadRedirect(
+          instance_id(), old_url, new_url, is_top_level));
+}
+
 void BrowserPluginGuest::DidCommitProvisionalLoadForFrame(
     int64 frame_id,
     bool is_main_frame,
@@ -265,12 +374,14 @@ void BrowserPluginGuest::DidCommitProvisionalLoadForFrame(
     PageTransition transition_type,
     RenderViewHost* render_view_host) {
   // Inform its embedder of the updated URL.
-  if (is_main_frame)
+  if (is_main_frame) {
     SendMessageToEmbedder(
         new BrowserPluginMsg_DidNavigate(
             instance_id(),
             url,
             render_view_host->GetProcess()->GetID()));
+    RecordAction(UserMetricsAction("BrowserPlugin.Guest.DidNavigate"));
+  }
 }
 
 void BrowserPluginGuest::RenderViewGone(base::TerminationStatus status) {
@@ -286,6 +397,20 @@ void BrowserPluginGuest::RenderViewGone(base::TerminationStatus status) {
   while (!iter.IsAtEnd()) {
     pending_updates_.Remove(iter.GetCurrentKey());
     iter.Advance();
+  }
+
+  switch (status) {
+    case base::TERMINATION_STATUS_PROCESS_WAS_KILLED:
+      RecordAction(UserMetricsAction("BrowserPlugin.Guest.Killed"));
+      break;
+    case base::TERMINATION_STATUS_PROCESS_CRASHED:
+      RecordAction(UserMetricsAction("BrowserPlugin.Guest.Crashed"));
+      break;
+    case base::TERMINATION_STATUS_ABNORMAL_TERMINATION:
+      RecordAction(UserMetricsAction("BrowserPlugin.Guest.AbnormalDeath"));
+      break;
+    default:
+      break;
   }
 }
 

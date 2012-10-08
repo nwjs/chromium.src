@@ -4,20 +4,28 @@
 
 package org.chromium.content.browser;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.PointF;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.ResultReceiver;
 import android.util.Log;
 import android.view.ActionMode;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.inputmethod.EditorInfo;
@@ -29,12 +37,8 @@ import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
 import org.chromium.base.WeakContext;
 import org.chromium.content.app.AppResource;
-import org.chromium.content.browser.accessibility.AccessibilityInjector;
-import org.chromium.content.browser.ContentViewGestureHandler;
 import org.chromium.content.browser.ContentViewGestureHandler.MotionEventDelegate;
-import org.chromium.content.browser.TouchPoint;
-import org.chromium.content.browser.WebContentsObserverAndroid;
-import org.chromium.content.browser.ZoomManager;
+import org.chromium.content.browser.accessibility.AccessibilityInjector;
 import org.chromium.content.common.CleanupReference;
 import org.chromium.content.common.TraceEvent;
 import org.chromium.ui.gfx.NativeWindow;
@@ -174,10 +178,7 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private PopupZoomer mPopupZoomer;
 
-    // TODO(klobag): this is to avoid a bug in GestureDetector. With multi-touch,
-    // mAlwaysInTapRegion is not reset. So when the last finger is up, onSingleTapUp()
-    // will be mistakenly fired.
-    private boolean mIgnoreSingleTap;
+    private Runnable mFakeMouseMoveRunnable = null;
 
     // Only valid when focused on a text / password field.
     private ImeAdapter mImeAdapter;
@@ -313,6 +314,50 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     /**
+     * Returns true if the given Activity has hardware acceleration enabled
+     * in its manifest, or in its foreground window.
+     *
+     * TODO(husky): Remove when initialize() is refactored (see TODO there)
+     * TODO(dtrainor) This is still used by other classes.  Make sure to pull some version of this
+     * out before removing it.
+     */
+    public static boolean hasHardwareAcceleration(Activity activity) {
+        // Has HW acceleration been enabled manually in the current window?
+        Window window = activity.getWindow();
+        if (window != null) {
+            if ((window.getAttributes().flags
+                    & WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED) != 0) {
+                return true;
+            }
+        }
+
+        // Has HW acceleration been enabled in the manifest?
+        try {
+            ActivityInfo info = activity.getPackageManager().getActivityInfo(
+                    activity.getComponentName(), 0);
+            if ((info.flags & ActivityInfo.FLAG_HARDWARE_ACCELERATED) != 0) {
+                return true;
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e("Chrome", "getActivityInfo(self) should not fail");
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns true if the given Context is a HW-accelerated Activity.
+     *
+     * TODO(husky): Remove when initialize() is refactored (see TODO there)
+     */
+    private static boolean hasHardwareAcceleration(Context context) {
+        if (context instanceof Activity) {
+            return hasHardwareAcceleration((Activity) context);
+        }
+        return false;
+    }
+
+    /**
      *
      * @param containerView The view that will act as a container for all views created by this.
      * @param internalDispatcher Handles dispatching all hidden or super methods to the
@@ -333,6 +378,20 @@ public class ContentViewCore implements MotionEventDelegate {
     public void initialize(ViewGroup containerView, InternalAccessDelegate internalDispatcher,
             int nativeWebContents, NativeWindow nativeWindow,
             boolean isAccessFromFileURLsGrantedByDefault) {
+        // Check whether to use hardware acceleration. This is a bit hacky, and
+        // only works if the Context is actually an Activity (as it is in the
+        // Chrome application).
+        //
+        // What we're doing here is checking whether the app has *requested*
+        // hardware acceleration by setting the appropriate flags. This does not
+        // necessarily mean we're going to *get* hardware acceleration -- that's
+        // up to the Android framework.
+        //
+        // TODO(husky): Once the native code has been updated so that the
+        // HW acceleration flag can be set dynamically (Grace is doing this),
+        // move this check into onAttachedToWindow(), where we can test for
+        // HW support directly.
+        mHardwareAccelerated = hasHardwareAcceleration(mContext);
         mContainerView = containerView;
         mNativeContentViewCore = nativeInit(mHardwareAccelerated, nativeWebContents,
                 nativeWindow.getNativePointer());
@@ -344,7 +403,6 @@ public class ContentViewCore implements MotionEventDelegate {
         if (mPersonality == PERSONALITY_VIEW) {
             setAllUserAgentOverridesInHistory();
         }
-
 
         mAccessibilityInjector = AccessibilityInjector.newInstance(this);
         mAccessibilityInjector.addOrRemoveAccessibilityApisIfNecessary();
@@ -395,6 +453,7 @@ public class ContentViewCore implements MotionEventDelegate {
         mContentViewGestureHandler = new ContentViewGestureHandler(mContext, this, mZoomManager);
 
         mNativeScrollX = mNativeScrollY = 0;
+        mNativePageScaleFactor = 1.0f;
         initPopupZoomer(mContext);
         mImeAdapter = createImeAdapter(mContext);
         mKeyboardConnected = mContainerView.getResources().getConfiguration().keyboard
@@ -505,6 +564,19 @@ public class ContentViewCore implements MotionEventDelegate {
         return mContentViewClient;
     }
 
+    public int getBackgroundColor() {
+        if (mNativeContentViewCore != 0) {
+            return nativeGetBackgroundColor(mNativeContentViewCore);
+        }
+        return Color.WHITE;
+    }
+
+    public void setBackgroundColor(int color) {
+        if (mNativeContentViewCore != 0 && getBackgroundColor() != color) {
+            nativeSetBackgroundColor(mNativeContentViewCore, color);
+        }
+    }
+
     /**
      * Load url without fixing up the url string. Consumers of ContentView are responsible for
      * ensuring the URL passed in is properly formatted (i.e. the scheme has been added if left
@@ -514,6 +586,12 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public void loadUrl(LoadUrlParams params) {
         if (mNativeContentViewCore == 0) return;
+        if (isPersonalityView()) {
+            // For WebView, always use the user agent override, which is set
+            // every time the user agent in ContentSettings is modified.
+            params.setOverrideUserAgent(LoadUrlParams.UA_OVERRIDE_TRUE);
+        }
+
         nativeLoadUrl(mNativeContentViewCore,
                 params.mUrl,
                 params.mLoadUrlType,
@@ -526,7 +604,8 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     void setAllUserAgentOverridesInHistory() {
-        // TODO(tedchoc): Pass user agent override down to native.
+        nativeSetAllUserAgentOverridesInHistory(mNativeContentViewCore,
+                mContentSettings.getUserAgentString());
     }
 
     /**
@@ -576,6 +655,29 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public int getContentWidth() {
         return (int) (mContentWidth / mNativePageScaleFactor);
+    }
+
+    public Bitmap getBitmap() {
+        return getBitmap(getWidth(), getHeight());
+    }
+
+    public Bitmap getBitmap(int width, int height) {
+        return getBitmap(width, height, Bitmap.Config.ARGB_8888);
+    }
+
+    public Bitmap getBitmap(int width, int height, Bitmap.Config config) {
+        // TODO(nileshagrawal): Implement this.
+        return null;
+    }
+
+    /**
+     * @return Whether the ContentView is covered by an overlay that is more than half
+     *         of it's surface. This is used to determine if we need to do a slow bitmap capture or
+     *         to show the ContentView without them.
+     */
+    public boolean hasLargeOverlay() {
+        // TODO(nileshagrawal): Implement this.
+        return false;
     }
 
     /**
@@ -645,6 +747,17 @@ public class ContentViewCore implements MotionEventDelegate {
 
     // End FrameLayout overrides.
 
+    /**
+     * @see {@link android.webkit.WebView#flingScroll(int, int)}
+     */
+    public void flingScroll(int vx, int vy) {
+        // Notes:
+        //   (1) Use large negative values for the x/y parameters so we don't accidentally scroll a
+        //       nested frame.
+        //   (2) vx and vy are inverted to match WebView behavior.
+        mContentViewGestureHandler.fling(
+                System.currentTimeMillis(), -Integer.MAX_VALUE, -Integer.MIN_VALUE, -vx, -vy);
+    }
 
     /**
      * @see View#onTouchEvent(MotionEvent)
@@ -663,7 +776,7 @@ public class ContentViewCore implements MotionEventDelegate {
     @Override
     public boolean sendTouchEvent(long timeMs, int action, TouchPoint[] pts) {
         if (mNativeContentViewCore != 0) {
-            return nativeTouchEvent(mNativeContentViewCore, timeMs, action, pts);
+            return nativeSendTouchEvent(mNativeContentViewCore, timeMs, action, pts);
         }
         return false;
     }
@@ -799,13 +912,18 @@ public class ContentViewCore implements MotionEventDelegate {
 
     @Override
     public boolean didUIStealScroll(float x, float y) {
-        // TODO(yusufo): Stubbed out for now. Upstream when computeHorizontalScrollOffset is
-        // available.
-        return false;
+        return getContentViewClient().shouldOverrideScroll(
+                x, y, computeHorizontalScrollOffset(), computeVerticalScrollOffset());
     }
 
     private void hidePopupDialog() {
         SelectPopupDialog.hide(this);
+    }
+
+    void hideSelectActionBar() {
+        if (mActionMode != null) {
+            mActionMode.finish();
+        }
     }
 
     /**
@@ -884,6 +1002,25 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     /**
+     * @see View#onFocusedChanged(boolean, int, Rect)
+     */
+    @SuppressWarnings("javadoc")
+    public void onFocusChanged(boolean gainFocus, int direction, Rect previouslyFocusedRect) {
+        if (mNativeContentViewCore != 0) nativeSetFocus(mNativeContentViewCore, gainFocus);
+    }
+
+    /**
+     * @see View#onKeyUp(int, KeyEvent)
+     */
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (mPopupZoomer.isShowing() && keyCode == KeyEvent.KEYCODE_BACK) {
+            mPopupZoomer.hide(true);
+            return true;
+        }
+        return mContainerViewInternals.super_onKeyUp(keyCode, event);
+    }
+
+    /**
      * @see View#dispatchKeyEvent(KeyEvent)
      */
     public boolean dispatchKeyEvent(KeyEvent event) {
@@ -904,6 +1041,64 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     /**
+     * @see View#onHoverEvent(MotionEvent)
+     * Mouse move events are sent on hover enter, hover move and hover exit.
+     * They are sent on hover exit because sometimes it acts as both a hover
+     * move and hover exit.
+     */
+    public boolean onHoverEvent(MotionEvent event) {
+        TraceEvent.begin("onHoverEvent");
+        mContainerView.removeCallbacks(mFakeMouseMoveRunnable);
+        if (mNativeContentViewCore != 0) {
+            nativeSendMouseMoveEvent(mNativeContentViewCore, event.getEventTime(),
+                    (int) event.getX(), (int) event.getY());
+        }
+        TraceEvent.end("onHoverEvent");
+        return true;
+    }
+
+    /**
+     * @see View#onGenericMotionEvent(MotionEvent)
+     */
+    public boolean onGenericMotionEvent(MotionEvent event) {
+        if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_SCROLL:
+                    nativeSendMouseWheelEvent(mNativeContentViewCore, event.getEventTime(),
+                            (int) event.getX(), (int) event.getY(),
+                            event.getAxisValue(MotionEvent.AXIS_VSCROLL));
+
+                    mContainerView.removeCallbacks(mFakeMouseMoveRunnable);
+                    // Send a delayed onMouseMove event so that we end
+                    // up hovering over the right position after the scroll.
+                    final MotionEvent eventFakeMouseMove = MotionEvent.obtain(event);
+                    mFakeMouseMoveRunnable = new Runnable() {
+                          @Override
+                          public void run() {
+                              onHoverEvent(eventFakeMouseMove);
+                          }
+                    };
+                    mContainerView.postDelayed(mFakeMouseMoveRunnable, 250);
+                    return true;
+            }
+        }
+        return mContainerViewInternals.super_onGenericMotionEvent(event);
+    }
+
+    // Note: Currently the ContentView scrolling happens in the native side. In
+    // the Java view system, it is always pinned at (0, 0). Override scrollBy()
+    // and scrollTo(), so that View's mScrollX and mScrollY will be unchanged at
+    // (0, 0). This is critical for drawing ContentView correctly.
+    /**
+     * @see View#scrollBy(int, int)
+     */
+    public void scrollBy(int x, int y) {
+        if (mNativeContentViewCore != 0) {
+            nativeScrollBy(mNativeContentViewCore, System.currentTimeMillis(), 0, 0, x, y);
+        }
+    }
+
+    /**
      * @see View#scrollTo(int, int)
      */
     public void scrollTo(int x, int y) {
@@ -916,6 +1111,28 @@ public class ContentViewCore implements MotionEventDelegate {
                     dx, dy);
             nativeScrollEnd(mNativeContentViewCore, time);
         }
+    }
+
+    // NOTE: this can go away once ContentView.getScrollX() reports correct values.
+    //       see: b/6029133
+    public int getNativeScrollXForTest() {
+        return mNativeScrollX;
+    }
+
+    // NOTE: this can go away once ContentView.getScrollY() reports correct values.
+    //       see: b/6029133
+    public int getNativeScrollYForTest() {
+        return mNativeScrollY;
+    }
+
+    /**
+     * @see View#computeHorizontalScrollExtent()
+     */
+    @SuppressWarnings("javadoc")
+    protected int computeHorizontalScrollExtent() {
+        // TODO (dtrainor): Need to expose scroll events properly to public. Either make getScroll*
+        // work or expose computeHorizontalScrollOffset()/computeVerticalScrollOffset as public.
+        return getWidth();
     }
 
     /**
@@ -932,6 +1149,14 @@ public class ContentViewCore implements MotionEventDelegate {
     @SuppressWarnings("javadoc")
     public int computeHorizontalScrollRange() {
         return mContentWidth;
+    }
+
+    /**
+     * @see View#computeVerticalScrollExtent()
+     */
+    @SuppressWarnings("javadoc")
+    public int computeVerticalScrollExtent() {
+        return getHeight();
     }
 
     /**
@@ -1142,6 +1367,24 @@ public class ContentViewCore implements MotionEventDelegate {
         }
     }
 
+    public boolean getUseDesktopUserAgent() {
+        if (mNativeContentViewCore != 0) {
+            return nativeGetUseDesktopUserAgent(mNativeContentViewCore);
+        }
+        return false;
+    }
+
+    /**
+     * Set whether or not we're using a desktop user agent for the currently loaded page.
+     * @param override If true, use a desktop user agent.  Use a mobile one otherwise.
+     * @param reloadOnChange Reload the page if the UA has changed.
+     */
+    public void setUseDesktopUserAgent(boolean override, boolean reloadOnChange) {
+        if (mNativeContentViewCore != 0) {
+            nativeSetUseDesktopUserAgent(mNativeContentViewCore, override, reloadOnChange);
+        }
+    }
+
     /**
      * @return Whether the native ContentView has crashed.
      */
@@ -1180,7 +1423,13 @@ public class ContentViewCore implements MotionEventDelegate {
         mZoomManager.updateZoomControls();
     }
 
-    // The following methods are called by native through jni
+    @SuppressWarnings("unused")
+    @CalledByNative
+    private void updatePageScaleLimits(float minimumScale, float maximumScale) {
+        mNativeMinimumScale = minimumScale;
+        mNativeMaximumScale = maximumScale;
+        mZoomManager.updateZoomControls();
+    }
 
     @SuppressWarnings("unused")
     @CalledByNative
@@ -1193,10 +1442,10 @@ public class ContentViewCore implements MotionEventDelegate {
         text = text.replace('\u00A0', ' ');
 
         mSelectionEditable = (textInputType != ImeAdapter.sTextInputTypeNone);
-        if (!mKeyboardConnected || InputDialogContainer.isDialogInputType(textInputType)) {
-            mImeAdapter.attachAndShowIfNeeded(nativeImeAdapterAndroid, textInputType,
-                    text, showImeIfNeeded);
-        }
+
+        mImeAdapter.attachAndShowIfNeeded(nativeImeAdapterAndroid, textInputType,
+                text, showImeIfNeeded);
+
         if (mInputConnection != null) {
             // In WebKit if there's a composition then the selection will usually be the
             // same as the composition, whereas Android IMEs expect the selection to be
@@ -1208,6 +1457,12 @@ public class ContentViewCore implements MotionEventDelegate {
                     compositionStart, compositionEnd);
         }
         TraceEvent.end();
+    }
+
+    @SuppressWarnings("unused")
+    @CalledByNative
+    private void setTitle(String title) {
+        getContentViewClient().onUpdateTitle(title);
     }
 
     /**
@@ -1230,13 +1485,9 @@ public class ContentViewCore implements MotionEventDelegate {
         getContentViewClient().onEvaluateJavaScriptResult(id, jsonResult);
     }
 
-    /**
-     * Called (from native) when page loading begins.
-     */
-    @SuppressWarnings("unused")
     @CalledByNative
-    private void didStartLoading() {
-        hidePopupDialog();
+    private void startContentIntent(String contentUrl) {
+        getContentViewClient().onStartContentIntent(getContext(), contentUrl);
     }
 
     /**
@@ -1244,6 +1495,14 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public boolean needsReload() {
         return mNativeContentViewCore != 0 && nativeNeedsReload(mNativeContentViewCore);
+    }
+
+    /**
+     * @see View#hasFocus()
+     */
+    @CalledByNative
+    public boolean hasFocus() {
+        return mContainerView.hasFocus();
     }
 
     /**
@@ -1397,9 +1656,31 @@ public class ContentViewCore implements MotionEventDelegate {
         }
     }
 
-    @CalledByNative
-    private void startContentIntent(String contentUrl) {
-        getContentViewClient().onStartContentIntent(getContext(), contentUrl);
+    /**
+     * Return the current scale of the WebView
+     * @return The current scale.
+     */
+    public float getScale() {
+        return mNativePageScaleFactor;
+    }
+
+    /**
+     * If the view is ready to draw contents to the screen. In hardware mode,
+     * the initialization of the surface texture may not occur until after the
+     * view has been added to the layout. This method will return {@code true}
+     * once the texture is actually ready.
+     */
+    public boolean isReady() {
+        // TODO(nileshagrawal): Implement this.
+        return false;
+    }
+
+    /**
+     * @return Whether or not the texture view is available or not.
+     */
+    public boolean isAvailable() {
+        // TODO(nileshagrawal): Implement this.
+        return false;
     }
 
     /**
@@ -1447,10 +1728,24 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     /**
+     * Returns whether or not accessibility injection is being used.
+     */
+    public boolean isInjectingAccessibilityScript() {
+        return mAccessibilityInjector.accessibilityIsAvailable();
+    }
+
+    /**
      * Enable or disable accessibility features.
      */
     public void setAccessibilityState(boolean state) {
         mAccessibilityInjector.setScriptEnabled(state);
+    }
+
+    /**
+     * Stop any TTS notifications that are currently going on.
+     */
+    public void stopCurrentAccessibilityNotifications() {
+        mAccessibilityInjector.onPageLostFocus();
     }
 
     /**
@@ -1509,8 +1804,6 @@ public class ContentViewCore implements MotionEventDelegate {
         return history;
     }
 
-    // The following methods are implemented at native side.
-
     private native int nativeInit(boolean hardwareAccelerated, int webContentsPtr,
             int windowAndroidPtr);
 
@@ -1527,6 +1820,9 @@ public class ContentViewCore implements MotionEventDelegate {
             String baseUrlForDataUrl,
             String virtualUrlForDataUrl);
 
+    private native void nativeSetAllUserAgentOverridesInHistory(int nativeContentViewCoreImpl,
+            String userAgentOverride);
+
     private native String nativeGetURL(int nativeContentViewCoreImpl);
 
     private native String nativeGetTitle(int nativeContentViewCoreImpl);
@@ -1536,8 +1832,16 @@ public class ContentViewCore implements MotionEventDelegate {
     // Returns true if the native side crashed so that java side can draw a sad tab.
     private native boolean nativeCrashed(int nativeContentViewCoreImpl);
 
-    private native boolean nativeTouchEvent(int nativeContentViewCoreImpl, long timeMs, int action,
-            TouchPoint[] pts);
+    private native void nativeSetFocus(int nativeContentViewCoreImpl, boolean focused);
+
+    private native boolean nativeSendTouchEvent(
+            int nativeContentViewCoreImpl, long timeMs, int action, TouchPoint[] pts);
+
+    private native int nativeSendMouseMoveEvent(
+            int nativeContentViewCoreImpl, long timeMs, int x, int y);
+
+    private native int nativeSendMouseWheelEvent(
+            int nativeContentViewCoreImpl, long timeMs, int x, int y, float verticalAxis);
 
     private native void nativeScrollBegin(int nativeContentViewCoreImpl, long timeMs, int x, int y);
 
@@ -1599,6 +1903,17 @@ public class ContentViewCore implements MotionEventDelegate {
     private native int nativeGetNativeImeAdapter(int nativeContentViewCoreImpl);
 
     private native int nativeGetCurrentRenderProcessId(int nativeContentViewCoreImpl);
+
+    private native int nativeGetBackgroundColor(int nativeContentViewCoreImpl);
+
+    private native void nativeSetBackgroundColor(int nativeContentViewCoreImpl, int color);
+
+    private native void nativeOnShow(int nativeContentViewCoreImpl);
+    private native void nativeOnHide(int nativeContentViewCoreImpl);
+
+    private native void nativeSetUseDesktopUserAgent(int nativeContentViewCoreImpl,
+            boolean enabled, boolean reloadOnChange);
+    private native boolean nativeGetUseDesktopUserAgent(int nativeContentViewCoreImpl);
 
     private native void nativeAddJavascriptInterface(int nativeContentViewCoreImpl, Object object,
                                                      String name, boolean requireAnnotation);

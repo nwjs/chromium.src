@@ -140,8 +140,8 @@ class FakeDelegate : public SyncInvalidationListener::Delegate {
   }
 
   std::string GetPayload(const ObjectId& id) const {
-    ObjectIdStateMap::const_iterator it = states_.find(id);
-    return (it == states_.end()) ? "" : it->second.payload;
+    ObjectIdInvalidationMap::const_iterator it = invalidations_.find(id);
+    return (it == invalidations_.end()) ? "" : it->second.payload;
   }
 
   InvalidatorState GetInvalidatorState() const {
@@ -150,11 +150,12 @@ class FakeDelegate : public SyncInvalidationListener::Delegate {
 
   // SyncInvalidationListener::Delegate implementation.
 
-  virtual void OnInvalidate(const ObjectIdStateMap& id_state_map) OVERRIDE {
-    for (ObjectIdStateMap::const_iterator it = id_state_map.begin();
-         it != id_state_map.end(); ++it) {
+  virtual void OnInvalidate(
+      const ObjectIdInvalidationMap& invalidation_map) OVERRIDE {
+    for (ObjectIdInvalidationMap::const_iterator it = invalidation_map.begin();
+         it != invalidation_map.end(); ++it) {
       ++invalidation_counts_[it->first];
-      states_[it->first] = it->second;
+      invalidations_[it->first] = it->second;
     }
   }
 
@@ -165,7 +166,7 @@ class FakeDelegate : public SyncInvalidationListener::Delegate {
  private:
   typedef std::map<ObjectId, int, ObjectIdLessThan> ObjectIdCountMap;
   ObjectIdCountMap invalidation_counts_;
-  ObjectIdStateMap states_;
+  ObjectIdInvalidationMap invalidations_;
   InvalidatorState state_;
 };
 
@@ -225,8 +226,8 @@ class SyncInvalidationListenerTest : public testing::Test {
     return fake_tracker_.GetMaxVersion(id);
   }
 
-  std::string GetInvalidationState() const {
-    return fake_tracker_.GetInvalidationState();
+  std::string GetBootstrapData() const {
+    return fake_tracker_.GetBootstrapData();
   }
 
   ObjectIdSet GetRegisteredIds() const {
@@ -330,7 +331,7 @@ class SyncInvalidationListenerTest : public testing::Test {
 TEST_F(SyncInvalidationListenerTest, WriteState) {
   WriteState(kNewState);
 
-  EXPECT_EQ(kNewState, GetInvalidationState());
+  EXPECT_EQ(kNewState, GetBootstrapData());
 }
 
 // Invalidation tests.

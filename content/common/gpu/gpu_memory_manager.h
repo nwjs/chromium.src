@@ -69,6 +69,7 @@ class CONTENT_EXPORT GpuMemoryManager :
   // Retrieve GPU Resource consumption statistics for the task manager
   void GetVideoMemoryUsageStats(
       content::GPUVideoMemoryUsageStats& video_memory_usage_stats) const;
+  void SetWindowCount(uint32 count);
 
   // Add and remove structures to track context groups' memory consumption
   void AddTrackingGroup(GpuMemoryTrackingGroup* tracking_group);
@@ -97,16 +98,38 @@ class CONTENT_EXPORT GpuMemoryManager :
 
   size_t CalculateBonusMemoryAllocationBasedOnSize(gfx::Size size) const;
 
+  // Update the amount of GPU memory we think we have in the system, based
+  // on what the stubs' contexts report.
+  void UpdateAvailableGpuMemory(std::vector<GpuCommandBufferStubBase*>& stubs);
+
+  // The amount of video memory which is available for allocation
   size_t GetAvailableGpuMemory() const {
     return bytes_available_gpu_memory_;
   }
 
+  // Default per-OS value for the amount of available GPU memory, used
+  // if we can't query the driver for an exact value.
+  size_t GetDefaultAvailableGpuMemory() const {
+#if defined(OS_ANDROID)
+    return 64 * 1024 * 1024;
+#elif defined(OS_CHROMEOS)
+    return 1024 * 1024 * 1024;
+#else
+    return 256 * 1024 * 1024;
+#endif
+  }
+
   // The maximum amount of memory that a tab may be assigned
-  size_t GetMaximumTabAllocation() const {
-#if defined(OS_CHROMEOS)
+size_t GetMaximumTabAllocation() const {
+#if defined(OS_ANDROID)
+    return 128 * 1024 * 1024;
+#elif defined(OS_CHROMEOS)
     return bytes_available_gpu_memory_;
 #else
-    return 128 * 1024 * 1024;
+    // This is to avoid allowing a single page on to use a full 256MB of memory
+    // (the current total limit). Long-scroll pages will hit this limit,
+    // resulting in instability on some platforms (e.g, issue 141377).
+    return bytes_available_gpu_memory_ / 2;
 #endif
   }
 
@@ -114,6 +137,8 @@ class CONTENT_EXPORT GpuMemoryManager :
   size_t GetMinimumTabAllocation() const {
 #if defined(OS_ANDROID)
     return 32 * 1024 * 1024;
+#elif defined(OS_CHROMEOS)
+    return 64 * 1024 * 1024;
 #else
     return 64 * 1024 * 1024;
 #endif
@@ -136,10 +161,17 @@ class CONTENT_EXPORT GpuMemoryManager :
 
   // The maximum amount of memory that may be allocated for GPU resources
   size_t bytes_available_gpu_memory_;
+  bool bytes_available_gpu_memory_overridden_;
 
   // The current total memory usage, and historical maximum memory usage
   size_t bytes_allocated_current_;
   size_t bytes_allocated_historical_max_;
+
+  // The number of browser windows that exist. If we ever receive a
+  // GpuMsg_SetVideoMemoryWindowCount, then we use this to compute memory
+  // budgets, instead of doing more complicated stub-based calculations.
+  bool window_count_has_been_received_;
+  uint32 window_count_;
 
   DISALLOW_COPY_AND_ASSIGN(GpuMemoryManager);
 };

@@ -258,11 +258,10 @@ cr.define('login', function() {
      * Whether Gaia signin is required for this user.
      */
     get needGaiaSignin() {
-      // Gaia signin is performed if we are using gaia extenstion for signin,
-      // the user has an invalid oauth token and device is online and the
-      // user is not currently signed in (i.e. not the lock screen).
+      // Gaia signin is performed if the user has an invalid oauth token and is
+      // not currently signed in (i.e. not the lock screen).
       return this.user.oauthTokenStatus != OAuthTokenStatus.VALID &&
-             window.navigator.onLine && !this.user.signedIn;
+          !this.user.signedIn;
     },
 
     /**
@@ -329,12 +328,6 @@ cr.define('login', function() {
     activate: function() {
       if (!this.signinButtonElement.hidden) {
         // Switch to Gaia signin.
-        if (!this.needGaiaSignin) {
-          // Network may go offline in time period between the pod is focused
-          // and the button is pressed, in which case fallback to offline login.
-          this.focusInput();
-          return false;
-        }
         this.showSigninUI();
       } else if (!this.passwordElement.value) {
         return false;
@@ -422,6 +415,10 @@ cr.define('login', function() {
 
     // True if inside focusPod().
     insideFocusPod_: false,
+
+    // True if user pod has been activated with keyboard.
+    // In case of activation with keyboard we delay wallpaper change.
+    keyboardActivated_: false,
 
     // Focused pod.
     focusedPod_: undefined,
@@ -631,12 +628,16 @@ cr.define('login', function() {
      *                             podToFocus is already focused.
      */
     focusPod: function(podToFocus, opt_force) {
-      if (this.isFocused(podToFocus) && !opt_force)
+      if (this.isFocused(podToFocus) && !opt_force) {
+        this.keyboardActivated_ = false;
         return;
+      }
 
       // Make sure there's only one focusPod operation happening at a time.
-      if (this.insideFocusPod_)
+      if (this.insideFocusPod_) {
+        this.keyboardActivated_ = false;
         return;
+      }
       this.insideFocusPod_ = true;
 
       clearTimeout(this.loadWallpaperTimeout_);
@@ -656,7 +657,7 @@ cr.define('login', function() {
         podToFocus.classList.add('focused');
         podToFocus.reset(true);  // Reset and give focus.
         this.scrollPodIntoView(podToFocus);
-        if (hadFocus) {
+        if (hadFocus && this.keyboardActivated_) {
           // Delay wallpaper loading to let user tab through pods without lag.
           this.loadWallpaperTimeout_ = window.setTimeout(
               this.loadWallpaper_.bind(this), WALLPAPER_LOAD_DELAY_MS);
@@ -664,12 +665,13 @@ cr.define('login', function() {
           // Load wallpaper immediately if there no pod was focused
           // previously, and it is not a boot into user pod list case.
           this.loadWallpaper_();
-          this.firstShown_ = false;
         }
+        this.firstShown_ = false;
       } else {
         chrome.send('userDeselected');
       }
       this.insideFocusPod_ = false;
+      this.keyboardActivated_ = false;
     },
 
     loadWallpaper_: function() {
@@ -811,6 +813,7 @@ cr.define('login', function() {
       switch (e.keyIdentifier) {
         case 'Left':
           if (!editing) {
+            this.keyboardActivated_ = true;
             if (this.focusedPod_ && this.focusedPod_.previousElementSibling)
               this.focusPod(this.focusedPod_.previousElementSibling);
             else
@@ -821,6 +824,7 @@ cr.define('login', function() {
           break;
         case 'Right':
           if (!editing) {
+            this.keyboardActivated_ = true;
             if (this.focusedPod_ && this.focusedPod_.nextElementSibling)
               this.focusPod(this.focusedPod_.nextElementSibling);
             else

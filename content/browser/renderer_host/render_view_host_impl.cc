@@ -439,11 +439,11 @@ void RenderViewHostImpl::SwapOut(int new_render_process_host_id,
     // This RenderViewHost doesn't have a live renderer, so just skip the unload
     // event.  We must notify the ResourceDispatcherHost on the IO thread,
     // which we will do through the RenderProcessHost's widget helper.
-    GetProcess()->CrossSiteSwapOutACK(params);
+    GetProcess()->SimulateSwapOutACK(params);
   }
 }
 
-void RenderViewHostImpl::OnSwapOutACK() {
+void RenderViewHostImpl::OnSwapOutACK(bool timed_out) {
   // Stop the hang monitor now that the unload handler has finished.
   decrement_in_flight_event_count();
   StopHangMonitorTimeout();
@@ -1201,20 +1201,8 @@ void RenderViewHostImpl::OnMsgNavigate(const IPC::Message& msg) {
 
   delegate_->DidNavigate(this, validated_params);
 
-  // For top level navigations, if there is no frame tree present for this
-  // instance (for example when the window is first created), then create
-  // an unnamed one with the proper frame id from the renderer.
-  // This should be done after we called DidNavigate, since updating the frame
-  // tree expects the render view being updated to be the active one.
-  if (content::PageTransitionIsMainFrame(validated_params.transition)) {
-    if (frame_tree_.empty()) {
-      base::DictionaryValue tree;
-      tree.SetString(content::kFrameTreeNodeNameKey, std::string());
-      tree.SetInteger(content::kFrameTreeNodeIdKey, validated_params.frame_id);
-      base::JSONWriter::Write(&tree, &frame_tree_);
-      delegate_->DidUpdateFrameTree(this);
-    }
-  }
+  // TODO(nasko): Send frame tree update for the top level frame, once
+  // http://crbug.com/153701 is fixed.
 }
 
 void RenderViewHostImpl::OnMsgUpdateState(int32 page_id,
@@ -1446,8 +1434,7 @@ void RenderViewHostImpl::OnMsgStartDragging(
     if (policy->CanReadFile(GetProcess()->GetID(), path))
       filtered_data.filenames.push_back(*it);
   }
-  ui::ScaleFactor scale_factor = ui::GetScaleFactorFromScale(
-      content::GetDIPScaleFactor(GetView()));
+  ui::ScaleFactor scale_factor = content::GetScaleFactorForView(GetView());
   gfx::ImageSkia image(gfx::ImageSkiaRep(bitmap, scale_factor));
   view->StartDragging(filtered_data, drag_operations_mask, image,
       bitmap_offset_in_dip);
@@ -1962,6 +1949,8 @@ void RenderViewHostImpl::OnDomOperationResponse(
 }
 
 void RenderViewHostImpl::OnFrameTreeUpdated(const std::string& frame_tree) {
+  // TODO(nasko): Remove once http://crbug.com/153701 is fixed.
+  DCHECK(false);
   frame_tree_ = frame_tree;
   delegate_->DidUpdateFrameTree(this);
 }

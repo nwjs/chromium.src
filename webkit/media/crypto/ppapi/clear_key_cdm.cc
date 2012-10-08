@@ -139,7 +139,7 @@ cdm::Status ClearKeyCdm::GenerateKeyRequest(const uint8_t* init_data,
   decryptor_.GenerateKeyRequest("", init_data, init_data_size);
 
   if (client_.status() != Client::kKeyMessage)
-    return cdm::kError;
+    return cdm::kSessionError;
 
   DCHECK(key_request);
   key_request->set_session_id(client_.session_id().data(),
@@ -150,7 +150,7 @@ cdm::Status ClearKeyCdm::GenerateKeyRequest(const uint8_t* init_data,
 
   DCHECK(key_request->message());
   DCHECK_EQ(key_request->message()->size(), client_.key_message_length());
-  memcpy(reinterpret_cast<void*>(key_request->message()->buffer()),
+  memcpy(reinterpret_cast<void*>(key_request->message()->data()),
          reinterpret_cast<const void*>(client_.key_message()),
          client_.key_message_length());
 
@@ -172,7 +172,7 @@ cdm::Status ClearKeyCdm::AddKey(const char* session_id,
                     std::string(session_id, session_id_size));
 
   if (client_.status() != Client::kKeyAdded)
-    return cdm::kError;
+    return cdm::kSessionError;
 
   return cdm::kSuccess;
 }
@@ -197,7 +197,7 @@ static void CopyDecryptResults(
 
 cdm::Status ClearKeyCdm::Decrypt(
     const cdm::InputBuffer& encrypted_buffer,
-    cdm::OutputBuffer* decrypted_buffer) {
+    cdm::DecryptedBlock* decrypted_block) {
   DVLOG(1) << "Decrypt()";
 
   scoped_refptr<media::DecoderBuffer> decoder_buffer =
@@ -210,7 +210,7 @@ cdm::Status ClearKeyCdm::Decrypt(
                      base::Bind(&CopyDecryptResults, &status, &buffer));
 
   if (status == media::Decryptor::kError)
-    return cdm::kError;
+    return cdm::kDecryptError;
 
   if (status == media::Decryptor::kNoKey)
     return cdm::kNoKey;
@@ -218,26 +218,28 @@ cdm::Status ClearKeyCdm::Decrypt(
   DCHECK(buffer);
   int data_size = buffer->GetDataSize();
 
-  decrypted_buffer->set_buffer(allocator_->Allocate(data_size));
-  memcpy(reinterpret_cast<void*>(decrypted_buffer->buffer()->buffer()),
+  decrypted_block->set_buffer(allocator_->Allocate(data_size));
+  memcpy(reinterpret_cast<void*>(decrypted_block->buffer()->data()),
          buffer->GetData(),
          data_size);
 
-  decrypted_buffer->set_timestamp(buffer->GetTimestamp().InMicroseconds());
+  decrypted_block->set_timestamp(buffer->GetTimestamp().InMicroseconds());
   return cdm::kSuccess;
 }
 
 cdm::Status ClearKeyCdm::InitializeVideoDecoder(
     const cdm::VideoDecoderConfig& video_decoder_config) {
   NOTIMPLEMENTED();
-  return cdm::kError;
+  // TODO(tomfinegan): Determine the proper error to return here once there
+  // are callers for this method.
+  return cdm::kSessionError;
 }
 
-cdm::Status ClearKeyCdm::DecryptAndDecodeVideo(
+cdm::Status ClearKeyCdm::DecryptAndDecodeFrame(
     const cdm::InputBuffer& encrypted_buffer,
     cdm::VideoFrame* video_frame) {
   NOTIMPLEMENTED();
-  return cdm::kError;
+  return cdm::kDecryptError;
 }
 
 void ClearKeyCdm::ResetVideoDecoder() {

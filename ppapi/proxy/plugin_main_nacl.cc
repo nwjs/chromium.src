@@ -76,6 +76,7 @@ class PpapiDispatcher : public ProxyChannel,
 
  private:
   void OnMsgCreateNaClChannel(int renderer_id,
+                              const ppapi::PpapiPermissions& permissions,
                               bool incognito,
                               SerializedHandle handle);
   void OnPluginDispatcherMessageReceived(const IPC::Message& msg);
@@ -88,7 +89,8 @@ class PpapiDispatcher : public ProxyChannel,
 };
 
 PpapiDispatcher::PpapiDispatcher(scoped_refptr<base::MessageLoopProxy> io_loop)
-    : message_loop_(io_loop),
+    : next_plugin_dispatcher_id_(0),
+      message_loop_(io_loop),
       shutdown_event_(true, false) {
   IPC::ChannelHandle channel_handle(
       "NaCl IPC", base::FileDescriptor(NACL_IPC_FD, false));
@@ -182,11 +184,18 @@ bool PpapiDispatcher::OnMessageReceived(const IPC::Message& msg) {
   return true;
 }
 
-void PpapiDispatcher::OnMsgCreateNaClChannel(int renderer_id,
-                                             bool incognito,
-                                             SerializedHandle handle) {
+void PpapiDispatcher::OnMsgCreateNaClChannel(
+    int renderer_id,
+    const ppapi::PpapiPermissions& permissions,
+    bool incognito,
+    SerializedHandle handle) {
+  // Tell the process-global GetInterface which interfaces it can return to the
+  // plugin.
+  ppapi::proxy::InterfaceList::SetProcessGlobalPermissions(
+      permissions);
+
   PluginDispatcher* dispatcher =
-      new PluginDispatcher(::PPP_GetInterface, incognito);
+      new PluginDispatcher(::PPP_GetInterface, permissions, incognito);
   // The channel handle's true name is not revealed here.
   IPC::ChannelHandle channel_handle("nacl", handle.descriptor());
   if (!dispatcher->InitPluginWithChannel(this, channel_handle, false)) {
@@ -268,4 +277,3 @@ int PpapiPluginMain() {
 
   return 0;
 }
-

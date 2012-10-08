@@ -25,6 +25,8 @@
 #include "chrome/browser/about_flags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/defaults.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/net/chrome_cookie_notification_details.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/signin_manager.h"
@@ -65,6 +67,7 @@
 #include "sync/internal_api/public/util/sync_string_conversions.h"
 #include "sync/js/js_arg_list.h"
 #include "sync/js/js_event_details.h"
+#include "sync/notifier/invalidator_registrar.h"
 #include "sync/util/cryptographer.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -142,7 +145,8 @@ ProfileSyncService::ProfileSyncService(ProfileSyncComponentsFactory* factory,
       auto_start_enabled_(start_behavior == AUTO_START),
       failed_datatypes_handler_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       configure_status_(DataTypeManager::UNKNOWN),
-      setup_in_progress_(false) {
+      setup_in_progress_(false),
+      invalidator_state_(syncer::DEFAULT_INVALIDATION_ERROR) {
 #if defined(OS_ANDROID)
   chrome::VersionInfo version_info;
   if (version_info.IsOfficialBuild()) {
@@ -166,7 +170,8 @@ ProfileSyncService::ProfileSyncService(ProfileSyncComponentsFactory* factory,
 
 ProfileSyncService::~ProfileSyncService() {
   sync_prefs_.RemoveSyncPrefObserver(this);
-  Shutdown();
+  // Shutdown() should have been called before destruction.
+  CHECK(!backend_initialized_);
 }
 
 bool ProfileSyncService::IsSyncEnabledAndLoggedIn() {
@@ -186,6 +191,9 @@ bool ProfileSyncService::IsSyncTokenAvailable() {
 }
 
 void ProfileSyncService::Initialize() {
+  DCHECK(!invalidator_registrar_.get());
+  invalidator_registrar_.reset(new syncer::InvalidatorRegistrar());
+
   InitSettings();
 
   // We clear this here (vs Shutdown) because we want to remember that an error
@@ -432,7 +440,7 @@ void ProfileSyncService::StartUp() {
   // http://crbug.com/140354).
   if (backend_.get()) {
     backend_->UpdateRegisteredInvalidationIds(
-        invalidator_registrar_.GetAllRegisteredIds());
+        invalidator_registrar_->GetAllRegisteredIds());
   }
 
   if (!sync_global_error_.get()) {
@@ -447,29 +455,29 @@ void ProfileSyncService::StartUp() {
 
 void ProfileSyncService::RegisterInvalidationHandler(
     syncer::InvalidationHandler* handler) {
-  invalidator_registrar_.RegisterHandler(handler);
+  invalidator_registrar_->RegisterHandler(handler);
 }
 
 void ProfileSyncService::UpdateRegisteredInvalidationIds(
     syncer::InvalidationHandler* handler,
     const syncer::ObjectIdSet& ids) {
-  invalidator_registrar_.UpdateRegisteredIds(handler, ids);
+  invalidator_registrar_->UpdateRegisteredIds(handler, ids);
 
   // If |backend_| is NULL, its registered IDs will be updated when
   // it's created and initialized.
   if (backend_.get()) {
     backend_->UpdateRegisteredInvalidationIds(
-        invalidator_registrar_.GetAllRegisteredIds());
+        invalidator_registrar_->GetAllRegisteredIds());
   }
 }
 
 void ProfileSyncService::UnregisterInvalidationHandler(
     syncer::InvalidationHandler* handler) {
-  invalidator_registrar_.UnregisterHandler(handler);
+  invalidator_registrar_->UnregisterHandler(handler);
 }
 
 syncer::InvalidatorState ProfileSyncService::GetInvalidatorState() const {
-  return invalidator_registrar_.GetInvalidatorState();
+  return invalidator_registrar_->GetInvalidatorState();
 }
 
 void ProfileSyncService::EmitInvalidationForTest(
@@ -478,12 +486,25 @@ void ProfileSyncService::EmitInvalidationForTest(
   syncer::ObjectIdSet notify_ids;
   notify_ids.insert(id);
 
-  const syncer::ObjectIdStateMap& id_state_map =
-      ObjectIdSetToStateMap(notify_ids, payload);
-  OnIncomingInvalidation(id_state_map, syncer::REMOTE_INVALIDATION);
+  const syncer::ObjectIdInvalidationMap& invalidation_map =
+      ObjectIdSetToInvalidationMap(notify_ids, payload);
+  OnIncomingInvalidation(invalidation_map, syncer::REMOTE_INVALIDATION);
 }
 
 void ProfileSyncService::Shutdown() {
+  DCHECK(invalidator_registrar_.get());
+  // TODO(akalin): Remove this once http://crbug.com/153827 is fixed.
+  ExtensionService* const extension_service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
+  // |extension_service| may be NULL if it was never initialized
+  // (e.g., extension sync wasn't enabled in tests).
+  if (extension_service)
+    extension_service->OnProfileSyncServiceShutdown();
+
+  // Reset |invalidator_registrar_| first so that ShutdownImpl cannot
+  // use it.
+  invalidator_registrar_.reset();
+
   ShutdownImpl(false);
 }
 
@@ -534,6 +555,9 @@ void ProfileSyncService::ShutdownImpl(bool sync_disabled) {
   expect_sync_configuration_aborted_ = false;
   is_auth_in_progress_ = false;
   backend_initialized_ = false;
+  // NULL if we're called from Shutdown().
+  if (invalidator_registrar_.get())
+    UpdateInvalidatorRegistrarState();
   cached_passphrase_.clear();
   encryption_pending_ = false;
   encrypt_everything_ = false;
@@ -677,13 +701,15 @@ void ProfileSyncService::DisableBrokenDatatype(
 
 void ProfileSyncService::OnInvalidatorStateChange(
     syncer::InvalidatorState state) {
-  invalidator_registrar_.UpdateInvalidatorState(state);
+  invalidator_state_ = state;
+  UpdateInvalidatorRegistrarState();
 }
 
 void ProfileSyncService::OnIncomingInvalidation(
-    const syncer::ObjectIdStateMap& id_state_map,
+    const syncer::ObjectIdInvalidationMap& invalidation_map,
     syncer::IncomingInvalidationSource source) {
-  invalidator_registrar_.DispatchInvalidationsToHandlers(id_state_map, source);
+  invalidator_registrar_->DispatchInvalidationsToHandlers(invalidation_map,
+                                                          source);
 }
 
 void ProfileSyncService::OnBackendInitialized(
@@ -728,6 +754,7 @@ void ProfileSyncService::OnBackendInitialized(
   }
 
   backend_initialized_ = true;
+  UpdateInvalidatorRegistrarState();
 
   sync_js_controller_.AttachJsBackend(js_backend);
 
@@ -1805,6 +1832,13 @@ void ProfileSyncService::OnInternalUnrecoverableError(
   DCHECK(!HasUnrecoverableError());
   unrecoverable_error_reason_ = reason;
   OnUnrecoverableErrorImpl(from_here, message, delete_sync_database);
+}
+
+void ProfileSyncService::UpdateInvalidatorRegistrarState() {
+  const syncer::InvalidatorState effective_state =
+      backend_initialized_ ?
+      invalidator_state_ : syncer::TRANSIENT_INVALIDATION_ERROR;
+  invalidator_registrar_->UpdateInvalidatorState(effective_state);
 }
 
 void ProfileSyncService::ResetForTest() {

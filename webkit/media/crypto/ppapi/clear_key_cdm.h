@@ -29,9 +29,9 @@ class ClearKeyCdm : public cdm::ContentDecryptionModule {
 
   // ContentDecryptionModule implementation.
   virtual cdm::Status GenerateKeyRequest(
-    const uint8_t* init_data,
-    int init_data_size,
-    cdm::KeyMessage* key_request) OVERRIDE;
+      const uint8_t* init_data,
+      int init_data_size,
+      cdm::KeyMessage* key_request) OVERRIDE;
   virtual cdm::Status AddKey(const char* session_id,
                              int session_id_size,
                              const uint8_t* key,
@@ -41,10 +41,10 @@ class ClearKeyCdm : public cdm::ContentDecryptionModule {
   virtual cdm::Status CancelKeyRequest(const char* session_id,
                                        int session_id_size) OVERRIDE;
   virtual cdm::Status Decrypt(const cdm::InputBuffer& encrypted_buffer,
-                              cdm::OutputBuffer* decrypted_buffer) OVERRIDE;
+                              cdm::DecryptedBlock* decrypted_block) OVERRIDE;
   virtual cdm::Status InitializeVideoDecoder(
       const cdm::VideoDecoderConfig& video_decoder_config) OVERRIDE;
-  virtual cdm::Status DecryptAndDecodeVideo(
+  virtual cdm::Status DecryptAndDecodeFrame(
       const cdm::InputBuffer& encrypted_buffer,
       cdm::VideoFrame* video_frame) OVERRIDE;
   virtual void ResetVideoDecoder() OVERRIDE;

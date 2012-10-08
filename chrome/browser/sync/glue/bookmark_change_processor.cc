@@ -45,20 +45,17 @@ BookmarkChangeProcessor::BookmarkChangeProcessor(
   DCHECK(error_handler);
 }
 
+BookmarkChangeProcessor::~BookmarkChangeProcessor() {
+  if (bookmark_model_)
+    bookmark_model_->RemoveObserver(this);
+}
+
 void BookmarkChangeProcessor::StartImpl(Profile* profile) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!bookmark_model_);
   bookmark_model_ = BookmarkModelFactory::GetForProfile(profile);
   DCHECK(bookmark_model_->IsLoaded());
   bookmark_model_->AddObserver(this);
-}
-
-void BookmarkChangeProcessor::StopImpl() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(bookmark_model_);
-  bookmark_model_->RemoveObserver(this);
-  bookmark_model_ = NULL;
-  model_associator_ = NULL;
 }
 
 void BookmarkChangeProcessor::UpdateSyncNodeProperties(
@@ -150,14 +147,13 @@ void BookmarkChangeProcessor::Loaded(BookmarkModel* model,
 
 void BookmarkChangeProcessor::BookmarkModelBeingDeleted(
     BookmarkModel* model) {
-  DCHECK(!running()) << "BookmarkModel deleted while ChangeProcessor running.";
+  NOTREACHED();
   bookmark_model_ = NULL;
 }
 
 void BookmarkChangeProcessor::BookmarkNodeAdded(BookmarkModel* model,
                                                 const BookmarkNode* parent,
                                                 int index) {
-  DCHECK(running());
   DCHECK(share_handle());
 
   // Acquire a scoped write lock via a transaction.
@@ -199,13 +195,11 @@ void BookmarkChangeProcessor::BookmarkNodeRemoved(BookmarkModel* model,
                                                     const BookmarkNode* parent,
                                                     int index,
                                                     const BookmarkNode* node) {
-  DCHECK(running());
   RemoveSyncNodeHierarchy(node);
 }
 
 void BookmarkChangeProcessor::BookmarkNodeChanged(BookmarkModel* model,
                                                   const BookmarkNode* node) {
-  DCHECK(running());
   // We shouldn't see changes to the top-level nodes.
   if (model->is_permanent_node(node)) {
     NOTREACHED() << "Saw update to permanent node!";
@@ -285,7 +279,6 @@ void BookmarkChangeProcessor::BookmarkNodeChanged(BookmarkModel* model,
 void BookmarkChangeProcessor::BookmarkNodeMoved(BookmarkModel* model,
       const BookmarkNode* old_parent, int old_index,
       const BookmarkNode* new_parent, int new_index) {
-  DCHECK(running());
   const BookmarkNode* child = new_parent->GetChild(new_index);
   // We shouldn't see changes to the top-level nodes.
   if (model->is_permanent_node(child)) {
@@ -315,7 +308,6 @@ void BookmarkChangeProcessor::BookmarkNodeMoved(BookmarkModel* model,
 void BookmarkChangeProcessor::BookmarkNodeFaviconChanged(
     BookmarkModel* model,
     const BookmarkNode* node) {
-  DCHECK(running());
   BookmarkNodeChanged(model, node);
 }
 
@@ -417,8 +409,6 @@ int BookmarkChangeProcessor::CalculateBookmarkModelInsertionIndex(
 void BookmarkChangeProcessor::ApplyChangesFromSyncModel(
     const syncer::BaseTransaction* trans,
     const syncer::ImmutableChangeRecordList& changes) {
-  if (!running())
-    return;
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   // A note about ordering.  Sync backend is responsible for ordering the change
   // records in the following order:
@@ -629,13 +619,6 @@ void BookmarkChangeProcessor::ApplyBookmarkFavicon(
     const BookmarkNode* bookmark_node,
     Profile* profile,
     const std::vector<unsigned char>& icon_bytes_vector) {
-  // Registering a favicon requires that we provide a source URL, but we
-  // don't know where these came from.  Currently we just use the
-  // destination URL, which is not correct, but since the favicon URL
-  // is used as a key in the history's thumbnail DB, this gives us a value
-  // which does not collide with others.
-  GURL fake_icon_url = bookmark_node->url();
-
   HistoryService* history =
       HistoryServiceFactory::GetForProfile(profile, Profile::EXPLICIT_ACCESS);
   FaviconService* favicon_service =
@@ -651,7 +634,6 @@ void BookmarkChangeProcessor::ApplyBookmarkFavicon(
       new base::RefCountedBytes(icon_bytes_vector));
   gfx::Size pixel_size(gfx::kFaviconSize, gfx::kFaviconSize);
   favicon_service->MergeFavicon(bookmark_node->url(),
-                                fake_icon_url,
                                 history::FAVICON,
                                 bitmap_data,
                                 pixel_size);

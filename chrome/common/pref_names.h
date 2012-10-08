@@ -21,6 +21,7 @@ extern const char kHomePage[];
 extern const char kHomePageChanged[];
 extern const char kIsGooglePlusUser[];
 extern const char kSessionExitedCleanly[];
+extern const char kSessionExitType[];
 extern const char kRestoreOnStartup[];
 extern const char kURLsToRestoreOnStartup[];
 extern const char kRestoreOnStartupMigrated[];
@@ -72,12 +73,14 @@ extern const char kWebKitSerifFontFamily[];
 extern const char kWebKitSansSerifFontFamily[];
 extern const char kWebKitCursiveFontFamily[];
 extern const char kWebKitFantasyFontFamily[];
+extern const char kWebKitPictographFontFamily[];
 extern const char kWebKitStandardFontFamilyMap[];
 extern const char kWebKitFixedFontFamilyMap[];
 extern const char kWebKitSerifFontFamilyMap[];
 extern const char kWebKitSansSerifFontFamilyMap[];
 extern const char kWebKitCursiveFontFamilyMap[];
 extern const char kWebKitFantasyFontFamilyMap[];
+extern const char kWebKitPictographFontFamilyMap[];
 
 // ISO 15924 four-letter script codes that per-script font prefs are supported
 // for.
@@ -182,6 +185,7 @@ extern const char kInstantConfirmDialogShown[];
 extern const char kInstantEnabled[];
 extern const char kExperimentalZeroSuggestUrlPrefix[];
 extern const char kInstantShowSearchProviderLogo[];
+extern const char kInstantShowWhiteNTP[];
 extern const char kMultipleProfilePrefMigration[];
 extern const char kNetworkPredictionEnabled[];
 extern const char kDefaultAppsInstallState[];
@@ -261,6 +265,7 @@ extern const char kLanguageXkbAutoRepeatInterval[];
 extern const char kSpokenFeedbackEnabled[];
 extern const char kHighContrastEnabled[];
 extern const char kScreenMagnifierEnabled[];
+extern const char kScreenMagnifierScale[];
 extern const char kVirtualKeyboardEnabled[];
 extern const char kLabsAdvancedFilesystemEnabled[];
 extern const char kLabsMediaplayerEnabled[];
@@ -272,6 +277,7 @@ extern const char kUseSharedProxies[];
 extern const char kOAuth1Token[];
 extern const char kOAuth1Secret[];
 extern const char kEnableCrosDRM[];
+extern const char kPrimaryDisplayID[];
 extern const char kSecondaryDisplayLayout[];
 extern const char kSecondaryDisplayOffset[];
 extern const char kSecondaryDisplays[];
@@ -311,13 +317,17 @@ extern const char kPluginsPluginsList[];
 extern const char kPluginsDisabledPlugins[];
 extern const char kPluginsDisabledPluginsExceptions[];
 extern const char kPluginsEnabledPlugins[];
+extern const char kPluginsDisabledPluginsByVersion[];
 extern const char kPluginsEnabledInternalPDF[];
 extern const char kPluginsEnabledNaCl[];
 extern const char kPluginsMigratedToPepperFlash[];
-extern const char kPluginsShowSetReaderDefaultInfobar[];
 extern const char kPluginsShowDetails[];
 extern const char kPluginsAllowOutdated[];
 extern const char kPluginsAlwaysAuthorize[];
+#if defined(ENABLE_PLUGIN_INSTALLATION)
+extern const char kPluginsMetadata[];
+extern const char kPluginsResourceCacheUpdate[];
+#endif
 extern const char kCheckDefaultBrowser[];
 #if defined(OS_WIN)
 extern const char kSuppressSwitchToMetroModeOnSetDefault[];
@@ -553,7 +563,10 @@ extern const char kDevToolsOpenDocked[];
 extern const char kDevToolsRemoteEnabled[];
 #endif
 extern const char kDevToolsVSplitLocation[];
-
+#if defined(OS_ANDROID)
+// Used by Chrome Mobile closed source.
+extern const char kSpdyProxyEnabled[];
+#endif
 extern const char kSyncLastSyncedTime[];
 extern const char kSyncHasSetupCompleted[];
 extern const char kSyncKeepEverythingSynced[];
@@ -628,7 +641,8 @@ extern const char kCloudPrintPrintSystemSettings[];
 extern const char kCloudPrintEnableJobPoll[];
 extern const char kCloudPrintRobotRefreshToken[];
 extern const char kCloudPrintRobotEmail[];
-extern const char kVirtualPrinterDriverEnabled[];
+extern const char kCloudPrintConnectNewPrinters[];
+extern const char kCloudPrintPrinterBlacklist[];
 extern const char kCloudPrintSubmitEnabled[];
 
 #if !defined(OS_ANDROID)
@@ -699,6 +713,7 @@ extern const char kEnableAuthNegotiatePort[];
 extern const char kAuthServerWhitelist[];
 extern const char kAuthNegotiateDelegateWhitelist[];
 extern const char kGSSAPILibraryName[];
+extern const char kSpdyProxyOrigin[];
 extern const char kAllowCrossOriginAuthPrompt[];
 
 extern const char kRegisteredProtocolHandlers[];

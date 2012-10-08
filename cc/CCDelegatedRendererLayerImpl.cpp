@@ -8,6 +8,7 @@
 
 #include "CCAppendQuadsData.h"
 #include "CCQuadSink.h"
+#include "CCMathUtil.h"
 #include "CCRenderPassDrawQuad.h"
 #include "CCRenderPassSink.h"
 
@@ -41,7 +42,7 @@ bool CCDelegatedRendererLayerImpl::hasContributingDelegatedRenderPasses() const
     return m_renderPassesInDrawOrder.size() > 1;
 }
 
-void CCDelegatedRendererLayerImpl::setRenderPasses(OwnPtrVector<CCRenderPass>& renderPassesInDrawOrder)
+void CCDelegatedRendererLayerImpl::setRenderPasses(ScopedPtrVector<CCRenderPass>& renderPassesInDrawOrder)
 {
     FloatRect oldRootDamage;
     if (!m_renderPassesInDrawOrder.isEmpty())
@@ -50,7 +51,7 @@ void CCDelegatedRendererLayerImpl::setRenderPasses(OwnPtrVector<CCRenderPass>& r
     clearRenderPasses();
 
     for (size_t i = 0; i < renderPassesInDrawOrder.size(); ++i) {
-        m_renderPassesIndexById.set(renderPassesInDrawOrder[i]->id(), i);
+        m_renderPassesIndexById.insert(std::pair<CCRenderPass::Id, int>(renderPassesInDrawOrder[i]->id(), i));
         m_renderPassesInDrawOrder.append(renderPassesInDrawOrder.take(i));
     }
     renderPassesInDrawOrder.clear();
@@ -88,7 +89,9 @@ CCRenderPass::Id CCDelegatedRendererLayerImpl::nextContributingRenderPassId(CCRe
 
 CCRenderPass::Id CCDelegatedRendererLayerImpl::convertDelegatedRenderPassId(CCRenderPass::Id delegatedRenderPassId) const
 {
-    unsigned delegatedRenderPassIndex = m_renderPassesIndexById.get(delegatedRenderPassId);
+    base::hash_map<CCRenderPass::Id, int>::const_iterator it = m_renderPassesIndexById.find(delegatedRenderPassId);
+    ASSERT(it != m_renderPassesIndexById.end());
+    unsigned delegatedRenderPassIndex = it->second;
     return CCRenderPass::Id(id(), indexToId(delegatedRenderPassIndex));
 }
 
@@ -144,21 +147,21 @@ void CCDelegatedRendererLayerImpl::appendRenderPassQuads(CCQuadSink& quadSink, C
         if (quad->sharedQuadState() != currentSharedQuadState) {
             currentSharedQuadState = quad->sharedQuadState();
             copiedSharedQuadState = quadSink.useSharedQuadState(currentSharedQuadState->copy());
+            bool targetIsFromDelegatedRendererLayer = appendQuadsData.renderPassId.layerId == id();
+            if (!targetIsFromDelegatedRendererLayer) {
+              // Should be the root render pass.
+              ASSERT(delegatedRenderPass == m_renderPassesInDrawOrder.last());
+              // This layer must be drawing to a renderTarget other than itself.
+              ASSERT(renderTarget() != this);
+
+              copiedSharedQuadState->clippedRectInTarget = CCMathUtil::mapClippedRect(drawTransform(), copiedSharedQuadState->clippedRectInTarget);
+              copiedSharedQuadState->quadTransform = copiedSharedQuadState->quadTransform * drawTransform();
+              copiedSharedQuadState->opacity *= drawOpacity();
+            }
         }
         ASSERT(copiedSharedQuadState);
 
-        bool targetIsFromDelegatedRendererLayer = appendQuadsData.renderPassId.layerId == id();
-        if (!targetIsFromDelegatedRendererLayer) {
-            // Should be the root render pass.
-            ASSERT(delegatedRenderPass == m_renderPassesInDrawOrder.last());
-            // This layer must be drawing to a renderTarget other than itself.
-            ASSERT(renderTarget() != this);
-
-            copiedSharedQuadState->quadTransform = copiedSharedQuadState->quadTransform * drawTransform();
-            copiedSharedQuadState->opacity *= drawOpacity();
-        }
-
-        OwnPtr<CCDrawQuad> copyQuad;
+        scoped_ptr<CCDrawQuad> copyQuad;
         if (quad->material() != CCDrawQuad::RenderPass)
             copyQuad = quad->copy(copiedSharedQuadState);
         else {
@@ -166,11 +169,11 @@ void CCDelegatedRendererLayerImpl::appendRenderPassQuads(CCQuadSink& quadSink, C
             CCRenderPass::Id contributingRenderPassId = convertDelegatedRenderPassId(contributingDelegatedRenderPassId);
             ASSERT(contributingRenderPassId != appendQuadsData.renderPassId);
 
-            copyQuad = CCRenderPassDrawQuad::materialCast(quad)->copy(copiedSharedQuadState, contributingRenderPassId);
+            copyQuad = CCRenderPassDrawQuad::materialCast(quad)->copy(copiedSharedQuadState, contributingRenderPassId).PassAs<CCDrawQuad>();
         }
-        ASSERT(copyQuad);
+        ASSERT(copyQuad.get());
 
-        quadSink.append(copyQuad.release(), appendQuadsData);
+        quadSink.append(copyQuad.Pass(), appendQuadsData);
     }
 }
 

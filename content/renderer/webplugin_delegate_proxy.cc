@@ -49,7 +49,6 @@
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/size.h"
 #include "webkit/glue/webkit_glue.h"
-#include "webkit/plugins/npapi/plugin_group.h"
 #include "webkit/plugins/npapi/webplugin.h"
 #include "webkit/plugins/plugin_constants.h"
 #include "webkit/plugins/sad_plugin.h"
@@ -77,7 +76,7 @@ namespace {
 
 class ScopedLogLevel {
  public:
-  ScopedLogLevel(int level);
+  explicit ScopedLogLevel(int level);
   ~ScopedLogLevel();
 
  private:
@@ -383,8 +382,7 @@ bool WebPluginDelegateProxy::Initialize(
   params.arg_values = arg_values;
   params.host_render_view_routing_id = render_view_->routing_id();
 
-  bool flash =
-      LowerCaseEqualsASCII(mime_type_, "application/x-shockwave-flash");
+  bool flash = LowerCaseEqualsASCII(mime_type_, kFlashPluginSwfMimeType);
   bool silverlight =
       StartsWithASCII(mime_type_, "application/x-silverlight", false);
   for (size_t i = 0; i < arg_names.size(); ++i) {

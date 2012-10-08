@@ -6,6 +6,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "base/basictypes.h"
 #include "TiledLayerChromium.h"
 
 #include "CCLayerImpl.h"
@@ -24,7 +25,6 @@ using WebKit::WebTransformationMatrix;
 namespace cc {
 
 class UpdatableTile : public CCLayerTilingData::Tile {
-    WTF_MAKE_NONCOPYABLE(UpdatableTile);
 public:
     static PassOwnPtr<UpdatableTile> create(PassOwnPtr<LayerTextureUpdater::Texture> texture)
     {
@@ -75,6 +75,8 @@ private:
     }
 
     OwnPtr<LayerTextureUpdater::Texture> m_texture;
+
+    DISALLOW_COPY_AND_ASSIGN(UpdatableTile);
 };
 
 TiledLayerChromium::TiledLayerChromium()
@@ -215,13 +217,20 @@ void TiledLayerChromium::pushPropertiesTo(CCLayerImpl* layer)
         // FIXME: This should not ever be null.
         if (!tile)
             continue;
+
         tile->isInUseOnImpl = false;
+
         if (!tile->managedTexture()->haveBackingTexture()) {
+            // Evicted tiles get deleted from both layers
             invalidTiles.append(tile);
             continue;
         }
-        if (!tile->validForFrame)
+
+        if (!tile->validForFrame) {
+            // Invalidated tiles are set so they can get different debug colors.
+            tiledLayer->pushInvalidTile(i, j);
             continue;
+        }
 
         tiledLayer->pushTileProperties(i, j, tile->managedTexture()->resourceId(), tile->opaqueRect());
         tile->isInUseOnImpl = true;
@@ -663,7 +672,7 @@ Region TiledLayerChromium::visibleContentOpaqueRegion() const
 {
     if (m_skipsDraw)
         return Region();
-    if (opaque())
+    if (contentsOpaque())
         return visibleContentRect();
     return m_tiler->opaqueRegionInContentRect(visibleContentRect());
 }

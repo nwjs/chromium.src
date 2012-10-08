@@ -57,6 +57,7 @@
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/public/renderer/document_state.h"
 #include "content/public/renderer/navigation_state.h"
+#include "content/public/renderer/password_form_conversion_utils.h"
 #include "content/public/renderer/render_view_observer.h"
 #include "content/public/renderer/render_view_visitor.h"
 #include "content/renderer/browser_plugin/browser_plugin.h"
@@ -85,6 +86,7 @@
 #include "content/renderer/media/render_audiosourceprovider.h"
 #include "content/renderer/media/render_media_log.h"
 #include "content/renderer/media/renderer_gpu_video_decoder_factories.h"
+#include "content/renderer/media/rtc_peer_connection_handler.h"
 #include "content/renderer/mhtml_generator.h"
 #include "content/renderer/notification_provider.h"
 #include "content/renderer/plugin_channel_host.h"
@@ -181,9 +183,6 @@
 #include "v8/include/v8.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
 #include "webkit/dom_storage/dom_storage_types.h"
-#include "webkit/forms/form_data.h"
-#include "webkit/forms/form_field.h"
-#include "webkit/forms/password_form_dom_manager.h"
 #include "webkit/glue/alt_error_page_resource_fetcher.h"
 #include "webkit/glue/dom_operations.h"
 #include "webkit/glue/glue_serialize.h"
@@ -321,6 +320,7 @@ using base::Time;
 using base::TimeDelta;
 using content::DocumentState;
 using content::NavigationState;
+using content::PasswordForm;
 using content::Referrer;
 using content::RenderThread;
 using content::RenderViewObserver;
@@ -328,9 +328,6 @@ using content::RenderViewVisitor;
 using content::RendererAccessibilityComplete;
 using content::RendererAccessibilityFocusOnly;
 using content::V8ValueConverter;
-using webkit::forms::FormField;
-using webkit::forms::PasswordForm;
-using webkit::forms::PasswordFormDomManager;
 using webkit_glue::AltErrorPageResourceFetcher;
 using webkit_glue::ResourceFetcher;
 using webkit_glue::WebPreferences;
@@ -2189,6 +2186,22 @@ void RenderViewImpl::showContextMenu(
 
   content::ContextMenuParams params(data);
 
+  // Plugins, e.g. PDF, don't currently update the render view when their
+  // selected text changes, but the context menu params do contain the updated
+  // selection. If that's the case, update the render view's state just prior
+  // to showing the context menu.
+  // TODO(asvitkine): http://crbug.com/152432
+  if (params.selection_text != selection_text_) {
+    selection_text_ = params.selection_text;
+    // TODO(asvitkine): Text offset and range is not available in this case.
+    selection_text_offset_ = 0;
+    selection_range_ = ui::Range(0, selection_text_.length());
+    Send(new ViewHostMsg_SelectionChanged(routing_id_,
+                                          selection_text_,
+                                          selection_text_offset_,
+                                          selection_range_));
+  }
+
   // frame is NULL if invoked by BlockedPlugin.
   if (frame)
     params.frame_id = frame->identifier();
@@ -2201,6 +2214,19 @@ void RenderViewImpl::showContextMenu(
   if (params.src_url.spec().size() > content::kMaxURLChars)
     params.src_url = GURL();
   context_menu_node_ = data.node;
+
+#if defined(OS_ANDROID)
+  gfx::Rect start_rect;
+  gfx::Rect end_rect;
+  GetSelectionBounds(&start_rect, &end_rect);
+  gfx::Point start_point(start_rect.x(),
+                         start_rect.bottom());
+  gfx::Point end_point(end_rect.right(),
+                       end_rect.bottom());
+  params.selection_start = GetScrollOffset().Add(start_point);
+  params.selection_end = GetScrollOffset().Add(end_point);
+#endif
+
   Send(new ViewHostMsg_ContextMenu(routing_id_, params));
 }
 
@@ -2453,15 +2479,18 @@ WebPlugin* RenderViewImpl::createPlugin(WebFrame* frame,
     return plugin;
   }
 
-  // TODO(fsamuel): Remove this once upstreaming of the new browser plugin is
-  // complete.
-  if (UTF16ToASCII(params.mimeType) == content::kBrowserPluginNewMimeType) {
-   return content::BrowserPluginManager::Get()->
-      CreateBrowserPlugin(this, frame, params);
+  const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  if (UTF16ToASCII(params.mimeType) == content::kBrowserPluginMimeType) {
+    if (cmd_line->HasSwitch(switches::kEnableBrowserPluginOldImplementation)) {
+      // TODO(fsamuel): Remove this once upstreaming of the new browser plugin
+      // is complete.
+      return content::old::BrowserPlugin::Create(this, frame, params);
+    } else {
+      return content::BrowserPluginManager::Get()->CreateBrowserPlugin(this,
+                                                                       frame,
+                                                                       params);
+    }
   }
-
-  if (UTF16ToASCII(params.mimeType) == content::kBrowserPluginMimeType)
-    return content::old::BrowserPlugin::Create(this, frame, params);
 
   webkit::WebPluginInfo info;
   std::string mime_type;
@@ -2638,10 +2667,6 @@ WebCookieJar* RenderViewImpl::cookieJar(WebFrame* frame) {
 }
 
 void RenderViewImpl::didCreateFrame(WebFrame* parent, WebFrame* child) {
-  if (is_loading_) {
-    pending_frame_tree_update_ = true;
-    return;
-  }
   if (!updating_frame_tree_)
     SendUpdatedFrameTree(NULL);
 }
@@ -2914,8 +2939,7 @@ void RenderViewImpl::willSendSubmitEvent(WebKit::WebFrame* frame,
   // a copy of the password in case it gets lost.
   DocumentState* document_state =
       DocumentState::FromDataSource(frame->dataSource());
-  document_state->set_password_form_data(
-      PasswordFormDomManager::CreatePasswordForm(form));
+  document_state->set_password_form_data(content::CreatePasswordForm(form));
 }
 
 void RenderViewImpl::willSubmitForm(WebFrame* frame,
@@ -2933,7 +2957,7 @@ void RenderViewImpl::willSubmitForm(WebFrame* frame,
   document_state->set_searchable_form_encoding(
       web_searchable_form_data.encoding().utf8());
   scoped_ptr<PasswordForm> password_form_data =
-      PasswordFormDomManager::CreatePasswordForm(form);
+      content::CreatePasswordForm(form);
 
   // In order to save the password that the user actually typed and not one
   // that may have gotten transformed by the site prior to submit, recover it
@@ -3841,17 +3865,15 @@ WebGraphicsContext3D* RenderViewImpl::CreateGraphicsContext3D(
 // the tree structure or the names of any frames.
 void RenderViewImpl::SendUpdatedFrameTree(
     WebKit::WebFrame* exclude_frame_subtree) {
-  std::string json;
-  base::DictionaryValue tree;
-
-  ConstructFrameTree(webview()->mainFrame(), exclude_frame_subtree, &tree);
-  base::JSONWriter::Write(&tree, &json);
-
-  Send(new ViewHostMsg_FrameTreeUpdated(routing_id_, json));
+  // TODO(nasko): Frame tree updates are causing issues with postMessage, as
+  // described in http://crbug.com/153701. Disable them until a proper fix is
+  // in place.
 }
 
 void RenderViewImpl::CreateFrameTree(WebKit::WebFrame* frame,
                                      DictionaryValue* frame_tree) {
+  // TODO(nasko): Remove once http://crbug.com/153701 is fixed.
+  DCHECK(false);
   NavigateToSwappedOutURL(frame);
 
   string16 name;
@@ -3888,12 +3910,13 @@ void RenderViewImpl::CreateFrameTree(WebKit::WebFrame* frame,
   }
 }
 
-WebKit::WebFrame* RenderViewImpl::GetFrameByMappedID(int frame_id) {
-  std::map<int, int>::iterator it = active_frame_id_map_.find(frame_id);
-  if (it == active_frame_id_map_.end())
-    return NULL;
-
-  return FindFrameByID(webview()->mainFrame(), it->second);
+WebKit::WebFrame* RenderViewImpl::GetFrameByRemoteID(int remote_frame_id) {
+  std::map<int, int>::const_iterator it = active_frame_id_map_.begin();
+  for (; it != active_frame_id_map_.end(); ++it) {
+    if (it->second == remote_frame_id)
+      return FindFrameByID(webview()->mainFrame(), it->first);
+  }
+  return NULL;
 }
 
 void RenderViewImpl::EnsureMediaStreamImpl() {
@@ -4182,6 +4205,13 @@ bool RenderViewImpl::willCheckAndDispatchMessageEvent(
 void RenderViewImpl::willOpenSocketStream(
     WebSocketStreamHandle* handle) {
   SocketStreamHandleData::AddToHandle(handle, routing_id_);
+}
+
+void RenderViewImpl::willStartUsingPeerConnectionHandler(
+    WebKit::WebFrame* frame, WebKit::WebRTCPeerConnectionHandler* handler) {
+#if defined(ENABLE_WEBRTC)
+  static_cast<RTCPeerConnectionHandler*>(handler)->associateWithFrame(frame);
+#endif
 }
 
 WebKit::WebString RenderViewImpl::userAgentOverride(
@@ -4989,17 +5019,18 @@ void RenderViewImpl::OnPostMessageEvent(
     const ViewMsg_PostMessage_Params& params) {
   // Find the target frame of this message. The source tags the message with
   // |target_frame_id|, so use it to locate the frame.
-  WebFrame* frame = FindFrameByID(webview()->mainFrame(),
-                                  params.target_frame_id);
-  if (!frame)
-    return;
+  // TODO(nasko): Lookup based on the frame id, once http://crbug.com/153701
+  // is fixed and we can rely on having frame tree updates again.
+  WebFrame* frame = webview()->mainFrame();
 
   // Find the source frame if it exists.
   WebFrame* source_frame = NULL;
   if (params.source_routing_id != MSG_ROUTING_NONE) {
     RenderViewImpl* source_view = FromRoutingID(params.source_routing_id);
+    // TODO(nasko): Lookup based on the frame id, once http://crbug.com/153701
+    // is fixed and we can rely on having frame tree updates again.
     if (source_view)
-      source_frame = source_view->GetFrameByMappedID(params.source_frame_id);
+      source_frame = source_view->webview()->mainFrame();
   }
 
   // Create an event with the message.  The final parameter to initMessageEvent
@@ -6284,6 +6315,8 @@ void RenderViewImpl::OnUpdatedFrameTree(
     int process_id,
     int route_id,
     const std::string& frame_tree) {
+  // TODO(nasko): Remove once http://crbug.com/153701 is fixed.
+  DCHECK(false);
   // We should only act on this message if we are swapped out.  It's possible
   // for this to happen due to races.
   if (!is_swapped_out_)

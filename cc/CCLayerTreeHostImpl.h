@@ -5,6 +5,8 @@
 #ifndef CCLayerTreeHostImpl_h
 #define CCLayerTreeHostImpl_h
 
+#include "base/basictypes.h"
+#include "base/time.h"
 #include "CCAnimationEvents.h"
 #include "CCInputHandler.h"
 #include "CCLayerSorter.h"
@@ -12,7 +14,6 @@
 #include "CCRenderPassSink.h"
 #include "CCRenderer.h"
 #include "SkColor.h"
-#include "base/time.h"
 #include <public/WebCompositorOutputSurfaceClient.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
@@ -48,11 +49,10 @@ public:
 class CCLayerTreeHostImpl : public CCInputHandlerClient,
                             public CCRendererClient,
                             public WebKit::WebCompositorOutputSurfaceClient {
-    WTF_MAKE_NONCOPYABLE(CCLayerTreeHostImpl);
-    typedef Vector<CCLayerImpl*> CCLayerList;
+    typedef std::vector<CCLayerImpl*> CCLayerList;
 
 public:
-    static PassOwnPtr<CCLayerTreeHostImpl> create(const CCLayerTreeSettings&, CCLayerTreeHostImplClient*);
+    static scoped_ptr<CCLayerTreeHostImpl> create(const CCLayerTreeSettings&, CCLayerTreeHostImplClient*);
     virtual ~CCLayerTreeHostImpl();
 
     // CCInputHandlerClient implementation
@@ -76,7 +76,7 @@ public:
         CCLayerList willDrawLayers;
 
         // CCRenderPassSink implementation.
-        virtual void appendRenderPass(PassOwnPtr<CCRenderPass>) OVERRIDE;
+        virtual void appendRenderPass(scoped_ptr<CCRenderPass>) OVERRIDE;
     };
 
     // Virtual for testing.
@@ -114,7 +114,7 @@ public:
     void finishAllRendering();
     int sourceAnimationFrameNumber() const;
 
-    bool initializeRenderer(PassOwnPtr<CCGraphicsContext>);
+    bool initializeRenderer(scoped_ptr<CCGraphicsContext>);
     bool isContextLost();
     CCRenderer* renderer() { return m_renderer.get(); }
     const RendererCapabilities& rendererCapabilities() const;
@@ -170,7 +170,7 @@ public:
 
     void setNeedsRedraw();
 
-    void renderingStats(CCRenderingStats&) const;
+    void renderingStats(CCRenderingStats*) const;
 
     CCFrameRateCounter* fpsCounter() const { return m_fpsCounter.get(); }
     CCDebugRectHistory* debugRectHistory() const { return m_debugRectHistory.get(); }
@@ -250,7 +250,7 @@ private:
 
     void dumpRenderSurfaces(std::string*, int indent, const CCLayerImpl*) const;
 
-    OwnPtr<CCGraphicsContext> m_context;
+    scoped_ptr<CCGraphicsContext> m_context;
     OwnPtr<CCResourceProvider> m_resourceProvider;
     OwnPtr<CCRenderer> m_renderer;
     OwnPtr<CCLayerImpl> m_rootLayerImpl;
@@ -293,6 +293,11 @@ private:
 
     OwnPtr<CCFrameRateCounter> m_fpsCounter;
     OwnPtr<CCDebugRectHistory> m_debugRectHistory;
+
+    size_t m_numImplThreadScrolls;
+    size_t m_numMainThreadScrolls;
+
+    DISALLOW_COPY_AND_ASSIGN(CCLayerTreeHostImpl);
 };
 
 };

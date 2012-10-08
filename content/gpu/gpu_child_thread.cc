@@ -100,6 +100,8 @@ bool GpuChildThread::OnControlMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(GpuMsg_CollectGraphicsInfo, OnCollectGraphicsInfo)
     IPC_MESSAGE_HANDLER(GpuMsg_GetVideoMemoryUsageStats,
                         OnGetVideoMemoryUsageStats)
+    IPC_MESSAGE_HANDLER(GpuMsg_SetVideoMemoryWindowCount,
+                        OnSetVideoMemoryWindowCount)
     IPC_MESSAGE_HANDLER(GpuMsg_Clean, OnClean)
     IPC_MESSAGE_HANDLER(GpuMsg_Crash, OnCrash)
     IPC_MESSAGE_HANDLER(GpuMsg_Hang, OnHang)
@@ -148,15 +150,6 @@ void GpuChildThread::OnInitialize() {
   enable_watchdog = false;
 #endif
 
-  // Disable the watchdog for Windows. It tends to abort when the GPU process
-  // is not hung but still taking a long time to do something. Instead, the
-  // browser process displays a dialog when it notices that the child window
-  // is hung giving the user an opportunity to terminate it. This is the
-  // same mechanism used to abort hung plugins.
-#if defined(OS_WIN)
-  enable_watchdog = false;
-#endif
-
   // Start the GPU watchdog only after anything that is expected to be time
   // consuming has completed, otherwise the process is liable to be aborted.
   if (enable_watchdog) {
@@ -187,11 +180,10 @@ void GpuChildThread::StopWatchdog() {
 }
 
 void GpuChildThread::OnCollectGraphicsInfo() {
-  if (!gpu_info_.finalized &&
-      (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableGpuSandbox) ||
-       CommandLine::ForCurrentProcess()->HasSwitch(switches::kSingleProcess) ||
-       CommandLine::ForCurrentProcess()->HasSwitch(switches::kInProcessGPU))) {
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kDisableGpuSandbox) ||
+      command_line->ForCurrentProcess()->HasSwitch(switches::kSingleProcess) ||
+      command_line->ForCurrentProcess()->HasSwitch(switches::kInProcessGPU)) {
     // GPU full info collection should only happen on un-sandboxed GPU process
     // or single process/in-process gpu mode.
 
@@ -226,6 +218,11 @@ void GpuChildThread::OnGetVideoMemoryUsageStats() {
     gpu_channel_manager_->gpu_memory_manager()->GetVideoMemoryUsageStats(
         video_memory_usage_stats);
   Send(new GpuHostMsg_VideoMemoryUsageStats(video_memory_usage_stats));
+}
+
+void GpuChildThread::OnSetVideoMemoryWindowCount(uint32 window_count) {
+  if (gpu_channel_manager_.get())
+    gpu_channel_manager_->gpu_memory_manager()->SetWindowCount(window_count);
 }
 
 void GpuChildThread::OnClean() {

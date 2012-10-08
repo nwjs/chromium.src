@@ -8,6 +8,7 @@
 
 #include "ImageLayerChromium.h"
 
+#include "base/compiler_specific.h"
 #include "CCLayerTreeHost.h"
 #include "LayerTextureUpdater.h"
 #include "PlatformColor.h"
@@ -42,7 +43,8 @@ public:
 
     virtual ~ImageLayerTextureUpdater() { }
 
-    virtual PassOwnPtr<LayerTextureUpdater::Texture> createTexture(CCPrioritizedTextureManager* manager)
+    virtual PassOwnPtr<LayerTextureUpdater::Texture> createTexture(
+        CCPrioritizedTextureManager* manager) OVERRIDE
     {
         return adoptPtr(new Texture(this, CCPrioritizedTexture::create(manager)));
     }
@@ -78,9 +80,9 @@ private:
     SkBitmap m_bitmap;
 };
 
-PassRefPtr<ImageLayerChromium> ImageLayerChromium::create()
+scoped_refptr<ImageLayerChromium> ImageLayerChromium::create()
 {
-    return adoptRef(new ImageLayerChromium());
+    return make_scoped_refptr(new ImageLayerChromium());
 }
 
 ImageLayerChromium::ImageLayerChromium()

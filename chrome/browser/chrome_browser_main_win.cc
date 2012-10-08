@@ -26,6 +26,7 @@
 #include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
 #include "chrome/browser/profiles/profile_shortcut_manager.h"
+#include "chrome/browser/shell_integration.h"
 #include "chrome/browser/system_monitor/removable_device_notifications_window_win.h"
 #include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/browser/ui/uninstall_browser_prompt.h"
@@ -48,6 +49,10 @@
 #include "ui/base/ui_base_switches.h"
 #include "ui/base/win/message_box_win.h"
 #include "ui/gfx/platform_font_win.h"
+
+#if defined(USE_AURA)
+#include "chrome/browser/metro_viewer/metro_viewer_process_host_win.h"
+#endif
 
 
 namespace {
@@ -100,9 +105,15 @@ void WarnAboutMinimumSystemRequirements() {
 }
 
 void ShowCloseBrowserFirstMessageBox() {
+  int message_id = IDS_UNINSTALL_CLOSE_APP;
+  if (base::win::GetVersion() >= base::win::VERSION_WIN8 &&
+      (ShellIntegration::IsDefaultBrowser() ==
+           ShellIntegration::IS_DEFAULT_WEB_CLIENT)) {
+    message_id = IDS_UNINSTALL_CLOSE_APP_IMMERSIVE;
+  }
   chrome::ShowMessageBox(NULL,
                          l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
-                         l10n_util::GetStringUTF16(IDS_UNINSTALL_CLOSE_APP),
+                         l10n_util::GetStringUTF16(message_id),
                          chrome::MESSAGE_BOX_TYPE_WARNING);
 }
 
@@ -129,13 +140,14 @@ int DoUninstallTasks(bool chrome_still_running) {
     // We want to remove user level shortcuts and we only care about the ones
     // created by us and not by the installer so |alternate| is false.
     BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-    if (!ShellUtil::RemoveChromeDesktopShortcut(
-            dist, ShellUtil::CURRENT_USER, ShellUtil::SHORTCUT_NO_OPTIONS)) {
+    if (!ShellUtil::RemoveChromeShortcut(
+            ShellUtil::SHORTCUT_DESKTOP, dist, ShellUtil::CURRENT_USER, NULL)) {
       VLOG(1) << "Failed to delete desktop shortcut.";
     }
     // TODO(rlp): Cleanup profiles shortcuts.
-    if (!ShellUtil::RemoveChromeQuickLaunchShortcut(dist,
-                                                    ShellUtil::CURRENT_USER)) {
+    if (!ShellUtil::RemoveChromeShortcut(
+            ShellUtil::SHORTCUT_QUICK_LAUNCH, dist, ShellUtil::CURRENT_USER,
+            NULL)) {
       VLOG(1) << "Failed to delete quick launch shortcut.";
     }
   }
@@ -211,6 +223,9 @@ void ChromeBrowserMainPartsWin::PreMainMessageLoopRun() {
   ChromeBrowserMainParts::PreMainMessageLoopRun();
 
   removable_device_notifications_window_->Init();
+#if defined(USE_AURA)
+  metro_viewer_process_host_.reset(new MetroViewerProcessHost);
+#endif
 }
 
 // static

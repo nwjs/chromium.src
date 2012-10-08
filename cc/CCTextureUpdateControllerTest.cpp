@@ -12,7 +12,7 @@
 #include "FakeWebCompositorOutputSurface.h"
 #include "FakeWebGraphicsContext3D.h"
 #include "WebCompositorInitializer.h"
-#include <gtest/gtest.h>
+#include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebThread.h>
 #include <wtf/RefPtr.h>
 
@@ -57,8 +57,6 @@ class TextureUploaderForUploadTest : public FakeTextureUploader {
 public:
     TextureUploaderForUploadTest(CCTextureUpdateControllerTest *test) : m_test(test) { }
 
-    virtual void beginUploads() OVERRIDE;
-    virtual void endUploads() OVERRIDE;
     virtual void uploadTexture(cc::CCResourceProvider*, Parameters) OVERRIDE;
 
 private:
@@ -90,14 +88,10 @@ public:
         , m_partialCountExpected(0)
         , m_totalUploadCountExpected(0)
         , m_maxUploadCountPerUpdate(0)
-        , m_numBeginUploads(0)
-        , m_numEndUploads(0)
         , m_numConsecutiveFlushes(0)
         , m_numDanglingUploads(0)
         , m_numTotalUploads(0)
         , m_numTotalFlushes(0)
-        , m_numPreviousUploads(0)
-        , m_numPreviousFlushes(0)
     {
     }
 
@@ -107,27 +101,9 @@ public:
         // Check for back-to-back flushes.
         EXPECT_EQ(0, m_numConsecutiveFlushes) << "Back-to-back flushes detected.";
 
-        // Check for premature flushes
-        if (m_numPreviousUploads != m_maxUploadCountPerUpdate) {
-            if (m_numTotalUploads < m_fullUploadCountExpected)
-                EXPECT_GE(m_numDanglingUploads, kFlushPeriodFull) << "Premature flush detected in full uploads.";
-            else if (m_numTotalUploads > m_fullUploadCountExpected && m_numTotalUploads < m_totalUploadCountExpected)
-                EXPECT_GE(m_numDanglingUploads, kFlushPeriodPartial) << "Premature flush detected in partial uploads.";
-        }
-
         m_numDanglingUploads = 0;
         m_numConsecutiveFlushes++;
         m_numTotalFlushes++;
-        m_numPreviousFlushes++;
-    }
-
-    void onBeginUploads()
-    {
-        EXPECT_EQ(0, m_numDanglingUploads) << "Last upload wasn't followed by a flush.";
-
-        m_numPreviousFlushes = 0;
-        m_numPreviousUploads = 0;
-        m_numBeginUploads++;
     }
 
     void onUpload()
@@ -141,20 +117,6 @@ public:
         m_numConsecutiveFlushes = 0;
         m_numDanglingUploads++;
         m_numTotalUploads++;
-        m_numPreviousUploads++;
-    }
-
-    void onEndUploads()
-    {
-        // Note: The m_numTotalUploads != m_fullUploadCountExpected comparison
-        // allows for the quota not to be hit in the case where we are trasitioning
-        // from full uploads to partial uploads.
-        if (m_numTotalUploads != m_totalUploadCountExpected && m_numTotalUploads != m_fullUploadCountExpected) {
-            EXPECT_EQ(m_maxUploadCountPerUpdate, m_numPreviousUploads)
-                << "endUpload() was called when there are textures to upload, but the upload quota hasn't been filled.";
-        }
-
-        m_numEndUploads++;
     }
 
 protected:
@@ -217,7 +179,7 @@ protected:
 
 protected:
     // Classes required to interact and test the CCTextureUpdateController
-    OwnPtr<CCGraphicsContext> m_context;
+    scoped_ptr<CCGraphicsContext> m_context;
     OwnPtr<CCResourceProvider> m_resourceProvider;
     OwnPtr<CCTextureUpdateQueue> m_queue;
     TextureForUploadTest m_textures[4];
@@ -233,14 +195,10 @@ protected:
     int m_maxUploadCountPerUpdate;
 
     // Dynamic properties of this test
-    int m_numBeginUploads;
-    int m_numEndUploads;
     int m_numConsecutiveFlushes;
     int m_numDanglingUploads;
     int m_numTotalUploads;
     int m_numTotalFlushes;
-    int m_numPreviousUploads;
-    int m_numPreviousFlushes;
 };
 
 void WebGraphicsContext3DForUploadTest::flush(void)
@@ -251,16 +209,6 @@ void WebGraphicsContext3DForUploadTest::flush(void)
 void WebGraphicsContext3DForUploadTest::shallowFlushCHROMIUM(void)
 {
     m_test->onFlush();
-}
-
-void TextureUploaderForUploadTest::beginUploads()
-{
-    m_test->onBeginUploads();
-}
-
-void TextureUploaderForUploadTest::endUploads()
-{
-    m_test->onEndUploads();
 }
 
 void TextureUploaderForUploadTest::uploadTexture(cc::CCResourceProvider*, Parameters)
@@ -276,8 +224,8 @@ TEST_F(CCTextureUpdateControllerTest, ZeroUploads)
     DebugScopedSetImplThread implThread;
     updateTextures();
 
-    EXPECT_EQ(0, m_numPreviousFlushes);
-    EXPECT_EQ(0, m_numPreviousUploads);
+    EXPECT_EQ(0, m_numTotalFlushes);
+    EXPECT_EQ(0, m_numTotalUploads);
 }
 
 
@@ -289,8 +237,8 @@ TEST_F(CCTextureUpdateControllerTest, OneFullUpload)
     DebugScopedSetImplThread implThread;
     updateTextures();
 
-    EXPECT_EQ(1, m_numPreviousFlushes);
-    EXPECT_EQ(1, m_numPreviousUploads);
+    EXPECT_EQ(1, m_numTotalFlushes);
+    EXPECT_EQ(1, m_numTotalUploads);
     EXPECT_EQ(0, m_numDanglingUploads) << "Last upload wasn't followed by a flush.";
 }
 
@@ -301,8 +249,8 @@ TEST_F(CCTextureUpdateControllerTest, OnePartialUpload)
     DebugScopedSetImplThread implThread;
     updateTextures();
 
-    EXPECT_EQ(1, m_numPreviousFlushes);
-    EXPECT_EQ(1, m_numPreviousUploads);
+    EXPECT_EQ(1, m_numTotalFlushes);
+    EXPECT_EQ(1, m_numTotalUploads);
     EXPECT_EQ(0, m_numDanglingUploads) << "Last upload wasn't followed by a flush.";
 }
 
@@ -313,8 +261,8 @@ TEST_F(CCTextureUpdateControllerTest, OneFullOnePartialUpload)
     DebugScopedSetImplThread implThread;
     updateTextures();
 
-    EXPECT_EQ(1, m_numPreviousFlushes);
-    EXPECT_EQ(2, m_numPreviousUploads);
+    EXPECT_EQ(1, m_numTotalFlushes);
+    EXPECT_EQ(2, m_numTotalUploads);
     EXPECT_EQ(0, m_numDanglingUploads) << "Last upload wasn't followed by a flush.";
 }
 
@@ -333,8 +281,8 @@ TEST_F(CCTextureUpdateControllerTest, ManyFullUploads)
     DebugScopedSetImplThread implThread;
     updateTextures();
 
-    EXPECT_EQ(fullUploadFlushMultipler, m_numPreviousFlushes);
-    EXPECT_EQ(fullCount, m_numPreviousUploads);
+    EXPECT_EQ(fullUploadFlushMultipler, m_numTotalFlushes);
+    EXPECT_EQ(fullCount, m_numTotalUploads);
     EXPECT_EQ(0, m_numDanglingUploads) << "Last upload wasn't followed by a flush.";
 }
 
@@ -345,8 +293,8 @@ TEST_F(CCTextureUpdateControllerTest, ManyPartialUploads)
     DebugScopedSetImplThread implThread;
     updateTextures();
 
-    EXPECT_EQ(partialUploadFlushMultipler, m_numPreviousFlushes);
-    EXPECT_EQ(partialCount, m_numPreviousUploads);
+    EXPECT_EQ(partialUploadFlushMultipler, m_numTotalFlushes);
+    EXPECT_EQ(partialCount, m_numTotalUploads);
     EXPECT_EQ(0, m_numDanglingUploads) << "Last upload wasn't followed by a flush.";
 }
 
@@ -357,8 +305,8 @@ TEST_F(CCTextureUpdateControllerTest, ManyFullManyPartialUploads)
     DebugScopedSetImplThread implThread;
     updateTextures();
 
-    EXPECT_EQ(fullUploadFlushMultipler + partialUploadFlushMultipler, m_numPreviousFlushes);
-    EXPECT_EQ(fullCount + partialCount, m_numPreviousUploads);
+    EXPECT_EQ(fullUploadFlushMultipler + partialUploadFlushMultipler, m_numTotalFlushes);
+    EXPECT_EQ(fullCount + partialCount, m_numTotalUploads);
     EXPECT_EQ(0, m_numDanglingUploads) << "Last upload wasn't followed by a flush.";
 }
 
@@ -381,29 +329,27 @@ public:
         return adoptPtr(new FakeCCTextureUpdateController(client, thread, queue, resourceProvider, uploader));
     }
 
-    void setMonotonicTimeNow(double time) { m_monotonicTimeNow = time; }
-    virtual double monotonicTimeNow() const OVERRIDE { return m_monotonicTimeNow; }
-    void setUpdateMoreTexturesTime(double time) { m_updateMoreTexturesTime = time; }
-    virtual double updateMoreTexturesTime() const OVERRIDE { return m_updateMoreTexturesTime; }
+    void setNow(base::TimeTicks time) { m_now = time; }
+    virtual base::TimeTicks now() const OVERRIDE { return m_now; }
+    void setUpdateMoreTexturesTime(base::TimeDelta time) { m_updateMoreTexturesTime = time; }
+    virtual base::TimeDelta updateMoreTexturesTime() const OVERRIDE { return m_updateMoreTexturesTime; }
     void setUpdateMoreTexturesSize(size_t size) { m_updateMoreTexturesSize = size; }
     virtual size_t updateMoreTexturesSize() const OVERRIDE { return m_updateMoreTexturesSize; }
 
 protected:
     FakeCCTextureUpdateController(cc::CCTextureUpdateControllerClient* client, cc::CCThread* thread, PassOwnPtr<CCTextureUpdateQueue> queue, CCResourceProvider* resourceProvider, TextureUploader* uploader)
         : cc::CCTextureUpdateController(client, thread, queue, resourceProvider, uploader)
-        , m_monotonicTimeNow(0)
-        , m_updateMoreTexturesTime(0)
         , m_updateMoreTexturesSize(0) { }
 
-    double m_monotonicTimeNow;
-    double m_updateMoreTexturesTime;
+    base::TimeTicks m_now;
+    base::TimeDelta m_updateMoreTexturesTime;
     size_t m_updateMoreTexturesSize;
 };
 
 static void runPendingTask(FakeCCThread* thread, FakeCCTextureUpdateController* controller)
 {
     EXPECT_TRUE(thread->hasPendingTask());
-    controller->setMonotonicTimeNow(controller->monotonicTimeNow() + thread->pendingDelayMs() / 1000.0);
+    controller->setNow(controller->now() + base::TimeDelta::FromMilliseconds(thread->pendingDelayMs()));
     thread->runPendingTask();
 }
 
@@ -419,37 +365,36 @@ TEST_F(CCTextureUpdateControllerTest, UpdateMoreTextures)
     DebugScopedSetImplThread implThread;
     OwnPtr<FakeCCTextureUpdateController> controller(FakeCCTextureUpdateController::create(&client, &thread, m_queue.release(), m_resourceProvider.get(), &m_uploader));
 
-    controller->setMonotonicTimeNow(0);
-    controller->setUpdateMoreTexturesTime(0.1);
+    controller->setNow(
+        controller->now() + base::TimeDelta::FromMilliseconds(1));
+    controller->setUpdateMoreTexturesTime(
+        base::TimeDelta::FromMilliseconds(100));
     controller->setUpdateMoreTexturesSize(1);
     // Not enough time for any updates.
-    controller->performMoreUpdates(0.09);
+    controller->performMoreUpdates(
+        controller->now() + base::TimeDelta::FromMilliseconds(90));
     EXPECT_FALSE(thread.hasPendingTask());
-    EXPECT_EQ(0, m_numBeginUploads);
-    EXPECT_EQ(0, m_numEndUploads);
 
-    controller->setMonotonicTimeNow(0);
-    controller->setUpdateMoreTexturesTime(0.1);
+    controller->setUpdateMoreTexturesTime(
+        base::TimeDelta::FromMilliseconds(100));
     controller->setUpdateMoreTexturesSize(1);
     // Only enough time for 1 update.
-    controller->performMoreUpdates(0.12);
+    controller->performMoreUpdates(
+        controller->now() + base::TimeDelta::FromMilliseconds(120));
     runPendingTask(&thread, controller.get());
     EXPECT_FALSE(thread.hasPendingTask());
-    EXPECT_EQ(1, m_numBeginUploads);
-    EXPECT_EQ(1, m_numEndUploads);
     EXPECT_EQ(1, m_numTotalUploads);
 
-    controller->setMonotonicTimeNow(0);
-    controller->setUpdateMoreTexturesTime(0.1);
+    controller->setUpdateMoreTexturesTime(
+        base::TimeDelta::FromMilliseconds(100));
     controller->setUpdateMoreTexturesSize(1);
     // Enough time for 2 updates.
-    controller->performMoreUpdates(0.22);
+    controller->performMoreUpdates(
+        controller->now() + base::TimeDelta::FromMilliseconds(220));
     runPendingTask(&thread, controller.get());
     runPendingTask(&thread, controller.get());
     EXPECT_FALSE(thread.hasPendingTask());
     EXPECT_TRUE(client.readyToFinalizeCalled());
-    EXPECT_EQ(3, m_numBeginUploads);
-    EXPECT_EQ(3, m_numEndUploads);
     EXPECT_EQ(3, m_numTotalUploads);
 }
 
@@ -465,30 +410,30 @@ TEST_F(CCTextureUpdateControllerTest, NoMoreUpdates)
     DebugScopedSetImplThread implThread;
     OwnPtr<FakeCCTextureUpdateController> controller(FakeCCTextureUpdateController::create(&client, &thread, m_queue.release(), m_resourceProvider.get(), &m_uploader));
 
-    controller->setMonotonicTimeNow(0);
-    controller->setUpdateMoreTexturesTime(0.1);
+    controller->setNow(
+        controller->now() + base::TimeDelta::FromMilliseconds(1));
+    controller->setUpdateMoreTexturesTime(
+        base::TimeDelta::FromMilliseconds(100));
     controller->setUpdateMoreTexturesSize(1);
     // Enough time for 3 updates but only 2 necessary.
-    controller->performMoreUpdates(0.31);
+    controller->performMoreUpdates(
+        controller->now() + base::TimeDelta::FromMilliseconds(310));
     runPendingTask(&thread, controller.get());
     runPendingTask(&thread, controller.get());
     EXPECT_FALSE(thread.hasPendingTask());
     EXPECT_TRUE(client.readyToFinalizeCalled());
-    EXPECT_EQ(2, m_numBeginUploads);
-    EXPECT_EQ(2, m_numEndUploads);
     EXPECT_EQ(2, m_numTotalUploads);
 
-    controller->setMonotonicTimeNow(0);
-    controller->setUpdateMoreTexturesTime(0.1);
+    controller->setUpdateMoreTexturesTime(
+        base::TimeDelta::FromMilliseconds(100));
     controller->setUpdateMoreTexturesSize(1);
     // Enough time for updates but no more updates left.
-    controller->performMoreUpdates(0.31);
+    controller->performMoreUpdates(
+        controller->now() + base::TimeDelta::FromMilliseconds(310));
     // 0-delay task used to call readyToFinalizeTextureUpdates().
     runPendingTask(&thread, controller.get());
     EXPECT_FALSE(thread.hasPendingTask());
     EXPECT_TRUE(client.readyToFinalizeCalled());
-    EXPECT_EQ(2, m_numBeginUploads);
-    EXPECT_EQ(2, m_numEndUploads);
     EXPECT_EQ(2, m_numTotalUploads);
 }
 
@@ -504,8 +449,10 @@ TEST_F(CCTextureUpdateControllerTest, UpdatesCompleteInFiniteTime)
     DebugScopedSetImplThread implThread;
     OwnPtr<FakeCCTextureUpdateController> controller(FakeCCTextureUpdateController::create(&client, &thread, m_queue.release(), m_resourceProvider.get(), &m_uploader));
 
-    controller->setMonotonicTimeNow(0);
-    controller->setUpdateMoreTexturesTime(0.5);
+    controller->setNow(
+        controller->now() + base::TimeDelta::FromMilliseconds(1));
+    controller->setUpdateMoreTexturesTime(
+        base::TimeDelta::FromMilliseconds(500));
     controller->setUpdateMoreTexturesSize(1);
 
     for (int i = 0; i < 100; i++) {
@@ -513,7 +460,8 @@ TEST_F(CCTextureUpdateControllerTest, UpdatesCompleteInFiniteTime)
             break;
 
         // Not enough time for any updates.
-        controller->performMoreUpdates(0.4);
+        controller->performMoreUpdates(
+            controller->now() + base::TimeDelta::FromMilliseconds(400));
 
         if (thread.hasPendingTask())
             runPendingTask(&thread, controller.get());
@@ -521,8 +469,6 @@ TEST_F(CCTextureUpdateControllerTest, UpdatesCompleteInFiniteTime)
 
     EXPECT_FALSE(thread.hasPendingTask());
     EXPECT_TRUE(client.readyToFinalizeCalled());
-    EXPECT_EQ(2, m_numBeginUploads);
-    EXPECT_EQ(2, m_numEndUploads);
     EXPECT_EQ(2, m_numTotalUploads);
 }
 

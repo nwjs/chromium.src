@@ -36,6 +36,7 @@ class PasswordGenerator;
 namespace content {
 class WebContents;
 struct NativeWebKeyboardEvent;
+struct PasswordForm;
 struct SSLStatus;
 }
 
@@ -46,12 +47,6 @@ class Extension;
 namespace gfx {
 class Rect;
 class Size;
-}
-
-namespace webkit {
-namespace forms {
-struct PasswordForm;
-}
 }
 
 enum DevToolsDockSide {
@@ -347,6 +342,12 @@ class BrowserWindow : public BaseWindow {
   // Construct a FindBar implementation for the |browser|.
   virtual FindBar* CreateFindBar() = 0;
 
+  // Updates the |top_y| where the top of the constrained window should be
+  // positioned. On success, the method returns true and the value of |top_y| is
+  // non-negative. On failure, the method returns false nad the value of |top_y|
+  // is not defined.
+  virtual bool GetConstrainedWindowTopY(int* top_y) = 0;
+
   // Invoked when the preferred size of the contents in current tab has been
   // changed. We might choose to update the window size to accomodate this
   // change.
@@ -378,7 +379,7 @@ class BrowserWindow : public BaseWindow {
   // available on mac.
   virtual void ShowPasswordGenerationBubble(
       const gfx::Rect& rect,
-      const webkit::forms::PasswordForm& form,
+      const content::PasswordForm& form,
       autofill::PasswordGenerator* password_generator) {}
 
  protected:

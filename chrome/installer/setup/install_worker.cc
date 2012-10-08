@@ -256,7 +256,7 @@ void AddDeleteUninstallShortcutsForMSIWorkItems(
     uninstall_link = uninstall_link.Append(
         product.distribution()->GetAppShortCutName());
     uninstall_link = uninstall_link.Append(
-        product.distribution()->GetUninstallLinkName() + L".lnk");
+        product.distribution()->GetUninstallLinkName() + installer::kLnkExt);
     VLOG(1) << "Deleting old uninstall shortcut (if present): "
             << uninstall_link.value();
     WorkItem* delete_link = work_item_list->AddDeleteTreeWorkItem(
@@ -1547,6 +1547,7 @@ void AddQuickEnableApplicationHostWorkItems(
   CommandLine cmd_line(CommandLine::NO_PROGRAM);
   cmd_line.AppendSwitch(switches::kMultiInstall);
   cmd_line.AppendSwitch(switches::kChromeAppHost);
+  cmd_line.AppendSwitch(switches::kEnsureGoogleUpdatePresent);
 
   // For system-level binaries there is no way to keep the command state in sync
   // with the installation/uninstallation of the Application Host (which is

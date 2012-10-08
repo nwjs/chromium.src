@@ -13,6 +13,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/controls/button/button.h"
+#include "ui/views/focus_border.h"
 #include "ui/views/widget/widget.h"
 
 #if defined(OS_WIN)
@@ -138,7 +139,6 @@ void TextButtonBorder::Paint(const View& view, gfx::Canvas* canvas) const {
       // handle the case of having a non-NULL |normal_set_|.
       canvas->SaveLayerAlpha(static_cast<uint8>(
           button->GetAnimation()->CurrentValueBetween(0, 255)));
-      canvas->sk_canvas()->drawARGB(0, 255, 255, 255, SkXfermode::kClear_Mode);
       Paint(view, canvas, *set);
       canvas->Restore();
     } else {
@@ -261,12 +261,12 @@ TextButtonBase::TextButtonBase(ButtonListener* listener, const string16& text)
           ui::NativeTheme::kColorId_TextButtonHighlightColor)),
       color_hover_(ui::NativeTheme::instance()->GetSystemColor(
           ui::NativeTheme::kColorId_TextButtonHoverColor)),
-      text_halo_color_(0),
-      has_text_halo_(false),
+      has_text_shadow_(false),
       active_text_shadow_color_(0),
       inactive_text_shadow_color_(0),
-      has_shadow_(false),
-      shadow_offset_(gfx::Point(1, 1)),
+      text_shadow_offset_(gfx::Point(1, 1)),
+      min_width_(0),
+      min_height_(0),
       max_width_(0),
       show_multiple_icon_states_(true),
       is_default_(false),
@@ -321,20 +321,19 @@ void TextButtonBase::SetHoverColor(SkColor color) {
   color_hover_ = color;
 }
 
-void TextButtonBase::SetTextHaloColor(SkColor color) {
-  text_halo_color_ = color;
-  has_text_halo_ = true;
-}
-
 void TextButtonBase::SetTextShadowColors(SkColor active_color,
                                          SkColor inactive_color) {
   active_text_shadow_color_ = active_color;
   inactive_text_shadow_color_ = inactive_color;
-  has_shadow_ = true;
+  has_text_shadow_ = true;
 }
 
 void TextButtonBase::SetTextShadowOffset(int x, int y) {
-  shadow_offset_.SetPoint(x, y);
+  text_shadow_offset_.SetPoint(x, y);
+}
+
+void TextButtonBase::ClearEmbellishing() {
+  has_text_shadow_ = false;
 }
 
 void TextButtonBase::ClearMaxTextSize() {
@@ -343,11 +342,6 @@ void TextButtonBase::ClearMaxTextSize() {
 
 void TextButtonBase::SetShowMultipleIconStates(bool show_multiple_icon_states) {
   show_multiple_icon_states_ = show_multiple_icon_states;
-}
-
-void TextButtonBase::ClearEmbellishing() {
-  has_shadow_ = false;
-  has_text_halo_ = false;
 }
 
 void TextButtonBase::SetMultiLine(bool multi_line) {
@@ -373,6 +367,9 @@ gfx::Size TextButtonBase::GetPreferredSize() {
   if (max_width_ > 0)
     prefsize.set_width(std::min(max_width_, prefsize.width()));
 
+  prefsize.set_width(std::max(prefsize.width(), min_width_));
+  prefsize.set_height(std::max(prefsize.height(), min_height_));
+
   return prefsize;
 }
 
@@ -385,7 +382,9 @@ int TextButtonBase::GetHeightForWidth(int w) {
 
   gfx::Size text_size;
   CalculateTextSize(&text_size, w);
-  return text_size.height() + GetInsets().height();
+  int height = text_size.height() + GetInsets().height();
+
+  return std::max(height, min_height_);
 }
 
 void TextButtonBase::OnPaint(gfx::Canvas* canvas) {
@@ -433,13 +432,6 @@ void TextButtonBase::CalculateTextSize(gfx::Size* text_size, int max_width) {
     flags |= gfx::Canvas::NO_ELLIPSIS;
 
   gfx::Canvas::SizeStringInt(text_, font_, &w, &h, flags);
-
-  // Add 2 extra pixels to width and height when text halo is used.
-  if (has_text_halo_) {
-    w += 2;
-    h += 2;
-  }
-
   text_size->SetSize(w, h);
 }
 
@@ -555,19 +547,15 @@ void TextButtonBase::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
                             text_bounds.height(),
                             draw_string_flags);
 #endif
-    } else if (has_text_halo_) {
-      canvas->DrawStringWithHalo(text_, font_, text_color, text_halo_color_,
-          text_bounds.x(), text_bounds.y(), text_bounds.width(),
-          text_bounds.height(), draw_string_flags);
-    } else if (has_shadow_) {
+    } else if (has_text_shadow_) {
       SkColor shadow_color =
           GetWidget()->IsActive() ? active_text_shadow_color_ :
                                     inactive_text_shadow_color_;
       canvas->DrawStringInt(text_,
                             font_,
                             shadow_color,
-                            text_bounds.x() + shadow_offset_.x(),
-                            text_bounds.y() + shadow_offset_.y(),
+                            text_bounds.x() + text_shadow_offset_.x(),
+                            text_bounds.y() + text_shadow_offset_.y(),
                             text_bounds.width(),
                             text_bounds.height(),
                             draw_string_flags);
@@ -672,6 +660,10 @@ TextButton::TextButton(ButtonListener* listener, const string16& text)
       icon_text_spacing_(kDefaultIconTextSpacing),
       ignore_minimum_size_(true) {
   set_border(new TextButtonBorder);
+  set_focus_border(FocusBorder::CreateDashedFocusBorder(kFocusRectInset,
+                                                        kFocusRectInset,
+                                                        kFocusRectInset,
+                                                        kFocusRectInset));
 }
 
 TextButton::~TextButton() {
@@ -720,6 +712,9 @@ gfx::Size TextButton::GetPreferredSize() {
   }
 #endif
 
+  prefsize.set_width(std::max(prefsize.width(), min_width_));
+  prefsize.set_height(std::max(prefsize.height(), min_height_));
+
   return prefsize;
 }
 
@@ -758,14 +753,6 @@ void TextButton::set_ignore_minimum_size(bool ignore_minimum_size) {
 
 std::string TextButton::GetClassName() const {
   return kViewClassName;
-}
-
-void TextButton::OnPaintFocusBorder(gfx::Canvas* canvas) {
-  if (HasFocus() && (focusable() || IsAccessibilityFocusable())) {
-    gfx::Rect rect(GetLocalBounds());
-    rect.Inset(kFocusRectInset, kFocusRectInset);
-    canvas->DrawFocusRect(rect);
-  }
 }
 
 ui::NativeTheme::Part TextButton::GetThemePart() const {
@@ -827,13 +814,17 @@ NativeTextButton::NativeTextButton(ButtonListener* listener,
 
 void NativeTextButton::Init() {
 #if defined(OS_WIN)
-  // Windows will like to show its own colors.
-  // Halos and such are ignored as they are always set by specific calls.
+  // Use applicable Windows system colors.
   color_enabled_ = skia::COLORREFToSkColor(GetSysColor(COLOR_BTNTEXT));
   color_disabled_ = skia::COLORREFToSkColor(GetSysColor(COLOR_GRAYTEXT));
   color_hover_ = color_ = color_enabled_;
 #endif
   set_border(new TextButtonNativeThemeBorder(this));
+#if !defined(OS_WIN)
+  // Paint nothing, focus will be indicated with a border highlight drawn by
+  // NativeThemeBase::PaintButton.
+  set_focus_border(NULL);
+#endif
   set_ignore_minimum_size(false);
   set_alignment(ALIGN_CENTER);
   set_focusable(true);
@@ -845,19 +836,6 @@ gfx::Size NativeTextButton::GetMinimumSize() {
 
 std::string NativeTextButton::GetClassName() const {
   return kViewClassName;
-}
-
-void NativeTextButton::OnPaintFocusBorder(gfx::Canvas* canvas) {
-#if defined(OS_WIN)
-  if (HasFocus() && (focusable() || IsAccessibilityFocusable())) {
-    gfx::Rect rect(GetLocalBounds());
-    rect.Inset(kFocusRectInset, kFocusRectInset);
-    canvas->DrawFocusRect(rect);
-  }
-#else
-  // Paint nothing, focus will be indicated with a border highlight drawn by
-  // NativeThemeBase::PaintButton.
-#endif
 }
 
 void NativeTextButton::GetExtraParams(

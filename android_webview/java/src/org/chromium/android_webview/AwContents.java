@@ -4,6 +4,8 @@
 
 package org.chromium.android_webview;
 
+import android.graphics.Bitmap;
+import android.net.http.SslCertificate;
 import android.os.AsyncTask;
 import android.os.Message;
 import android.text.TextUtils;
@@ -17,11 +19,16 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.NavigationHistory;
 import org.chromium.content.common.CleanupReference;
+import org.chromium.net.X509Util;
 import org.chromium.ui.gfx.NativeWindow;
 
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 
 /**
  * Exposes the native AwContents class, and together these classes wrap the ContentViewCore
@@ -41,6 +48,8 @@ public class AwContents {
     private ContentViewCore mContentViewCore;
     private AwContentsClient mContentsClient;
     private AwContentsIoThreadClient mIoThreadClient;
+    // This can be accessed on any thread after construction. See AwContentsIoThreadClient.
+    private final AwSettings mSettings;
 
     private static final class DestroyRunnable implements Runnable {
         private int mNativeAwContents;
@@ -55,8 +64,18 @@ public class AwContents {
 
     private CleanupReference mCleanupReference;
 
-    private AwContents(ContentViewCore contentViewCore,
-            AwWebContentsDelegate webContentsDelegate) {
+    private class IoThreadClientImpl implements AwContentsIoThreadClient {
+        // Called on the IO thread.
+        @Override
+        public InterceptedRequestData shouldInterceptRequest(String url) {
+            return AwContents.this.mContentsClient.shouldInterceptRequest(url);
+        }
+
+        // Called on the IO thread.
+        @Override
+        public boolean shouldBlockNetworkLoads() {
+            return AwContents.this.mSettings.getBlockNetworkLoads();
+        }
     }
 
     /**
@@ -69,24 +88,32 @@ public class AwContents {
      * @param isAccessFromFileURLsGrantedByDefault passed to ContentViewCore.initialize.
      */
     public AwContents(ViewGroup containerView,
-        ContentViewCore.InternalAccessDelegate internalAccessAdapter,
-        ContentViewCore contentViewCore, AwContentsClient contentsClient,
-        NativeWindow nativeWindow, boolean privateBrowsing,
-        boolean isAccessFromFileURLsGrantedByDefault) {
-      mNativeAwContents = nativeInit(contentsClient.getWebContentsDelegate(), privateBrowsing);
-      mContentViewCore = contentViewCore;
-      mContentsClient = contentsClient;
-      mCleanupReference = new CleanupReference(this, new DestroyRunnable(mNativeAwContents));
+            ContentViewCore.InternalAccessDelegate internalAccessAdapter,
+            ContentViewCore contentViewCore, AwContentsClient contentsClient,
+            NativeWindow nativeWindow, boolean privateBrowsing,
+            boolean isAccessFromFileURLsGrantedByDefault) {
+        mNativeAwContents = nativeInit(contentsClient.getWebContentsDelegate(), privateBrowsing);
+        mContentViewCore = contentViewCore;
+        mContentsClient = contentsClient;
+        mCleanupReference = new CleanupReference(this, new DestroyRunnable(mNativeAwContents));
 
-      mContentViewCore.initialize(containerView, internalAccessAdapter,
-              nativeGetWebContents(mNativeAwContents), nativeWindow,
-              isAccessFromFileURLsGrantedByDefault);
-      mContentViewCore.setContentViewClient(contentsClient);
-      mContentsClient.installWebContentsObserver(mContentViewCore);
+        mContentViewCore.initialize(containerView, internalAccessAdapter,
+                nativeGetWebContents(mNativeAwContents), nativeWindow,
+                isAccessFromFileURLsGrantedByDefault);
+        mContentViewCore.setContentViewClient(contentsClient);
+        mContentsClient.installWebContentsObserver(mContentViewCore);
+
+        mSettings = new AwSettings(mContentViewCore.getContext());
+        setIoThreadClient(new IoThreadClientImpl());
     }
 
     public ContentViewCore getContentViewCore() {
         return mContentViewCore;
+    }
+
+    // Can be called from any thread.
+    public AwSettings getSettings() {
+        return mSettings;
     }
 
     public void setIoThreadClient(AwContentsIoThreadClient ioThreadClient) {
@@ -126,9 +153,24 @@ public class AwContents {
         return mContentsClient.getWebContentsDelegate().getMostRecentProgress();
     }
 
+    public Bitmap getFavicon() {
+        // To be implemented.
+        return null;
+    }
+
     //--------------------------------------------------------------------------------------------
     //  WebView[Provider] method implementations (where not provided by ContentViewCore)
     //--------------------------------------------------------------------------------------------
+
+    /**
+     * Clears the resource cache. Note that the cache is per-application, so this will clear the
+     * cache for all WebViews used.
+     *
+     * @param includeDiskFiles if false, only the RAM cache is cleared
+     */
+    public void clearCache(boolean includeDiskFiles) {
+        nativeClearCache(mNativeAwContents, includeDiskFiles);
+    }
 
     public void documentHasImages(Message message) {
         nativeDocumentHasImages(mNativeAwContents, message);
@@ -173,6 +215,35 @@ public class AwContents {
             String password) {
         HttpAuthDatabase.getInstance(mContentViewCore.getContext())
                 .setHttpAuthUsernamePassword(host, realm, username, password);
+    }
+
+    /**
+     * @see android.webkit.WebView#getCertificate()
+     */
+    public SslCertificate getCertificate() {
+        byte[] derBytes = nativeGetCertificate(mNativeAwContents);
+        if (derBytes == null) {
+            return null;
+        }
+
+        try {
+            X509Certificate x509Certificate =
+                    X509Util.createCertificateFromBytes(derBytes);
+            return new SslCertificate(x509Certificate);
+        } catch (CertificateException e) {
+            // Intentional fall through
+            // A SSL related exception must have occured.  This shouldn't happen.
+            Log.w(TAG, "Could not read certificate: " + e);
+        } catch (KeyStoreException e) {
+            // Intentional fall through
+            // A SSL related exception must have occured.  This shouldn't happen.
+            Log.w(TAG, "Could not read certificate: " + e);
+        } catch (NoSuchAlgorithmException e) {
+            // Intentional fall through
+            // A SSL related exception must have occured.  This shouldn't happen.
+            Log.w(TAG, "Could not read certificate: " + e);
+        }
+        return null;
     }
 
     //--------------------------------------------------------------------------------------------
@@ -297,4 +368,6 @@ public class AwContents {
     private native void nativeFindAllAsync(int nativeAwContents, String searchString);
     private native void nativeFindNext(int nativeAwContents, boolean forward);
     private native void nativeClearMatches(int nativeAwContents);
+    private native void nativeClearCache(int nativeAwContents, boolean includeDiskFiles);
+    private native byte[] nativeGetCertificate(int nativeAwContents);
 }

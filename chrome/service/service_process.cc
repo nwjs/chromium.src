@@ -155,11 +155,6 @@ bool ServiceProcess::Initialize(MessageLoopForUI* message_loop,
 
   request_context_getter_ = new ServiceURLRequestContextGetter();
 
-  // See if we have been suppiled an LSID in the command line. This LSID will
-  // override the credentials we use for Cloud Print.
-  std::string lsid = command_line.GetSwitchValueASCII(
-          switches::kServiceAccountLsid);
-
   FilePath user_data_dir;
   PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
   FilePath pref_path = user_data_dir.Append(chrome::kServiceStateFileName);
@@ -188,13 +183,7 @@ bool ServiceProcess::Initialize(MessageLoopForUI* message_loop,
   // Then check if the cloud print proxy was previously enabled.
   if (command_line.HasSwitch(switches::kEnableCloudPrintProxy) ||
       service_prefs_->GetBoolean(prefs::kCloudPrintProxyEnabled, false)) {
-    GetCloudPrintProxy()->EnableForUser(lsid);
-  }
-  // Enable Virtual Printer Driver if needed.
-  if (service_prefs_->GetBoolean(prefs::kVirtualPrinterDriverEnabled, false)) {
-    // Register the fact that there is at least one
-    // service needing the process.
-    OnServiceEnabled();
+    GetCloudPrintProxy()->EnableForUser(std::string());
   }
 
   VLOG(1) << "Starting Service Process IPC Server";
@@ -295,20 +284,6 @@ void ServiceProcess::OnCloudPrintProxyDisabled(bool persist_state) {
     service_prefs_->WritePrefs();
   }
   OnServiceDisabled();
-}
-
-void ServiceProcess::EnableVirtualPrintDriver() {
-  OnServiceEnabled();
-  // Save the preference that we have enabled the virtual driver.
-  service_prefs_->SetBoolean(prefs::kVirtualPrinterDriverEnabled, true);
-  service_prefs_->WritePrefs();
-}
-
-void ServiceProcess::DisableVirtualPrintDriver() {
-  OnServiceDisabled();
-  // Save the preference that we have disabled the virtual driver.
-  service_prefs_->SetBoolean(prefs::kVirtualPrinterDriverEnabled, false);
-  service_prefs_->WritePrefs();
 }
 
 ServiceURLRequestContextGetter*

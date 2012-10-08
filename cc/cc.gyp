@@ -8,10 +8,15 @@
     'use_libcc_for_compositor%': 0,
     'cc_source_files': [
       'hash_pair.h',
+      'own_ptr_vector.h',
+      'scoped_ptr_hash_map.h',
+      'scoped_ptr_vector.h',
       'BitmapCanvasLayerTextureUpdater.cpp',
       'BitmapCanvasLayerTextureUpdater.h',
       'BitmapSkPictureCanvasLayerTextureUpdater.cpp',
       'BitmapSkPictureCanvasLayerTextureUpdater.h',
+      'caching_bitmap_canvas_layer_texture_updater.cc',
+      'caching_bitmap_canvas_layer_texture_updater.h',
       'CCActiveAnimation.cpp',
       'CCActiveAnimation.h',
       'CCAppendQuadsData.h',
@@ -203,6 +208,8 @@
       'SkPictureCanvasLayerTextureUpdater.h',
       'SolidColorLayerChromium.cpp',
       'SolidColorLayerChromium.h',
+      'switches.cc',
+      'switches.h',
       'TextureCopier.cpp',
       'TextureCopier.h',
       'TextureLayerChromium.cpp',
@@ -242,6 +249,8 @@
           ],
           'defines': [
             'WTF_USE_ACCELERATED_COMPOSITING=1',
+            # http://crbug.com/154052
+            'WEBKIT_GLUE_IMPLEMENTATION=1',
           ],
           'include_dirs': [
             '<(webkit_src_dir)/Source/Platform/chromium',

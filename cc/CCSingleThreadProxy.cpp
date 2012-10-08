@@ -28,6 +28,7 @@ CCSingleThreadProxy::CCSingleThreadProxy(CCLayerTreeHost* layerTreeHost)
     , m_contextLost(false)
     , m_rendererInitialized(false)
     , m_nextFrameIsNewlyCommittedFrame(false)
+    , m_totalCommitCount(0)
 {
     TRACE_EVENT0("cc", "CCSingleThreadProxy::CCSingleThreadProxy");
     ASSERT(CCProxy::isMainThread());
@@ -43,7 +44,7 @@ CCSingleThreadProxy::~CCSingleThreadProxy()
 {
     TRACE_EVENT0("cc", "CCSingleThreadProxy::~CCSingleThreadProxy");
     ASSERT(CCProxy::isMainThread());
-    ASSERT(!m_layerTreeHostImpl && !m_layerTreeHost); // make sure stop() got called.
+    ASSERT(!m_layerTreeHostImpl.get() && !m_layerTreeHost); // make sure stop() got called.
 }
 
 bool CCSingleThreadProxy::compositeAndReadback(void *pixels, const IntRect& rect)
@@ -82,16 +83,16 @@ void CCSingleThreadProxy::finishAllRendering()
 bool CCSingleThreadProxy::isStarted() const
 {
     ASSERT(CCProxy::isMainThread());
-    return m_layerTreeHostImpl;
+    return m_layerTreeHostImpl.get();
 }
 
 bool CCSingleThreadProxy::initializeContext()
 {
     ASSERT(CCProxy::isMainThread());
-    OwnPtr<CCGraphicsContext> context = m_layerTreeHost->createContext();
-    if (!context)
+    scoped_ptr<CCGraphicsContext> context = m_layerTreeHost->createContext();
+    if (!context.get())
         return false;
-    m_contextBeforeInitialization = context.release();
+    m_contextBeforeInitialization = context.Pass();
     return true;
 }
 
@@ -109,10 +110,10 @@ void CCSingleThreadProxy::setVisible(bool visible)
 bool CCSingleThreadProxy::initializeRenderer()
 {
     ASSERT(CCProxy::isMainThread());
-    ASSERT(m_contextBeforeInitialization);
+    ASSERT(m_contextBeforeInitialization.get());
     {
         DebugScopedSetImplThread impl;
-        bool ok = m_layerTreeHostImpl->initializeRenderer(m_contextBeforeInitialization.release());
+        bool ok = m_layerTreeHostImpl->initializeRenderer(m_contextBeforeInitialization.Pass());
         if (ok) {
             m_rendererInitialized = true;
             m_RendererCapabilitiesForMainThread = m_layerTreeHostImpl->rendererCapabilities();
@@ -128,8 +129,8 @@ bool CCSingleThreadProxy::recreateContext()
     ASSERT(CCProxy::isMainThread());
     ASSERT(m_contextLost);
 
-    OwnPtr<CCGraphicsContext> context = m_layerTreeHost->createContext();
-    if (!context)
+    scoped_ptr<CCGraphicsContext> context = m_layerTreeHost->createContext();
+    if (!context.get())
         return false;
 
     bool initialized;
@@ -138,7 +139,7 @@ bool CCSingleThreadProxy::recreateContext()
         DebugScopedSetImplThread impl;
         if (!m_layerTreeHostImpl->contentsTexturesPurged())
             m_layerTreeHost->deleteContentsTexturesOnImplThread(m_layerTreeHostImpl->resourceProvider());
-        initialized = m_layerTreeHostImpl->initializeRenderer(context.release());
+        initialized = m_layerTreeHostImpl->initializeRenderer(context.Pass());
         if (initialized) {
             m_RendererCapabilitiesForMainThread = m_layerTreeHostImpl->rendererCapabilities();
         }
@@ -150,8 +151,10 @@ bool CCSingleThreadProxy::recreateContext()
     return initialized;
 }
 
-void CCSingleThreadProxy::implSideRenderingStats(CCRenderingStats& stats)
+void CCSingleThreadProxy::renderingStats(CCRenderingStats* stats)
 {
+    stats->totalCommitTimeInSeconds = m_totalCommitTime.InSecondsF();
+    stats->totalCommitCount = m_totalCommitCount;
     m_layerTreeHostImpl->renderingStats(stats);
 }
 
@@ -183,6 +186,7 @@ void CCSingleThreadProxy::doCommit(PassOwnPtr<CCTextureUpdateQueue> queue)
         DebugScopedSetMainThreadBlocked mainThreadBlocked;
         DebugScopedSetImplThread impl;
 
+        base::TimeTicks startTime = base::TimeTicks::HighResNow();
         m_layerTreeHostImpl->beginCommit();
 
         m_layerTreeHost->beginCommitOnImplThread(m_layerTreeHostImpl.get());
@@ -206,6 +210,10 @@ void CCSingleThreadProxy::doCommit(PassOwnPtr<CCTextureUpdateQueue> queue)
         OwnPtr<CCScrollAndScaleSet> scrollInfo = m_layerTreeHostImpl->processScrollDeltas();
         ASSERT(!scrollInfo->scrolls.size());
 #endif
+
+        base::TimeTicks endTime = base::TimeTicks::HighResNow();
+        m_totalCommitTime += endTime - startTime;
+        m_totalCommitCount++;
     }
     m_layerTreeHost->commitComplete();
     m_nextFrameIsNewlyCommittedFrame = true;
@@ -249,7 +257,7 @@ void CCSingleThreadProxy::stop()
 
         if (!m_layerTreeHostImpl->contentsTexturesPurged())
             m_layerTreeHost->deleteContentsTexturesOnImplThread(m_layerTreeHostImpl->resourceProvider());
-        m_layerTreeHostImpl.clear();
+        m_layerTreeHostImpl.reset();
     }
     m_layerTreeHost = 0;
 }

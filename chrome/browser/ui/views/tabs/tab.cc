@@ -543,7 +543,9 @@ gfx::ImageSkia* Tab::GetTabBackgroundImage(
   switch (mode) {
     case chrome::search::Mode::MODE_NTP_LOADING:
     case chrome::search::Mode::MODE_NTP:
-      return tp->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND);
+      return controller()->ShouldShowWhiteNTP() ?
+          tp->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND_WHITE) :
+          tp->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND);
 
     case chrome::search::Mode::MODE_SEARCH_SUGGESTIONS:
     case chrome::search::Mode::MODE_SEARCH_RESULTS:
@@ -590,7 +592,6 @@ void Tab::PaintTabBackground(gfx::Canvas* canvas) {
     if (throb_value > 0) {
       canvas->SaveLayerAlpha(static_cast<int>(throb_value * 0xff),
                              gfx::Rect(width(), height()));
-      canvas->sk_canvas()->drawARGB(0, 255, 255, 255, SkXfermode::kClear_Mode);
       PaintActiveTabBackground(canvas, GetTabBackgroundImage(data().mode));
       canvas->Restore();
     }
@@ -639,9 +640,8 @@ void Tab::PaintInactiveTabBackgroundWithTitleChange(gfx::Canvas* canvas) {
 
   // And then the gradient on top of that.
   if (mini_title_animation_->current_part_index() == 2) {
-    canvas->SaveLayerAlpha(mini_title_animation_->CurrentValueBetween(255, 0));
-    canvas->DrawImageInt(hover_image, 0, 0);
-    canvas->Restore();
+    uint8 alpha = mini_title_animation_->CurrentValueBetween(255, 0);
+    canvas->DrawImageInt(hover_image, 0, 0, alpha);
   } else {
     canvas->DrawImageInt(hover_image, 0, 0);
   }

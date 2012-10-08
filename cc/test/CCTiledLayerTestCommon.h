@@ -72,7 +72,7 @@ private:
     cc::IntRect m_rectToInvalidate;
     cc::IntRect m_lastUpdateRect;
     cc::IntRect m_opaquePaintRect;
-    RefPtr<FakeTiledLayerChromium> m_layer;
+    scoped_refptr<FakeTiledLayerChromium> m_layer;
 };
 
 class FakeCCTiledLayerImpl : public cc::CCTiledLayerImpl {
@@ -81,13 +81,12 @@ public:
     virtual ~FakeCCTiledLayerImpl();
 
     using cc::CCTiledLayerImpl::hasTileAt;
-    using cc::CCTiledLayerImpl::hasTextureIdForTileAt;
+    using cc::CCTiledLayerImpl::hasResourceIdForTileAt;
 };
 
 class FakeTiledLayerChromium : public cc::TiledLayerChromium {
 public:
     explicit FakeTiledLayerChromium(cc::CCPrioritizedTextureManager*);
-    virtual ~FakeTiledLayerChromium();
 
     static cc::IntSize tileSize() { return cc::IntSize(100, 100); }
 
@@ -109,6 +108,7 @@ public:
 protected:
     virtual cc::LayerTextureUpdater* textureUpdater() const OVERRIDE;
     virtual void createTextureUpdaterIfNeeded() OVERRIDE { }
+    virtual ~FakeTiledLayerChromium();
 
 private:
     RefPtr<FakeLayerTextureUpdater> m_fakeTextureUpdater;
@@ -124,17 +124,17 @@ public:
     virtual cc::IntSize contentBounds() const OVERRIDE;
 
 protected:
+    virtual ~FakeTiledLayerWithScaledBounds();
     cc::IntSize m_forcedContentBounds;
 };
 
 
 class FakeTextureUploader : public cc::TextureUploader {
 public:
-    virtual bool isBusy() OVERRIDE;
+    virtual size_t numBlockingUploads() OVERRIDE;
+    virtual void markPendingUploadsAsNonBlocking() OVERRIDE;
     virtual double estimatedTexturesPerSecond() OVERRIDE;
-    virtual void beginUploads() OVERRIDE { }
-    virtual void endUploads() OVERRIDE { }
-    virtual void uploadTexture(cc::CCResourceProvider*, Parameters upload) OVERRIDE;
+    virtual void uploadTexture(cc::CCResourceProvider*, Parameters) OVERRIDE;
 };
 
 }

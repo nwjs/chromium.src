@@ -121,8 +121,8 @@ void RendererGpuVideoDecoderFactories::AsyncCreateTextures(
     gles2->BindTexture(texture_target, texture_id);
     gles2->TexParameteri(texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     gles2->TexParameteri(texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    gles2->TexParameterf(texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    gles2->TexParameterf(texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    gles2->TexParameteri(texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gles2->TexParameteri(texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     if (texture_target == GL_TEXTURE_2D) {
       gles2->TexImage2D(texture_target, 0, GL_RGBA, size.width(), size.height(),
                         0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -150,6 +150,53 @@ void RendererGpuVideoDecoderFactories::AsyncDeleteTexture(uint32 texture_id) {
   gpu::gles2::GLES2Implementation* gles2 = context_->GetImplementation();
   gles2->DeleteTextures(1, &texture_id);
   DCHECK_EQ(gles2->GetError(), static_cast<GLenum>(GL_NO_ERROR));
+}
+
+void RendererGpuVideoDecoderFactories::ReadPixels(
+    uint32 texture_id, uint32 texture_target, const gfx::Size& size,
+    void* pixels) {
+  base::WaitableEvent waiter(false, false);
+  if (!message_loop_->BelongsToCurrentThread()) {
+    message_loop_->PostTask(FROM_HERE, base::Bind(
+        &RendererGpuVideoDecoderFactories::AsyncReadPixels, this,
+        texture_id, texture_target, size, pixels, &waiter));
+    waiter.Wait();
+  } else {
+    AsyncReadPixels(texture_id, texture_target, size, pixels, &waiter);
+  }
+}
+
+void RendererGpuVideoDecoderFactories::AsyncReadPixels(
+    uint32 texture_id, uint32 texture_target, const gfx::Size& size,
+    void* pixels, base::WaitableEvent* waiter) {
+  DCHECK(message_loop_->BelongsToCurrentThread());
+  if (!context_)
+    return;
+
+  gpu::gles2::GLES2Implementation* gles2 = context_->GetImplementation();
+
+  GLuint tmp_texture;
+  gles2->GenTextures(1, &tmp_texture);
+  gles2->BindTexture(texture_target, tmp_texture);
+  gles2->TexParameteri(texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  gles2->TexParameteri(texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  gles2->TexParameteri(texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  gles2->TexParameteri(texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  context_->copyTextureCHROMIUM(
+      texture_target, texture_id, tmp_texture, 0, GL_RGBA);
+
+  GLuint fb;
+  gles2->GenFramebuffers(1, &fb);
+  gles2->BindFramebuffer(GL_FRAMEBUFFER, fb);
+  gles2->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                              texture_target, tmp_texture, 0);
+  gles2->PixelStorei(GL_PACK_ALIGNMENT, 4);
+  gles2->ReadPixels(0, 0, size.width(), size.height(), GL_BGRA_EXT,
+                    GL_UNSIGNED_BYTE, pixels);
+  gles2->DeleteFramebuffers(1, &fb);
+  gles2->DeleteTextures(1, &tmp_texture);
+  DCHECK_EQ(gles2->GetError(), static_cast<GLenum>(GL_NO_ERROR));
+  waiter->Signal();
 }
 
 base::SharedMemory* RendererGpuVideoDecoderFactories::CreateSharedMemory(

@@ -12,7 +12,7 @@
 #include "sync/engine/syncer_types.h"
 #include "sync/engine/throttled_data_type_tracker.h"
 #include "sync/internal_api/public/base/model_type.h"
-#include "sync/internal_api/public/base/model_type_state_map_test_util.h"
+#include "sync/internal_api/public/base/model_type_invalidation_map_test_util.h"
 #include "sync/sessions/session_state.h"
 #include "sync/sessions/status_controller.h"
 #include "sync/syncable/syncable_id.h"
@@ -162,27 +162,6 @@ TEST_F(SyncSessionTest, EnabledGroups) {
   EXPECT_EQ(expected_enabled_groups, session->GetEnabledGroups());
 }
 
-TEST_F(SyncSessionTest, EnabledGroupsWithConflictsEmpty) {
-  scoped_ptr<SyncSession> session(MakeSession());
-  // Auto-create conflict progress.  This shouldn't put that group in
-  // conflict.
-  session->mutable_status_controller()->
-      GetUnrestrictedMutableConflictProgressForTest(GROUP_PASSIVE);
-  EXPECT_TRUE(session->GetEnabledGroupsWithConflicts().empty());
-}
-
-TEST_F(SyncSessionTest, EnabledGroupsWithConflicts) {
-  scoped_ptr<SyncSession> session(MakeSession());
-  // Put GROUP_UI in conflict.
-  session->mutable_status_controller()->
-      GetUnrestrictedMutableConflictProgressForTest(GROUP_UI)->
-      AddSimpleConflictingItemById(syncable::Id());
-  std::set<ModelSafeGroup> expected_enabled_groups_with_conflicts;
-  expected_enabled_groups_with_conflicts.insert(GROUP_UI);
-  EXPECT_EQ(expected_enabled_groups_with_conflicts,
-            session->GetEnabledGroupsWithConflicts());
-}
-
 TEST_F(SyncSessionTest, ScopedContextHelpers) {
   ConflictResolver resolver;
   EXPECT_FALSE(context_->resolver());
@@ -273,12 +252,12 @@ TEST_F(SyncSessionTest, ResetTransientState) {
 TEST_F(SyncSessionTest, Coalesce) {
   std::vector<ModelSafeWorker*> workers_one, workers_two;
   ModelSafeRoutingInfo routes_one, routes_two;
-  ModelTypeStateMap one_type =
-      ModelTypeSetToStateMap(
+  ModelTypeInvalidationMap one_type =
+      ModelTypeSetToInvalidationMap(
           ParamsMeaningJustOneEnabledType(),
           std::string());
-  ModelTypeStateMap all_types =
-      ModelTypeSetToStateMap(
+  ModelTypeInvalidationMap all_types =
+      ModelTypeSetToInvalidationMap(
           ParamsMeaningAllEnabledTypes(),
           std::string());
   SyncSourceInfo source_one(sync_pb::GetUpdatesCallerInfo::PERIODIC, one_type);
@@ -330,12 +309,12 @@ TEST_F(SyncSessionTest, Coalesce) {
 TEST_F(SyncSessionTest, RebaseRoutingInfoWithLatestRemoveOneType) {
   std::vector<ModelSafeWorker*> workers_one, workers_two;
   ModelSafeRoutingInfo routes_one, routes_two;
-  ModelTypeStateMap one_type =
-      ModelTypeSetToStateMap(
+  ModelTypeInvalidationMap one_type =
+      ModelTypeSetToInvalidationMap(
           ParamsMeaningJustOneEnabledType(),
           std::string());
-  ModelTypeStateMap all_types =
-      ModelTypeSetToStateMap(
+  ModelTypeInvalidationMap all_types =
+      ModelTypeSetToInvalidationMap(
           ParamsMeaningAllEnabledTypes(),
           std::string());
   SyncSourceInfo source_one(sync_pb::GetUpdatesCallerInfo::PERIODIC, one_type);
@@ -402,8 +381,8 @@ TEST_F(SyncSessionTest, RebaseRoutingInfoWithLatestRemoveOneType) {
 TEST_F(SyncSessionTest, RebaseRoutingInfoWithLatestWithSameType) {
   std::vector<ModelSafeWorker*> workers_first, workers_second;
   ModelSafeRoutingInfo routes_first, routes_second;
-  ModelTypeStateMap all_types =
-      ModelTypeSetToStateMap(
+  ModelTypeInvalidationMap all_types =
+      ModelTypeSetToInvalidationMap(
           ParamsMeaningAllEnabledTypes(),
           std::string());
   SyncSourceInfo source_first(sync_pb::GetUpdatesCallerInfo::PERIODIC,
@@ -482,23 +461,23 @@ TEST_F(SyncSessionTest, RebaseRoutingInfoWithLatestWithSameType) {
 }
 
 
-TEST_F(SyncSessionTest, MakeTypeStateMapFromBitSet) {
+TEST_F(SyncSessionTest, MakeTypeInvalidationMapFromBitSet) {
   ModelTypeSet types;
   std::string payload = "test";
-  ModelTypeStateMap type_state_map =
-      ModelTypeSetToStateMap(types, payload);
-  EXPECT_TRUE(type_state_map.empty());
+  ModelTypeInvalidationMap invalidation_map =
+      ModelTypeSetToInvalidationMap(types, payload);
+  EXPECT_TRUE(invalidation_map.empty());
 
   types.Put(BOOKMARKS);
   types.Put(PASSWORDS);
   types.Put(AUTOFILL);
   payload = "test2";
-  type_state_map = ModelTypeSetToStateMap(types, payload);
+  invalidation_map = ModelTypeSetToInvalidationMap(types, payload);
 
-  ASSERT_EQ(3U, type_state_map.size());
-  EXPECT_EQ(type_state_map[BOOKMARKS].payload, payload);
-  EXPECT_EQ(type_state_map[PASSWORDS].payload, payload);
-  EXPECT_EQ(type_state_map[AUTOFILL].payload, payload);
+  ASSERT_EQ(3U, invalidation_map.size());
+  EXPECT_EQ(invalidation_map[BOOKMARKS].payload, payload);
+  EXPECT_EQ(invalidation_map[PASSWORDS].payload, payload);
+  EXPECT_EQ(invalidation_map[AUTOFILL].payload, payload);
 }
 
 }  // namespace

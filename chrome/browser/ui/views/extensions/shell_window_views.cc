@@ -74,6 +74,7 @@ class ShellWindowFrameView : public views::NonClientFrameView,
                              gfx::Path* window_mask) OVERRIDE;
   virtual void ResetWindowControls() OVERRIDE {}
   virtual void UpdateWindowIcon() OVERRIDE {}
+  virtual void UpdateWindowTitle() OVERRIDE {}
 
   // views::View implementation.
   virtual gfx::Size GetPreferredSize() OVERRIDE;
@@ -498,7 +499,7 @@ bool ShellWindowViews::CanResize() const {
 }
 
 bool ShellWindowViews::CanMaximize() const {
-  return true;
+  return CanResize();
 }
 
 views::View* ShellWindowViews::GetContentsView() {
@@ -594,7 +595,9 @@ gfx::ImageSkia ShellWindowViews::GetWindowAppIcon() {
 gfx::ImageSkia ShellWindowViews::GetWindowIcon() {
   TabContents* contents = shell_window_->tab_contents();
   if (contents) {
-    gfx::Image app_icon = contents->favicon_tab_helper()->GetFavicon();
+    FaviconTabHelper* favicon_tab_helper =
+        FaviconTabHelper::FromWebContents(contents->web_contents());
+    gfx::Image app_icon = favicon_tab_helper->GetFavicon();
     if (!app_icon.IsEmpty())
       return *app_icon.ToImageSkia();
   }
@@ -620,6 +623,32 @@ void ShellWindowViews::UpdateWindowTitle() {
 }
 
 void ShellWindowViews::UpdateDraggableRegions(
+    const std::vector<extensions::DraggableRegion>& regions) {
+  // Draggable region is not supported for non-frameless window.
+  if (!frameless_)
+    return;
+
+  SkRegion* draggable_region = new SkRegion;
+
+  // By default, the whole window is non-draggable. We need to explicitly
+  // include those draggable regions.
+  for (std::vector<extensions::DraggableRegion>::const_iterator iter =
+           regions.begin();
+       iter != regions.end(); ++iter) {
+    const extensions::DraggableRegion& region = *iter;
+    draggable_region->op(
+        region.bounds.x(),
+        region.bounds.y(),
+        region.bounds.right(),
+        region.bounds.bottom(),
+        region.draggable ? SkRegion::kUnion_Op : SkRegion::kDifference_Op);
+  }
+
+  draggable_region_.reset(draggable_region);
+  OnViewWasResized();
+}
+
+void ShellWindowViews::UpdateLegacyDraggableRegions(
     const std::vector<extensions::DraggableRegion>& regions) {
   // Draggable region is not supported for non-frameless window.
   if (!frameless_)

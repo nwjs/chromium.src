@@ -39,8 +39,6 @@ class PepperInProcessRouter::PluginToHostRouter : public IPC::Sender {
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
  private:
-  void DoSend(IPC::Message* msg);
-
   RendererPpapiHostImpl* host_impl_;
 
   base::WeakPtrFactory<PluginToHostRouter> weak_factory_;
@@ -56,18 +54,8 @@ PepperInProcessRouter::PluginToHostRouter::PluginToHostRouter(
 
 bool PepperInProcessRouter::PluginToHostRouter::Send(
     IPC::Message* msg) {
-  // Don't directly call into the message handler to avoid reentrancy. The IPC
-  // systen assumes everything is executed from the message loop, so emulate
-  // the same thing for in-process.
-  MessageLoop::current()->PostTask(FROM_HERE,
-      base::Bind(&PluginToHostRouter::DoSend, weak_factory_.GetWeakPtr(),
-                 base::Owned(msg)));
-  return true;
-}
-
-void PepperInProcessRouter::PluginToHostRouter::DoSend(
-    IPC::Message* msg) {
   host_impl_->GetPpapiHost()->OnMessageReceived(*msg);
+  return true;
 }
 
 // HostToPluginRouter ---------------------------------------------------------
@@ -99,7 +87,8 @@ PepperInProcessRouter::HostToPluginRouter::HostToPluginRouter()
 bool PepperInProcessRouter::HostToPluginRouter::Send(
     IPC::Message* msg) {
   // As in the PluginToHostRouter, dispatch from the message loop.
-  MessageLoop::current()->PostTask(FROM_HERE,
+  MessageLoop::current()->PostTask(
+      FROM_HERE,
       base::Bind(&HostToPluginRouter::DispatchMsg,
                  weak_factory_.GetWeakPtr(),
                  base::Owned(msg)));

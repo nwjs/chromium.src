@@ -9,7 +9,11 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "LayerChromium.h"
-#include "LayerTextureUpdater.h"
+#if defined(OS_CHROMEOS)
+#include "caching_bitmap_canvas_layer_texture_updater.h"
+#else
+#include "BitmapCanvasLayerTextureUpdater.h"
+#endif
 #include <public/WebScrollbar.h>
 #include <public/WebScrollbarThemeGeometry.h>
 #include <public/WebScrollbarThemePainter.h>
@@ -20,13 +24,17 @@ class Scrollbar;
 class ScrollbarThemeComposite;
 class CCTextureUpdateQueue;
 
+#if defined(OS_CHROMEOS)
+typedef CachingBitmapCanvasLayerTextureUpdater ScrollLayerTextureUpdater;
+#else
+typedef BitmapCanvasLayerTextureUpdater ScrollLayerTextureUpdater;
+#endif
+
 class ScrollbarLayerChromium : public LayerChromium {
 public:
     virtual PassOwnPtr<CCLayerImpl> createCCLayerImpl() OVERRIDE;
 
-    static PassRefPtr<ScrollbarLayerChromium> create(PassOwnPtr<WebKit::WebScrollbar>, WebKit::WebScrollbarThemePainter, PassOwnPtr<WebKit::WebScrollbarThemeGeometry>, int scrollLayerId);
-
-    virtual ~ScrollbarLayerChromium();
+    static scoped_refptr<ScrollbarLayerChromium> create(PassOwnPtr<WebKit::WebScrollbar>, WebKit::WebScrollbarThemePainter, PassOwnPtr<WebKit::WebScrollbarThemeGeometry>, int scrollLayerId);
 
     // LayerChromium interface
     virtual bool needsContentsScale() const OVERRIDE;
@@ -43,9 +51,10 @@ public:
 
 protected:
     ScrollbarLayerChromium(PassOwnPtr<WebKit::WebScrollbar>, WebKit::WebScrollbarThemePainter, PassOwnPtr<WebKit::WebScrollbarThemeGeometry>, int scrollLayerId);
+    virtual ~ScrollbarLayerChromium();
 
 private:
-    void updatePart(LayerTextureUpdater*, LayerTextureUpdater::Texture*, const IntRect&, CCTextureUpdateQueue&, CCRenderingStats&);
+    void updatePart(ScrollLayerTextureUpdater*, LayerTextureUpdater::Texture*, const IntRect&, CCTextureUpdateQueue&, CCRenderingStats&);
     void createTextureUpdaterIfNeeded();
 
     OwnPtr<WebKit::WebScrollbar> m_scrollbar;
@@ -55,9 +64,9 @@ private:
 
     GC3Denum m_textureFormat;
 
-    RefPtr<LayerTextureUpdater> m_backTrackUpdater;
-    RefPtr<LayerTextureUpdater> m_foreTrackUpdater;
-    RefPtr<LayerTextureUpdater> m_thumbUpdater;
+    RefPtr<ScrollLayerTextureUpdater> m_backTrackUpdater;
+    RefPtr<ScrollLayerTextureUpdater> m_foreTrackUpdater;
+    RefPtr<ScrollLayerTextureUpdater> m_thumbUpdater;
 
     // All the parts of the scrollbar except the thumb
     OwnPtr<LayerTextureUpdater::Texture> m_backTrack;

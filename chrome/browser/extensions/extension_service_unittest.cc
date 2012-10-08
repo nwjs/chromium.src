@@ -30,6 +30,7 @@
 #include "chrome/browser/extensions/app_sync_data.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
+#include "chrome/browser/extensions/default_apps.h"
 #include "chrome/browser/extensions/extension_creator.h"
 #include "chrome/browser/extensions/extension_error_reporter.h"
 #include "chrome/browser/extensions/extension_error_ui.h"
@@ -3320,6 +3321,47 @@ TEST_F(ExtensionServiceTest, ExternalExtensionAutoAcknowledgement) {
   ASSERT_TRUE(prefs->IsExternalExtensionAcknowledged(page_action));
 }
 
+#if !defined(OS_CHROMEOS)
+// This tests if default apps are installed correctly.
+TEST_F(ExtensionServiceTest, DefaultAppsInstall) {
+  InitializeEmptyExtensionService();
+  InitializeRequestContext();
+  set_extensions_enabled(true);
+
+  {
+    std::string json_data =
+        "{"
+        "  \"ldnnhddmnhbkjipkidpdiheffobcpfmf\" : {"
+        "    \"external_crx\": \"good.crx\","
+        "    \"external_version\": \"1.0.0.0\","
+        "    \"is_bookmark_app\": false"
+        "  }"
+        "}";
+    default_apps::Provider* provider =
+        new default_apps::Provider(
+            profile_.get(),
+            service_,
+            new extensions::ExternalTestingLoader(json_data, data_dir_),
+            Extension::INTERNAL,
+            Extension::INVALID,
+            Extension::FROM_WEBSTORE | Extension::WAS_INSTALLED_BY_DEFAULT);
+
+    AddMockExternalProvider(provider);
+  }
+
+  ASSERT_EQ(0u, service_->extensions()->size());
+  service_->CheckForExternalUpdates();
+  loop_.RunAllPending();
+
+  ASSERT_EQ(1u, service_->extensions()->size());
+  EXPECT_TRUE(service_->GetExtensionById(good_crx, false));
+  const Extension* extension = service_->GetExtensionById(good_crx, false);
+  EXPECT_TRUE(extension->from_webstore());
+  EXPECT_TRUE(extension->was_installed_by_default());
+
+}
+#endif
+
 // Tests disabling extensions
 TEST_F(ExtensionServiceTest, DisableExtension) {
   InitializeEmptyExtensionService();
@@ -3391,10 +3433,12 @@ TEST_F(ExtensionServiceTest, DisableAllExtensions) {
 // Tests reloading extensions.
 TEST_F(ExtensionServiceTest, ReloadExtensions) {
   InitializeEmptyExtensionService();
+  InitializeRequestContext();
 
   // Simple extension that should install without error.
   FilePath path = data_dir_.AppendASCII("good.crx");
-  InstallCRX(path, INSTALL_NEW);
+  InstallCRX(path, INSTALL_NEW,
+             Extension::FROM_WEBSTORE | Extension::WAS_INSTALLED_BY_DEFAULT);
   const char* extension_id = good_crx;
   service_->DisableExtension(extension_id, Extension::DISABLE_USER_ACTION);
 
@@ -3402,6 +3446,12 @@ TEST_F(ExtensionServiceTest, ReloadExtensions) {
   EXPECT_EQ(1u, service_->disabled_extensions()->size());
 
   service_->ReloadExtensions();
+
+  // The creation flags should not change when reloading the extension.
+  const Extension* extension = service_->GetExtensionById(good_crx, true);
+  EXPECT_TRUE(extension->from_webstore());
+  EXPECT_TRUE(extension->was_installed_by_default());
+  EXPECT_FALSE(extension->from_bookmark());
 
   // Extension counts shouldn't change.
   EXPECT_EQ(0u, service_->extensions()->size());
@@ -4370,7 +4420,7 @@ TEST(ExtensionServiceTestSimple, Enabledness) {
   scoped_ptr<CommandLine> command_line;
   FilePath install_dir = profile->GetPath()
       .AppendASCII(ExtensionService::kInstallDirectoryName);
-  webkit::npapi::MockPluginList plugin_list(NULL, 0);
+  webkit::npapi::MockPluginList plugin_list;
   PluginService::GetInstance()->SetPluginListForTesting(&plugin_list);
 
   // By default, we are enabled.

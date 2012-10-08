@@ -9,7 +9,7 @@
 #include "CCLayerTreeHostImpl.h"
 #include "CCScopedThreadProxy.h"
 #include "CompositorFakeWebGraphicsContext3D.h"
-#include <gtest/gtest.h>
+#include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebAnimationDelegate.h>
 #include <public/WebThread.h>
 
@@ -45,7 +45,7 @@ public:
     virtual void notifyAnimationStarted(double time) OVERRIDE { }
     virtual void notifyAnimationFinished(double time) OVERRIDE { }
 
-    virtual PassOwnPtr<WebKit::WebCompositorOutputSurface> createOutputSurface();
+    virtual scoped_ptr<WebKit::WebCompositorOutputSurface> createOutputSurface();
 };
 
 class TimeoutTask;
@@ -116,7 +116,7 @@ protected:
 
     cc::CCLayerTreeSettings m_settings;
     OwnPtr<MockCCLayerTreeHostClient> m_client;
-    OwnPtr<cc::CCLayerTreeHost> m_layerTreeHost;
+    scoped_ptr<cc::CCLayerTreeHost> m_layerTreeHost;
 
 protected:
     RefPtr<cc::CCScopedThreadProxy> m_mainThreadProxy;
@@ -145,7 +145,7 @@ public:
 // Adapts CCLayerTreeHostImpl for test. Runs real code, then invokes test hooks.
 class MockLayerTreeHostImpl : public cc::CCLayerTreeHostImpl {
 public:
-    static PassOwnPtr<MockLayerTreeHostImpl> create(TestHooks*, const cc::CCLayerTreeSettings&, cc::CCLayerTreeHostImplClient*);
+    static scoped_ptr<MockLayerTreeHostImpl> create(TestHooks*, const cc::CCLayerTreeSettings&, cc::CCLayerTreeHostImplClient*);
 
     virtual void beginCommit() OVERRIDE;
     virtual void commitComplete() OVERRIDE;
@@ -153,7 +153,7 @@ public:
     virtual void drawLayers(const FrameData&) OVERRIDE;
 
     // Make these public.
-    typedef Vector<cc::CCLayerImpl*> CCLayerList;
+    typedef std::vector<cc::CCLayerImpl*> CCLayerList;
     using CCLayerTreeHostImpl::calculateRenderSurfaceLayerList;
 
 protected:

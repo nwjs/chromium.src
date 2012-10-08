@@ -39,6 +39,10 @@ bool ShellDelegateImpl::IsSessionStarted() {
   return true;
 }
 
+bool ShellDelegateImpl::IsFirstRunAfterBoot() {
+  return false;
+}
+
 void ShellDelegateImpl::LockScreen() {
   ash::shell::CreateLockScreen();
   locked_ = true;
@@ -149,6 +153,13 @@ void ShellDelegateImpl::HandleMediaPrevTrack() {
 
 string16 ShellDelegateImpl::GetTimeRemainingString(base::TimeDelta delta) {
   return string16();
+}
+
+void ShellDelegateImpl::SaveScreenMagnifierScale(double scale) {
+}
+
+double ShellDelegateImpl::GetSavedScreenMagnifierScale() {
+  return std::numeric_limits<double>::min();
 }
 
 }  // namespace shell

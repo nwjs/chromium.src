@@ -4,6 +4,7 @@
 
 #include "content/browser/web_contents/navigation_controller_impl.h"
 
+#include "base/bind.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"  // Temporary
@@ -85,18 +86,30 @@ void SetContentStateIfEmpty(NavigationEntryImpl* entry) {
   }
 }
 
+NavigationEntryImpl::RestoreType ControllerRestoreTypeToEntryType(
+    NavigationController::RestoreType type) {
+  switch (type) {
+    case NavigationController::RESTORE_CURRENT_SESSION:
+      return NavigationEntryImpl::RESTORE_CURRENT_SESSION;
+    case NavigationController::RESTORE_LAST_SESSION_EXITED_CLEANLY:
+      return NavigationEntryImpl::RESTORE_LAST_SESSION_EXITED_CLEANLY;
+    case NavigationController::RESTORE_LAST_SESSION_CRASHED:
+      return NavigationEntryImpl::RESTORE_LAST_SESSION_CRASHED;
+  }
+  NOTREACHED();
+  return NavigationEntryImpl::RESTORE_CURRENT_SESSION;
+}
+
 // Configure all the NavigationEntries in entries for restore. This resets
 // the transition type to reload and makes sure the content state isn't empty.
 void ConfigureEntriesForRestore(
     std::vector<linked_ptr<NavigationEntryImpl> >* entries,
-    bool from_last_session) {
+    NavigationController::RestoreType type) {
   for (size_t i = 0; i < entries->size(); ++i) {
     // Use a transition type of reload so that we don't incorrectly increase
     // the typed count.
     (*entries)[i]->SetTransitionType(content::PAGE_TRANSITION_RELOAD);
-    (*entries)[i]->set_restore_type(from_last_session ?
-        NavigationEntryImpl::RESTORE_LAST_SESSION :
-        NavigationEntryImpl::RESTORE_CURRENT_SESSION);
+    (*entries)[i]->set_restore_type(ControllerRestoreTypeToEntryType(type));
     // NOTE(darin): This code is only needed for backwards compat.
     SetContentStateIfEmpty((*entries)[i].get());
   }
@@ -186,6 +199,22 @@ void NavigationController::DisablePromptOnRepost() {
 
 }  // namespace content
 
+base::Time NavigationControllerImpl::TimeSmoother::GetSmoothedTime(
+    base::Time t) {
+  // If |t| is between the water marks, we're in a run of duplicates
+  // or just getting out of it, so increase the high-water mark to get
+  // a time that probably hasn't been used before and return it.
+  if (low_water_mark_ <= t && t <= high_water_mark_) {
+    high_water_mark_ += base::TimeDelta::FromMicroseconds(1);
+    return high_water_mark_;
+  }
+
+  // Otherwise, we're clear of the last duplicate run, so reset the
+  // water marks.
+  low_water_mark_ = high_water_mark_ = t;
+  return t;
+}
+
 NavigationControllerImpl::NavigationControllerImpl(
     WebContentsImpl* web_contents,
     BrowserContext* browser_context)
@@ -199,7 +228,8 @@ NavigationControllerImpl::NavigationControllerImpl(
       ALLOW_THIS_IN_INITIALIZER_LIST(ssl_manager_(this)),
       needs_reload_(false),
       is_initial_navigation_(true),
-      pending_reload_(NO_RELOAD) {
+      pending_reload_(NO_RELOAD),
+      get_timestamp_callback_(base::Bind(&base::Time::Now)) {
   DCHECK(browser_context_);
 }
 
@@ -222,7 +252,7 @@ void NavigationControllerImpl::SetBrowserContext(
 
 void NavigationControllerImpl::Restore(
     int selected_navigation,
-    bool from_last_session,
+    RestoreType type,
     std::vector<NavigationEntry*>* entries) {
   // Verify that this controller is unused and that the input is valid.
   DCHECK(GetEntryCount() == 0 && !GetPendingEntry());
@@ -238,7 +268,7 @@ void NavigationControllerImpl::Restore(
   entries->clear();
 
   // And finish the restore.
-  FinishRestore(selected_navigation, from_last_session);
+  FinishRestore(selected_navigation, type);
 }
 
 void NavigationControllerImpl::Reload(bool check_for_repost) {
@@ -305,7 +335,7 @@ void NavigationControllerImpl::ReloadInternal(bool check_for_repost,
     if (site_instance &&
         site_instance->HasWrongProcessForURL(entry->GetURL())) {
       // Create a navigation entry that resembles the current one, but do not
-      // copy page id, site instance, and content state.
+      // copy page id, site instance, content state, or timestamp.
       NavigationEntryImpl* nav_entry = NavigationEntryImpl::FromNavigationEntry(
           CreateNavigationEntry(
               entry->GetURL(), entry->GetReferrer(), entry->GetTransitionType(),
@@ -739,15 +769,25 @@ bool NavigationControllerImpl::RendererDidNavigate(
       NOTREACHED();
   }
 
+  // At this point, we know that the navigation has just completed, so
+  // record the time.
+  //
+  // TODO(akalin): Use "sane time" as described in
+  // http://www.chromium.org/developers/design-documents/sane-time .
+  base::Time timestamp =
+      time_smoother_.GetSmoothedTime(get_timestamp_callback_.Run());
+  DVLOG(1) << "Navigation finished at (smoothed) timestamp "
+           << timestamp.ToInternalValue();
+
   // All committed entries should have nonempty content state so WebKit doesn't
   // get confused when we go back to them (see the function for details).
   DCHECK(!params.content_state.empty());
   NavigationEntryImpl* active_entry =
       NavigationEntryImpl::FromNavigationEntry(GetActiveEntry());
+  active_entry->SetTimestamp(timestamp);
   active_entry->SetContentState(params.content_state);
   // No longer needed since content state will hold the post data if any.
   active_entry->SetBrowserInitiatedPostData(NULL);
-
 
   // Once committed, we do not need to track if the entry was initiated by
   // the renderer.
@@ -1136,7 +1176,7 @@ void NavigationControllerImpl::CopyStateFrom(
         make_pair(it->first, source_namespace->Clone()));
   }
 
-  FinishRestore(source.last_committed_entry_index_, false);
+  FinishRestore(source.last_committed_entry_index_, RESTORE_CURRENT_SESSION);
 
   // Copy the max page id map from the old tab to the new tab.  This ensures
   // that new and existing navigations in the tab's current SiteInstances
@@ -1289,7 +1329,7 @@ NavigationControllerImpl::GetSessionStorageNamespace(
     // this if statement so |instance| must not be NULL.
     partition_id =
         GetContentClient()->browser()->GetStoragePartitionIdForSite(
-            browser_context_, instance->GetSite());
+            browser_context_, instance->GetSiteURL());
   }
 
   SessionStorageNamespaceMap::const_iterator it =
@@ -1523,9 +1563,9 @@ void NavigationControllerImpl::NotifyEntryChanged(const NavigationEntry* entry,
 }
 
 void NavigationControllerImpl::FinishRestore(int selected_index,
-                                             bool from_last_session) {
+                                             RestoreType type) {
   DCHECK(selected_index >= 0 && selected_index < GetEntryCount());
-  ConfigureEntriesForRestore(&entries_, from_last_session);
+  ConfigureEntriesForRestore(&entries_, type);
 
   SetMaxRestoredPageID(static_cast<int32>(GetEntryCount()));
 
@@ -1580,4 +1620,9 @@ void NavigationControllerImpl::InsertEntriesFrom(
                           new NavigationEntryImpl(*source.entries_[i])));
     }
   }
+}
+
+void NavigationControllerImpl::SetGetTimestampCallbackForTest(
+    const base::Callback<base::Time()>& get_timestamp_callback) {
+  get_timestamp_callback_ = get_timestamp_callback;
 }

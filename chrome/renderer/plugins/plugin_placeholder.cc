@@ -41,9 +41,12 @@
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "webkit/glue/webpreferences.h"
-#include "webkit/plugins/npapi/plugin_group.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #include "webkit/plugins/webview_plugin.h"
+
+#if defined(ENABLE_MOBILE_YOUTUBE_PLUGIN)
+#include "webkit/plugins/plugin_constants.h"
+#endif
 
 using content::RenderThread;
 using content::RenderView;
@@ -439,7 +442,6 @@ void PluginPlaceholder::PluginListChanged() {
   render_view()->Send(new ChromeViewHostMsg_GetPluginInfo(
       routing_id(), GURL(plugin_params_.url), document.url(),
       mime_type, &output));
-
   if (output.status.value == status_->value)
     return;
   chrome::ChromeContentRendererClient* client =
@@ -632,6 +634,6 @@ bool PluginPlaceholder::IsYouTubeURL(const GURL& url,
       EndsWith(host, "youtube-nocookie.com", true);
 
   return is_youtube && IsValidYouTubeVideo(url.path()) &&
-      LowerCaseEqualsASCII(mime_type, "application/x-shockwave-flash");
+      LowerCaseEqualsASCII(mime_type, kFlashPluginSwfMimeType);
 }
 #endif

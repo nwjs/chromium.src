@@ -92,19 +92,10 @@ void ChromeRenderViewHostObserver::InitRenderViewForExtensions() {
 
   content::RenderProcessHost* process = render_view_host()->GetProcess();
 
-  if (extension->is_app()) {
-    // Though we already record the associated process ID for the renderer in
-    // InitRenderViewHostForExtensions, the process might have crashed and been
-    // restarted (hence the re-initialization), so we need to update that
-    // mapping.
-    profile_->GetExtensionService()->SetInstalledAppForRenderer(
-        process->GetID(), extension);
-  }
-
   // Some extensions use chrome:// URLs.
   Extension::Type type = extension->GetType();
   if (type == Extension::TYPE_EXTENSION ||
-      type == Extension::TYPE_PACKAGED_APP) {
+      type == Extension::TYPE_LEGACY_PACKAGED_APP) {
     ChildProcessSecurityPolicy::GetInstance()->GrantScheme(
         process->GetID(), chrome::kChromeUIScheme);
 
@@ -119,7 +110,7 @@ void ChromeRenderViewHostObserver::InitRenderViewForExtensions() {
     case Extension::TYPE_EXTENSION:
     case Extension::TYPE_USER_SCRIPT:
     case Extension::TYPE_HOSTED_APP:
-    case Extension::TYPE_PACKAGED_APP:
+    case Extension::TYPE_LEGACY_PACKAGED_APP:
     case Extension::TYPE_PLATFORM_APP:
       // Always send a Loaded message before ActivateExtension so that
       // ExtensionDispatcher knows what Extension is active, not just its ID.
@@ -142,7 +133,7 @@ const Extension* ChromeRenderViewHostObserver::GetExtension() {
   // (excluding bookmark apps) will have a chrome-extension:// URL for their
   // site, so we can ignore that wrinkle here.
   SiteInstance* site_instance = render_view_host()->GetSiteInstance();
-  const GURL& site = site_instance->GetSite();
+  const GURL& site = site_instance->GetSiteURL();
 
   if (!site.SchemeIs(chrome::kExtensionScheme))
     return NULL;

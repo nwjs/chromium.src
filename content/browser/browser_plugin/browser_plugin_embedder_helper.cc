@@ -33,6 +33,8 @@ bool BrowserPluginEmbedderHelper::OnMessageReceived(
     const IPC::Message& message) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(BrowserPluginEmbedderHelper, message)
+    IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_CreateGuest,
+                        OnCreateGuest);
     IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_NavigateGuest,
                         OnNavigateGuest);
     IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_ResizeGuest, OnResizeGuest)
@@ -43,8 +45,10 @@ bool BrowserPluginEmbedderHelper::OnMessageReceived(
                            &handled))
     IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_PluginDestroyed,
                         OnPluginDestroyed);
+    IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_Go, OnGo)
     IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_Stop, OnStop)
     IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_Reload, OnReload)
+    IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_TerminateGuest, OnTerminateGuest)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -53,39 +57,7 @@ bool BrowserPluginEmbedderHelper::OnMessageReceived(
 void BrowserPluginEmbedderHelper::OnResizeGuest(
     int instance_id,
     const BrowserPluginHostMsg_ResizeGuest_Params& params) {
-  TransportDIB* damage_buffer = NULL;
-#if defined(OS_WIN)
-  // On Windows we need to duplicate the handle from the remote process.
-  HANDLE section;
-  DuplicateHandle(render_view_host()->GetProcess()->GetHandle(),
-                  params.damage_buffer_id.handle,
-                  GetCurrentProcess(),
-                  &section,
-                  STANDARD_RIGHTS_REQUIRED | FILE_MAP_READ | FILE_MAP_WRITE,
-                  FALSE, 0);
-  damage_buffer = TransportDIB::Map(section);
-#elif defined(OS_MACOSX)
-  // On OSX, the browser allocates all DIBs and keeps a file descriptor around
-  // for each.
-  damage_buffer = render_view_host()->GetProcess()->
-      GetTransportDIB(params.damage_buffer_id);
-#elif defined(OS_ANDROID)
-  damage_buffer = TransportDIB::Map(params.damage_buffer_id);
-#elif defined(OS_POSIX)
-  damage_buffer = TransportDIB::Map(params.damage_buffer_id.shmkey);
-#endif  // defined(OS_POSIX)
-  DCHECK(damage_buffer);
-  // TODO(fsamuel): Schedule this later so that we don't stall the embedder for
-  // too long.
-  embedder_->ResizeGuest(instance_id,
-                         damage_buffer,
-#if defined(OS_WIN)
-                         params.damage_buffer_size,
-#endif
-                         params.width,
-                         params.height,
-                         params.resize_pending,
-                         params.scale_factor);
+  embedder_->ResizeGuest(render_view_host(), instance_id, params);
 }
 
 void BrowserPluginEmbedderHelper::OnHandleInputEvent(
@@ -128,12 +100,27 @@ void BrowserPluginEmbedderHelper::OnHandleInputEvent(
                               reply_message);
 }
 
-void BrowserPluginEmbedderHelper::OnNavigateGuest(int instance_id,
-                                                  int64 frame_id,
-                                                  const std::string& src,
-                                                  const gfx::Size& size) {
-  embedder_->NavigateGuest(render_view_host(), instance_id, frame_id, src,
-                           size);
+void BrowserPluginEmbedderHelper::OnCreateGuest(
+    int instance_id,
+    const std::string& storage_partition_id,
+    bool persist_storage) {
+  // The first BrowserPluginHostMsg_CreateGuest message is handled in
+  // WebContentsImpl. All subsequent BrowserPluginHostMsg_CreateGuest
+  // messages are handled here.
+  embedder_->CreateGuest(render_view_host(),
+                         instance_id,
+                         storage_partition_id,
+                         persist_storage);
+}
+
+void BrowserPluginEmbedderHelper::OnNavigateGuest(
+    int instance_id,
+    const std::string& src,
+    const BrowserPluginHostMsg_ResizeGuest_Params& resize_params) {
+  embedder_->NavigateGuest(render_view_host(),
+                           instance_id,
+                           src,
+                           resize_params);
 }
 
 void BrowserPluginEmbedderHelper::OnUpdateRectACK(int instance_id,
@@ -150,12 +137,20 @@ void BrowserPluginEmbedderHelper::OnPluginDestroyed(int instance_id) {
   embedder_->PluginDestroyed(instance_id);
 }
 
+void BrowserPluginEmbedderHelper::OnGo(int instance_id, int relative_index) {
+  embedder_->Go(instance_id, relative_index);
+}
+
 void BrowserPluginEmbedderHelper::OnStop(int instance_id) {
   embedder_->Stop(instance_id);
 }
 
 void BrowserPluginEmbedderHelper::OnReload(int instance_id) {
   embedder_->Reload(instance_id);
+}
+
+void BrowserPluginEmbedderHelper::OnTerminateGuest(int instance_id) {
+  embedder_->TerminateGuest(instance_id);
 }
 
 }  // namespace content

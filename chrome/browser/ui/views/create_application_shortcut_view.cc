@@ -400,15 +400,16 @@ views::Checkbox* CreateApplicationShortcutView::AddCheckbox(
 
 void CreateApplicationShortcutView::ButtonPressed(views::Button* sender,
                                                   const ui::Event& event) {
-  if (sender == desktop_check_box_)
+  if (sender == desktop_check_box_) {
     profile_->GetPrefs()->SetBoolean(prefs::kWebAppCreateOnDesktop,
-        desktop_check_box_->checked() ? true : false);
-  else if (sender == menu_check_box_)
+                                     desktop_check_box_->checked());
+  } else if (sender == menu_check_box_) {
     profile_->GetPrefs()->SetBoolean(prefs::kWebAppCreateInAppsMenu,
-        menu_check_box_->checked() ? true : false);
-  else if (sender == quick_launch_check_box_)
+                                     menu_check_box_->checked());
+  } else if (sender == quick_launch_check_box_) {
     profile_->GetPrefs()->SetBoolean(prefs::kWebAppCreateInQuickLaunchBar,
-        quick_launch_check_box_->checked() ? true : false);
+                                     quick_launch_check_box_->checked());
+  }
 
   // When no checkbox is checked we should not have the action button enabled.
   GetDialogClientView()->UpdateDialogButtons();
@@ -462,13 +463,13 @@ void CreateUrlApplicationShortcutView::FetchIcon() {
   pending_download_ = new IconDownloadCallbackFunctor(this);
   DCHECK(pending_download_);
 
-  tab_contents_->favicon_tab_helper()->DownloadImage(
-      unprocessed_icons_.back().url,
-      std::max(unprocessed_icons_.back().width,
-               unprocessed_icons_.back().height),
-      history::FAVICON,
-      base::Bind(&IconDownloadCallbackFunctor::Run,
-                 base::Unretained(pending_download_)));
+  FaviconTabHelper::FromWebContents(tab_contents_->web_contents())->
+      DownloadImage(unprocessed_icons_.back().url,
+                    std::max(unprocessed_icons_.back().width,
+                             unprocessed_icons_.back().height),
+                    history::FAVICON,
+                    base::Bind(&IconDownloadCallbackFunctor::Run,
+                               base::Unretained(pending_download_)));
 
   unprocessed_icons_.pop_back();
 }

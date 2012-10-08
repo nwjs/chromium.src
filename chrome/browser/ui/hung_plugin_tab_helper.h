@@ -12,7 +12,7 @@
 #include "base/string16.h"
 #include "base/time.h"
 #include "base/timer.h"
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -51,7 +51,6 @@ class HungPluginTabHelper : public content::WebContentsObserver,
 
  private:
   explicit HungPluginTabHelper(content::WebContents* contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<HungPluginTabHelper>;
 
   class InfoBarDelegate;

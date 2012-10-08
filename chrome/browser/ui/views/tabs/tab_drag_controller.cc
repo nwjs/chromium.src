@@ -779,8 +779,7 @@ void TabDragController::ContinueDragging(const gfx::Point& point_in_screen) {
   if (!is_dragging_window_) {
     if (attached_tabstrip_) {
       if (move_only()) {
-        if (attached_tabstrip_->touch_layout_.get())
-          DragActiveTabStacked(point_in_screen);
+        DragActiveTabStacked(point_in_screen);
       } else {
         MoveAttached(point_in_screen);
         if (tab_strip_changed) {
@@ -1546,12 +1545,16 @@ void TabDragController::EndDragImpl(EndDragType type) {
   move_stacked_timer_.Stop();
 
   if (is_dragging_window_) {
+    // SetTrackedByWorkspace() may call us back (by way of the window bounds
+    // changing). Set |waiting_for_run_loop_to_exit_| here so that if that
+    // happens we ignore it.
+    waiting_for_run_loop_to_exit_ = true;
+
     if (type == NORMAL || (type == TAB_DESTROYED && drag_data_.size() > 1))
       SetTrackedByWorkspace(GetAttachedBrowserWidget()->GetNativeView(), true);
 
     // End the nested drag loop.
     GetAttachedBrowserWidget()->EndMoveLoop();
-    waiting_for_run_loop_to_exit_ = true;
   }
 
   // Hide the current dock controllers.
@@ -1603,10 +1606,13 @@ void TabDragController::RevertDrag() {
   bool restore_frame = !detach_into_browser_ &&
                        attached_tabstrip_ != source_tabstrip_;
   if (attached_tabstrip_) {
-    if (attached_tabstrip_ == source_tabstrip_)
-      source_tabstrip_->StoppedDraggingTabs(tabs);
-    else
+    if (attached_tabstrip_ == source_tabstrip_) {
+      source_tabstrip_->StoppedDraggingTabs(
+          tabs, initial_tab_positions_, move_behavior_ == MOVE_VISIBILE_TABS,
+          false);
+    } else {
       attached_tabstrip_->DraggedTabsDetached();
+    }
   }
 
   if (initial_selection_model_.empty())
@@ -1687,7 +1693,10 @@ void TabDragController::CompleteDrag() {
 
   if (attached_tabstrip_) {
     attached_tabstrip_->StoppedDraggingTabs(
-        GetTabsMatchingDraggedContents(attached_tabstrip_));
+        GetTabsMatchingDraggedContents(attached_tabstrip_),
+        initial_tab_positions_,
+        move_behavior_ == MOVE_VISIBILE_TABS,
+        true);
   } else {
     if (dock_info_.type() != DockInfo::NONE) {
       switch (dock_info_.type()) {
@@ -1953,6 +1962,9 @@ Browser* TabDragController::CreateBrowserForDrag(
   create_params.initial_bounds = new_bounds;
   Browser* browser = new Browser(create_params);
   SetTrackedByWorkspace(browser->window()->GetNativeWindow(), false);
+  // If the window is created maximized then the bounds we supplied are ignored.
+  // We need to reset them again so they are honored.
+  browser->window()->SetBounds(new_bounds);
   return browser;
 }
 

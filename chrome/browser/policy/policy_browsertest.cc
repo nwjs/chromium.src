@@ -19,6 +19,7 @@
 #include "base/test/test_file_util.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "base/version.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/autocomplete/autocomplete_controller.h"
 #include "chrome/browser/browser_process.h"
@@ -36,7 +37,6 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/net/url_request_mock_util.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
@@ -92,6 +92,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "webkit/plugins/npapi/plugin_utils.h"
+#include "webkit/plugins/plugin_constants.h"
 #include "webkit/plugins/webplugininfo.h"
 
 #if defined(OS_CHROMEOS)
@@ -263,7 +265,7 @@ const webkit::WebPluginInfo* GetFlashPlugin(
     const std::vector<webkit::WebPluginInfo>& plugins) {
   const webkit::WebPluginInfo* flash = NULL;
   for (size_t i = 0; i < plugins.size(); ++i) {
-    if (plugins[i].name == ASCIIToUTF16("Shockwave Flash")) {
+    if (plugins[i].name == ASCIIToUTF16(kFlashPluginName)) {
       flash = &plugins[i];
       break;
     }
@@ -703,6 +705,16 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPlugins) {
   // The user shouldn't be able to enable it.
   EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
   EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+
+  // Now remove the policy.
+  policies.Erase(key::kDisabledPlugins);
+  provider_.UpdateChromePolicy(policies);
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+  // The user should be able to disable/enable it again.
+  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, false));
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, true));
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
 }
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPluginsExceptions) {
@@ -744,6 +756,14 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPluginsExceptions) {
   EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
   EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, true));
   EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+
+  // Now remove the exception for flash.
+  policies.Erase(key::kDisabledPluginsExceptions);
+  provider_.UpdateChromePolicy(policies);
+  // It should be disabled and the user shouldn't be able to enable it again.
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
 }
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, EnabledPlugins) {
@@ -760,7 +780,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, EnabledPlugins) {
   EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, false));
   EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
   base::ListValue plugin_list;
-  plugin_list.Append(base::Value::CreateStringValue("Shockwave Flash"));
+  plugin_list.Append(base::Value::CreateStringValue(kFlashPluginName));
   PolicyMap policies;
   policies.Set(key::kEnabledPlugins, POLICY_LEVEL_MANDATORY,
                POLICY_SCOPE_USER, plugin_list.DeepCopy());
@@ -775,6 +795,82 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, EnabledPlugins) {
                POLICY_SCOPE_USER, plugin_list.DeepCopy());
   provider_.UpdateChromePolicy(policies);
   EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+
+  // Now remove the plugin from the whitelist.
+  policies.Erase(key::kEnabledPlugins);
+  provider_.UpdateChromePolicy(policies);
+  // The blacklisting should take effect.
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  // The user can't enable the plugin.
+  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
+
+  // Remove it from the blacklist.
+  policies.Erase(key::kDisabledPlugins);
+  provider_.UpdateChromePolicy(policies);
+
+  // It should revert to the user's preferences automatically.
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  // The user can enable it.
+  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, true));
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+}
+
+IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPluginsByVersion) {
+  std::vector<webkit::WebPluginInfo> plugins;
+  GetPluginList(&plugins);
+  const webkit::WebPluginInfo* flash = GetFlashPlugin(plugins);
+  if (!flash)
+    return;
+  PluginPrefs* plugin_prefs = PluginPrefs::GetForProfile(browser()->profile());
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+
+  Version flash_version;
+  webkit::npapi::CreateVersionFromString(flash->version, &flash_version);
+  base::ListValue plugin_version_list;
+  plugin_version_list.Append(
+      base::Value::CreateStringValue("*Flash*:" + flash_version.GetString()));
+  PolicyMap policies;
+  policies.Set(key::kDisabledPluginsByVersion, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, plugin_version_list.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  // The version blacklisting should take effect.
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  // The user can't enable the plugin.
+  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
+
+  // Set an EnablePlugin policy for flash.
+  base::ListValue enabled_plugins;
+  enabled_plugins.Append(base::Value::CreateStringValue("*Flash*"));
+  policies.Set(key::kEnabledPlugins, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, enabled_plugins.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  // Disabling by version is still holding, the plugin is disabled and
+  // the user can't enable it.
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
+
+  // Set a DisabledPluginsException policy.
+  base::ListValue disabled_exception_plugins;
+  disabled_exception_plugins.Append(base::Value::CreateStringValue("*Flash*"));
+  policies.Set(key::kDisabledPluginsExceptions, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, disabled_exception_plugins.DeepCopy());
+  provider_.UpdateChromePolicy(policies);
+  // Disabling by version is still holding, the plugin is disabled and
+  // the user can't enable it.
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
+  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
+
+  // Now, remove all policies.
+  policies.Erase(key::kDisabledPluginsByVersion);
+  policies.Erase(key::kEnabledPlugins);
+  policies.Erase(key::kDisabledPluginsExceptions);
+  provider_.UpdateChromePolicy(policies);
+
+  // It should revert to the user's preferences automatically.
+  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
+  // The user can disable it.
+  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, false));
+  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
 }
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, AlwaysAuthorizePlugins) {
@@ -992,11 +1088,11 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, HomepageLocation) {
   PolicyMap policies;
   policies.Set(key::kHomepageLocation, POLICY_LEVEL_MANDATORY,
                POLICY_SCOPE_USER,
-               base::Value::CreateStringValue(chrome::kChromeUIBookmarksURL));
+               base::Value::CreateStringValue(chrome::kChromeUICreditsURL));
   provider_.UpdateChromePolicy(policies);
   EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_HOME));
   content::WaitForLoadStop(contents);
-  EXPECT_EQ(GURL(chrome::kChromeUIBookmarksURL), contents->GetURL());
+  EXPECT_EQ(GURL(chrome::kChromeUICreditsURL), contents->GetURL());
 
   policies.Set(key::kHomepageIsNewTabPage, POLICY_LEVEL_MANDATORY,
                POLICY_SCOPE_USER, base::Value::CreateBooleanValue(true));
@@ -1043,23 +1139,23 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, Javascript) {
                POLICY_SCOPE_USER, base::Value::CreateBooleanValue(false));
   provider_.UpdateChromePolicy(policies);
   // Reload the page.
-  ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kAboutBlankURL));
   EXPECT_FALSE(IsJavascriptEnabled(contents));
   // Developer tools still work when javascript is disabled.
   EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_DEV_TOOLS));
   EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_DEV_TOOLS_CONSOLE));
   // Javascript is always enabled for the internal pages.
-  ui_test_utils::NavigateToURL(browser(), GURL("chrome://settings"));
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kChromeUIAboutURL));
   EXPECT_TRUE(IsJavascriptEnabled(contents));
 
   // The javascript content setting policy overrides the javascript policy.
-  ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kAboutBlankURL));
   EXPECT_FALSE(IsJavascriptEnabled(contents));
   policies.Set(key::kDefaultJavaScriptSetting, POLICY_LEVEL_MANDATORY,
                POLICY_SCOPE_USER,
                base::Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
   provider_.UpdateChromePolicy(policies);
-  ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kAboutBlankURL));
   EXPECT_TRUE(IsJavascriptEnabled(contents));
 }
 

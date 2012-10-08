@@ -8,6 +8,16 @@
 #include "webkit/plugins/npapi/plugin_utils.h"
 #include "webkit/plugins/webplugininfo.h"
 
+// static
+const char PluginMetadata::kAdobeReaderGroupName[] = "Adobe Reader";
+const char PluginMetadata::kJavaGroupName[] = "Java(TM)";
+const char PluginMetadata::kQuickTimeGroupName[] = "QuickTime Player";
+const char PluginMetadata::kShockwaveGroupName[] = "Adobe Shockwave Player";
+const char PluginMetadata::kRealPlayerGroupName[] = "RealPlayer";
+const char PluginMetadata::kSilverlightGroupName[] = "Silverlight";
+const char PluginMetadata::kWindowsMediaPlayerGroupName[] =
+    "Windows Media Player";
+
 PluginMetadata::PluginMetadata(const std::string& identifier,
                                const string16& name,
                                bool url_for_display,
@@ -82,4 +92,15 @@ bool PluginMetadata::VersionComparator::operator() (const Version& lhs,
                                                     const Version& rhs) const {
   // Keep versions ordered by newest (biggest) first.
   return lhs.CompareTo(rhs) > 0;
+}
+
+scoped_ptr<PluginMetadata> PluginMetadata::Clone() const {
+  PluginMetadata* copy = new PluginMetadata(identifier_,
+                                            name_,
+                                            url_for_display_,
+                                            plugin_url_,
+                                            help_url_,
+                                            group_name_matcher_);
+  copy->versions_ = versions_;
+  return make_scoped_ptr(copy);
 }

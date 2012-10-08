@@ -37,26 +37,32 @@ class PluginFinder {
   // It should be called on the UI thread.
   void Init();
 
-  // TODO(ibraaaa): DELETE. http://crbug.com/124396
-  static void Get(const base::Callback<void(PluginFinder*)>& cb);
-
 #if defined(ENABLE_PLUGIN_INSTALLATION)
-  // Finds a plug-in for the given MIME type and language (specified as an IETF
-  // language tag, i.e. en-US) and returns the PluginInstaller for the plug-in,
-  // or NULL if no plug-in is found.
-  PluginInstaller* FindPlugin(const std::string& mime_type,
-                              const std::string& language);
+  void ReinitializePlugins(const base::DictionaryValue& json_metadata);
 
-  // Returns the plug-in with the given identifier.
-  PluginInstaller* FindPluginWithIdentifier(const std::string& identifier);
+  // Finds a plug-in for the given MIME type and language (specified as an IETF
+  // language tag, i.e. en-US). If found, sets |installer| to the
+  // corresponding PluginInstaller and |plugin_metadata| to a copy of the
+  // corresponding PluginMetadata.
+  bool FindPlugin(const std::string& mime_type,
+                  const std::string& language,
+                  PluginInstaller** installer,
+                  scoped_ptr<PluginMetadata>* plugin_metadata);
+
+  // Finds the plug-in with the given identifier. If found, sets |installer|
+  // to the corresponding PluginInstaller and |plugin_metadata| to a copy
+  // of the corresponding PluginMetadata.
+  bool FindPluginWithIdentifier(const std::string& identifier,
+                                PluginInstaller** installer,
+                                scoped_ptr<PluginMetadata>* plugin_metadata);
 #endif
 
-  // Returns the plug-in metadata with the given identifier.
-  PluginMetadata* FindPluginMetadataWithIdentifier(
-      const std::string& identifier);
+  // Returns the plug-in name with the given identifier.
+  string16 FindPluginNameWithIdentifier(const std::string& identifier);
 
   // Gets plug-in metadata using |plugin|.
-  PluginMetadata* GetPluginMetadata(const webkit::WebPluginInfo& plugin);
+  scoped_ptr<PluginMetadata> GetPluginMetadata(
+      const webkit::WebPluginInfo& plugin);
 
  private:
   friend struct DefaultSingletonTraits<PluginFinder>;
@@ -71,12 +77,8 @@ class PluginFinder {
   // Returns NULL if the plug-in list couldn't be parsed.
   static base::DictionaryValue* LoadPluginList();
 
-  PluginMetadata* CreatePluginMetadata(
-      const std::string& identifier,
-      const base::DictionaryValue* plugin_dict);
+  void InitInternal();
 
-  // Initialized in |Init()| method and is read-only after that.
-  // No need to be synchronized.
   scoped_ptr<base::DictionaryValue> plugin_list_;
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   std::map<std::string, PluginInstaller*> installers_;
@@ -89,9 +91,8 @@ class PluginFinder {
   // in |identifier_plugin_| (Double De-allocation).
   std::map<string16, PluginMetadata*> name_plugin_;
 
-  // Synchronization for |installers_|, |identifier_plugin_| and
-  // |name_plugin_| are required since multiple threads
-  // can be accessing them concurrently.
+  // Synchronization for the above member variables is
+  // required since multiple threads can be accessing them concurrently.
   base::Lock mutex_;
 
   DISALLOW_COPY_AND_ASSIGN(PluginFinder);

@@ -11,8 +11,8 @@ from chrome_remote_control import browser_backend
 class AndroidBrowserBackend(browser_backend.BrowserBackend):
   """The backend for controlling a browser instance running on Android.
   """
-  def __init__(self, options, adb, package, is_content_shell,
-               cmdline_file, activity, devtools_remote_port):
+  def __init__(self, options, extra_browser_args, adb, package,
+               is_content_shell, cmdline_file, activity, devtools_remote_port):
     super(AndroidBrowserBackend, self).__init__(is_content_shell)
     # Initialize fields so that an explosion during init doesn't break in Close.
     self._options = options
@@ -47,9 +47,13 @@ class AndroidBrowserBackend(browser_backend.BrowserBackend):
       pass
 
     # Set up the command line.
+    if extra_browser_args:
+      args.extend(extra_browser_args)
     args.extend(options.extra_browser_args)
     with tempfile.NamedTemporaryFile() as f:
-      f.write(' '.join(args))
+      def EscapeIfNeeded(arg):
+        return arg.replace(' ', '" "')
+      f.write(' '.join([EscapeIfNeeded(arg) for arg in args]))
       f.flush()
       self._adb.Push(f.name, cmdline_file)
 
@@ -106,6 +110,7 @@ class AndroidBrowserBackend(browser_backend.BrowserBackend):
     self.Close()
 
   def Close(self):
+    self._adb.RunShellCommand('rm %s' % self._cmdline_file)
     self._adb.KillAll(self._package)
 
   def IsBrowserRunning(self):

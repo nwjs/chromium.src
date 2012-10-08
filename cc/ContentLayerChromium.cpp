@@ -40,9 +40,9 @@ void ContentLayerPainter::paint(SkCanvas* canvas, const IntRect& contentRect, Fl
     WebKit::Platform::current()->histogramCustomCounts("Renderer4.AccelContentPaintMegapixPerSecond", pixelsPerSec / 1000000, 10, 210, 30);
 }
 
-PassRefPtr<ContentLayerChromium> ContentLayerChromium::create(ContentLayerChromiumClient* client)
+scoped_refptr<ContentLayerChromium> ContentLayerChromium::create(ContentLayerChromiumClient* client)
 {
-    return adoptRef(new ContentLayerChromium(client));
+    return make_scoped_refptr(new ContentLayerChromium(client));
 }
 
 ContentLayerChromium::ContentLayerChromium(ContentLayerChromiumClient* client)
@@ -95,16 +95,16 @@ void ContentLayerChromium::createTextureUpdaterIfNeeded()
         m_textureUpdater = BitmapSkPictureCanvasLayerTextureUpdater::create(ContentLayerPainter::create(m_client));
     else
         m_textureUpdater = BitmapCanvasLayerTextureUpdater::create(ContentLayerPainter::create(m_client));
-    m_textureUpdater->setOpaque(opaque());
+    m_textureUpdater->setOpaque(contentsOpaque());
 
     GC3Denum textureFormat = layerTreeHost()->rendererCapabilities().bestTextureFormat;
     setTextureFormat(textureFormat);
     setSampledTexelFormat(textureUpdater()->sampledTexelFormat(textureFormat));
 }
 
-void ContentLayerChromium::setOpaque(bool opaque)
+void ContentLayerChromium::setContentsOpaque(bool opaque)
 {
-    LayerChromium::setOpaque(opaque);
+    LayerChromium::setContentsOpaque(opaque);
     if (m_textureUpdater)
         m_textureUpdater->setOpaque(opaque);
 }

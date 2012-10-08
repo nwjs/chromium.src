@@ -278,8 +278,9 @@ void WebIntentPickerGtk::OnFaviconChanged(WebIntentPickerModel* model,
   UpdateInstalledServices();
 }
 
-void WebIntentPickerGtk::OnExtensionIconChanged(WebIntentPickerModel* model,
-                                                const string16& extension_id) {
+void WebIntentPickerGtk::OnExtensionIconChanged(
+    WebIntentPickerModel* model,
+    const std::string& extension_id) {
   UpdateSuggestedExtensions();
 }
 
@@ -412,7 +413,7 @@ void WebIntentPickerGtk::OnPendingAsyncCompleted() {
   // Set the label width to the size of |sub_contents|, which we don't have
   // access to yet, by calculating the main content width minus borders.
   gtk_util::SetLabelWidth(no_service_label,
-                          kWindowWidth - 2 * ui::kContentAreaBorder);
+                          kWindowMinWidth - 2 * ui::kContentAreaBorder);
   gtk_box_pack_start(GTK_BOX(hbox), no_service_label, TRUE, TRUE, 0);
 
   gtk_widget_show_all(contents_);
@@ -467,7 +468,7 @@ void WebIntentPickerGtk::OnExtensionLinkClick(GtkWidget* link) {
   size_t index = GetExtensionWidgetRow(link);
   const WebIntentPickerModel::SuggestedExtension& extension =
       model_->GetSuggestedExtensionAt(index);
-  delegate_->OnExtensionLinkClicked(UTF16ToUTF8(extension.id),
+  delegate_->OnExtensionLinkClicked(extension.id,
       event_utils::DispositionForCurrentButtonPressEvent());
 }
 
@@ -476,7 +477,7 @@ void WebIntentPickerGtk::OnExtensionInstallButtonClick(GtkWidget* button) {
   const WebIntentPickerModel::SuggestedExtension& extension =
       model_->GetSuggestedExtensionAt(index);
 
-  delegate_->OnExtensionInstallRequested(UTF16ToUTF8(extension.id));
+  delegate_->OnExtensionInstallRequested(extension.id);
   SetWidgetsEnabled(false);
 
   // Re-enable the clicked extension row.
@@ -535,7 +536,7 @@ void WebIntentPickerGtk::InitContents() {
     g_signal_connect(contents_, "destroy", G_CALLBACK(&OnDestroyThunk), this);
   }
 
-  gtk_widget_set_size_request(contents_, kWindowWidth, -1);
+  gtk_widget_set_size_request(contents_, kWindowMinWidth, -1);
 
   if (model_ && model_->IsWaitingForSuggestions()) {
     gtk_util::RemoveAllChildren(contents_);
@@ -579,7 +580,7 @@ void WebIntentPickerGtk::InitMainContents() {
   // Set the label width to the size of |sub_contents|, which we don't have
   // access to yet, by calculating the main content width minus borders.
   gtk_util::SetLabelWidth(cws_label_,
-                          kWindowWidth - 2 * ui::kContentAreaBorder);
+                          kWindowMinWidth - 2 * ui::kContentAreaBorder);
   gtk_util::ForceFontSizePixels(cws_label_, kMainContentPixelSize);
 
   // Suggested extensions vbox.

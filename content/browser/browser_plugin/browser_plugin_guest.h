@@ -34,6 +34,8 @@
 #include "base/compiler_specific.h"
 #include "base/id_map.h"
 #include "base/time.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "ui/gfx/rect.h"
@@ -57,7 +59,8 @@ class RenderProcessHost;
 // messages.
 //
 // BrowserPluginEmbedder is responsible for creating and destroying a guest.
-class CONTENT_EXPORT BrowserPluginGuest : public WebContentsDelegate,
+class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
+                                          public WebContentsDelegate,
                                           public WebContentsObserver {
  public:
   virtual ~BrowserPluginGuest();
@@ -81,7 +84,25 @@ class CONTENT_EXPORT BrowserPluginGuest : public WebContentsDelegate,
     embedder_render_process_host_ = render_process_host;
   }
 
+  // NotificationObserver implementation.
+  virtual void Observe(int type,
+                       const NotificationSource& source,
+                       const NotificationDetails& details) OVERRIDE;
+
   // WebContentsObserver implementation.
+  virtual void DidStartProvisionalLoadForFrame(
+      int64 frame_id,
+      bool is_main_frame,
+      const GURL& validated_url,
+      bool is_error_page,
+      RenderViewHost* render_view_host) OVERRIDE;
+  virtual void DidFailProvisionalLoad(
+      int64 frame_id,
+      bool is_main_frame,
+      const GURL& validated_url,
+      int error_code,
+      const string16& error_description,
+      RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidCommitProvisionalLoadForFrame(
       int64 frame_id,
       bool is_main_frame,
@@ -91,14 +112,11 @@ class CONTENT_EXPORT BrowserPluginGuest : public WebContentsDelegate,
   virtual void RenderViewGone(base::TerminationStatus status) OVERRIDE;
 
   // WebContentsDelegate implementation.
+  virtual bool CanDownload(RenderViewHost* render_view_host,
+                           int request_id,
+                           const std::string& request_method) OVERRIDE;
+  virtual bool HandleContextMenu(const ContextMenuParams& params) OVERRIDE;
   virtual void RendererUnresponsive(WebContents* source) OVERRIDE;
-
-  void SetDamageBuffer(TransportDIB* damage_buffer,
-#if defined(OS_WIN)
-                       int damage_buffer_size,
-#endif
-                       const gfx::Size& damage_view_size,
-                       float scale_factor);
 
   void UpdateRect(RenderViewHost* render_view_host,
                   const ViewHostMsg_UpdateRect_Params& params);
@@ -119,17 +137,34 @@ class CONTENT_EXPORT BrowserPluginGuest : public WebContentsDelegate,
   // embedder) instead of default view/widget host.
   void HandleInputEventAck(RenderViewHost* render_view_host, bool handled);
 
+  // The guest needs to notify the plugin in the embedder to start (or stop)
+  // accepting touch events.
+  void SetIsAcceptingTouchEvents(bool accept);
+
   // Exposes the protected web_contents() from WebContentsObserver.
   WebContents* GetWebContents();
 
+  // Kill the guest process.
+  void Terminate();
+
   // Overridden in tests.
   virtual bool ViewTakeFocus(bool reverse);
+  // If possible, navigate the guest to |relative_index| entries away from the
+  // current navigation entry.
+  virtual void Go(int relative_index);
   // Overridden in tests.
   virtual void SetFocus(bool focused);
   // Reload the guest.
   virtual void Reload();
   // Stop loading the guest.
   virtual void Stop();
+  // Overridden in tests.
+  virtual void SetDamageBuffer(TransportDIB* damage_buffer,
+#if defined(OS_WIN)
+                               int damage_buffer_size,
+#endif
+                               const gfx::Size& damage_view_size,
+                               float scale_factor);
 
  private:
   friend class TestBrowserPluginGuest;
@@ -154,9 +189,15 @@ class CONTENT_EXPORT BrowserPluginGuest : public WebContentsDelegate,
   // since we want to intercept certain messages for testing.
   virtual void SendMessageToEmbedder(IPC::Message* msg);
 
+  // Called when a redirect notification occurs.
+  void LoadRedirect(const GURL& old_url,
+                    const GURL& new_url,
+                    bool is_top_level);
+
   // Static factory instance (always NULL for non-test).
   static content::BrowserPluginHostFactory* factory_;
 
+  NotificationRegistrar notification_registrar_;
   RenderProcessHost* embedder_render_process_host_;
   // An identifier that uniquely identifies a browser plugin guest within an
   // embedder.

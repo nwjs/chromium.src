@@ -38,7 +38,7 @@ const char kHTMLForPartitionedPersistedPluginObject[] =
 
 std::string GetHTMLForBrowserPluginObject() {
   return StringPrintf(kHTMLForBrowserPluginObject,
-                      content::kBrowserPluginNewMimeType);
+                      content::kBrowserPluginMimeType);
 }
 
 }  // namespace
@@ -133,21 +133,25 @@ TEST_F(BrowserPluginTest, SrcAttribute) {
   // Verify that we're reporting the correct URL to navigate to based on the
   // src attribute.
   {
+    // Ensure we get a CreateGuest on the initial navigation.
+    const IPC::Message* create_msg =
+    browser_plugin_manager()->sink().GetUniqueMessageMatching(
+        BrowserPluginHostMsg_CreateGuest::ID);
+    ASSERT_TRUE(create_msg);
+
     const IPC::Message* msg =
     browser_plugin_manager()->sink().GetUniqueMessageMatching(
         BrowserPluginHostMsg_NavigateGuest::ID);
     ASSERT_TRUE(msg);
 
     int instance_id;
-    long long frame_id;
     std::string src;
-    gfx::Size size;
+    BrowserPluginHostMsg_ResizeGuest_Params resize_params;
     BrowserPluginHostMsg_NavigateGuest::Read(
         msg,
         &instance_id,
-        &frame_id,
         &src,
-        &size);
+        &resize_params);
     EXPECT_EQ("foo", src);
   }
 
@@ -157,21 +161,25 @@ TEST_F(BrowserPluginTest, SrcAttribute) {
   // Verify that the src attribute is updated as well.
   ExecuteJavaScript("document.getElementById('browserplugin').src = 'bar'");
   {
+    // Verify that we do not get a CreateGuest on subsequent navigations.
+    const IPC::Message* create_msg =
+    browser_plugin_manager()->sink().GetUniqueMessageMatching(
+        BrowserPluginHostMsg_CreateGuest::ID);
+    ASSERT_FALSE(create_msg);
+
     const IPC::Message* msg =
       browser_plugin_manager()->sink().GetUniqueMessageMatching(
           BrowserPluginHostMsg_NavigateGuest::ID);
     ASSERT_TRUE(msg);
 
     int instance_id;
-    long long frame_id;
     std::string src;
-    gfx::Size size;
+    BrowserPluginHostMsg_ResizeGuest_Params resize_params;
     BrowserPluginHostMsg_NavigateGuest::Read(
         msg,
         &instance_id,
-        &frame_id,
         &src,
-        &size);
+        &resize_params);
     EXPECT_EQ("bar", src);
     std::string src_value =
         ExecuteScriptAndReturnString(
@@ -371,14 +379,14 @@ TEST_F(BrowserPluginTest, ReloadMethod) {
 // correctly.
 TEST_F(BrowserPluginTest, PartitionAttribute) {
   std::string html = StringPrintf(kHTMLForPartitionedPluginObject,
-                                  content::kBrowserPluginNewMimeType);
+                                  content::kBrowserPluginMimeType);
   LoadHTML(html.c_str());
   std::string partition_value = ExecuteScriptAndReturnString(
       "document.getElementById('browserplugin').partition");
   EXPECT_STREQ("someid", partition_value.c_str());
 
   html = StringPrintf(kHTMLForPartitionedPersistedPluginObject,
-                      content::kBrowserPluginNewMimeType);
+                      content::kBrowserPluginMimeType);
   LoadHTML(html.c_str());
   partition_value = ExecuteScriptAndReturnString(
       "document.getElementById('browserplugin').partition");
@@ -398,7 +406,7 @@ TEST_F(BrowserPluginTest, PartitionAttribute) {
 
   // Load a browser tag without 'src' defined.
   html = StringPrintf(kHTMLForSourcelessPluginObject,
-                      content::kBrowserPluginNewMimeType);
+                      content::kBrowserPluginMimeType);
   LoadHTML(html.c_str());
 
   // Ensure we don't parse just "persist:" string and return exception.
@@ -415,7 +423,7 @@ TEST_F(BrowserPluginTest, PartitionAttribute) {
 // cannot be modified.
 TEST_F(BrowserPluginTest, ImmutableAttributesAfterNavigation) {
   std::string html = StringPrintf(kHTMLForSourcelessPluginObject,
-                                  content::kBrowserPluginNewMimeType);
+                                  content::kBrowserPluginMimeType);
   LoadHTML(html.c_str());
 
   ExecuteJavaScript(
@@ -430,22 +438,37 @@ TEST_F(BrowserPluginTest, ImmutableAttributesAfterNavigation) {
 
   ExecuteJavaScript("document.getElementById('browserplugin').src = 'bar'");
   {
+    const IPC::Message* create_msg =
+    browser_plugin_manager()->sink().GetUniqueMessageMatching(
+        BrowserPluginHostMsg_CreateGuest::ID);
+    ASSERT_TRUE(create_msg);
+
+    int create_instance_id;
+    std::string storage_partition;
+    bool persist_storage = true;
+    BrowserPluginHostMsg_CreateGuest::Read(
+        create_msg,
+        &create_instance_id,
+        &storage_partition,
+        &persist_storage);
+    EXPECT_STREQ("storage", storage_partition.c_str());
+    EXPECT_FALSE(persist_storage);
+
     const IPC::Message* msg =
         browser_plugin_manager()->sink().GetUniqueMessageMatching(
             BrowserPluginHostMsg_NavigateGuest::ID);
     ASSERT_TRUE(msg);
 
     int instance_id;
-    long long frame_id;
     std::string src;
-    gfx::Size size;
+    BrowserPluginHostMsg_ResizeGuest_Params resize_params;
     BrowserPluginHostMsg_NavigateGuest::Read(
         msg,
         &instance_id,
-        &frame_id,
         &src,
-        &size);
+        &resize_params);
     EXPECT_STREQ("bar", src.c_str());
+    EXPECT_EQ(create_instance_id, instance_id);
   }
 
   // Setting the partition should throw an exception and the value should not

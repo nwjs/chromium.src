@@ -7,15 +7,17 @@
 # a bit.
 import unittest
 
-from chrome_remote_control import browser_options
 from chrome_remote_control import cros_interface
+from chrome_remote_control import options_for_unittests
 from chrome_remote_control import run_tests
 
 class CrOSInterfaceTest(unittest.TestCase):
   @run_tests.RequiresBrowserOfType('cros-chrome')
   def testDeviceSideProcessFailureToLaunch(self):
-    remote = browser_options.options_for_unittests.cros_remote
-    cri = cros_interface.CrOSInterface(remote)
+    remote = options_for_unittests.Get().cros_remote
+    cri = cros_interface.CrOSInterface(
+      remote,
+      options_for_unittests.Get().cros_ssh_identity)
 
     def WillFail():
       dsp = cros_interface.DeviceSideProcess(
@@ -26,8 +28,10 @@ class CrOSInterfaceTest(unittest.TestCase):
 
   @run_tests.RequiresBrowserOfType('cros-chrome')
   def testDeviceSideProcessCloseDoesClose(self):
-    remote = browser_options.options_for_unittests.cros_remote
-    cri = cros_interface.CrOSInterface(remote)
+    remote = options_for_unittests.Get().cros_remote
+    cri = cros_interface.CrOSInterface(
+      remote,
+      options_for_unittests.Get().cros_ssh_identity)
 
     with cros_interface.DeviceSideProcess(
         cri,
@@ -43,8 +47,10 @@ class CrOSInterfaceTest(unittest.TestCase):
 
   @run_tests.RequiresBrowserOfType('cros-chrome')
   def testPushContents(self):
-    remote = browser_options.options_for_unittests.cros_remote
-    cri = cros_interface.CrOSInterface(remote)
+    remote = options_for_unittests.Get().cros_remote
+    cri = cros_interface.CrOSInterface(
+      remote,
+      options_for_unittests.Get().cros_ssh_identity)
     cri.GetCmdOutput(['rm', '-rf', '/tmp/testPushContents'])
     cri.PushContents('hello world', '/tmp/testPushContents')
     contents = cri.GetFileContents('/tmp/testPushContents')
@@ -52,32 +58,39 @@ class CrOSInterfaceTest(unittest.TestCase):
 
   @run_tests.RequiresBrowserOfType('cros-chrome')
   def testExists(self):
-    remote = browser_options.options_for_unittests.cros_remote
-    cri = cros_interface.CrOSInterface(remote)
+    remote = options_for_unittests.Get().cros_remote
+    cri = cros_interface.CrOSInterface(
+      remote,
+      options_for_unittests.Get().cros_ssh_identity)
     self.assertTrue(cri.FileExistsOnDevice('/proc/cpuinfo'))
     self.assertTrue(cri.FileExistsOnDevice('/etc/passwd'))
     self.assertFalse(cri.FileExistsOnDevice('/etc/sdlfsdjflskfjsflj'))
 
   @run_tests.RequiresBrowserOfType('cros-chrome')
   def testGetFileContents(self): # pylint: disable=R0201
-    remote = browser_options.options_for_unittests.cros_remote
-    cri = cros_interface.CrOSInterface(remote)
+    remote = options_for_unittests.Get().cros_remote
+    cri = cros_interface.CrOSInterface(
+      remote,
+      options_for_unittests.Get().cros_ssh_identity)
     hosts = cri.GetFileContents('/etc/hosts')
     assert hosts.startswith('# /etc/hosts')
 
   @run_tests.RequiresBrowserOfType('cros-chrome')
   def testGetFileContentsForSomethingThatDoesntExist(self):
-    remote = browser_options.options_for_unittests.cros_remote
-    cri = cros_interface.CrOSInterface(remote)
+    remote = options_for_unittests.Get().cros_remote
+    cri = cros_interface.CrOSInterface(
+      remote,
+      options_for_unittests.Get().cros_ssh_identity)
     self.assertRaises(
       OSError,
       lambda: cri.GetFileContents('/tmp/209fuslfskjf/dfsfsf'))
 
   @run_tests.RequiresBrowserOfType('cros-chrome')
   def testListProcesses(self): # pylint: disable=R0201
-    remote = browser_options.options_for_unittests.cros_remote
-    cri = cros_interface.CrOSInterface(remote)
-
+    remote = options_for_unittests.Get().cros_remote
+    cri = cros_interface.CrOSInterface(
+      remote,
+      options_for_unittests.Get().cros_ssh_identity)
     with cros_interface.DeviceSideProcess(
         cri,
         ['sleep', '11']):
@@ -89,8 +102,10 @@ class CrOSInterfaceTest(unittest.TestCase):
 
   @run_tests.RequiresBrowserOfType('cros-chrome')
   def testIsServiceRunning(self):
-    remote = browser_options.options_for_unittests.cros_remote
-    cri = cros_interface.CrOSInterface(remote)
+    remote = options_for_unittests.Get().cros_remote
+    cri = cros_interface.CrOSInterface(
+      remote,
+      options_for_unittests.Get().cros_ssh_identity)
 
     self.assertTrue(cri.IsServiceRunning('openssh-server'))
 

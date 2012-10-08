@@ -1130,12 +1130,11 @@ enum NotificationType {
   NOTIFICATION_INSTANT_CONTROLLER_HIDDEN,
 
   // Sent when an Instant preview is committed. The Source is the TabContents
-  // containing the committed preview. There are no details.
+  // containing the committed preview.
   NOTIFICATION_INSTANT_COMMITTED,
 
   // Sent when the Instant loader determines whether the page supports the
-  // Instant API or not. The details is a boolean indicating if the page
-  // supports Instant. The source is not used.
+  // Instant API or not.
   NOTIFICATION_INSTANT_SUPPORT_DETERMINED,
 
   // Sent when the CaptivePortalService checks if we're behind a captive portal.
@@ -1148,7 +1147,7 @@ enum NotificationType {
   // store are changed. The detail of this notification is a list of changes
   // represented by a vector of PasswordStoreChange. Each change includes a
   // change type (ADD, UPDATE, or REMOVE) as well as the
-  // |webkit::forms::PasswordForm|s that were affected.
+  // |content::PasswordForm|s that were affected.
   NOTIFICATION_LOGINS_CHANGED,
 
   // Sent when an import process has ended.

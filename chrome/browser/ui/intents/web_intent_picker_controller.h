@@ -12,12 +12,12 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/string16.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/intents/cws_intents_registry.h"
 #include "chrome/browser/intents/web_intents_registry.h"
 #include "chrome/browser/intents/web_intents_reporting.h"
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
 #include "chrome/browser/ui/intents/web_intent_picker_delegate.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -35,6 +35,10 @@ class WebIntentPickerModel;
 namespace content {
 class WebContents;
 class WebIntentsDispatcher;
+}
+
+namespace web_intents {
+class NativeServiceFactory;
 }
 
 namespace webkit_glue {
@@ -81,11 +85,21 @@ class WebIntentPickerController
 
   // Called by the location bar to see whether the web intents picker button
   // should be shown.
-  bool ShowLocationBarPickerTool();
+  bool ShowLocationBarPickerButton();
+
+  // Record that the location bar button has been animated.
+  void SetLocationBarPickerButtonIndicated() {
+    location_bar_button_indicated_ = true;
+  }
+
+  // Check whether the location bar button has been animated.
+  bool location_bar_picker_button_indicated() const {
+    return location_bar_button_indicated_;
+  }
 
   // Called by the location bar to notify picker that the button was clicked.
   // Called in the controller of the tab which is displaying the service.
-  void LocationBarPickerToolClicked();
+  void LocationBarPickerButtonClicked();
 
   // Called to notify a controller for a page hosting a web intents service
   // that the source WebContents has been destroyed.
@@ -114,13 +128,19 @@ class WebIntentPickerController
   virtual void OnClosing() OVERRIDE;
 
   // extensions::WebstoreInstaller::Delegate implementation.
+  virtual void OnExtensionDownloadStarted(const std::string& id,
+                                          content::DownloadItem* item) OVERRIDE;
+  virtual void OnExtensionDownloadProgress(
+      const std::string& id,
+      content::DownloadItem* item) OVERRIDE;
   virtual void OnExtensionInstallSuccess(const std::string& id) OVERRIDE;
-  virtual void OnExtensionInstallFailure(const std::string& id,
-                                         const std::string& error) OVERRIDE;
+  virtual void OnExtensionInstallFailure(
+      const std::string& id,
+      const std::string& error,
+      extensions::WebstoreInstaller::FailureReason reason) OVERRIDE;
 
  private:
   explicit WebIntentPickerController(content::WebContents* web_contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<WebIntentPickerController>;
 
   friend class WebIntentPickerControllerTest;
@@ -198,7 +218,7 @@ class WebIntentPickerController
       const CWSIntentsRegistry::IntentExtensionList& extensions);
 
   // Called when a suggested extension's icon is fetched.
-  void OnExtensionIconURLFetchComplete(const string16& extension_id,
+  void OnExtensionIconURLFetchComplete(const std::string& extension_id,
                                        const net::URLFetcher* source);
 
   // Called whenever intent data (both from registry and CWS) arrives.
@@ -216,11 +236,11 @@ class WebIntentPickerController
       const base::Closure& unavailable_callback);
 
   // Called when an extension's icon is successfully decoded and resized.
-  void OnExtensionIconAvailable(const string16& extension_id,
+  void OnExtensionIconAvailable(const std::string& extension_id,
                                 const gfx::Image& icon_image);
 
   // Called when an extension's icon failed to be decoded or resized.
-  void OnExtensionIconUnavailable(const string16& extension_id);
+  void OnExtensionIconUnavailable(const std::string& extension_id);
 
   // Signals that a picker event has occurred.
   void OnPickerEvent(WebIntentPickerEvent event);
@@ -248,6 +268,9 @@ class WebIntentPickerController
   // Delegate for ShowDialog and ReshowDialog. Starts all the data queries for
   // loading the picker model and showing the dialog.
   void ShowDialog(bool suppress_defaults);
+
+  // Cancel a pending download if any.
+  void CancelDownload();
 
   WebIntentPickerState dialog_state_;  // Current state of the dialog.
 
@@ -308,6 +331,10 @@ class WebIntentPickerController
   // client page.
   content::WebIntentsDispatcher* intents_dispatcher_;
 
+  // Saves whether the use-another-service button has been
+  // animated on the location bar.
+  bool location_bar_button_indicated_;
+
   // Weak pointer to the tab servicing the intent. Remembered in order to
   // close it when a reply is sent.
   content::WebContents* service_tab_;
@@ -331,6 +358,12 @@ class WebIntentPickerController
   // multiple UMA calls. Should be recalculated each time
   // |intents_dispatcher_| is set.
   web_intents::UMABucket uma_bucket_;
+
+  // Factory used to obtain instance of native services.
+  scoped_ptr<web_intents::NativeServiceFactory> native_services_;
+
+  // The ID of a pending extension download.
+  content::DownloadId download_id_;
 
   DISALLOW_COPY_AND_ASSIGN(WebIntentPickerController);
 };

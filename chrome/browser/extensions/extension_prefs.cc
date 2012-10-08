@@ -162,6 +162,9 @@ const char kPrefOldGrantedAPIs[] = "granted_permissions.api";
 // A preference that indicates when an extension was installed.
 const char kPrefInstallTime[] = "install_time";
 
+// A preference which saves the creation flags for extensions.
+const char kPrefCreationFlags[] = "creation_flags";
+
 // A preference that indicates whether the extension was installed from the
 // Chrome Web Store.
 const char kPrefFromWebStore[] = "from_webstore";
@@ -756,7 +759,7 @@ void ExtensionPrefs::ClearDisableReasons(const std::string& extension_id) {
 
 void ExtensionPrefs::UpdateBlacklist(
     const std::set<std::string>& blacklist_set) {
-  ExtensionIds remove_pref_ids;
+  ExtensionIdList remove_pref_ids;
   std::set<std::string> used_id_set;
   const DictionaryValue* extensions = prefs_->GetDictionary(kExtensionsPref);
 
@@ -885,9 +888,9 @@ void ExtensionPrefs::SetActiveBit(const std::string& extension_id,
                       Value::CreateBooleanValue(active));
 }
 
-void ExtensionPrefs::MigratePermissions(const ExtensionIds& extension_ids) {
+void ExtensionPrefs::MigratePermissions(const ExtensionIdList& extension_ids) {
   PermissionsInfo* info = PermissionsInfo::GetInstance();
-  for (ExtensionIds::const_iterator ext_id =
+  for (ExtensionIdList::const_iterator ext_id =
        extension_ids.begin(); ext_id != extension_ids.end(); ++ext_id) {
 
     // An extension's granted permissions need to be migrated if the
@@ -940,8 +943,8 @@ void ExtensionPrefs::MigratePermissions(const ExtensionIds& extension_ids) {
 }
 
 void ExtensionPrefs::MigrateDisableReasons(
-    const ExtensionIds& extension_ids) {
-  for (ExtensionIds::const_iterator ext_id =
+    const ExtensionIdList& extension_ids) {
+  for (ExtensionIdList::const_iterator ext_id =
        extension_ids.begin(); ext_id != extension_ids.end(); ++ext_id) {
     int value = -1;
     if (ReadExtensionPrefInteger(*ext_id, kDeprecatedPrefDisableReason,
@@ -1423,26 +1426,25 @@ bool ExtensionPrefs::IsExtensionDisabled(
   return DoesExtensionHaveState(id, Extension::DISABLED);
 }
 
-ExtensionPrefs::ExtensionIds ExtensionPrefs::GetToolbarOrder() {
+ExtensionIdList ExtensionPrefs::GetToolbarOrder() {
   return GetExtensionPrefAsVector(GetToolbarOrderKeyName());
 }
 
-void ExtensionPrefs::SetToolbarOrder(const ExtensionIds& extension_ids) {
+void ExtensionPrefs::SetToolbarOrder(const ExtensionIdList& extension_ids) {
   SetExtensionPrefFromVector(GetToolbarOrderKeyName(), extension_ids);
 }
 
-ExtensionPrefs::ExtensionIds ExtensionPrefs::GetActionBoxOrder() {
+ExtensionIdList ExtensionPrefs::GetActionBoxOrder() {
   return GetExtensionPrefAsVector(kExtensionActionBox);
 }
 
-void ExtensionPrefs::SetActionBoxOrder(const ExtensionIds& extension_ids) {
+void ExtensionPrefs::SetActionBoxOrder(const ExtensionIdList& extension_ids) {
   SetExtensionPrefFromVector(kExtensionActionBox, extension_ids);
 }
 
 void ExtensionPrefs::OnExtensionInstalled(
     const Extension* extension,
     Extension::State initial_state,
-    bool from_webstore,
     const syncer::StringOrdinal& page_ordinal) {
   const std::string& id = extension->id();
   CHECK(Extension::IdIsValid(id));
@@ -1452,8 +1454,10 @@ void ExtensionPrefs::OnExtensionInstalled(
   extension_dict->Set(kPrefState, Value::CreateIntegerValue(initial_state));
   extension_dict->Set(kPrefLocation,
                       Value::CreateIntegerValue(extension->location()));
+  extension_dict->Set(kPrefCreationFlags,
+                      Value::CreateIntegerValue(extension->creation_flags()));
   extension_dict->Set(kPrefFromWebStore,
-                      Value::CreateBooleanValue(from_webstore));
+                      Value::CreateBooleanValue(extension->from_webstore()));
   extension_dict->Set(kPrefFromBookmark,
                       Value::CreateBooleanValue(extension->from_bookmark()));
   extension_dict->Set(kPrefWasInstalledByDefault,
@@ -1520,7 +1524,7 @@ void ExtensionPrefs::SetExtensionState(const std::string& extension_id,
 
 bool ExtensionPrefs::GetBrowserActionVisibility(const Extension* extension) {
   if (switch_utils::IsExtensionsInActionBoxEnabled()) {
-    ExtensionIds ids = GetToolbarOrder();
+    ExtensionIdList ids = GetToolbarOrder();
     return find(ids.begin(), ids.end(), extension->id()) != ids.end();
   }
 
@@ -1541,7 +1545,7 @@ void ExtensionPrefs::SetBrowserActionVisibility(const Extension* extension,
     return;
 
   if (switch_utils::IsExtensionsInActionBoxEnabled()) {
-    ExtensionIds ids = GetToolbarOrder();
+    ExtensionIdList ids = GetToolbarOrder();
     ids.push_back(extension->id());
     SetToolbarOrder(ids);
   } else {
@@ -1865,6 +1869,22 @@ bool ExtensionPrefs::IsFromBookmark(
   return false;
 }
 
+int ExtensionPrefs::GetCreationFlags(const std::string& extension_id) const {
+  int creation_flags = Extension::NO_FLAGS;
+  if (!ReadExtensionPrefInteger(extension_id, kPrefCreationFlags,
+                                &creation_flags)) {
+    // Since kPrefCreationFlags was added later, it will be missing for
+    // previously installed extensions.
+    if (IsFromBookmark(extension_id))
+      creation_flags |= Extension::FROM_BOOKMARK;
+    if (IsFromWebStore(extension_id))
+      creation_flags |= Extension::FROM_WEBSTORE;
+    if (WasInstalledByDefault(extension_id))
+      creation_flags |= Extension::WAS_INSTALLED_BY_DEFAULT;
+  }
+  return creation_flags;
+}
+
 bool ExtensionPrefs::WasInstalledByDefault(
     const std::string& extension_id) const {
   const DictionaryValue* dictionary = GetExtensionPref(extension_id);
@@ -1891,7 +1911,7 @@ base::Time ExtensionPrefs::GetInstallTime(
   return base::Time::FromInternalValue(install_time_i64);
 }
 
-void ExtensionPrefs::GetExtensions(ExtensionIds* out) {
+void ExtensionPrefs::GetExtensions(ExtensionIdList* out) {
   CHECK(out);
 
   scoped_ptr<ExtensionsInfo> extensions_info(GetInstalledExtensionsInfo());
@@ -1903,9 +1923,9 @@ void ExtensionPrefs::GetExtensions(ExtensionIds* out) {
 }
 
 // static
-ExtensionPrefs::ExtensionIds ExtensionPrefs::GetExtensionsFrom(
+ExtensionIdList ExtensionPrefs::GetExtensionsFrom(
     const PrefService* pref_service) {
-  ExtensionIds result;
+  ExtensionIdList result;
 
   const base::DictionaryValue* extension_prefs;
   const base::Value* extension_prefs_value =
@@ -1928,10 +1948,10 @@ ExtensionPrefs::ExtensionIds ExtensionPrefs::GetExtensionsFrom(
   return result;
 }
 
-void ExtensionPrefs::FixMissingPrefs(const ExtensionIds& extension_ids) {
+void ExtensionPrefs::FixMissingPrefs(const ExtensionIdList& extension_ids) {
   // Fix old entries that did not get an installation time entry when they
   // were installed or don't have a preferences field.
-  for (ExtensionIds::const_iterator ext_id = extension_ids.begin();
+  for (ExtensionIdList::const_iterator ext_id = extension_ids.begin();
        ext_id != extension_ids.end(); ++ext_id) {
     if (GetInstallTime(*ext_id) == base::Time()) {
       LOG(INFO) << "Could not parse installation time of extension "
@@ -1972,11 +1992,11 @@ void ExtensionPrefs::InitPrefStore(bool extensions_disabled) {
 
   // When this is called, the PrefService is initialized and provides access
   // to the user preferences stored in a JSON file.
-  ExtensionIds extension_ids;
+  ExtensionIdList extension_ids;
   GetExtensions(&extension_ids);
   // Create empty preferences dictionary for each extension (these dictionaries
   // are pruned when persisting the preferences to disk).
-  for (ExtensionIds::iterator ext_id = extension_ids.begin();
+  for (ExtensionIdList::iterator ext_id = extension_ids.begin();
        ext_id != extension_ids.end(); ++ext_id) {
     ScopedExtensionPrefUpdate update(prefs_, *ext_id);
     // This creates an empty dictionary if none is stored.
@@ -1991,7 +2011,7 @@ void ExtensionPrefs::InitPrefStore(bool extensions_disabled) {
   // Store extension controlled preference values in the
   // |extension_pref_value_map_|, which then informs the subscribers
   // (ExtensionPrefStores) about the winning values.
-  for (ExtensionIds::iterator ext_id = extension_ids.begin();
+  for (ExtensionIdList::iterator ext_id = extension_ids.begin();
        ext_id != extension_ids.end(); ++ext_id) {
     extension_pref_value_map_->RegisterExtension(
         *ext_id,
@@ -2113,9 +2133,9 @@ bool ExtensionPrefs::HasIncognitoPrefValue(const std::string& pref_key) {
 }
 
 void ExtensionPrefs::ClearIncognitoSessionOnlyContentSettings() {
-  ExtensionIds extension_ids;
+  ExtensionIdList extension_ids;
   GetExtensions(&extension_ids);
-  for (ExtensionIds::iterator ext_id = extension_ids.begin();
+  for (ExtensionIdList::iterator ext_id = extension_ids.begin();
        ext_id != extension_ids.end(); ++ext_id) {
     content_settings_store_->ClearContentSettingsForExtension(
         *ext_id,
@@ -2180,9 +2200,9 @@ void ExtensionPrefs::RegisterUserPrefs(PrefService* prefs) {
                             PrefService::UNSYNCABLE_PREF);
 }
 
-ExtensionPrefs::ExtensionIds ExtensionPrefs::GetExtensionPrefAsVector(
+ExtensionIdList ExtensionPrefs::GetExtensionPrefAsVector(
     const char* pref) {
-  ExtensionIds extension_ids;
+  ExtensionIdList extension_ids;
   const ListValue* list_of_values = prefs_->GetList(pref);
   if (!list_of_values)
     return extension_ids;
@@ -2195,12 +2215,13 @@ ExtensionPrefs::ExtensionIds ExtensionPrefs::GetExtensionPrefAsVector(
   return extension_ids;
 }
 
-void ExtensionPrefs::SetExtensionPrefFromVector(const char* pref,
-                                                const ExtensionIds& strings) {
+void ExtensionPrefs::SetExtensionPrefFromVector(
+    const char* pref,
+    const ExtensionIdList& strings) {
   ListPrefUpdate update(prefs_, pref);
   ListValue* list_of_values = update.Get();
   list_of_values->Clear();
-  for (ExtensionIds::const_iterator iter = strings.begin();
+  for (ExtensionIdList::const_iterator iter = strings.begin();
        iter != strings.end(); ++iter)
     list_of_values->Append(new StringValue(*iter));
 }

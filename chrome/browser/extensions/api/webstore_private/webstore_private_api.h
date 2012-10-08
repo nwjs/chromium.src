@@ -28,10 +28,6 @@ namespace extensions {
 
 class WebstorePrivateApi {
  public:
-  // Allows you to set the ProfileSyncService the function will use for
-  // testing purposes.
-  static void SetTestingProfileSyncService(ProfileSyncService* service);
-
   // Allows you to override the WebstoreInstaller delegate for testing.
   static void SetWebstoreInstallerDelegateForTesting(
       WebstoreInstaller::Delegate* delegate);
@@ -157,8 +153,10 @@ class CompleteInstallFunction
 
   // WebstoreInstaller::Delegate:
   virtual void OnExtensionInstallSuccess(const std::string& id) OVERRIDE;
-  virtual void OnExtensionInstallFailure(const std::string& id,
-                                         const std::string& error) OVERRIDE;
+  virtual void OnExtensionInstallFailure(
+      const std::string& id,
+      const std::string& error,
+      WebstoreInstaller::FailureReason reason) OVERRIDE;
  protected:
   virtual ~CompleteInstallFunction() {}
 

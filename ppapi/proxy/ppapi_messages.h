@@ -259,7 +259,9 @@ IPC_STRUCT_TRAITS_END()
 
 // These are from the browser to the plugin.
 // Loads the given plugin.
-IPC_MESSAGE_CONTROL1(PpapiMsg_LoadPlugin, FilePath /* path */)
+IPC_MESSAGE_CONTROL2(PpapiMsg_LoadPlugin,
+                     FilePath /* path */,
+                     ppapi::PpapiPermissions /* permissions */)
 
 // Creates a channel to talk to a renderer. The plugin will respond with
 // PpapiHostMsg_ChannelCreated.
@@ -270,8 +272,9 @@ IPC_MESSAGE_CONTROL2(PpapiMsg_CreateChannel,
 // Creates a channel to talk to a renderer. This message is only used by the
 // NaCl IPC proxy. It is intercepted by NaClIPCAdapter, which creates the
 // actual channel and rewrites the message for the untrusted side.
-IPC_MESSAGE_CONTROL3(PpapiMsg_CreateNaClChannel,
+IPC_MESSAGE_CONTROL4(PpapiMsg_CreateNaClChannel,
                      int /* renderer_id */,
+                     ppapi::PpapiPermissions /* permissions */,
                      bool /* incognito */,
                      ppapi::proxy::SerializedHandle /* channel_handle */)
 
@@ -621,7 +624,7 @@ IPC_MESSAGE_ROUTED3(PpapiMsg_PPPContentDecryptor_Decrypt,
                     PP_Instance /* instance */,
                     ppapi::proxy::PPPDecryptor_Buffer /* buffer */,
                     std::string /* serialized_block_info */)
-IPC_MESSAGE_ROUTED3(PpapiMsg_PPPContentDecryptor_DecryptAndDecode,
+IPC_MESSAGE_ROUTED3(PpapiMsg_PPPContentDecryptor_DecryptAndDecodeFrame,
                     PP_Instance /* instance */,
                     ppapi::proxy::PPPDecryptor_Buffer /* buffer */,
                     std::string /* serialized_block_info */)
@@ -675,12 +678,10 @@ IPC_MESSAGE_ROUTED4(PpapiMsg_PPBUDPSocket_SendToACK,
                     bool /* succeeded */,
                     int32_t /* bytes_written */)
 
-#if !defined(OS_NACL) && !defined(NACL_WIN64)
 // PPB_URLLoader_Trusted
 IPC_MESSAGE_ROUTED1(
     PpapiMsg_PPBURLLoader_UpdateProgress,
     ppapi::proxy::PPBURLLoader_UpdateProgress_Params /* params */)
-#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
 // PPB_TCPServerSocket_Private.
 
@@ -1539,6 +1540,12 @@ IPC_MESSAGE_CONTROL2(
     PpapiPluginMsg_ResourceReply,
     ppapi::proxy::ResourceMessageReplyParams /* reply_params */,
     IPC::Message /* nested_msg */)
+
+IPC_SYNC_MESSAGE_CONTROL2_2(PpapiHostMsg_ResourceSyncCall,
+    ppapi::proxy::ResourceMessageCallParams /* call_params */,
+    IPC::Message /* nested_msg */,
+    ppapi::proxy::ResourceMessageReplyParams /* reply_params */,
+    IPC::Message /* reply_msg */)
 
 //-----------------------------------------------------------------------------
 // Messages for resources using call/reply above.

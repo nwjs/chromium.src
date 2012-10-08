@@ -21,6 +21,8 @@ class Bus;
 
 namespace chromeos {
 
+class ShillPropertyChangedObserver;
+
 // ShillManagerClient is used to communicate with the Shill Manager
 // service.  All methods should be called from the origin thread which
 // initializes the DBusThreadManager instance.
@@ -28,20 +30,22 @@ class CHROMEOS_EXPORT ShillManagerClient {
  public:
   typedef ShillClientHelper::PropertyChangedHandler PropertyChangedHandler;
   typedef ShillClientHelper::DictionaryValueCallback DictionaryValueCallback;
+  typedef ShillClientHelper::ErrorCallback ErrorCallback;
 
   virtual ~ShillManagerClient();
 
   // Factory function, creates a new instance which is owned by the caller.
   // For normal usage, access the singleton via DBusThreadManager::Get().
   static ShillManagerClient* Create(DBusClientImplementationType type,
-                                       dbus::Bus* bus);
+                                    dbus::Bus* bus);
 
-  // Sets PropertyChanged signal handler.
-  virtual void SetPropertyChangedHandler(
-      const PropertyChangedHandler& handler) = 0;
+  // Adds a property changed |observer|.
+  virtual void AddPropertyChangedObserver(
+      ShillPropertyChangedObserver* observer) = 0;
 
-  // Resets PropertyChanged signal handler.
-  virtual void ResetPropertyChangedHandler() = 0;
+  // Removes a property changed |observer|.
+  virtual void RemovePropertyChangedObserver(
+      ShillPropertyChangedObserver* observer) = 0;
 
   // Calls GetProperties method.
   // |callback| is called after the method call succeeds.
@@ -59,32 +63,38 @@ class CHROMEOS_EXPORT ShillManagerClient {
   // |callback| is called after the method call succeeds.
   virtual void SetProperty(const std::string& name,
                            const base::Value& value,
-                           const VoidDBusMethodCallback& callback) = 0;
+                           const base::Closure& callback,
+                           const ErrorCallback& error_callback) = 0;
 
   // Calls RequestScan method.
   // |callback| is called after the method call succeeds.
   virtual void RequestScan(const std::string& type,
-                           const VoidDBusMethodCallback& callback) = 0;
+                           const base::Closure& callback,
+                           const ErrorCallback& error_callback) = 0;
 
   // Calls EnableTechnology method.
   // |callback| is called after the method call succeeds.
   virtual void EnableTechnology(const std::string& type,
-                                const VoidDBusMethodCallback& callback) = 0;
+                                const base::Closure& callback,
+                                const ErrorCallback& error_callback) = 0;
 
   // Calls DisableTechnology method.
   // |callback| is called after the method call succeeds.
   virtual void DisableTechnology(const std::string& type,
-                                 const VoidDBusMethodCallback& callback) = 0;
+                                 const base::Closure& callback,
+                                 const ErrorCallback& error_callback) = 0;
 
   // Calls ConfigureService method.
   // |callback| is called after the method call succeeds.
   virtual void ConfigureService(const base::DictionaryValue& properties,
-                                const VoidDBusMethodCallback& callback) = 0;
+                                const base::Closure& callback,
+                                const ErrorCallback& error_callback) = 0;
 
   // Calls GetService method.
   // |callback| is called after the method call succeeds.
   virtual void GetService(const base::DictionaryValue& properties,
-                          const ObjectPathDBusMethodCallback& callback) = 0;
+                          const ObjectPathCallback& callback,
+                          const ErrorCallback& error_callback) = 0;
 
  protected:
   // Create() should be used instead.

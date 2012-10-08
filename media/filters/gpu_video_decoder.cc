@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/callback_helpers.h"
+#include "base/cpu.h"
 #include "base/message_loop.h"
 #include "base/stl_util.h"
 #include "media/base/decoder_buffer.h"
@@ -67,10 +68,19 @@ GpuVideoDecoder::GpuVideoDecoder(
 }
 
 void GpuVideoDecoder::Reset(const base::Closure& closure)  {
-  if (!gvd_loop_proxy_->BelongsToCurrentThread() ||
-      state_ == kDrainingDecoder) {
+  if (!gvd_loop_proxy_->BelongsToCurrentThread()) {
     gvd_loop_proxy_->PostTask(FROM_HERE, base::Bind(
         &GpuVideoDecoder::Reset, this, closure));
+    return;
+  }
+
+  if (state_ == kDrainingDecoder) {
+    gvd_loop_proxy_->PostTask(FROM_HERE, base::Bind(
+        &GpuVideoDecoder::Reset, this, closure));
+    // NOTE: if we're deferring Reset() until a Flush() completes, return
+    // queued pictures to the VDA so they can be used to finish that Flush().
+    if (pending_read_cb_.is_null())
+      ready_video_frames_.clear();
     return;
   }
 
@@ -138,6 +148,22 @@ void GpuVideoDecoder::Initialize(const scoped_refptr<DemuxerStream>& stream,
                 << config.AsHumanReadableString();
     status_cb.Run(PIPELINE_ERROR_DECODE);
     return;
+  }
+
+  // Only non-Windows, Ivy Bridge+ platforms can support more than 1920x1080.
+  if (config.coded_size().width() > 1920 ||
+      config.coded_size().height() > 1080) {
+    base::CPU cpu;
+    bool hw_large_video_support =
+        cpu.vendor_name() == "GenuineIntel" && cpu.model() >= 58;
+    bool os_large_video_support = true;
+#if defined(OS_WINDOWS)
+    os_large_video_support = false;
+#endif
+    if (!(os_large_video_support && hw_large_video_support)) {
+      status_cb.Run(DECODER_ERROR_NOT_SUPPORTED);
+      return;
+    }
   }
 
   VideoDecodeAccelerator* vda =
@@ -221,14 +247,7 @@ void GpuVideoDecoder::Read(const ReadCB& read_cb) {
 }
 
 bool GpuVideoDecoder::CanMoreDecodeWorkBeDone() {
-#if defined(OS_WIN)
-  // TODO(ananta): the DXVA decoder stymies our attempt to pipeline Decode()s by
-  // claiming to be done with previous work way too quickly.  Until this is
-  // resolved we don't pipeline work.  http://crbug.com/150925
-  return bitstream_buffers_in_decoder_.empty() && !pending_read_cb_.is_null();
-#else
   return bitstream_buffers_in_decoder_.size() < kMaxInFlightDecodes;
-#endif
 }
 
 void GpuVideoDecoder::RequestBufferDecode(
@@ -401,6 +420,8 @@ void GpuVideoDecoder::PictureReady(const media::Picture& picture) {
   scoped_refptr<VideoFrame> frame(VideoFrame::WrapNativeTexture(
       pb.texture_id(), decoder_texture_target_, pb.size(), natural_size,
       timestamp,
+      base::Bind(&Factories::ReadPixels, factories_, pb.texture_id(),
+                 decoder_texture_target_, pb.size()),
       base::Bind(&GpuVideoDecoder::ReusePictureBuffer, this,
                  picture.picture_buffer_id())));
 

@@ -134,7 +134,6 @@
         '../third_party/skia/include/pdf/SkPDFDevice.h',
         '../third_party/skia/include/pdf/SkPDFDocument.h',
 
-        '../third_party/skia/include/ports/SkStream_Win.h',
         '../third_party/skia/include/ports/SkTypeface_win.h',
 
         '../third_party/skia/include/images/SkFlipPixelRef.h',
@@ -247,6 +246,10 @@
         # font rendering in high DPI mode.
         # See https://codereview.appspot.com/6495089/
         'SK_SUPPORT_HINTING_SCALE_FACTOR',
+
+        # Temporarily keep old int-srcrect behavior, until we determine if
+        # the few failures are a bug or not.
+        'SK_SUPPORT_INT_SRCRECT_DRAWBITMAPRECT',
       ],
       'sources!': [
         '../third_party/skia/include/core/SkTypes.h',
@@ -270,12 +273,15 @@
             'SK_SUPPORT_GPU=0',
           ],
         }],
-        ['order_profiling != 0', {
-          'target_conditions' : [
-            ['_toolset=="target"', {
-              'cflags!': [ '-finstrument-functions' ],
-            }],
+        ['release_valgrind_build == 1', {
+          'defines': [
+            'SK_DEBUG_PATH_REF=1',
           ],
+          'direct_dependent_settings': {
+            'defines': [
+              'SK_DEBUG_PATH_REF=1',
+            ],
+          },
         }],
         #Settings for text blitting, chosen to approximate the system browser.
         [ 'OS == "linux"', {
@@ -303,6 +309,11 @@
           'defines+': [
             'SK_USE_POSIX_THREADS',
           ],
+          'direct_dependent_settings': {
+            'defines': [
+              'SK_USE_POSIX_THREADS',
+            ],
+          },
           'sources!': [
             'ext/SkThread_chrome.cc',
           ],
@@ -647,13 +658,6 @@
         '../third_party/skia/src/core',
       ],
       'conditions': [
-        ['order_profiling != 0', {
-          'target_conditions' : [
-            ['_toolset=="target"', {
-              'cflags!': [ '-finstrument-functions' ],
-            }],
-          ],
-        }],
         [ 'os_posix == 1 and OS != "mac" and OS != "android" and target_arch != "arm"', {
           'cflags': [
             '-msse2',
@@ -682,13 +686,6 @@
         },
         {  # arm
           'conditions': [
-            ['order_profiling != 0', {
-              'target_conditions' : [
-                ['_toolset=="target"', {
-                  'cflags!': [ '-finstrument-functions' ],
-                }],
-              ],
-            }],
             [ 'armv7 == 1', {
               'defines': [
                 '__ARM_ARCH__=7',
@@ -771,13 +768,6 @@
         [ 'OS in ["linux", "freebsd", "openbsd", "solaris"]', {
           'cflags': [
             '-mssse3',
-          ],
-        }],
-        ['order_profiling != 0', {
-          'target_conditions' : [
-            ['_toolset=="target"', {
-              'cflags!': [ '-finstrument-functions' ],
-            }],
           ],
         }],
         [ 'OS == "mac"', {

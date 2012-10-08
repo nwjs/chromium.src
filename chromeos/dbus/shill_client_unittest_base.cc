@@ -30,6 +30,30 @@ void RunTask(const tracked_objects::Location& from_here,
 
 }  // namespace
 
+ValueMatcher::ValueMatcher(const base::Value& value)
+  : expected_value_(value.DeepCopy()) {}
+
+bool ValueMatcher::MatchAndExplain(const base::Value& value,
+                             MatchResultListener* listener) const {
+  return expected_value_->Equals(&value);
+}
+
+void ValueMatcher::DescribeTo(::std::ostream* os) const {
+  std::string expected_value_str;
+  base::JSONWriter::WriteWithOptions(expected_value_.get(),
+                                     base::JSONWriter::OPTIONS_PRETTY_PRINT,
+                                     &expected_value_str);
+  *os << "value equals " << expected_value_str;
+}
+
+void ValueMatcher::DescribeNegationTo(::std::ostream* os) const {
+  std::string expected_value_str;
+  base::JSONWriter::WriteWithOptions(expected_value_.get(),
+                                     base::JSONWriter::OPTIONS_PRETTY_PRINT,
+                                     &expected_value_str);
+  *os << "value does not equal " << expected_value_str;
+}
+
 ShillClientUnittestBase::MockClosure::MockClosure() {}
 
 ShillClientUnittestBase::MockClosure::~MockClosure() {}
@@ -42,6 +66,12 @@ base::Closure ShillClientUnittestBase::MockClosure::GetCallback() {
 ShillClientUnittestBase::MockErrorCallback::MockErrorCallback() {}
 
 ShillClientUnittestBase::MockErrorCallback::~MockErrorCallback() {}
+
+ShillClientUnittestBase::MockPropertyChangeObserver::
+  MockPropertyChangeObserver() {}
+
+ShillClientUnittestBase::MockPropertyChangeObserver::
+  ~MockPropertyChangeObserver() {}
 
 ShillClientHelper::ErrorCallback
 ShillClientUnittestBase::MockErrorCallback::GetCallback() {
@@ -196,16 +226,30 @@ void ShillClientUnittestBase::ExpectObjectPathResult(
 }
 
 // static
-void ShillClientUnittestBase::ExpectDictionaryValueResult(
+void ShillClientUnittestBase::ExpectObjectPathResultWithoutStatus(
+    const dbus::ObjectPath& expected_result,
+    const dbus::ObjectPath& result) {
+  EXPECT_EQ(expected_result, result);
+}
+
+// static
+void ShillClientUnittestBase::ExpectDictionaryValueResultWithoutStatus(
     const base::DictionaryValue* expected_result,
-    DBusMethodCallStatus call_status,
     const base::DictionaryValue& result) {
-  EXPECT_EQ(DBUS_METHOD_CALL_SUCCESS, call_status);
   std::string expected_result_string;
   base::JSONWriter::Write(expected_result, &expected_result_string);
   std::string result_string;
   base::JSONWriter::Write(&result, &result_string);
   EXPECT_EQ(expected_result_string, result_string);
+}
+
+// static
+void ShillClientUnittestBase::ExpectDictionaryValueResult(
+    const base::DictionaryValue* expected_result,
+    DBusMethodCallStatus call_status,
+    const base::DictionaryValue& result) {
+  EXPECT_EQ(DBUS_METHOD_CALL_SUCCESS, call_status);
+  ExpectDictionaryValueResultWithoutStatus(expected_result, result);
 }
 
 void ShillClientUnittestBase::OnConnectToSignal(

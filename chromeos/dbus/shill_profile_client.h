@@ -29,13 +29,17 @@ class ObjectPath;
 
 namespace chromeos {
 
+class ShillPropertyChangedObserver;
+
 // ShillProfileClient is used to communicate with the Shill Profile
 // service.  All methods should be called from the origin thread which
 // initializes the DBusThreadManager instance.
 class CHROMEOS_EXPORT ShillProfileClient {
  public:
   typedef ShillClientHelper::PropertyChangedHandler PropertyChangedHandler;
-  typedef ShillClientHelper::DictionaryValueCallback DictionaryValueCallback;
+  typedef ShillClientHelper::DictionaryValueCallbackWithoutStatus
+      DictionaryValueCallbackWithoutStatus;
+  typedef ShillClientHelper::ErrorCallback ErrorCallback;
 
   virtual ~ShillProfileClient();
 
@@ -44,31 +48,36 @@ class CHROMEOS_EXPORT ShillProfileClient {
   static ShillProfileClient* Create(DBusClientImplementationType type,
                                        dbus::Bus* bus);
 
-  // Sets PropertyChanged signal handler.
-  virtual void SetPropertyChangedHandler(
+  // Adds a property changed |observer| for the profile at |profile_path|.
+  virtual void AddPropertyChangedObserver(
       const dbus::ObjectPath& profile_path,
-      const PropertyChangedHandler& handler) = 0;
+      ShillPropertyChangedObserver* observer) = 0;
 
-  // Resets PropertyChanged signal handler.
-  virtual void ResetPropertyChangedHandler(
-      const dbus::ObjectPath& profile_path) = 0;
+  // Removes a property changed |observer| for the profile at |profile_path|.
+  virtual void RemovePropertyChangedObserver(
+      const dbus::ObjectPath& profile_path,
+      ShillPropertyChangedObserver* observer) = 0;
 
   // Calls GetProperties method.
   // |callback| is called after the method call succeeds.
-  virtual void GetProperties(const dbus::ObjectPath& profile_path,
-                             const DictionaryValueCallback& callback) = 0;
+  virtual void GetProperties(
+      const dbus::ObjectPath& profile_path,
+      const DictionaryValueCallbackWithoutStatus& callback,
+      const ErrorCallback& error_callback) = 0;
 
   // Calls GetEntry method.
   // |callback| is called after the method call succeeds.
   virtual void GetEntry(const dbus::ObjectPath& profile_path,
                         const std::string& entry_path,
-                        const DictionaryValueCallback& callback) = 0;
+                        const DictionaryValueCallbackWithoutStatus& callback,
+                        const ErrorCallback& error_callback) = 0;
 
   // Calls DeleteEntry method.
   // |callback| is called after the method call succeeds.
   virtual void DeleteEntry(const dbus::ObjectPath& profile_path,
                            const std::string& entry_path,
-                           const VoidDBusMethodCallback& callback) = 0;
+                           const base::Closure& callback,
+                           const ErrorCallback& error_callback) = 0;
 
  protected:
   // Create() should be used instead.

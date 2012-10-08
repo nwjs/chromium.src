@@ -4,9 +4,6 @@
 
 #include "base/win/shortcut.h"
 
-#include <windows.h>
-#include <objbase.h>
-
 #include <string>
 
 #include "base/file_path.h"
@@ -14,6 +11,7 @@
 #include "base/scoped_temp_dir.h"
 #include "base/test/test_file_util.h"
 #include "base/test/test_shortcut_win.h"
+#include "base/win/scoped_com_initializer.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace {
@@ -26,8 +24,6 @@ class ShortcutTest : public testing::Test {
   virtual void SetUp() OVERRIDE {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     ASSERT_TRUE(temp_dir_2_.CreateUniqueTempDir());
-
-    EXPECT_EQ(S_OK, CoInitialize(NULL));
 
     link_file_ = temp_dir_.path().Append(L"My Link.lnk");
 
@@ -65,10 +61,7 @@ class ShortcutTest : public testing::Test {
     }
   }
 
-  virtual void TearDown() OVERRIDE {
-    CoUninitialize();
-  }
-
+  base::win::ScopedCOMInitializer com_initializer_;
   ScopedTempDir temp_dir_;
   ScopedTempDir temp_dir_2_;
 
@@ -122,16 +115,14 @@ TEST_F(ShortcutTest, CreateShortcutWithOnlySomeProperties) {
       link_file_, target_and_args_properties,
       base::win::SHORTCUT_CREATE_ALWAYS));
 
-  ASSERT_EQ(base::win::VERIFY_SHORTCUT_SUCCESS,
-            base::win::VerifyShortcut(link_file_, target_and_args_properties));
+  base::win::ValidateShortcut(link_file_, target_and_args_properties);
 }
 
 TEST_F(ShortcutTest, CreateShortcutVerifyProperties) {
   ASSERT_TRUE(base::win::CreateOrUpdateShortcutLink(
       link_file_, link_properties_, base::win::SHORTCUT_CREATE_ALWAYS));
 
-  ASSERT_EQ(base::win::VERIFY_SHORTCUT_SUCCESS,
-            base::win::VerifyShortcut(link_file_, link_properties_));
+  base::win::ValidateShortcut(link_file_, link_properties_);
 }
 
 TEST_F(ShortcutTest, UpdateShortcutVerifyProperties) {
@@ -141,8 +132,7 @@ TEST_F(ShortcutTest, UpdateShortcutVerifyProperties) {
   ASSERT_TRUE(base::win::CreateOrUpdateShortcutLink(
       link_file_, link_properties_2_, base::win::SHORTCUT_UPDATE_EXISTING));
 
-  ASSERT_EQ(base::win::VERIFY_SHORTCUT_SUCCESS,
-            base::win::VerifyShortcut(link_file_, link_properties_2_));
+  base::win::ValidateShortcut(link_file_, link_properties_2_);
 }
 
 TEST_F(ShortcutTest, UpdateShortcutUpdateOnlyTargetAndResolve) {
@@ -158,8 +148,7 @@ TEST_F(ShortcutTest, UpdateShortcutUpdateOnlyTargetAndResolve) {
 
   base::win::ShortcutProperties expected_properties = link_properties_;
   expected_properties.set_target(link_properties_2_.target);
-  ASSERT_EQ(base::win::VERIFY_SHORTCUT_SUCCESS,
-            base::win::VerifyShortcut(link_file_, expected_properties));
+  base::win::ValidateShortcut(link_file_, expected_properties);
 
   FilePath resolved_name;
   EXPECT_TRUE(base::win::ResolveShortcut(link_file_, &resolved_name, NULL));
@@ -182,8 +171,7 @@ TEST_F(ShortcutTest, UpdateShortcutMakeDualMode) {
 
   base::win::ShortcutProperties expected_properties = link_properties_;
   expected_properties.set_dual_mode(true);
-  ASSERT_EQ(base::win::VERIFY_SHORTCUT_SUCCESS,
-            base::win::VerifyShortcut(link_file_, expected_properties));
+  base::win::ValidateShortcut(link_file_, expected_properties);
 }
 
 TEST_F(ShortcutTest, UpdateShortcutRemoveDualMode) {
@@ -199,8 +187,7 @@ TEST_F(ShortcutTest, UpdateShortcutRemoveDualMode) {
 
   base::win::ShortcutProperties expected_properties = link_properties_2_;
   expected_properties.set_dual_mode(false);
-  ASSERT_EQ(base::win::VERIFY_SHORTCUT_SUCCESS,
-            base::win::VerifyShortcut(link_file_, expected_properties));
+  base::win::ValidateShortcut(link_file_, expected_properties);
 }
 
 TEST_F(ShortcutTest, UpdateShortcutClearArguments) {
@@ -216,6 +203,48 @@ TEST_F(ShortcutTest, UpdateShortcutClearArguments) {
 
   base::win::ShortcutProperties expected_properties = link_properties_;
   expected_properties.set_arguments(string16());
-  ASSERT_EQ(base::win::VERIFY_SHORTCUT_SUCCESS,
-            base::win::VerifyShortcut(link_file_, expected_properties));
+  base::win::ValidateShortcut(link_file_, expected_properties);
+}
+
+TEST_F(ShortcutTest, FailUpdateShortcutThatDoesNotExist) {
+  ASSERT_FALSE(base::win::CreateOrUpdateShortcutLink(
+      link_file_, link_properties_, base::win::SHORTCUT_UPDATE_EXISTING));
+  ASSERT_FALSE(file_util::PathExists(link_file_));
+}
+
+TEST_F(ShortcutTest, TruncateShortcutAllProperties) {
+  ASSERT_TRUE(base::win::CreateOrUpdateShortcutLink(
+      link_file_, link_properties_, base::win::SHORTCUT_CREATE_ALWAYS));
+
+  ASSERT_TRUE(base::win::CreateOrUpdateShortcutLink(
+      link_file_, link_properties_2_, base::win::SHORTCUT_REPLACE_EXISTING));
+
+  base::win::ValidateShortcut(link_file_, link_properties_2_);
+}
+
+TEST_F(ShortcutTest, TruncateShortcutSomeProperties) {
+  ASSERT_TRUE(base::win::CreateOrUpdateShortcutLink(
+      link_file_, link_properties_, base::win::SHORTCUT_CREATE_ALWAYS));
+
+  base::win::ShortcutProperties new_properties;
+  new_properties.set_target(link_properties_2_.target);
+  new_properties.set_description(link_properties_2_.description);
+  ASSERT_TRUE(base::win::CreateOrUpdateShortcutLink(
+      link_file_, new_properties, base::win::SHORTCUT_REPLACE_EXISTING));
+
+  // Expect only properties in |new_properties| to be set, all other properties
+  // should have been overwritten.
+  base::win::ShortcutProperties expected_properties = new_properties;
+  expected_properties.set_working_dir(FilePath());
+  expected_properties.set_arguments(string16());
+  expected_properties.set_icon(FilePath(), 0);
+  expected_properties.set_app_id(string16());
+  expected_properties.set_dual_mode(false);
+  base::win::ValidateShortcut(link_file_, expected_properties);
+}
+
+TEST_F(ShortcutTest, FailTruncateShortcutThatDoesNotExist) {
+  ASSERT_FALSE(base::win::CreateOrUpdateShortcutLink(
+      link_file_, link_properties_, base::win::SHORTCUT_REPLACE_EXISTING));
+  ASSERT_FALSE(file_util::PathExists(link_file_));
 }

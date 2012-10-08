@@ -131,6 +131,7 @@
 #include "chrome/browser/ui/sync/browser_synced_window_delegate.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_modal_confirm_dialog.h"
 #include "chrome/browser/ui/tabs/dock_info.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -544,11 +545,12 @@ bool Browser::is_devtools() const {
 // Browser, State Storage and Retrieval for UI:
 
 gfx::Image Browser::GetCurrentPageIcon() const {
-  TabContents* contents = chrome::GetActiveTabContents(this);
-  // |contents| can be NULL since GetCurrentPageIcon() is called by the window
-  // during the window's creation (before tabs have been added).
-  return contents ?
-      contents->favicon_tab_helper()->GetFavicon() : gfx::Image();
+  WebContents* web_contents = chrome::GetActiveWebContents(this);
+  // |web_contents| can be NULL since GetCurrentPageIcon() is called by the
+  // window during the window's creation (before tabs have been added).
+  FaviconTabHelper* favicon_tab_helper =
+      web_contents ? FaviconTabHelper::FromWebContents(web_contents) : NULL;
+  return favicon_tab_helper ? favicon_tab_helper->GetFavicon() : gfx::Image();
 }
 
 string16 Browser::GetWindowTitleForCurrentTab() const {
@@ -876,15 +878,15 @@ void Browser::RegisterProtocolHandlerHelper(WebContents* web_contents,
 
   ProtocolHandlerRegistry* registry =
       tab_contents->profile()->GetProtocolHandlerRegistry();
-  TabSpecificContentSettings* content_settings =
-      tab_contents->content_settings();
+  TabSpecificContentSettings* tab_content_settings =
+      TabSpecificContentSettings::FromWebContents(web_contents);
 
   if (registry->SilentlyHandleRegisterHandlerRequest(handler))
     return;
 
   if (!user_gesture && window) {
-    content_settings->set_pending_protocol_handler(handler);
-    content_settings->set_previous_protocol_handler(
+    tab_content_settings->set_pending_protocol_handler(handler);
+    tab_content_settings->set_previous_protocol_handler(
         registry->GetHandlerFor(handler.protocol()));
     window->GetLocationBar()->UpdateContentSettingsIcons();
     return;
@@ -893,7 +895,7 @@ void Browser::RegisterProtocolHandlerHelper(WebContents* web_contents,
   // Make sure content-setting icon is turned off in case the page does
   // ungestured and gestured RPH calls.
   if (window) {
-    content_settings->ClearPendingProtocolHandler();
+    tab_content_settings->ClearPendingProtocolHandler();
     window->GetLocationBar()->UpdateContentSettingsIcons();
   }
 
@@ -928,15 +930,15 @@ void Browser::FindReplyHelper(WebContents* web_contents,
                               const gfx::Rect& selection_rect,
                               int active_match_ordinal,
                               bool final_update) {
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
-  if (!tab_contents || !tab_contents->find_tab_helper())
+  FindTabHelper* find_tab_helper = FindTabHelper::FromWebContents(web_contents);
+  if (!find_tab_helper)
     return;
 
-  tab_contents->find_tab_helper()->HandleFindReply(request_id,
-                                                   number_of_matches,
-                                                   selection_rect,
-                                                   active_match_ordinal,
-                                                   final_update);
+  find_tab_helper->HandleFindReply(request_id,
+                                   number_of_matches,
+                                   selection_rect,
+                                   active_match_ordinal,
+                                   final_update);
 }
 
 // static
@@ -1031,12 +1033,20 @@ void Browser::TabInsertedAt(TabContents* contents,
 
   registrar_.Add(this, content::NOTIFICATION_INTERSTITIAL_DETACHED,
                  content::Source<WebContents>(contents->web_contents()));
+  SessionService* session_service =
+      SessionServiceFactory::GetForProfile(profile_);
+  if (session_service)
+    session_service->TabInserted(contents->web_contents());
 }
 
 void Browser::TabClosingAt(TabStripModel* tab_strip_model,
                            TabContents* contents,
                            int index) {
   fullscreen_controller_->OnTabClosing(contents->web_contents());
+  SessionService* session_service =
+      SessionServiceFactory::GetForProfile(profile_);
+  if (session_service)
+    session_service->TabClosing(contents->web_contents());
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_TAB_CLOSING,
       content::Source<NavigationController>(
@@ -1146,6 +1156,10 @@ void Browser::TabReplacedAt(TabStripModel* tab_strip_model,
                             TabContents* new_contents,
                             int index) {
   TabDetachedAtImpl(old_contents, index, DETACH_TYPE_REPLACE);
+  SessionService* session_service =
+      SessionServiceFactory::GetForProfile(profile_);
+  if (session_service)
+    session_service->TabClosing(old_contents->web_contents());
   TabInsertedAt(new_contents, index, (index == active_index()));
 
   int entry_count =
@@ -1158,8 +1172,6 @@ void Browser::TabReplacedAt(TabStripModel* tab_strip_model,
         entry_count - 1);
   }
 
-  SessionService* session_service =
-      SessionServiceFactory::GetForProfile(profile());
   if (session_service) {
     // The new_contents may end up with a different navigation stack. Force
     // the session service to update itself.
@@ -1270,6 +1282,7 @@ WebContents* Browser::OpenURLFromTab(WebContents* source,
   nav_params.source_contents = chrome::GetTabContentsAt(this,
       tab_strip_model_->GetIndexOfWebContents(source));
   nav_params.referrer = params.referrer;
+  nav_params.extra_headers = params.extra_headers;
   nav_params.disposition = params.disposition;
   nav_params.tabstrip_add_types = TabStripModel::ADD_NONE;
   nav_params.window_action = chrome::NavigateParams::SHOW_WINDOW;
@@ -1393,10 +1406,6 @@ bool Browser::TakeFocus(content::WebContents* source,
   return false;
 }
 
-bool Browser::IsApplication() const {
-  return is_app();
-}
-
 gfx::Rect Browser::GetRootWindowResizerRect() const {
   return window_->GetRootWindowResizerRect();
 }
@@ -1478,15 +1487,8 @@ void Browser::ViewSourceForFrame(WebContents* source,
 }
 
 void Browser::ShowRepostFormWarningDialog(WebContents* source) {
-  chrome::ShowTabModalConfirmDialog(new RepostFormWarningController(source),
-                                    TabContents::FromWebContents(source));
-}
-
-bool Browser::ShouldAddNavigationToHistory(
-    const history::HistoryAddPageArgs& add_page_args,
-    content::NavigationType navigation_type) {
-  // Don't update history if running as app.
-  return !IsApplication();
+  TabModalConfirmDialog::Create(new RepostFormWarningController(source),
+                                TabContents::FromWebContents(source));
 }
 
 bool Browser::ShouldCreateWebContents(
@@ -1735,16 +1737,21 @@ void Browser::ConfirmAddSearchProvider(TemplateURL* template_url,
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, ConstrainedWindowTabHelperDelegate implementation:
 
-void Browser::SetTabContentBlocked(TabContents* tab_contents, bool blocked) {
-  int index = tab_strip_model_->GetIndexOfTabContents(tab_contents);
+void Browser::SetTabContentBlocked(content::WebContents* web_contents,
+                                   bool blocked) {
+  int index = tab_strip_model_->GetIndexOfWebContents(web_contents);
   if (index == TabStripModel::kNoTab) {
     NOTREACHED();
     return;
   }
   tab_strip_model_->SetTabBlocked(index, blocked);
   command_controller_->PrintingStateChanged();
-  if (!blocked && chrome::GetActiveTabContents(this) == tab_contents)
-    tab_contents->web_contents()->Focus();
+  if (!blocked && chrome::GetActiveWebContents(this) == web_contents)
+    web_contents->Focus();
+}
+
+BrowserWindow* Browser::GetBrowserWindow() {
+  return window();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

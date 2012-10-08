@@ -6,17 +6,16 @@
 #include "ThrottledTextureUploader.h"
 
 #include "Extensions3DChromium.h"
+#include "TraceEvent.h"
 #include <algorithm>
+#include <public/Platform.h>
 #include <public/WebGraphicsContext3D.h>
 #include <vector>
 
 namespace {
 
-// Number of pending texture update queries to allow.
-static const size_t maxPendingQueries = 2;
-
 // How many previous uploads to use when predicting future throughput.
-static const size_t uploadHistorySize = 10;
+static const size_t uploadHistorySize = 100;
 
 // Global estimated number of textures per second to maintain estimates across
 // subsequent instances of ThrottledTextureUploader.
@@ -32,7 +31,7 @@ ThrottledTextureUploader::Query::Query(WebKit::WebGraphicsContext3D* context)
     , m_queryId(0)
     , m_value(0)
     , m_hasValue(false)
-    , m_texturesUploaded(0)
+    , m_isNonBlocking(false)
 {
     m_queryId = m_context->createQueryEXT();
 }
@@ -45,13 +44,13 @@ ThrottledTextureUploader::Query::~Query()
 void ThrottledTextureUploader::Query::begin()
 {
     m_hasValue = false;
+    m_isNonBlocking = false;
     m_context->beginQueryEXT(Extensions3DChromium::COMMANDS_ISSUED_CHROMIUM, m_queryId);
 }
 
-void ThrottledTextureUploader::Query::end(double texturesUploaded)
+void ThrottledTextureUploader::Query::end()
 {
     m_context->endQueryEXT(Extensions3DChromium::COMMANDS_ISSUED_CHROMIUM);
-    m_texturesUploaded = texturesUploaded;
 }
 
 bool ThrottledTextureUploader::Query::isPending()
@@ -76,44 +75,45 @@ unsigned ThrottledTextureUploader::Query::value()
     return m_value;
 }
 
-double ThrottledTextureUploader::Query::texturesUploaded()
+void ThrottledTextureUploader::Query::markAsNonBlocking()
 {
-    return m_texturesUploaded;
+    m_isNonBlocking = true;
+}
+
+bool ThrottledTextureUploader::Query::isNonBlocking()
+{
+    return m_isNonBlocking;
 }
 
 ThrottledTextureUploader::ThrottledTextureUploader(WebKit::WebGraphicsContext3D* context)
     : m_context(context)
-    , m_maxPendingQueries(maxPendingQueries)
     , m_texturesPerSecondHistory(uploadHistorySize, estimatedTexturesPerSecondGlobal)
-    , m_texturesUploaded(0)
+    , m_numBlockingTextureUploads(0)
 {
-}
-
-ThrottledTextureUploader::ThrottledTextureUploader(WebKit::WebGraphicsContext3D* context, size_t pendingUploadLimit)
-    : m_context(context)
-    , m_maxPendingQueries(pendingUploadLimit)
-    , m_texturesPerSecondHistory(uploadHistorySize, estimatedTexturesPerSecondGlobal)
-    , m_texturesUploaded(0)
-{
-    ASSERT(m_context);
 }
 
 ThrottledTextureUploader::~ThrottledTextureUploader()
 {
 }
 
-bool ThrottledTextureUploader::isBusy()
+size_t ThrottledTextureUploader::numBlockingUploads()
 {
     processQueries();
+    return m_numBlockingTextureUploads;
+}
 
-    if (!m_availableQueries.isEmpty())
-        return false;
+void ThrottledTextureUploader::markPendingUploadsAsNonBlocking()
+{
+    for (Deque<OwnPtr<Query> >::iterator it = m_pendingQueries.begin();
+         it != m_pendingQueries.end(); ++it) {
+        if (it->get()->isNonBlocking())
+            continue;
 
-    if (m_pendingQueries.size() == m_maxPendingQueries)
-        return true;
+        m_numBlockingTextureUploads--;
+        it->get()->markAsNonBlocking();
+    }
 
-    m_availableQueries.append(Query::create(m_context));
-    return false;
+    ASSERT(!m_numBlockingTextureUploads);
 }
 
 double ThrottledTextureUploader::estimatedTexturesPerSecond()
@@ -128,32 +128,40 @@ double ThrottledTextureUploader::estimatedTexturesPerSecond()
                                       m_texturesPerSecondHistory.end());
     std::sort(sortedHistory.begin(), sortedHistory.end());
 
-    estimatedTexturesPerSecondGlobal = sortedHistory[sortedHistory.size() / 2];
+    estimatedTexturesPerSecondGlobal = sortedHistory[sortedHistory.size() * 2 / 3];
+    TRACE_COUNTER1("cc", "estimatedTexturesPerSecond", estimatedTexturesPerSecondGlobal);
     return estimatedTexturesPerSecondGlobal;
 }
 
-void ThrottledTextureUploader::beginUploads()
+void ThrottledTextureUploader::beginQuery()
 {
-    m_texturesUploaded = 0;
+    processQueries();
 
-    // Wait for query to become available.
-    while (isBusy())
-        m_pendingQueries.first()->wait();
+    if (m_availableQueries.isEmpty())
+      m_availableQueries.append(Query::create(m_context));
 
-    ASSERT(!m_availableQueries.isEmpty());
     m_availableQueries.first()->begin();
 }
 
-void ThrottledTextureUploader::endUploads()
+void ThrottledTextureUploader::endQuery()
 {
-    m_availableQueries.first()->end(m_texturesUploaded);
+    m_availableQueries.first()->end();
     m_pendingQueries.append(m_availableQueries.takeFirst());
+    m_numBlockingTextureUploads++;
 }
 
 void ThrottledTextureUploader::uploadTexture(CCResourceProvider* resourceProvider, Parameters upload)
 {
-    m_texturesUploaded++;
+    bool isFullUpload = upload.destOffset.isZero() &&
+                        upload.sourceRect.size() == upload.texture->texture()->size();
+
+    if (isFullUpload)
+        beginQuery();
+
     upload.texture->updateRect(resourceProvider, upload.sourceRect, upload.destOffset);
+
+    if (isFullUpload)
+        endQuery();
 }
 
 void ThrottledTextureUploader::processQueries()
@@ -163,9 +171,13 @@ void ThrottledTextureUploader::processQueries()
             break;
 
         unsigned usElapsed = m_pendingQueries.first()->value();
-        double texturesPerSecond = m_pendingQueries.first()->texturesUploaded() / (usElapsed * 1e-6);
+        WebKit::Platform::current()->histogramCustomCounts("Renderer4.TextureGpuUploadTimeUS", usElapsed, 0, 100000, 50);
+
+        if (!m_pendingQueries.first()->isNonBlocking())
+            m_numBlockingTextureUploads--;
 
         // Remove the oldest values from our history and insert the new one
+        double texturesPerSecond = 1.0 / (usElapsed * 1e-6);
         m_texturesPerSecondHistory.pop_back();
         m_texturesPerSecondHistory.push_front(texturesPerSecond);
 

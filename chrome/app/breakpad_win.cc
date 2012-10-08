@@ -27,6 +27,7 @@
 #include "base/win/win_util.h"
 #include "breakpad/src/client/windows/handler/exception_handler.h"
 #include "chrome/app/breakpad_field_trial_win.h"
+#include "chrome/app/crash_analysis_win.h"
 #include "chrome/app/hard_error_handler_win.h"
 #include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_result_codes.h"
@@ -91,6 +92,7 @@ const char kMinUpdateVersion[] = "1.3.21.115";
 
 google_breakpad::ExceptionHandler* g_breakpad = NULL;
 google_breakpad::ExceptionHandler* g_dumphandler_no_crash = NULL;
+CrashAnalysis* g_crash_analysis = NULL;
 
 static size_t g_url_chunks_offset = 0;
 static size_t g_num_of_extensions_offset = 0;
@@ -118,16 +120,16 @@ extern "C" void __declspec(dllexport) __cdecl DumpProcessWithoutCrash() {
   }
 }
 
+// We need to prevent ICF from folding DumpForHangDebuggingThread() and
+// DumpProcessWithoutCrashThread() together, since that makes them
+// indistinguishable in crash dumps. We do this by making the function
+// bodies unique, and prevent optimization from shuffling things around.
+MSVC_DISABLE_OPTIMIZE()
+MSVC_PUSH_DISABLE_WARNING(4748)
+
 DWORD WINAPI DumpProcessWithoutCrashThread(void*) {
   DumpProcessWithoutCrash();
   return 0;
-}
-
-// Injects a thread into a remote process to dump state when there is no crash.
-extern "C" HANDLE __declspec(dllexport) __cdecl
-InjectDumpProcessWithoutCrash(HANDLE process) {
-  return CreateRemoteThread(process, NULL, 0, DumpProcessWithoutCrashThread,
-                            0, 0, NULL);
 }
 
 // The following two functions do exactly the same thing as the two above. But
@@ -137,13 +139,32 @@ InjectDumpProcessWithoutCrash(HANDLE process) {
 // of pepper/renderer processes is reduced.
 DWORD WINAPI DumpForHangDebuggingThread(void*) {
   DumpProcessWithoutCrash();
+  LOG(INFO) << "dumped for hang debugging";
   return 0;
+}
+
+MSVC_POP_WARNING()
+MSVC_ENABLE_OPTIMIZE()
+
+// Injects a thread into a remote process to dump state when there is no crash.
+extern "C" HANDLE __declspec(dllexport) __cdecl
+InjectDumpProcessWithoutCrash(HANDLE process) {
+  return CreateRemoteThread(process, NULL, 0, DumpProcessWithoutCrashThread,
+                            0, 0, NULL);
 }
 
 extern "C" HANDLE __declspec(dllexport) __cdecl
 InjectDumpForHangDebugging(HANDLE process) {
   return CreateRemoteThread(process, NULL, 0, DumpForHangDebuggingThread,
                             0, 0, NULL);
+}
+
+extern "C" void DumpProcessAbnormalSignature() {
+  if (!g_breakpad)
+    return;
+  g_custom_entries->push_back(
+      google_breakpad::CustomInfoEntry(L"unusual-crash-signature", L""));
+  g_breakpad->WriteMinidump();
 }
 
 // Reduces the size of the string |str| to a max of 64 chars. Required because
@@ -723,6 +744,8 @@ extern "C" int __declspec(dllexport) CrashForException(
     EXCEPTION_POINTERS* info) {
   if (g_breakpad) {
     g_breakpad->WriteMinidumpForException(info);
+    if (g_crash_analysis)
+      g_crash_analysis->Analyze(info);
     ::TerminateProcess(::GetCurrentProcess(), content::RESULT_CODE_KILLED);
   }
   return EXCEPTION_CONTINUE_SEARCH;
@@ -917,6 +940,9 @@ void InitCrashReporter() {
       // handlers.
       google_breakpad::ExceptionHandler::HANDLER_NONE,
       dump_type, pipe_name.c_str(), custom_info);
+
+  if (command.HasSwitch(switches::kPerformCrashAnalysis))
+    g_crash_analysis = new CrashAnalysis();
 
   if (g_breakpad->IsOutOfProcess()) {
     // Tells breakpad to handle breakpoint and single step exceptions.

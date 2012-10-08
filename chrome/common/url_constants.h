@@ -266,7 +266,6 @@ extern const char kChromeUITabModalConfirmDialogHost[];
 #endif
 
 // Options sub-pages.
-extern const char kAboutOptionsSubPage[];
 extern const char kAutofillSubPage[];
 extern const char kClearBrowserDataSubPage[];
 extern const char kContentSettingsExceptionsSubPage[];
@@ -274,7 +273,6 @@ extern const char kContentSettingsSubPage[];
 extern const char kExtensionsSubPage[];
 extern const char kHandlerSettingsSubPage[];
 extern const char kImportDataSubPage[];
-extern const char kInstantConfirmPage[];
 extern const char kLanguageOptionsSubPage[];
 extern const char kManageProfileSubPage[];
 extern const char kPasswordManagerSubPage[];
@@ -334,10 +332,6 @@ extern const char kPrivacyLearnMoreURL[];
 
 // "Learn more" URL for the "Do not track" setting in the privacy section.
 extern const char kDoNotTrackLearnMoreURL[];
-
-// "Learn more" URL for the Continue where I left off startup option under
-// Options.
-extern const char kSessionRestoreLearnMoreURL[];
 
 // The URL for the Chromium project used in the About dialog.
 extern const char kChromiumProjectURL[];
@@ -404,13 +398,6 @@ extern const char kExtensionResourceScheme[];
 
 #if defined(OS_CHROMEOS)
 extern const char kDriveScheme[];
-#endif
-
-#if defined(OS_ANDROID)
-extern const char kContentScheme[];
-// Special Android file paths.
-extern const char kAndroidAssetPath[];
-extern const char kAndroidResourcePath[];
 #endif
 
 #if defined(OS_CHROMEOS)

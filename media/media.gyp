@@ -139,6 +139,8 @@
         'audio/win/audio_low_latency_output_win.h',
         'audio/win/audio_manager_win.cc',
         'audio/win/audio_manager_win.h',
+        'audio/win/audio_unified_win.cc',
+        'audio/win/audio_unified_win.h',
         'audio/win/avrt_wrapper_win.cc',
         'audio/win/avrt_wrapper_win.h',
         'audio/win/device_enumeration_win.cc',
@@ -183,6 +185,7 @@
         'base/data_source.h',
         'base/decoder_buffer.cc',
         'base/decoder_buffer.h',
+        'base/decryptor.cc',
         'base/decryptor.h',
         'base/decryptor_client.h',
         'base/decrypt_config.cc',
@@ -249,6 +252,8 @@
         'filters/audio_renderer_impl.h',
         'filters/chunk_demuxer.cc',
         'filters/chunk_demuxer.h',
+        'filters/decrypting_video_decoder.cc',
+        'filters/decrypting_video_decoder.h',
         'filters/dummy_demuxer.cc',
         'filters/dummy_demuxer.h',
         'filters/ffmpeg_audio_decoder.cc',
@@ -327,6 +332,11 @@
         ],
       },
       'conditions': [
+        ['arm_neon == 1', {
+          'defines': [
+            'USE_NEON'
+          ],
+        }],
         ['OS != "ios"', {
           'dependencies': [
             '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
@@ -597,6 +607,7 @@
         'audio/win/audio_low_latency_input_win_unittest.cc',
         'audio/win/audio_low_latency_output_win_unittest.cc',
         'audio/win/audio_output_win_unittest.cc',
+        'audio/win/audio_unified_win_unittest.cc',
         'base/audio_bus_unittest.cc',
         'base/audio_fifo_unittest.cc',
         'base/audio_pull_fifo_unittest.cc',
@@ -628,6 +639,7 @@
         'filters/audio_renderer_algorithm_unittest.cc',
         'filters/audio_renderer_impl_unittest.cc',
         'filters/chunk_demuxer_unittest.cc',
+        'filters/decrypting_video_decoder_unittest.cc',
         'filters/ffmpeg_audio_decoder_unittest.cc',
         'filters/ffmpeg_decoder_unittest.h',
         'filters/ffmpeg_demuxer_unittest.cc',
@@ -648,6 +660,11 @@
         'webm/webm_parser_unittest.cc',
       ],
       'conditions': [
+        ['arm_neon == 1', {
+          'defines': [
+            'USE_NEON'
+          ],
+        }],
         ['OS != "ios"', {
           'dependencies': [
             'shared_memory_support',
@@ -796,13 +813,6 @@
             '..',
           ],
           'conditions': [
-            ['order_profiling != 0', {
-              'target_conditions' : [
-                ['_toolset=="target"', {
-                  'cflags!': [ '-finstrument-functions' ],
-                }],
-              ],
-            }],
             [ 'target_arch == "ia32" or target_arch == "x64"', {
               'dependencies': [
                 'yuv_convert_simd_x86',
@@ -850,13 +860,6 @@
             'base/simd/yuv_to_rgb_table.h',
           ],
           'conditions': [
-            ['order_profiling != 0', {
-              'target_conditions' : [
-                ['_toolset=="target"', {
-                  'cflags!': [ '-finstrument-functions' ],
-                }],
-              ],
-            }],
             [ 'target_arch == "x64"', {
               # Source files optimized for X64 systems.
               'sources': [
@@ -1152,9 +1155,22 @@
     }],
     ['OS == "android"', {
       'targets': [
+         {
+          'target_name': 'media_player_jni_headers',
+          'type': 'none',
+          'variables': {
+            'jni_gen_dir': 'media',
+            'input_java_class': 'android/media/MediaPlayer.class',
+            'input_jar_file': '<(android_sdk)/android.jar',
+          },
+          'includes': [ '../build/jar_file_jni_generator.gypi' ],
+        },
         {
           'target_name': 'player_android_jni_headers',
           'type': 'none',
+          'dependencies': [
+            'media_player_jni_headers',
+          ],
           'sources': [
             'base/android/java/src/org/chromium/media/MediaPlayerBridge.java',
             'base/android/java/src/org/chromium/media/MediaPlayerListener.java',

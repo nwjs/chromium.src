@@ -7,6 +7,7 @@
 #include "CCHeadsUpDisplayLayerImpl.h"
 
 #include "base/stringprintf.h"
+#include "ui/gfx/point.h"
 #include "CCDebugRectHistory.h"
 #include "CCFontAtlas.h"
 #include "CCFrameRateCounter.h"
@@ -48,9 +49,9 @@ CCHeadsUpDisplayLayerImpl::~CCHeadsUpDisplayLayerImpl()
 {
 }
 
-void CCHeadsUpDisplayLayerImpl::setFontAtlas(PassOwnPtr<CCFontAtlas> fontAtlas)
+void CCHeadsUpDisplayLayerImpl::setFontAtlas(scoped_ptr<CCFontAtlas> fontAtlas)
 {
-    m_fontAtlas = fontAtlas;
+    m_fontAtlas = fontAtlas.Pass();
 }
 
 void CCHeadsUpDisplayLayerImpl::willDraw(CCResourceProvider* resourceProvider)
@@ -80,7 +81,7 @@ void CCHeadsUpDisplayLayerImpl::appendQuads(CCQuadSink& quadSink, CCAppendQuadsD
     bool premultipliedAlpha = true;
     FloatRect uvRect(0, 0, 1, 1);
     bool flipped = false;
-    quadSink.append(CCTextureDrawQuad::create(sharedQuadState, quadRect, m_hudTexture->id(), premultipliedAlpha, uvRect, flipped), appendQuadsData);
+    quadSink.append(CCTextureDrawQuad::create(sharedQuadState, quadRect, m_hudTexture->id(), premultipliedAlpha, uvRect, flipped).PassAs<CCDrawQuad>(), appendQuadsData);
 }
 
 void CCHeadsUpDisplayLayerImpl::updateHudTexture(CCResourceProvider* resourceProvider)
@@ -153,9 +154,9 @@ void CCHeadsUpDisplayLayerImpl::drawHudContents(SkCanvas* canvas)
     if (settings.showFPSCounter)
         drawFPSCounter(canvas, layerTreeHostImpl()->fpsCounter(), fpsCounterTop, fpsCounterHeight);
 
-    if (settings.showPlatformLayerTree && m_fontAtlas) {
+    if (settings.showPlatformLayerTree && m_fontAtlas.get()) {
         std::string layerTree = layerTreeHostImpl()->layerTreeAsText();
-        m_fontAtlas->drawText(canvas, createPaint(), layerTree, IntPoint(2, platformLayerTreeTop), bounds());
+        m_fontAtlas->drawText(canvas, createPaint(), layerTree, gfx::Point(2, platformLayerTreeTop), bounds());
     }
 
     if (settings.showDebugRects())
@@ -229,8 +230,8 @@ void CCHeadsUpDisplayLayerImpl::drawFPSCounterText(SkCanvas* canvas, CCFrameRate
     canvas->drawRect(SkRect::MakeXYWH(2, top, width, height), paint);
 
     // Draw FPS text.
-    if (m_fontAtlas)
-        m_fontAtlas->drawText(canvas, createPaint(), base::StringPrintf("FPS: %4.1f +/- %3.1f", averageFPS, stdDeviation), IntPoint(10, height / 3), IntSize(width, height));
+    if (m_fontAtlas.get())
+        m_fontAtlas->drawText(canvas, createPaint(), base::StringPrintf("FPS: %4.1f +/- %3.1f", averageFPS, stdDeviation), gfx::Point(10, height / 3), IntSize(width, height));
 }
 
 void CCHeadsUpDisplayLayerImpl::drawDebugRects(SkCanvas* canvas, CCDebugRectHistory* debugRectHistory)

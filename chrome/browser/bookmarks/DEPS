@@ -36,7 +36,6 @@ include_rules = [
   "!chrome/browser/ui/browser.h",
   "!chrome/browser/ui/browser_tabstrip.h",
   "!chrome/browser/ui/browser_window.h",
-  "!chrome/browser/ui/chrome_pages.h",
   "!chrome/browser/ui/chrome_select_file_policy.h",
   "!chrome/browser/ui/cocoa/bookmarks/bookmark_bar_controller.h",
   "!chrome/browser/ui/gtk/custom_drag.h",
@@ -59,5 +58,6 @@ specific_include_rules = {
     "!chrome/browser/importer/firefox2_importer.h",
     "!chrome/browser/profiles/profile_manager.h",
     "!chrome/browser/ui/browser_commands.h",
+    "!chrome/browser/ui/host_desktop.h",
   ]
 }

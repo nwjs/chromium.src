@@ -393,20 +393,6 @@ void SigninScreenHandler::GetLocalizedStrings(
       l10n_util::GetStringUTF16(IDS_SCREEN_LOCK_SIGN_OUT));
   localized_strings->SetString("addUserErrorMessage",
       l10n_util::GetStringUTF16(IDS_LOGIN_ERROR_ADD_USER_OFFLINE));
-  localized_strings->SetString("offlineMessageTitle",
-      l10n_util::GetStringUTF16(IDS_LOGIN_OFFLINE_TITLE));
-  localized_strings->SetString("offlineMessageBody",
-      l10n_util::GetStringUTF16(IDS_LOGIN_OFFLINE_MESSAGE));
-  localized_strings->SetString("captivePortalTitle",
-      l10n_util::GetStringUTF16(IDS_LOGIN_MAYBE_CAPTIVE_PORTAL_TITLE));
-  localized_strings->SetString("captivePortalMessage",
-      l10n_util::GetStringUTF16(IDS_LOGIN_MAYBE_CAPTIVE_PORTAL));
-  localized_strings->SetString("captivePortalProxyMessage",
-      l10n_util::GetStringUTF16(IDS_LOGIN_MAYBE_CAPTIVE_PORTAL_PROXY));
-  localized_strings->SetString("captivePortalNetworkSelect",
-      l10n_util::GetStringUTF16(IDS_LOGIN_MAYBE_CAPTIVE_PORTAL_NETWORK_SELECT));
-  localized_strings->SetString("proxyMessageText",
-      l10n_util::GetStringUTF16(IDS_LOGIN_PROXY_ERROR_MESSAGE));
   localized_strings->SetString("createAccount",
       l10n_util::GetStringUTF16(IDS_CREATE_ACCOUNT_HTML));
   localized_strings->SetString("guestSignin",
@@ -1009,6 +995,7 @@ void SigninScreenHandler::SendUserList(bool animated) {
 
 void SigninScreenHandler::HandleAccountPickerReady(
     const base::ListValue* args) {
+  LOG(INFO) << "Login WebUI >> AccountPickerReady";
 
   PrefService* prefs = g_browser_process->local_state();
   if (prefs->GetBoolean(prefs::kFactoryResetRequested)) {
@@ -1139,8 +1126,14 @@ void SigninScreenHandler::HandleOpenProxySettings(const base::ListValue* args) {
 }
 
 void SigninScreenHandler::HandleLoginVisible(const base::ListValue* args) {
-  LOG(INFO) << "Login WebUI >> LoginVisible, webui_visible_: "
-            << webui_visible_;
+  std::string source;
+  if (!args->GetString(0, &source)) {
+    NOTREACHED();
+    return;
+  }
+
+  LOG(INFO) << "Login WebUI >> LoginVisible, source: " << source
+            << ", webui_visible_: " << webui_visible_;
   if (!webui_visible_) {
     // There might be multiple messages from OOBE UI so send notifications after
     // the first one only.

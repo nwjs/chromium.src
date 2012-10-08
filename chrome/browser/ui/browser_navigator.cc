@@ -13,13 +13,11 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/google/google_url_tracker.h"
-#include "chrome/browser/google/google_util.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/rlz/rlz.h"
 #include "chrome/browser/tab_contents/tab_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -39,7 +37,6 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "net/http/http_util.h"
 
 using content::GlobalRequestID;
 using content::WebContents;
@@ -56,8 +53,10 @@ bool WindowCanOpenTabs(Browser* browser) {
 
 // Finds an existing Browser compatible with |profile|, making a new one if no
 // such Browser is located.
-Browser* GetOrCreateBrowser(Profile* profile) {
-  Browser* browser = browser::FindTabbedBrowser(profile, false);
+Browser* GetOrCreateBrowser(Profile* profile,
+                            chrome::HostDesktopType host_desktop_type) {
+  Browser* browser =
+      browser::FindTabbedBrowser(profile, false, host_desktop_type);
   return browser ? browser : new Browser(Browser::CreateParams(profile));
 }
 
@@ -87,7 +86,8 @@ bool AdjustNavigateParamsForURL(chrome::NavigateParams* params) {
     }
 
     params->disposition = SINGLETON_TAB;
-    params->browser = browser::FindOrCreateTabbedBrowser(profile);
+    params->browser =
+        browser::FindOrCreateTabbedBrowser(profile, params->host_desktop_type);
     params->window_action = chrome::NavigateParams::SHOW_WINDOW;
   }
 
@@ -113,7 +113,7 @@ Browser* GetBrowserForDisposition(chrome::NavigateParams* params) {
         return params->browser;
       // Find a compatible window and re-execute this command in it. Otherwise
       // re-run with NEW_WINDOW.
-      return GetOrCreateBrowser(profile);
+      return GetOrCreateBrowser(profile, params->host_desktop_type);
     case SINGLETON_TAB:
     case NEW_FOREGROUND_TAB:
     case NEW_BACKGROUND_TAB:
@@ -122,7 +122,7 @@ Browser* GetBrowserForDisposition(chrome::NavigateParams* params) {
         return params->browser;
       // Find a compatible window and re-execute this command in it. Otherwise
       // re-run with NEW_WINDOW.
-      return GetOrCreateBrowser(profile);
+      return GetOrCreateBrowser(profile, params->host_desktop_type);
     case NEW_POPUP: {
       // Make a new popup window.
       // Coerce app-style if |source| represents an app.
@@ -156,7 +156,8 @@ Browser* GetBrowserForDisposition(chrome::NavigateParams* params) {
     }
     case OFF_THE_RECORD:
       // Make or find an incognito window.
-      return GetOrCreateBrowser(profile->GetOffTheRecordProfile());
+      return GetOrCreateBrowser(profile->GetOffTheRecordProfile(),
+                                params->host_desktop_type);
     // The following types all result in no navigation.
     case SUPPRESS_OPEN:
     case SAVE_TO_DISK:
@@ -220,12 +221,11 @@ Profile* GetSourceProfile(chrome::NavigateParams* params) {
 
 void LoadURLInContents(WebContents* target_contents,
                        const GURL& url,
-                       chrome::NavigateParams* params,
-                       const std::string& extra_headers) {
+                       chrome::NavigateParams* params) {
   content::NavigationController::LoadURLParams load_url_params(url);
   load_url_params.referrer = params->referrer;
   load_url_params.transition_type = params->transition;
-  load_url_params.extra_headers = extra_headers;
+  load_url_params.extra_headers = params->extra_headers;
 
   if (params->transferred_global_request_id != GlobalRequestID()) {
     load_url_params.is_renderer_initiated = params->is_renderer_initiated;
@@ -289,35 +289,6 @@ class ScopedTargetContentsOwner {
   DISALLOW_COPY_AND_ASSIGN(ScopedTargetContentsOwner);
 };
 
-void InitializeExtraHeaders(chrome::NavigateParams* params,
-                            Profile* profile,
-                            std::string* extra_headers) {
-#if defined(ENABLE_RLZ)
-  // If this is a home page navigation, check to see if the home page is
-  // set to Google and add RLZ HTTP headers to the request.  This is only
-  // done if Google was the original home page, and not changed afterwards by
-  // the user.
-  if (profile &&
-      (params->transition & content::PAGE_TRANSITION_HOME_PAGE) != 0) {
-    PrefService* pref_service = profile->GetPrefs();
-    if (pref_service) {
-      if (!pref_service->GetBoolean(prefs::kHomePageChanged)) {
-        std::string homepage = pref_service->GetString(prefs::kHomePage);
-        if (google_util::IsGoogleHomePageUrl(homepage)) {
-          string16 rlz_string;
-          RLZTracker::GetAccessPointRlz(rlz_lib::CHROME_HOME_PAGE, &rlz_string);
-          if (!rlz_string.empty()) {
-            net::HttpUtil::AppendHeaderIfMissing("X-Rlz-String",
-                                                 UTF16ToUTF8(rlz_string),
-                                                 extra_headers);
-          }
-        }
-      }
-    }
-  }
-#endif
-}
-
 // If a prerendered page exists for |url|, replace the page at |target_contents|
 // with it.
 bool SwapInPrerender(TabContents* target_contents, const GURL& url) {
@@ -349,7 +320,12 @@ NavigateParams::NavigateParams(Browser* a_browser,
       path_behavior(RESPECT),
       ref_behavior(IGNORE_REF),
       browser(a_browser),
-      initiating_profile(NULL) {}
+      initiating_profile(NULL) {
+        if (a_browser)
+          host_desktop_type = a_browser->host_desktop_type();
+        else
+          host_desktop_type = chrome::HOST_DESKTOP_TYPE_NATIVE;
+      }
 
 NavigateParams::NavigateParams(Browser* a_browser,
                                TabContents* a_target_contents)
@@ -365,7 +341,12 @@ NavigateParams::NavigateParams(Browser* a_browser,
       path_behavior(RESPECT),
       ref_behavior(IGNORE_REF),
       browser(a_browser),
-      initiating_profile(NULL) {}
+      initiating_profile(NULL) {
+        if (a_browser)
+          host_desktop_type = a_browser->host_desktop_type();
+        else
+          host_desktop_type = chrome::HOST_DESKTOP_TYPE_NATIVE;
+      }
 
 NavigateParams::NavigateParams(Profile* a_profile,
                                const GURL& a_url,
@@ -383,7 +364,8 @@ NavigateParams::NavigateParams(Profile* a_profile,
       path_behavior(RESPECT),
       ref_behavior(IGNORE_REF),
       browser(NULL),
-      initiating_profile(a_profile) {}
+      initiating_profile(a_profile),
+      host_desktop_type(chrome::HOST_DESKTOP_TYPE_NATIVE) {}
 
 NavigateParams::~NavigateParams() {}
 
@@ -456,8 +438,6 @@ void Navigate(NavigateParams* params) {
       base_transition == content::PAGE_TRANSITION_RELOAD ||
       base_transition == content::PAGE_TRANSITION_KEYWORD;
 
-  std::string extra_headers;
-
   // Check if this is a singleton tab that already exists
   int singleton_index = chrome::GetIndexOfSingletonTab(params);
 
@@ -508,9 +488,6 @@ void Navigate(NavigateParams* params) {
     if (user_initiated)
       params->target_contents->web_contents()->UserGestureDone();
 
-    InitializeExtraHeaders(params, params->target_contents->profile(),
-                           &extra_headers);
-
     if (SwapInPrerender(params->target_contents, url))
       return;
 
@@ -520,8 +497,7 @@ void Navigate(NavigateParams* params) {
       // Perform the actual navigation, tracking whether it came from the
       // renderer.
 
-      LoadURLInContents(params->target_contents->web_contents(),
-                        url, params, extra_headers);
+      LoadURLInContents(params->target_contents->web_contents(), url, params);
     }
   } else {
     // |target_contents| was specified non-NULL, and so we assume it has already
@@ -569,9 +545,7 @@ void Navigate(NavigateParams* params) {
       target->GetController().Reload(true);
     } else if (params->path_behavior == NavigateParams::IGNORE_AND_NAVIGATE &&
         target->GetURL() != params->url) {
-      TabContents* target_tab = TabContents::FromWebContents(target);
-      InitializeExtraHeaders(params, target_tab->profile(), &extra_headers);
-      LoadURLInContents(target, params->url, params, extra_headers);
+      LoadURLInContents(target, params->url, params);
     }
 
     // If the singleton tab isn't already selected, select it.

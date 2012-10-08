@@ -32,6 +32,10 @@ bool TestShellDelegate::IsSessionStarted() {
   return true;
 }
 
+bool TestShellDelegate::IsFirstRunAfterBoot() {
+  return false;
+}
+
 void TestShellDelegate::LockScreen() {
   locked_ = true;
 }
@@ -134,6 +138,13 @@ void TestShellDelegate::HandleMediaPrevTrack() {
 
 string16 TestShellDelegate::GetTimeRemainingString(base::TimeDelta delta) {
   return string16();
+}
+
+void TestShellDelegate::SaveScreenMagnifierScale(double scale) {
+}
+
+double TestShellDelegate::GetSavedScreenMagnifierScale() {
+  return std::numeric_limits<double>::min();
 }
 
 }  // namespace test

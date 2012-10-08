@@ -6,7 +6,9 @@
 #define CONTENT_BROWSER_WEB_CONTENTS_NAVIGATION_CONTROLLER_IMPL_H_
 
 #include "build/build_config.h"
+#include "base/callback.h"
 #include "base/compiler_specific.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/linked_ptr.h"
 #include "base/time.h"
 #include "content/browser/ssl/ssl_manager.h"
@@ -37,7 +39,7 @@ class CONTENT_EXPORT NavigationControllerImpl
       content::BrowserContext* browser_context) OVERRIDE;
   virtual void Restore(
       int selected_navigation,
-      bool from_last_session,
+      RestoreType type,
       std::vector<content::NavigationEntry*>* entries) OVERRIDE;
   virtual content::NavigationEntry* GetActiveEntry() const OVERRIDE;
   virtual content::NavigationEntry* GetVisibleEntry() const OVERRIDE;
@@ -191,10 +193,33 @@ class CONTENT_EXPORT NavigationControllerImpl
   }
   static size_t max_entry_count();
 
+  void SetGetTimestampCallbackForTest(
+      const base::Callback<base::Time()>& get_timestamp_callback);
+
  private:
-  class RestoreHelper;
   friend class RestoreHelper;
   friend class WebContentsImpl;  // For invoking OnReservedPageIDRange.
+
+  FRIEND_TEST_ALL_PREFIXES(TimeSmoother, Basic);
+  FRIEND_TEST_ALL_PREFIXES(TimeSmoother, SingleDuplicate);
+  FRIEND_TEST_ALL_PREFIXES(TimeSmoother, ManyDuplicates);
+  FRIEND_TEST_ALL_PREFIXES(TimeSmoother, ClockBackwardsJump);
+
+  // Helper class to smooth out runs of duplicate timestamps while still
+  // allowing time to jump backwards.
+  //
+  // TODO(akalin): Use CONTENT_EXPORT_PRIVATE once we have that.
+  class CONTENT_EXPORT TimeSmoother {
+   public:
+    // Returns |t| with possibly some time added on.
+    base::Time GetSmoothedTime(base::Time t);
+
+   private:
+    // |low_water_mark_| is the first time in a sequence of adjusted
+    // times and |high_water_mark_| is the last.
+    base::Time low_water_mark_;
+    base::Time high_water_mark_;
+  };
 
   // Classifies the given renderer navigation (see the NavigationType enum).
   content::NavigationType ClassifyNavigation(
@@ -247,8 +272,8 @@ class CONTENT_EXPORT NavigationControllerImpl
 
   // Invoked after session/tab restore or cloning a tab. Resets the transition
   // type of the entries, updates the max page id and creates the active
-  // contents. See RestoreFromState for a description of from_last_session.
-  void FinishRestore(int selected_index, bool from_last_session);
+  // contents.
+  void FinishRestore(int selected_index, RestoreType type);
 
   // Inserts a new entry or replaces the current entry with a new one, removing
   // all entries after it. The new entry will become the active one.
@@ -351,6 +376,16 @@ class CONTENT_EXPORT NavigationControllerImpl
   // If a repost is pending, its type (RELOAD or RELOAD_IGNORING_CACHE),
   // NO_RELOAD otherwise.
   ReloadType pending_reload_;
+
+  // Used to get timestamps for newly-created navigation entries.
+  base::Callback<base::Time()> get_timestamp_callback_;
+
+  // Used to smooth out timestamps from |get_timestamp_callback_|.
+  // Without this, whenever there is a run of redirects or
+  // code-generated navigations, those navigations may occur within
+  // the timer resolution, leading to things sometimes showing up in
+  // the wrong order in the history view.
+  TimeSmoother time_smoother_;
 
   DISALLOW_COPY_AND_ASSIGN(NavigationControllerImpl);
 };

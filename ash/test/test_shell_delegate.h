@@ -20,6 +20,7 @@ class TestShellDelegate : public ShellDelegate {
   // Overridden from ShellDelegate:
   virtual bool IsUserLoggedIn() OVERRIDE;
   virtual bool IsSessionStarted() OVERRIDE;
+  virtual bool IsFirstRunAfterBoot() OVERRIDE;
   virtual void LockScreen() OVERRIDE;
   virtual void UnlockScreen() OVERRIDE;
   virtual bool IsScreenLocked() const OVERRIDE;
@@ -50,6 +51,8 @@ class TestShellDelegate : public ShellDelegate {
   virtual void HandleMediaPlayPause() OVERRIDE;
   virtual void HandleMediaPrevTrack() OVERRIDE;
   virtual string16 GetTimeRemainingString(base::TimeDelta delta) OVERRIDE;
+  virtual void SaveScreenMagnifierScale(double scale) OVERRIDE;
+  virtual double GetSavedScreenMagnifierScale() OVERRIDE;
 
  private:
   bool locked_;

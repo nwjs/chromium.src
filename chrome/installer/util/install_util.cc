@@ -26,6 +26,7 @@
 #include "base/win/windows_version.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/google_update_constants.h"
+#include "chrome/installer/util/helper.h"
 #include "chrome/installer/util/l10n_string_util.h"
 #include "chrome/installer/util/installation_state.h"
 #include "chrome/installer/util/util_constants.h"
@@ -358,6 +359,29 @@ bool InstallUtil::HasDelegateExecuteHandler(BrowserDistribution* dist,
   return found;
 }
 
+bool InstallUtil::GetSentinelFilePath(const char* file,
+                                      BrowserDistribution* dist,
+                                      FilePath* path) {
+  FilePath exe_path;
+  if (!PathService::Get(base::DIR_EXE, &exe_path))
+    return false;
+
+  if (IsPerUserInstall(exe_path.value().c_str())) {
+    *path = exe_path;
+  } else {
+    std::vector<FilePath> user_data_dir_paths;
+    installer::GetChromeUserDataPaths(dist, &user_data_dir_paths);
+
+    if (!user_data_dir_paths.empty())
+      *path = user_data_dir_paths[0];
+    else
+      return false;
+  }
+
+  *path = path->AppendASCII(file);
+  return true;
+}
+
 // This method tries to delete a registry key and logs an error message
 // in case of failure. It returns true if deletion is successful (or the key did
 // not exist), otherwise false.
@@ -399,7 +423,6 @@ InstallUtil::ConditionalDeleteResult InstallUtil::DeleteRegistryKeyIf(
     const wchar_t* value_name,
     const RegistryValuePredicate& predicate) {
   DCHECK(root_key);
-  DCHECK(value_name);
   ConditionalDeleteResult delete_result = NOT_FOUND;
   RegKey key;
   string16 actual_value;
@@ -422,7 +445,6 @@ InstallUtil::ConditionalDeleteResult InstallUtil::DeleteRegistryValueIf(
     const RegistryValuePredicate& predicate) {
   DCHECK(root_key);
   DCHECK(key_path);
-  DCHECK(value_name);
   ConditionalDeleteResult delete_result = NOT_FOUND;
   RegKey key;
   string16 actual_value;
@@ -432,7 +454,8 @@ InstallUtil::ConditionalDeleteResult InstallUtil::DeleteRegistryValueIf(
       predicate.Evaluate(actual_value)) {
     LONG result = key.DeleteValue(value_name);
     if (result != ERROR_SUCCESS) {
-      LOG(ERROR) << "Failed to delete registry value: " << value_name
+      LOG(ERROR) << "Failed to delete registry value: "
+                 << (value_name ? value_name : L"(Default)")
                  << " error: " << result;
       delete_result = DELETE_FAILED;
     }

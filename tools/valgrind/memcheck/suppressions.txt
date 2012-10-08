@@ -1171,80 +1171,6 @@
 }
 {
    # very common in ui tests
-   bug_16089a
-   Memcheck:Leak
-   ...
-   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
-   ...
-   fun:_ZN3net12HostResolver3Job5StartEv
-}
-{
-   # ditto, but tweaked to fire on bots, more robust against optimizer changes?
-   bug_16089b
-   Memcheck:Leak
-   fun:_Znw*
-   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
-   ...
-   fun:_ZN18chrome_browser_net9DnsMaster24PreLockedScheduleLookupsEv
-}
-{
-   # ditto, but tweaked for cat hit by URLFetcherTest.SameThreadsTest on bot
-   bug_16089c
-   Memcheck:Leak
-   ...
-   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
-   ...
-   fun:_ZN3net13TCPConnectJob13DoResolveHostEv
-}
-{
-   # ditto, but tweak to match the chromeos's stack.
-   bug_16089d
-   Memcheck:Leak
-   fun:*
-   ...
-   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
-   ...
-   fun:_ZN3net16HostResolverImpl3Job5StartEv
-}
-{
-   # ditto, but for IPv6 support (?)
-   bug_16089e
-   Memcheck:Leak
-   fun:*
-   ...
-   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
-   ...
-   fun:_ZN3net16HostResolverImpl16ProbeIPv6SupportEv
-}
-{
-   # ditto, but for filesystem: URLs.
-   bug_16089f
-   Memcheck:Leak
-   ...
-   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
-   ...
-   fun:_ZN7fileapi23FileSystemURLRequestJob11ReadRawDataEPN3net8IOBufferEiPi
-}
-{
-   # ditto, but for fileapi::FileWriter
-   bug_16089g
-   Memcheck:Leak
-   ...
-   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
-   ...
-   fun:_ZN7fileapi18FileWriterDelegate5WriteEv
-}
-{
-   # ditto, but for unit tests.
-   bug_16089h
-   Memcheck:Leak
-   ...
-   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
-   ...
-   fun:_ZN3net17URLRequestFileJob5StartEv
-}
-{
-   # very common in ui tests
    bug_16091
    Memcheck:Leak
    ...
@@ -2853,15 +2779,6 @@
    fun:_ZN3gfx8PNGCodec6Decode*
 }
 {
-   bug_75641
-   Memcheck:Param
-   write(buf)
-   obj:/lib/tls/i686/cmov/libpthread-2.*.so
-   fun:_ZN3net10FileStream5WriteEPKciP14CallbackRunnerI6Tuple1IiEE
-   fun:_ZN14SessionBackend20AppendCommandsToFileEPN3net10FileStreamERKSt6vectorIP14SessionCommandSaIS5_EE
-   fun:_ZN14SessionBackend14AppendCommandsEPSt6vectorIP14SessionCommandSaIS2_EEb
-}
-{
    bug_76197a
    Memcheck:Unaddressable
    fun:sqlite3DbFree
@@ -3016,16 +2933,11 @@
    fun:_ZN27TestURLRequestContextGetter20GetURLRequestContextEv
 }
 {
-   bug_80174
+   bug_16089 WorkerPool threads can leak by design
    Memcheck:Leak
    fun:_Znw*
-   fun:_ZN4base22PosixDynamicThreadPool8PostTaskEP4Task
-   fun:*WorkerPoolImpl8PostTaskERKN15tracked_objects8LocationEP4Taskb
-   fun:_ZN4base10WorkerPool8PostTaskERKN15tracked_objects8LocationEP4Taskb
-   fun:_ZN3net10FileStream12AsyncContext18InitiateAsyncWriteEiPKciP14CallbackRunnerI6Tuple1IiEE
-   fun:_ZN3net10FileStream5WriteEPKciP14CallbackRunnerI6Tuple1IiEE
-   fun:_ZN7fileapi18FileWriterDelegate5WriteEv
-   fun:_ZN7fileapi18FileWriterDelegate14OnDataReceivedEi
+   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
+   ...
 }
 {
    bug_80462_a
@@ -3405,15 +3317,6 @@
    fun:_ZN22OfflineResourceHandler10OnWillReadEiPPN3net8IOBufferEPii
    fun:_ZN22ResourceDispatcherHost4ReadEPN3net10URLRequestEPi
    fun:_ZN22ResourceDispatcherHost12StartReadingEPN3net10URLRequestE
-}
-{
-   bug_90642
-   Memcheck:Leak
-   fun:_Znw*
-   fun:_ZN4base22PosixDynamicThreadPool7AddTaskEPNS0_11PendingTaskE
-   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
-   fun:_ZN4base12_GLOBAL__N_114WorkerPoolImpl8PostTask*
-   fun:_ZN4base10WorkerPool8PostTaskERKN15tracked_objects8Location*
 }
 {
    bug_90671
@@ -4945,16 +4848,6 @@
    fun:_ZN2v88internalL21Builtin_HandleApiCallENS0_12_GLOBAL__N_116BuiltinArgumentsILNS0_21BuiltinExtraArgumentsE1EEEPNS0_7IsolateE
 }
 {
-   bug_122249a
-   Memcheck:Leak
-   fun:_Znw*
-   fun:_ZN7WebCore23v8StringToWebCoreStringIN3WTF6StringEEET_N2v86HandleINS4_6StringEEENS_12ExternalModeE
-   fun:_ZN7WebCore23v8StringToWebCoreStringEN2v86HandleINS0_6StringEEE
-   fun:_ZN7WebCore22v8ValueToWebCoreStringEN2v86HandleINS0_5ValueEEE
-   fun:_ZN7WebCoreL21createIDBKeyFromValueEN2v86HandleINS0_5ValueEEERN3WTF6VectorINS1_INS0_5ArrayEEELm0EEE
-   fun:_ZN7WebCore21createIDBKeyFromValueEN2v86HandleINS0_5ValueEEE
-}
-{
    bug_122249b
    Memcheck:Leak
    fun:malloc
@@ -5459,21 +5352,12 @@
    fun:_ZN3gfx30JPEGCodec_EncodeDecodeRGB_Test8TestBodyEv
 }
 {
-   bug_138720
+   bug_16089 WorkerPool threads and its tasks can leak by design
    Memcheck:Leak
    fun:_Znw*
    fun:_ZN4base22PosixDynamicThreadPool7AddTaskEPNS_11PendingTaskE
-   fun:_ZN4base22PosixDynamicThreadPool8PostTaskERKN15tracked_objects8LocationERKNS_8CallbackIFvvEEE
-   fun:_ZN4base12_GLOBAL__N_114WorkerPoolImpl8PostTaskERKN15tracked_objects8LocationERKNS_8CallbackIFvvEEEb
-   fun:_ZN4base10WorkerPool8PostTaskERKN15tracked_objects8LocationERKNS_8CallbackIFvvEEEb
-   fun:_ZN4base12_GLOBAL__N_126PostTaskAndReplyWorkerPool8PostTaskERKN15tracked_objects8LocationERKNS_8CallbackIFvvEEE
-   fun:_ZN4base8internal20PostTaskAndReplyImpl16PostTaskAndReplyERKN15tracked_objects8LocationERKNS_8CallbackIFvvEEESA_
-   fun:_ZN4base10WorkerPool16PostTaskAndReplyERKN15tracked_objects8LocationERKNS_8CallbackIFvvEEES9_b
-   fun:_ZN12_GLOBAL__N_122URLRequestExtensionJob5StartEv
-   fun:_ZN3net10URLRequest8StartJobEPNS_13URLRequestJobE
-   fun:_ZN3net10URLRequest5StartEv
-   fun:_ZN12_GLOBAL__N_121ExtensionProtocolTest12StartRequestEPN3net10URLRequestEN12ResourceType4TypeE
-   fun:_ZN12_GLOBAL__N_143ExtensionProtocolTest_IncognitoRequest_Test8TestBodyEv
+   fun:_ZN4base22PosixDynamicThreadPool8PostTask*
+   ...
 }
 {
    bug_139467
@@ -5817,11 +5701,7 @@
    fun:_ZN10extensions16SettingsFrontendC1ERK13scoped_refptrINS_22SettingsStorageFactoryEEP7Profile
    fun:_ZN10extensions16SettingsFrontend6CreateEP7Profile
    fun:_ZN16ExtensionServiceC1EP7ProfilePK11CommandLineRK8FilePathPN10extensions14ExtensionPrefsEbb
-   fun:_ZN10extensions19ExtensionSystemImpl6Shared4InitEb
-   fun:_ZN10extensions19ExtensionSystemImpl21InitForRegularProfileEb
-   fun:_ZN14ProfileManager22DoFinalInitForServicesEP7Profileb
-   fun:_ZN14ProfileManager11DoFinalInitEP7Profileb
-   fun:_ZN14ProfileManager10AddProfileEP7Profile
+   fun:_ZN10extensions*
 }
 {
    bug_145708
@@ -5929,11 +5809,20 @@
    fun:_ZN4base18MessagePumpAuraX1118GetDefaultXDisplayEv
 }
 {
-   bug_147755
+   bug_147755_a
    Memcheck:Leak
    fun:_Znw*
    fun:_ZN12PluginFinder18GetPluginInstallerERKN6webkit13WebPluginInfoE
    fun:_ZN11PluginPrefs30EnablePluginIfPossibleCallbackEbRK8FilePathRKN4base8CallbackIFvbEEEP12PluginFinder
+}
+{
+   bug_147755_b
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN12PluginFinder17GetPluginMetadataERKN6webkit13WebPluginInfoE
+   fun:_ZN11PluginPrefs12EnablePluginEbRK8FilePathRKN4base8CallbackIFvbEEE
+   fun:_ZN15PluginPrefsTest25EnablePluginSynchronouslyEbRK8FilePathb
+   fun:_ZN44PluginPrefsTest_UnifiedPepperFlashState_Test8TestBodyEv
 }
 {
    bug_148637_a
@@ -5956,17 +5845,6 @@
    fun:_ZN8SkCanvas8clipRectERK6SkRectN8SkRegion2OpEb
    fun:_ZN7WebCore15GraphicsContext4clipERKNS_9FloatRectE
    fun:_ZN7WebCore15GraphicsContext4clipERKNS_7IntRectE
-}
-{
-   bug_148640
-   Memcheck:Leak
-   fun:_Znw*
-   fun:_ZN7content21RenderProcessHostImplC1EPNS_14BrowserContextEPNS_20StoragePartitionImplEb
-   fun:_ZN16SiteInstanceImpl10GetProcessEv
-   fun:_ZN7content18RenderViewHostImplC1EPNS_12SiteInstanceEPNS_22RenderViewHostDelegateEPNS_24RenderWidgetHostDelegateEibPNS_23SessionStorageNamespaceE
-   fun:_ZN20InterstitialPageImpl20CreateRenderViewHostEv
-   fun:_ZN20InterstitialPageImpl4ShowEv
-   fun:_ZN14captive_portal28MockInterstitialPageDelegateC1EPN7content11WebContentsE
 }
 {
    bug_149734a

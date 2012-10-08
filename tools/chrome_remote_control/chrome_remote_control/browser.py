@@ -1,7 +1,11 @@
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+import os
+
+from chrome_remote_control import replay_server
 from chrome_remote_control import temporary_http_server
+from chrome_remote_control import browser_credentials
 
 class Browser(object):
   """A running browser instance that can be controlled in a limited way.
@@ -16,6 +20,7 @@ class Browser(object):
   """
   def __init__(self, backend):
     self._backend = backend
+    self.credentials = browser_credentials.BrowserCredentials()
 
   def __enter__(self):
     return self
@@ -40,6 +45,17 @@ class Browser(object):
 
   def Close(self):
     self._backend.Close()
+    self.credentials = None
 
   def CreateTemporaryHTTPServer(self, path):
     return temporary_http_server.TemporaryHTTPServer(self._backend, path)
+
+  @classmethod
+  def CanUseReplayServer(cls, archive_path, use_record_mode):
+    return os.path.isfile(archive_path) or use_record_mode
+
+  def CreateReplayServer(self, archive_path, use_record_mode):
+    replay_class = replay_server.DoNothingReplayServer
+    if self.CanUseReplayServer(archive_path, use_record_mode):
+      replay_class = replay_server.ReplayServer
+    return replay_class(self._backend, archive_path, use_record_mode)

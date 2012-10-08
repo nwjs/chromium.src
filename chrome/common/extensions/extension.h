@@ -131,7 +131,9 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
     TYPE_THEME,
     TYPE_USER_SCRIPT,
     TYPE_HOSTED_APP,
-    TYPE_PACKAGED_APP,
+    // This is marked legacy because platform apps are preferred. For
+    // backwards compatibility, we can't remove support for packaged apps
+    TYPE_LEGACY_PACKAGED_APP,
     TYPE_PLATFORM_APP
   };
 
@@ -233,7 +235,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
 
     // Requires the extension to have an up-to-date manifest version.
     // Typically, we'll support multiple manifest versions during a version
-    // transition.  This flag signals that we want to require the most modern
+    // transition. This flag signals that we want to require the most modern
     // manifest version that Chrome understands.
     REQUIRE_MODERN_MANIFEST_VERSION = 1 << 1,
 
@@ -723,11 +725,11 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
 
   // App-related.
   bool is_app() const {
-    return is_packaged_app() || is_hosted_app() || is_platform_app();
+    return is_legacy_packaged_app() || is_hosted_app() || is_platform_app();
   }
   bool is_platform_app() const;
   bool is_hosted_app() const;
-  bool is_packaged_app() const;
+  bool is_legacy_packaged_app() const;
   bool is_storage_isolated() const { return is_storage_isolated_; }
   const URLPatternSet& web_extent() const { return extent_; }
   const std::string& launch_local_path() const { return launch_local_path_; }
@@ -1179,6 +1181,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
 
 typedef std::vector< scoped_refptr<const Extension> > ExtensionList;
 typedef std::set<std::string> ExtensionIdSet;
+typedef std::vector<std::string> ExtensionIdList;
 
 // Let gtest print InstallWarnings.
 void PrintTo(const Extension::InstallWarning&, ::std::ostream* os);

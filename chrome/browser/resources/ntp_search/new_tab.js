@@ -16,6 +16,18 @@
 cr.define('ntp', function() {
   'use strict';
 
+  var APP_LAUNCH = {
+    // The histogram buckets (keep in sync with extension_constants.h).
+    NTP_APPS_MAXIMIZED: 0,
+    NTP_APPS_COLLAPSED: 1,
+    NTP_APPS_MENU: 2,
+    NTP_MOST_VISITED: 3,
+    NTP_RECENTLY_CLOSED: 4,
+    NTP_APP_RE_ENABLE: 16,
+    NTP_WEBSTORE_FOOTER: 18,
+    NTP_WEBSTORE_PLUS_ICON: 19,
+  };
+
   /**
    * NewTabView instance.
    * @type {!Object|undefined}
@@ -27,27 +39,6 @@ cr.define('ntp', function() {
    * @type {!Element|undefined}
    */
   var notificationContainer;
-
-  /**
-   * If non-null, an info bubble for showing messages to the user. It points at
-   * the Most Visited label, and is used to draw more attention to the
-   * navigation dot UI.
-   * @type {!Element|undefined}
-   */
-  var infoBubble;
-
-  /**
-   * If non-null, an bubble confirming that the user has signed into sync. It
-   * points at the login status at the top of the page.
-   * @type {!Element|undefined}
-   */
-  var loginBubble;
-
-  /**
-   * true if |loginBubble| should be shown.
-   * @type {Boolean}
-   */
-  var shouldShowLoginBubble = false;
 
   /**
    * The total number of thumbnails that were hovered over.
@@ -134,6 +125,12 @@ cr.define('ntp', function() {
      * @type {!Element|undefined}
      */
     recentlyClosedPage: undefined,
+
+    /**
+     * The Devices page.
+     * @type {!Element|undefined}
+     */
+    otherDevicesPage: undefined,
 
     /**
      * The 'dots-list' element.
@@ -264,6 +261,12 @@ cr.define('ntp', function() {
         this.recentlyClosedPage = page;
       }
 
+      // Remember special OtherDevicesPage.
+      if (typeof ntp.OtherDevicesPage != 'undefined' &&
+          page instanceof ntp.OtherDevicesPage) {
+        this.otherDevicesPage = page;
+      }
+
       // Make a deep copy of the dot template to add a new one.
       var newDot = new ntp.NavDot(page, title);
       page.navigationDot = newDot;
@@ -272,9 +275,6 @@ cr.define('ntp', function() {
       // Set a tab index on the first dot.
       if (this.dotList.dots.length == 1)
         newDot.tabIndex = 3;
-
-      if (infoBubble)
-        window.setTimeout(infoBubble.reposition.bind(infoBubble), 0);
     },
 
     /**
@@ -505,6 +505,10 @@ cr.define('ntp', function() {
           if (this.recentlyClosedPage)
             this.cardSlider.selectCardByValue(this.recentlyClosedPage);
           break;
+        case loadTimeData.getInteger('other_devices_page_id'):
+          if (this.otherDevicesPage)
+            this.cardSlider.selectCardByValue(this.otherDevicesPage);
+          break;
       }
     },
 
@@ -538,6 +542,9 @@ cr.define('ntp', function() {
         } else if (page.classList.contains('recently-closed-page')) {
           this.setShownPage_(
               loadTimeData.getInteger('recently_closed_page_id'), 0);
+        } else if (page.classList.contains('other-devices-page')) {
+          this.setShownPage_(
+              loadTimeData.getInteger('other_devices_page_id'), 0);
         } else {
           console.error('unknown page selected');
         }
@@ -690,31 +697,9 @@ cr.define('ntp', function() {
                               loadTimeData.getString('recentlyclosed'));
     chrome.send('getRecentlyClosedTabs');
 
-    if (loadTimeData.getString('login_status_message')) {
-      loginBubble = new cr.ui.Bubble;
-      loginBubble.anchorNode = $('login-container');
-      loginBubble.arrowLocation = cr.ui.ArrowLocation.TOP_END;
-      loginBubble.bubbleAlignment =
-          cr.ui.BubbleAlignment.BUBBLE_EDGE_TO_ANCHOR_EDGE;
-      loginBubble.deactivateToDismissDelay = 2000;
-      loginBubble.closeButtonVisible = false;
-
-      $('login-status-advanced').onclick = function() {
-        chrome.send('showAdvancedLoginUI');
-      };
-      $('login-status-dismiss').onclick = loginBubble.hide.bind(loginBubble);
-
-      var bubbleContent = $('login-status-bubble-contents');
-      loginBubble.content = bubbleContent;
-
-      // The anchor node won't be updated until updateLogin is called so don't
-      // show the bubble yet.
-      shouldShowLoginBubble = true;
-    }
-
-    var loginContainer = getRequiredElement('login-container');
-    loginContainer.addEventListener('click', showSyncLoginUI);
-    chrome.send('initializeSyncLogin');
+    var devices = new ntp.OtherDevicesPage();
+    newTabView.appendTilePage(devices, loadTimeData.getString('otherSessions'));
+    chrome.send('getForeignSessions');
 
     doWhenAllSectionsReady(function() {
       // Tell the slider about the pages.
@@ -892,65 +877,23 @@ cr.define('ntp', function() {
       notificationContainer.hidden = true;
   }
 
-  function setRecentlyClosedTabs(data) {
-    newTabView.recentlyClosedPage.setData(data);
+  function setRecentlyClosedTabs(dataList) {
+    newTabView.recentlyClosedPage.setDataList(dataList);
     cr.dispatchSimpleEvent(document, 'sectionready', true, true);
   }
 
-  function setMostVisitedPages(data, hasBlacklistedUrls) {
-    newTabView.mostVisitedPage.setData(data);
+  function setMostVisitedPages(dataList, hasBlacklistedUrls) {
+    newTabView.mostVisitedPage.setDataList(dataList);
+    cr.dispatchSimpleEvent(document, 'sectionready', true, true);
+  }
+
+  function setForeignSessions(dataList, isTabSyncEnabled) {
+    newTabView.otherDevicesPage.setDataList(dataList);
     cr.dispatchSimpleEvent(document, 'sectionready', true, true);
   }
 
   function getThumbnailUrl(url) {
     return 'chrome://thumb/' + url;
-  }
-
-  /**
-   * Updates the text displayed in the login container. If there is no text then
-   * the login container is hidden.
-   * @param {string} loginHeader The first line of text.
-   * @param {string} loginSubHeader The second line of text.
-   * @param {string} iconURL The url for the login status icon. If this is null
-        then the login status icon is hidden.
-   * @param {boolean} isUserSignedIn Indicates if the user is signed in or not.
-   */
-  function updateLogin(loginHeader, loginSubHeader, iconURL, isUserSignedIn) {
-    if (loginHeader || loginSubHeader) {
-      $('login-container').hidden = false;
-      $('login-status-header').innerHTML = loginHeader;
-      $('login-status-sub-header').innerHTML = loginSubHeader;
-      $('card-slider-frame').classList.add('showing-login-area');
-
-      if (iconURL) {
-        $('login-status-header-container').style.backgroundImage = url(iconURL);
-        $('login-status-header-container').classList.add('login-status-icon');
-      } else {
-        $('login-status-header-container').style.backgroundImage = 'none';
-        $('login-status-header-container').classList.remove(
-            'login-status-icon');
-      }
-    } else {
-      $('login-container').hidden = true;
-      $('card-slider-frame').classList.remove('showing-login-area');
-    }
-    if (shouldShowLoginBubble) {
-      window.setTimeout(loginBubble.show.bind(loginBubble), 0);
-      chrome.send('loginMessageSeen');
-      shouldShowLoginBubble = false;
-    } else if (loginBubble) {
-      loginBubble.reposition();
-    }
-  }
-
-  /**
-   * Show the sync login UI.
-   * @param {Event} e The click event.
-   */
-  function showSyncLoginUI(e) {
-    var rect = e.currentTarget.getBoundingClientRect();
-    chrome.send('showSyncLoginUI',
-                [rect.left, rect.top, rect.width, rect.height]);
   }
 
   /**
@@ -998,11 +941,6 @@ cr.define('ntp', function() {
     return newTabView.appsReordered.apply(newTabView, arguments);
   }
 
-  function setForeignSessions(sessionList, isTabSyncEnabled) {
-    // TODO(jeremycho): Support this once the Devices page is implemented.
-    console.warn('setForeignSessions not implemented.');
-  }
-
   function getAppsCallback() {
     return newTabView.getAppsCallback.apply(newTabView, arguments);
   }
@@ -1021,6 +959,7 @@ cr.define('ntp', function() {
 
   // Return an object with all the exports
   return {
+    APP_LAUNCH: APP_LAUNCH,
     appAdded: appAdded,
     appMoved: appMoved,
     appRemoved: appRemoved,
@@ -1044,7 +983,6 @@ cr.define('ntp', function() {
     setRecentlyClosedTabs: setRecentlyClosedTabs,
     showNotification: showNotification,
     themeChanged: themeChanged,
-    updateLogin: updateLogin,
   };
 });
 

@@ -7,9 +7,11 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 import test_server
 import unittest
+import zipfile
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BUILD_TOOLS_DIR = os.path.dirname(SCRIPT_DIR)
@@ -36,8 +38,8 @@ class SdkToolsTestCase(unittest.TestCase):
   def SetupDefault(self):
     self.SetupWithBaseDirPrefix('sdktools')
 
-  def SetupWithBaseDirPrefix(self, basedir_prefix):
-    self.basedir = tempfile.mkdtemp(prefix=basedir_prefix)
+  def SetupWithBaseDirPrefix(self, basedir_prefix, tmpdir=None):
+    self.basedir = tempfile.mkdtemp(prefix=basedir_prefix, dir=tmpdir)
     # We have to make sure that we build our updaters with a version that is at
     # least as large as the version in the sdk_tools bundle. If not, update
     # tests may fail because the "current" version (according to the sdk_cache)
@@ -132,6 +134,33 @@ class TestSdkTools(SdkToolsTestCase):
     self._RunAndExtractRevision()
 
 
+class TestBuildUpdater(SdkToolsTestCase):
+  def setUp(self):
+    self.SetupDefault()
+
+  def testUpdaterPathsAreSane(self):
+    """Test that the paths to files in nacl_sdk.zip and sdktools.tgz are
+    relative to the output directory."""
+    nacl_sdk_zip_path = os.path.join(self.basedir, 'nacl_sdk.zip')
+    zip_stream = zipfile.ZipFile(nacl_sdk_zip_path, 'r')
+    try:
+      self.assertTrue(all(name.startswith('nacl_sdk')
+                          for name in zip_stream.namelist()))
+    finally:
+      zip_stream.close()
+
+    # sdktools.tgz has no built-in directories to look for. Instead, just look
+    # for some files that must be there.
+    sdktools_tgz_path = os.path.join(self.basedir, 'sdk_tools.tgz')
+    tar_stream = tarfile.open(sdktools_tgz_path, 'r:gz')
+    try:
+      names = [m.name for m in tar_stream.getmembers()]
+      self.assertTrue('LICENSE' in names)
+      self.assertTrue('sdk_update.py' in names)
+    finally:
+      tar_stream.close()
+
+
 class TestAutoUpdateSdkTools(SdkToolsTestCase):
   def setUp(self):
     self.SetupDefault()
@@ -171,6 +200,14 @@ class TestAutoUpdateSdkTools(SdkToolsTestCase):
     sdk_tools_update_dir = os.path.join(self.basedir, 'nacl_sdk',
         'sdk_tools_update')
     self.assertFalse(os.path.exists(sdk_tools_update_dir))
+
+
+class TestAutoUpdateSdkToolsDifferentFilesystem(TestAutoUpdateSdkTools):
+  def setUp(self):
+    # On Linux (on my machine at least), /tmp is a different filesystem than
+    # the current directory. os.rename fails when the source and destination
+    # are on different filesystems. Test that case here.
+    self.SetupWithBaseDirPrefix('sdktools', tmpdir='.')
 
 
 def main():

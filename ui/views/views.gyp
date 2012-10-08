@@ -26,7 +26,6 @@
         '../../base/base.gyp:base_i18n',
         '../../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         '../../build/temp_gyp/googleurl.gyp:googleurl',
-        '../../content/content.gyp:content',
         '../../skia/skia.gyp:skia',
         '../../third_party/icu/icu.gyp:icui18n',
         '../../third_party/icu/icu.gyp:icuuc',
@@ -83,6 +82,8 @@
         'controls/button/radio_button.h',
         'controls/button/text_button.cc',
         'controls/button/text_button.h',
+        'controls/button/chrome_style.cc',
+        'controls/button/chrome_style.h',
         'controls/combobox/combobox.cc',
         'controls/combobox/combobox.h',
         'controls/combobox/combobox_listener.h',
@@ -250,6 +251,8 @@
         'focus/view_storage.h',
         'focus/widget_focus_manager.cc',
         'focus/widget_focus_manager.h',
+        'focus_border.cc',
+        'focus_border.h',
         'ime/input_method_base.cc',
         'ime/input_method_base.h',
         'ime/input_method_bridge.cc',
@@ -461,6 +464,15 @@
           'include_dirs': [
             '../../third_party/wtl/include',
           ],
+          'link_settings': {
+            'msvs_settings': {
+              'VCLinkerTool': {
+                'DelayLoadDLLs': [
+                  'user32.dll',
+                ],
+              },
+            },
+          },
         }],
         ['use_aura==0 or OS!="win"', {
           'sources!': [
@@ -488,6 +500,7 @@
       'type': 'static_library',
       'dependencies': [
         '../../base/base.gyp:base',
+        '../../content/content.gyp:content',
         '../../content/content.gyp:test_support_content',
         '../../ipc/ipc.gyp:test_support_ipc',
         '../../skia/skia.gyp:skia',
@@ -546,6 +559,7 @@
         'controls/combobox/native_combobox_views_unittest.cc',
         'controls/label_unittest.cc',
         'controls/menu/menu_model_adapter_unittest.cc',
+        'controls/native/native_view_host_unittest.cc',
         'controls/progress_bar_unittest.cc',
         'controls/scrollbar/scrollbar_unittest.cc',
         'controls/single_split_view_unittest.cc',
@@ -648,6 +662,8 @@
         'examples/example_combobox_model.h',
         'examples/examples_window.cc',
         'examples/examples_window.h',
+        'examples/label_example.cc',
+        'examples/label_example.h',
         'examples/link_example.cc',
         'examples/link_example.h',
         'examples/message_box_example.cc',
@@ -730,6 +746,8 @@
         'examples/example_combobox_model.h',
         'examples/examples_window_with_content.cc',
         'examples/examples_window_with_content.h',
+        'examples/label_example.cc',
+        'examples/label_example.h',
         'examples/link_example.cc',
         'examples/link_example.h',
         'examples/message_box_example.cc',

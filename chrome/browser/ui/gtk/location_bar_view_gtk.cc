@@ -235,7 +235,7 @@ void ContentSettingImageViewGtk::Update(
 
   gtk_image_set_from_pixbuf(GTK_IMAGE(image_.get()),
       GtkThemeService::GetFrom(parent_->browser()->profile())->GetImageNamed(
-          content_setting_image_model_->get_icon())->ToGdkPixbuf());
+          content_setting_image_model_->get_icon()).ToGdkPixbuf());
 
   gtk_widget_set_tooltip_text(widget(),
       content_setting_image_model_->get_tooltip().c_str());
@@ -245,7 +245,7 @@ void ContentSettingImageViewGtk::Update(
     return;
 
   TabSpecificContentSettings* content_settings =
-      tab_contents->content_settings();
+      TabSpecificContentSettings::FromWebContents(tab_contents->web_contents());
   if (!content_settings || content_settings->IsBlockageIndicated(
       content_setting_image_model_->get_content_settings_type()))
     return;
@@ -346,7 +346,7 @@ void WebIntentsButtonViewGtk::Update(TabContents* tab_contents) {
                          tab_contents->web_contents())
                    : NULL;
   if (!web_intent_picker_controller ||
-      !web_intent_picker_controller->ShowLocationBarPickerTool()) {
+      !web_intent_picker_controller->ShowLocationBarPickerButton()) {
     gtk_widget_hide(widget());
     return;
   }
@@ -367,7 +367,7 @@ void WebIntentsButtonViewGtk::OnClick(GtkWidget* sender) {
     return;
 
   WebIntentPickerController::FromWebContents(tab_contents->web_contents())->
-      LocationBarPickerToolClicked();
+      LocationBarPickerButtonClicked();
 }
 
 GdkColor WebIntentsButtonViewGtk::button_border_color() const {
@@ -809,7 +809,7 @@ GtkWidget* LocationBarViewGtk::CreateIconButton(
     gboolean (click_callback)(GtkWidget*, GdkEventButton*, gpointer)) {
   *image = image_id ?
       gtk_image_new_from_pixbuf(
-          theme_service_->GetImageNamed(image_id)->ToGdkPixbuf()) :
+          theme_service_->GetImageNamed(image_id).ToGdkPixbuf()) :
       gtk_image_new();
 
   GtkWidget* alignment = gtk_alignment_new(0, 0, 1, 1);
@@ -837,10 +837,9 @@ GtkWidget* LocationBarViewGtk::CreateIconButton(
 }
 
 void LocationBarViewGtk::CreateZoomButton() {
-  // TODO(khorimoto): Add tests for zoom button.
   zoom_.Own(CreateIconButton(&zoom_image_,
                              0,
-                             VIEW_ID_NONE,
+                             VIEW_ID_ZOOM_BUTTON,
                              0,
                              OnZoomButtonPressThunk));
 }
@@ -887,7 +886,7 @@ void LocationBarViewGtk::OnSetFocus() {
 }
 
 gfx::Image LocationBarViewGtk::GetFavicon() const {
-  return GetTabContents()->favicon_tab_helper()->GetFavicon();
+  return FaviconTabHelper::FromWebContents(GetWebContents())->GetFavicon();
 }
 
 string16 LocationBarViewGtk::GetTitle() const {
@@ -1086,6 +1085,15 @@ void LocationBarViewGtk::TestPageActionPressed(size_t index) {
   page_action_views_[index]->TestActivatePageAction();
 }
 
+void LocationBarViewGtk::TestActionBoxMenuItemSelected(int command_id) {
+  action_box_button_->action_box_button_controller()->
+      ExecuteCommand(command_id);
+}
+
+bool LocationBarViewGtk::GetBookmarkStarVisibility() {
+  return starred_;
+}
+
 void LocationBarViewGtk::Observe(int type,
                                  const content::NotificationSource& source,
                                  const content::NotificationDetails& details) {
@@ -1239,7 +1247,7 @@ void LocationBarViewGtk::UpdateSiteTypeArea() {
   int resource_id = location_entry_->GetIcon();
   gtk_image_set_from_pixbuf(
       GTK_IMAGE(location_icon_image_),
-      theme_service_->GetImageNamed(resource_id)->ToGdkPixbuf());
+      theme_service_->GetImageNamed(resource_id).ToGdkPixbuf());
 
   if (toolbar_model_->GetSecurityLevel() == ToolbarModel::EV_SECURE) {
     if (!gtk_util::IsActingAsRoundedWindow(site_type_event_box_)) {
@@ -1584,7 +1592,7 @@ void LocationBarViewGtk::UpdateZoomIcon() {
 
   const int zoom_resource = zoom_controller->GetResourceForZoomLevel();
   gtk_image_set_from_pixbuf(GTK_IMAGE(zoom_image_),
-      theme_service_->GetImageNamed(zoom_resource)->ToGdkPixbuf());
+      theme_service_->GetImageNamed(zoom_resource).ToGdkPixbuf());
 
   string16 tooltip = l10n_util::GetStringFUTF16Int(
       IDS_TOOLTIP_ZOOM, zoom_controller->zoom_percent());
@@ -1609,7 +1617,7 @@ void LocationBarViewGtk::UpdateStarIcon() {
     gtk_widget_show_all(star_.get());
     int id = starred_ ? IDR_STAR_LIT : IDR_STAR;
     gtk_image_set_from_pixbuf(GTK_IMAGE(star_image_),
-                              theme_service_->GetImageNamed(id)->ToGdkPixbuf());
+                              theme_service_->GetImageNamed(id).ToGdkPixbuf());
   } else {
     gtk_widget_hide_all(star_.get());
   }

@@ -5,7 +5,7 @@
 #ifndef CHROME_BROWSER_UI_BLOCKED_CONTENT_BLOCKED_CONTENT_TAB_HELPER_H_
 #define CHROME_BROWSER_UI_BLOCKED_CONTENT_BLOCKED_CONTENT_TAB_HELPER_H_
 
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/find_bar/find_notification_details.h"
 #include "content/public/browser/notification_registrar.h"
@@ -62,7 +62,6 @@ class BlockedContentTabHelper
 
  private:
   explicit BlockedContentTabHelper(content::WebContents* web_contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<BlockedContentTabHelper>;
 
   // Called when the blocked popup notification is shown or hidden.

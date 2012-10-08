@@ -73,7 +73,11 @@ function BrowserTag(node) {
 BrowserTag.prototype.handleMutation_ = function(mutation) {
   switch (mutation.attributeName) {
     case 'src':
-      this.objectNode_.postMessage(this.node_.getAttribute('src'));
+      // We need to set .src directly on the shadow element so that
+      // BrowserPluginBindings catches this as src attribute mutation. The
+      // bindings would catch 'SetAttribute' method call with src as argument
+      // otherwise.
+      this.objectNode_.src = this.node_.getAttribute('src');
       break;
     default:
       this.copyAttribute_(mutation.attributeName);

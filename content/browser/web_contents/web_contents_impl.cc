@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/stats_counters.h"
 #include "base/string16.h"
@@ -207,8 +208,8 @@ ViewMsg_Navigate_Type::Value GetNavigationType(
 
   // |RenderViewImpl::PopulateStateFromPendingNavigationParams| differentiates
   // between |RESTORE_WITH_POST| and |RESTORE|.
-  if (entry.restore_type() == NavigationEntryImpl::RESTORE_LAST_SESSION &&
-      browser_context->DidLastSessionExitCleanly()) {
+  if (entry.restore_type() ==
+      NavigationEntryImpl::RESTORE_LAST_SESSION_EXITED_CLEANLY) {
     if (entry.GetHasPostData())
       return ViewMsg_Navigate_Type::RESTORE_WITH_POST;
     return ViewMsg_Navigate_Type::RESTORE;
@@ -616,6 +617,12 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
       prefs.accelerated_2d_canvas_enabled = false;
     if (blacklist_type & content::GPU_FEATURE_TYPE_MULTISAMPLING)
       prefs.gl_multisampling_enabled = false;
+    if (blacklist_type & content::GPU_FEATURE_TYPE_3D_CSS) {
+      prefs.accelerated_layers_enabled = false;
+      prefs.accelerated_animation_enabled = false;
+    }
+    if (blacklist_type & content::GPU_FEATURE_TYPE_ACCELERATED_VIDEO)
+      prefs.accelerated_video_enabled = false;
 
     // Accelerated video and animation are slower than regular when using a
     // software 3d rasterizer. 3D CSS may also be too slow to be worthwhile.
@@ -674,6 +681,11 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
   prefs.number_of_cpu_cores = base::SysInfo::NumberOfProcessors();
 
   content::GetContentClient()->browser()->OverrideWebkitPrefs(rvh, url, &prefs);
+
+  // Disable compositing in guests until we have compositing path implemented
+  // for guests.
+  if (rvh->GetProcess()->IsGuest())
+    prefs.force_compositing_mode = false;
 
   return prefs;
 }
@@ -740,8 +752,8 @@ bool WebContentsImpl::OnMessageReceived(RenderViewHost* render_view_host,
     IPC_MESSAGE_HANDLER(ViewHostMsg_WebUISend, OnWebUISend)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RequestPpapiBrokerPermission,
                         OnRequestPpapiBrokerPermission)
-    IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_NavigateGuest,
-                        OnBrowserPluginNavigateGuest)
+    IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_CreateGuest,
+                        OnBrowserPluginCreateGuest)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP_EX()
   message_source_ = NULL;
@@ -1309,7 +1321,7 @@ void WebContentsImpl::CreateNewWindow(
   const std::string& partition_id =
       content::GetContentClient()->browser()->
           GetStoragePartitionIdForSite(GetBrowserContext(),
-                                       site_instance->GetSite());
+                                       site_instance->GetSiteURL());
   content::StoragePartition* partition =
       BrowserContext::GetStoragePartition(GetBrowserContext(),
                                           site_instance);
@@ -1836,7 +1848,7 @@ double WebContentsImpl::GetZoomLevel() const {
 }
 
 int WebContentsImpl::GetZoomPercent(bool* enable_increment,
-                                    bool* enable_decrement) {
+                                    bool* enable_decrement) const {
   *enable_decrement = *enable_increment = false;
   // Calculate the zoom percent from the factor. Round up to the nearest whole
   // number.
@@ -2335,6 +2347,22 @@ void WebContentsImpl::OnSetSelectedColorInColorChooser(int color_chooser_id,
 void WebContentsImpl::OnPepperPluginHung(int plugin_child_id,
                                          const FilePath& path,
                                          bool is_hung) {
+  HISTOGRAM_COUNTS("Pepper.PluginHung", 1);
+
+  // Determine how often hangs happen when using worker pool versus
+  // FILE thread.  kFieldTrialName needs to match the value in
+  // pepper_file_message_filter.cc, but plumbing that through would be
+  // disruptive for temporary code.
+  // TODO(shess): Remove once the workpool is proven superior.
+  // http://crbug.com/153383
+  static const char* const kFieldTrialName = "FlapperIOThread";
+  static const bool hung_trial_exists =
+      base::FieldTrialList::TrialExists(kFieldTrialName);
+  if (hung_trial_exists) {
+    HISTOGRAM_COUNTS(base::FieldTrial::MakeName("Pepper.PluginHung",
+                                                kFieldTrialName), 1);
+  }
+
   FOR_EACH_OBSERVER(WebContentsObserver, observers_,
                     PluginHungStatusChanged(plugin_child_id, path, is_hung));
 }
@@ -2375,27 +2403,29 @@ void WebContentsImpl::OnPpapiBrokerPermissionResult(int request_id,
                                                     result));
 }
 
-void WebContentsImpl::OnBrowserPluginNavigateGuest(int instance_id,
-                                                   int64 frame_id,
-                                                   const std::string& src,
-                                                   const gfx::Size& size) {
-  // This is the first 'navigate' to a browser plugin, before WebContents has/is
-  // an 'Embedder'; subsequent navigate messages for this WebContents will
-  // be handled by the BrowserPluginEmbedderHelper of the embedder itself (this
-  // also means any message from browser plugin renderer prior to NavigateGuest
-  // which is not NavigateGuest will be ignored). Therefore
-  // |browser_plugin_embedder_| should not be set.
+void WebContentsImpl::OnBrowserPluginCreateGuest(
+    int instance_id,
+    const std::string& storage_partition_id,
+    bool persist_storage) {
+  // This creates a BrowserPluginEmbedder, which handles all the BrowserPlugin
+  // specific messages for this WebContents (through its
+  // BrowserPluginEmbedderHelper). This means that any message from browser
+  // plugin renderer prior to CreateGuest will be ignored.
   // For more info, see comment above classes BrowserPluginEmbedder and
   // BrowserPluginGuest.
+  // The first BrowserPluginHostMsg_CreateGuest message from this WebContents'
+  // embedder render process is handled here. Once BrowserPluginEmbedder is
+  // created, all subsequent BrowserPluginHostMsg_CreateGuest messages are
+  // intercepted by the BrowserPluginEmbedderHelper and handled by the
+  // BrowserPluginEmbedder. Thus, this code will not be executed if a
+  // BrowserPluginEmbedder exists for this WebContents.
   CHECK(!browser_plugin_embedder_.get());
-
   browser_plugin_embedder_.reset(
       content::BrowserPluginEmbedder::Create(this, GetRenderViewHost()));
-  browser_plugin_embedder_->NavigateGuest(GetRenderViewHost(),
-                                          instance_id,
-                                          frame_id,
-                                          src,
-                                          size);
+  browser_plugin_embedder_->CreateGuest(GetRenderViewHost(),
+                                        instance_id,
+                                        storage_partition_id,
+                                        persist_storage);
 }
 
 // Notifies the RenderWidgetHost instance about the fact that the page is
@@ -2823,21 +2853,11 @@ void WebContentsImpl::Close(RenderViewHost* rvh) {
   // mouse-down and mouse-up in text selection or a button click.
   // Defer the close until after tracking is complete, so that we
   // don't free objects out from under the UI.
-  // TODO(shess): This could probably be integrated with the
-  // IsDoingDrag() test below.  Punting for now because I need more
-  // research to understand how this impacts platforms other than Mac.
   // TODO(shess): This could get more fine-grained.  For instance,
   // closing a tab in another window while selecting text in the
   // current window's Omnibox should be just fine.
   if (GetView()->IsEventTracking()) {
     GetView()->CloseTabAfterEventTracking();
-    return;
-  }
-
-  // If we close the tab while we're in the middle of a drag, we'll crash.
-  // Instead, cancel the drag and close it as soon as the drag ends.
-  if (GetView()->IsDoingDrag()) {
-    GetView()->CancelDragAndCloseTab();
     return;
   }
 
@@ -3005,9 +3025,8 @@ void WebContentsImpl::RouteMessageEvent(
 
   // If the renderer has changed while the post message is being routed,
   // drop the message, as it will not be delivered to the right target.
-  if (GetRenderViewHost()->GetProcess()->GetID() != params.target_process_id)
-    return;
-  DCHECK(params.target_frame_id != 0);
+  // TODO(nasko): Check for process ID and target frame id mismatch, once
+  // http://crbug.com/153701 is fixed.
 
   // If there is a source_routing_id, translate it to the routing ID for
   // the equivalent swapped out RVH in the target process.  If we need

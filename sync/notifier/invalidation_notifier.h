@@ -42,7 +42,7 @@ class InvalidationNotifier
   InvalidationNotifier(
       scoped_ptr<notifier::PushClient> push_client,
       const InvalidationVersionMap& initial_max_invalidation_versions,
-      const std::string& initial_invalidation_state,
+      const std::string& invalidation_bootstrap_data,
       const WeakHandle<InvalidationStateTracker>&
           invalidation_state_tracker,
       const std::string& client_info);
@@ -59,10 +59,12 @@ class InvalidationNotifier
   virtual void SetStateDeprecated(const std::string& state) OVERRIDE;
   virtual void UpdateCredentials(
       const std::string& email, const std::string& token) OVERRIDE;
-  virtual void SendInvalidation(const ObjectIdStateMap& id_state_map) OVERRIDE;
+  virtual void SendInvalidation(
+      const ObjectIdInvalidationMap& invalidation_map) OVERRIDE;
 
   // SyncInvalidationListener::Delegate implementation.
-  virtual void OnInvalidate(const ObjectIdStateMap& id_state_map) OVERRIDE;
+  virtual void OnInvalidate(
+      const ObjectIdInvalidationMap& invalidation_map) OVERRIDE;
   virtual void OnInvalidatorStateChange(InvalidatorState state) OVERRIDE;
 
  private:
@@ -92,10 +94,10 @@ class InvalidationNotifier
   // The client ID to pass to |invalidation_listener_|.
   std::string client_id_;
 
-  // The state to pass to |invalidation_listener_|.
+  // The initial bootstrap data to pass to |invalidation_listener_|.
   // TODO(tim): This should be made const once migration is completed for bug
   // 124140.
-  std::string invalidation_state_;
+  std::string invalidation_bootstrap_data_;
 
   // The invalidation listener.
   SyncInvalidationListener invalidation_listener_;

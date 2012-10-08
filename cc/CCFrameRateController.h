@@ -18,7 +18,8 @@ class CCTimeSource;
 
 class CCFrameRateControllerClient {
 public:
-    virtual void vsyncTick() = 0;
+    // Throttled is true when we have a maximum number of frames pending.
+    virtual void vsyncTick(bool throttled) = 0;
 
 protected:
     virtual ~CCFrameRateControllerClient() { }
@@ -47,7 +48,9 @@ public:
     void didFinishFrame();
     void didAbortAllPendingFrames();
     void setMaxFramesPending(int); // 0 for unlimited.
-    base::TimeTicks nextTickTimeIfActivated();
+
+    // This returns null for unthrottled frame-rate.
+    base::TimeTicks nextTickTime();
 
     void setTimebaseAndInterval(base::TimeTicks timebase, base::TimeDelta interval);
     void setSwapBuffersCompleteSupported(bool);

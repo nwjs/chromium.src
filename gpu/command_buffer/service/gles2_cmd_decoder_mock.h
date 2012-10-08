@@ -53,6 +53,7 @@ class MockGLES2Decoder : public GLES2Decoder {
   MOCK_METHOD0(GetContextGroup, ContextGroup*());
   MOCK_METHOD0(ProcessPendingQueries, bool());
   MOCK_METHOD0(GetQueryManager, gpu::gles2::QueryManager*());
+  MOCK_METHOD0(GetVertexArrayManager, gpu::gles2::VertexArrayManager*());
   MOCK_METHOD1(SetResizeCallback, void(const base::Callback<void(gfx::Size)>&));
   MOCK_METHOD1(SetStreamTextureManager, void(StreamTextureManager*));
   MOCK_METHOD3(DoCommand, error::Error(unsigned int command,
@@ -77,6 +78,7 @@ class MockGLES2Decoder : public GLES2Decoder {
   MOCK_METHOD0(GetTextureUploadCount, uint32());
   MOCK_METHOD0(GetTotalTextureUploadTime, base::TimeDelta());
   MOCK_METHOD0(GetTotalProcessingCommandsTime, base::TimeDelta());
+  MOCK_METHOD1(AddProcessingCommandsTime, void(base::TimeDelta));
 
   DISALLOW_COPY_AND_ASSIGN(MockGLES2Decoder);
 };

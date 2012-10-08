@@ -341,11 +341,7 @@ void BrowserWindowGtk::Init() {
 gboolean BrowserWindowGtk::OnCustomFrameExpose(GtkWidget* widget,
                                                GdkEventExpose* event) {
   TRACE_EVENT0("ui::gtk", "BrowserWindowGtk::OnCustomFrameExpose");
-  DrawFrame(widget, event);
-  return FALSE;  // Allow subwidgets to paint.
-}
 
-void BrowserWindowGtk::DrawFrame(GtkWidget* widget, GdkEventExpose* event) {
   // Draw the default background.
   cairo_t* cr = gdk_cairo_create(gtk_widget_get_window(widget));
   gdk_cairo_rectangle(cr, &event->area);
@@ -363,6 +359,8 @@ void BrowserWindowGtk::DrawFrame(GtkWidget* widget, GdkEventExpose* event) {
 
   if (UseCustomFrame() && !IsMaximized())
     DrawCustomFrameBorder(widget);
+
+  return FALSE;  // Allow subwidgets to paint.
 }
 
 void BrowserWindowGtk::DrawCustomFrameBorder(GtkWidget* widget) {
@@ -541,7 +539,7 @@ void BrowserWindowGtk::DrawCustomFrame(cairo_t* cr,
   int image_name = GetThemeFrameResource();
 
   gfx::CairoCachedSurface* surface = theme_provider->GetImageNamed(
-      image_name)->ToCairo();
+      image_name).ToCairo();
   if (event->area.y < surface->Height()) {
     surface->SetSource(cr, widget, 0, GetVerticalOffset());
 
@@ -556,7 +554,7 @@ void BrowserWindowGtk::DrawCustomFrame(cairo_t* cr,
       !browser()->profile()->IsOffTheRecord()) {
     gfx::CairoCachedSurface* theme_overlay = theme_provider->GetImageNamed(
         IsActive() ? IDR_THEME_FRAME_OVERLAY
-        : IDR_THEME_FRAME_OVERLAY_INACTIVE)->ToCairo();
+        : IDR_THEME_FRAME_OVERLAY_INACTIVE).ToCairo();
     theme_overlay->SetSource(cr, widget, 0, GetVerticalOffset());
     cairo_paint(cr);
   }
@@ -1166,6 +1164,10 @@ FindBar* BrowserWindowGtk::CreateFindBar() {
   return new FindBarGtk(this);
 }
 
+bool BrowserWindowGtk::GetConstrainedWindowTopY(int* top_y) {
+  return false;
+}
+
 void BrowserWindowGtk::ShowAvatarBubble(WebContents* web_contents,
                                         const gfx::Rect& rect) {
   GtkWidget* widget = web_contents->GetContentNativeView();
@@ -1180,7 +1182,7 @@ void BrowserWindowGtk::ShowAvatarBubbleFromAvatarButton() {
 
 void BrowserWindowGtk::ShowPasswordGenerationBubble(
     const gfx::Rect& rect,
-    const webkit::forms::PasswordForm& form,
+    const content::PasswordForm& form,
     autofill::PasswordGenerator* password_generator) {
   WebContents* web_contents = chrome::GetActiveWebContents(browser_.get());
   if (!web_contents || !web_contents->GetContentNativeView()) {
@@ -1254,7 +1256,9 @@ void BrowserWindowGtk::ActiveTabChanged(TabContents* old_contents,
   // we are the active browser before calling RestoreFocus().
   if (!browser_->tab_strip_model()->closing_all()) {
     new_contents->web_contents()->GetView()->RestoreFocus();
-    if (new_contents->find_tab_helper()->find_ui_active())
+    FindTabHelper* find_tab_helper =
+        FindTabHelper::FromWebContents(new_contents->web_contents());
+    if (find_tab_helper->find_ui_active())
       browser_->GetFindBarController()->find_bar()->SetFocusAndSelection();
   }
 
@@ -1450,7 +1454,7 @@ gboolean BrowserWindowGtk::OnConfigure(GtkWidget* widget,
   }
 
   if (bounds_.size() != bounds.size())
-    OnSizeChanged(bounds.width(), bounds.height());
+    UpdateWindowShape(bounds.width(), bounds.height());
 
   // We update |bounds_| but not |restored_bounds_| here.  The latter needs
   // to be updated conditionally when the window is non-maximized and non-
@@ -1739,7 +1743,7 @@ void BrowserWindowGtk::InitWidgets() {
   tabstrip_->Init();
 
   // Build the titlebar (tabstrip + header space + min/max/close buttons).
-  titlebar_.reset(CreateBrowserTitlebar());
+  titlebar_.reset(new BrowserTitlebar(this, window_));
   titlebar_->Init();
 
   // Insert the tabstrip into the window.
@@ -1901,10 +1905,6 @@ void BrowserWindowGtk::SetBackgroundColor() {
   gtk_widget_modify_bg(toolbar_border_, GTK_STATE_NORMAL, &border_color);
 }
 
-void BrowserWindowGtk::OnSizeChanged(int width, int height) {
-  UpdateWindowShape(width, height);
-}
-
 void BrowserWindowGtk::UpdateWindowShape(int width, int height) {
   GdkRegion* mask = GetWindowShape(width, height);
   gdk_window_shape_combine_region(
@@ -1972,18 +1972,6 @@ void BrowserWindowGtk::UpdateCustomFrame() {
   gtk_window_set_decorated(window_, !UseCustomFrame());
   titlebar_->UpdateCustomFrame(UseCustomFrame() && !IsFullscreen());
   UpdateWindowShape(bounds_.width(), bounds_.height());
-}
-
-gfx::Size BrowserWindowGtk::GetNonClientFrameSize() const {
-  GtkAllocation window_container_allocation;
-  gtk_widget_get_allocation(window_container_, &window_container_allocation);
-  GtkAllocation render_area_floating_container_allocation;
-  gtk_widget_get_allocation(render_area_floating_container_,
-                            &render_area_floating_container_allocation);
-  return gfx::Size(window_container_allocation.width -
-                   render_area_floating_container_allocation.width,
-                   window_container_allocation.height -
-                   render_area_floating_container_allocation.height);
 }
 
 void BrowserWindowGtk::InvalidateWindow() {
@@ -2233,9 +2221,14 @@ gboolean BrowserWindowGtk::OnButtonPressEvent(GtkWidget* widget,
         gdk_window_raise(gdk_window);
 
       if (has_hit_titlebar) {
-        return HandleTitleBarLeftMousePress(event);
+        return gtk_window_util::HandleTitleBarLeftMousePress(
+            window_, bounds_, event);
       } else if (has_hit_edge) {
-        return HandleWindowEdgeLeftMousePress(window_, edge, event);
+        gtk_window_begin_resize_drag(window_, edge, event->button,
+                                     static_cast<gint>(event->x_root),
+                                     static_cast<gint>(event->y_root),
+                                     event->time);
+        return TRUE;
       }
     } else if (GDK_2BUTTON_PRESS == event->type) {
       if (has_hit_titlebar) {
@@ -2263,31 +2256,10 @@ gboolean BrowserWindowGtk::OnButtonPressEvent(GtkWidget* widget,
   return FALSE;  // Continue to propagate the event.
 }
 
-bool BrowserWindowGtk::HandleTitleBarLeftMousePress(
-    GdkEventButton* event) {
-  return gtk_window_util::HandleTitleBarLeftMousePress(window_, bounds_, event);
-}
-
-bool BrowserWindowGtk::HandleWindowEdgeLeftMousePress(
-    GtkWindow* window,
-    GdkWindowEdge edge,
-    GdkEventButton* event) {
-  gtk_window_begin_resize_drag(window, edge, event->button,
-                               static_cast<gint>(event->x_root),
-                               static_cast<gint>(event->y_root),
-                               event->time);
-  return TRUE;
-}
-
 gboolean BrowserWindowGtk::OnFocusIn(GtkWidget* widget,
                                      GdkEventFocus* event) {
-  HandleFocusIn(widget, event);
-  return FALSE;
-}
-
-void BrowserWindowGtk::HandleFocusIn(GtkWidget* widget,
-                                     GdkEventFocus* event) {
   BrowserList::SetLastActive(browser_.get());
+  return FALSE;
 }
 
 gboolean BrowserWindowGtk::OnFocusOut(GtkWidget* widget,
@@ -2336,10 +2308,6 @@ bool BrowserWindowGtk::UsingCustomPopupFrame() const {
   GtkThemeService* theme_provider = GtkThemeService::GetFrom(
       browser()->profile());
   return !theme_provider->UsingNativeTheme() && browser()->is_type_popup();
-}
-
-BrowserTitlebarBase* BrowserWindowGtk::CreateBrowserTitlebar() {
-  return new BrowserTitlebar(this, window_);
 }
 
 bool BrowserWindowGtk::GetWindowEdge(int x, int y, GdkWindowEdge* edge) {

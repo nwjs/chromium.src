@@ -519,6 +519,12 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         <message name="IDS_CONTENT_CONTEXT_RELOAD" desc="The name of the Reload command in the content area context menu">
           Re&amp;load
         </message>
+        <message name="IDS_CONTENT_CONTEXT_RELOAD_PAGE" desc="The name of the Reload Page command in the packaged app content area context menu">
+          Reload page
+        </message>
+        <message name="IDS_CONTENT_CONTEXT_RELOAD_PACKAGED_APP" desc="The name of the Reload Packaged App command in the packaged app content area context menu">
+          Re&amp;load app
+        </message>
         <message name="IDS_CONTENT_CONTEXT_TRANSLATE" desc="The name of the Translate command in the content area context menu">
           &amp;Translate to <ph name="LANGUAGE">$1<ex>English</ex></ph>
         </message>
@@ -657,9 +663,6 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         <message name="IDS_CONTENT_CONTEXT_SPELLING_NO_SUGGESTIONS_FROM_GOOGLE" desc="The message shown when we cannot get any more suggestions from the Spelling service">
           No more suggestions from Google
         </message>
-        <message name="IDS_CONTENT_CONTEXT_SPELLCHECK_MENU" desc="The name of the Spellcheck Options submenu in the content area context menu">
-          &amp;Spell-checker options
-        </message>
         <message name="IDS_CONTENT_CONTEXT_SELECTALL" desc="The name of the Select All command in the content area context menu">
           Select &amp;all
         </message>
@@ -722,11 +725,17 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         <message name="IDS_CONTENT_CONTEXT_INSPECTELEMENT" desc="In Title Case: The name of the Inspect Element command in the content area context menu">
           I&amp;nspect Element
         </message>
-        <message name="IDS_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE" desc="The name of the Inspect Background Page command in the packaged app content area context menu">
+        <message name="IDS_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE" desc="In Title Case: The name of the Inspect Background Page command in the packaged app content area context menu">
           Inspect &amp;Background Page
         </message>
         <message name="IDS_CONTENT_CONTEXT_RELOAD" desc="In Title Case: The name of the Reload command in the content area context menu">
           Re&amp;load
+        </message>
+        <message name="IDS_CONTENT_CONTEXT_RELOAD_PAGE" desc="In Title Case: The name of the Reload Page command in the packaged app content area context menu">
+          Reload Page
+        </message>
+        <message name="IDS_CONTENT_CONTEXT_RELOAD_PACKAGED_APP" desc="In Title Case: The name of the Reload Packaged App command in the packaged app content area context menu">
+          Re&amp;load App
         </message>
         <message name="IDS_CONTENT_CONTEXT_TRANSLATE" desc="In Title Case: The name of the Translate command in the content area context menu">
           &amp;Translate to <ph name="LANGUAGE">$1<ex>English</ex></ph>
@@ -863,20 +872,8 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         <message name="IDS_CONTENT_CONTEXT_SPELLING_NO_SUGGESTIONS_FROM_GOOGLE" desc="The message shown when we cannot get any more suggestions from the Spelling service">
           No more suggestions from Google
         </message>
-        <message name="IDS_CONTENT_CONTEXT_SPELLCHECK_MENU" desc="In Title Case: The name of the Spellcheck Options submenu in the content area context menu">
-          &amp;Spell-checker Options
-        </message>
-        <message name="IDS_CONTENT_CONTEXT_LANGUAGE_SETTINGS" desc="In Title Case: The name of the Language Settings command in the content area context menu">
-          &amp;Language Settings...
-        </message>
         <message name="IDS_CONTENT_CONTEXT_CHECK_SPELLING_OF_THIS_FIELD" desc="In Title Case: The name of the Check the spelling of this field command in the content area context menu">
           &amp;Check Spelling in This Field
-        </message>
-        <message name="IDS_CONTENT_CONTEXT_SHOW_SPELLING_PANEL" desc="In Title Case: The name of the Show Spelling Panel command in the content area context menu">
-          &amp;Show Spelling Panel
-        </message>
-        <message name="IDS_CONTENT_CONTEXT_HIDE_SPELLING_PANEL" desc="In Title Case: The name of the Hide Spelling Panel command in the content area context menu">
-          &amp;Hide Spelling Panel
         </message>
         <message name="IDS_CONTENT_CONTEXT_SELECTALL" desc="In Title Case: The name of the Select All command in the content area context menu">
           Select &amp;All
@@ -942,14 +939,36 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         </message>
       </if>
       <if expr="not is_macosx">
-        <message name="IDS_CONTENT_CONTEXT_SPELLCHECK_MENU" desc="In Title Case: The name of the Spellcheck Options submenu in the spelling context menu">
-          &amp;Spell-checker options
-        </message>
+        <if expr="not pp_ifdef('use_titlecase')">
+          <message name="IDS_CONTENT_CONTEXT_SPELLCHECK_MENU" desc="The name of the Spellcheck Options submenu in the content area context menu">
+            &amp;Spell-checker options
+          </message>
+          <message name="IDS_CONTENT_CONTEXT_LANGUAGE_SETTINGS" desc="The name of the Language Settings command in the content area context menu">
+            &amp;Language settings...
+          </message>
+          <message name="IDS_CONTENT_CONTEXT_SHOW_SPELLING_PANEL" desc="The name of the Show Spelling Panel command in the content area context menu">
+            &amp;Show spelling panel
+          </message>
+          <message name="IDS_CONTENT_CONTEXT_HIDE_SPELLING_PANEL" desc="The name of the Hide Spelling Panel command in the content area context menu">
+            &amp;Hide spelling panel
+          </message>
+        </if>
+        <if expr="pp_ifdef('use_titlecase')">
+          <message name="IDS_CONTENT_CONTEXT_SPELLCHECK_MENU" desc="In Title Case: The name of the Spellcheck Options submenu in the content area context menu">
+            &amp;Spell-checker Options
+          </message>
+          <message name="IDS_CONTENT_CONTEXT_LANGUAGE_SETTINGS" desc="In Title Case: The name of the Language Settings command in the content area context menu">
+            &amp;Language Settings...
+          </message>
+          <message name="IDS_CONTENT_CONTEXT_SHOW_SPELLING_PANEL" desc="In Title Case: The name of the Show Spelling Panel command in the content area context menu">
+            &amp;Show Spelling Panel
+          </message>
+          <message name="IDS_CONTENT_CONTEXT_HIDE_SPELLING_PANEL" desc="In Title Case: The name of the Hide Spelling Panel command in the content area context menu">
+            &amp;Hide Spelling Panel
+          </message>
+        </if>
         <message name="IDS_CONTENT_CONTEXT_CHECK_SPELLING_WHILE_TYPING" desc="The name of the Check Spelling while Typing field command in the spelling context menu">
           Check the spelling of text fields
-        </message>
-        <message name="IDS_CONTENT_CONTEXT_LANGUAGE_SETTINGS" desc="The name of the Language Settings command in the content area context menu">
-          &amp;Language settings...
         </message>
       </if>
 
@@ -2464,10 +2483,6 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       <!-- Download Error Messages-->
       <!-- *_STATUS_*: Short message in the download on the shelf.-->
       <!-- *_DESCRIPTION_*: Corresponding more descriptive message on the download page.-->
-      <message name="IDS_DOWNLOAD_RECEIVED_SIZE"
-               desc="The size downloaded/total.">
-        <ph name="DOWNLOAD_RECEIVED">$1<ex>54kB</ex></ph>/<ph name="DOWNLOAD_TOTAL">$2<ex>154MB</ex></ph>
-      </message>
       <message name="IDS_DOWNLOAD_INTERRUPTED_STATUS"
                desc="The download experienced an error and was interrupted, size downloaded/total.">
         Download Error
@@ -2594,9 +2609,9 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       </if>
       <message name="IDS_DOWNLOAD_STATUS_IN_PROGRESS"
                desc="Size and units downloaded, time remaining.">
-        <ph name="DOWNLOAD_RECEIVED">$1<ex>54kB</ex></ph>/<ph name="DOWNLOAD_TOTAL">$2<ex>154MB</ex></ph>, <ph name="TIME_LEFT">$3<ex>5s</ex></ph>
+        <ph name="DOWNLOAD_RECEIVED">$1<ex>54/154 MB</ex></ph>, <ph name="TIME_LEFT">$2<ex>5s</ex></ph>
       </message>
-      <message name="IDS_DOWNLOAD_STATUS_IN_PROGRESS_SIZES_ONLY"
+      <message name="IDS_DOWNLOAD_STATUS_SIZES"
                desc="Size and units downloaded.">
         <ph name="DOWNLOAD_RECEIVED">$1<ex>54kB</ex></ph>/<ph name="DOWNLOAD_TOTAL">$2<ex>154MB</ex></ph>
       </message>
@@ -2617,6 +2632,9 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       </message>
       <message name="IDS_DOWNLOAD_STATUS_REMOVED" desc="Text that appears under the downloaded files that have been removed.">
         Removed
+      </message>
+      <message name="IDS_DOWNLOAD_STATUS_INTERRUPTED" desc="">
+	<ph name="PROGRESS">$1<ex>100/125 MB</ex></ph> <ph name="INTERRUPT_REASON">$2<ex>Disk full</ex></ph>
       </message>
       <message name="IDS_DOWNLOAD_UNCONFIRMED_PREFIX" desc="The prefix used in the unconfirmed download file.">
         Unconfirmed
@@ -2740,10 +2758,6 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       <message name="IDS_DOWNLOAD_PROGRESS_PAUSED"
                desc="Indicate the download is in progress but paused">
         Paused
-      </message>
-      <message name="IDS_DOWNLOAD_PROGRESS_INTERRUPTED"
-               desc="Indicate the download was interrupted">
-        Interrupted
       </message>
       <message name="IDS_DOWNLOAD_LINK_CLEAR_ALL"
          desc="Clear all downloads link">
@@ -4374,13 +4388,13 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_PERFORMANCE_MONITOR_EXCEPTIONS_EVENT_CATEGORY_DESCRIPTION" desc="Text displayed on mouseover of the Exceptions event category.">
         Events relating to <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> crashes and failures
       </message>
-      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_FREEZE_EVENT" desc="Text displayed for the Renderer Freeze event title.">
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_HANG_EVENT" desc="Text displayed for the Renderer Freeze event title.">
         Renderer Freezes
       </message>
-      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_FREEZE_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Renderer Freeze event checkbox.">
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_HANG_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Renderer Freeze event checkbox.">
         Occurrences when a tab became unresponsive
       </message>
-      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_FREEZE_EVENT_MOUSEOVER" desc="Text displayed on mouseover of a Renderer Freeze event.">
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_HANG_EVENT_MOUSEOVER" desc="Text displayed on mouseover of a Renderer Freeze event.">
         Renderer Froze
       </message>
       <message name="IDS_PERFORMANCE_MONITOR_RENDERER_CRASH_EVENT" desc="Text displayed for the Renderer Crash event title.">
@@ -4392,13 +4406,13 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_PERFORMANCE_MONITOR_RENDERER_CRASH_EVENT_MOUSEOVER" desc="Text dispalyed on mouseover of a Renderer Crash event.">
         Renderer Crashed
       </message>
-      <message name="IDS_PERFORMANCE_MONITOR_KILLED_BY_OS_CRASH_EVENT" desc="Text displayed for the Killed By OS Crash event title.">
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_KILLED_EVENT" desc="Text displayed for the Killed By OS Crash event title.">
         Process Kills
       </message>
-      <message name="IDS_PERFORMANCE_MONITOR_KILLED_BY_OS_CRASH_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Killed By OS Crash event checkbox.">
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_KILLED_EVENT_DESCRIPTION" desc="Text displayed on mouseover of the Killed By OS Crash event checkbox.">
         Occurrences when the OS killed a tab's process ("<ph name="IDS_KILLED_TAB_TITLE">$1<ex>He's dead, Jim!</ex></ph>")
       </message>
-      <message name="IDS_PERFORMANCE_MONITOR_KILLED_BY_OS_CRASH_EVENT_MOUSEOVER" desc="Text displayed on mouseover of a Killed By OS Crash event.">
+      <message name="IDS_PERFORMANCE_MONITOR_RENDERER_KILLED_EVENT_MOUSEOVER" desc="Text displayed on mouseover of a Killed By OS Crash event.">
         Process Killed
       </message>
       <message name="IDS_PERFORMANCE_MONITOR_UNCLEAN_EXIT_EVENT" desc="Text displayed for the Unclean Exit event title.">
@@ -4885,9 +4899,6 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_EXTENSION_INSTALL_NOT_ENABLED" desc="Error displayed during installation of apps or extensions when installation is not enabled.">
         Installation is not enabled.
       </message>
-      <message name="IDS_EXTENSION_INSTALL_PLUGIN_NOT_SUPPORTED" desc="Error displayed during installation of apps or extensions when the include a plugin that is not supported.">
-        Installation failed because NPAPI plugins are not supported in this environment.
-      </message>
       <message name="IDS_EXTENSION_INSTALL_INCORRECT_APP_CONTENT_TYPE" desc="Error displayed during installation of apps when the app is not served with the correct content-type.">
         Apps must be served with content-type "<ph name="CONTENT_TYPE">$1<ex>application/x-chrome-extension</ex></ph>".
       </message>
@@ -5277,6 +5288,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_EXTENSION_ACTIVITY_API_BLOCK" desc="Text for the label next to an activity message that represents a blocked call to the extension API.">
         Blocked API Call
       </message>
+      <message name="IDS_EXTENSION_ACTIVITY_CONTENT_SCRIPT" desc="Text for the label next to an activity message that represents a content script injection.">
+        Content Script
+      </message>
 
       <!-- chrome://extension-info bubble -->
       <message name="IDS_EXTENSION_SCRIPT_POPUP_IS_RUNNING" desc="The label in the extension info bubble that indicates the extension is running scripts on this page">
@@ -5318,6 +5332,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_PLUGINS_ENABLED_BY_POLICY_PLUGIN" desc="Text that signifies that the plug-in is currently enabled by enterprise policy.">
         (Enabled by enterprise policy)
+      </message>
+      <message name="IDS_PLUGINS_GROUP_MANAGED_BY_POLICY" desc="Text that signifies that the plug-in group is currently managed by enterprise policy.">
+        (Managed by enterprise policy)
       </message>
       <message name="IDS_PLUGINS_VERSION" desc="The label in front of a plug-in version number.">
         Version:
@@ -5624,11 +5641,29 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_NACL_DEBUG_DESCRIPTION" desc="Description of the 'NaCl GDB debug stub' lab.">
         Enable GDB debug stub. This will stop a Native Client application on startup and wait for nacl-gdb (from the NaCl SDK) to attach to it.
       </message>
+      <message name="IDS_FLAGS_NACL_DEBUG_MASK_NAME" desc="Name of the 'Restrict NaCl GDB debugging' lab.">
+        Restrict Native Client GDB-based debugging by pattern
+      </message>
+      <message name="IDS_FLAGS_NACL_DEBUG_MASK_DESCRIPTION" desc="Description of the 'Restrict NaCl GDB debugging' lab.">
+        Restricts Native Client application GDB-based debugging by URL of manifest file. Native Client GDB-based debugging must be enabled for this option to work.
+      </message>
+      <message name="IDS_NACL_DEBUG_MASK_CHOICE_INCLUDE_DEBUG">
+        Debug only if manifest URL ends with debug.nmf
+      </message>
+      <message name="IDS_NACL_DEBUG_MASK_CHOICE_EXCLUDE_UTILS">
+        Debug everything except secure shell
+      </message>
       <message name="IDS_FLAGS_ENABLE_PNACL_NAME" desc="Name of the 'Enable Portable Native Client' lab.">
         Portable Native Client.
       </message>
       <message name="IDS_FLAGS_ENABLE_PNACL_DESCRIPTION" desc="Description of the 'Enable Portable Native Client' lab.">
         Enable support for Portable Native Client.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_NACL_IPC_PROXY_NAME" desc="Name of the 'Enable Native Client IPC Proxy' lab.">
+        Native Client IPC Proxy.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_NACL_IPC_PROXY_DESCRIPTION" desc="Description of the 'Enable Native Client IPC Proxy' lab.">
+        Use Chrome IPC, rather than NaCl SRPC, to proxy Pepper calls between Chrome and the plugin.
       </message>
       <message name="IDS_FLAGS_ENABLE_SCRIPTED_SPEECH_NAME" desc="Name of the 'Enable Scripted Speech' lab.">
         Speech JavaScript API.
@@ -5691,10 +5726,10 @@ Keep your key file in a safe place. You will need it to create new versions of y
         Automatic
       </message>
       <message name="IDS_ENABLE_TOUCH_EVENTS_NAME" desc="Title of the enable touch-events flag." >
-        Enable touch events
+        Force enable touch events.
       </message>
       <message name="IDS_ENABLE_TOUCH_EVENTS_DESCRIPTION" desc="Description of the enable touch-events flag.">
-        Enables experimental support for touch screens.
+        Enables experimental touch event support regardless of the presence of a physical touch screen capable of generating touch events.
       </message>
       <message name="IDS_ENABLE_BACKLOADER_NAME" desc="Title of the enable background loader flag." >
         Enable background loader component for hosted applications
@@ -5871,12 +5906,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_STATIC_IP_CONFIG_DESCRIPTION" desc="Description of the static ip config lab.">
         Enables static ip configuration. May not work.
-      </message>
-      <message name="IDS_FLAGS_UNSUPPORTED_BLUETOOTH_DEVICES_NAME" desc="Name of the flag to enable support for unsupported bluetooth devices.">
-        Enable unsupported bluetooth devices
-      </message>
-      <message name="IDS_FLAGS_UNSUPPORTED_BLUETOOTH_DEVICES_DESCRIPTION" desc="Description of the flag to enable support for unsupported bluetooth devices.">
-        Enables discovery and interaction with Bluetooth devices that may not be supported by ChromeOS.
       </message>
       <message name="IDS_FLAGS_TAB_GROUPS_CONTEXT_MENU_NAME" desc="Name of the context menu for enabling tab grouping in the context menu">
         Add grouping to tab context menu
@@ -6224,12 +6253,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_DISABLE_ASYNCHRONOUS_SPELLCHECKING_DESCRIPTION" desc="Description for the flag to disable asynchronous spellchecking.">
         Disable experimental asynchronous spellchecking. It also disallows Chrome to use a web service to get spellchecking results.
       </message>
-      <message name="IDS_FLAGS_ENABLE_NTP_DISCOVERY_NAME" desc="Name for the flag to enable discovery in the new tab page.">
-        Enable discovery in the new tab page.
-      </message>
-      <message name="IDS_FLAGS_ENABLE_NTP_DISCOVERY_DESCRIPTION" desc="Description for the flag to enable discovery in the new tab page.">
-        Enable this and the Experimental Extension APIs and install discovery extensions to see some suggested links in the new tab page.
-      </message>
       <message name="IDS_FLAGS_NO_DISCARD_TABS_NAME" desc="Name for the flag to disable the tab discarding feature.">
         Don't discard tabs.
       </message>
@@ -6305,12 +6328,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
         </message>
         <message name="IDS_FLAGS_ALLOW_TOUCHPAD_THREE_FINGER_CLICK_DESCRIPTION" desc="Description for the flag to enable touchpad three finger click as middle button.">
           Enables touchpad three-finger-click as middle button.
-        </message>
-        <message name="IDS_FLAGS_ENABLE_DRIVE_V2_API" desc="Name for the flag to enable Drive V2 API.">
-          Enable Drive V2 API.
-        </message>
-        <message name="IDS_FLAGS_ENABLE_DRIVE_V2_API_DESCRIPTION" desc="Description for the flag to enable Drive V2 API.">
-          Enables to use Drive V2 API for accessing Google Drive folder.
         </message>
         <message name="IDS_FLAGS_DISABLE_HTML5_CAMERA" desc="Name for the flag to disable new camera WebUI.">
           Disable HTML5 camera in WebUI.
@@ -6392,6 +6409,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_REQUEST_TABLET_SITE_DESCRIPTION" desc="Description for the flag to set to enable Request Tablet Site in the wrench menu.">
         Allows the user to request tablet site. Web content is often optimized for tablet devices. When this option is selected the user agent string is changed to indicate a tablet device. Web content optimized for tablets is received there after for the current tab.
       </message>
+	  <message name="IDS_FLAGS_DEBUG_PACKED_APP_NAME" desc="Name of the flag to enable debugging context menu options for packed apps.">
+	    Enable debugging for packed apps.
+	  </message>
+	  <message name="IDS_FLAGS_DEBUG_PACKED_APP_DESCRIPTION" desc="Description of the flag to enable debugging context menu options for packed apps.">
+	    Enables debugging context menu options such as Inspect Element for packed applications.
+	  </message>
 
       <!-- Crashes -->
       <message name="IDS_CRASHES_TITLE" desc="Title for the chrome://crashes page.">
@@ -6508,6 +6531,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_PLUGIN_BLOCKED" desc="The placeholder text for a blocked plug-in.">
         <ph name="PLUGIN_NAME">$1<ex>Flash</ex></ph> is not allowed.
+      </message>
+      <message name="IDS_NACL_PLUGIN_BLOCKED" desc="The placeholder text for a blocked plug-in.">
+        This app is not currently supported on this device but the Chrome gnomes are hard at work to make it work soon.
       </message>
       <message name="IDS_PLUGIN_OUTDATED" desc="The placeholder text for an outdated plug-in.">
         <ph name="PLUGIN_NAME">$1<ex>Flash</ex></ph> is out of date.
@@ -7289,7 +7315,7 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
         Please tell us what is happening before sending the feedback.
       </message>
       <message name="IDS_FEEDBACK_NO_SAVED_SCREENSHOTS_HELP" desc="Message shown when no screenshots are available for selection">
-        You can select saved screenshots from here. Currently there are no screenshots available. You can press Ctrl + the "Overview Mode" key together to take a screenshot. The last three screenshots that you have taken will appear here.
+        You can select saved screenshots from here. Currently there are no screenshots available. You can press Ctrl + the "Window Switch" key together to take a screenshot. The last three screenshots that you have taken will appear here.
       </message>
       <message name="IDS_FEEDBACK_SEND_REPORT" desc="Text for OK button of the send feedback dialog">
         Send feedback
@@ -9471,11 +9497,6 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
           Relaunch
         </message>
       </if>
-      <if expr="pp_ifdef('chromeos')">
-        <message name="IDS_RELAUNCH_BUTTON" desc="The label for the relaunch button that relaunches the browser once update is complete">
-          Restart
-        </message>
-      </if>
       <if expr="pp_ifdef('chromeos') and pp_ifdef('use_titlecase')">
         <message name="IDS_RELAUNCH_BUTTON" desc="Titlecase: The label for the relaunch button that relaunches the browser once update is complete">
           Restart
@@ -10028,9 +10049,6 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
       <message name="IDS_OPTIONS_IMPORT_DATA_BUTTON" desc="Label for the import data button.">
         Import bookmarks and settings...
       </message>
-      <message name="IDS_OPTIONS_CONTROLLED_SETTING_APPLY_RECOMMENDATION" desc="Link text displayed in the controlled settings bubble for applying the recommendation.">
-        Apply recommendation
-      </message>
 
       <message name="IDS_OPTIONS_POLICY_MANAGED_PREFS" desc="Banner displayed in the settings UI when there are policy-managed options the user won't be able to change.">
         Some settings are managed by your administrator.
@@ -10044,14 +10062,20 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
       <message name="IDS_OPTIONS_UNMODIFIABLE_PREFS" desc="Banner displayed in case there are options that the user won't be able to change.">
         Some settings cannot be modified by the user.
       </message>
-      <message name="IDS_OPTIONS_CONTROLLED_SETTING_POLICY" desc="Text displayed in the controlled settings bubble in case the setting is forced by policy.">
+      <message name="IDS_OPTIONS_CONTROLLED_SETTING_POLICY" desc="Text displayed in the controlled settings bubble when a setting's value is enforced by policy.">
         This setting is enforced by your administrator.
       </message>
-      <message name="IDS_OPTIONS_CONTROLLED_SETTING_EXTENSION" desc="Text displayed in the controlled settings bubble in case the setting controlled by an extension.">
-        This setting is managed by an extension.
+      <message name="IDS_OPTIONS_CONTROLLED_SETTING_EXTENSION" desc="Text displayed in the controlled settings bubble when a setting's value is enforced by an extension.">
+        This setting is enforced by an extension.
       </message>
-      <message name="IDS_OPTIONS_CONTROLLED_SETTING_RECOMMENDED" desc="Text displayed in the controlled settings bubble in case the setting has a policy-supplied default value.">
+      <message name="IDS_OPTIONS_CONTROLLED_SETTING_RECOMMENDED" desc="Text displayed in the controlled settings bubble when a value is recommended for a setting through policy and the user has not overridden this recommendation.">
+        You are following the administrator's recommendation for this setting.
+      </message>
+      <message name="IDS_OPTIONS_CONTROLLED_SETTING_HAS_RECOMMENDATION" desc="Text displayed in the controlled settings bubble when a value is recommended for a setting through policy but is currently overridden by a user-supplied value.">
         Your administrator recommends a specific value for this setting.
+      </message>
+      <message name="IDS_OPTIONS_CONTROLLED_SETTING_FOLLOW_RECOMMENDATION" desc="Link text displayed in the controlled settings bubble to clear the user-supplied value and start following the recommendation.">
+        Follow recommendation
       </message>
 
       <!-- Options search page strings. -->
@@ -10568,7 +10592,7 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         </message>
         <message name="IDS_NEW_TAB_APP_CREATE_SHORTCUT"
                  desc="Text for the context menu item that creates an app shortcut. (In sentence case.)">
-          Create shortcut
+          Create shortcuts...
         </message>
         <message name="IDS_APP_CONTEXT_MENU_OPEN_PINNED"
                  desc="Text for the button that opens the app in a pinned tab. (In sentence case.)">
@@ -10615,7 +10639,7 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         </message>
         <message name="IDS_NEW_TAB_APP_CREATE_SHORTCUT"
                  desc="Text for the context menu item that creates an app shortcut. (In title case.)">
-          Create Shortcut
+          Create Shortcuts...
         </message>
         <message name="IDS_APP_CONTEXT_MENU_OPEN_PINNED"
                  desc="Text for the button that opens the app in a pinned tab. (In title case.)">
@@ -14417,13 +14441,7 @@ Press any key to continue exploring.
         Keyboard:
       </message>
       <message name="IDS_OPTIONS_DEVICE_GROUP_KEYBOARD_SETTINGS_BUTTON_TITLE">
-        Keyboard settings...
-      </message>
-      <message name="IDS_OPTIONS_DEVICE_GROUP_KEYBOARD_SETTINGS_BUTTON_TITLE">
         Keyboard settings
-      </message>
-      <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SECTION">
-        Pointer sensitivity:
       </message>
       <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SECTION">
         Pointer speed:
@@ -14433,9 +14451,6 @@ Press any key to continue exploring.
       </message>
       <message name="IDS_OPTIONS_SETTINGS_TOUCHPAD_SPEED_DESCRIPTION">
         Touchpad speed:
-      </message>
-      <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SETTINGS_BUTTON_TITLE">
-        Pointer settings...
       </message>
       <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SETTINGS_BUTTON_TITLE">
         Pointer settings
@@ -14622,6 +14637,9 @@ Press any key to continue exploring.
       </message>
       <message name="IDS_OPTIONS_SETTINGS_DISPLAY_OPTIONS_STOP_MIRRORING" desc="Button label to stop display mirroring.">
         Stop mirroring
+      </message>
+      <message name="IDS_OPTIONS_SETTINGS_DISPLAY_OPTIONS_SET_PRIMARY" desc="Button label to set a display primary.">
+        Make primary
       </message>
       <message name="IDS_OPTIONS_SETTINGS_DISPLAY_OPTIONS_APPLY_RESULT" desc="Button label to apply the current settings.">
         Apply
@@ -15122,42 +15140,6 @@ Press any key to continue exploring.
 
       <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_SERVICE_NAME" desc="Cellular service name under network details in chrome:settings/internet.">
         Service name:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_NETWORK_TECHNOLOGY" desc="Cellular network technology label under network details in chrome:settings/internet.">
-        Network technology:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_OPERATOR" desc="Cellular network operator name label under network details in chrome:settings/internet.">
-        Operator:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_OPERATOR_CODE" desc="Cellular network operator code label under network details in chrome:settings/internet.">
-        Operator code:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_ACTIVATION_STATE" desc="Cellular network activation status label under network details in chrome:settings/internet.">
-        Activation:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_ROAMING_STATE" desc="Cellular network roaming status label under network details in chrome:settings/internet.">
-        Roaming:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_RESTRICTED_POOL" desc="Cellular network restricted network status label under network details in chrome:settings/internet.">
-        Restricted pool:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_ERROR_STATE" desc="Cellular network error status label under network details in chrome:settings/internet.">
-        Error info:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_MANUFACTURER" desc="Cellular device manufacturer label under network details in chrome:settings/internet.">
-        Manufacturer:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_MODEL_ID" desc="Cellular device model ID label under network details in chrome:settings/internet.">
-        Model:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_FIRMWARE_REVISION" desc="Cellular device firmware revision label under network details in chrome:settings/internet.">
-        Firmware:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_HARDWARE_REVISION" desc="Cellular device hardware revision label under network details in chrome:settings/internet.">
-        Hardware:
-      </message>
-      <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_PRL_VERSION" desc="Cellular device PRL version label under network details in chrome:settings/internet.">
-        PRL version:
       </message>
       <message name="IDS_OPTIONS_SETTINGS_INTERNET_CELLULAR_APN" desc="Cellular device APN label under network details in chrome:settings/internet.">
         Access point name:
@@ -16641,6 +16623,9 @@ Battery full
       <message name="IDS_KEYBOARD_OVERLAY_FOCUS_TOOLBAR" desc="The text in the keyboard overlay to explain the shortcut.">
         Focus toolbar
       </message>
+      <message name="IDS_KEYBOARD_OVERLAY_FULLSCREEN" desc="The text in the keyboard overlay to explain the shortcut.">
+        Full screen
+      </message>
       <message name="IDS_KEYBOARD_OVERLAY_GO_BACK" desc="The text in the keyboard overlay to explain the shortcut.">
         Go back
       </message>
@@ -17643,6 +17628,11 @@ Battery full
       Which app should be used for saving?
     </message>
 
+    <!-- Web Intents native services (titles) -->
+    <message name="IDS_WEB_INTENTS_FILE_PICKER_SERVICE_TITLE" desc="Title of the chrome-built-in web intent service for the 'pick' action (basically a file picker).">
+      System File Picker
+    </message>
+
     <!-- PDF with unsupported feature bubble -->
     <message name="IDS_PDF_BUBBLE_MESSAGE" desc="Message for the bubble when a user views a PDF with an unsupported feature">
       Parts of this PDF document could not be displayed.
@@ -17858,6 +17848,12 @@ Battery full
       <message name="IDS_GTALK_SCREEN_SHARE_DIALOG_TITLE" desc="Title of the dialog box asking user's permission to share their screen">
         Google Talk Screen Sharing Request
       </message>
+      <message name="IDS_OPEN_ASH_DESKTOP" desc="The text label of the Open Ash desktop menu item">
+        Open Ash desktop
+      </message>
+      <message name="IDS_CLOSE_ASH_DESKTOP" desc="The text label of the Close Ash desktop menu item">
+        Close Ash desktop
+      </message>
     </if>
 
     <!-- Panel windows -->
@@ -18034,6 +18030,12 @@ Battery full
     </message>
     <message name="IDS_APP_LIST_CONTEXT_MENU_UNPIN" desc="Title text for the 'unpin' context menu item of an app list item.">
       Unpin from Launcher
+    </message>
+    <message name="IDS_APP_LIST_SHORTCUT_NAME" desc="Name for the App List to appear in the taskbar and in any shortcuts to it.">
+      Chrome Apps Launcher
+    </message>
+    <message name="IDS_APP_LIST_UNINSTALL_ITEM" desc="Title text for the 'uninstall' context menu item of an app list item.">
+      Uninstall
     </message>
     <message name="IDS_SEARCH_BOX_HINT" desc="Hint text for the search box in app list window.">
       Search

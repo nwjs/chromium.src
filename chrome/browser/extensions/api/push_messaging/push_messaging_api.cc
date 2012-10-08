@@ -6,8 +6,10 @@
 
 #include <set>
 
+#include "base/basictypes.h"
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/string_number_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/api/push_messaging/push_messaging_invalidation_handler.h"
 #include "chrome/browser/extensions/event_names.h"
@@ -29,13 +31,14 @@
 #include "chrome/browser/signin/token_service_factory.h"
 #include "chrome/common/extensions/api/experimental_push_messaging.h"
 #include "content/public/browser/browser_thread.h"
+#include "google_apis/gaia/gaia_constants.h"
 #include "googleurl/src/gurl.h"
 #include "chrome/browser/extensions/api/push_messaging/obfuscated_gaia_id_fetcher.h"
 
 using content::BrowserThread;
 
 namespace {
-static const char kChannelIdSeparator[] = "/";
+const char kChannelIdSeparator[] = "/";
 }
 
 namespace extensions {
@@ -149,9 +152,20 @@ bool PushMessagingGetChannelIdFunction::RunImpl() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   net::URLRequestContextGetter* context = profile()->GetRequestContext();
   TokenService* token_service = TokenServiceFactory::GetForProfile(profile());
+  if (!token_service)
+    return false;
   const std::string& refresh_token =
       token_service->GetOAuth2LoginRefreshToken();
   fetcher_.reset(new ObfuscatedGaiaIdFetcher(context, this, refresh_token));
+
+  // Check the cache, if we already have a gaia ID, use it instead of
+  // fetching the ID over the network.
+  const std::string& gaia_id =
+      token_service->GetTokenForService(GaiaConstants::kObfuscatedGaiaId);
+  if (!gaia_id.empty()) {
+    BuildAndSendResult(gaia_id, std::string());
+    return true;
+  }
 
   // Balanced in ReportResult()
   AddRef();
@@ -168,7 +182,28 @@ void PushMessagingGetChannelIdFunction::ReportResult(
   // Unpack the status and GaiaId parameters, and use it to build the
   // channel ID here.
   std::string channel_id(gaia_id);
+
+  BuildAndSendResult(gaia_id, error_string);
+
+  // Cache the obfuscated ID locally. It never changes for this user,
+  // and if we call the web API too often, we get errors due to rate limiting.
   if (!gaia_id.empty()) {
+    TokenService* token_service = TokenServiceFactory::GetForProfile(profile());
+    if (token_service) {
+      token_service->AddAuthTokenManually(GaiaConstants::kObfuscatedGaiaId,
+                                          gaia_id);
+    }
+  }
+
+  // Balanced in RunImpl
+  Release();
+}
+
+void PushMessagingGetChannelIdFunction::BuildAndSendResult(
+    const std::string& gaia_id, const std::string& error_message) {
+  std::string channel_id;
+  if (!gaia_id.empty()) {
+    channel_id = gaia_id;
     channel_id += kChannelIdSeparator;
     channel_id += extension_id();
   }
@@ -180,12 +215,11 @@ void PushMessagingGetChannelIdFunction::ReportResult(
   // Create a ChannelId results object and set the fields.
   glue::ChannelIdResult result;
   result.channel_id = channel_id;
-  SetError(error_string);
+  SetError(error_message);
   results_ = glue::GetChannelId::Results::Create(result);
-  SendResponse(true);
 
-  // Balanced in RunImpl
-  Release();
+  bool success = error_message.empty() && !gaia_id.empty();
+  SendResponse(success);
 }
 
 void PushMessagingGetChannelIdFunction::OnObfuscatedGaiaIdFetchSuccess(
@@ -195,7 +229,14 @@ void PushMessagingGetChannelIdFunction::OnObfuscatedGaiaIdFetchSuccess(
 
 void PushMessagingGetChannelIdFunction::OnObfuscatedGaiaIdFetchFailure(
       const GoogleServiceAuthError& error) {
-  ReportResult(std::string(), error.error_message());
+  std::string error_text = error.error_message();
+  // if the error message is blank, see if we can set it from the state
+  if (error_text.empty() &&
+      (0 != error.state())) {
+    error_text = base::IntToString(error.state());
+  }
+
+  ReportResult(std::string(), error_text);
 }
 
 }  // namespace extensions

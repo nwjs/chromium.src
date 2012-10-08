@@ -39,18 +39,24 @@
       'filepath': 'ui/aura/|'\
                   'ash/',
     },
+    # TODO(blundell): Add any new paths to this file after applying jam's
+    # comments.
     'autofill': {
       'filepath': 'chrome/browser/autofill/|'\
         'chrome/browser/resources/options/autofill_|'\
         'chrome/browser/sync/glue/autofill_|'\
         'chrome/browser/ui/webui/options/autofill_|'\
+        'chrome/common/form_|'\
+        'chrome/common/password_|'\
         'chrome/renderer/autofill/|'\
         'chrome/test/data/autofill/|'\
         'chrome/test/data/autofill/heuristics/input/|'\
         'chrome/test/data/autofill/heuristics/output/|'\
         'chrome/test/data/autofill/merge/input/|'\
         'chrome/test/data/autofill/merge/output/|'\
-        'webkit/forms/',
+        'content/public/common/password_|'\
+        'content/public/renderer/password_'\
+        'content/renderer/password_',
     },
     'automation': {
       'filepath': 'chrome/browser/automation/|chrome/test/automation/',
@@ -92,7 +98,7 @@
     },
     'cc': {
       'filepath': 'cc/|'\
-                  'webkit/compositor_bindings/',
+                  'webkit/compositor_bindings/'
     },
     'chrome_frame': {
       'filepath': 'chrome_frame/',
@@ -182,6 +188,12 @@
     },
     'gfx_image': {
       'filepath': 'ui/gfx/image/',
+    },
+    'gfx_geometry': {
+      'filepath': 'ui/gfx/rect|'\
+                  'ui/gfx/point|'\
+                  'ui/gfx/size|'\
+                  'ui/gfx/transform',
     },
     'gpu': {
       'filepath': 'gpu/',
@@ -280,7 +292,10 @@
                   '|chrome/browser/ui/.*/omnibox/'
     },
     'panels': {
-      'filepath': 'chrome/browser/ui/panels/',
+      'filepath': 'chrome/browser/ui/panels'\
+                  '|chrome/browser/ui/cocoa/panels'\
+                  '|chrome/browser/ui/gtk/panels'\
+                  '|chrome/browser/ui/views/panels'
     },
     'pepper_api': {
       'filepath': 'ppapi/c/',
@@ -369,6 +384,11 @@
     },
     'tools_emacs': {
       'filepath': 'tools/emacs/',
+    },
+    'ui_compositor': {
+      'filepath': 'ui/compositor/layer\.|'\
+                  'ui/compositor/layer_unittest|'\
+                  'ui/compositor/compositor',
     },
     'ui_resources': {
       'filepath': 'ui/resources/'\
@@ -489,6 +509,7 @@
     'ftp': ['phajdan.jr@chromium.org'],
     'fullscreen_controller': ['scheib+watch@chromium.org'],
     'gdata': ['achuith+watch@chromium.org'],
+    'gfx_geometry': ['cc-bugs@chromium.org'],
     'gfx_image': ['rsesek+watch@chromium.org'],
     'gpu': ['apatrick@chromium.org'],
     'history_ui': ['dubroy@chromium.org'],
@@ -565,6 +586,7 @@
     'tools': ['pam+watch@chromium.org'],
     'tools_emacs': ['fischman+watch@chromium.org',
                     'dhollowa+watch@chromium.org'],
+    'ui_compositor': ['cc-bugs@chromium.org'],
     'ui_resources': ['oshima+watch@chromium.org'],
     'valgrind': ['bruening+watch@chromium.org',
                  'glider+watch@chromium.org',

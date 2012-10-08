@@ -8,7 +8,7 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "chrome/browser/api/prefs/pref_member.h"
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -38,7 +38,6 @@ class ZoomController : public content::NotificationObserver,
 
  private:
   explicit ZoomController(content::WebContents* web_contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<ZoomController>;
 
   // content::WebContentsObserver overrides:
@@ -52,12 +51,10 @@ class ZoomController : public content::NotificationObserver,
                        const content::NotificationDetails& details) OVERRIDE;
 
   // Updates the zoom icon and zoom percentage based on current values and
-  // notifies the observer if changes have occurred. |can_show_bubble| will be
-  // true only if the active window changes the zoom on the current page (i.e.,
-  // inactive window zoom changes, creating a new tab/window, or shifting
-  // between tabs/windows, although they may involve a change in the zoom,
-  // should not trigger showing a bubble).
-  void UpdateState(bool can_show_bubble);
+  // notifies the observer if changes have occurred. |host| may be empty,
+  // meaning the change should apply to ~all sites. If it is not empty, the
+  // change only affects sites with the given host.
+  void UpdateState(const std::string& host);
 
   // The current zoom percentage.
   int zoom_percent_;

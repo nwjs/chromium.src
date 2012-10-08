@@ -66,6 +66,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "ui/base/range/range.h"
 #include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
+#include "ui/gfx/rect_conversions.h"
 #include "webkit/plugins/plugin_constants.h"
 #include "webkit/plugins/ppapi/common.h"
 #include "webkit/plugins/ppapi/event_conversion.h"
@@ -342,7 +343,8 @@ bool CopyStringToArray(const std::string& str, uint8 (&array)[array_size]) {
 
 // Fills the |block_info| with information from |decrypt_config|, |timestamp|
 // and |request_id|.
-// Returns true if |block_info| is successfully filled. Returns false otherwise.
+// Returns true if |block_info| is successfully filled. Returns false
+// otherwise.
 bool MakeEncryptedBlockInfo(
     const media::DecryptConfig& decrypt_config,
     int64_t timestamp,
@@ -489,6 +491,8 @@ PluginInstance::~PluginInstance() {
   if (original_module_.get())
     original_module_->InstanceDeleted(this);
 
+  // This should be last since some of the above "instance deleted" calls will
+  // want to look up in the global map to get info off of our object.
   HostGlobals::Get()->InstanceDeleted(pp_instance_);
 }
 
@@ -1014,7 +1018,7 @@ bool PluginInstance::GetBitmapForOptimizedPluginPaint(
       0, 0, image_data->width(), image_data->height());
   float scale = GetBoundGraphics2D()->GetScale();
   gfx::Rect plugin_backing_store_rect =
-    pixel_plugin_backing_store_rect.Scale(scale);
+    gfx::ToEnclosingRect(pixel_plugin_backing_store_rect.Scale(scale));
 
   gfx::Rect clip_page = PP_ToGfxRect(view_data_.clip_rect);
   gfx::Rect plugin_paint_rect = plugin_backing_store_rect.Intersect(clip_page);
@@ -1542,25 +1546,43 @@ bool PluginInstance::Decrypt(
   return true;
 }
 
-bool PluginInstance::DecryptAndDecode(
-    const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
+// Note: this method can be used with an unencrypted frame.
+bool PluginInstance::DecryptAndDecodeFrame(
+    const scoped_refptr<media::DecoderBuffer>& encrypted_frame,
     const media::Decryptor::DecryptCB& decrypt_cb) {
   if (!LoadContentDecryptorInterface())
     return false;
 
   ScopedPPResource encrypted_resource(MakeBufferResource(
       pp_instance(),
-      encrypted_buffer->GetData(),
-      encrypted_buffer->GetDataSize()));
+      encrypted_frame->GetData(),
+      encrypted_frame->GetDataSize()));
   if (!encrypted_resource.get())
     return false;
 
-  PP_EncryptedBlockInfo block_info;
+  const uint32_t request_id = next_decryption_request_id_++;
 
-  // TODO(tomfinegan): Store callback and ID in a map, and pass ID to decryptor.
-  plugin_decryption_interface_->DecryptAndDecode(pp_instance(),
-                                                 encrypted_resource,
-                                                 &block_info);
+  // TODO(tomfinegan): Need to get the video format information here somehow.
+  PP_EncryptedVideoFrameInfo frame_info;
+  frame_info.width = 0;
+  frame_info.height = 0;
+  frame_info.format = PP_DECRYPTEDFRAMEFORMAT_UNKNOWN;
+  frame_info.codec = PP_VIDEOCODEC_UNKNOWN;
+
+  DCHECK(encrypted_frame->GetDecryptConfig());
+  if (!MakeEncryptedBlockInfo(*encrypted_frame->GetDecryptConfig(),
+                              encrypted_frame->GetTimestamp().InMicroseconds(),
+                              request_id,
+                              &frame_info.encryption_info)) {
+    return false;
+  }
+
+  DCHECK(!ContainsKey(pending_decryption_cbs_, request_id));
+  pending_decryption_cbs_.insert(std::make_pair(request_id, decrypt_cb));
+
+  plugin_decryption_interface_->DecryptAndDecodeFrame(pp_instance(),
+                                                      encrypted_resource,
+                                                      &frame_info);
   return true;
 }
 
@@ -2300,7 +2322,7 @@ void PluginInstance::DeliverBlock(PP_Instance instance,
 
 void PluginInstance::DeliverFrame(PP_Instance instance,
                                   PP_Resource decrypted_frame,
-                                  const PP_DecryptedBlockInfo* block_info) {
+                                  const PP_DecryptedFrameInfo* frame_info) {
   // TODO(tomfinegan): To be implemented after completion of v0.1 of the
   // EME/CDM work.
 }
@@ -2588,9 +2610,12 @@ bool PluginInstance::ResetAsProxied(scoped_refptr<PluginModule> module) {
   // Clear all PPP interfaces we may have cached.
   plugin_find_interface_ = NULL;
   plugin_input_event_interface_ = NULL;
+  checked_for_plugin_input_event_interface_ = false;
   plugin_messaging_interface_ = NULL;
+  checked_for_plugin_messaging_interface_ = false;
   plugin_mouse_lock_interface_ = NULL;
   plugin_pdf_interface_ = NULL;
+  checked_for_plugin_pdf_interface_ = false;
   plugin_private_interface_ = NULL;
   plugin_selection_interface_ = NULL;
   plugin_textinput_interface_ = NULL;

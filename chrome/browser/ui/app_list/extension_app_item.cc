@@ -5,6 +5,8 @@
 #include "chrome/browser/ui/app_list/extension_app_item.h"
 
 #include "base/utf_string_conversions.h"
+#include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/extensions/context_menu_matcher.h"
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_sorting.h"
@@ -20,14 +22,11 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_icon_set.h"
+#include "content/public/common/context_menu_params.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/image/image.h"
-
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/extensions/api/rtc_private/rtc_private_api.h"
-#endif
 
 using extensions::Extension;
 
@@ -36,6 +35,7 @@ namespace {
 enum CommandId {
   LAUNCH = 100,
   TOGGLE_PIN,
+  CREATE_SHORTCUTS,
   OPTIONS,
   UNINSTALL,
   DETAILS,
@@ -125,6 +125,10 @@ ExtensionSorting* GetExtensionSorting(Profile* profile) {
   return profile->GetExtensionService()->extension_prefs()->extension_sorting();
 }
 
+bool MenuItemHasLauncherContext(const extensions::MenuItem* item) {
+  return item->contexts().Contains(extensions::MenuItem::LAUNCHER);
+}
+
 }  // namespace
 
 ExtensionAppItem::ExtensionAppItem(Profile* profile,
@@ -153,14 +157,6 @@ syncer::StringOrdinal ExtensionAppItem::GetPageOrdinal() const {
 
 syncer::StringOrdinal ExtensionAppItem::GetAppLaunchOrdinal() const {
   return GetExtensionSorting(profile_)->GetAppLaunchOrdinal(extension_id_);
-}
-
-bool ExtensionAppItem::IsTalkExtension() const {
-  // Test most likely version first.
-  return extension_id_ == extension_misc::kTalkExtensionId ||
-      extension_id_ == extension_misc::kTalkBetaExtensionId ||
-      extension_id_ == extension_misc::kTalkAlphaExtensionId ||
-      extension_id_ == extension_misc::kTalkDebugExtensionId;
 }
 
 void ExtensionAppItem::LoadImage(const Extension* extension) {
@@ -227,6 +223,9 @@ bool ExtensionAppItem::IsCommandIdChecked(int command_id) const {
   if (command_id >= LAUNCH_TYPE_START && command_id < LAUNCH_TYPE_LAST) {
     return static_cast<int>(GetExtensionLaunchType(profile_, extension_id_)) +
         LAUNCH_TYPE_START == command_id;
+  } else if (command_id >= IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST &&
+             command_id <= IDC_EXTENSIONS_CONTEXT_CUSTOM_LAST) {
+    return extension_menu_items_->IsCommandIdChecked(command_id);
   }
   return false;
 }
@@ -247,6 +246,9 @@ bool ExtensionAppItem::IsCommandIdEnabled(int command_id) const {
   } else if (command_id == DETAILS) {
     const Extension* extension = GetExtension();
     return extension && extension->from_webstore();
+  } else if (command_id >= IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST &&
+             command_id <= IDC_EXTENSIONS_CONTEXT_CUSTOM_LAST) {
+    return extension_menu_items_->IsCommandIdEnabled(command_id);
   }
   return true;
 }
@@ -265,6 +267,8 @@ void ExtensionAppItem::ExecuteCommand(int command_id) {
       controller_->UnpinApp(extension_id_);
     else
       controller_->PinApp(extension_id_);
+  } else if (command_id == CREATE_SHORTCUTS) {
+    controller_->ShowCreateShortcutsDialog(profile_, extension_id_);
   } else if (command_id >= LAUNCH_TYPE_START &&
              command_id < LAUNCH_TYPE_LAST) {
     SetExtensionLaunchType(profile_,
@@ -277,6 +281,10 @@ void ExtensionAppItem::ExecuteCommand(int command_id) {
     StartExtensionUninstall();
   } else if (command_id == DETAILS) {
     ShowExtensionDetails();
+  } else if (command_id >= IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST &&
+             command_id <= IDC_EXTENSIONS_CONTEXT_CUSTOM_LAST) {
+    extension_menu_items_->ExecuteCommand(command_id, NULL,
+                                          content::ContextMenuParams());
   }
 }
 
@@ -285,37 +293,45 @@ void ExtensionAppItem::Activate(int event_flags) {
   if (!extension)
     return;
 
-#if defined(OS_CHROMEOS)
-  // Talk extension isn't an app, send special rtcPrivate API message to
-  // activate it.
-  if (IsTalkExtension()) {
-    extensions::RtcPrivateEventRouter::DispatchLaunchEvent(
-        profile_,
-        extensions::RtcPrivateEventRouter::LAUNCH_ACTIVATE,
-        NULL /*contact*/);
-    return;
-  }
-#endif  // OS_CHROMEOS
-
   controller_->ActivateApp(profile_, extension->id(), event_flags);
 }
 
 ui::MenuModel* ExtensionAppItem::GetContextMenuModel() {
+  const Extension* extension = GetExtension();
+  if (!extension)
+    return NULL;
+
   // No context menu for Chrome app.
   if (extension_id_ == extension_misc::kChromeAppId)
     return NULL;
 
   if (!context_menu_model_.get()) {
     context_menu_model_.reset(new ui::SimpleMenuModel(this));
+    extension_menu_items_.reset(new extensions::ContextMenuMatcher(
+        profile_, this, context_menu_model_.get(),
+        base::Bind(MenuItemHasLauncherContext)));
+
     context_menu_model_->AddItem(LAUNCH, UTF8ToUTF16(title()));
-    // Talk extension isn't an app and so doesn't support most launch options.
-    if (!IsTalkExtension()) {
+    int index = 0;
+    extension_menu_items_->AppendExtensionItems(extension_id_, string16(),
+                                                &index);
+    if (controller_->CanPin()) {
       context_menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
       context_menu_model_->AddItemWithStringId(
           TOGGLE_PIN,
           controller_->IsAppPinned(extension_id_) ?
               IDS_APP_LIST_CONTEXT_MENU_UNPIN :
               IDS_APP_LIST_CONTEXT_MENU_PIN);
+    }
+
+    if (controller_->CanShowCreateShortcutsDialog() &&
+        extension->is_platform_app()) {
+      context_menu_model_->AddItemWithStringId(
+          CREATE_SHORTCUTS,
+          IDS_NEW_TAB_APP_CREATE_SHORTCUT);
+    }
+
+    if (!extension->is_platform_app()) {
       context_menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
       context_menu_model_->AddCheckItemWithStringId(
           LAUNCH_TYPE_REGULAR_TAB,
@@ -332,11 +348,18 @@ ui::MenuModel* ExtensionAppItem::GetContextMenuModel() {
           LAUNCH_TYPE_FULLSCREEN,
           IDS_APP_CONTEXT_MENU_OPEN_MAXIMIZED);
     }
-    context_menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
-    context_menu_model_->AddItemWithStringId(OPTIONS, IDS_NEW_TAB_APP_OPTIONS);
-    context_menu_model_->AddItemWithStringId(DETAILS, IDS_NEW_TAB_APP_DETAILS);
+
+    if (!extension->is_platform_app()) {
+      context_menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
+      context_menu_model_->AddItemWithStringId(OPTIONS,
+                                               IDS_NEW_TAB_APP_OPTIONS);
+      context_menu_model_->AddItemWithStringId(DETAILS,
+                                               IDS_NEW_TAB_APP_DETAILS);
+    }
     context_menu_model_->AddItemWithStringId(UNINSTALL,
-                                             IDS_EXTENSIONS_UNINSTALL);
+                                             extension->is_platform_app() ?
+                                                 IDS_APP_LIST_UNINSTALL_ITEM :
+                                                 IDS_EXTENSIONS_UNINSTALL);
   }
 
   return context_menu_model_.get();

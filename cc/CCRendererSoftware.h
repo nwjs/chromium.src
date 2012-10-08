@@ -5,6 +5,7 @@
 #ifndef CCRendererSoftware_h
 #define CCRendererSoftware_h
 
+#include "base/basictypes.h"
 #include "CCDirectRenderer.h"
 #include "CCLayerTreeHost.h"
 #include <public/WebCompositorSoftwareOutputDevice.h>
@@ -19,7 +20,6 @@ class CCTextureDrawQuad;
 class CCTileDrawQuad;
 
 class CCRendererSoftware : public CCDirectRenderer {
-    WTF_MAKE_NONCOPYABLE(CCRendererSoftware);
 public:
     static PassOwnPtr<CCRendererSoftware> create(CCRendererClient*, CCResourceProvider*, WebKit::WebCompositorSoftwareOutputDevice*);
     virtual ~CCRendererSoftware();
@@ -63,10 +63,12 @@ private:
     bool m_visible;
 
     WebKit::WebCompositorSoftwareOutputDevice* m_outputDevice;
-    SkCanvas m_skRootCanvas;
+    OwnPtr<SkCanvas> m_skRootCanvas;
     SkCanvas* m_skCurrentCanvas;
     SkPaint m_skCurrentPaint;
     OwnPtr<CCResourceProvider::ScopedWriteLockSoftware> m_currentFramebufferLock;
+
+    DISALLOW_COPY_AND_ASSIGN(CCRendererSoftware);
 };
 
 }

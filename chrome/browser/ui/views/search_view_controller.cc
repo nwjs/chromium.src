@@ -109,12 +109,14 @@ class SearchContainerView : public views::View {
 // Background for the NTP view.
 class NTPViewBackground : public views::Background {
  public:
-  NTPViewBackground() {}
+  explicit NTPViewBackground(content::BrowserContext* browser_context)
+      : browser_context_(browser_context) {
+  }
   virtual ~NTPViewBackground() {}
 
   // views::Background overrides:
   virtual void Paint(gfx::Canvas* canvas, views::View* view) const OVERRIDE {
-    canvas->DrawColor(chrome::search::kNTPBackgroundColor);
+    canvas->DrawColor(chrome::search::GetNTPBackgroundColor(browser_context_));
     // Have to use the height of the layer here since the layer is animated
     // independent of the view.
     int height = view->layer()->bounds().height();
@@ -125,6 +127,9 @@ class NTPViewBackground : public views::Background {
   }
 
  private:
+  // Weak.
+  content::BrowserContext* browser_context_;
+
   DISALLOW_COPY_AND_ASSIGN(NTPViewBackground);
 };
 
@@ -289,7 +294,10 @@ void SearchViewController::StackAtTop() {
   location_bar_container_->StackAtTop();
 }
 
-void SearchViewController::InstantReady() {
+void SearchViewController::WillCommitInstant() {
+  // When Instant is committed, it will shuffle the views, so undo any of our
+  // own view-shuffling first. http://crbug.com/152450
+  DestroyViews();
 }
 
 void SearchViewController::ModeChanged(const chrome::search::Mode& old_mode,
@@ -310,8 +318,17 @@ gfx::Rect SearchViewController::GetNTPOmniboxBounds(views::View* destination) {
   if (!is_ntp_state(state_))
     return gfx::Rect();
 
-  const float kNTPPageWidthRatio = 0.73f;
-  int omnibox_width = kNTPPageWidthRatio * ntp_container_->bounds().width();
+  const int kOmniboxWidthMax = 742;
+  const int kOmniboxWidthMin = 200;
+  const int kOmniboxWidthPadding = 80;
+  int omnibox_width = ntp_container_->bounds().width() -
+      2 * kOmniboxWidthPadding;
+  if (omnibox_width > kOmniboxWidthMax) {
+    omnibox_width = kOmniboxWidthMax;
+  } else if (omnibox_width < kOmniboxWidthMin) {
+    omnibox_width = kOmniboxWidthMin;
+  }
+
   int omnibox_x = (ntp_container_->bounds().width() - omnibox_width) / 2;
   gfx::Point omnibox_origin(omnibox_x,
                             GetLogoView()->bounds().bottom() +
@@ -471,7 +488,7 @@ void SearchViewController::CreateViews(State state) {
   DCHECK(!ntp_container_);
 
   ntp_container_ = new views::View;
-  ntp_container_->set_background(new NTPViewBackground);
+  ntp_container_->set_background(new NTPViewBackground(browser_context_));
   ntp_container_->SetPaintToLayer(true);
   ntp_container_->layer()->SetMasksToBounds(true);
 

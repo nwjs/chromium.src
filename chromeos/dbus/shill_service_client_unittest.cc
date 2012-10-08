@@ -12,6 +12,9 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
+using testing::_;
+using testing::ByRef;
+
 namespace chromeos {
 
 namespace {
@@ -55,16 +58,29 @@ TEST_F(ShillServiceClientTest, PropertyChanged) {
 
   // Set expectations.
   const base::FundamentalValue value(kValue);
-  client_->SetPropertyChangedHandler(
+  MockPropertyChangeObserver observer;
+  EXPECT_CALL(observer,
+              OnPropertyChanged(
+                  flimflam::kSignalStrengthProperty,
+                  ValueEq(ByRef(value)))).Times(1);
+
+  // Add the observer
+  client_->AddPropertyChangedObserver(
       dbus::ObjectPath(kExampleServicePath),
-      base::Bind(&ExpectPropertyChanged,
-                 flimflam::kSignalStrengthProperty,
-                 &value));
+      &observer);
+
   // Run the signal callback.
   SendPropertyChangedSignal(&signal);
 
-  // Reset the handler.
-  client_->ResetPropertyChangedHandler(dbus::ObjectPath(kExampleServicePath));
+  // Remove the observer.
+  client_->RemovePropertyChangedObserver(
+      dbus::ObjectPath(kExampleServicePath),
+      &observer);
+
+  EXPECT_CALL(observer, OnPropertyChanged(_, _)).Times(0);
+
+  // Run the signal callback again and make sure the observer isn't called.
+  SendPropertyChangedSignal(&signal);
 }
 
 TEST_F(ShillServiceClientTest, GetProperties) {
@@ -108,10 +124,16 @@ TEST_F(ShillServiceClientTest, SetProperty) {
                                   &value),
                        response.get());
   // Call method.
+  MockClosure mock_closure;
+  MockErrorCallback mock_error_callback;
   client_->SetProperty(dbus::ObjectPath(kExampleServicePath),
                        flimflam::kPassphraseProperty,
                        value,
-                       base::Bind(&ExpectNoResultValue));
+                       mock_closure.GetCallback(),
+                       mock_error_callback.GetCallback());
+  EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Run the message loop.
   message_loop_.RunAllPending();
 }
@@ -126,9 +148,15 @@ TEST_F(ShillServiceClientTest, ClearProperty) {
                                   flimflam::kPassphraseProperty),
                        response.get());
   // Call method.
+  MockClosure mock_closure;
+  MockErrorCallback mock_error_callback;
   client_->ClearProperty(dbus::ObjectPath(kExampleServicePath),
                          flimflam::kPassphraseProperty,
-                         base::Bind(&ExpectNoResultValue));
+                         mock_closure.GetCallback(),
+                         mock_error_callback.GetCallback());
+  EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Run the message loop.
   message_loop_.RunAllPending();
 }
@@ -162,8 +190,14 @@ TEST_F(ShillServiceClientTest, Disconnect) {
                        base::Bind(&ExpectNoArgument),
                        response.get());
   // Call method.
+  MockClosure mock_closure;
+  MockErrorCallback mock_error_callback;
   client_->Disconnect(dbus::ObjectPath(kExampleServicePath),
-                   base::Bind(&ExpectNoResultValue));
+                      mock_closure.GetCallback(),
+                      mock_error_callback.GetCallback());
+  EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Run the message loop.
   message_loop_.RunAllPending();
 }
@@ -177,8 +211,14 @@ TEST_F(ShillServiceClientTest, Remove) {
                        base::Bind(&ExpectNoArgument),
                        response.get());
   // Call method.
+  MockClosure mock_closure;
+  MockErrorCallback mock_error_callback;
   client_->Remove(dbus::ObjectPath(kExampleServicePath),
-                  base::Bind(&ExpectNoResultValue));
+                  mock_closure.GetCallback(),
+                  mock_error_callback.GetCallback());
+  EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Run the message loop.
   message_loop_.RunAllPending();
 }
@@ -193,9 +233,15 @@ TEST_F(ShillServiceClientTest, ActivateCellularModem) {
                        base::Bind(&ExpectStringArgument, kCarrier),
                        response.get());
   // Call method.
+  MockClosure mock_closure;
+  MockErrorCallback mock_error_callback;
   client_->ActivateCellularModem(dbus::ObjectPath(kExampleServicePath),
                                  kCarrier,
-                                 base::Bind(&ExpectNoResultValue));
+                                 mock_closure.GetCallback(),
+                                 mock_error_callback.GetCallback());
+  EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Run the message loop.
   message_loop_.RunAllPending();
 }

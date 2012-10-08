@@ -135,7 +135,7 @@ class WebIntentPickerMock : public WebIntentPicker,
     num_icons_changed_++;
   }
   virtual void OnExtensionIconChanged(
-      WebIntentPickerModel* model, const string16& extension_id) OVERRIDE {
+      WebIntentPickerModel* model, const std::string& extension_id) OVERRIDE {
     num_extension_icons_changed_++;
   }
   virtual void OnInlineDisposition(
@@ -670,6 +670,9 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
       content::Source<content::WebContentsDelegate>(browser())));
   controller_->ShowDialog(kAction1, kType1);
   new_tab_observer.Wait();
+  WebIntentPickerController* service_controller =
+      WebIntentPickerController::FromWebContents(new_tab_observer.GetTab());
+  EXPECT_TRUE(service_controller->ShowLocationBarPickerButton());
 
   EXPECT_EQ(2, picker_.num_installed_services_);
 

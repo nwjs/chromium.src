@@ -258,6 +258,7 @@ TEST_PPAPI_NACL_VIA_HTTP(Graphics2D_Paint)
 TEST_PPAPI_NACL_VIA_HTTP(Graphics2D_Scroll)
 TEST_PPAPI_NACL_VIA_HTTP(Graphics2D_Replace)
 TEST_PPAPI_NACL_VIA_HTTP(Graphics2D_Flush)
+TEST_PPAPI_NACL_VIA_HTTP(Graphics2D_FlushOffscreenUpdate)
 
 TEST_PPAPI_IN_PROCESS(Graphics3D)
 TEST_PPAPI_OUT_OF_PROCESS(Graphics3D)
@@ -897,6 +898,9 @@ TEST_PPAPI_OUT_OF_PROCESS(FlashMessageLoop_RunWithoutQuit)
 TEST_PPAPI_IN_PROCESS(MouseCursor)
 TEST_PPAPI_OUT_OF_PROCESS(MouseCursor)
 TEST_PPAPI_NACL_VIA_HTTP(MouseCursor)
+
+// PPB_Printing only implemented for out of process.
+TEST_PPAPI_OUT_OF_PROCESS(Printing)
 
 // PPB_MessageLoop is only supported out-of-process.
 // TODO(dmichael): Enable for NaCl with the IPC proxy. crbug.com/116317

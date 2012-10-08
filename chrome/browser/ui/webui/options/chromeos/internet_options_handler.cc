@@ -44,6 +44,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/webui/web_ui_util.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -158,7 +159,6 @@ const char kTagConnecting[] = "connecting";
 const char kTagConnectionState[] = "connectionState";
 const char kTagControlledBy[] = "controlledBy";
 const char kTagDataRemaining[] = "dataRemaining";
-const char kTagDefault[] = "default";
 const char kTagDeviceConnected[] = "deviceConnected";
 const char kTagDisconnect[] = "disconnect";
 const char kTagEncryption[] = "encryption";
@@ -202,6 +202,7 @@ const char kTagPrlVersion[] = "prlVersion";
 const char kTagProvider_type[] = "provider_type";
 const char kTagProviderApnList[] = "providerApnList";
 const char kTagRecommended[] = "recommended";
+const char kTagRecommendedValue[] = "recommendedValue";
 const char kTagRemembered[] = "remembered";
 const char kTagRememberedList[] = "rememberedList";
 const char kTagRestrictedPool[] = "restrictedPool";
@@ -244,20 +245,20 @@ const char kToggleAirplaneModeMessage[] = "toggleAirplaneMode";
 class NetworkInfoDictionary {
  public:
   // Initializes the dictionary with default values.
-  explicit NetworkInfoDictionary(float icon_scale);
+  explicit NetworkInfoDictionary(ui::ScaleFactor icon_scale_factor);
 
   // Copies in service path, connect{ing|ed|able} flags and connection type from
   // the provided network object. Also chooses an appropriate icon based on the
   // network type.
   NetworkInfoDictionary(const chromeos::Network* network,
-                        float icon_scale);
+                        ui::ScaleFactor icon_scale_factor);
 
   // Initializes a remembered network entry, pulling information from the passed
   // network object and the corresponding remembered network object. |network|
   // may be NULL.
   NetworkInfoDictionary(const chromeos::Network* network,
                         const chromeos::Network* remembered,
-                        float icon_scale);
+                        ui::ScaleFactor icon_scale_factor);
 
   // Setters for filling in information.
   void set_service_path(const std::string& service_path) {
@@ -323,8 +324,8 @@ class NetworkInfoDictionary {
 };
 
 NetworkInfoDictionary::NetworkInfoDictionary(
-    float icon_scale)
-  : icon_scale_factor_(ui::GetScaleFactorFromScale(icon_scale)) {
+    ui::ScaleFactor icon_scale_factor)
+    : icon_scale_factor_(icon_scale_factor) {
   set_connecting(false);
   set_connected(false);
   set_connectable(false);
@@ -336,8 +337,8 @@ NetworkInfoDictionary::NetworkInfoDictionary(
 }
 
 NetworkInfoDictionary::NetworkInfoDictionary(const chromeos::Network* network,
-                                             float icon_scale)
-  : icon_scale_factor_(ui::GetScaleFactorFromScale(icon_scale)) {
+                                             ui::ScaleFactor icon_scale_factor)
+    : icon_scale_factor_(icon_scale_factor) {
   set_service_path(network->service_path());
   set_icon(chromeos::NetworkMenuIcon::GetImage(network,
       chromeos::NetworkMenuIcon::COLOR_DARK));
@@ -355,8 +356,8 @@ NetworkInfoDictionary::NetworkInfoDictionary(const chromeos::Network* network,
 NetworkInfoDictionary::NetworkInfoDictionary(
     const chromeos::Network* network,
     const chromeos::Network* remembered,
-    float icon_scale)
-  : icon_scale_factor_(ui::GetScaleFactorFromScale(icon_scale)) {
+    ui::ScaleFactor icon_scale_factor)
+    : icon_scale_factor_(icon_scale_factor) {
   set_service_path(remembered->service_path());
   set_icon(chromeos::NetworkMenuIcon::GetImage(
       network ? network : remembered, chromeos::NetworkMenuIcon::COLOR_DARK));
@@ -492,26 +493,25 @@ static bool CanAddNetworkType(int type) {
          type == chromeos::TYPE_CELLULAR;
 }
 
-// Stores a dictionary under |key| in |settings| that is suitable to be sent
-// to the webui that contains the actual value of a setting and whether it's
-// controlled by policy. Takes ownership of |value|.
+// Decorate pref value as CoreOptionsHandler::CreateValueForPref() does and
+// store it under |key| in |settings|. Takes ownership of |value|.
 void SetValueDictionary(
     DictionaryValue* settings,
     const char* key,
     base::Value* value,
     const chromeos::NetworkPropertyUIData& ui_data) {
-  DictionaryValue* value_dict = new DictionaryValue();
+  DictionaryValue* dict = new DictionaryValue();
   // DictionaryValue::Set() takes ownership of |value|.
-  if (value)
-    value_dict->Set(kTagValue, value);
-  const base::Value* default_value = ui_data.default_value();
-  if (default_value)
-    value_dict->Set(kTagDefault, default_value->DeepCopy());
+  dict->Set(kTagValue, value);
+  const base::Value* recommended_value = ui_data.default_value();
   if (ui_data.managed())
-    value_dict->SetString(kTagControlledBy, kTagPolicy);
-  else if (ui_data.recommended())
-    value_dict->SetString(kTagControlledBy, kTagRecommended);
-  settings->Set(key, value_dict);
+    dict->SetString(kTagControlledBy, kTagPolicy);
+  else if (recommended_value && recommended_value->Equals(value))
+    dict->SetString(kTagControlledBy, kTagRecommended);
+
+  if (recommended_value)
+    dict->Set(kTagRecommendedValue, recommended_value->DeepCopy());
+  settings->Set(key, dict);
 }
 
 // Fills |dictionary| with the configuration details of |vpn|. |onc| is required
@@ -993,8 +993,8 @@ void InternetOptionsHandler::RefreshNetworkData() {
 }
 
 void InternetOptionsHandler::UpdateCarrier(bool success) {
-  web_ui()->CallJavascriptFunction(kUpdateCarrierFunction,
-                                   *(Value::CreateBooleanValue(success)));
+  base::FundamentalValue success_value(success);
+  web_ui()->CallJavascriptFunction(kUpdateCarrierFunction, success_value);
 }
 
 void InternetOptionsHandler::OnNetworkManagerChanged(
@@ -1535,7 +1535,8 @@ gfx::NativeWindow InternetOptionsHandler::GetNativeWindow() const {
 
 Browser* InternetOptionsHandler::GetAppropriateBrowser() {
   return browser::FindOrCreateTabbedBrowser(
-      ProfileManager::GetDefaultProfileOrOffTheRecord());
+      ProfileManager::GetDefaultProfileOrOffTheRecord(),
+      chrome::HOST_DESKTOP_TYPE_ASH);
 }
 
 void InternetOptionsHandler::NetworkCommandCallback(const ListValue* args) {
@@ -1689,7 +1690,7 @@ ListValue* InternetOptionsHandler::GetWiredList() {
         cros_->ethernet_network();
     if (ethernet_network) {
       NetworkInfoDictionary network_dict(ethernet_network,
-                                         web_ui()->GetDeviceScale());
+                                         web_ui()->GetDeviceScaleFactor());
       network_dict.set_name(
           l10n_util::GetStringUTF8(IDS_STATUSBAR_NETWORK_DEVICE_ETHERNET)),
       list->Append(network_dict.BuildDictionary());
@@ -1704,7 +1705,7 @@ ListValue* InternetOptionsHandler::GetWirelessList() {
   const chromeos::WifiNetworkVector& wifi_networks = cros_->wifi_networks();
   for (chromeos::WifiNetworkVector::const_iterator it =
       wifi_networks.begin(); it != wifi_networks.end(); ++it) {
-    NetworkInfoDictionary network_dict(*it, web_ui()->GetDeviceScale());
+    NetworkInfoDictionary network_dict(*it, web_ui()->GetDeviceScaleFactor());
     network_dict.set_connectable(cros_->CanConnectToNetwork(*it));
     list->Append(network_dict.BuildDictionary());
   }
@@ -1712,7 +1713,7 @@ ListValue* InternetOptionsHandler::GetWirelessList() {
   const chromeos::WimaxNetworkVector& wimax_networks = cros_->wimax_networks();
   for (chromeos::WimaxNetworkVector::const_iterator it =
       wimax_networks.begin(); it != wimax_networks.end(); ++it) {
-    NetworkInfoDictionary network_dict(*it, web_ui()->GetDeviceScale());
+    NetworkInfoDictionary network_dict(*it, web_ui()->GetDeviceScaleFactor());
     network_dict.set_connectable(cros_->CanConnectToNetwork(*it));
     list->Append(network_dict.BuildDictionary());
   }
@@ -1721,7 +1722,7 @@ ListValue* InternetOptionsHandler::GetWirelessList() {
       cros_->cellular_networks();
   for (chromeos::CellularNetworkVector::const_iterator it =
       cellular_networks.begin(); it != cellular_networks.end(); ++it) {
-    NetworkInfoDictionary network_dict(*it, web_ui()->GetDeviceScale());
+    NetworkInfoDictionary network_dict(*it, web_ui()->GetDeviceScaleFactor());
     network_dict.set_connectable(cros_->CanConnectToNetwork(*it));
     network_dict.set_activation_state((*it)->activation_state());
     network_dict.set_needs_new_plan(
@@ -1739,7 +1740,7 @@ ListValue* InternetOptionsHandler::GetVPNList() {
       cros_->virtual_networks();
   for (chromeos::VirtualNetworkVector::const_iterator it =
       virtual_networks.begin(); it != virtual_networks.end(); ++it) {
-    NetworkInfoDictionary network_dict(*it, web_ui()->GetDeviceScale());
+    NetworkInfoDictionary network_dict(*it, web_ui()->GetDeviceScaleFactor());
     network_dict.set_connectable(cros_->CanConnectToNetwork(*it));
     list->Append(network_dict.BuildDictionary());
   }
@@ -1759,7 +1760,7 @@ ListValue* InternetOptionsHandler::GetRememberedList() {
 
     NetworkInfoDictionary network_dict(wifi,
                                        remembered,
-                                       web_ui()->GetDeviceScale());
+                                       web_ui()->GetDeviceScaleFactor());
     list->Append(network_dict.BuildDictionary());
   }
 
@@ -1772,7 +1773,7 @@ ListValue* InternetOptionsHandler::GetRememberedList() {
 
     NetworkInfoDictionary network_dict(vpn,
                                        remembered,
-                                       web_ui()->GetDeviceScale());
+                                       web_ui()->GetDeviceScaleFactor());
     list->Append(network_dict.BuildDictionary());
   }
 

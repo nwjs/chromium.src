@@ -206,6 +206,8 @@ TEST_F(FeatureInfoTest, InitializeNoExtensions) {
               Not(HasSubstr("GL_ANGLE_texture_usage")));
   EXPECT_THAT(info_->extensions(),
               Not(HasSubstr("GL_EXT_texture_storage")));
+  EXPECT_THAT(info_->extensions(),
+              Not(HasSubstr("GL_OES_compressed_ETC1_RGB8_texture")));
   EXPECT_FALSE(info_->feature_flags().npot_ok);
   EXPECT_FALSE(info_->feature_flags().chromium_webglsl);
   EXPECT_FALSE(info_->validators()->compressed_texture_format.IsValid(
@@ -216,6 +218,8 @@ TEST_F(FeatureInfoTest, InitializeNoExtensions) {
       GL_COMPRESSED_RGBA_S3TC_DXT3_EXT));
   EXPECT_FALSE(info_->validators()->compressed_texture_format.IsValid(
       GL_COMPRESSED_RGBA_S3TC_DXT5_EXT));
+  EXPECT_FALSE(info_->validators()->compressed_texture_format.IsValid(
+      GL_ETC1_RGB8_OES));
   EXPECT_FALSE(info_->validators()->read_pixel_format.IsValid(
       GL_BGRA_EXT));
   EXPECT_FALSE(info_->validators()->texture_parameter.IsValid(
@@ -702,6 +706,17 @@ TEST_F(FeatureInfoTest, InitializeOES_EGL_image_external) {
       GL_TEXTURE_BINDING_EXTERNAL_OES));
 }
 
+TEST_F(FeatureInfoTest, InitializeOES_compressed_ETC1_RGB8_texture) {
+  SetupInitExpectations("GL_OES_compressed_ETC1_RGB8_texture");
+  info_->Initialize(NULL);
+  EXPECT_THAT(info_->extensions(),
+              HasSubstr("GL_OES_compressed_ETC1_RGB8_texture"));
+  EXPECT_TRUE(info_->validators()->compressed_texture_format.IsValid(
+      GL_ETC1_RGB8_OES));
+  EXPECT_FALSE(info_->validators()->texture_internal_format.IsValid(
+      GL_ETC1_RGB8_OES));
+}
+
 TEST_F(FeatureInfoTest, InitializeCHROMIUM_stream_texture) {
   SetupInitExpectations("GL_CHROMIUM_stream_texture");
   info_->Initialize(NULL);
@@ -744,6 +759,39 @@ TEST_F(FeatureInfoTest, InitializeARB_occlusion_query2) {
       ).use_arb_occlusion_query2_for_occlusion_query_boolean);
   EXPECT_FALSE(info_->feature_flags(
       ).use_arb_occlusion_query_for_occlusion_query_boolean);
+}
+
+TEST_F(FeatureInfoTest, InitializeOES_vertex_array_object) {
+  SetupInitExpectations("GL_OES_vertex_array_object");
+  info_->Initialize(NULL);
+  EXPECT_THAT(info_->extensions(),
+              HasSubstr("GL_OES_vertex_array_object"));
+  EXPECT_TRUE(info_->feature_flags().native_vertex_array_object_);
+}
+
+TEST_F(FeatureInfoTest, InitializeARB_vertex_array_object) {
+  SetupInitExpectations("GL_ARB_vertex_array_object");
+  info_->Initialize(NULL);
+  EXPECT_THAT(info_->extensions(),
+              HasSubstr("GL_OES_vertex_array_object"));
+  EXPECT_TRUE(info_->feature_flags().native_vertex_array_object_);
+}
+
+TEST_F(FeatureInfoTest, InitializeAPPLE_vertex_array_object) {
+  SetupInitExpectations("GL_APPLE_vertex_array_object");
+  info_->Initialize(NULL);
+  EXPECT_THAT(info_->extensions(),
+              HasSubstr("GL_OES_vertex_array_object"));
+  EXPECT_TRUE(info_->feature_flags().native_vertex_array_object_);
+}
+
+TEST_F(FeatureInfoTest, InitializeNo_vertex_array_object) {
+  SetupInitExpectations("");
+  info_->Initialize(NULL);
+  // Even if the native extensions are not available the implementation
+  // may still emulate the GL_OES_vertex_array_object functionality. In this
+  // scenario native_vertex_array_object must be false.
+  EXPECT_FALSE(info_->feature_flags().native_vertex_array_object_);
 }
 
 TEST_F(FeatureInfoTest, IsIntel) {
@@ -819,6 +867,3 @@ TEST_F(FeatureInfoTest, IsAMDATI) {
 
 }  // namespace gles2
 }  // namespace gpu
-
-
-

@@ -80,6 +80,7 @@ FeatureInfo::FeatureFlags::FeatureFlags()
       occlusion_query_boolean(false),
       use_arb_occlusion_query2_for_occlusion_query_boolean(false),
       use_arb_occlusion_query_for_occlusion_query_boolean(false),
+      native_vertex_array_object_(false),
       disable_workarounds(false),
       is_intel(false),
       is_nvidia(false),
@@ -343,6 +344,14 @@ void FeatureInfo::AddFeatures(const char* desired_features) {
     validators_.render_buffer_format.AddValue(GL_DEPTH24_STENCIL8);
   }
 
+  if (ext.Desire("GL_OES_vertex_array_object") &&
+      (ext.Have("GL_OES_vertex_array_object") ||
+       ext.Have("GL_ARB_vertex_array_object") ||
+       ext.Have("GL_APPLE_vertex_array_object"))) {
+    feature_flags_.native_vertex_array_object_ = true;
+    AddExtensionString("GL_OES_vertex_array_object");
+  }
+
   bool enable_texture_format_bgra8888 = false;
   bool enable_read_format_bgra = false;
   // Check if we should allow GL_EXT_texture_format_BGRA8888
@@ -493,6 +502,11 @@ void FeatureInfo::AddFeatures(const char* desired_features) {
     validators_.get_tex_param_target.AddValue(GL_TEXTURE_EXTERNAL_OES);
     validators_.texture_parameter.AddValue(GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES);
     validators_.g_l_state.AddValue(GL_TEXTURE_BINDING_EXTERNAL_OES);
+  }
+
+  if (ext.HaveAndDesire("GL_OES_compressed_ETC1_RGB8_texture")) {
+    AddExtensionString("GL_OES_compressed_ETC1_RGB8_texture");
+    validators_.compressed_texture_format.AddValue(GL_ETC1_RGB8_OES);
   }
 
   if (ext.Desire("GL_CHROMIUM_stream_texture")) {

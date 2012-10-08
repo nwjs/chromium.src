@@ -8,7 +8,7 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -43,7 +43,6 @@ class SadTabHelper : public content::WebContentsObserver,
 
  private:
   explicit SadTabHelper(content::WebContents* web_contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<SadTabHelper>;
 
   // Platform specific function to get an instance of the sad tab page.

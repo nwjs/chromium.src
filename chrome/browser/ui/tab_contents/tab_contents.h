@@ -7,14 +7,13 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "content/public/browser/web_contents_observer.h"
 
-class AutocompleteHistoryManager;
 class AutofillExternalDelegate;
 class AutofillManager;
-class AutomationTabHelper;
 class BasePanelBrowserTest;
 class Browser;
 class BrowserCommandsTabContentsCreator;
@@ -22,34 +21,22 @@ class BrowserLauncherItemControllerContentsCreator;
 class BrowserTabstripTabContentsCreator;
 class ChromeWebContentsHandler;
 class ConstrainedWebDialogDelegateBase;
-class ConstrainedWindowTabHelper;
 class ExtensionTabUtil;
-class ExternalProtocolObserver;
 class ExternalTabContainerWin;
-class FaviconTabHelper;
-class FindBackendTestContentsCreator;
-class FindTabHelper;
 class GeolocationPermissionContextTests;
-class HistoryTabHelper;
 class InfoBarControllerContentsCreator;
 class InfoBarTabHelper;
 class InstantLoader;
-class NavigationMetricsRecorder;
 class OffscreenTabContentsCreator;
 class PanelHost;
 class PasswordManager;
 class PasswordManagerDelegate;
-class PepperBrokerObserver;
-class PrefsTabHelper;
 class Profile;
 class ShellWindow;
-class TabAutofillManagerDelegate;
 class TabContentsTestHarness;
-class TabSpecificContentSettings;
 class TabStripModel;
 class TabStripModelContentsCreator;
 class ThumbnailGenerator;
-class TranslateTabHelper;
 class TranslationInfoBarTestContentsCreator;
 class WebDialogGtk;
 class WebDialogWindowControllerTabContentsCreator;
@@ -57,10 +44,6 @@ class WebIntentInlineDispositionBrowserTest;
 class WebIntentPickerCocoa;
 class WebIntentPickerGtk;
 class WebUITestContentsCreator;
-
-namespace browser_sync {
-class SyncedTabDelegate;
-}
 
 namespace chromeos {
 class SimpleWebViewDialog;
@@ -73,11 +56,6 @@ class WebAuthFlow;
 
 namespace prerender {
 class PrerenderContents;
-class PrerenderTabHelper;
-}
-
-namespace safe_browsing {
-class SafeBrowsingTabObserver;
 }
 
 // Wraps WebContents and all of its supporting objects in order to control
@@ -115,7 +93,6 @@ class TabContents : public content::WebContentsObserver {
     friend class extensions::WebAuthFlow;
     friend class ExtensionTabUtil;
     friend class ExternalTabContainerWin;
-    friend class FindBackendTestContentsCreator;
     friend class GeolocationPermissionContextTests;
     friend class InfoBarControllerContentsCreator;
     friend class InstantLoader;
@@ -123,6 +100,8 @@ class TabContents : public content::WebContentsObserver {
     friend class PanelHost;
     friend class prerender::PrerenderContents;
     friend class ShellWindow;
+    // See crbug.com/153587
+    friend class TabAndroid;
     friend class TabContentsTestHarness;
     friend class TabStripModel;
     friend class TabStripModelContentsCreator;
@@ -133,6 +112,7 @@ class TabContents : public content::WebContentsObserver {
     friend class WebIntentPickerCocoa;
     friend class WebIntentPickerGtk;
     friend class WebUITestContentsCreator;
+    FRIEND_TEST_ALL_PREFIXES(SessionRestoreTest, SessionStorageAfterTabReplace);
 
     static TabContents* CreateTabContents(content::WebContents* contents);
     static TabContents* CloneTabContents(TabContents* contents);
@@ -161,48 +141,15 @@ class TabContents : public content::WebContentsObserver {
 
   // Tab Helpers ---------------------------------------------------------------
 
-  AutocompleteHistoryManager* autocomplete_history_manager() {
-    return autocomplete_history_manager_.get();
-  }
-
   AutofillManager* autofill_manager() { return autofill_manager_.get(); }
 
-  // Used only for testing/automation.
-  AutomationTabHelper* automation_tab_helper() {
-    return automation_tab_helper_.get();
-  }
-
-  ConstrainedWindowTabHelper* constrained_window_tab_helper() {
-    return constrained_window_tab_helper_.get();
-  }
-
-  FaviconTabHelper* favicon_tab_helper() { return favicon_tab_helper_.get(); }
-  FindTabHelper* find_tab_helper() { return find_tab_helper_.get(); }
-  HistoryTabHelper* history_tab_helper() { return history_tab_helper_.get(); }
   InfoBarTabHelper* infobar_tab_helper() { return infobar_tab_helper_.get(); }
 
   PasswordManager* password_manager() { return password_manager_.get(); }
-  PrefsTabHelper* prefs_tab_helper() { return prefs_tab_helper_.get(); }
-
-  prerender::PrerenderTabHelper* prerender_tab_helper() {
-    return prerender_tab_helper_.get();
-  }
-
-  browser_sync::SyncedTabDelegate* synced_tab_delegate() {
-    return synced_tab_delegate_.get();
-  }
-
-  TabSpecificContentSettings* content_settings() {
-    return content_settings_.get();
-  }
 
   // NOTE: This returns NULL unless in-browser thumbnail generation is enabled.
   ThumbnailGenerator* thumbnail_generator() {
     return thumbnail_generator_.get();
-  }
-
-  TranslateTabHelper* translate_tab_helper() {
-    return translate_tab_helper_.get();
   }
 
   // Overrides -----------------------------------------------------------------
@@ -225,15 +172,8 @@ class TabContents : public content::WebContentsObserver {
   // (These provide API for callers and have a getter function listed in the
   // "Tab Helpers" section in the member functions area, above.)
 
-  scoped_ptr<AutocompleteHistoryManager> autocomplete_history_manager_;
   scoped_refptr<AutofillManager> autofill_manager_;
-  scoped_ptr<TabAutofillManagerDelegate> autofill_delegate_;
   scoped_ptr<AutofillExternalDelegate> autofill_external_delegate_;
-  scoped_ptr<AutomationTabHelper> automation_tab_helper_;
-  scoped_ptr<ConstrainedWindowTabHelper> constrained_window_tab_helper_;
-  scoped_ptr<FaviconTabHelper> favicon_tab_helper_;
-  scoped_ptr<FindTabHelper> find_tab_helper_;
-  scoped_ptr<HistoryTabHelper> history_tab_helper_;
   scoped_ptr<InfoBarTabHelper> infobar_tab_helper_;
 
   // PasswordManager and its delegate. The delegate must outlive the manager,
@@ -241,27 +181,7 @@ class TabContents : public content::WebContentsObserver {
   scoped_ptr<PasswordManagerDelegate> password_manager_delegate_;
   scoped_ptr<PasswordManager> password_manager_;
 
-  scoped_ptr<PrefsTabHelper> prefs_tab_helper_;
-  scoped_ptr<prerender::PrerenderTabHelper> prerender_tab_helper_;
-
-  scoped_ptr<browser_sync::SyncedTabDelegate> synced_tab_delegate_;
-
-  // The TabSpecificContentSettings object is used to query the blocked content
-  // state by various UI elements.
-  scoped_ptr<TabSpecificContentSettings> content_settings_;
-
   scoped_ptr<ThumbnailGenerator> thumbnail_generator_;
-  scoped_ptr<TranslateTabHelper> translate_tab_helper_;
-
-  // Per-tab observers ---------------------------------------------------------
-  // (These provide no API for callers; objects that need to exist 1:1 with tabs
-  // and silently do their thing live here.)
-
-  scoped_ptr<ExternalProtocolObserver> external_protocol_observer_;
-  scoped_ptr<NavigationMetricsRecorder> navigation_metrics_recorder_;
-  scoped_ptr<PepperBrokerObserver> pepper_broker_observer_;
-  scoped_ptr<safe_browsing::SafeBrowsingTabObserver>
-      safe_browsing_tab_observer_;
 
   // WebContents (MUST BE LAST) ------------------------------------------------
 

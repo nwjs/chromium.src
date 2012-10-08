@@ -19,6 +19,7 @@
 #include "third_party/WebKit/Source/Platform/chromium/public/WebRTCSessionDescriptionRequest.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebRTCVoidRequest.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 
 // Converter functions from  libjingle types to WebKit types.
 
@@ -102,6 +103,20 @@ static void GetNativeIceServers(
   }
 }
 
+static void GetNativeMediaConstraints(
+    const WebKit::WebVector<WebKit::WebMediaConstraint>& constraints,
+    webrtc::MediaConstraintsInterface::Constraints* native_constraints) {
+  DCHECK(native_constraints);
+  for (size_t i = 0; i < constraints.size(); ++i) {
+    webrtc::MediaConstraintsInterface::Constraint new_constraint;
+    new_constraint.key = constraints[i].m_name.utf8();
+    new_constraint.value = constraints[i].m_value.utf8();
+    DVLOG(3) << "MediaStreamConstraints:" << new_constraint.key
+             << " : " <<  new_constraint.value;
+    native_constraints->push_back(new_constraint);
+  }
+}
+
 // Class mapping responses from calls to libjingle CreateOffer/Answer and
 // the WebKit::WebRTCSessionDescriptionRequest.
 class CreateSessionDescriptionRequest
@@ -148,35 +163,76 @@ class SetSessionDescriptionRequest
   WebKit::WebRTCVoidRequest webkit_request_;
 };
 
-// TODO(perkj): Implement MediaConstraints when WebKit have done so.
 class RTCMediaConstraints : public webrtc::MediaConstraintsInterface {
  public:
   explicit RTCMediaConstraints(
       const WebKit::WebMediaConstraints& constraints) {
+    if (constraints.isNull())
+      return;  // Will happen in unit tests.
+    WebKit::WebVector<WebKit::WebMediaConstraint> mandatory;
+    constraints.getMandatoryConstraints(mandatory);
+    GetNativeMediaConstraints(mandatory, &mandatory_);
+    WebKit::WebVector<WebKit::WebMediaConstraint> optional;
+    constraints.getOptionalConstraints(optional);
+    GetNativeMediaConstraints(optional, &optional_);
+  }
+  virtual const Constraints& GetMandatory() const OVERRIDE {
+    return mandatory_;
+  }
+  virtual const Constraints& GetOptional() const OVERRIDE {
+    return optional_;
   }
   ~RTCMediaConstraints() {}
+
+ private:
+  Constraints mandatory_;
+  Constraints optional_;
 };
 
 RTCPeerConnectionHandler::RTCPeerConnectionHandler(
     WebKit::WebRTCPeerConnectionHandlerClient* client,
     MediaStreamDependencyFactory* dependency_factory)
     : PeerConnectionHandlerBase(dependency_factory),
-      client_(client) {
+      client_(client),
+      frame_(NULL) {
 }
 
 RTCPeerConnectionHandler::~RTCPeerConnectionHandler() {
 }
 
+void RTCPeerConnectionHandler::associateWithFrame(WebKit::WebFrame* frame) {
+  DCHECK(frame);
+  frame_ = frame;
+}
+
 bool RTCPeerConnectionHandler::initialize(
     const WebKit::WebRTCConfiguration& server_configuration,
-    const WebKit::WebMediaConstraints& options ) {
+    const WebKit::WebMediaConstraints& options) {
+  DCHECK(frame_);
   webrtc::JsepInterface::IceServers servers;
   GetNativeIceServers(server_configuration, &servers);
 
   RTCMediaConstraints constraints(options);
   native_peer_connection_ =
       dependency_factory_->CreatePeerConnection(
-          servers, &constraints, this);
+          servers, &constraints, frame_, this);
+  if (!native_peer_connection_) {
+    LOG(ERROR) << "Failed to initialize native PeerConnection.";
+    return false;
+  }
+  return true;
+}
+
+bool RTCPeerConnectionHandler::InitializeForTest(
+    const WebKit::WebRTCConfiguration& server_configuration,
+    const WebKit::WebMediaConstraints& options) {
+  webrtc::JsepInterface::IceServers servers;
+  GetNativeIceServers(server_configuration, &servers);
+
+  RTCMediaConstraints constraints(options);
+  native_peer_connection_ =
+      dependency_factory_->CreatePeerConnection(
+          servers, &constraints, NULL, this);
   if (!native_peer_connection_) {
     LOG(ERROR) << "Failed to initialize native PeerConnection.";
     return false;

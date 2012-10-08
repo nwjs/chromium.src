@@ -198,7 +198,7 @@ bool RenderViewHostManager::ShouldCloseTabOnUnresponsiveRenderer() {
     params.new_render_process_host_id =
         pending_render_view_host_->GetProcess()->GetID();
     params.new_request_id = pending_request_id;
-    current_host()->GetProcess()->CrossSiteSwapOutACK(params);
+    current_host()->GetProcess()->SimulateSwapOutACK(params);
   }
   return false;
 }
@@ -406,7 +406,7 @@ bool RenderViewHostManager::ShouldSwapProcessesForNavigation(
   // page and one isn't.  If there's no curr_entry, check the current RVH's
   // site, which might already be committed to a Web UI URL (such as the NTP).
   const GURL& current_url = (curr_entry) ? curr_entry->GetURL() :
-      render_view_host_->GetSiteInstance()->GetSite();
+      render_view_host_->GetSiteInstance()->GetSiteURL();
   content::BrowserContext* browser_context =
       delegate_->GetControllerForRenderManager().GetBrowserContext();
   const WebUIControllerFactory* web_ui_factory =
@@ -577,7 +577,7 @@ SiteInstance* RenderViewHostManager::GetSiteInstanceForEntry(
   // the page to a different same-site URL.  (This seems very unlikely in
   // practice.)
   const GURL& current_url = (curr_entry) ? curr_entry->GetURL() :
-      curr_instance->GetSite();
+      curr_instance->GetSiteURL();
 
   // View-source URLs must use a new SiteInstance and BrowsingInstance.
   // TODO(creis): Refactor this method so this duplicated code isn't needed.
@@ -649,14 +649,8 @@ int RenderViewHostManager::CreateRenderView(
       // Don't show the view until we get a DidNavigate from it.
       new_render_view_host->GetView()->Hide();
 
-      // If we are creating a swapped out RVH, send a message to update its
-      // frame tree based on the active RVH for this RenderViewHostManager.
-      if (swapped_out) {
-        new_render_view_host->UpdateFrameTree(
-            current_host()->GetProcess()->GetID(),
-            current_host()->GetRoutingID(),
-            current_host()->frame_tree());
-      }
+      // TODO(nasko): Send a frame tree update when creating the RV
+      // once http://crbug.com/153701 is fixed.
     } else if (!swapped_out) {
       CancelPending();
     }
@@ -798,7 +792,7 @@ RenderViewHostImpl* RenderViewHostManager::UpdateRendererStateForNavigate(
   SiteInstance* new_instance = curr_instance;
   const content::NavigationEntry* curr_entry =
       delegate_->GetLastCommittedNavigationEntryForRenderManager();
-  bool is_guest_scheme = curr_instance->GetSite().SchemeIs(
+  bool is_guest_scheme = curr_instance->GetSiteURL().SchemeIs(
       chrome::kGuestScheme);
   bool force_swap = ShouldSwapProcessesForNavigation(curr_entry, &entry);
   if (!is_guest_scheme && (ShouldTransitionCrossSite() || force_swap))

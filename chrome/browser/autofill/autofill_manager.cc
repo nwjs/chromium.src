@@ -42,6 +42,10 @@
 #include "chrome/common/autofill_messages.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/form_data.h"
+#include "chrome/common/form_data_predictions.h"
+#include "chrome/common/form_field_data.h"
+#include "chrome/common/password_form_fill_data.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_context.h"
@@ -56,18 +60,11 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebAutofillClient.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/rect.h"
-#include "webkit/forms/form_data.h"
-#include "webkit/forms/form_data_predictions.h"
-#include "webkit/forms/form_field.h"
-#include "webkit/forms/password_form_dom_manager.h"
 
 using base::TimeTicks;
 using content::BrowserThread;
 using content::RenderViewHost;
 using switches::kEnableAutofillFeedback;
-using webkit::forms::FormData;
-using webkit::forms::FormDataPredictions;
-using webkit::forms::FormField;
 
 namespace {
 
@@ -354,7 +351,8 @@ bool AutofillManager::OnMessageReceived(const IPC::Message& message) {
 bool AutofillManager::OnFormSubmitted(const FormData& form,
                                       const TimeTicks& timestamp) {
   // Let AutoComplete know as well.
-  tab_contents_->autocomplete_history_manager()->OnFormSubmitted(form);
+  AutocompleteHistoryManager::FromWebContents(tab_contents_->web_contents())->
+      OnFormSubmitted(form);
 
   if (!IsAutofillEnabled())
     return false;
@@ -440,7 +438,7 @@ void AutofillManager::OnFormsSeen(const std::vector<FormData>& forms,
 }
 
 void AutofillManager::OnTextFieldDidChange(const FormData& form,
-                                           const FormField& field,
+                                           const FormFieldData& field,
                                            const TimeTicks& timestamp) {
   FormStructure* form_structure = NULL;
   AutofillField* autofill_field = NULL;
@@ -469,7 +467,7 @@ void AutofillManager::OnTextFieldDidChange(const FormData& form,
 
 void AutofillManager::OnQueryFormFieldAutofill(int query_id,
                                                const FormData& form,
-                                               const FormField& field,
+                                               const FormFieldData& field,
                                                const gfx::Rect& bounding_box,
                                                bool display_warning) {
   std::vector<string16> values;
@@ -556,14 +554,14 @@ void AutofillManager::OnQueryFormFieldAutofill(int query_id,
   // Add the results from AutoComplete.  They come back asynchronously, so we
   // hand off what we generated and they will send the results back to the
   // renderer.
-  tab_contents_->autocomplete_history_manager()->
+  AutocompleteHistoryManager::FromWebContents(tab_contents_->web_contents())->
       OnGetAutocompleteSuggestions(
           query_id, field.name, field.value, values, labels, icons, unique_ids);
 }
 
 void AutofillManager::OnFillAutofillFormData(int query_id,
                                              const FormData& form,
-                                             const FormField& field,
+                                             const FormFieldData& field,
                                              int unique_id) {
   const std::vector<AutofillProfile*>& profiles = personal_data_->profiles();
   const std::vector<CreditCard*>& credit_cards = personal_data_->credit_cards();
@@ -589,7 +587,7 @@ void AutofillManager::OnFillAutofillFormData(int query_id,
   // If the relevant section is auto-filled, we should fill |field| but not the
   // rest of the form.
   if (SectionIsAutofilled(*form_structure, form, autofill_field->section())) {
-    for (std::vector<FormField>::iterator iter = result.fields.begin();
+    for (std::vector<FormFieldData>::iterator iter = result.fields.begin();
          iter != result.fields.end(); ++iter) {
       if ((*iter) == field) {
         AutofillFieldType field_type = autofill_field->type();
@@ -715,7 +713,7 @@ void AutofillManager::OnHideAutofillPopup() {
 void AutofillManager::OnShowPasswordGenerationPopup(
     const gfx::Rect& bounds,
     int max_length,
-    const webkit::forms::PasswordForm& form) {
+    const content::PasswordForm& form) {
   password_generator_.reset(new autofill::PasswordGenerator(max_length));
   manager_delegate_->ShowPasswordGenerationBubble(
       bounds, form, password_generator_.get());
@@ -746,14 +744,14 @@ void AutofillManager::RemoveAutofillProfileOrCreditCard(int unique_id) {
 }
 
 void AutofillManager::OnAddPasswordFormMapping(
-      const webkit::forms::FormField& form,
-      const webkit::forms::PasswordFormFillData& fill_data) {
+      const FormFieldData& form,
+      const PasswordFormFillData& fill_data) {
   if (external_delegate_)
     external_delegate_->AddPasswordFormMapping(form, fill_data);
 }
 
 void AutofillManager::OnShowPasswordSuggestions(
-    const webkit::forms::FormField& field,
+    const FormFieldData& field,
     const gfx::Rect& bounds,
     const std::vector<string16>& suggestions) {
   if (external_delegate_)
@@ -1003,7 +1001,7 @@ bool AutofillManager::FindCachedForm(const FormData& form,
 }
 
 bool AutofillManager::GetCachedFormAndField(const FormData& form,
-                                            const FormField& field,
+                                            const FormFieldData& field,
                                             FormStructure** form_structure,
                                             AutofillField** autofill_field) {
   // Find the FormStructure that corresponds to |form|.
@@ -1092,7 +1090,7 @@ bool AutofillManager::UpdateCachedForm(const FormData& live_form,
 
 void AutofillManager::GetProfileSuggestions(
     FormStructure* form,
-    const FormField& field,
+    const FormFieldData& field,
     AutofillFieldType type,
     std::vector<string16>* values,
     std::vector<string16>* labels,
@@ -1179,7 +1177,7 @@ void AutofillManager::GetProfileSuggestions(
 
 void AutofillManager::GetCreditCardSuggestions(
     FormStructure* form,
-    const FormField& field,
+    const FormFieldData& field,
     AutofillFieldType type,
     std::vector<string16>* values,
     std::vector<string16>* labels,
@@ -1218,7 +1216,7 @@ void AutofillManager::GetCreditCardSuggestions(
 
 void AutofillManager::FillCreditCardFormField(const CreditCard& credit_card,
                                               AutofillFieldType type,
-                                              FormField* field) {
+                                              FormFieldData* field) {
   DCHECK_EQ(AutofillType::CREDIT_CARD, AutofillType(type).group());
   DCHECK(field);
 
@@ -1242,7 +1240,7 @@ void AutofillManager::FillCreditCardFormField(const CreditCard& credit_card,
 void AutofillManager::FillFormField(const AutofillProfile& profile,
                                     const AutofillField& cached_field,
                                     size_t variant,
-                                    FormField* field) {
+                                    FormFieldData* field) {
   AutofillFieldType type = cached_field.type();
   DCHECK_NE(AutofillType::CREDIT_CARD, AutofillType(type).group());
   DCHECK(field);
@@ -1269,7 +1267,7 @@ void AutofillManager::FillFormField(const AutofillProfile& profile,
 void AutofillManager::FillPhoneNumberField(const AutofillProfile& profile,
                                            const AutofillField& cached_field,
                                            size_t variant,
-                                           FormField* field) {
+                                           FormFieldData* field) {
   std::vector<string16> values;
   profile.GetCanonicalizedMultiInfo(cached_field.type(), &values);
   DCHECK(variant < values.size());

@@ -25,13 +25,13 @@ WebExternalTextureLayer* WebExternalTextureLayer::create(WebExternalTextureLayer
 WebExternalTextureLayerImpl::WebExternalTextureLayerImpl(WebExternalTextureLayerClient* client)
     : m_client(client)
 {
-    RefPtr<TextureLayerChromium> layer;
+    scoped_refptr<TextureLayerChromium> layer;
     if (m_client)
         layer = TextureLayerChromium::create(this);
     else
         layer = TextureLayerChromium::create(0);
     layer->setIsDrawable(true);
-    m_layer = adoptPtr(new WebLayerImpl(layer.release()));
+    m_layer = adoptPtr(new WebLayerImpl(layer));
 }
 
 WebExternalTextureLayerImpl::~WebExternalTextureLayerImpl()
@@ -61,7 +61,7 @@ void WebExternalTextureLayerImpl::setUVRect(const WebFloatRect& rect)
 
 void WebExternalTextureLayerImpl::setOpaque(bool opaque)
 {
-    static_cast<TextureLayerChromium*>(m_layer->layer())->setOpaque(opaque);
+    static_cast<TextureLayerChromium*>(m_layer->layer())->setContentsOpaque(opaque);
 }
 
 void WebExternalTextureLayerImpl::setPremultipliedAlpha(bool premultipliedAlpha)

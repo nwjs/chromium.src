@@ -15,6 +15,7 @@
 #include "CCProxy.h"
 #include "CCQuadSink.h"
 #include "CCScrollbarAnimationController.h"
+#include "CCSettings.h"
 #include "TraceEvent.h"
 
 using WebKit::WebTransformationMatrix;
@@ -37,7 +38,7 @@ CCLayerImpl::CCLayerImpl(int id)
     , m_layerPropertyChanged(false)
     , m_layerSurfacePropertyChanged(false)
     , m_masksToBounds(false)
-    , m_opaque(false)
+    , m_contentsOpaque(false)
     , m_opacity(1.0)
     , m_preserves3D(false)
     , m_useParentBackfaceVisibility(false)
@@ -122,9 +123,9 @@ bool CCLayerImpl::descendantDrawsContent()
     return false;
 }
 
-PassOwnPtr<CCSharedQuadState> CCLayerImpl::createSharedQuadState() const
+scoped_ptr<CCSharedQuadState> CCLayerImpl::createSharedQuadState() const
 {
-    return CCSharedQuadState::create(m_drawTransform, m_visibleContentRect, m_drawableContentRect, m_drawOpacity, m_opaque);
+    return CCSharedQuadState::create(m_drawTransform, m_visibleContentRect, m_drawableContentRect, m_drawOpacity, m_contentsOpaque);
 }
 
 void CCLayerImpl::willDraw(CCResourceProvider*)
@@ -150,7 +151,7 @@ void CCLayerImpl::appendDebugBorderQuad(CCQuadSink& quadList, const CCSharedQuad
         return;
 
     IntRect contentRect(IntPoint(), contentBounds());
-    quadList.append(CCDebugBorderDrawQuad::create(sharedQuadState, contentRect, debugBorderColor(), debugBorderWidth()), appendQuadsData);
+    quadList.append(CCDebugBorderDrawQuad::create(sharedQuadState, contentRect, debugBorderColor(), debugBorderWidth()).PassAs<CCDrawQuad>(), appendQuadsData);
 }
 
 bool CCLayerImpl::hasContributingDelegatedRenderPasses() const
@@ -224,6 +225,11 @@ CCInputHandlerClient::ScrollStatus CCLayerImpl::tryScroll(const IntPoint& viewpo
     return CCInputHandlerClient::ScrollStarted;
 }
 
+bool CCLayerImpl::drawCheckerboardForMissingTiles() const
+{
+    return m_drawCheckerboardForMissingTiles && !CCSettings::backgroundColorInsteadOfCheckerboard();
+}
+
 IntRect CCLayerImpl::layerRectToContentRect(const WebKit::WebRect& layerRect)
 {
     float widthScale = static_cast<float>(contentBounds().width()) / bounds().width();
@@ -266,7 +272,7 @@ void CCLayerImpl::dumpLayerProperties(std::string* str, int indent) const
     base::StringAppendF(str, "drawsContent: %s\n", m_drawsContent ? "yes" : "no");
 }
 
-void sortLayers(Vector<CCLayerImpl*>::iterator first, Vector<CCLayerImpl*>::iterator end, CCLayerSorter* layerSorter)
+void sortLayers(std::vector<CCLayerImpl*>::iterator first, std::vector<CCLayerImpl*>::iterator end, CCLayerSorter* layerSorter)
 {
     TRACE_EVENT0("cc", "CCLayerImpl::sortLayers");
     layerSorter->sort(first, end);
@@ -492,12 +498,12 @@ void CCLayerImpl::setMasksToBounds(bool masksToBounds)
     noteLayerPropertyChangedForSubtree();
 }
 
-void CCLayerImpl::setOpaque(bool opaque)
+void CCLayerImpl::setContentsOpaque(bool opaque)
 {
-    if (m_opaque == opaque)
+    if (m_contentsOpaque == opaque)
         return;
 
-    m_opaque = opaque;
+    m_contentsOpaque = opaque;
     noteLayerPropertyChangedForSubtree();
 }
 
@@ -627,7 +633,7 @@ void CCLayerImpl::setDoubleSided(bool doubleSided)
 
 Region CCLayerImpl::visibleContentOpaqueRegion() const
 {
-    if (opaque())
+    if (contentsOpaque())
         return visibleContentRect();
     return Region();
 }

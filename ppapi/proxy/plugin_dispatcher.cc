@@ -60,8 +60,9 @@ InstanceData::~InstanceData() {
 }
 
 PluginDispatcher::PluginDispatcher(PP_GetInterface_Func get_interface,
+                                   const PpapiPermissions& permissions,
                                    bool incognito)
-    : Dispatcher(get_interface),
+    : Dispatcher(get_interface, permissions),
       plugin_delegate_(NULL),
       received_preferences_(false),
       plugin_dispatcher_id_(0),
@@ -102,6 +103,10 @@ PluginDispatcher* PluginDispatcher::GetForResource(const Resource* resource) {
 
 // static
 const void* PluginDispatcher::GetBrowserInterface(const char* interface_name) {
+  DCHECK(interface_name) << "|interface_name| is null. Did you forget to add "
+      "the |interface_name()| template function to the interface's C++ "
+      "wrapper?";
+
   return InterfaceList::GetInstance()->GetInterfaceForPPB(interface_name);
 }
 

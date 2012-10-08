@@ -275,16 +275,25 @@ bool ExtensionService::IsInstalledApp(const GURL& url) const {
   return !!GetInstalledApp(url);
 }
 
-void ExtensionService::SetInstalledAppForRenderer(int renderer_child_id,
-                                                  const Extension* app) {
-  installed_app_hosts_[renderer_child_id] = app;
-}
-
-const Extension* ExtensionService::GetInstalledAppForRenderer(
+const Extension* ExtensionService::GetIsolatedAppForRenderer(
     int renderer_child_id) const {
-  InstalledAppMap::const_iterator i =
-      installed_app_hosts_.find(renderer_child_id);
-  return i == installed_app_hosts_.end() ? NULL : i->second;
+  std::set<std::string> extension_ids =
+      process_map_.GetExtensionsInProcess(renderer_child_id);
+  // All apps in one process share the same partition.
+  // It is only possible for the app to have isolated storage
+  // if there is only 1 app in the process.
+  if (extension_ids.size() != 1)
+    return NULL;
+
+  const extensions::Extension* extension =
+      extensions_.GetByID(*(extension_ids.begin()));
+  // We still need to check is_storage_isolated(),
+  // because it's common for there to be one extension in a process
+  // with is_storage_isolated() == false.
+  if (extension && extension->is_storage_isolated())
+    return extension;
+
+  return NULL;
 }
 
 // static
@@ -521,9 +530,15 @@ void ExtensionService::InitEventRouters() {
   event_routers_initialized_ = true;
 }
 
-void ExtensionService::Shutdown() {
+void ExtensionService::OnProfileSyncServiceShutdown() {
+  // TODO(akalin): Move this block to Shutdown() once
+  // http://crbug.com/153827 is fixed.
   if (push_messaging_event_router_.get())
     push_messaging_event_router_->Shutdown();
+}
+
+void ExtensionService::Shutdown() {
+  // Do nothing for now.
 }
 
 const Extension* ExtensionService::GetExtensionById(
@@ -613,8 +628,7 @@ bool ExtensionService::UpdateExtension(const std::string& id,
   int creation_flags = Extension::NO_FLAGS;
   if ((extension && extension->from_webstore()) ||
       (extension && extension->UpdatesFromGallery()) ||
-      (!extension && pending_extension_info->is_from_sync() &&
-       extension_urls::IsWebstoreUpdateUrl(
+      (!extension && extension_urls::IsWebstoreUpdateUrl(
            pending_extension_info->update_url()))) {
     creation_flags |= Extension::FROM_WEBSTORE;
   }
@@ -2132,7 +2146,6 @@ void ExtensionService::UpdateActiveExtensionsInCrashReporter() {
 
 void ExtensionService::OnExtensionInstalled(
     const Extension* extension,
-    bool from_webstore,
     const syncer::StringOrdinal& page_ordinal,
     bool has_requirement_errors) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -2212,7 +2225,6 @@ void ExtensionService::OnExtensionInstalled(
   extension_prefs_->OnExtensionInstalled(
       extension,
       initial_enable ? Extension::ENABLED : Extension::DISABLED,
-      from_webstore,
       page_ordinal);
 
   // Unpacked extensions default to allowing file access, but if that has been
@@ -2458,8 +2470,6 @@ void ExtensionService::Observe(int type,
           Profile::FromBrowserContext(process->GetBrowserContext());
       if (!profile_->IsSameProfile(host_profile->GetOriginalProfile()))
           break;
-
-      installed_app_hosts_.erase(process->GetID());
 
       process_map_.RemoveAllFromProcess(process->GetID());
       BrowserThread::PostTask(

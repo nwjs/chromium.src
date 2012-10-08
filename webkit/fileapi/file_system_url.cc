@@ -76,6 +76,7 @@ bool CrackFileSystemURL(
 
 FileSystemURL::FileSystemURL()
     : type_(kFileSystemTypeUnknown),
+      mount_type_(kFileSystemTypeUnknown),
       is_valid_(false) {}
 
 FileSystemURL::FileSystemURL(const GURL& url)
@@ -90,7 +91,7 @@ FileSystemURL::FileSystemURL(
     const FilePath& path)
     : origin_(origin),
       type_(type),
-      virtual_path_(path),
+      virtual_path_(path.NormalizePathSeparators()),
       is_valid_(true) {
   MayCrackIsolatedPath();
 }

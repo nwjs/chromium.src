@@ -13,12 +13,6 @@ const char kCrosScheme[] = "cros";
 const char kDriveScheme[] = "drive";
 #endif
 
-#if defined(OS_ANDROID)
-const char kContentScheme[] = "content";
-const char kAndroidAssetPath[] = "/android_asset/";
-const char kAndroidResourcePath[] = "/android_res/";
-#endif
-
 const char kAboutPluginsURL[] = "about:plugins";
 const char kAboutVersionURL[] = "about:version";
 
@@ -279,7 +273,6 @@ const char kChromeUITabModalConfirmDialogHost[] = "tab-modal-confirm-dialog";
 // Option sub pages.
 // Add sub page paths to kChromeSettingsSubPages in builtin_provider.cc to be
 // listed by the built-in AutocompleteProvider.
-const char kAboutOptionsSubPage[] = "about";
 const char kAutofillSubPage[] = "autofill";
 const char kClearBrowserDataSubPage[] = "clearBrowserData";
 const char kContentSettingsExceptionsSubPage[] = "contentExceptions";
@@ -287,7 +280,6 @@ const char kContentSettingsSubPage[] = "content";
 const char kExtensionsSubPage[] = "extensions";
 const char kHandlerSettingsSubPage[] = "handlers";
 const char kImportDataSubPage[] = "importData";
-const char kInstantConfirmPage[] = "instantConfirm";
 const char kLanguageOptionsSubPage[] = "languages";
 const char kManageProfileSubPage[] = "manageProfile";
 const char kPasswordManagerSubPage[] = "passwords";
@@ -426,9 +418,6 @@ const char kDoNotTrackLearnMoreURL[] =
 #else
     "https://support.google.com/chrome/?p=settings_do_not_track";
 #endif
-
-const char kSessionRestoreLearnMoreURL[] =
-    "https://support.google.com/chrome/?p=settings_reopen_pages";
 
 const char kChromiumProjectURL[] = "http://code.google.com/chromium/";
 

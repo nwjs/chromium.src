@@ -8,17 +8,18 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "base/basictypes.h"
+#include "base/memory/ref_counted.h"
 #include "FloatRect.h"
 #include "IntRect.h"
 #include <public/WebTransformationMatrix.h>
-#include <wtf/Noncopyable.h>
+#include <vector>
 
 namespace cc {
 
 class LayerChromium;
 
 class RenderSurfaceChromium {
-    WTF_MAKE_NONCOPYABLE(RenderSurfaceChromium);
 public:
     explicit RenderSurfaceChromium(LayerChromium*);
     ~RenderSurfaceChromium();
@@ -57,7 +58,8 @@ public:
     const IntRect& clipRect() const { return m_clipRect; }
     void setClipRect(const IntRect& clipRect) { m_clipRect = clipRect; }
 
-    Vector<RefPtr<LayerChromium> >& layerList() { return m_layerList; }
+    typedef std::vector<scoped_refptr<LayerChromium> > LayerList;
+    LayerList& layerList() { return m_layerList; }
     // A no-op since DelegatedRendererLayers on the main thread don't have any
     // RenderPasses so they can't contribute to a surface.
     void addContributingDelegatedRenderPassLayer(LayerChromium*) { }
@@ -67,6 +69,8 @@ public:
     const RenderSurfaceChromium* nearestAncestorThatMovesPixels() const { return m_nearestAncestorThatMovesPixels; }
 
 private:
+    friend struct CCLayerIteratorActions;
+
     LayerChromium* m_owningLayer;
 
     // Uses this surface's space.
@@ -84,7 +88,7 @@ private:
     // Uses the space of the surface's target surface.
     IntRect m_clipRect;
 
-    Vector<RefPtr<LayerChromium> > m_layerList;
+    LayerList m_layerList;
 
     // The nearest ancestor target surface that will contain the contents of this surface, and that is going
     // to move pixels within the surface (such as with a blur). This can point to itself.
@@ -93,7 +97,8 @@ private:
     // For CCLayerIteratorActions
     int m_targetRenderSurfaceLayerIndexHistory;
     int m_currentLayerIndexHistory;
-    friend struct CCLayerIteratorActions;
+
+    DISALLOW_COPY_AND_ASSIGN(RenderSurfaceChromium);
 };
 
 }

@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 import json
 import urlparse
+import os
 
 class Page(object):
   def __init__(self, url, attributes=None):
@@ -12,8 +13,10 @@ class Page(object):
       raise Exception('urls must be fully qualified: %s' % url)
     self.interactions = 'scroll'
     self.credentials = None
+    self.is_gmail = False
     self.wait_time_after_navigate = 2
     self.scroll_is_infinite = False
+    self.wait_for_javascript_expression = None
 
     if attributes:
       for k, v in attributes.iteritems():
@@ -23,9 +26,16 @@ class Page(object):
     return self.url
 
 class PageSet(object):
-  def __init__(self, description='', file_path=''):
-    self.description = description
-    self.file_path = file_path
+  def __init__(self, base_dir='', attributes=None):
+    self.description = ''
+    self.archive_path = ''
+    self.base_dir = base_dir
+    self.credentials_path = None
+
+    if attributes:
+      for k, v in attributes.iteritems():
+        setattr(self, k, v)
+
     self.pages = []
 
   @classmethod
@@ -33,11 +43,11 @@ class PageSet(object):
     with open(file_path, 'r') as f:
       contents = f.read()
       data = json.loads(contents)
-      return cls.FromDict(data, file_path)
+      return cls.FromDict(data, os.path.dirname(file_path))
 
   @classmethod
   def FromDict(cls, data, file_path=''):
-    page_set = cls(data['description'], file_path)
+    page_set = cls(file_path, data)
     for page_attributes in data['pages']:
       url = page_attributes.pop('url')
       page = Page(url, page_attributes)

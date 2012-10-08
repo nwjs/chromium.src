@@ -566,16 +566,8 @@ void ChromeURLDataManagerBackend::DataAvailable(RequestID request_id,
 
 namespace {
 
-bool ShouldLoadFromDisk() {
 #if defined(DEBUG_DEVTOOLS)
-  return true;
-#else
-  return CommandLine::ForCurrentProcess()->
-             HasSwitch(switches::kDebugDevToolsFrontend);
-#endif
-}
-
-bool IsSupportedURL(const GURL& url, FilePath* path) {
+bool IsSupportedDevToolsURL(const GURL& url, FilePath* path) {
   if (!url.SchemeIs(chrome::kChromeDevToolsScheme))
     return false;
 
@@ -606,14 +598,8 @@ bool IsSupportedURL(const GURL& url, FilePath* path) {
     return false;
 
   FilePath inspector_dir;
-
-#if defined(DEBUG_DEVTOOLS)
   if (!PathService::Get(chrome::DIR_INSPECTOR, &inspector_dir))
     return false;
-#else
-  inspector_dir = CommandLine::ForCurrentProcess()->
-                      GetSwitchValuePath(switches::kDebugDevToolsFrontend);
-#endif
 
   if (inspector_dir.empty())
     return false;
@@ -621,6 +607,7 @@ bool IsSupportedURL(const GURL& url, FilePath* path) {
   *path = inspector_dir.AppendASCII(relative_path);
   return true;
 }
+#endif  // defined(DEBUG_DEVTOOLS)
 
 class DevToolsJobFactory
     : public net::URLRequestJobFactory::ProtocolHandler {
@@ -654,12 +641,11 @@ DevToolsJobFactory::~DevToolsJobFactory() {}
 net::URLRequestJob*
 DevToolsJobFactory::MaybeCreateJob(
     net::URLRequest* request, net::NetworkDelegate* network_delegate) const {
-  if (ShouldLoadFromDisk()) {
-    FilePath path;
-    if (IsSupportedURL(request->url(), &path))
-      return new net::URLRequestFileJob(request, network_delegate, path);
-  }
-
+#if defined(DEBUG_DEVTOOLS)
+  FilePath path;
+  if (IsSupportedDevToolsURL(request->url(), &path))
+    return new net::URLRequestFileJob(request, network_delegate, path);
+#endif
   return new URLRequestChromeJob(request, network_delegate, backend_);
 }
 

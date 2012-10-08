@@ -247,6 +247,10 @@ const char kEnableAcceleratedFilters[]      = "enable-accelerated-filters";
 // Turns on extremely verbose logging of accessibility events.
 const char kEnableAccessibilityLogging[]    = "enable-accessibility-logging";
 
+// Enables old implementation path for browser plugin instead of current one.
+const char kEnableBrowserPluginOldImplementation[] =
+    "enable-browser-plugin-old-implementation";
+
 // Enables the creation of compositing layers for fixed position elements.
 const char kEnableCompositingForFixedPosition[] =
      "enable-fixed-position-compositing";
@@ -435,6 +439,9 @@ const char kGpuVendorID[]                   = "gpu-vendor-id";
 // to run as a guest renderer instead of a regular renderer.
 const char kGuestRenderer[]                 = "guest-renderer";
 
+// These mappings only apply to the host resolver.
+const char kHostResolverRules[]             = "host-resolver-rules";
+
 // Ignores GPU blacklist.
 const char kIgnoreGpuBlacklist[]            = "ignore-gpu-blacklist";
 
@@ -472,6 +479,14 @@ const char kNoReferrers[]                   = "no-referrers";
 
 // Disables the sandbox for all process types that are normally sandboxed.
 const char kNoSandbox[]                     = "no-sandbox";
+
+// Enables the sandboxed processes to run without a job object assigned to them.
+// This flag is required to allow Chrome to run in RemoteApps or Citrix. This
+// flag can reduce the security of the sandboxed processes and allow them to do
+// certain API calls like shut down Windows or access the clipboard. Also we
+// lose the chance to kill some processes until the outer job that owns them
+// finishes.
+const char kAllowNoSandboxJob[]             = "allow-no-sandbox-job";
 
 // Specifies a command that should be used to launch the plugin process.  Useful
 // for running the plugin process through purify or quantify.  Ex:
@@ -587,6 +602,10 @@ const char kTapDownDeferralTimeMs[]         = "tap-down-deferral-time";
 // Runs the security test for the renderer sandbox.
 const char kTestSandbox[]                   = "test-sandbox";
 
+// Allows for forcing socket connections to http/https to use fixed ports.
+const char kTestingFixedHttpPort[]          = "testing-fixed-http-port";
+const char kTestingFixedHttpsPort[]         = "testing-fixed-https-port";
+
 // Causes TRACE_EVENT flags to be recorded from startup. Optionally, can
 // specify the specific trace categories to include (e.g.
 // --trace-startup=base,net) otherwise, all events are recorded. Setting this
@@ -659,13 +678,6 @@ const char kMediaPlayerInRenderProcess[]    = "media-player-in-render-process";
 
 // Set when Chromium should use a mobile user agent.
 const char kUseMobileUserAgent[] = "use-mobile-user-agent";
-
-// Omnibus flag setting an Android graphics mode.  May be:
-//   "basic" (untiled software path)
-//   "compositor" (hardware-accelerated compositing),
-const char kGraphicsMode[]                  = "graphics-mode";
-const char kGraphicsModeValueBasic[]        = "basic";
-const char kGraphicsModeValueCompositor[]   = "compositor";
 
 // The telephony region (ISO country code) to use in phone number detection.
 const char kNetworkCountryIso[] = "network-country-iso";

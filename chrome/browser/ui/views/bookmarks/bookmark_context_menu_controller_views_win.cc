@@ -8,6 +8,7 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -117,7 +118,13 @@ void BookmarkContextMenuControllerViewsWin::ExecuteCommand(int id) {
         }
 
         NewBrowserPageNavigator navigator_impl(profile_to_use);
-        Browser* browser = browser::FindTabbedBrowser(profile_to_use, false);
+
+        // TODO(robertshield): FTB - Switch this to HOST_DESKTOP_TYPE_ASH when
+        //                     we make that the default for metro.
+        Browser* browser =
+            browser::FindTabbedBrowser(profile_to_use,
+                                       false,
+                                       chrome::HOST_DESKTOP_TYPE_NATIVE);
         content::PageNavigator* navigator = NULL;
         if (!browser || !chrome::GetActiveWebContents(browser)) {
           navigator = &navigator_impl;
@@ -126,8 +133,8 @@ void BookmarkContextMenuControllerViewsWin::ExecuteCommand(int id) {
           navigator = chrome::GetActiveWebContents(browser);
         }
 
-        bookmark_utils::OpenAll(parent_widget()->GetNativeWindow(), navigator,
-                                selection(), NEW_FOREGROUND_TAB);
+        chrome::OpenAll(parent_widget()->GetNativeWindow(), navigator,
+                        selection(), NEW_FOREGROUND_TAB);
         bookmark_utils::RecordBookmarkLaunch(
             bookmark_utils::LAUNCH_CONTEXT_MENU);
         return;

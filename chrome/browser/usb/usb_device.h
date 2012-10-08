@@ -39,6 +39,7 @@ enum UsbTransferStatus {
 
 typedef base::Callback<void(UsbTransferStatus, scoped_refptr<net::IOBuffer>,
     size_t)> UsbTransferCallback;
+typedef base::Callback<void(bool)> UsbInterfaceCallback;
 
 // A UsbDevice wraps the platform's underlying representation of what a USB
 // device actually is, and provides accessors for performing many of the
@@ -58,6 +59,17 @@ class UsbDevice : public base::RefCounted<UsbDevice> {
 
   // Close the USB device and release the underlying platform device.
   virtual void Close();
+
+  virtual void ClaimInterface(const int interface_number,
+                              const UsbInterfaceCallback& callback);
+
+  virtual void ReleaseInterface(const int interface_number,
+                                const UsbInterfaceCallback& callback);
+
+  virtual void SetInterfaceAlternateSetting(
+      const int interface_number,
+      const int alternate_setting,
+      const UsbInterfaceCallback& callback);
 
   virtual void ControlTransfer(const TransferDirection direction,
                                const TransferRequestType request_type,
@@ -142,7 +154,7 @@ class UsbDevice : public base::RefCounted<UsbDevice> {
   base::Lock lock_;
   std::map<PlatformUsbTransferHandle, Transfer> transfers_;
 
-  DISALLOW_EVIL_CONSTRUCTORS(UsbDevice);
+  DISALLOW_COPY_AND_ASSIGN(UsbDevice);
 };
 
 #endif  // CHROME_BROWSER_USB_USB_DEVICE_H_

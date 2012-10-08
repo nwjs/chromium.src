@@ -7,6 +7,7 @@
 
 #include "TextureUploader.h"
 
+#include "base/basictypes.h"
 #include <deque>
 #include <wtf/Deque.h>
 
@@ -17,22 +18,16 @@ class WebGraphicsContext3D;
 namespace cc {
 
 class ThrottledTextureUploader : public TextureUploader {
-    WTF_MAKE_NONCOPYABLE(ThrottledTextureUploader);
 public:
     static PassOwnPtr<ThrottledTextureUploader> create(WebKit::WebGraphicsContext3D* context)
     {
         return adoptPtr(new ThrottledTextureUploader(context));
     }
-    static PassOwnPtr<ThrottledTextureUploader> create(WebKit::WebGraphicsContext3D* context, size_t pendingUploadLimit)
-    {
-        return adoptPtr(new ThrottledTextureUploader(context, pendingUploadLimit));
-    }
     virtual ~ThrottledTextureUploader();
 
-    virtual bool isBusy() OVERRIDE;
+    virtual size_t numBlockingUploads() OVERRIDE;
+    virtual void markPendingUploadsAsNonBlocking() OVERRIDE;
     virtual double estimatedTexturesPerSecond() OVERRIDE;
-    virtual void beginUploads() OVERRIDE;
-    virtual void endUploads() OVERRIDE;
     virtual void uploadTexture(CCResourceProvider*, Parameters) OVERRIDE;
 
 private:
@@ -43,11 +38,13 @@ private:
         virtual ~Query();
 
         void begin();
-        void end(double texturesUploaded);
+        void end();
         bool isPending();
         void wait();
         unsigned value();
-        double texturesUploaded();
+        size_t texturesUploaded();
+        void markAsNonBlocking();
+        bool isNonBlocking();
 
     private:
         explicit Query(WebKit::WebGraphicsContext3D*);
@@ -56,20 +53,22 @@ private:
         unsigned m_queryId;
         unsigned m_value;
         bool m_hasValue;
-        double m_texturesUploaded;
+        bool m_isNonBlocking;
     };
 
     ThrottledTextureUploader(WebKit::WebGraphicsContext3D*);
-    ThrottledTextureUploader(WebKit::WebGraphicsContext3D*, size_t pendingUploadLimit);
 
+    void beginQuery();
+    void endQuery();
     void processQueries();
 
     WebKit::WebGraphicsContext3D* m_context;
-    size_t m_maxPendingQueries;
     Deque<OwnPtr<Query> > m_pendingQueries;
     Deque<OwnPtr<Query> > m_availableQueries;
     std::deque<double> m_texturesPerSecondHistory;
-    double m_texturesUploaded;
+    size_t m_numBlockingTextureUploads;
+
+    DISALLOW_COPY_AND_ASSIGN(ThrottledTextureUploader);
 };
 
 }

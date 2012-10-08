@@ -89,7 +89,7 @@ enum AnimationState {
 }
 
 - (void)dealloc {
-  [self stopAnimation];
+  DCHECK(!timer_);
   [super dealloc];
 }
 
@@ -111,6 +111,7 @@ enum AnimationState {
 
 - (void)timerFired:(NSTimer*)timer {
   // Increment animation progress, normalized to [0..1].
+  // TODO(gbillock): Note this is brittle. Switch to ui/base/animation.
   progress_ += kAnimationIntervalS / kAnimationDurationS;
   progress_ = std::min(progress_, 1.0);
   owner_->AnimationTimerFired();
@@ -125,8 +126,7 @@ WebIntentsButtonDecoration::WebIntentsButtonDecoration(
     LocationBarViewMac* owner, NSFont* font)
     : BubbleDecoration(font),
       owner_(owner),
-      textWidth_(0.0),
-      ranAnimation_(false) {
+      textWidth_(0.0) {
   NSColor* border_color =
       [NSColor colorWithCalibratedRed:0.63 green:0.63 blue:0.63 alpha:1.0];
   NSColor* background_color =
@@ -151,28 +151,25 @@ bool WebIntentsButtonDecoration::AcceptsMousePress() {
 }
 
 bool WebIntentsButtonDecoration::OnMousePressed(NSRect frame) {
-  // Get host. This should be shared on linux/win/osx medium-term.
-  Browser* browser = browser::GetLastActiveBrowser();
-  content::WebContents* web_contents = chrome::GetActiveWebContents(browser);
-  if (!web_contents)
+  TabContents* tabContents = owner_->GetTabContents();
+  if (!tabContents)
     return true;
 
-  WebIntentPickerController::FromWebContents(web_contents)->
-      LocationBarPickerToolClicked();
+  WebIntentPickerController::FromWebContents(tabContents->web_contents())->
+      LocationBarPickerButtonClicked();
   return true;
 }
 
 // Override to handle the case where there is text to display during the
 // animation. The width is based on the animator's progress.
 CGFloat WebIntentsButtonDecoration::GetWidthForSpace(CGFloat width) {
-  CGFloat preferredWidth = BubbleDecoration::GetWidthForSpace(width);
   if (!animation_)
-    return preferredWidth;
+    return BubbleDecoration::GetWidthForSpace(width);
 
   AnimationState state = [animation_ animationState];
   CGFloat progress = [animation_ progress];
   // Set the margins, fixed for all animation states.
-  preferredWidth = 2 * kTextMarginPadding;
+  CGFloat preferredWidth = 2 * kTextMarginPadding;
   // Add the width of the text based on the state of the animation.
   switch (state) {
     case kNoAnimation:
@@ -186,59 +183,58 @@ CGFloat WebIntentsButtonDecoration::GetWidthForSpace(CGFloat width) {
 
 void WebIntentsButtonDecoration::DrawInFrame(
     NSRect frame, NSView* control_view) {
-  if ([animation_ animationState] == kOpening) {
-    gfx::ScopedNSGraphicsContextSaveGState scopedGState;
-    NSRectClip(frame);
-    frame = NSInsetRect(frame, 0.0, kBubbleYInset);
-    NSDrawThreePartImage(frame,
-                         leftImage_.get(),
-                         centerImage_.get(),
-                         rightImage_.get(),
-                         NO,  // NO=horizontal layout
-                         NSCompositeSourceOver,
-                         1.0,
-                         YES);  // use flipped coordinates
-
-    // Draw the text, clipped to fit on the right. While handling clipping,
-    // NSAttributedString's drawInRect: won't draw a word if it doesn't fit
-    // in the bounding box so instead use drawAtPoint: with a manual clip
-    // rect.
-    NSRect remainder = frame;
-    remainder = NSInsetRect(remainder, kTextMarginPadding, 0.0);
-    // .get() needed to fix compiler warning (confusion with NSImageRep).
-    [animatedText_.get() drawAtPoint:remainder.origin];
-  } else {
+  if ([animation_ animationState] != kOpening) {
     BubbleDecoration::DrawInFrame(frame, control_view);
+    return;
   }
+
+  frame = NSInsetRect(frame, 0.0, kBubbleYInset);
+  NSDrawThreePartImage(frame,
+                       leftImage_.get(),
+                       centerImage_.get(),
+                       rightImage_.get(),
+                       NO,  // NO=horizontal layout
+                       NSCompositeSourceOver,
+                       1.0,
+                       YES);  // use flipped coordinates
+
+  // Draw the text, clipped to fit on the right. While handling clipping,
+  // NSAttributedString's drawInRect: won't draw a word if it doesn't fit
+  // in the bounding box so instead use drawAtPoint: with a manual clip
+  // rect.
+  gfx::ScopedNSGraphicsContextSaveGState scopedGState;
+  NSRectClip(frame);
+  NSRect remainder = NSInsetRect(frame, kTextMarginPadding, 0.0);
+  // .get() needed to fix compiler warning (confusion with NSImageRep).
+  [animatedText_.get() drawAtPoint:remainder.origin];
 }
 
 void WebIntentsButtonDecoration::Update(TabContents* tab_contents) {
-  WebIntentPickerController* intents_controller =
+  WebIntentPickerController* intentsController =
       WebIntentPickerController::FromWebContents(tab_contents->web_contents());
-  SetVisible(intents_controller->ShowLocationBarPickerTool());
+  SetVisible(intentsController->ShowLocationBarPickerButton());
 
   if (IsVisible()) {
-    if (!ranAnimation_ && !animation_) {
-      ranAnimation_ = true;
+    if (!animation_ &&
+        !intentsController->location_bar_picker_button_indicated()) {
+      intentsController->SetLocationBarPickerButtonIndicated();
       animation_.reset(
           [[WebIntentsButtonAnimationState alloc] initWithOwner:this]);
-      animatedText_.reset(CreateAnimatedText());
+      animatedText_ = CreateAnimatedText();
       textWidth_ = MeasureTextWidth();
     }
   } else {
     [animation_ stopAnimation];
-    animation_.reset(nil);
+    animation_.reset();
   }
 }
 
-// Returns an attributed string with the animated text. Caller is responsible
-// for releasing.
-NSAttributedString* WebIntentsButtonDecoration::CreateAnimatedText() {
+scoped_nsobject<NSAttributedString>
+    WebIntentsButtonDecoration::CreateAnimatedText() {
   NSString* text =
       l10n_util::GetNSString(IDS_INTENT_PICKER_USE_ANOTHER_SERVICE);
-  NSAttributedString* attrString =
-      [[NSAttributedString alloc] initWithString:text attributes:attributes_];
-  return attrString;
+  return scoped_nsobject<NSAttributedString>(
+      [[NSAttributedString alloc] initWithString:text attributes:attributes_]);
 }
 
 CGFloat WebIntentsButtonDecoration::MeasureTextWidth() {

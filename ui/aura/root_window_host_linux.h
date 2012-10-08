@@ -14,6 +14,7 @@
 #include "base/message_loop.h"
 #include "ui/aura/root_window_host.h"
 #include "ui/base/x/x11_atom_cache.h"
+#include "ui/base/x/x11_util.h"
 #include "ui/gfx/rect.h"
 
 namespace ui {
@@ -30,8 +31,7 @@ class TouchEventCalibrate;
 class RootWindowHostLinux : public RootWindowHost,
                             public MessageLoop::Dispatcher {
  public:
-  RootWindowHostLinux(RootWindowHostDelegate* delegate,
-                      const gfx::Rect& bounds);
+  RootWindowHostLinux(const gfx::Rect& bounds);
   virtual ~RootWindowHostLinux();
 
   // Overridden from Dispatcher overrides:
@@ -46,6 +46,7 @@ class RootWindowHostLinux : public RootWindowHost,
   void DispatchXI2Event(const base::NativeEvent& event);
 
   // RootWindowHost Overrides.
+  virtual void SetDelegate(RootWindowHostDelegate* delegate) OVERRIDE;
   virtual RootWindow* GetRootWindow() OVERRIDE;
   virtual gfx::AcceleratedWidget GetAcceleratedWidget() OVERRIDE;
   virtual void Show() OVERRIDE;
@@ -102,7 +103,7 @@ class RootWindowHostLinux : public RootWindowHost,
   bool cursor_shown_;
 
   // The invisible cursor.
-  ::Cursor invisible_cursor_;
+  ui::XScopedCursor invisible_cursor_;
 
   // The bounds of |xwindow_|.
   gfx::Rect bounds_;

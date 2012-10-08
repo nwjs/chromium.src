@@ -23,15 +23,13 @@
 #include "FakeWebCompositorOutputSurface.h"
 #include "FakeWebGraphicsContext3D.h"
 #include "LayerChromium.h"
-#include <gmock/gmock.h>
+#include "testing/gmock/include/gmock/gmock.h"
 #include <public/Platform.h>
 #include <public/WebCompositorSupport.h>
 #include <public/WebFilterOperation.h>
 #include <public/WebFilterOperations.h>
 #include <public/WebThread.h>
 #include <wtf/Locker.h>
-#include <wtf/PassRefPtr.h>
-#include <wtf/Vector.h>
 
 using namespace cc;
 using namespace WebKit;
@@ -86,14 +84,14 @@ bool TestHooks::prepareToDrawOnCCThread(cc::CCLayerTreeHostImpl*)
     return true;
 }
 
-PassOwnPtr<WebCompositorOutputSurface> TestHooks::createOutputSurface()
+scoped_ptr<WebCompositorOutputSurface> TestHooks::createOutputSurface()
 {
-    return FakeWebCompositorOutputSurface::create(CompositorFakeWebGraphicsContext3DWithTextureTracking::create(WebGraphicsContext3D::Attributes()));
+    return FakeWebCompositorOutputSurface::create(CompositorFakeWebGraphicsContext3DWithTextureTracking::create(WebGraphicsContext3D::Attributes())).PassAs<WebCompositorOutputSurface>();
 }
 
-PassOwnPtr<MockLayerTreeHostImpl> MockLayerTreeHostImpl::create(TestHooks* testHooks, const CCLayerTreeSettings& settings, CCLayerTreeHostImplClient* client)
+scoped_ptr<MockLayerTreeHostImpl> MockLayerTreeHostImpl::create(TestHooks* testHooks, const CCLayerTreeSettings& settings, CCLayerTreeHostImplClient* client)
 {
-    return adoptPtr(new MockLayerTreeHostImpl(testHooks, settings, client));
+    return scoped_ptr<MockLayerTreeHostImpl>(new MockLayerTreeHostImpl(testHooks, settings, client));
 }
 
 void MockLayerTreeHostImpl::beginCommit()
@@ -143,9 +141,9 @@ MockLayerTreeHostImpl::MockLayerTreeHostImpl(TestHooks* testHooks, const CCLayer
 // Adapts CCLayerTreeHost for test. Injects MockLayerTreeHostImpl.
 class MockLayerTreeHost : public cc::CCLayerTreeHost {
 public:
-    static PassOwnPtr<MockLayerTreeHost> create(TestHooks* testHooks, cc::CCLayerTreeHostClient* client, PassRefPtr<cc::LayerChromium> rootLayer, const cc::CCLayerTreeSettings& settings)
+    static scoped_ptr<MockLayerTreeHost> create(TestHooks* testHooks, cc::CCLayerTreeHostClient* client, scoped_refptr<cc::LayerChromium> rootLayer, const cc::CCLayerTreeSettings& settings)
     {
-        OwnPtr<MockLayerTreeHost> layerTreeHost(adoptPtr(new MockLayerTreeHost(testHooks, client, settings)));
+        scoped_ptr<MockLayerTreeHost> layerTreeHost(new MockLayerTreeHost(testHooks, client, settings));
         bool success = layerTreeHost->initialize();
         EXPECT_TRUE(success);
         layerTreeHost->setRootLayer(rootLayer);
@@ -155,12 +153,12 @@ public:
 
         layerTreeHost->rootLayer()->setLayerAnimationDelegate(testHooks);
 
-        return layerTreeHost.release();
+        return layerTreeHost.Pass();
     }
 
-    virtual PassOwnPtr<cc::CCLayerTreeHostImpl> createLayerTreeHostImpl(cc::CCLayerTreeHostImplClient* client)
+    virtual scoped_ptr<cc::CCLayerTreeHostImpl> createLayerTreeHostImpl(cc::CCLayerTreeHostImplClient* client)
     {
-        return MockLayerTreeHostImpl::create(m_testHooks, settings(), client);
+        return MockLayerTreeHostImpl::create(m_testHooks, settings(), client).PassAs<cc::CCLayerTreeHostImpl>();
     }
 
     virtual void didAddAnimation() OVERRIDE
@@ -210,7 +208,7 @@ public:
         m_testHooks->applyScrollAndScale(scrollDelta, scale);
     }
 
-    virtual PassOwnPtr<WebCompositorOutputSurface> createOutputSurface() OVERRIDE
+    virtual scoped_ptr<WebCompositorOutputSurface> createOutputSurface() OVERRIDE
     {
         return m_testHooks->createOutputSurface();
     }
@@ -220,9 +218,9 @@ public:
         m_testHooks->didRecreateOutputSurface(succeeded);
     }
 
-    virtual PassOwnPtr<CCInputHandler> createInputHandler() OVERRIDE
+    virtual scoped_ptr<CCInputHandler> createInputHandler() OVERRIDE
     {
-        return nullptr;
+        return scoped_ptr<CCInputHandler>();
     }
 
     virtual void willCommit() OVERRIDE
@@ -379,9 +377,9 @@ void CCThreadedTest::doBeginTest()
     ASSERT(CCProxy::isMainThread());
     m_client = MockLayerTreeHostClient::create(this);
 
-    RefPtr<LayerChromium> rootLayer = LayerChromium::create();
+    scoped_refptr<LayerChromium> rootLayer = LayerChromium::create();
     m_layerTreeHost = MockLayerTreeHost::create(this, m_client.get(), rootLayer, m_settings);
-    ASSERT_TRUE(m_layerTreeHost);
+    ASSERT_TRUE(m_layerTreeHost.get());
     rootLayer->setLayerTreeHost(m_layerTreeHost.get());
     m_layerTreeHost->setSurfaceReady();
 
@@ -420,7 +418,7 @@ void CCThreadedTest::dispatchSetNeedsAnimate()
     if (m_finished)
         return;
 
-    if (m_layerTreeHost)
+    if (m_layerTreeHost.get())
         m_layerTreeHost->setNeedsAnimate();
 }
 
@@ -431,7 +429,7 @@ void CCThreadedTest::dispatchAddInstantAnimation()
     if (m_finished)
         return;
 
-    if (m_layerTreeHost && m_layerTreeHost->rootLayer())
+    if (m_layerTreeHost.get() && m_layerTreeHost->rootLayer())
         addOpacityTransitionToLayer(*m_layerTreeHost->rootLayer(), 0, 0, 0.5, false);
 }
 
@@ -442,7 +440,7 @@ void CCThreadedTest::dispatchAddAnimation()
     if (m_finished)
         return;
 
-    if (m_layerTreeHost && m_layerTreeHost->rootLayer())
+    if (m_layerTreeHost.get() && m_layerTreeHost->rootLayer())
         addOpacityTransitionToLayer(*m_layerTreeHost->rootLayer(), 10, 0, 0.5, true);
 }
 
@@ -453,7 +451,7 @@ void CCThreadedTest::dispatchSetNeedsAnimateAndCommit()
     if (m_finished)
         return;
 
-    if (m_layerTreeHost) {
+    if (m_layerTreeHost.get()) {
         m_layerTreeHost->setNeedsAnimate();
         m_layerTreeHost->setNeedsCommit();
     }
@@ -466,7 +464,7 @@ void CCThreadedTest::dispatchSetNeedsCommit()
     if (m_finished)
         return;
 
-    if (m_layerTreeHost)
+    if (m_layerTreeHost.get())
         m_layerTreeHost->setNeedsCommit();
 }
 
@@ -477,7 +475,7 @@ void CCThreadedTest::dispatchAcquireLayerTextures()
     if (m_finished)
         return;
 
-    if (m_layerTreeHost)
+    if (m_layerTreeHost.get())
         m_layerTreeHost->acquireLayerTextures();
 }
 
@@ -488,7 +486,7 @@ void CCThreadedTest::dispatchSetNeedsRedraw()
     if (m_finished)
         return;
 
-    if (m_layerTreeHost)
+    if (m_layerTreeHost.get())
         m_layerTreeHost->setNeedsRedraw();
 }
 
@@ -499,14 +497,14 @@ void CCThreadedTest::dispatchSetVisible(bool visible)
     if (m_finished)
         return;
 
-    if (m_layerTreeHost)
+    if (m_layerTreeHost.get())
         m_layerTreeHost->setVisible(visible);
 }
 
 void CCThreadedTest::dispatchComposite()
 {
     m_scheduled = false;
-    if (m_layerTreeHost && !m_finished)
+    if (m_layerTreeHost.get() && !m_finished)
         m_layerTreeHost->composite();
 }
 
@@ -517,7 +515,7 @@ void CCThreadedTest::dispatchDidAddAnimation()
     if (m_finished)
         return;
 
-    if (m_layerTreeHost)
+    if (m_layerTreeHost.get())
         m_layerTreeHost->didAddAnimation();
 }
 
@@ -543,9 +541,9 @@ void CCThreadedTest::runTest(bool threaded)
     WebKit::Platform::current()->currentThread()->postDelayedTask(m_timeoutTask, 5000);
     WebKit::Platform::current()->currentThread()->enterRunLoop();
 
-    if (m_layerTreeHost && m_layerTreeHost->rootLayer())
+    if (m_layerTreeHost.get() && m_layerTreeHost->rootLayer())
         m_layerTreeHost->rootLayer()->setLayerTreeHost(0);
-    m_layerTreeHost.clear();
+    m_layerTreeHost.reset();
 
     if (m_timeoutTask)
         m_timeoutTask->clearTest();

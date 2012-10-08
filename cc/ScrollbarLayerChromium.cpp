@@ -8,11 +8,12 @@
 
 #include "ScrollbarLayerChromium.h"
 
-#include "BitmapCanvasLayerTextureUpdater.h"
+#include "base/basictypes.h"
 #include "CCLayerTreeHost.h"
 #include "CCScrollbarLayerImpl.h"
 #include "CCTextureUpdateQueue.h"
 #include "LayerPainterChromium.h"
+#include "TraceEvent.h"
 #include <public/WebRect.h>
 
 using WebKit::WebRect;
@@ -24,9 +25,9 @@ PassOwnPtr<CCLayerImpl> ScrollbarLayerChromium::createCCLayerImpl()
     return CCScrollbarLayerImpl::create(id());
 }
 
-PassRefPtr<ScrollbarLayerChromium> ScrollbarLayerChromium::create(PassOwnPtr<WebKit::WebScrollbar> scrollbar, WebKit::WebScrollbarThemePainter painter, PassOwnPtr<WebKit::WebScrollbarThemeGeometry> geometry, int scrollLayerId)
+scoped_refptr<ScrollbarLayerChromium> ScrollbarLayerChromium::create(PassOwnPtr<WebKit::WebScrollbar> scrollbar, WebKit::WebScrollbarThemePainter painter, PassOwnPtr<WebKit::WebScrollbarThemeGeometry> geometry, int scrollLayerId)
 {
-    return adoptRef(new ScrollbarLayerChromium(scrollbar, painter, geometry, scrollLayerId));
+    return make_scoped_refptr(new ScrollbarLayerChromium(scrollbar, painter, geometry, scrollLayerId));
 }
 
 ScrollbarLayerChromium::ScrollbarLayerChromium(PassOwnPtr<WebKit::WebScrollbar> scrollbar, WebKit::WebScrollbarThemePainter painter, PassOwnPtr<WebKit::WebScrollbarThemeGeometry> geometry, int scrollLayerId)
@@ -75,7 +76,6 @@ ScrollbarLayerChromium* ScrollbarLayerChromium::toScrollbarLayerChromium()
 }
 
 class ScrollbarBackgroundPainter : public LayerPainterChromium {
-    WTF_MAKE_NONCOPYABLE(ScrollbarBackgroundPainter);
 public:
     static PassOwnPtr<ScrollbarBackgroundPainter> create(WebKit::WebScrollbar* scrollbar, WebKit::WebScrollbarThemePainter painter, WebKit::WebScrollbarThemeGeometry* geometry, WebKit::WebScrollbar::ScrollbarPart trackPart)
     {
@@ -129,6 +129,8 @@ private:
     WebKit::WebScrollbarThemePainter m_painter;
     WebKit::WebScrollbarThemeGeometry* m_geometry;
     WebKit::WebScrollbar::ScrollbarPart m_trackPart;
+
+    DISALLOW_COPY_AND_ASSIGN(ScrollbarBackgroundPainter);
 };
 
 bool ScrollbarLayerChromium::needsContentsScale() const
@@ -142,7 +144,6 @@ IntSize ScrollbarLayerChromium::contentBounds() const
 }
 
 class ScrollbarThumbPainter : public LayerPainterChromium {
-    WTF_MAKE_NONCOPYABLE(ScrollbarThumbPainter);
 public:
     static PassOwnPtr<ScrollbarThumbPainter> create(WebKit::WebScrollbar* scrollbar, WebKit::WebScrollbarThemePainter painter, WebKit::WebScrollbarThemeGeometry* geometry)
     {
@@ -171,6 +172,8 @@ private:
     WebKit::WebScrollbar* m_scrollbar;
     WebKit::WebScrollbarThemePainter m_painter;
     WebKit::WebScrollbarThemeGeometry* m_geometry;
+
+    DISALLOW_COPY_AND_ASSIGN(ScrollbarThumbPainter);
 };
 
 void ScrollbarLayerChromium::setLayerTreeHost(CCLayerTreeHost* host)
@@ -190,25 +193,25 @@ void ScrollbarLayerChromium::createTextureUpdaterIfNeeded()
     m_textureFormat = layerTreeHost()->rendererCapabilities().bestTextureFormat;
 
     if (!m_backTrackUpdater)
-        m_backTrackUpdater = BitmapCanvasLayerTextureUpdater::create(ScrollbarBackgroundPainter::create(m_scrollbar.get(), m_painter, m_geometry.get(), WebKit::WebScrollbar::BackTrackPart));
+        m_backTrackUpdater = ScrollLayerTextureUpdater::create(ScrollbarBackgroundPainter::create(m_scrollbar.get(), m_painter, m_geometry.get(), WebKit::WebScrollbar::BackTrackPart));
     if (!m_backTrack)
         m_backTrack = m_backTrackUpdater->createTexture(layerTreeHost()->contentsTextureManager());
 
     // Only create two-part track if we think the two parts could be different in appearance.
     if (m_scrollbar->isCustomScrollbar()) {
         if (!m_foreTrackUpdater)
-            m_foreTrackUpdater = BitmapCanvasLayerTextureUpdater::create(ScrollbarBackgroundPainter::create(m_scrollbar.get(), m_painter, m_geometry.get(), WebKit::WebScrollbar::ForwardTrackPart));
+            m_foreTrackUpdater = ScrollLayerTextureUpdater::create(ScrollbarBackgroundPainter::create(m_scrollbar.get(), m_painter, m_geometry.get(), WebKit::WebScrollbar::ForwardTrackPart));
         if (!m_foreTrack)
             m_foreTrack = m_foreTrackUpdater->createTexture(layerTreeHost()->contentsTextureManager());
     }
 
     if (!m_thumbUpdater)
-        m_thumbUpdater = BitmapCanvasLayerTextureUpdater::create(ScrollbarThumbPainter::create(m_scrollbar.get(), m_painter, m_geometry.get()));
+        m_thumbUpdater = ScrollLayerTextureUpdater::create(ScrollbarThumbPainter::create(m_scrollbar.get(), m_painter, m_geometry.get()));
     if (!m_thumb)
         m_thumb = m_thumbUpdater->createTexture(layerTreeHost()->contentsTextureManager());
 }
 
-void ScrollbarLayerChromium::updatePart(LayerTextureUpdater* painter, LayerTextureUpdater::Texture* texture, const IntRect& rect, CCTextureUpdateQueue& queue, CCRenderingStats& stats)
+void ScrollbarLayerChromium::updatePart(ScrollLayerTextureUpdater* painter, LayerTextureUpdater::Texture* texture, const IntRect& rect, CCTextureUpdateQueue& queue, CCRenderingStats& stats)
 {
     // Skip painting and uploading if there are no invalidations and
     // we already have valid texture data.
@@ -227,6 +230,13 @@ void ScrollbarLayerChromium::updatePart(LayerTextureUpdater* painter, LayerTextu
     float heightScale = static_cast<float>(contentBounds().height()) / bounds().height();
     IntRect paintedOpaqueRect;
     painter->prepareToUpdate(rect, rect.size(), widthScale, heightScale, paintedOpaqueRect, stats);
+#if defined(OS_CHROMEOS)
+    if (!painter->pixelsDidChange() && texture->texture()->haveBackingTexture()) {
+        TRACE_EVENT_INSTANT0("cc","ScrollbarLayerChromium::updatePart no texture upload needed");
+        return;
+    }
+#endif
+
     texture->prepareRect(rect, stats);
 
     IntSize destOffset(0, 0);

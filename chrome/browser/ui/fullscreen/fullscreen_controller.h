@@ -65,10 +65,10 @@ class FullscreenController : public content::NotificationObserver {
 
   // Platform Fullscreen ///////////////////////////////////////////////////////
 
-#if defined(OS_WIN)
   // Returns whether we are currently in a Metro snap view.
   bool IsInMetroSnapMode();
 
+#if defined(OS_WIN)
   // API that puts the window into a mode suitable for rendering when Chrome
   // is rendered in a 20% screen-width Metro snap view on Windows 8.
   void SetMetroSnapMode(bool enable);
@@ -181,6 +181,10 @@ class FullscreenController : public content::NotificationObserver {
   MouseLockState mouse_lock_state_;
 
   content::NotificationRegistrar registrar_;
+
+  // Used to verify that calls we expect to reenter by calling
+  // WindowFullscreenStateChanged do so.
+  bool reentrant_window_state_change_call_check_;
 
   DISALLOW_COPY_AND_ASSIGN(FullscreenController);
 };

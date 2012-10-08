@@ -37,6 +37,7 @@ class InterstitialPageImpl;
 class SavePackage;
 class SessionStorageNamespaceImpl;
 class WebContentsImpl;
+struct BrowserPluginHostMsg_ResizeGuest_Params;
 struct ViewMsg_PostMessage_Params;
 
 namespace content {
@@ -255,7 +256,7 @@ class CONTENT_EXPORT WebContentsImpl
   virtual bool GetClosedByUserGesture() const OVERRIDE;
   virtual double GetZoomLevel() const OVERRIDE;
   virtual int GetZoomPercent(bool* enable_increment,
-                             bool* enable_decrement) OVERRIDE;
+                             bool* enable_decrement) const OVERRIDE;
   virtual void ViewSource() OVERRIDE;
   virtual void ViewFrameSource(const GURL& url,
                                const std::string& content_state) OVERRIDE;
@@ -571,10 +572,9 @@ class CONTENT_EXPORT WebContentsImpl
   void OnRequestPpapiBrokerPermission(int request_id,
                                       const GURL& url,
                                       const FilePath& plugin_path);
-  void OnBrowserPluginNavigateGuest(int instance_id,
-                                    int64 frame_id,
-                                    const std::string& src,
-                                    const gfx::Size& size);
+  void OnBrowserPluginCreateGuest(int instance_id,
+                                  const std::string& storage_partition_id,
+                                  bool persist_storage);
 
   // Changes the IsLoading state and notifies delegate as needed
   // |details| is used to provide details on the load that just finished

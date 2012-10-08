@@ -81,6 +81,7 @@ FilePath GetPepperFlashBaseDirectory() {
   return result;
 }
 
+#if defined(GOOGLE_CHROME_BUILD)
 // Pepper Flash plugins have the version encoded in the path itself
 // so we need to enumerate the directories to find the full path.
 // On success, |latest_dir| returns something like:
@@ -115,6 +116,7 @@ bool GetPepperFlashDirectory(FilePath* latest_dir,
   }
   return found;
 }
+#endif
 
 // Returns true if the Pepper |interface_name| is implemented  by this browser.
 // It does not check if the interface is proxied.
@@ -143,10 +145,6 @@ bool MakePepperFlashPluginInfo(const FilePath& flash_path,
   plugin_info->path = flash_path;
   plugin_info->name = kFlashPluginName;
   plugin_info->permissions = kPepperFlashPermissions;
-
-  // TODO(brettw) bug 147507: remove this logging.
-  LOG(INFO) << "MakePepperFlashPluginInfo permissions = "
-            << plugin_info->permissions;
 
   // The description is like "Shockwave Flash 10.2 r154".
   plugin_info->description = StringPrintf("%s %d.%d r%d",
@@ -304,6 +302,7 @@ bool CheckPepperFlashManifest(base::DictionaryValue* manifest,
 
 namespace {
 
+#if defined(GOOGLE_CHROME_BUILD)
 void FinishPepperFlashUpdateRegistration(ComponentUpdateService* cus,
                                          const Version& version) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -350,6 +349,7 @@ void StartPepperFlashUpdateRegistration(ComponentUpdateService* cus) {
     file_util::Delete(*iter, true);
   }
 }
+#endif  // defined(GOOGLE_CHROME_BUILD)
 
 }  // namespace
 

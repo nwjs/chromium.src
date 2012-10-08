@@ -4,12 +4,12 @@
 
 #include "content/shell/shell_devtools_delegate.h"
 
+#include "base/bind.h"
 #include "base/stringprintf.h"
 #include "content/public/browser/android/devtools_auth.h"
 #include "content/public/browser/devtools_http_handler.h"
 #include "grit/shell_resources.h"
 #include "net/base/unix_domain_socket_posix.h"
-#include "net/url_request/url_request_context_getter.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
@@ -27,16 +27,12 @@ const char kFrontEndURL[] =
 
 namespace content {
 
-ShellDevToolsDelegate::ShellDevToolsDelegate(
-    int port,
-    net::URLRequestContextGetter* context_getter)
-    : context_getter_(context_getter) {
+ShellDevToolsDelegate::ShellDevToolsDelegate(int port) {
   devtools_http_handler_ = DevToolsHttpHandler::Start(
       new net::UnixDomainSocketWithAbstractNamespaceFactory(
           kSocketName,
           base::Bind(&CanUserConnectToDevTools)),
       StringPrintf(kFrontEndURL, kFrontendVersion),
-      context_getter,
       this);
 }
 
@@ -58,7 +54,11 @@ bool ShellDevToolsDelegate::BundlesFrontendResources() {
   return false;
 }
 
-std::string ShellDevToolsDelegate::GetFrontendResourcesBaseURL() {
+FilePath ShellDevToolsDelegate::GetDebugFrontendDir() {
+  return FilePath();
+}
+
+std::string ShellDevToolsDelegate::GetPageThumbnailData(const GURL& url) {
   return "";
 }
 

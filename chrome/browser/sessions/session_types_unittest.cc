@@ -9,6 +9,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/pickle.h"
 #include "base/string16.h"
+#include "base/string_number_conversions.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/sessions/session_types.h"
@@ -33,7 +34,10 @@ const GURL kVirtualURL("http://www.virtual-url.com");
 const string16 kTitle = ASCIIToUTF16("title");
 const std::string kContentState = "content state";
 const content::PageTransition kTransitionType =
-    content::PAGE_TRANSITION_AUTO_SUBFRAME;
+    static_cast<content::PageTransition>(
+        content::PAGE_TRANSITION_AUTO_SUBFRAME |
+        content::PAGE_TRANSITION_HOME_PAGE |
+        content::PAGE_TRANSITION_CLIENT_REDIRECT);
 const bool kHasPostData = true;
 const int64 kPostID = 100;
 const GURL kOriginalRequestURL("http://www.original-request.com");
@@ -55,6 +59,7 @@ scoped_ptr<content::NavigationEntry> MakeNavigationEntryForTest() {
   navigation_entry->SetPostID(kPostID);
   navigation_entry->SetOriginalRequestURL(kOriginalRequestURL);
   navigation_entry->SetIsOverridingUserAgent(kIsOverridingUserAgent);
+  navigation_entry->SetTimestamp(kTimestamp);
   return navigation_entry.Pass();
 }
 
@@ -69,6 +74,8 @@ sync_pb::TabNavigation MakeSyncDataForTest() {
       sync_pb::SyncEnums_PageTransition_AUTO_SUBFRAME);
   sync_data.set_unique_id(kUniqueID);
   sync_data.set_timestamp(syncer::TimeToProtoTime(kTimestamp));
+  sync_data.set_redirect_type(sync_pb::SyncEnums::CLIENT_REDIRECT);
+  sync_data.set_navigation_home_page(true);
   return sync_data;
 }
 
@@ -90,7 +97,7 @@ TEST(TabNavigationTest, DefaultInitializer) {
   EXPECT_EQ(-1, SessionTypesTestHelper::GetPostID(navigation));
   EXPECT_EQ(GURL(), SessionTypesTestHelper::GetOriginalRequestURL(navigation));
   EXPECT_FALSE(SessionTypesTestHelper::GetIsOverridingUserAgent(navigation));
-  EXPECT_EQ(base::Time(), navigation.timestamp());
+  EXPECT_TRUE(navigation.timestamp().is_null());
 }
 
 // Create a TabNavigation from a NavigationEntry.  All its fields
@@ -100,8 +107,7 @@ TEST(TabNavigationTest, FromNavigationEntry) {
       MakeNavigationEntryForTest());
 
   const TabNavigation& navigation =
-      TabNavigation::FromNavigationEntry(
-          kIndex, *navigation_entry, kTimestamp);
+      TabNavigation::FromNavigationEntry(kIndex, *navigation_entry);
 
   EXPECT_EQ(kIndex, navigation.index());
 
@@ -148,7 +154,7 @@ TEST(TabNavigationTest, FromSyncData) {
   EXPECT_EQ(-1, SessionTypesTestHelper::GetPostID(navigation));
   EXPECT_EQ(GURL(), SessionTypesTestHelper::GetOriginalRequestURL(navigation));
   EXPECT_FALSE(SessionTypesTestHelper::GetIsOverridingUserAgent(navigation));
-  EXPECT_EQ(kTimestamp, navigation.timestamp());
+  EXPECT_TRUE(navigation.timestamp().is_null());
 }
 
 // Create a TabNavigation, pickle it, then create another one by
@@ -156,8 +162,7 @@ TEST(TabNavigationTest, FromSyncData) {
 // that aren't pickled, which should be set to default values.
 TEST(TabNavigationTest, Pickle) {
   const TabNavigation& old_navigation =
-      TabNavigation::FromNavigationEntry(
-          kIndex, *MakeNavigationEntryForTest(), kTimestamp);
+      TabNavigation::FromNavigationEntry(kIndex, *MakeNavigationEntryForTest());
 
   Pickle pickle;
   old_navigation.WriteToPickle(&pickle);
@@ -185,7 +190,7 @@ TEST(TabNavigationTest, Pickle) {
             SessionTypesTestHelper::GetOriginalRequestURL(new_navigation));
   EXPECT_EQ(kIsOverridingUserAgent,
             SessionTypesTestHelper::GetIsOverridingUserAgent(new_navigation));
-  EXPECT_EQ(base::Time(), new_navigation.timestamp());
+  EXPECT_EQ(kTimestamp, new_navigation.timestamp());
 }
 
 // Create a NavigationEntry, then create another one by converting to
@@ -197,8 +202,7 @@ TEST(TabNavigationTest, ToNavigationEntry) {
       MakeNavigationEntryForTest());
 
   const TabNavigation& navigation =
-      TabNavigation::FromNavigationEntry(
-          kIndex, *old_navigation_entry, kTimestamp);
+      TabNavigation::FromNavigationEntry(kIndex, *old_navigation_entry);
 
   const scoped_ptr<content::NavigationEntry> new_navigation_entry(
       navigation.ToNavigationEntry(kPageID, NULL));
@@ -227,8 +231,7 @@ TEST(TabNavigationTest, ToSyncData) {
       MakeNavigationEntryForTest());
 
   const TabNavigation& navigation =
-      TabNavigation::FromNavigationEntry(
-          kIndex, *navigation_entry, kTimestamp);
+      TabNavigation::FromNavigationEntry(kIndex, *navigation_entry);
 
   const sync_pb::TabNavigation sync_data = navigation.ToSyncData();
 
@@ -238,9 +241,131 @@ TEST(TabNavigationTest, ToSyncData) {
   EXPECT_TRUE(sync_data.state().empty());
   EXPECT_EQ(sync_pb::SyncEnums_PageTransition_AUTO_SUBFRAME,
             sync_data.page_transition());
-  EXPECT_FALSE(sync_data.has_navigation_qualifier());
+  EXPECT_TRUE(sync_data.has_redirect_type());
   EXPECT_EQ(navigation_entry->GetUniqueID(), sync_data.unique_id());
   EXPECT_EQ(syncer::TimeToProtoTime(kTimestamp), sync_data.timestamp());
+}
+
+// Ensure all transition types and qualifiers are converted to/from the sync
+// TabNavigation representation properly.
+TEST(TabNavigationTest, TransitionTypes) {
+  scoped_ptr<content::NavigationEntry> navigation_entry(
+      MakeNavigationEntryForTest());
+  for (uint32 core_type = content::PAGE_TRANSITION_LINK;
+       core_type != content::PAGE_TRANSITION_LAST_CORE; ++core_type) {
+    // Because qualifier is a uint32, left shifting will eventually overflow
+    // and hit zero again. SERVER_REDIRECT, as the last qualifier and also
+    // in place of the sign bit, is therefore the last transition before
+    // breaking.
+    for (uint32 qualifier = content::PAGE_TRANSITION_FORWARD_BACK;
+         qualifier != 0; qualifier <<= 1) {
+      if (qualifier == 0x08000000)
+        continue;  // 0x08000000 is not a valid qualifier.
+      content::PageTransition transition =
+          static_cast<content::PageTransition>(core_type | qualifier);
+
+      navigation_entry->SetTransitionType(transition);
+      const TabNavigation& navigation =
+          TabNavigation::FromNavigationEntry(kIndex, *navigation_entry);
+      const sync_pb::TabNavigation& sync_data = navigation.ToSyncData();
+      const TabNavigation& constructed_nav =
+          TabNavigation::FromSyncData(kIndex, sync_data);
+      const content::PageTransition constructed_transition =
+          SessionTypesTestHelper::GetTransitionType(constructed_nav);
+
+      EXPECT_EQ(transition, constructed_transition);
+    }
+  }
+}
+
+// Create a typical SessionTab protocol buffer and set an existing
+// SessionTab from it.  The data from the protocol buffer should
+// clobber the existing data.
+TEST(SessionTab, FromSyncData) {
+  sync_pb::SessionTab sync_data;
+  sync_data.set_tab_id(5);
+  sync_data.set_window_id(10);
+  sync_data.set_tab_visual_index(13);
+  sync_data.set_current_navigation_index(3);
+  sync_data.set_pinned(true);
+  sync_data.set_extension_app_id("app_id");
+  for (int i = 0; i < 5; ++i) {
+    sync_pb::TabNavigation* navigation = sync_data.add_navigation();
+    navigation->set_virtual_url("http://foo/" + base::IntToString(i));
+    navigation->set_referrer("referrer");
+    navigation->set_title("title");
+    navigation->set_page_transition(sync_pb::SyncEnums_PageTransition_TYPED);
+  }
+
+  SessionTab tab;
+  tab.window_id.set_id(100);
+  tab.tab_id.set_id(100);
+  tab.tab_visual_index = 100;
+  tab.current_navigation_index = 1000;
+  tab.pinned = false;
+  tab.extension_app_id = "fake";
+  tab.user_agent_override = "fake";
+  tab.timestamp = base::Time::FromInternalValue(100);
+  tab.navigations.resize(100);
+  tab.session_storage_persistent_id = "fake";
+
+  tab.SetFromSyncData(sync_data, base::Time::FromInternalValue(5u));
+  EXPECT_EQ(10, tab.window_id.id());
+  EXPECT_EQ(5, tab.tab_id.id());
+  EXPECT_EQ(13, tab.tab_visual_index);
+  EXPECT_EQ(3, tab.current_navigation_index);
+  EXPECT_TRUE(tab.pinned);
+  EXPECT_EQ("app_id", tab.extension_app_id);
+  EXPECT_TRUE(tab.user_agent_override.empty());
+  EXPECT_EQ(5u, tab.timestamp.ToInternalValue());
+  ASSERT_EQ(5u, tab.navigations.size());
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_EQ(i, tab.navigations[i].index());
+    EXPECT_EQ(GURL("referrer"),
+              SessionTypesTestHelper::GetReferrer(tab.navigations[i]).url);
+    EXPECT_EQ(string16(ASCIIToUTF16("title")), tab.navigations[i].title());
+    EXPECT_EQ(content::PAGE_TRANSITION_TYPED,
+              SessionTypesTestHelper::GetTransitionType(tab.navigations[i]));
+    EXPECT_EQ(GURL("http://foo/" + base::IntToString(i)),
+              tab.navigations[i].virtual_url());
+  }
+  EXPECT_TRUE(tab.session_storage_persistent_id.empty());
+}
+
+TEST(SessionTab, ToSyncData) {
+  SessionTab tab;
+  tab.window_id.set_id(10);
+  tab.tab_id.set_id(5);
+  tab.tab_visual_index = 13;
+  tab.current_navigation_index = 3;
+  tab.pinned = true;
+  tab.extension_app_id = "app_id";
+  tab.user_agent_override = "fake";
+  tab.timestamp = base::Time::FromInternalValue(100);
+  for (int i = 0; i < 5; ++i) {
+    tab.navigations.push_back(
+        SessionTypesTestHelper::CreateNavigation(
+            "http://foo/" + base::IntToString(i), "title"));
+  }
+  tab.session_storage_persistent_id = "fake";
+
+  const sync_pb::SessionTab& sync_data = tab.ToSyncData();
+  EXPECT_EQ(5, sync_data.tab_id());
+  EXPECT_EQ(10, sync_data.window_id());
+  EXPECT_EQ(13, sync_data.tab_visual_index());
+  EXPECT_EQ(3, sync_data.current_navigation_index());
+  EXPECT_TRUE(sync_data.pinned());
+  EXPECT_EQ("app_id", sync_data.extension_app_id());
+  ASSERT_EQ(5, sync_data.navigation_size());
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_EQ(tab.navigations[i].virtual_url().spec(),
+              sync_data.navigation(i).virtual_url());
+    EXPECT_EQ(UTF16ToUTF8(tab.navigations[i].title()),
+              sync_data.navigation(i).title());
+  }
+  EXPECT_FALSE(sync_data.has_favicon());
+  EXPECT_FALSE(sync_data.has_favicon_type());
+  EXPECT_FALSE(sync_data.has_favicon_source());
 }
 
 }  // namespace

@@ -6,6 +6,7 @@
 #define UI_VIEWS_WIDGET_DESKTOP_ROOT_WINDOW_HOST_WIN_H_
 
 #include "ui/aura/root_window_host.h"
+#include "ui/views/views_export.h"
 #include "ui/views/widget/desktop_root_window_host.h"
 #include "ui/views/win/hwnd_message_handler_delegate.h"
 
@@ -17,25 +18,30 @@ class FocusManager;
 namespace client {
 class ScreenPositionClient;
 }
+namespace shared {
+class InputMethodEventFilter;
+}
 }
 
 namespace views {
 class DesktopCaptureClient;
 class HWNDMessageHandler;
 
-class DesktopRootWindowHostWin : public DesktopRootWindowHost,
-                                 public aura::RootWindowHost,
-                                 public HWNDMessageHandlerDelegate {
+class VIEWS_EXPORT DesktopRootWindowHostWin
+    : public DesktopRootWindowHost,
+      public aura::RootWindowHost,
+      public HWNDMessageHandlerDelegate {
  public:
   DesktopRootWindowHostWin(
       internal::NativeWidgetDelegate* native_widget_delegate,
+      DesktopNativeWidgetAura* desktop_native_widget_aura,
       const gfx::Rect& initial_bounds);
   virtual ~DesktopRootWindowHostWin();
 
- private:
+ protected:
   // Overridden from DesktopRootWindowHost:
-  virtual void Init(aura::Window* content_window,
-                    const Widget::InitParams& params) OVERRIDE;
+  virtual aura::RootWindow* Init(aura::Window* content_window,
+                                 const Widget::InitParams& params) OVERRIDE;
   virtual void Close() OVERRIDE;
   virtual void CloseNow() OVERRIDE;
   virtual aura::RootWindowHost* AsRootWindowHost() OVERRIDE;
@@ -86,6 +92,7 @@ class DesktopRootWindowHostWin : public DesktopRootWindowHost,
   virtual void FlashFrame(bool flash_frame) OVERRIDE;
 
   // Overridden from aura::RootWindowHost:
+  virtual void SetDelegate(aura::RootWindowHostDelegate* delegate) OVERRIDE;
   virtual aura::RootWindow* GetRootWindow() OVERRIDE;
   virtual gfx::AcceleratedWidget GetAcceleratedWidget() OVERRIDE;
   virtual void Show() OVERRIDE;
@@ -186,17 +193,25 @@ class DesktopRootWindowHostWin : public DesktopRootWindowHost,
 
   Widget* GetWidget();
   const Widget* GetWidget() const;
+  HWND GetHWND() const;
 
-  scoped_ptr<aura::RootWindow> root_window_;
+ private:
+  // We are owned by the RootWindow, but we have to have a back pointer to it.
+  aura::RootWindow* root_window_;
+
   scoped_ptr<HWNDMessageHandler> message_handler_;
   scoped_ptr<DesktopCaptureClient> capture_client_;
-  scoped_ptr<aura::DesktopActivationClient> activation_client_;
   scoped_ptr<aura::DesktopDispatcherClient> dispatcher_client_;
   scoped_ptr<aura::FocusManager> focus_manager_;
+  // Depends on focus_manager_.
+  scoped_ptr<aura::DesktopActivationClient> activation_client_;
+  scoped_ptr<aura::shared::InputMethodEventFilter> input_method_filter_;
 
   // TODO(beng): Consider providing an interface to DesktopNativeWidgetAura
   //             instead of providing this route back to Widget.
   internal::NativeWidgetDelegate* native_widget_delegate_;
+
+  DesktopNativeWidgetAura* desktop_native_widget_aura_;
 
   aura::RootWindowHostDelegate* root_window_host_delegate_;
   aura::Window* content_window_;

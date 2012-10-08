@@ -7,17 +7,18 @@
 #include "CCScheduler.h"
 
 #include "TraceEvent.h"
+#include <base/auto_reset.h>
 
 namespace cc {
 
 CCScheduler::CCScheduler(CCSchedulerClient* client, PassOwnPtr<CCFrameRateController> frameRateController)
     : m_client(client)
     , m_frameRateController(frameRateController)
-    , m_updateResourcesCompletePending(false)
+    , m_insideProcessScheduledActions(false)
 {
     ASSERT(m_client);
     m_frameRateController->setClient(this);
-    m_frameRateController->setActive(m_stateMachine.vsyncCallbackNeeded());
+    ASSERT(!m_stateMachine.vsyncCallbackNeeded());
 }
 
 CCScheduler::~CCScheduler()
@@ -40,11 +41,7 @@ void CCScheduler::setVisible(bool visible)
 void CCScheduler::setCanDraw(bool canDraw)
 {
     m_stateMachine.setCanDraw(canDraw);
-
-    // Defer processScheduleActions so we don't recurse and commit/draw
-    // multiple frames. We can call processScheduledActions directly
-    // once it is no longer re-entrant.
-    m_frameRateController->setActive(m_stateMachine.vsyncCallbackNeeded());
+    processScheduledActions();
 }
 
 void CCScheduler::setNeedsCommit()
@@ -77,10 +74,10 @@ void CCScheduler::setMainThreadNeedsLayerTextures()
     processScheduledActions();
 }
 
-void CCScheduler::beginFrameComplete(bool hasResourceUpdates)
+void CCScheduler::beginFrameComplete()
 {
     TRACE_EVENT0("cc", "CCScheduler::beginFrameComplete");
-    m_stateMachine.beginFrameComplete(hasResourceUpdates);
+    m_stateMachine.beginFrameComplete();
     processScheduledActions();
 }
 
@@ -127,39 +124,32 @@ void CCScheduler::setTimebaseAndInterval(base::TimeTicks timebase, base::TimeDel
     m_frameRateController->setTimebaseAndInterval(timebase, interval);
 }
 
-void CCScheduler::vsyncTick()
+base::TimeTicks CCScheduler::anticipatedDrawTime()
 {
-    TRACE_EVENT0("cc", "CCScheduler::vsyncTick");
-    m_stateMachine.didEnterVSync();
-    processScheduledActions();
-    m_stateMachine.didLeaveVSync();
-
-    // Allow resource updates until next vsync tick.
-    if (m_updateResourcesCompletePending)
-        m_client->scheduledActionUpdateMoreResources(m_frameRateController->nextTickTimeIfActivated());
+    return m_frameRateController->nextTickTime();
 }
 
-void CCScheduler::updateResourcesComplete()
+void CCScheduler::vsyncTick(bool throttled)
 {
-    TRACE_EVENT0("cc", "CCScheduler::updateResourcesComplete");
-    m_stateMachine.updateResourcesComplete();
-    m_updateResourcesCompletePending = false;
+    TRACE_EVENT1("cc", "CCScheduler::vsyncTick", "throttled", throttled);
+    if (!throttled)
+        m_stateMachine.didEnterVSync();
     processScheduledActions();
+    if (!throttled)
+        m_stateMachine.didLeaveVSync();
 }
 
 void CCScheduler::processScheduledActions()
 {
-    // Early out so we don't spam TRACE_EVENTS with useless processScheduledActions.
-    if (m_stateMachine.nextAction() == CCSchedulerStateMachine::ACTION_NONE) {
-        m_frameRateController->setActive(m_stateMachine.vsyncCallbackNeeded());
+    // We do not allow processScheduledActions to be recursive.
+    // The top-level call will iteratively execute the next action for us anyway.
+    if (m_insideProcessScheduledActions)
         return;
-    }
 
-    // This function can re-enter itself. For example, draw may call
-    // setNeedsCommit. Proceeed with caution.
-    CCSchedulerStateMachine::Action action;
-    do {
-        action = m_stateMachine.nextAction();
+    AutoReset<bool> markInside(&m_insideProcessScheduledActions, true);
+
+    CCSchedulerStateMachine::Action action = m_stateMachine.nextAction();
+    while (action != CCSchedulerStateMachine::ACTION_NONE) {
         m_stateMachine.updateState(action);
         TRACE_EVENT1("cc", "CCScheduler::processScheduledActions()", "action", action);
 
@@ -168,11 +158,6 @@ void CCScheduler::processScheduledActions()
             break;
         case CCSchedulerStateMachine::ACTION_BEGIN_FRAME:
             m_client->scheduledActionBeginFrame();
-            break;
-        case CCSchedulerStateMachine::ACTION_BEGIN_UPDATE_RESOURCES:
-            ASSERT(!m_updateResourcesCompletePending);
-            m_client->scheduledActionUpdateMoreResources(m_frameRateController->nextTickTimeIfActivated());
-            m_updateResourcesCompletePending = true;
             break;
         case CCSchedulerStateMachine::ACTION_COMMIT:
             m_client->scheduledActionCommit();
@@ -196,10 +181,12 @@ void CCScheduler::processScheduledActions()
             m_client->scheduledActionAcquireLayerTexturesForMainThread();
             break;
         }
-    } while (action != CCSchedulerStateMachine::ACTION_NONE);
+        action = m_stateMachine.nextAction();
+    }
 
     // Activate or deactivate the frame rate controller.
     m_frameRateController->setActive(m_stateMachine.vsyncCallbackNeeded());
+    m_client->didAnticipatedDrawTimeChange(m_frameRateController->nextTickTime());
 }
 
 }

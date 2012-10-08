@@ -147,9 +147,9 @@ bool CCRenderSurface::surfacePropertyChangedOnlyFromDescendant() const
 
 void CCRenderSurface::addContributingDelegatedRenderPassLayer(CCLayerImpl* layer)
 {
-    ASSERT(m_layerList.contains(layer));
+    ASSERT(std::find(m_layerList.begin(), m_layerList.end(), layer) != m_layerList.end());
     CCDelegatedRendererLayerImpl* delegatedRendererLayer = static_cast<CCDelegatedRendererLayerImpl*>(layer);
-    m_contributingDelegatedRenderPassLayerList.append(delegatedRendererLayer);
+    m_contributingDelegatedRenderPassLayerList.push_back(delegatedRendererLayer);
 }
 
 void CCRenderSurface::clearLayerLists()
@@ -191,11 +191,11 @@ void CCRenderSurface::appendRenderPasses(CCRenderPassSink& passSink)
     for (size_t i = 0; i < m_contributingDelegatedRenderPassLayerList.size(); ++i)
         m_contributingDelegatedRenderPassLayerList[i]->appendContributingRenderPasses(passSink);
 
-    OwnPtr<CCRenderPass> pass = CCRenderPass::create(renderPassId(), m_contentRect, m_screenSpaceTransform);
+    scoped_ptr<CCRenderPass> pass = CCRenderPass::create(renderPassId(), m_contentRect, m_screenSpaceTransform);
     pass->setDamageRect(m_damageTracker->currentDamageRect());
     pass->setFilters(m_owningLayer->filters());
     pass->setBackgroundFilters(m_owningLayer->backgroundFilters());
-    passSink.appendRenderPass(pass.release());
+    passSink.appendRenderPass(pass.Pass());
 }
 
 void CCRenderSurface::appendQuads(CCQuadSink& quadSink, CCAppendQuadsData& appendQuadsData, bool forReplica, CCRenderPass::Id renderPassId)
@@ -205,14 +205,14 @@ void CCRenderSurface::appendQuads(CCQuadSink& quadSink, CCAppendQuadsData& appen
     IntRect clippedRectInTarget = computeClippedRectInTarget(m_owningLayer);
     bool isOpaque = false;
     const WebTransformationMatrix& drawTransform = forReplica ? m_replicaDrawTransform : m_drawTransform;
-    CCSharedQuadState* sharedQuadState = quadSink.useSharedQuadState(CCSharedQuadState::create(drawTransform, m_contentRect, clippedRectInTarget, m_drawOpacity, isOpaque));
+    CCSharedQuadState* sharedQuadState = quadSink.useSharedQuadState(CCSharedQuadState::create(drawTransform, m_contentRect, clippedRectInTarget, m_drawOpacity, isOpaque).Pass());
 
     if (m_owningLayer->hasDebugBorders()) {
         int red = forReplica ? debugReplicaBorderColorRed : debugSurfaceBorderColorRed;
         int green = forReplica ?  debugReplicaBorderColorGreen : debugSurfaceBorderColorGreen;
         int blue = forReplica ? debugReplicaBorderColorBlue : debugSurfaceBorderColorBlue;
         SkColor color = SkColorSetARGB(debugSurfaceBorderAlpha, red, green, blue);
-        quadSink.append(CCDebugBorderDrawQuad::create(sharedQuadState, contentRect(), color, debugSurfaceBorderWidth), appendQuadsData);
+        quadSink.append(CCDebugBorderDrawQuad::create(sharedQuadState, contentRect(), color, debugSurfaceBorderWidth).PassAs<CCDrawQuad>(), appendQuadsData);
     }
 
     // FIXME: By using the same RenderSurface for both the content and its reflection,
@@ -246,7 +246,7 @@ void CCRenderSurface::appendQuads(CCQuadSink& quadSink, CCAppendQuadsData& appen
     IntRect contentsChangedSinceLastFrame = contentsChanged() ? m_contentRect : IntRect();
 
     quadSink.append(CCRenderPassDrawQuad::create(sharedQuadState, contentRect(), renderPassId, forReplica, maskResourceId, contentsChangedSinceLastFrame,
-                                                 maskTexCoordScaleX, maskTexCoordScaleY, maskTexCoordOffsetX, maskTexCoordOffsetY), appendQuadsData);
+                                                 maskTexCoordScaleX, maskTexCoordScaleY, maskTexCoordOffsetX, maskTexCoordOffsetY).PassAs<CCDrawQuad>(), appendQuadsData);
 }
 
 }

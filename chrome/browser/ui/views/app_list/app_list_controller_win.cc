@@ -2,17 +2,29 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <sstream>
+
+#include "base/command_line.h"
 #include "base/lazy_instance.h"
+#include "base/path_service.h"
+#include "base/utf_string_conversions.h"
+#include "chrome/app/chrome_dll_resource.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/app_list/app_list_controller.h"
 #include "chrome/browser/ui/app_list/app_list_view_delegate.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
-#include "grit/theme_resources.h"
+#include "chrome/browser/ui/views/browser_dialogs.h"
+#include "chrome/common/chrome_constants.h"
+#include "chrome/common/chrome_switches.h"
+#include "grit/generated_resources.h"
 #include "ui/app_list/app_list_view.h"
 #include "ui/app_list/pagination_model.h"
-#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/win/shell.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
@@ -38,10 +50,13 @@ class AppListControllerWin : public AppListController {
   virtual void PinApp(const std::string& extension_id) OVERRIDE;
   virtual void UnpinApp(const std::string& extension_id) OVERRIDE;
   virtual bool CanPin() OVERRIDE;
+  virtual bool CanShowCreateShortcutsDialog() OVERRIDE;
+  virtual void ShowCreateShortcutsDialog(
+      Profile* profile,
+      const std::string& extension_id) OVERRIDE;
   virtual void ActivateApp(Profile* profile,
                            const std::string& extension_id,
                            int event_flags) OVERRIDE;
-  virtual gfx::ImageSkia GetWindowAppIcon() OVERRIDE;
 
   DISALLOW_COPY_AND_ASSIGN(AppListControllerWin);
 };
@@ -68,6 +83,21 @@ bool AppListControllerWin::CanPin() {
   return false;
 }
 
+bool AppListControllerWin::CanShowCreateShortcutsDialog() {
+  return true;
+}
+
+void AppListControllerWin::ShowCreateShortcutsDialog(
+    Profile* profile,
+    const std::string& extension_id) {
+  ExtensionService* service = profile->GetExtensionService();
+  DCHECK(service);
+  const extensions::Extension* extension = service->GetInstalledExtension(
+      extension_id);
+  DCHECK(extension);
+  chrome::ShowCreateChromeAppShortcutsDialog(NULL, profile, extension);
+}
+
 void AppListControllerWin::ActivateApp(Profile* profile,
                                        const std::string& extension_id,
                                        int event_flags) {
@@ -79,12 +109,6 @@ void AppListControllerWin::ActivateApp(Profile* profile,
   application_launch::OpenApplication(application_launch::LaunchParams(
       profile, extension, extension_misc::LAUNCH_TAB, NEW_FOREGROUND_TAB));
 }
-
-gfx::ImageSkia AppListControllerWin::GetWindowAppIcon() {
-  gfx::ImageSkia* resource = ResourceBundle::GetSharedInstance().
-      GetImageSkiaNamed(IDR_APP_LIST);
-  return *resource;
-};
 
 // The AppListResources class manages global resources needed for the app
 // list to operate.
@@ -105,6 +129,14 @@ void GetArrowLocationAndUpdateAnchor(const gfx::Rect& work_area,
                                      int min_space_y,
                                      views::BubbleBorder::ArrowLocation* arrow,
                                      gfx::Point* anchor) {
+  // First ensure anchor is within the work area.
+  if (!work_area.Contains(*anchor)) {
+    anchor->set_x(std::max(anchor->x(), work_area.x()));
+    anchor->set_x(std::min(anchor->x(), work_area.right()));
+    anchor->set_y(std::max(anchor->y(), work_area.y()));
+    anchor->set_y(std::min(anchor->y(), work_area.bottom()));
+  }
+
   // Prefer the bottom as it is the most natural position.
   if (anchor->y() - work_area.y() >= min_space_y) {
     *arrow = views::BubbleBorder::BOTTOM_LEFT;
@@ -140,8 +172,6 @@ void UpdateArrowPositionAndAnchorPoint(app_list::AppListView* view) {
   int min_space_x = preferred.width() + kAnchorOffset + kPadding + kArrowSize;
   int min_space_y = preferred.height() + kAnchorOffset + kPadding + kArrowSize;
 
-  // TODO(benwells): Make sure the app list does not appear underneath
-  // the task bar.
   gfx::Point anchor = view->anchor_point();
   gfx::Display display = gfx::Screen::GetDisplayNearestPoint(anchor);
   const gfx::Rect& display_rect = display.work_area();
@@ -155,6 +185,44 @@ void UpdateArrowPositionAndAnchorPoint(app_list::AppListView* view) {
   view->SetAnchorPoint(anchor);
 }
 
+CommandLine GetAppListCommandLine() {
+  CommandLine* current = CommandLine::ForCurrentProcess();
+  CommandLine command_line(current->GetProgram());
+
+  if (current->HasSwitch(switches::kUserDataDir)) {
+    FilePath user_data_dir = current->GetSwitchValuePath(
+        switches::kUserDataDir);
+    command_line.AppendSwitchPath(switches::kUserDataDir, user_data_dir);
+  }
+
+  command_line.AppendSwitch(switches::kShowAppList);
+  return command_line;
+}
+
+string16 GetAppListIconPath() {
+  FilePath icon_path;
+  if (!PathService::Get(base::DIR_MODULE, &icon_path))
+    return string16();
+
+  icon_path = icon_path.Append(chrome::kBrowserResourcesDll);
+  std::stringstream ss;
+  ss << ",-" << IDI_APP_LIST;
+  string16 result = icon_path.value();
+  result.append(UTF8ToUTF16(ss.str()));
+  return result;
+}
+
+string16 GetAppModelId() {
+  static const wchar_t kAppListId[] = L"ChromeAppList";
+  // The AppModelId should be the same for all profiles in a user data directory
+  // but different for different user data directories, so base it on the
+  // initial profile in the current user data directory.
+  FilePath initial_profile_path =
+      g_browser_process->profile_manager()->GetInitialProfileDir();
+  return ShellIntegration::GetAppModelIdForProfile(kAppListId,
+                                                   initial_profile_path);
+}
+
 base::LazyInstance<AppListResources>::Leaky g_app_list_resources =
     LAZY_INSTANCE_INITIALIZER;
 
@@ -164,7 +232,6 @@ namespace app_list_controller {
 
 void ShowAppList() {
 #if !defined(USE_AURA)
-  static const wchar_t kAppListId[] = L"ChromeAppList";
 
   // The controller will be owned by the view delegate, and the delegate is
   // owned by the app list view. The app list view manages it's own lifetime.
@@ -179,10 +246,16 @@ void ShowAppList() {
       views::BubbleBorder::BOTTOM_LEFT);
 
   UpdateArrowPositionAndAnchorPoint(view);
+  HWND hwnd = view->GetWidget()->GetTopLevelWidget()->GetNativeWindow();
+  ui::win::SetAppIdForWindow(GetAppModelId(), hwnd);
+  CommandLine relaunch = GetAppListCommandLine();
+  ui::win::SetRelaunchDetailsForWindow(
+      relaunch.GetCommandLineString(),
+      l10n_util::GetStringUTF16(IDS_APP_LIST_SHORTCUT_NAME),
+      hwnd);
+  string16 icon_path = GetAppListIconPath();
+  ui::win::SetAppIconForWindow(icon_path, hwnd);
   view->Show();
-  view->GetWidget()->GetTopLevelWidget()->UpdateWindowIcon();
-  ui::win::SetAppIdForWindow(kAppListId,
-      view->GetWidget()->GetTopLevelWidget()->GetNativeWindow());
 #endif
 }
 

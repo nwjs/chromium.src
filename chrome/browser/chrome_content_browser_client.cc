@@ -10,6 +10,7 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/path_service.h"
 #include "base/string_tokenizer.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/breakpad_mac.h"
@@ -119,6 +120,7 @@
 #include "chrome/browser/chrome_browser_main_linux.h"
 #elif defined(OS_ANDROID)
 #include "chrome/browser/chrome_browser_main_android.h"
+#include "chrome/common/descriptors_android.h"
 #elif defined(OS_POSIX)
 #include "chrome/browser/chrome_browser_main_posix.h"
 #endif
@@ -130,6 +132,10 @@
 
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
 #include "chrome/browser/captive_portal/captive_portal_tab_helper.h"
+#endif
+
+#if defined(OS_ANDROID)
+#include "ui/base/ui_base_paths.h"
 #endif
 
 #if defined(USE_NSS)
@@ -191,10 +197,14 @@ GURL AddUberHost(const GURL& url) {
   return ReplaceURLHostAndPath(url, uber_host, new_path);
 }
 
-// If url->host() is "chrome", changes the url from "foo://chrome/bar/" to
-// "foo://bar/" and returns true. Otherwise returns false.
+// If url->host() is "chrome" and url->path() has characters other than the
+// first slash, changes the url from "foo://chrome/bar/" to "foo://bar/" and
+// returns true. Otherwise returns false.
 bool RemoveUberHost(GURL* url) {
   if (url->host() != chrome::kChromeUIUberHost)
+    return false;
+
+  if (url->path().empty() || url->path() == "/")
     return false;
 
   const std::string old_path = url->path();
@@ -203,7 +213,7 @@ bool RemoveUberHost(GURL* url) {
   std::string new_host;
   std::string new_path;
   if (separator == std::string::npos) {
-    new_host = old_path.empty() ? old_path : old_path.substr(1);
+    new_host = old_path.substr(1);
   } else {
     new_host = old_path.substr(1, separator - 1);
     new_path = old_path.substr(separator);
@@ -464,10 +474,15 @@ std::string ChromeContentBrowserClient::GetStoragePartitionIdForChildProcess(
   ExtensionService* extension_service =
       extensions::ExtensionSystem::Get(profile)->extension_service();
   if (extension_service) {
-    extension = extension_service->GetInstalledAppForRenderer(
-        child_process_id);
+    std::set<std::string> extension_ids =
+        extension_service->process_map()->
+            GetExtensionsInProcess(child_process_id);
+    if (!extension_ids.empty())
+      // Since All the apps in a process share the same storage partition,
+      // we can pick any of them to retrieve the storage partition id.
+      extension =
+          extension_service->extensions()->GetByID(*(extension_ids.begin()));
   }
-
   return GetStoragePartitionIdForExtension(browser_context, extension);
 }
 
@@ -731,7 +746,7 @@ void ChromeContentBrowserClient::SiteInstanceGotProcess(
 
   const Extension* extension =
       service->extensions()->GetExtensionOrAppByURL(ExtensionURLInfo(
-          site_instance->GetSite()));
+          site_instance->GetSiteURL()));
   if (!extension)
     return;
 
@@ -760,7 +775,7 @@ void ChromeContentBrowserClient::SiteInstanceDeleting(
 
   const Extension* extension =
       service->extensions()->GetExtensionOrAppByURL(
-          ExtensionURLInfo(site_instance->GetSite()));
+          ExtensionURLInfo(site_instance->GetSiteURL()));
   if (!extension)
     return;
 
@@ -890,10 +905,10 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kDisableAsynchronousSpellChecking,
       switches::kDisableBundledPpapiFlash,
       switches::kDisableExtensionsResourceWhitelist,
-      switches::kDisableInBrowserThumbnailing,
       switches::kDisableScriptedPrintThrottling,
       switches::kDumpHistogramsOnExit,
       switches::kEnableBenchmarking,
+      switches::kEnableBrowserPluginForAllViewTypes,
       switches::kEnableBundledPpapiFlash,
       switches::kEnableCrxlessWebApps,
       switches::kEnableExperimentalExtensionApis,
@@ -918,6 +933,7 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kProfilingFlush,
       switches::kRecordMode,
       switches::kSilentDumpOnDCHECK,
+      switches::kSpdyProxyOrigin,
       switches::kWhitelistedExtensionID,
     };
 
@@ -1477,6 +1493,8 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
                     &web_prefs->cursive_font_family_map);
   FillFontFamilyMap(prefs, prefs::kWebKitFantasyFontFamilyMap,
                     &web_prefs->fantasy_font_family_map);
+  FillFontFamilyMap(prefs, prefs::kWebKitPictographFontFamilyMap,
+                    &web_prefs->pictograph_font_family_map);
 
   web_prefs->default_font_size =
       prefs->GetInteger(prefs::kWebKitDefaultFontSize);
@@ -1577,7 +1595,7 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
   ExtensionService* service = profile->GetExtensionService();
   if (service) {
     const Extension* extension = service->extensions()->GetByID(
-        rvh->GetSiteInstance()->GetSite().host());
+        rvh->GetSiteInstance()->GetSiteURL().host());
     extension_webkit_preferences::SetPreferences(
         extension, view_type, web_prefs);
   }
@@ -1704,7 +1722,7 @@ bool ChromeContentBrowserClient::AllowPepperSocketAPI(
   if (allowed_list == "*") {
     // The wildcard allows socket API only for packaged and platform apps.
     return extension &&
-        (extension->GetType() == Extension::TYPE_PACKAGED_APP ||
+        (extension->GetType() == Extension::TYPE_LEGACY_PACKAGED_APP ||
          extension->GetType() == Extension::TYPE_PLATFORM_APP);
   } else if (!allowed_list.empty()) {
     StringTokenizer t(allowed_list, ",");
@@ -1738,6 +1756,34 @@ void ChromeContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
                                            FileDescriptor(crash_signal_fd,
                                                           false)));
   }
+#if defined(OS_ANDROID)
+  FilePath data_path;
+  PathService::Get(ui::DIR_RESOURCE_PAKS_ANDROID, &data_path);
+  DCHECK(!data_path.empty());
+
+  int flags = base::PLATFORM_FILE_OPEN | base::PLATFORM_FILE_READ;
+  FilePath chrome_pak = data_path.AppendASCII("chrome.pak");
+  base::PlatformFile f =
+      base::CreatePlatformFile(chrome_pak, flags, NULL, NULL);
+  DCHECK(f != base::kInvalidPlatformFileValue);
+  mappings->push_back(FileDescriptorInfo(kAndroidChromePakDescriptor,
+                                         FileDescriptor(f, true)));
+
+  FilePath chrome_resources_pak =
+      data_path.AppendASCII("chrome_100_percent.pak");
+  f = base::CreatePlatformFile(chrome_resources_pak, flags, NULL, NULL);
+  DCHECK(f != base::kInvalidPlatformFileValue);
+  mappings->push_back(FileDescriptorInfo(kAndroidUIResourcesPakDescriptor,
+                                         FileDescriptor(f, true)));
+
+  const std::string locale = GetApplicationLocale();
+  FilePath locale_pak = ResourceBundle::GetSharedInstance().
+      GetLocaleFilePath(locale, false);
+  f = base::CreatePlatformFile(locale_pak, flags, NULL, NULL);
+  DCHECK(f != base::kInvalidPlatformFileValue);
+  mappings->push_back(FileDescriptorInfo(kAndroidLocalePakDescriptor,
+                                         FileDescriptor(f, true)));
+#endif  // defined(OS_ANDROID)
 }
 #endif  // defined(OS_POSIX) && !defined(OS_MACOSX)
 

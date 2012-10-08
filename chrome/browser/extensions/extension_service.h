@@ -180,13 +180,9 @@ class ExtensionService
   // Returns whether the URL is from either a hosted or packaged app.
   bool IsInstalledApp(const GURL& url) const;
 
-  // Associates a renderer process with the given installed app.
-  void SetInstalledAppForRenderer(int renderer_child_id,
-      const extensions::Extension* app);
-
-  // If the renderer is hosting an installed app, returns it, otherwise returns
-  // NULL.
-  const extensions::Extension* GetInstalledAppForRenderer(
+  // If the renderer is hosting an installed app with isolated storage,
+  // returns it, otherwise returns NULL.
+  const extensions::Extension* GetIsolatedAppForRenderer(
       int renderer_child_id) const;
 
   // Attempts to uninstall an extension from a given ExtensionService. Returns
@@ -288,6 +284,13 @@ class ExtensionService
 
   // Start up the extension event routers.
   void InitEventRouters();
+
+  // Called when the ProfileSyncService for the associated Profile is
+  // going to be destroyed.  This is guaranteed to be called exactly
+  // once before Shutdown() is called.
+  //
+  // TODO(akalin): Remove this once http://crbug.com/153827 is fixed.
+  void OnProfileSyncServiceShutdown();
 
   // Called when the associated Profile is going to be destroyed.
   void Shutdown();
@@ -407,7 +410,6 @@ class ExtensionService
   // Called by the backend when an extension has been installed.
   void OnExtensionInstalled(
       const extensions::Extension* extension,
-      bool from_webstore,
       const syncer::StringOrdinal& page_ordinal,
       bool has_requirement_errors);
 
@@ -759,12 +761,6 @@ class ExtensionService
 
   // The map of extension IDs to their runtime data.
   ExtensionRuntimeDataMap extension_runtime_data_;
-
-  // Holds a map between renderer process IDs that are associated with an
-  // installed app and their app.
-  typedef std::map<int, scoped_refptr<const extensions::Extension> >
-      InstalledAppMap;
-  InstalledAppMap installed_app_hosts_;
 
   // The full path to the directory where extensions are installed.
   FilePath install_directory_;

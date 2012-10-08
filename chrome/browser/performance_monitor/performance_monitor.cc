@@ -35,6 +35,8 @@
 #include "content/public/browser/load_notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
+#include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "net/url_request/url_request.h"
 
@@ -207,7 +209,7 @@ void PerformanceMonitor::CheckForUncleanExits() {
 
   for (std::vector<Profile*>::const_iterator iter = profiles.begin();
        iter != profiles.end(); ++iter) {
-    if (!(*iter)->DidLastSessionExitCleanly()) {
+    if ((*iter)->GetLastSessionExitType() == Profile::EXIT_CRASHED) {
       BrowserThread::PostBlockingPoolSequencedTask(
           Database::kDatabaseSequenceToken,
           FROM_HERE,
@@ -278,10 +280,9 @@ void PerformanceMonitor::AddEventOnBackgroundThread(scoped_ptr<Event> event) {
   database_->AddEvent(*event.get());
 }
 
-void PerformanceMonitor::AddMetricOnBackgroundThread(MetricType type,
-                                                     const std::string& value) {
+void PerformanceMonitor::AddMetricOnBackgroundThread(Metric metric) {
   DCHECK(!BrowserThread::CurrentlyOn(BrowserThread::UI));
-  database_->AddMetric(type, value);
+  database_->AddMetric(metric);
 }
 
 void PerformanceMonitor::NotifyInitialized() {
@@ -312,7 +313,9 @@ void PerformanceMonitor::GatherCPUUsageOnBackgroundThread() {
       cpu_usage += iter->second->GetCPUUsage();
     }
 
-    database_->AddMetric(METRIC_CPU_USAGE, base::DoubleToString(cpu_usage));
+    database_->AddMetric(Metric(METRIC_CPU_USAGE,
+                                base::Time::Now(),
+                                cpu_usage));
   }
 }
 
@@ -331,10 +334,12 @@ void PerformanceMonitor::GatherMemoryUsageOnBackgroundThread() {
     }
   }
 
-  database_->AddMetric(METRIC_PRIVATE_MEMORY_USAGE,
-                       base::Uint64ToString(private_memory_sum));
-  database_->AddMetric(METRIC_SHARED_MEMORY_USAGE,
-                       base::Uint64ToString(shared_memory_sum));
+  database_->AddMetric(Metric(METRIC_PRIVATE_MEMORY_USAGE,
+                              base::Time::Now(),
+                              static_cast<double>(private_memory_sum)));
+  database_->AddMetric(Metric(METRIC_SHARED_MEMORY_USAGE,
+                              base::Time::Now(),
+                              static_cast<double>(shared_memory_sum)));
 }
 
 void PerformanceMonitor::UpdateMetricsMapOnBackgroundThread() {
@@ -432,8 +437,10 @@ void PerformanceMonitor::InsertIOData(
     PerformanceDataForIOThread performance_data_for_io_thread) {
   CHECK(!BrowserThread::CurrentlyOn(BrowserThread::UI));
   database_->AddMetric(
-      METRIC_NETWORK_BYTES_READ,
-      base::Uint64ToString(performance_data_for_io_thread.network_bytes_read));
+      Metric(METRIC_NETWORK_BYTES_READ,
+             base::Time::Now(),
+             static_cast<double>(
+                 performance_data_for_io_thread.network_bytes_read)));
 }
 
 void PerformanceMonitor::BytesReadOnIOThread(const net::URLRequest& request,
@@ -486,20 +493,28 @@ void PerformanceMonitor::Observe(int type,
       break;
     }
     case content::NOTIFICATION_RENDERER_PROCESS_HANG: {
-      content::WebContents* contents =
-          content::Source<content::WebContents>(source).ptr();
-      AddEvent(util::CreateRendererFreezeEvent(base::Time::Now(),
-                                               contents->GetURL().spec()));
+      std::string url;
+      content::RenderWidgetHost* widget =
+          content::Source<content::RenderWidgetHost>(source).ptr();
+      if (widget->IsRenderView()) {
+        url = content::WebContents::FromRenderViewHost(
+            content::RenderViewHost::From(widget))->GetURL().spec();
+      }
+      AddEvent(util::CreateRendererFailureEvent(base::Time::Now(),
+                                                EVENT_RENDERER_HANG,
+                                                url));
       break;
     }
     case content::NOTIFICATION_RENDERER_PROCESS_CLOSED: {
-      AddCrashEvent(*content::Details<
-          content::RenderProcessHost::RendererClosedDetails>(details).ptr());
+      AddRendererClosedEvent(
+          content::Source<content::RenderProcessHost>(source).ptr(),
+          *content::Details<content::RenderProcessHost::RendererClosedDetails>(
+              details).ptr());
       break;
     }
     case chrome::NOTIFICATION_PROFILE_ADDED: {
       Profile* profile = content::Source<Profile>(source).ptr();
-      if (!profile->DidLastSessionExitCleanly()) {
+      if (profile->GetLastSessionExitType() == Profile::EXIT_CRASHED) {
         BrowserThread::PostBlockingPoolSequencedTask(
             Database::kDatabaseSequenceToken,
             FROM_HERE,
@@ -521,8 +536,10 @@ void PerformanceMonitor::Observe(int type,
           base::Bind(
               &PerformanceMonitor::AddMetricOnBackgroundThread,
               base::Unretained(this),
-              METRIC_PAGE_LOAD_TIME,
-              base::Int64ToString(load_details->load_time.ToInternalValue())));
+              Metric(METRIC_PAGE_LOAD_TIME,
+                     base::Time::Now(),
+                     static_cast<double>(
+                         load_details->load_time.ToInternalValue()))));
       break;
     }
     default: {
@@ -549,7 +566,8 @@ void PerformanceMonitor::AddExtensionEvent(EventType type,
                                       extension->description()));
 }
 
-void PerformanceMonitor::AddCrashEvent(
+void PerformanceMonitor::AddRendererClosedEvent(
+    content::RenderProcessHost* host,
     const content::RenderProcessHost::RendererClosedDetails& details) {
   // We only care if this is an invalid termination.
   if (details.status == base::TERMINATION_STATUS_NORMAL_TERMINATION ||
@@ -559,9 +577,32 @@ void PerformanceMonitor::AddCrashEvent(
   // Determine the type of crash.
   EventType type =
       details.status == base::TERMINATION_STATUS_PROCESS_WAS_KILLED ?
-      EVENT_KILLED_BY_OS_CRASH : EVENT_RENDERER_CRASH;
+      EVENT_RENDERER_KILLED : EVENT_RENDERER_CRASH;
 
-  AddEvent(util::CreateCrashEvent(base::Time::Now(), type));
+  content::RenderProcessHost::RenderWidgetHostsIterator iter =
+      host->GetRenderWidgetHostsIterator();
+
+  // A RenderProcessHost may contain multiple render views - for each valid
+  // render view, extract the url, and append it to the string, comma-separating
+  // the entries.
+  std::string url;
+  for (; !iter.IsAtEnd(); iter.Advance()) {
+    const content::RenderWidgetHost* widget = iter.GetCurrentValue();
+    DCHECK(widget);
+    if (!widget || !widget->IsRenderView())
+      continue;
+
+    content::RenderViewHost* view =
+        content::RenderViewHost::From(
+            const_cast<content::RenderWidgetHost*>(widget));
+
+    if (!url.empty())
+      url += ", ";
+
+    url += content::WebContents::FromRenderViewHost(view)->GetURL().spec();
+  }
+
+  AddEvent(util::CreateRendererFailureEvent(base::Time::Now(), type, url));
 }
 
 }  // namespace performance_monitor

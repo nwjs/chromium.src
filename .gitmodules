@@ -118,10 +118,6 @@
 	path = native_client
 	url = http://git.chromium.org/native_client/src/native_client.git
 	os = all
-[submodule "native_client_sdk/src/site_scons"]
-	path = native_client_sdk/src/site_scons
-	url = 
-	os = ios
 [submodule "sandbox/linux/seccomp-legacy"]
 	path = sandbox/linux/seccomp-legacy
 	url = http://git.chromium.org/external/seccompsandbox.git
@@ -457,6 +453,10 @@
 [submodule "tools/page_cycler/acid3"]
 	path = tools/page_cycler/acid3
 	url = http://git.chromium.org/chromium/deps/acid3.git
+	os = all
+[submodule "tools/swarm_client"]
+	path = tools/swarm_client
+	url = http://git.chromium.org/chromium/tools/swarm_client.git
 	os = all
 [submodule "v8"]
 	path = v8

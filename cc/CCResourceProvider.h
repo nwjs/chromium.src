@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #ifndef CCResourceProvider_h
 #define CCResourceProvider_h
 
+#include "base/basictypes.h"
 #include "CCGraphicsContext.h"
 #include "GraphicsContext3D.h"
 #include "IntSize.h"
@@ -34,7 +34,6 @@ class TextureUploader;
 // Thread-safety notes: this class is not thread-safe and can only be called
 // from the thread it was created on (in practice, the compositor thread).
 class CCResourceProvider {
-    WTF_MAKE_NONCOPYABLE(CCResourceProvider);
 public:
     typedef unsigned ResourceId;
     typedef Vector<ResourceId> ResourceIdArray;
@@ -146,12 +145,16 @@ public:
     // Only for testing
     size_t mailboxCount() const { return m_mailboxes.size(); }
 
+    // Temporary functions for debugging crashes in issue 151428 in canary.
+    // Do not use these!
+    static void debugNotifyEnterZone(unsigned int index);
+    static void debugNotifyLeaveZone();
+
     // The following lock classes are part of the CCResourceProvider API and are
     // needed to read and write the resource contents. The user must ensure
     // that they only use GL locks on GL resources, etc, and this is enforced
     // by assertions.
     class ScopedReadLockGL {
-        WTF_MAKE_NONCOPYABLE(ScopedReadLockGL);
     public:
         ScopedReadLockGL(CCResourceProvider*, CCResourceProvider::ResourceId);
         ~ScopedReadLockGL();
@@ -162,10 +165,11 @@ public:
         CCResourceProvider* m_resourceProvider;
         CCResourceProvider::ResourceId m_resourceId;
         unsigned m_textureId;
+
+        DISALLOW_COPY_AND_ASSIGN(ScopedReadLockGL);
     };
 
     class ScopedWriteLockGL {
-        WTF_MAKE_NONCOPYABLE(ScopedWriteLockGL);
     public:
         ScopedWriteLockGL(CCResourceProvider*, CCResourceProvider::ResourceId);
         ~ScopedWriteLockGL();
@@ -176,10 +180,11 @@ public:
         CCResourceProvider* m_resourceProvider;
         CCResourceProvider::ResourceId m_resourceId;
         unsigned m_textureId;
+
+        DISALLOW_COPY_AND_ASSIGN(ScopedWriteLockGL);
     };
 
     class ScopedReadLockSoftware {
-        WTF_MAKE_NONCOPYABLE(ScopedReadLockSoftware);
     public:
         ScopedReadLockSoftware(CCResourceProvider*, CCResourceProvider::ResourceId);
         ~ScopedReadLockSoftware();
@@ -190,21 +195,24 @@ public:
         CCResourceProvider* m_resourceProvider;
         CCResourceProvider::ResourceId m_resourceId;
         SkBitmap m_skBitmap;
+
+        DISALLOW_COPY_AND_ASSIGN(ScopedReadLockSoftware);
     };
 
     class ScopedWriteLockSoftware {
-        WTF_MAKE_NONCOPYABLE(ScopedWriteLockSoftware);
     public:
         ScopedWriteLockSoftware(CCResourceProvider*, CCResourceProvider::ResourceId);
         ~ScopedWriteLockSoftware();
 
-        SkCanvas* skCanvas() { return &m_skCanvas; }
+        SkCanvas* skCanvas() { return m_skCanvas.get(); }
 
     private:
         CCResourceProvider* m_resourceProvider;
         CCResourceProvider::ResourceId m_resourceId;
         SkBitmap m_skBitmap;
-        SkCanvas m_skCanvas;
+        OwnPtr<SkCanvas> m_skCanvas;
+
+        DISALLOW_COPY_AND_ASSIGN(ScopedWriteLockSoftware);
     };
 
 private:
@@ -263,6 +271,8 @@ private:
     OwnPtr<TextureUploader> m_textureUploader;
     OwnPtr<AcceleratedTextureCopier> m_textureCopier;
     int m_maxTextureSize;
+
+    DISALLOW_COPY_AND_ASSIGN(CCResourceProvider);
 };
 
 }

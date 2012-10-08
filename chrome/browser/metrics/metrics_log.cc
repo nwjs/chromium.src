@@ -45,6 +45,10 @@
 #include "ui/gfx/screen.h"
 #include "webkit/plugins/webplugininfo.h"
 
+#if defined(OS_ANDROID)
+#include "base/android/build_info.h"
+#endif
+
 #define OPEN_ELEMENT_FOR_SCOPE(name) ScopedElement scoped_element(this, name)
 
 #if defined(OS_WIN)
@@ -242,6 +246,7 @@ void WriteProfilerData(const ProcessDataSnapshot& profiler_data,
   }
 }
 
+#if defined(GOOGLE_CHROME_BUILD) && defined(OS_WIN)
 void ProductDataToProto(const GoogleUpdateSettings::ProductData& product_data,
                         ProductInfo* product_info) {
   product_info->set_version(product_data.version);
@@ -254,6 +259,7 @@ void ProductDataToProto(const GoogleUpdateSettings::ProductData& product_data,
         static_cast<ProductInfo::InstallResult>(product_data.last_result));
   }
 }
+#endif
 
 }  // namespace
 
@@ -776,6 +782,10 @@ void MetricsLog::RecordEnvironmentProto(
 #endif
   os->set_name(os_name);
   os->set_version(base::SysInfo::OperatingSystemVersion());
+#if defined(OS_ANDROID)
+  os->set_fingerprint(
+      base::android::BuildInfo::GetInstance()->android_build_fp());
+#endif
 
   const content::GPUInfo& gpu_info =
       GpuDataManager::GetInstance()->GetGPUInfo();

@@ -450,23 +450,33 @@ TEST_F(AcceleratorControllerTest, WindowSnap) {
   {
     gfx::Rect normal_bounds = window->bounds();
 
-    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_RELEASED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_PRESSED, dummy);
     EXPECT_TRUE(wm::IsWindowMaximized(window.get()));
     EXPECT_NE(normal_bounds.ToString(), window->bounds().ToString());
 
-    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_PRESSED, dummy);
+    EXPECT_TRUE(wm::IsWindowMaximized(window.get()));
+    EXPECT_NE(normal_bounds.ToString(), window->bounds().ToString());
+
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_RELEASED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_PRESSED, dummy);
     EXPECT_FALSE(wm::IsWindowMaximized(window.get()));
     EXPECT_EQ(normal_bounds.ToString(), window->bounds().ToString());
 
-    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_RELEASED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_PRESSED, dummy);
     GetController()->PerformAction(WINDOW_SNAP_LEFT, dummy);
     EXPECT_FALSE(wm::IsWindowMaximized(window.get()));
 
-    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_RELEASED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_PRESSED, dummy);
     GetController()->PerformAction(WINDOW_SNAP_RIGHT, dummy);
     EXPECT_FALSE(wm::IsWindowMaximized(window.get()));
 
-    GetController()->PerformAction(TOGGLE_MAXIMIZED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_RELEASED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_PRESSED, dummy);
+    GetController()->PerformAction(TOGGLE_MAXIMIZED_RELEASED, dummy);
     EXPECT_TRUE(wm::IsWindowMaximized(window.get()));
     GetController()->PerformAction(WINDOW_MINIMIZE, dummy);
     EXPECT_FALSE(wm::IsWindowMaximized(window.get()));
@@ -713,9 +723,16 @@ TEST_F(AcceleratorControllerTest, GlobalAccelerators) {
   // Brightness
   const ui::Accelerator f6(ui::VKEY_F6, ui::EF_NONE);
   const ui::Accelerator f7(ui::VKEY_F7, ui::EF_NONE);
-  // TODO(oshima): Temporarily removed the tests for
-  // no internal display case. Add this back when
-  // re-enabling extended desktop. crbug.com/152003
+  {
+    EXPECT_FALSE(GetController()->Process(f6));
+    EXPECT_FALSE(GetController()->Process(f7));
+    DummyBrightnessControlDelegate* delegate =
+        new DummyBrightnessControlDelegate(true);
+    GetController()->SetBrightnessControlDelegate(
+        scoped_ptr<BrightnessControlDelegate>(delegate).Pass());
+    EXPECT_FALSE(GetController()->Process(f6));
+    EXPECT_FALSE(GetController()->Process(f7));
+  }
   // Enable internal display.
   EnableInternalDisplay();
   {

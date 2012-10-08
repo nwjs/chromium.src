@@ -4,21 +4,28 @@
 
 #include "ash/desktop_background/desktop_background_widget_controller.h"
 
+#include "ash/ash_export.h"
 #include "ui/aura/root_window.h"
 #include "ui/views/widget/widget.h"
 
-DECLARE_WINDOW_PROPERTY_TYPE(ash::internal::DesktopBackgroundWidgetController*);
-DECLARE_WINDOW_PROPERTY_TYPE(ash::internal::ComponentWrapper*);
+// Exported for tests.
+DECLARE_EXPORTED_WINDOW_PROPERTY_TYPE(
+    ASH_EXPORT, ash::internal::DesktopBackgroundWidgetController*);
+DECLARE_EXPORTED_WINDOW_PROPERTY_TYPE(
+    ASH_EXPORT, ash::internal::AnimatingDesktopController*);
 
 namespace ash {
 namespace internal {
 
 DEFINE_OWNED_WINDOW_PROPERTY_KEY(DesktopBackgroundWidgetController,
-                                 kWindowDesktopComponent, NULL);
-DEFINE_OWNED_WINDOW_PROPERTY_KEY(ComponentWrapper, kComponentWrapper, NULL);
+                                 kDesktopController, NULL);
+DEFINE_OWNED_WINDOW_PROPERTY_KEY(AnimatingDesktopController,
+                                 kAnimatingDesktopController, NULL);
 
 DesktopBackgroundWidgetController::DesktopBackgroundWidgetController(
     views::Widget* widget) : widget_(widget) {
+  DCHECK(widget_);
+  widget_->AddObserver(this);
 }
 
 DesktopBackgroundWidgetController::DesktopBackgroundWidgetController(
@@ -28,13 +35,15 @@ DesktopBackgroundWidgetController::DesktopBackgroundWidgetController(
 
 DesktopBackgroundWidgetController::~DesktopBackgroundWidgetController() {
   if (widget_) {
+    widget_->RemoveObserver(this);
     widget_->CloseNow();
     widget_ = NULL;
   } else if (layer_.get())
     layer_.reset(NULL);
 }
 
-void DesktopBackgroundWidgetController::CleanupWidget() {
+void DesktopBackgroundWidgetController::OnWidgetClosing(views::Widget* widget) {
+  widget_->RemoveObserver(this);
   widget_ = NULL;
 }
 
@@ -45,32 +54,37 @@ void DesktopBackgroundWidgetController::SetBounds(gfx::Rect bounds) {
     layer_->SetBounds(bounds);
 }
 
-void DesktopBackgroundWidgetController::Reparent(aura::RootWindow* root_window,
+bool DesktopBackgroundWidgetController::Reparent(aura::RootWindow* root_window,
                                                  int src_container,
                                                  int dest_container) {
   if (widget_) {
     views::Widget::ReparentNativeView(widget_->GetNativeView(),
         root_window->GetChildById(dest_container));
-  } else if (layer_.get()) {
+    return true;
+  }
+  if (layer_.get()) {
     ui::Layer* layer = layer_.get();
     root_window->GetChildById(src_container)->layer()->Remove(layer);
     root_window->GetChildById(dest_container)->layer()->Add(layer);
+    return true;
   }
+  // Nothing to reparent.
+  return false;
 }
 
-ComponentWrapper::ComponentWrapper(
+AnimatingDesktopController::AnimatingDesktopController(
     DesktopBackgroundWidgetController* component) {
-  component_.reset(component);
+  controller_.reset(component);
 }
 
-ComponentWrapper::~ComponentWrapper() {
+AnimatingDesktopController::~AnimatingDesktopController() {
 }
 
-DesktopBackgroundWidgetController* ComponentWrapper::GetComponent(
+DesktopBackgroundWidgetController* AnimatingDesktopController::GetController(
     bool pass_ownership) {
   if (pass_ownership)
-    return component_.release();
-  return component_.get();
+    return controller_.release();
+  return controller_.get();
 }
 
 }  // namespace internal

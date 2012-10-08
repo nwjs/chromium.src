@@ -27,6 +27,9 @@ static const double uploaderBusyTickRate = 0.001;
 // Flush interval when performing texture uploads.
 static const int textureUploadFlushPeriod = 4;
 
+// Number of blocking update intervals to allow.
+static const size_t maxBlockingUpdateIntervals = 4;
+
 } // anonymous namespace
 
 namespace cc {
@@ -49,7 +52,6 @@ CCTextureUpdateController::CCTextureUpdateController(CCTextureUpdateControllerCl
     , m_queue(queue)
     , m_resourceProvider(resourceProvider)
     , m_uploader(uploader)
-    , m_monotonicTimeLimit(0)
     , m_textureUpdatesPerTick(maxFullUpdatesPerTick(uploader))
     , m_firstUpdateAttempt(true)
 {
@@ -60,10 +62,9 @@ CCTextureUpdateController::~CCTextureUpdateController()
 }
 
 void CCTextureUpdateController::performMoreUpdates(
-    double monotonicTimeLimit)
+    base::TimeTicks timeLimit)
 {
-    ASSERT(monotonicTimeLimit >= m_monotonicTimeLimit);
-    m_monotonicTimeLimit = monotonicTimeLimit;
+    m_timeLimit = timeLimit;
 
     // Update already in progress.
     if (m_timer->isActive())
@@ -127,18 +128,20 @@ void CCTextureUpdateController::finalize()
 
 void CCTextureUpdateController::onTimerFired()
 {
+    CCResourceProvider::debugNotifyEnterZone(0x8000000);
     if (!updateMoreTexturesIfEnoughTimeRemaining())
         m_client->readyToFinalizeTextureUpdates();
+    CCResourceProvider::debugNotifyLeaveZone();
 }
 
-double CCTextureUpdateController::monotonicTimeNow() const
+base::TimeTicks CCTextureUpdateController::now() const
 {
-    return monotonicallyIncreasingTime();
+    return base::TimeTicks::Now();
 }
 
-double CCTextureUpdateController::updateMoreTexturesTime() const
+base::TimeDelta CCTextureUpdateController::updateMoreTexturesTime() const
 {
-    return textureUpdateTickRate;
+    return base::TimeDelta::FromMilliseconds(textureUpdateTickRate * 1000);
 }
 
 size_t CCTextureUpdateController::updateMoreTexturesSize() const
@@ -146,12 +149,17 @@ size_t CCTextureUpdateController::updateMoreTexturesSize() const
     return m_textureUpdatesPerTick;
 }
 
+size_t CCTextureUpdateController::maxBlockingUpdates() const
+{
+    return updateMoreTexturesSize() * maxBlockingUpdateIntervals;
+}
+
 bool CCTextureUpdateController::updateMoreTexturesIfEnoughTimeRemaining()
 {
-    // Uploader might be busy when we're too aggressive in our upload time
-    // estimate. We use a different timeout here to prevent unnecessary
-    // amounts of idle time.
-    if (m_uploader->isBusy()) {
+    // Blocking uploads will increase when we're too aggressive in our upload
+    // time estimate. We use a different timeout here to prevent unnecessary
+    // amounts of idle time when blocking uploads have reached the max.
+    if (m_uploader->numBlockingUploads() >= maxBlockingUpdates()) {
         m_timer->startOneShot(uploaderBusyTickRate);
         return true;
     }
@@ -159,7 +167,8 @@ bool CCTextureUpdateController::updateMoreTexturesIfEnoughTimeRemaining()
     if (!m_queue->fullUploadSize())
         return false;
 
-    bool hasTimeRemaining = monotonicTimeNow() < m_monotonicTimeLimit - updateMoreTexturesTime();
+    bool hasTimeRemaining = m_timeLimit.is_null() ||
+        this->now() < m_timeLimit - updateMoreTexturesTime();
     if (hasTimeRemaining)
         updateMoreTexturesNow();
 
@@ -171,20 +180,19 @@ void CCTextureUpdateController::updateMoreTexturesNow()
     size_t uploads = std::min(
         m_queue->fullUploadSize(), updateMoreTexturesSize());
     m_timer->startOneShot(
-        updateMoreTexturesTime() / updateMoreTexturesSize() * uploads);
+        updateMoreTexturesTime().InSecondsF() / updateMoreTexturesSize() *
+        uploads);
 
     if (!uploads)
         return;
 
     size_t uploadCount = 0;
-    m_uploader->beginUploads();
     while (m_queue->fullUploadSize() && uploadCount < uploads) {
         if (!(uploadCount % textureUploadFlushPeriod) && uploadCount)
             m_resourceProvider->shallowFlushIfSupported();
         m_uploader->uploadTexture(m_resourceProvider, m_queue->takeFirstFullUpload());
         uploadCount++;
     }
-    m_uploader->endUploads();
     m_resourceProvider->shallowFlushIfSupported();
 }
 

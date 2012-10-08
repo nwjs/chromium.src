@@ -411,16 +411,15 @@ bool PrerenderManager::MaybeUsePrerenderedPage(WebContents* web_contents,
   if (!icon_url.is_empty()) {
     std::vector<FaviconURL> urls;
     urls.push_back(FaviconURL(icon_url, FaviconURL::FAVICON));
-    new_tab_contents->favicon_tab_helper()->OnUpdateFaviconURL(
-        prerender_contents->page_id(),
-        urls);
+    FaviconTabHelper::FromWebContents(new_tab_contents->web_contents())->
+        OnUpdateFaviconURL(prerender_contents->page_id(), urls);
   }
 
   // Update PPLT metrics:
   // If the tab has finished loading, record a PPLT of 0.
   // If the tab is still loading, reset its start time to the current time.
   PrerenderTabHelper* prerender_tab_helper =
-      new_tab_contents->prerender_tab_helper();
+      PrerenderTabHelper::FromWebContents(new_tab_contents->web_contents());
   DCHECK(prerender_tab_helper != NULL);
   prerender_tab_helper->PrerenderSwappedIn();
 
@@ -600,21 +599,11 @@ bool PrerenderManager::IsNoUseGroup() {
   return GetMode() == PRERENDER_MODE_EXPERIMENT_NO_USE_GROUP;
 }
 
-// static
 bool PrerenderManager::IsWebContentsPrerendering(
     WebContents* web_contents) const {
   DCHECK(CalledOnValidThread());
-  for (std::list<linked_ptr<PrerenderData> >::const_iterator it =
-           active_prerender_list_.begin();
-       it != active_prerender_list_.end();
-       ++it) {
-    TabContents* prerender_tab_contents =
-        it->get()->contents_->prerender_contents();
-    if (prerender_tab_contents &&
-        prerender_tab_contents->web_contents() == web_contents) {
-      return true;
-    }
-  }
+  if (GetPrerenderContents(web_contents))
+    return true;
 
   // Also look through the pending-deletion list.
   for (std::list<PrerenderContents*>::const_iterator it =
@@ -628,6 +617,23 @@ bool PrerenderManager::IsWebContentsPrerendering(
   }
 
   return false;
+}
+
+PrerenderContents* PrerenderManager::GetPrerenderContents(
+    content::WebContents* web_contents) const {
+  DCHECK(CalledOnValidThread());
+  for (std::list<linked_ptr<PrerenderData> >::const_iterator it =
+           active_prerender_list_.begin();
+       it != active_prerender_list_.end();
+       ++it) {
+    TabContents* prerender_tab_contents =
+        it->get()->contents_->prerender_contents();
+    if (prerender_tab_contents &&
+        prerender_tab_contents->web_contents() == web_contents) {
+      return it->get()->contents_;
+    }
+  }
+  return NULL;
 }
 
 void PrerenderManager::MarkWebContentsAsPrerendered(WebContents* web_contents) {

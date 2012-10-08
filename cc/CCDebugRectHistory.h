@@ -7,11 +7,12 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "base/basictypes.h"
 #include "FloatRect.h"
 #include "IntRect.h"
-#include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
+#include <vector>
 
 namespace cc {
 
@@ -52,7 +53,6 @@ struct CCDebugRect {
 // for debugging purposes. The overhead of collecting rects is performed only if
 // the appropriate CCLayerTreeSettings are enabled.
 class CCDebugRectHistory {
-    WTF_MAKE_NONCOPYABLE(CCDebugRectHistory);
 public:
     static PassOwnPtr<CCDebugRectHistory> create()
     {
@@ -62,7 +62,7 @@ public:
     ~CCDebugRectHistory();
 
     // Note: Saving debug rects must happen before layers' change tracking is reset.
-    void saveDebugRectsForCurrentFrame(CCLayerImpl* rootLayer, const Vector<CCLayerImpl*>& renderSurfaceLayerList, const Vector<IntRect>& occludingScreenSpaceRects, const CCLayerTreeSettings&);
+    void saveDebugRectsForCurrentFrame(CCLayerImpl* rootLayer, const std::vector<CCLayerImpl*>& renderSurfaceLayerList, const Vector<IntRect>& occludingScreenSpaceRects, const CCLayerTreeSettings&);
 
     const Vector<CCDebugRect>& debugRects() { return m_debugRects; }
 
@@ -70,12 +70,14 @@ private:
     CCDebugRectHistory();
 
     void savePaintRects(CCLayerImpl*);
-    void savePropertyChangedRects(const Vector<CCLayerImpl*>& renderSurfaceLayerList);
-    void saveSurfaceDamageRects(const Vector<CCLayerImpl* >& renderSurfaceLayerList);
-    void saveScreenSpaceRects(const Vector<CCLayerImpl* >& renderSurfaceLayerList);
+    void savePropertyChangedRects(const std::vector<CCLayerImpl*>& renderSurfaceLayerList);
+    void saveSurfaceDamageRects(const std::vector<CCLayerImpl* >& renderSurfaceLayerList);
+    void saveScreenSpaceRects(const std::vector<CCLayerImpl* >& renderSurfaceLayerList);
     void saveOccludingRects(const Vector<IntRect>& occludingScreenSpaceRects);
 
     Vector<CCDebugRect> m_debugRects;
+
+    DISALLOW_COPY_AND_ASSIGN(CCDebugRectHistory);
 };
 
 } // namespace cc

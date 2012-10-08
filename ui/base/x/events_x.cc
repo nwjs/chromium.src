@@ -603,7 +603,9 @@ gfx::Point CalibrateTouchCoordinates(
   const int kLeftBorder = 40;
   const int kRightBorder = 40;
   const int kBottomBorder = 30;
-  const int kTopBorder = -20;
+  // A negative border offset will scale the top portion over the top area
+  // and a positive number will cut off n pixels.
+  const int kTopBorder = 0;
   const int resolution_x = bounds.width();
   const int resolution_y = bounds.height();
   // The "grace area" (10% in this case) is to make it easier for the user to
@@ -818,6 +820,9 @@ base::TimeDelta EventTimeFromNative(const base::NativeEvent& native_event) {
 
 gfx::Point EventLocationFromNative(const base::NativeEvent& native_event) {
   switch (native_event->type) {
+    case EnterNotify:
+    case LeaveNotify:
+      return gfx::Point(native_event->xcrossing.x, native_event->xcrossing.y);
     case ButtonPress:
     case ButtonRelease:
       return gfx::Point(native_event->xbutton.x, native_event->xbutton.y);
@@ -863,6 +868,11 @@ gfx::Point EventLocationFromNative(const base::NativeEvent& native_event) {
 gfx::Point EventSystemLocationFromNative(
     const base::NativeEvent& native_event) {
   switch (native_event->type) {
+    case EnterNotify:
+    case LeaveNotify: {
+      return gfx::Point(native_event->xcrossing.x_root,
+                        native_event->xcrossing.y_root);
+    }
     case ButtonPress:
     case ButtonRelease: {
       return gfx::Point(native_event->xbutton.x_root,
@@ -897,7 +907,9 @@ KeyboardCode KeyboardCodeFromNative(const base::NativeEvent& native_event) {
 }
 
 bool IsMouseEvent(const base::NativeEvent& native_event) {
-  if (native_event->type == ButtonPress ||
+  if (native_event->type == EnterNotify ||
+      native_event->type == LeaveNotify ||
+      native_event->type == ButtonPress ||
       native_event->type == ButtonRelease ||
       native_event->type == MotionNotify)
     return true;

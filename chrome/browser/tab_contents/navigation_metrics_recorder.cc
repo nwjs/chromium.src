@@ -8,6 +8,8 @@
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
 
+DEFINE_WEB_CONTENTS_USER_DATA_KEY(NavigationMetricsRecorder)
+
 namespace {
 
 enum Scheme {

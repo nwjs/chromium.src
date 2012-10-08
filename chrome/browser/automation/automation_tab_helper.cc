@@ -14,6 +14,8 @@
 
 using content::WebContents;
 
+DEFINE_WEB_CONTENTS_USER_DATA_KEY(AutomationTabHelper)
+
 TabEventObserver::TabEventObserver() { }
 
 TabEventObserver::~TabEventObserver() {

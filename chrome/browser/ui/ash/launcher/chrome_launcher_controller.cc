@@ -404,6 +404,12 @@ ash::LauncherID ChromeLauncherController::GetLauncherIDForAppID(
   return 0;
 }
 
+std::string ChromeLauncherController::GetAppIDForLauncherID(
+    ash::LauncherID id) {
+  DCHECK(HasItemController(id));
+  return id_to_item_controller_map_[id]->app_id();
+}
+
 void ChromeLauncherController::SetAppImage(const std::string& id,
                                            const gfx::ImageSkia& image) {
   // TODO: need to get this working for shortcuts.
@@ -553,7 +559,7 @@ void ChromeLauncherController::UpdateAppState(TabContents* tab,
 
 void ChromeLauncherController::CreateNewTab() {
   Browser* last_browser = browser::FindTabbedBrowser(
-      GetProfileForNewWindows(), true);
+      GetProfileForNewWindows(), true, chrome::HOST_DESKTOP_TYPE_ASH);
 
   if (!last_browser) {
     CreateNewWindow();
@@ -747,6 +753,7 @@ Profile* ChromeLauncherController::GetProfileForNewWindows() {
 void ChromeLauncherController::LauncherItemClosed(ash::LauncherID id) {
   IDToItemControllerMap::iterator iter = id_to_item_controller_map_.find(id);
   DCHECK(iter != id_to_item_controller_map_.end());
+  app_icon_loader_->ClearImage(iter->second->app_id());
   iter->second->OnRemoved();
   id_to_item_controller_map_.erase(iter);
   model_->RemoveItemAt(model_->ItemIndexByID(id));

@@ -119,6 +119,24 @@ static const char kDispatchUpOrDownKeyPressEventScript[] =
     "  true;"
     "}";
 
+static const char kDispatchFocusEventScript[] =
+    "if (window.chrome &&"
+    "    window.chrome.searchBox &&"
+    "    window.chrome.searchBox.onfocus &&"
+    "    typeof window.chrome.searchBox.onfocus == 'function') {"
+    "  window.chrome.searchBox.onfocus();"
+    "  true;"
+    "}";
+
+static const char kDispatchBlurEventScript[] =
+    "if (window.chrome &&"
+    "    window.chrome.searchBox &&"
+    "    window.chrome.searchBox.onblur &&"
+    "    typeof window.chrome.searchBox.onblur == 'function') {"
+    "  window.chrome.searchBox.onblur();"
+    "  true;"
+    "}";
+
 // ----------------------------------------------------------------------------
 
 class SearchBoxExtensionWrapper : public v8::Extension {
@@ -165,6 +183,9 @@ class SearchBoxExtensionWrapper : public v8::Extension {
   static v8::Handle<v8::Value> GetAutocompleteResults(
       const v8::Arguments& args);
 
+  // Gets whether the search box is focused.
+  static v8::Handle<v8::Value> GetIsFocused(const v8::Arguments& args);
+
   // Navigates the window to a URL represented by either a URL string or a
   // restricted ID.
   static v8::Handle<v8::Value> NavigateContentWindow(const v8::Arguments& args);
@@ -190,7 +211,7 @@ class SearchBoxExtensionWrapper : public v8::Extension {
   static v8::Handle<v8::Value> SetPreviewHeight(const v8::Arguments& args);
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(SearchBoxExtensionWrapper);
+  DISALLOW_IMPLICIT_CONSTRUCTORS(SearchBoxExtensionWrapper);
 };
 
 SearchBoxExtensionWrapper::SearchBoxExtensionWrapper(
@@ -218,6 +239,8 @@ v8::Handle<v8::FunctionTemplate> SearchBoxExtensionWrapper::GetNativeFunction(
     return v8::FunctionTemplate::New(GetHeight);
   } else if (name->Equals(v8::String::New("GetAutocompleteResults"))) {
     return v8::FunctionTemplate::New(GetAutocompleteResults);
+  } else if (name->Equals(v8::String::New("GetIsFocused"))) {
+    return v8::FunctionTemplate::New(GetIsFocused);
   } else if (name->Equals(v8::String::New("NavigateContentWindow"))) {
     return v8::FunctionTemplate::New(NavigateContentWindow);
   } else if (name->Equals(v8::String::New("SetSuggestions"))) {
@@ -240,8 +263,6 @@ v8::Handle<v8::FunctionTemplate> SearchBoxExtensionWrapper::GetNativeFunction(
 // static
 content::RenderView* SearchBoxExtensionWrapper::GetRenderView() {
   WebKit::WebFrame* webframe = WebKit::WebFrame::frameForEnteredContext();
-  DCHECK(webframe) << "There should be an active frame since we just got "
-                      "a native function called.";
   if (!webframe) return NULL;
 
   WebKit::WebView* webview = webframe->view();
@@ -342,6 +363,14 @@ v8::Handle<v8::Value> SearchBoxExtensionWrapper::GetAutocompleteResults(
   }
 
   return results_array;
+}
+
+// static
+v8::Handle<v8::Value> SearchBoxExtensionWrapper::GetIsFocused(
+    const v8::Arguments& args) {
+  content::RenderView* render_view = GetRenderView();
+  if (!render_view) return v8::Undefined();
+  return v8::Boolean::New(SearchBox::Get(render_view)->is_focused());
 }
 
 // static
@@ -559,7 +588,6 @@ v8::Handle<v8::Value> SearchBoxExtensionWrapper::SetPreviewHeight(
 
 // static
 void Dispatch(WebKit::WebFrame* frame, const WebKit::WebString& script) {
-  DCHECK(frame) << "Dispatch requires frame";
   if (!frame) return;
   frame->executeScript(WebKit::WebScriptSource(script));
 }
@@ -598,8 +626,17 @@ void SearchBoxExtension::DispatchUpOrDownKeyPress(WebKit::WebFrame* frame,
 }
 
 // static
+void SearchBoxExtension::DispatchFocus(WebKit::WebFrame* frame) {
+  Dispatch(frame, kDispatchFocusEventScript);
+}
+
+// static
+void SearchBoxExtension::DispatchBlur(WebKit::WebFrame* frame) {
+  Dispatch(frame, kDispatchBlurEventScript);
+}
+
+// static
 bool SearchBoxExtension::PageSupportsInstant(WebKit::WebFrame* frame) {
-  DCHECK(frame) << "PageSupportsInstant requires frame";
   if (!frame) return false;
 
   v8::Handle<v8::Value> v = frame->executeScriptAndReturnValue(

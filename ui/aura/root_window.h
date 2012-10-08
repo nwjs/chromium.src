@@ -290,7 +290,7 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
 
   bool ProcessMouseEvent(Window* target, ui::MouseEvent* event);
   bool ProcessKeyEvent(Window* target, ui::KeyEvent* event);
-  ui::TouchStatus ProcessTouchEvent(Window* target, ui::TouchEvent* event);
+  ui::EventResult ProcessTouchEvent(Window* target, ui::TouchEvent* event);
   ui::EventResult ProcessGestureEvent(Window* target,
                                       ui::GestureEvent* event);
   bool ProcessGestures(ui::GestureRecognizer::Gestures* gestures);
@@ -310,8 +310,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
 
   // Overridden from ui::EventDispatcher.
   virtual bool CanDispatchToTarget(EventTarget* target) OVERRIDE;
-  virtual void ProcessPreTargetList(ui::EventHandlerList* list) OVERRIDE;
-  virtual void ProcessPostTargetList(ui::EventHandlerList* list) OVERRIDE;
 
   // Overridden from ui::GestureEventHelper.
   virtual bool DispatchLongPressGestureEvent(ui::GestureEvent* event) OVERRIDE;

@@ -12,6 +12,9 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
+using testing::_;
+using testing::ByRef;
+
 namespace chromeos {
 
 namespace {
@@ -81,16 +84,32 @@ TEST_F(ShillDeviceClientTest, PropertyChanged) {
 
   // Set expectations.
   const base::FundamentalValue value(kValue);
-  client_->SetPropertyChangedHandler(
+  MockPropertyChangeObserver observer;
+  EXPECT_CALL(observer,
+              OnPropertyChanged(
+                  flimflam::kCellularAllowRoamingProperty,
+                  ValueEq(ByRef(value)))).Times(1);
+
+  // Add the observer
+  client_->AddPropertyChangedObserver(
       dbus::ObjectPath(kExampleDevicePath),
-      base::Bind(&ExpectPropertyChanged,
-                 flimflam::kCellularAllowRoamingProperty,
-                 &value));
+      &observer);
+
   // Run the signal callback.
   SendPropertyChangedSignal(&signal);
 
-  // Reset the handler.
-  client_->ResetPropertyChangedHandler(dbus::ObjectPath(kExampleDevicePath));
+  // Remove the observer.
+  client_->RemovePropertyChangedObserver(
+      dbus::ObjectPath(kExampleDevicePath),
+      &observer);
+
+  EXPECT_CALL(observer,
+              OnPropertyChanged(
+                  flimflam::kCellularAllowRoamingProperty,
+                  ValueEq(ByRef(value)))).Times(0);
+
+  // Run the signal callback again and make sure the observer isn't called.
+  SendPropertyChangedSignal(&signal);
 }
 
 TEST_F(ShillDeviceClientTest, GetProperties) {
@@ -177,10 +196,16 @@ TEST_F(ShillDeviceClientTest, SetProperty) {
                                   &value),
                        response.get());
   // Call method.
+  MockClosure mock_closure;
+  MockErrorCallback mock_error_callback;
   client_->SetProperty(dbus::ObjectPath(kExampleDevicePath),
                        flimflam::kCellularAllowRoamingProperty,
                        value,
-                       base::Bind(&ExpectNoResultValue));
+                       mock_closure.GetCallback(),
+                       mock_error_callback.GetCallback());
+  EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Run the message loop.
   message_loop_.RunAllPending();
 }
@@ -253,6 +278,7 @@ TEST_F(ShillDeviceClientTest, RequirePin) {
                                   kRequired),
                        response.get());
   EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
   // Call method.
   client_->RequirePin(dbus::ObjectPath(kExampleDevicePath),
                       kPin,
@@ -276,6 +302,8 @@ TEST_F(ShillDeviceClientTest, EnterPin) {
                                   kPin),
                        response.get());
   EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Call method.
   client_->EnterPin(dbus::ObjectPath(kExampleDevicePath),
                     kPin,
@@ -298,6 +326,8 @@ TEST_F(ShillDeviceClientTest, UnblockPin) {
                        base::Bind(&ExpectTwoStringArguments, kPuk, kPin),
                        response.get());
   EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Call method.
   client_->UnblockPin(dbus::ObjectPath(kExampleDevicePath),
                       kPuk,
@@ -323,6 +353,8 @@ TEST_F(ShillDeviceClientTest, ChangePin) {
                                   kNewPin),
                        response.get());
   EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Call method.
   client_->ChangePin(dbus::ObjectPath(kExampleDevicePath),
                      kOldPin,
@@ -345,6 +377,8 @@ TEST_F(ShillDeviceClientTest, Register) {
                        base::Bind(&ExpectStringArgument, kNetworkId),
                        response.get());
   EXPECT_CALL(mock_closure, Run()).Times(1);
+  EXPECT_CALL(mock_error_callback, Run(_, _)).Times(0);
+
   // Call method.
   client_->Register(dbus::ObjectPath(kExampleDevicePath),
                     kNetworkId,

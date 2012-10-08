@@ -16,6 +16,7 @@
 #include "content/renderer/browser_plugin/browser_plugin_bindings.h"
 #include "content/renderer/render_view_impl.h"
 
+struct BrowserPluginHostMsg_ResizeGuest_Params;
 struct BrowserPluginMsg_UpdateRect_Params;
 
 namespace content {
@@ -53,9 +54,21 @@ class CONTENT_EXPORT BrowserPlugin :
   void GuestCrashed();
   // Informs the BrowserPlugin that the guest has navigated to a new URL.
   void DidNavigate(const GURL& url, int process_id);
+  // Inform the BrowserPlugin that the guest has started loading a new page.
+  void LoadStart(const GURL& url, bool is_top_level);
+  // Inform the BrowserPlugin that the guest has aborted loading a new page.
+  void LoadAbort(const GURL& url, bool is_top_level, const std::string& type);
+  // Inform the BrowserPlugin that the guest has redirected a navigation.
+  void LoadRedirect(const GURL& old_url,
+                    const GURL& new_url,
+                    bool is_top_level);
   // Tells the BrowserPlugin to advance the focus to the next (or previous)
   // element.
   void AdvanceFocus(bool reverse);
+
+  // Informs the BrowserPlugin that the guest has started/stopped accepting
+  // touch events.
+  void SetAcceptTouchEvents(bool accept);
 
   // Indicates whether there are any Javascript listeners attached to a
   // provided event_name.
@@ -66,6 +79,17 @@ class CONTENT_EXPORT BrowserPlugin :
   // Remove a custom event listener from this BrowserPlugin instance.
   bool RemoveEventListener(const std::string& event_name,
                         v8::Local<v8::Function> function);
+  // Tells the BrowserPlugin to tell the guest to navigate to the previous
+  // navigation entry in the navigation history.
+  void Back();
+  // Tells the BrowserPlugin to tell the guest to navigate to the next
+  // navigation entry in the navigation history.
+  void Forward();
+  // Tells the BrowserPlugin to tell the guest to navigate to a position
+  // relative to the current index in its navigation history.
+  void Go(int relativeIndex);
+  // Tells the BrowserPlugin to terminate the guest process.
+  void TerminateGuest();
 
   // A request from Javascript has been made to stop the loading of the page.
   void Stop();
@@ -137,9 +161,17 @@ class CONTENT_EXPORT BrowserPlugin :
   // and sets them appropriately.
   void ParseAttributes(const WebKit::WebPluginParams& params);
 
+  // Returns the pending resize guest param if there is one. Returns a param
+  // with invalid transport dib otherwise.
+  BrowserPluginHostMsg_ResizeGuest_Params* GetPendingResizeParams();
+
   // Cleanup event listener state to free v8 resources when a BrowserPlugin
   // is destroyed.
   void RemoveEventListeners();
+  // Creates and maps transport dib. Overridden in tests.
+  virtual TransportDIB* CreateTransportDIB(const size_t size);
+  // Frees up the damage buffer. Overridden in tests.
+  virtual void FreeDamageBuffer();
 
   int instance_id_;
   RenderViewImpl* render_view_;
@@ -152,9 +184,9 @@ class CONTENT_EXPORT BrowserPlugin :
   SkBitmap* sad_guest_;
   bool guest_crashed_;
   bool resize_pending_;
+  scoped_ptr<BrowserPluginHostMsg_ResizeGuest_Params> pending_resize_params_;
   // True if we have ever sent a NavigateGuest message to the embedder.
   bool navigate_src_sent_;
-  int64 parent_frame_;
   std::string src_;
   int process_id_;
   std::string storage_partition_id_;

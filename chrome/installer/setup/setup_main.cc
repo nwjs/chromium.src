@@ -21,6 +21,8 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/win/registry.h"
+#include "base/win/scoped_com_initializer.h"
+#include "base/win/scoped_comptr.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/win_util.h"
 #include "base/win/windows_version.h"
@@ -39,6 +41,7 @@
 #include "chrome/installer/util/delete_tree_work_item.h"
 #include "chrome/installer/util/google_update_constants.h"
 #include "chrome/installer/util/google_update_settings.h"
+#include "chrome/installer/util/google_update_util.h"
 #include "chrome/installer/util/helper.h"
 #include "chrome/installer/util/html_dialog.h"
 #include "chrome/installer/util/install_util.h"
@@ -67,7 +70,6 @@ using installer::MasterPreferences;
 const wchar_t kChromePipeName[] = L"\\\\.\\pipe\\ChromeCrashServices";
 const wchar_t kGoogleUpdatePipeName[] = L"\\\\.\\pipe\\GoogleCrashServices\\";
 const wchar_t kSystemPrincipalSid[] = L"S-1-5-18";
-const int kGoogleUpdateTimeoutMs = 20 * 1000;
 
 const MINIDUMP_TYPE kLargerDumpType = static_cast<MINIDUMP_TYPE>(
     MiniDumpWithProcessThreadData |  // Get PEB and TEB.
@@ -599,6 +601,18 @@ bool CheckPreInstallConditions(const InstallationState& original_state,
         return false;
       }
     }
+
+  } else {  // System-level install.
+    // --ensure-google-update-present is supported for user-level only.
+    // The flag is generic, but its primary use case involves App Host.
+    if (installer_state->ensure_google_update_present()) {
+      LOG(DFATAL) << "--" << installer::switches::kEnsureGoogleUpdatePresent
+                  << " is supported for user-level only.";
+      *status = installer::APP_HOST_REQUIRES_USER_LEVEL;
+      // No message string since there is nothing a user can do.
+      installer_state->WriteInstallerResult(*status, 0, NULL);
+      return false;
+    }
   }
 
   return true;
@@ -746,6 +760,21 @@ installer::InstallStatus InstallProductsHelper(
           proceed_with_installation &&
           CheckGroupPolicySettings(original_state, installer_state,
                                    *installer_version, &install_status);
+
+      if (proceed_with_installation) {
+        // If Google Update is absent at user-level, install it using the
+        // Google Update installer from an existing system-level installation.
+        // This is for quick-enable App Host install from a system-level
+        // Chrome Binaries installation.
+        if (!system_install && installer_state.ensure_google_update_present()) {
+          if (!google_update::EnsureUserLevelGoogleUpdatePresent()) {
+            LOG(ERROR) << "Failed to install Google Update";
+            proceed_with_installation = false;
+            install_status = installer::INSTALL_OF_GOOGLE_UPDATE_FAILED;
+            installer_state.WriteInstallerResult(install_status, 0, NULL);
+          }
+        }
+      }
 
       if (proceed_with_installation) {
         FilePath prefs_source_path(cmd_line.GetSwitchValueNative(
@@ -933,42 +962,6 @@ installer::InstallStatus UninstallProduct(
       remove_all, force_uninstall, cmd_line);
 }
 
-// Tell Google Update that an uninstall has taken place.  This gives it a chance
-// to uninstall itself straight away if no more products are installed on the
-// system rather than waiting for the next time the scheduled task runs.
-// Success or failure of Google Update has no bearing on the success or failure
-// of Chrome's uninstallation.
-void UninstallGoogleUpdate(bool system_install) {
-  string16 uninstall_cmd(
-      GoogleUpdateSettings::GetUninstallCommandLine(system_install));
-  if (!uninstall_cmd.empty()) {
-    base::win::ScopedHandle process;
-    LOG(INFO) << "Launching Google Update's uninstaller: " << uninstall_cmd;
-    if (base::LaunchProcess(uninstall_cmd, base::LaunchOptions(),
-                            process.Receive())) {
-      int exit_code = 0;
-      if (base::WaitForExitCodeWithTimeout(
-              process, &exit_code,
-              base::TimeDelta::FromMilliseconds(kGoogleUpdateTimeoutMs))) {
-        if (exit_code == 0) {
-          LOG(INFO) << "  normal exit.";
-        } else {
-          LOG(ERROR) << "Google Update uninstaller (" << uninstall_cmd
-                     << ") exited with code " << exit_code << ".";
-        }
-      } else {
-        // The process didn't finish in time, or GetExitCodeProcess failed.
-        LOG(ERROR) << "Google Update uninstaller (" << uninstall_cmd
-                   << ") is taking more than " << kGoogleUpdateTimeoutMs
-                   << " milliseconds to complete.";
-      }
-    } else {
-      PLOG(ERROR) << "Failed to launch Google Update uninstaller ("
-                  << uninstall_cmd << ")";
-    }
-  }
-}
-
 installer::InstallStatus UninstallProducts(
     const InstallationState& original_state,
     const InstallerState& installer_state,
@@ -1003,7 +996,10 @@ installer::InstallStatus UninstallProducts(
       install_status = prod_status;
   }
 
-  UninstallGoogleUpdate(installer_state.system_install());
+  // Tell Google Update that an uninstall has taken place.
+  // Ignore the return value: success or failure of Google Update
+  // has no bearing on the success or failure of Chrome's uninstallation.
+  google_update::UninstallGoogleUpdate(installer_state.system_install());
 
   return install_status;
 }
@@ -1029,6 +1025,42 @@ installer::InstallStatus ShowEULADialog(const string16& inner_frame) {
   }
   VLOG(1) << "EULA accepted (no opt-in)";
   return installer::EULA_ACCEPTED;
+}
+
+// Creates the sentinel indicating that the EULA was required and has been
+// accepted.
+bool CreateEULASentinel(BrowserDistribution* dist) {
+  FilePath eula_sentinel;
+  if (!InstallUtil::GetSentinelFilePath(installer::kEULASentinelFile,
+                                        dist, &eula_sentinel)) {
+    return false;
+  }
+
+  return (file_util::CreateDirectory(eula_sentinel.DirName()) &&
+          file_util::WriteFile(eula_sentinel, "", 0) != -1);
+}
+
+void ActivateMetroChrome() {
+  // Check to see if we're per-user or not. Need to do this since we may
+  // not have been invoked with --system-level even for a machine install.
+  wchar_t exe_path[MAX_PATH * 2] = {};
+  GetModuleFileName(NULL, exe_path, arraysize(exe_path));
+  bool is_per_user_install = InstallUtil::IsPerUserInstall(exe_path);
+
+  string16 app_model_id =
+      ShellUtil::GetBrowserModelId(BrowserDistribution::GetDistribution(),
+                                   is_per_user_install);
+
+  base::win::ScopedComPtr<IApplicationActivationManager> activator;
+  HRESULT hr = activator.CreateInstance(CLSID_ApplicationActivationManager);
+  if (SUCCEEDED(hr)) {
+    DWORD pid = 0;
+    hr = activator->ActivateApplication(
+        app_model_id.c_str(), L"open", AO_NONE, &pid);
+  }
+
+  LOG_IF(ERROR, FAILED(hr)) << "Tried and failed to launch Metro Chrome. "
+                            << "hr=" << std::hex << hr;
 }
 
 // This method processes any command line options that make setup.exe do
@@ -1090,20 +1122,24 @@ bool HandleNonInstallCmdLineOptions(const InstallationState& original_state,
     string16 inner_frame =
         cmd_line.GetSwitchValueNative(installer::switches::kShowEula);
     *exit_code = ShowEULADialog(inner_frame);
+
     if (installer::EULA_REJECTED != *exit_code) {
-      GoogleUpdateSettings::SetEULAConsent(
-          original_state, BrowserDistribution::GetDistribution(), true);
+      if (GoogleUpdateSettings::SetEULAConsent(
+              original_state, BrowserDistribution::GetDistribution(), true)) {
+        CreateEULASentinel(BrowserDistribution::GetDistribution());
+      }
+      // For a metro-originated launch, we now need to launch back into metro.
+      if (cmd_line.HasSwitch(installer::switches::kShowEulaForMetro))
+        ActivateMetroChrome();
     }
-  } else if (cmd_line.HasSwitch(
-      installer::switches::kConfigureUserSettings)) {
+  } else if (cmd_line.HasSwitch(installer::switches::kConfigureUserSettings)) {
     DCHECK(installer_state->system_install());
     const Product* chrome_install =
         installer_state->FindProduct(BrowserDistribution::CHROME_BROWSER);
     DCHECK(chrome_install);
     // TODO(gab): Implement the new shortcut functionality here.
     LOG(ERROR) << "--configure-user-settings is not implemented.";
-  } else if (cmd_line.HasSwitch(
-      installer::switches::kRegisterChromeBrowser)) {
+  } else if (cmd_line.HasSwitch(installer::switches::kRegisterChromeBrowser)) {
     installer::InstallStatus status = installer::UNKNOWN_STATUS;
     const Product* chrome_install =
         installer_state->FindProduct(BrowserDistribution::CHROME_BROWSER);
@@ -1132,8 +1168,7 @@ bool HandleNonInstallCmdLineOptions(const InstallationState& original_state,
         suffix = cmd_line.GetSwitchValueNative(
             installer::switches::kRegisterChromeBrowserSuffix);
       }
-      if (cmd_line.HasSwitch(
-          installer::switches::kRegisterURLProtocol)) {
+      if (cmd_line.HasSwitch(installer::switches::kRegisterURLProtocol)) {
         string16 protocol = cmd_line.GetSwitchValueNative(
             installer::switches::kRegisterURLProtocol);
         // ShellUtil::RegisterChromeForProtocol performs all registration
@@ -1285,26 +1320,6 @@ bool ShowRebootDialog() {
   return true;
 }
 
-// Class to manage COM initialization and uninitialization
-class AutoCom {
- public:
-  AutoCom() : initialized_(false) { }
-  ~AutoCom() {
-    if (initialized_) CoUninitialize();
-  }
-  bool Init(bool system_install) {
-    if (CoInitializeEx(NULL, COINIT_APARTMENTTHREADED) != S_OK) {
-      LOG(ERROR) << "COM initialization failed.";
-      return false;
-    }
-    initialized_ = true;
-    return true;
-  }
-
- private:
-  bool initialized_;
-};
-
 // Returns the Custom information for the client identified by the exe path
 // passed in. This information is used for crash reporting.
 google_breakpad::CustomClientInfo* GetCustomInfo(const wchar_t* exe_path) {
@@ -1412,8 +1427,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance,
   }
 
   // Initialize COM for use later.
-  AutoCom auto_com;
-  if (!auto_com.Init(system_install)) {
+  base::win::ScopedCOMInitializer com_initializer;
+  if (!com_initializer.succeeded()) {
     installer_state.WriteInstallerResult(
         installer::OS_ERROR, IDS_INSTALL_OS_ERROR_BASE, NULL);
     return installer::OS_ERROR;

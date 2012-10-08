@@ -35,6 +35,9 @@
 - (void)showSheet:(NSWindow*)sheet
     forParentView:(NSView*)parentView;
 
+// Resize the given sheet.
+- (void)setSheet:(NSWindow*)sheet windowSize:(NSSize)size;
+
 // Closes the given sheet. If the parent view of the sheet is currently active
 // then an asynchronous animation will be run and the sheet will be closed
 // at the end of the animation.
@@ -43,6 +46,10 @@
 // Make |parentView| the current active view. If |parentView| has an attached
 // sheet then the sheet is made visible.
 - (void)parentViewDidBecomeActive:(NSView*)parentView;
+
+// Run a pulse animation for the given sheet. This does nothing if the sheet
+// is not visible.
+- (void)pulseSheet:(NSWindow*)sheet;
 
 // Gets the number of sheets attached to the controller's window.
 - (int)sheetCount;

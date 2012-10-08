@@ -17,25 +17,25 @@ cr.define('ntp', function() {
   var BOTTOM_PANEL_MIN_PADDING_BOTTOM = 16;
 
   /**
-   * Bottom Panel's minimum padding top.
-   * @type {number}
-   * @const
-   */
-  var BOTTOM_PANEL_MIN_PADDING_TOP = 32;
-
-  /**
    * The height required to show 2 rows of Tiles in the Bottom Panel.
    * @type {number}
    * @const
    */
-  var HEIGHT_FOR_TWO_ROWS = 262;
+  var HEIGHT_FOR_TWO_ROWS = 800;
+
+  /**
+   * The height required to show 1 row of Tiles with extra bottom padding.
+   * @type {number}
+   * @const
+   */
+  var HEIGHT_FOR_ONE_TALL_ROW = 700;
 
   /**
    * The height required to show the Bottom Panel.
    * @type {number}
    * @const
    */
-  var HEIGHT_FOR_BOTTOM_PANEL = 157;
+  var HEIGHT_FOR_BOTTOM_PANEL = 520;
 
   /**
    * The Bottom Panel width required to show 5 cols of Tiles, which is used
@@ -72,6 +72,20 @@ cr.define('ntp', function() {
    * @const
    */
   var MIN_BOTTOM_PANEL_CONTENT_WIDTH = 200;
+
+  /**
+   * The height of the TabBar.
+   * @type {number}
+   * @const
+   */
+  var TAB_BAR_HEIGHT = 34;
+
+  /**
+   * The height of the NTP's Upper Section.
+   * @type {number}
+   * @const
+   */
+  var UPPER_SECTION_HEIGHT = 289;
 
   //----------------------------------------------------------------------------
   // Tile
@@ -111,13 +125,40 @@ cr.define('ntp', function() {
   };
 
   Tile.prototype = {
+    // Tile data object.
+    data_: null,
+
     /**
      * Initializes a Tile.
      * @param {Object} config TilePage configuration object.
      */
     initialize: function(config) {
-      this.className = 'tile';
+      this.classList.add('tile');
+      this.reset();
     },
+
+    /**
+     * Resets the tile DOM.
+     */
+    reset: function() {
+      console.error('Tile.reset() is a virtual method and is not supposed to ' +
+          'be called');
+    },
+
+    /**
+     * Update the appearance of this tile according to |data|.
+     * @param {Object} data A dictionary of relevant data for the page.
+     */
+    setData: function(data) {
+      // TODO(pedrosimonetti): Remove data.filler usage everywhere.
+      if (!data || data.filler) {
+        if (this.data_)
+          this.reset();
+        return;
+      }
+
+      this.data_ = data;
+    }
   };
 
   var TileGetters = {
@@ -137,6 +178,14 @@ cr.define('ntp', function() {
       assert(this.tileCell);
       return this.tileCell.index;
     },
+
+    /**
+     * Tile data object.
+     * @type {Object}
+     */
+    'data': function() {
+      return this.data_;
+    }
   };
 
   //----------------------------------------------------------------------------
@@ -239,6 +288,13 @@ cr.define('ntp', function() {
 
   TilePage.prototype = {
     __proto__: HTMLDivElement.prototype,
+
+    /**
+     * Reference to the Tile subclass that will be used to create the tiles.
+     * @constructor
+     * @extends {Tile}
+     */
+    TileClass: Tile,
 
     // The config object should be defined by each TilePage subclass.
     config_: {
@@ -436,6 +492,8 @@ cr.define('ntp', function() {
     animatingColCount_: 0,
     // The index of the topmost row visible.
     pageOffset_: 0,
+    // Data object representing the tiles.
+    dataList_: null,
 
     /**
      * Appends a tile to the end of the tile grid.
@@ -459,6 +517,70 @@ cr.define('ntp', function() {
     addTileAt: function(tile, index) {
       this.tiles_.splice(index, 0, tile);
       this.fireAddedEvent(tile, index);
+    },
+
+    /**
+     * Create blank tiles.
+     * @private
+     * @param {number} count The number of Tiles to be created.
+     */
+    createTiles_: function(count) {
+      var Class = this.TileClass;
+      var config = this.config_;
+      count = Math.min(count, config.maxTileCount);
+      for (var i = 0; i < count; i++) {
+        this.appendTile(new Class(config));
+      }
+    },
+
+    /**
+     * Update the tiles after a change to |dataList_|.
+     */
+    updateTiles_: function() {
+      var maxTileCount = this.config_.maxTileCount;
+      var dataList = this.dataList_;
+      var tiles = this.tiles;
+      for (var i = 0; i < maxTileCount; i++) {
+        var data = dataList[i];
+        var tile = tiles[i];
+
+        // TODO(pedrosimonetti): What do we do when there's no tile here?
+        if (!tile)
+          return;
+
+        if (i >= dataList.length)
+          tile.reset();
+        else
+          tile.setData(data);
+      }
+    },
+
+    /**
+     * Sets the dataList that will be used to create Tiles. This method will
+     * create/remove necessary/unnecessary tiles, render the grid when the
+     * number of tiles has changed, and finally will call |updateTiles_| which
+     * will in turn render the individual tiles.
+     * @param {Array} dataList The array of data.
+     */
+    setDataList: function(dataList) {
+      var maxTileCount = this.config_.maxTileCount;
+      this.dataList_ = dataList.slice(0, maxTileCount);
+
+      var dataListLength = this.dataList_.length;
+      var tileCount = this.tileCount;
+      // Create or remove tiles if necessary.
+      if (tileCount < dataListLength) {
+        this.createTiles_(dataListLength - tileCount);
+      } else if (tileCount > dataListLength) {
+        // TODO(jeremycho): Consider rewriting removeTile to be compatible with
+        // pages other than Apps and calling it here.
+        for (var i = 0; i < tileCount - dataListLength; i++)
+          this.tiles_.pop();
+      }
+
+      if (dataListLength != tileCount)
+        this.renderGrid_();
+      this.updateTiles_();
     },
 
     // internal helpers
@@ -651,18 +773,17 @@ cr.define('ntp', function() {
 
       // Height logic
 
-      var windowHeight = cr.doc.documentElement.clientHeight;
+      var windowHeight = cr.doc.documentElement.clientHeight +
+          UPPER_SECTION_HEIGHT + TAB_BAR_HEIGHT;
 
-      this.showBottomPanel_(windowHeight >= (BOTTOM_PANEL_MIN_PADDING_TOP +
-          HEIGHT_FOR_BOTTOM_PANEL + BOTTOM_PANEL_MIN_PADDING_BOTTOM));
+      this.showBottomPanel_(windowHeight >= HEIGHT_FOR_BOTTOM_PANEL);
 
       // If the number of visible rows has changed, then we need to resize the
       // grid and animate the affected rows. We also need to keep track of
       // whether the number of visible rows has changed because we might have
       // to render the grid when the number of columns hasn't changed.
       var numberOfRowsHasChanged = false;
-      var numOfVisibleRows = windowHeight > (BOTTOM_PANEL_MIN_PADDING_TOP +
-          HEIGHT_FOR_TWO_ROWS + BOTTOM_PANEL_MIN_PADDING_BOTTOM) ? 2 : 1;
+      var numOfVisibleRows = windowHeight >= HEIGHT_FOR_TWO_ROWS ? 2 : 1;
 
       if (numOfVisibleRows != this.numOfVisibleRows_) {
         this.numOfVisibleRows_ = numOfVisibleRows;
@@ -680,21 +801,17 @@ cr.define('ntp', function() {
 
       // Calculate the size of the bottom padding.
       var paddingBottom;
-      if (numOfVisibleRows == 1) {
+      if (windowHeight < HEIGHT_FOR_ONE_TALL_ROW) {
         paddingBottom = BOTTOM_PANEL_MIN_PADDING_BOTTOM;
-      } else if (numOfVisibleRows == 2) {
-        var paddingTop = Math.round((windowHeight - HEIGHT_FOR_TWO_ROWS) / 2);
-        paddingTop = Math.max(paddingTop, BOTTOM_PANEL_MIN_PADDING_TOP);
-        paddingBottom = windowHeight - paddingTop - HEIGHT_FOR_TWO_ROWS;
+      } else if (windowHeight < HEIGHT_FOR_TWO_ROWS) {
+        paddingBottom = BOTTOM_PANEL_MIN_PADDING_BOTTOM +
+            Math.round((windowHeight - HEIGHT_FOR_ONE_TALL_ROW) / 2);
+      } else if (windowHeight >= HEIGHT_FOR_TWO_ROWS) {
+        paddingBottom = BOTTOM_PANEL_MIN_PADDING_BOTTOM +
+            Math.round((windowHeight - HEIGHT_FOR_TWO_ROWS) / 2);
       }
 
-      // We don't have to set the padding when the number of rows hasn't
-      // changed and the number of visible rows is equal to 1 because the
-      // padding will always be the same.
-      if (numberOfRowsHasChanged || numOfVisibleRows == 2) {
-        var cardSliderFrame = $('card-slider-frame');
-        cardSliderFrame.style.bottom = paddingBottom + 'px';
-      }
+      $('card-slider-frame').style.bottom = paddingBottom + 'px';
 
       // Width logic
 
@@ -906,7 +1023,7 @@ cr.define('ntp', function() {
   };
 
   return {
-    Tile2: Tile,
-    TilePage2: TilePage,
+    Tile: Tile,
+    TilePage: TilePage,
   };
 });

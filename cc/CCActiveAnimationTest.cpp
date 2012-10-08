@@ -7,9 +7,8 @@
 #include "CCActiveAnimation.h"
 
 #include "CCAnimationTestCommon.h"
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-#include <wtf/Vector.h>
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 
 using namespace WebKitTests;
 using namespace cc;

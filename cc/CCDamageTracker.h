@@ -5,9 +5,10 @@
 #ifndef CCDamageTracker_h
 #define CCDamageTracker_h
 
+#include "base/memory/scoped_ptr.h"
 #include "FloatRect.h"
+#include <vector>
 #include <wtf/HashMap.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebKit {
@@ -23,19 +24,19 @@ class CCRenderSurface;
 // to scissor what is actually drawn to the screen to save GPU computation and bandwidth.
 class CCDamageTracker {
 public:
-    static PassOwnPtr<CCDamageTracker> create();
+    static scoped_ptr<CCDamageTracker> create();
     ~CCDamageTracker();
 
     void didDrawDamagedArea() { m_currentDamageRect = FloatRect(); }
     void forceFullDamageNextUpdate() { m_forceFullDamageNextUpdate = true; }
-    void updateDamageTrackingState(const Vector<CCLayerImpl*>& layerList, int targetSurfaceLayerID, bool targetSurfacePropertyChangedOnlyFromDescendant, const IntRect& targetSurfaceContentRect, CCLayerImpl* targetSurfaceMaskLayer, const WebKit::WebFilterOperations&);
+    void updateDamageTrackingState(const std::vector<CCLayerImpl*>& layerList, int targetSurfaceLayerID, bool targetSurfacePropertyChangedOnlyFromDescendant, const IntRect& targetSurfaceContentRect, CCLayerImpl* targetSurfaceMaskLayer, const WebKit::WebFilterOperations&);
 
     const FloatRect& currentDamageRect() { return m_currentDamageRect; }
 
 private:
     CCDamageTracker();
 
-    FloatRect trackDamageFromActiveLayers(const Vector<CCLayerImpl*>& layerList, int targetSurfaceLayerID);
+    FloatRect trackDamageFromActiveLayers(const std::vector<CCLayerImpl*>& layerList, int targetSurfaceLayerID);
     FloatRect trackDamageFromSurfaceMask(CCLayerImpl* targetSurfaceMaskLayer);
     FloatRect trackDamageFromLeftoverRects();
 
@@ -50,8 +51,8 @@ private:
     // The "current" map is used to compute exposed regions of the current frame, while
     // the "next" map is used to collect layer rects that are used in the next frame.
     typedef HashMap<int, FloatRect> RectMap;
-    OwnPtr<RectMap> m_currentRectHistory;
-    OwnPtr<RectMap> m_nextRectHistory;
+    scoped_ptr<RectMap> m_currentRectHistory;
+    scoped_ptr<RectMap> m_nextRectHistory;
 
     FloatRect m_currentDamageRect;
     bool m_forceFullDamageNextUpdate;

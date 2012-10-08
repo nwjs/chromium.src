@@ -40,8 +40,10 @@ class AURA_EXPORT CompoundEventFilter : public EventFilter {
   // Returns the cursor for the specified component.
   static gfx::NativeCursor CursorForWindowComponent(int window_component);
 
-  void set_update_cursor_visibility(bool update) {
-    update_cursor_visibility_ = update;
+  // Used to allow a mouse event to show the cursor even when
+  // the cursor is hidden by |CursorClient::ShowCursor(false)|.
+  void set_cursor_hidden_by_filter(bool cursor_hidden_by_filter) {
+    cursor_hidden_by_filter_ = cursor_hidden_by_filter;
   }
 
   // Adds/removes additional event filters. This does not take ownership of
@@ -59,30 +61,29 @@ class AURA_EXPORT CompoundEventFilter : public EventFilter {
   // Dispatches event to additional filters.
   ui::EventResult FilterKeyEvent(ui::KeyEvent* event);
   ui::EventResult FilterMouseEvent(ui::MouseEvent* event);
-  ui::TouchStatus FilterTouchEvent(Window* target, ui::TouchEvent* event);
+  ui::EventResult FilterTouchEvent(ui::TouchEvent* event);
 
   // Sets the visibility of the cursor if the event is not synthesized and
-  // |update_cursor_visibility_| is true.
+  // 1) it's hiding (show=false) when the cursor is currently shown, or
+  // 2) it's showing (show=true) if the cursor is previously hidden
+  //    by this event filter (see |cursor_hidden_by_filter_|),
+  // so that it doesn't change the cursor visibility if the cursor was
+  // intentionally hidden by other components.
   void SetCursorVisibilityOnEvent(aura::Window* target,
                                   ui::Event* event,
                                   bool show);
-
-  // Overridden from EventFilter:
-  virtual ui::TouchStatus PreHandleTouchEvent(Window* target,
-                                              ui::TouchEvent* event) OVERRIDE;
 
   // Overridden from ui::EventHandler:
   virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
   virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
   virtual ui::EventResult OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
-  virtual ui::TouchStatus OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
+  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
   virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
   // Additional event filters that pre-handles events.
   ObserverList<EventFilter, true> filters_;
 
-  // Should we show the mouse cursor when we see mouse movement and hide it when
-  // we see a touch event?
-  bool update_cursor_visibility_;
+  // True if the cursur was hidden by the filter.
+  bool cursor_hidden_by_filter_;
 
   DISALLOW_COPY_AND_ASSIGN(CompoundEventFilter);
 };

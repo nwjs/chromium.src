@@ -112,16 +112,6 @@ const wchar_t* const kTroublesomeDlls[] = {
 };
 
 // The DLLs listed here are known (or under strong suspicion) of causing crashes
-// when they are loaded in the plugin process.
-const wchar_t* const kTroublesomePluginDlls[] = {
-  L"rpmainbrowserrecordplugin.dll",      // RealPlayer.
-  L"rpchromebrowserrecordhelper.dll",    // RealPlayer.
-  L"rpchrome10browserrecordhelper.dll",  // RealPlayer.
-  L"ycwebcamerasource.ax"                // Cyberlink Camera helper.
-  L"CLRGL.ax"                            // Cyberlink Camera helper.
-};
-
-// The DLLs listed here are known (or under strong suspicion) of causing crashes
 // when they are loaded in the GPU process.
 const wchar_t* const kTroublesomeGpuDlls[] = {
   L"cmsetac.dll",                 // Unknown (suspected malware).
@@ -242,13 +232,6 @@ void AddGenericDllEvictionPolicy(sandbox::TargetPolicy* policy) {
     BlacklistAddOneDll(kTroublesomeDlls[ix], true, policy);
 }
 
-// Same as AddGenericDllEvictionPolicy but specifically for plugins. In this
-// case we add the blacklisted dlls even if they are not loaded in this process.
-void AddPluginDllEvictionPolicy(sandbox::TargetPolicy* policy) {
-  for (int ix = 0; ix != arraysize(kTroublesomePluginDlls); ++ix)
-    BlacklistAddOneDll(kTroublesomePluginDlls[ix], false, policy);
-}
-
 // Same as AddGenericDllEvictionPolicy but specifically for the GPU process.
 // In this we add the blacklisted dlls even if they are not loaded in this
 // process.
@@ -275,6 +258,47 @@ string16 PrependWindowsSessionPath(const char16* object) {
   }
 
   return base::StringPrintf(L"\\Sessions\\%d%ls", s_session_id, object);
+}
+
+// Checks if the sandbox should be let to run without a job object assigned.
+bool ShouldSetJobLevel(const CommandLine& cmd_line) {
+  if (!cmd_line.HasSwitch(switches::kAllowNoSandboxJob))
+    return true;
+
+  // Windows 8 allows nested jobs so we don't need to check if we are in other
+  // job.
+  if (base::win::GetVersion() >= base::win::VERSION_WIN8)
+    return true;
+
+  BOOL in_job = true;
+  // Either there is no job yet associated so we must add our job,
+  if (!::IsProcessInJob(::GetCurrentProcess(), NULL, &in_job))
+    NOTREACHED() << "IsProcessInJob failed. " << GetLastError();
+  if (!in_job)
+    return true;
+
+  // ...or there is a job but the JOB_OBJECT_LIMIT_BREAKAWAY_OK limit is set.
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
+  if (!::QueryInformationJobObject(NULL,
+                                   JobObjectExtendedLimitInformation, &job_info,
+                                   sizeof(job_info), NULL)) {
+    NOTREACHED() << "QueryInformationJobObject failed. " << GetLastError();
+    return true;
+  }
+  if (job_info.BasicLimitInformation.LimitFlags & JOB_OBJECT_LIMIT_BREAKAWAY_OK)
+    return true;
+
+  return false;
+}
+
+void SetJobLevel(const CommandLine& cmd_line,
+                 sandbox::JobLevel job_level,
+                 uint32 ui_exceptions,
+                 sandbox::TargetPolicy* policy) {
+  if (ShouldSetJobLevel(cmd_line))
+    policy->SetJobLevel(job_level, ui_exceptions);
+  else
+    policy->SetJobLevel(sandbox::JOB_NONE, 0);
 }
 
 // Closes handles that are opened at process creation and initialization.
@@ -353,7 +377,7 @@ bool AddPolicyForGPU(CommandLine* cmd_line, sandbox::TargetPolicy* policy) {
       // Open GL path.
       policy->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
                             sandbox::USER_LIMITED);
-      policy->SetJobLevel(sandbox::JOB_UNPROTECTED, 0);
+      SetJobLevel(*cmd_line, sandbox::JOB_UNPROTECTED, 0, policy);
       policy->SetDelayedIntegrityLevel(sandbox::INTEGRITY_LEVEL_LOW);
     } else {
       if (cmd_line->GetSwitchValueASCII(switches::kUseGL) ==
@@ -379,16 +403,18 @@ bool AddPolicyForGPU(CommandLine* cmd_line, sandbox::TargetPolicy* policy) {
       // turn blocks on the browser UI thread. So, instead we forgo a window
       // message pump entirely and just add job restrictions to prevent child
       // processes.
-      policy->SetJobLevel(sandbox::JOB_LIMITED_USER,
-                          JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS |
-                          JOB_OBJECT_UILIMIT_DESKTOP |
-                          JOB_OBJECT_UILIMIT_EXITWINDOWS |
-                          JOB_OBJECT_UILIMIT_DISPLAYSETTINGS);
+      SetJobLevel(*cmd_line,
+                  sandbox::JOB_LIMITED_USER,
+                  JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS |
+                  JOB_OBJECT_UILIMIT_DESKTOP |
+                  JOB_OBJECT_UILIMIT_EXITWINDOWS |
+                  JOB_OBJECT_UILIMIT_DISPLAYSETTINGS,
+                  policy);
 
       policy->SetIntegrityLevel(sandbox::INTEGRITY_LEVEL_LOW);
     }
   } else {
-    policy->SetJobLevel(sandbox::JOB_UNPROTECTED, 0);
+    SetJobLevel(*cmd_line, sandbox::JOB_UNPROTECTED, 0, policy);
     policy->SetTokenLevel(sandbox::USER_UNPROTECTED,
                           sandbox::USER_LIMITED);
   }
@@ -448,8 +474,6 @@ bool AddPolicyForRenderer(sandbox::TargetPolicy* policy) {
                            L"File");
   if (result != sandbox::SBOX_ALL_OK)
     return false;
-
-  policy->SetJobLevel(sandbox::JOB_LOCKDOWN, 0);
 
   sandbox::TokenLevel initial_token = sandbox::USER_UNPROTECTED;
   if (base::win::GetVersion() > base::win::VERSION_XP) {
@@ -699,6 +723,12 @@ base::ProcessHandle StartProcessWithAccess(CommandLine* cmd_line,
     }
   }
 
+  // Propagate the --allow-no-job flag if present.
+  if (browser_command_line.HasSwitch(switches::kAllowNoSandboxJob) &&
+      !cmd_line->HasSwitch(switches::kAllowNoSandboxJob)) {
+    cmd_line->AppendSwitch(switches::kAllowNoSandboxJob);
+  }
+
   bool child_needs_help =
       DebugFlags::ProcessDebugFlags(cmd_line, type, in_sandbox);
 
@@ -707,25 +737,15 @@ base::ProcessHandle StartProcessWithAccess(CommandLine* cmd_line,
   // to create separate pretetch settings for browser, renderer etc.
   cmd_line->AppendArg(base::StringPrintf("/prefetch:%d", type));
 
-  sandbox::ResultCode result;
-  base::win::ScopedProcessInformation target;
-  sandbox::TargetPolicy* policy = g_broker_services->CreatePolicy();
-
-#if !defined(NACL_WIN64)  // We don't need this code on win nacl64.
-  if (type == content::PROCESS_TYPE_PLUGIN &&
-      !browser_command_line.HasSwitch(switches::kNoSandbox) &&
-      content::GetContentClient()->SandboxPlugin(cmd_line, policy)) {
-    in_sandbox = true;
-  }
-#endif
-
   if (!in_sandbox) {
-    policy->Release();
     base::ProcessHandle process = 0;
     base::LaunchProcess(*cmd_line, base::LaunchOptions(), &process);
     g_broker_services->AddTargetPeer(process);
     return process;
   }
+
+  base::win::ScopedProcessInformation target;
+  sandbox::TargetPolicy* policy = g_broker_services->CreatePolicy();
 
   // TODO(jschuh): Make NaCl work with DEP and SEHOP. crbug.com/147752
   sandbox::MitigationFlags mitigations = MITIGATION_HEAP_TERMINATE |
@@ -745,7 +765,6 @@ base::ProcessHandle StartProcessWithAccess(CommandLine* cmd_line,
     return 0;
 
   mitigations = MITIGATION_STRICT_HANDLE_CHECKS |
-                MITIGATION_EXTENSION_DLL_DISABLE |
                 MITIGATION_DLL_SEARCH_ORDER;
 #if defined(NACL_WIN64)
   mitigations |= MITIGATION_DEP |
@@ -755,10 +774,9 @@ base::ProcessHandle StartProcessWithAccess(CommandLine* cmd_line,
   if (policy->SetDelayedProcessMitigations(mitigations) != sandbox::SBOX_ALL_OK)
     return 0;
 
-  if (type == content::PROCESS_TYPE_PLUGIN) {
-    AddGenericDllEvictionPolicy(policy);
-    AddPluginDllEvictionPolicy(policy);
-  } else if (type == content::PROCESS_TYPE_GPU) {
+  SetJobLevel(*cmd_line, JOB_LOCKDOWN, 0, policy);
+
+  if (type == content::PROCESS_TYPE_GPU) {
     if (!AddPolicyForGPU(cmd_line, policy))
       return 0;
   } else {
@@ -787,6 +805,7 @@ base::ProcessHandle StartProcessWithAccess(CommandLine* cmd_line,
     }
   }
 
+  sandbox::ResultCode result;
   if (!exposed_dir.empty()) {
     result = policy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                              sandbox::TargetPolicy::FILES_ALLOW_ANY,

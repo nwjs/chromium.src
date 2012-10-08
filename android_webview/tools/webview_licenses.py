@@ -53,7 +53,8 @@ def GetIncompatibleDirectories():
   regex = '^(%s)$' % '|'.join(whitelist)
   result = []
   for directory in _FindThirdPartyDirs():
-    metadata = licenses.ParseDir(directory, require_license_file=False)
+    metadata = licenses.ParseDir(directory, REPOSITORY_ROOT,
+                                 require_license_file=False)
     if metadata.get('License Android Compatible', 'no') == 'yes':
       continue
     license = re.split(' [Ll]icenses?$', metadata['License'])[0]
@@ -88,6 +89,8 @@ def _CheckLicenseHeaders(directory_list, whitelisted_files):
 
   args = ['grep',
           '-rPlI',
+          '--exclude', '*.orig',
+          '--exclude', '*.rej',
           '--exclude-dir', 'third_party',
           '--exclude-dir', 'out',
           '--exclude-dir', '.git',
@@ -175,8 +178,10 @@ def _FindThirdPartyDirs():
     os.path.join('third_party', 'gles2_conform'),
     # The llvm-build doesn't exist for non-clang builder
     os.path.join('third_party', 'llvm-build'),
+    # Binaries doesn't apply to android
+    os.path.join('third_party', 'widevine'),
   ]
-  return licenses.FindThirdPartyDirs(prune_paths)
+  return licenses.FindThirdPartyDirs(prune_paths, REPOSITORY_ROOT)
 
 
 def _Scan():
@@ -191,7 +196,7 @@ def _Scan():
   all_licenses_valid = True
   for path in sorted(third_party_dirs):
     try:
-      licenses.ParseDir(path)
+      licenses.ParseDir(path, REPOSITORY_ROOT)
     except licenses.LicenseError, e:
       print 'Got LicenseError "%s" while scanning %s' % (e, path)
       all_licenses_valid = False
@@ -223,7 +228,8 @@ def GenerateNoticeFile():
   # We provide attribution for all third-party directories.
   # TODO(steveblock): Limit this to only code used by the WebView binary.
   for directory in third_party_dirs:
-    metadata = licenses.ParseDir(directory, require_license_file=False)
+    metadata = licenses.ParseDir(directory, REPOSITORY_ROOT,
+                                 require_license_file=False)
     license_file = metadata['License File']
     if license_file and license_file != licenses.NOT_SHIPPED:
       content.append(_ReadFile(license_file))
@@ -247,10 +253,6 @@ def main():
   (options, args) = parser.parse_args()
   if len(args) != 1:
     parser.print_help()
-    return 1
-
-  if os.getcwd() != REPOSITORY_ROOT:
-    print "This tool can only be run from the repository root."
     return 1
 
   if args[0] == 'scan':

@@ -23,9 +23,8 @@ TestBrowserPluginEmbedder::~TestBrowserPluginEmbedder() {
 }
 
 void TestBrowserPluginEmbedder::AddGuest(int instance_id,
-                                         WebContents* guest_web_contents,
-                                         int64 frame_id) {
-  BrowserPluginEmbedder::AddGuest(instance_id, guest_web_contents, frame_id);
+                                         WebContents* guest_web_contents) {
+  BrowserPluginEmbedder::AddGuest(instance_id, guest_web_contents);
   if (message_loop_runner_)
     message_loop_runner_->Quit();
 }
@@ -37,6 +36,10 @@ void TestBrowserPluginEmbedder::WaitForGuestAdded() {
   // Wait otherwise.
   message_loop_runner_ = new MessageLoopRunner();
   message_loop_runner_->Run();
+}
+
+WebContentsImpl* TestBrowserPluginEmbedder::web_contents() const {
+  return static_cast<WebContentsImpl*>(BrowserPluginEmbedder::web_contents());
 }
 
 }  // namespace content

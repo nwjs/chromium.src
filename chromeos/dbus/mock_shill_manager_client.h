@@ -7,6 +7,7 @@
 
 #include "base/values.h"
 #include "chromeos/dbus/shill_manager_client.h"
+#include "chromeos/dbus/shill_property_changed_observer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace chromeos {
@@ -16,24 +17,31 @@ class MockShillManagerClient : public ShillManagerClient {
   MockShillManagerClient();
   virtual ~MockShillManagerClient();
 
-  MOCK_METHOD1(SetPropertyChangedHandler, void(
-      const PropertyChangedHandler& handler));
-  MOCK_METHOD0(ResetPropertyChangedHandler, void());
+  MOCK_METHOD1(AddPropertyChangedObserver,
+               void(ShillPropertyChangedObserver* observer));
+  MOCK_METHOD1(RemovePropertyChangedObserver,
+               void(ShillPropertyChangedObserver* observer));
   MOCK_METHOD1(GetProperties, void(const DictionaryValueCallback& callback));
   MOCK_METHOD0(CallGetPropertiesAndBlock, base::DictionaryValue*());
-  MOCK_METHOD3(SetProperty, void(const std::string& name,
+  MOCK_METHOD4(SetProperty, void(const std::string& name,
                                  const base::Value& value,
-                                 const VoidDBusMethodCallback& callback));
-  MOCK_METHOD2(RequestScan, void(const std::string& type,
-                                 const VoidDBusMethodCallback& callback));
-  MOCK_METHOD2(EnableTechnology, void(const std::string& type,
-                                      const VoidDBusMethodCallback& callback));
-  MOCK_METHOD2(DisableTechnology, void(const std::string& type,
-                                       const VoidDBusMethodCallback& callback));
-  MOCK_METHOD2(ConfigureService, void(const base::DictionaryValue& properties,
-                                      const VoidDBusMethodCallback& callback));
-  MOCK_METHOD2(GetService, void(const base::DictionaryValue& properties,
-                                const ObjectPathDBusMethodCallback& callback));
+                                 const base::Closure& callback,
+                                 const ErrorCallback& error_callback));
+  MOCK_METHOD3(RequestScan, void(const std::string& type,
+                                 const base::Closure& callback,
+                                 const ErrorCallback& error_callback));
+  MOCK_METHOD3(EnableTechnology, void(const std::string& type,
+                                      const base::Closure& callback,
+                                      const ErrorCallback& error_callback));
+  MOCK_METHOD3(DisableTechnology, void(const std::string& type,
+                                       const base::Closure& callback,
+                                       const ErrorCallback& error_callback));
+  MOCK_METHOD3(ConfigureService, void(const base::DictionaryValue& properties,
+                                      const base::Closure& callback,
+                                      const ErrorCallback& error_callback));
+  MOCK_METHOD3(GetService, void(const base::DictionaryValue& properties,
+                                const ObjectPathCallback& callback,
+                                const ErrorCallback& error_callback));
 };
 
 }  // namespace chromeos

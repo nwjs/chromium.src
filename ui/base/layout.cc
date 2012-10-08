@@ -13,11 +13,7 @@
 #include "base/logging.h"
 #include "build/build_config.h"
 #include "ui/base/ui_base_switches.h"
-
-#if defined(USE_AURA) && !defined(OS_WIN)
-#include "ui/aura/root_window.h"
-#include "ui/compositor/compositor.h"
-#endif  // defined(USE_AURA) && !defined(OS_WIN)
+#include "ui/gfx/screen.h"
 
 #if defined(OS_MACOSX) && !defined(OS_IOS)
 #include "base/mac/mac_util.h"
@@ -30,6 +26,7 @@
 
 namespace {
 
+#if defined(OS_WIN) || defined(USE_ASH)
 // Helper function that determines whether we want to optimize the UI for touch.
 bool UseTouchOptimizedUI() {
   // If --touch-optimized-ui is specified and not set to "auto", then override
@@ -59,6 +56,7 @@ bool UseTouchOptimizedUI() {
   return false;
 #endif
 }
+#endif  // defined(OS_WIN) || defined(USE_ASH)
 
 const float kScaleFactorScales[] = {1.0f, 1.4f, 1.8f, 2.0f};
 COMPILE_ASSERT(ui::NUM_SCALE_FACTORS == arraysize(kScaleFactorScales),
@@ -153,16 +151,11 @@ void SetSupportedScaleFactors(
 
 #if !defined(OS_MACOSX)
 ScaleFactor GetScaleFactorForNativeView(gfx::NativeView view) {
-#if defined(USE_AURA) && !defined(OS_WIN)
-  aura::RootWindow* root_window = view->GetRootWindow();
-  if (!root_window)
-    return SCALE_FACTOR_NONE;
-  return GetScaleFactorFromScale(
-      root_window->compositor()->device_scale_factor());
-#else
-  NOTIMPLEMENTED();
-  return SCALE_FACTOR_NONE;
-#endif
+  if (gfx::Screen::IsDIPEnabled()) {
+    gfx::Display display = gfx::Screen::GetDisplayNearestWindow(view);
+    return GetScaleFactorFromScale(display.device_scale_factor());
+  }
+  return ui::SCALE_FACTOR_100P;
 }
 #endif  // !defined(OS_MACOSX)
 

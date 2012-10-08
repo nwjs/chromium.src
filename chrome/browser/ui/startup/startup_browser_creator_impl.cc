@@ -30,6 +30,7 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/pack_extension_job.h"
 #include "chrome/browser/first_run/first_run.h"
+#include "chrome/browser/google/google_util.h"
 #include "chrome/browser/net/predictor.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
@@ -43,6 +44,7 @@
 #include "chrome/browser/protector/protector_service.h"
 #include "chrome/browser/protector/protector_service_factory.h"
 #include "chrome/browser/protector/protector_utils.h"
+#include "chrome/browser/rlz/rlz.h"
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
@@ -647,7 +649,7 @@ bool StartupBrowserCreatorImpl::ProcessStartupURLs(
     VLOG(1) << "Pref: default";
 
   if (pref.type == SessionStartupPref::LAST) {
-    if (!profile_->DidLastSessionExitCleanly() &&
+    if (profile_->GetLastSessionExitType() == Profile::EXIT_CRASHED &&
         !command_line_.HasSwitch(switches::kRestoreLastSession)) {
       // The last session crashed. It's possible automatically loading the
       // page will trigger another crash, locking the user out of chrome.
@@ -833,6 +835,15 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
     params.tabstrip_index = index;
     params.tabstrip_add_types = add_types;
     params.extension_app_id = tabs[i].app_id;
+
+#if defined(ENABLE_RLZ)
+    if (process_startup &&
+        google_util::IsGoogleHomePageUrl(tabs[i].url.spec())) {
+      params.extra_headers = RLZTracker::GetAccessPointHttpHeader(
+          rlz_lib::CHROME_HOME_PAGE);
+    }
+#endif
+
     chrome::Navigate(&params);
 
     first_tab = false;

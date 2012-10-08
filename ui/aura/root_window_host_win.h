@@ -17,11 +17,10 @@ namespace aura {
 
 class RootWindowHostWin : public RootWindowHost, public ui::WindowImpl {
  public:
-  RootWindowHostWin(RootWindowHostDelegate* delegate,
-                    const gfx::Rect& bounds);
+  RootWindowHostWin(const gfx::Rect& bounds);
   virtual ~RootWindowHostWin();
-
   // RootWindowHost:
+  virtual void SetDelegate(RootWindowHostDelegate* delegate) OVERRIDE;
   virtual RootWindow* GetRootWindow() OVERRIDE;
   virtual gfx::AcceleratedWidget GetAcceleratedWidget() OVERRIDE;
   virtual void Show() OVERRIDE;

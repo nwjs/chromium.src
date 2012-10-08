@@ -71,7 +71,7 @@ public:
     CCLayerTreeHostImpl* layerTreeHostImpl() const { return m_layerTreeHostImpl; }
     void setLayerTreeHostImpl(CCLayerTreeHostImpl* hostImpl) { m_layerTreeHostImpl = hostImpl; }
 
-    PassOwnPtr<CCSharedQuadState> createSharedQuadState() const;
+    scoped_ptr<CCSharedQuadState> createSharedQuadState() const;
     // willDraw must be called before appendQuads. If willDraw is called,
     // didDraw is guaranteed to be called before another willDraw or before
     // the layer is destroyed. To enforce this, any class that overrides
@@ -114,8 +114,8 @@ public:
     void setMasksToBounds(bool);
     bool masksToBounds() const { return m_masksToBounds; }
 
-    void setOpaque(bool);
-    bool opaque() const { return m_opaque; }
+    void setContentsOpaque(bool);
+    bool contentsOpaque() const { return m_contentsOpaque; }
 
     void setOpacity(float);
     bool opacityIsAnimating() const;
@@ -201,7 +201,7 @@ public:
     void setNonFastScrollableRegion(const Region& region) { m_nonFastScrollableRegion = region; }
 
     void setDrawCheckerboardForMissingTiles(bool checkerboard) { m_drawCheckerboardForMissingTiles = checkerboard; }
-    bool drawCheckerboardForMissingTiles() const { return m_drawCheckerboardForMissingTiles; }
+    bool drawCheckerboardForMissingTiles() const;
 
     CCInputHandlerClient::ScrollStatus tryScroll(const IntPoint& viewportPoint, CCInputHandlerClient::ScrollInputType) const;
 
@@ -319,7 +319,7 @@ private:
     // Uses layer's content space.
     IntRect m_visibleContentRect;
     bool m_masksToBounds;
-    bool m_opaque;
+    bool m_contentsOpaque;
     float m_opacity;
     FloatPoint m_position;
     bool m_preserves3D;
@@ -392,7 +392,7 @@ private:
     OwnPtr<CCScrollbarAnimationController> m_scrollbarAnimationController;
 };
 
-void sortLayers(Vector<CCLayerImpl*>::iterator first, Vector<CCLayerImpl*>::iterator end, CCLayerSorter*);
+void sortLayers(std::vector<CCLayerImpl*>::iterator first, std::vector<CCLayerImpl*>::iterator end, CCLayerSorter*);
 
 }
 

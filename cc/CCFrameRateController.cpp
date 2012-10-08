@@ -105,14 +105,11 @@ void CCFrameRateController::onTimerTick()
 {
     ASSERT(m_active);
 
-    // Don't forward the tick if we have too many frames in flight.
-    if (m_numFramesPending >= m_maxFramesPending) {
-        TRACE_EVENT0("cc", "CCFrameRateController::onTimerTickButMaxFramesPending");
-        return;
-    }
+    // Check if we have too many frames in flight.
+    bool throttled = m_numFramesPending >= m_maxFramesPending;
 
     if (m_client)
-        m_client->vsyncTick();
+        m_client->vsyncTick(throttled);
 
     if (m_swapBuffersCompleteSupported && !m_isTimeSourceThrottling && m_numFramesPending < m_maxFramesPending)
         postManualTick();
@@ -151,12 +148,12 @@ void CCFrameRateController::didAbortAllPendingFrames()
     m_numFramesPending = 0;
 }
 
-base::TimeTicks CCFrameRateController::nextTickTimeIfActivated()
+base::TimeTicks CCFrameRateController::nextTickTime()
 {
     if (m_isTimeSourceThrottling)
-        return m_timeSource->nextTickTimeIfActivated();
+        return m_timeSource->nextTickTime();
 
-    return base::TimeTicks::Now();
+    return base::TimeTicks();
 }
 
 }

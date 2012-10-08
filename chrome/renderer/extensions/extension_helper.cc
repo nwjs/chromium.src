@@ -247,6 +247,8 @@ void ExtensionHelper::DidCreateDocumentElement(WebFrame* frame) {
   SchedulerMap::iterator i = g_schedulers.Get().find(frame);
   if (i != g_schedulers.Get().end())
     i->second->DidCreateDocumentElement();
+
+  dispatcher_->DidCreateDocumentElement(frame);
 }
 
 void ExtensionHelper::DidStartProvisionalLoad(WebKit::WebFrame* frame) {
@@ -261,9 +263,14 @@ void ExtensionHelper::DraggableRegionsChanged(WebKit::WebFrame* frame) {
   std::vector<extensions::DraggableRegion> regions;
   for (size_t i = 0; i < webregions.size(); ++i) {
     extensions::DraggableRegion region;
-    region.label = UTF16ToASCII(webregions[i].label);
     region.bounds = webregions[i].bounds;
+    region.draggable = webregions[i].draggable;
+
+    // TODO(jianli): to be removed after WebKit patch that changes the draggable
+    // region syntax is landed.
+    region.label = UTF16ToASCII(webregions[i].label);
     region.clip = webregions[i].clip;
+
     regions.push_back(region);
   }
   Send(new ExtensionHostMsg_UpdateDraggableRegions(routing_id(), regions));

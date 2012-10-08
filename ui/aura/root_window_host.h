@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/message_loop.h"
+#include "ui/aura/aura_export.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/gfx/native_widget_types.h"
 
@@ -25,17 +26,19 @@ class RootWindowHostDelegate;
 // RootWindowHost bridges between a native window and the embedded RootWindow.
 // It provides the accelerated widget and maps events from the native os to
 // aura.
-class RootWindowHost {
+class AURA_EXPORT RootWindowHost {
  public:
   virtual ~RootWindowHost() {}
 
   // Creates a new RootWindowHost. The caller owns the returned value.
-  static RootWindowHost* Create(RootWindowHostDelegate* delegate,
-                                const gfx::Rect& bounds);
+  static RootWindowHost* Create(const gfx::Rect& bounds);
 
   // Returns the actual size of the screen.
   // (gfx::Screen only reports on the virtual desktop exposed by Aura.)
   static gfx::Size GetNativeScreenSize();
+
+  // Sets the delegate, which is normally done by the root window.
+  virtual void SetDelegate(RootWindowHostDelegate* delegate) = 0;
 
   virtual RootWindow* GetRootWindow() = 0;
 

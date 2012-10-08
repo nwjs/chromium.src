@@ -300,6 +300,7 @@
         'browser/renderer_host/pepper/browser_ppapi_host_test.cc',
         'browser/renderer_host/pepper/browser_ppapi_host_test.h',
         'browser/renderer_host/pepper/pepper_gamepad_host_unittest.cc',
+        'browser/renderer_host/pepper/pepper_printing_host_unittest.cc',
         'browser/renderer_host/render_view_host_unittest.cc',
         'browser/renderer_host/render_widget_host_unittest.cc',
         'browser/renderer_host/render_widget_host_view_aura_unittest.cc',
@@ -431,6 +432,7 @@
         '../webkit/fileapi/syncable/local_file_change_tracker_unittest.cc',
         '../webkit/fileapi/syncable/local_file_sync_status_unittest.cc',
         '../webkit/fileapi/syncable/syncable_file_system_unittest.cc',
+        '../webkit/fileapi/syncable/syncable_file_system_util_unittest.cc',
         '../webkit/fileapi/test_file_set.cc',
         '../webkit/fileapi/test_file_set.h',
         '../webkit/fileapi/webfilewriter_base_unittest.cc',
@@ -487,7 +489,6 @@
             '../webkit/support/webkit_support.gyp:database',
             '../webkit/support/webkit_support.gyp:dom_storage',
             '../webkit/support/webkit_support.gyp:fileapi',
-            '../webkit/support/webkit_support.gyp:forms',
             '../webkit/support/webkit_support.gyp:glue',
             '../webkit/support/webkit_support.gyp:quota',
             '../webkit/support/webkit_support.gyp:webkit_base',
@@ -599,6 +600,7 @@
           'type': 'executable',
           'defines!': ['CONTENT_IMPLEMENTATION'],
           'dependencies': [
+            'content_common',
             'content_gpu',
             'content_plugin',
             'content_renderer',
@@ -616,12 +618,16 @@
             '../skia/skia.gyp:skia',
             '../testing/gmock.gyp:gmock',
             '../testing/gtest.gyp:gtest',
+            '../third_party/mesa/mesa.gyp:osmesa',
             '../ui/ui.gyp:ui',
-            '../webkit/support/webkit_support.gyp:forms',
+            '../webkit/support/webkit_support.gyp:clearkeycdmplugin',
             '../webkit/support/webkit_support.gyp:glue',
           ],
           'include_dirs': [
             '..',
+          ],
+          'includes': [
+            'browser/gpu/test_support_gpu.gypi',
           ],
           'defines': [
             'HAS_OUT_OF_PROC_TEST_RUNNER',
@@ -648,8 +654,11 @@
             'browser/download/download_browsertest.cc',
             'browser/download/mhtml_generation_browsertest.cc',
             'browser/download/save_package_browsertest.cc',
+            'browser/encrypted_media_browsertest.cc',
             'browser/fileapi/blob_layout_browsertest.cc',
             'browser/fileapi/file_system_browsertest.cc',
+            'browser/gpu/webgl_conformance_tests.cc',
+            'browser/gpu/webgl_conformance_test_list_autogen.h',
             'browser/in_process_webkit/indexed_db_browsertest.cc',
             'browser/in_process_webkit/indexed_db_layout_browsertest.cc',
             'browser/media_browsertest.cc',
@@ -863,21 +872,6 @@
     ['OS == "android"', {
       'targets': [
         {
-          'target_name': 'content_javatests',
-          'type': 'none',
-          'dependencies': [
-            '../base/base.gyp:base',
-            '../base/base.gyp:base_java_test_support',
-            'content_common',
-            'content_java',
-          ],
-          'variables': {
-            'package_name': 'content_javatests',
-            'java_in_dir': '../content/public/android/javatests',
-          },
-          'includes': [ '../build/java.gypi' ],
-        },
-        {
           'target_name': 'content_java_test_support',
           'type': 'none',
           'dependencies': [
@@ -897,8 +891,8 @@
           'type': 'none',
           'dependencies': [
             'content_java',
-            'content_javatests',
-            'content_shell_apk',
+            'content_java_test_support',
+            'content_shell_java',
             '../base/base.gyp:base_java',
             '../base/base.gyp:base_java_test_support',
             '../media/media.gyp:media_java',
@@ -910,8 +904,9 @@
           'variables': {
             'package_name': 'content_shell_test',
             'apk_name': 'ContentShellTest',
-            'java_in_dir': 'shell/android/javatests',
+            'java_in_dir': '../content/shell/android/javatests',
             'resource_dir': '../res',
+            'additional_src_dirs': ['../content/public/android/javatests/'],
           },
           'includes': [ '../build/java_apk.gypi' ],
         },

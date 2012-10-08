@@ -171,7 +171,8 @@ class LocationBarView : public LocationBar,
 
   // Returns the appropriate color for the desired kind, based on the user's
   // system theme.
-  static SkColor GetColor(ToolbarModel::SecurityLevel security_level,
+  static SkColor GetColor(bool instant_extended_api_enabled,
+                          ToolbarModel::SecurityLevel security_level,
                           ColorKind kind);
 
   // Updates the location bar.  We also reset the bar's permanent text and
@@ -329,6 +330,8 @@ class LocationBarView : public LocationBar,
   virtual ExtensionAction* GetPageAction(size_t index) OVERRIDE;
   virtual ExtensionAction* GetVisiblePageAction(size_t index) OVERRIDE;
   virtual void TestPageActionPressed(size_t index) OVERRIDE;
+  virtual void TestActionBoxMenuItemSelected(int command_id) OVERRIDE;
+  virtual bool GetBookmarkStarVisibility() OVERRIDE;
 
   // Overridden from TemplateURLServiceObserver
   virtual void OnTemplateURLServiceChanged() OVERRIDE;
@@ -358,8 +361,6 @@ class LocationBarView : public LocationBar,
   static const int kIconInternalPadding;
   // Space between the edge and a bubble.
   static const int kBubbleHorizontalPadding;
-  // Background color of the location bar.
-  static const SkColor kOmniboxBackgroundColor;
 
  protected:
   virtual void OnFocus() OVERRIDE;
@@ -432,10 +433,6 @@ class LocationBarView : public LocationBar,
 
   // Helper to show the first run info bubble.
   void ShowFirstRunBubbleInternal();
-
-  // Draw the background and the left border.
-  void PaintActionBoxBackground(gfx::Canvas* canvas,
-                                const gfx::Rect& content_rect);
 
   // Draw backgrounds and borders for page actions.  Must be called
   // after layout, so the |page_action_views_| have their bounds.
@@ -553,6 +550,9 @@ class LocationBarView : public LocationBar,
   // True if we should show a focus rect while the location entry field is
   // focused. Used when the toolbar is in full keyboard accessibility mode.
   bool show_focus_rect_;
+
+  // True if Instant Extended API is enabled.
+  const bool instant_extended_api_enabled_;
 
   // This is in case we're destroyed before the model loads. We need to make
   // Add/RemoveObserver calls.

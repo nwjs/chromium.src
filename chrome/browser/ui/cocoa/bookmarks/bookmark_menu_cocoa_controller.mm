@@ -9,7 +9,7 @@
 #include "chrome/app/chrome_command_ids.h"  // IDC_BOOKMARK_MENU
 #import "chrome/browser/app_controller_mac.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
-#include "chrome/browser/bookmarks/bookmark_utils.h"
+#include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #import "chrome/browser/ui/cocoa/bookmarks/bookmark_menu_bridge.h"
@@ -93,7 +93,10 @@ const NSUInteger kMaximumMenuPixelsWide = 300;
 
 // Open the URL of the given BookmarkNode in the current tab.
 - (void)openURLForNode:(const BookmarkNode*)node {
-  Browser* browser = browser::FindTabbedBrowser(bridge_->GetProfile(), true);
+  Browser* browser =
+      browser::FindTabbedBrowser(bridge_->GetProfile(),
+                                 true,
+                                 chrome::HOST_DESKTOP_TYPE_NATIVE);
   if (!browser)
     browser = new Browser(Browser::CreateParams(bridge_->GetProfile()));
   WindowOpenDisposition disposition =
@@ -112,7 +115,10 @@ const NSUInteger kMaximumMenuPixelsWide = 300;
   const BookmarkNode* node = [self nodeForIdentifier:identifier];
   DCHECK(node);
 
-  Browser* browser = browser::FindTabbedBrowser(bridge_->GetProfile(), true);
+  Browser* browser =
+      browser::FindTabbedBrowser(bridge_->GetProfile(),
+                                 true,
+                                 chrome::HOST_DESKTOP_TYPE_NATIVE);
   if (!browser)
     browser = new Browser(Browser::CreateParams(bridge_->GetProfile()));
   DCHECK(browser);
@@ -120,7 +126,7 @@ const NSUInteger kMaximumMenuPixelsWide = 300;
   if (!node || !browser)
     return; // shouldn't be reached
 
-  bookmark_utils::OpenAll(NULL, browser, node, disposition);
+  chrome::OpenAll(NULL, browser, node, disposition);
 
   if (disposition == NEW_FOREGROUND_TAB) {
     content::RecordAction(UserMetricsAction("OpenAllBookmarks"));

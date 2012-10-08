@@ -76,6 +76,9 @@ bool IsBlacklistedBySha1sumAndQuirks(const FilePath& path) {
     // Flash 11.2.202.236, 32-bit - http://crbug.com/140086
     { 17406436, "1e07eac912faf9426c52a288c76c3b6238f90b6b",
       PLUGIN_QUIRK_MISSING_SSE2_CHECK },
+    // Flash 11.2.202.238, 32-bit - http://crbug.com/140086
+    { 17410532, "e9401097e97c8443a7d9156be62184ffe1addd5c",
+      PLUGIN_QUIRK_MISSING_SSE2_CHECK },
   };
 
   int64 size;
@@ -264,41 +267,6 @@ void PluginList::GetPluginsInDir(
   for (FileTimeList::const_iterator i = files.begin(); i != files.end(); ++i) {
     plugins->push_back(i->first);
   }
-}
-
-// TODO(ibraaaa): DELETE. http://crbug.com/124396
-bool PluginList::ShouldLoadPlugin(const WebPluginInfo& info,
-                                  ScopedVector<PluginGroup>* plugin_groups) {
-  LOG_IF(ERROR, PluginList::DebugPluginLoading())
-      << "Considering " << info.path.value() << " (" << info.name << ")";
-
-  if (IsUndesirablePlugin(info)) {
-    LOG_IF(ERROR, PluginList::DebugPluginLoading())
-        << info.path.value() << " is undesirable.";
-
-    // See if we have a better version of this plugin.
-    for (size_t i = 0; i < plugin_groups->size(); ++i) {
-      const std::vector<WebPluginInfo>& plugins =
-          (*plugin_groups)[i]->web_plugin_infos();
-      for (size_t j = 0; j < plugins.size(); ++j) {
-        if (plugins[j].name == info.name &&
-            !IsUndesirablePlugin(plugins[j])) {
-          // Skip the current undesirable one so we can use the better one
-          // we just found.
-          LOG_IF(ERROR, PluginList::DebugPluginLoading())
-              << "Skipping " << info.path.value() << ", preferring "
-              << plugins[j].path.value();
-          return false;
-        }
-      }
-    }
-  }
-
-  // TODO(evanm): prefer the newest version of flash, etc. here?
-
-  VLOG_IF(1, PluginList::DebugPluginLoading()) << "Using " << info.path.value();
-
-  return true;
 }
 
 bool PluginList::ShouldLoadPluginUsingPluginList(

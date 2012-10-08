@@ -37,8 +37,8 @@
 #include "remoting/host/chromoting_host_context.h"
 #include "remoting/host/chromoting_messages.h"
 #include "remoting/host/config_file_watcher.h"
-#include "remoting/host/constants.h"
-#include "remoting/host/config_file_watcher.h"
+#include "remoting/host/curtain_mode.h"
+#include "remoting/host/curtaining_host_observer.h"
 #include "remoting/host/desktop_environment_factory.h"
 #include "remoting/host/desktop_resizer.h"
 #include "remoting/host/dns_blackhole_checker.h"
@@ -46,6 +46,7 @@
 #include "remoting/host/heartbeat_sender.h"
 #include "remoting/host/host_config.h"
 #include "remoting/host/host_event_logger.h"
+#include "remoting/host/host_exit_codes.h"
 #include "remoting/host/host_user_interface.h"
 #include "remoting/host/json_host_config.h"
 #include "remoting/host/log_to_server.h"
@@ -67,7 +68,6 @@
 #if defined(OS_MACOSX)
 #include "base/mac/scoped_cftyperef.h"
 #include "base/mac/scoped_nsautorelease_pool.h"
-#include "remoting/host/curtain_mode_mac.h"
 #endif  // defined(OS_MACOSX)
 
 #if defined(OS_LINUX)
@@ -116,7 +116,7 @@ class HostProcess
       public IPC::Listener,
       public ConfigFileWatcher::Delegate {
  public:
-  HostProcess(scoped_ptr<ChromotingHostContext> context)
+  explicit HostProcess(scoped_ptr<ChromotingHostContext> context)
       : context_(context.Pass()),
         config_(FilePath()),
 #ifdef OFFICIAL_BUILD
@@ -128,21 +128,21 @@ class HostProcess
         restarting_(false),
         shutting_down_(false),
 #if defined(OS_WIN)
-        desktop_environment_factory_(new SessionDesktopEnvironmentFactory()),
+        desktop_environment_factory_(new SessionDesktopEnvironmentFactory(
+            context_->input_task_runner(), context_->ui_task_runner())),
 #else  // !defined(OS_WIN)
-        desktop_environment_factory_(new DesktopEnvironmentFactory()),
+        desktop_environment_factory_(new DesktopEnvironmentFactory(
+            context_->input_task_runner(), context_->ui_task_runner())),
 #endif  // !defined(OS_WIN)
         desktop_resizer_(DesktopResizer::Create()),
-        exit_code_(kSuccessExitCode)
-#if defined(OS_MACOSX)
-      , curtain_(base::Bind(&HostProcess::OnDisconnectRequested,
-                            base::Unretained(this)),
-                 base::Bind(&HostProcess::OnDisconnectRequested,
-                            base::Unretained(this)))
-#endif
-  {
+        exit_code_(kSuccessExitCode) {
     network_change_notifier_.reset(net::NetworkChangeNotifier::Create());
-  }
+    curtain_ = CurtainMode::Create(
+        base::Bind(&HostProcess::OnDisconnectRequested,
+                   base::Unretained(this)),
+        base::Bind(&HostProcess::OnDisconnectRequested,
+                   base::Unretained(this)));
+}
 
   bool InitWithCommandLine(const CommandLine* cmd_line) {
     // Connect to the daemon process.
@@ -201,10 +201,10 @@ class HostProcess
     // the first configuration update. Otherwise, post a task to create new
     // authenticator factory in case PIN has changed.
     if (policy_watcher_.get() == NULL) {
-#if defined(OS_MACOSX) || defined(OS_WIN)
       bool want_user_interface = true;
-
-#if defined(OS_MACOSX)
+#if defined(OS_LINUX)
+      want_user_interface = false;
+#elif defined(OS_MACOSX)
       // Don't try to display any UI on top of the system's login screen as this
       // is rejected by the Window Server on OS X 10.7.4, and prevents the
       // capturer from working (http://crbug.com/140984).
@@ -212,15 +212,12 @@ class HostProcess
       // TODO(lambroslambrou): Use a better technique of detecting whether we're
       // running in the LoginWindow context, and refactor this into a separate
       // function to be used here and in CurtainMode::ActivateCurtain().
-      if (getuid() == 0) {
-        want_user_interface = false;
-      }
+      want_user_interface = getuid() != 0;
 #endif  // OS_MACOSX
 
       if (want_user_interface) {
         host_user_interface_.reset(new HostUserInterface(context_.get()));
       }
-#endif  // OS_MACOSX || OS_WIN
 
       StartWatchingPolicy();
     } else {
@@ -243,7 +240,6 @@ class HostProcess
 
   void StartWatchingConfigChanges() {
 #if !defined(REMOTING_MULTI_PROCESS)
-
     // Start watching the host configuration file.
     config_watcher_.reset(new ConfigFileWatcher(context_->ui_task_runner(),
                                                 context_->file_task_runner(),
@@ -252,13 +248,13 @@ class HostProcess
 #endif  // !defined(REMOTING_MULTI_PROCESS)
   }
 
-#if defined(OS_POSIX)
   void ListenForShutdownSignal() {
+#if defined(OS_POSIX)
     remoting::RegisterSignalHandler(
         SIGTERM,
         base::Bind(&HostProcess::SigTermHandler, base::Unretained(this)));
-  }
 #endif  // OS_POSIX
+  }
 
   void CreateAuthenticatorFactory() {
     DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
@@ -301,12 +297,10 @@ class HostProcess
       return;
     }
 
-#if defined(OS_POSIX)
     context_->network_task_runner()->PostTask(
         FROM_HERE,
         base::Bind(&HostProcess::ListenForShutdownSignal,
                    base::Unretained(this)));
-#endif  // OS_POSIX
 
     StartWatchingConfigChanges();
   }
@@ -317,15 +311,11 @@ class HostProcess
   void ShutdownHostProcess() {
     DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
 
-#if !defined(REMOTING_MULTI_PROCESS)
+    // Tear down resources that use ChromotingHostContext threads.
     config_watcher_.reset();
-#endif  // !defined(REMOTING_MULTI_PROCESS)
-
     daemon_channel_.reset();
-
-#if defined(OS_MACOSX) || defined(OS_WIN)
+    desktop_environment_factory_.reset();
     host_user_interface_.reset();
-#endif
 
     if (policy_watcher_.get()) {
       base::WaitableEvent done_event(true, false);
@@ -404,6 +394,7 @@ class HostProcess
   }
 
   void OnPolicyUpdate(scoped_ptr<base::DictionaryValue> policies) {
+    // TODO(rmsousa): Consolidate all On*PolicyUpdate methods into this one.
     if (!context_->network_task_runner()->BelongsToCurrentThread()) {
       context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
           &HostProcess::OnPolicyUpdate, base::Unretained(this),
@@ -411,73 +402,62 @@ class HostProcess
       return;
     }
 
-    if (!host_) {
-      StartHost();
-    }
-
+    bool restart_required = false;
     bool bool_value;
     std::string string_value;
     if (policies->GetString(policy_hack::PolicyWatcher::kHostDomainPolicyName,
                             &string_value)) {
-      OnHostDomainPolicyUpdate(string_value);
+      restart_required |= OnHostDomainPolicyUpdate(string_value);
     }
     if (policies->GetBoolean(policy_hack::PolicyWatcher::kNatPolicyName,
                              &bool_value)) {
-      OnNatPolicyUpdate(bool_value);
+      restart_required |= OnNatPolicyUpdate(bool_value);
     }
     if (policies->GetString(
             policy_hack::PolicyWatcher::kHostTalkGadgetPrefixPolicyName,
             &string_value)) {
-      OnHostTalkGadgetPrefixPolicyUpdate(string_value);
+      restart_required |= OnHostTalkGadgetPrefixPolicyUpdate(string_value);
     }
-    // TODO(rmsousa): This must be called last. crbug.com/146716 includes a
-    // refactoring to remove this requirement.
     if (policies->GetBoolean(
             policy_hack::PolicyWatcher::kHostRequireCurtainPolicyName,
             &bool_value)) {
-      OnCurtainPolicyUpdate(bool_value);
+      restart_required |= OnCurtainPolicyUpdate(bool_value);
+    }
+    if (!host_) {
+      StartHost();
+    } else if (restart_required) {
+      RestartHost();
     }
   }
 
-  void OnHostDomainPolicyUpdate(const std::string& host_domain) {
-    if (!context_->network_task_runner()->BelongsToCurrentThread()) {
-      context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
-          &HostProcess::OnHostDomainPolicyUpdate, base::Unretained(this),
-          host_domain));
-      return;
-    }
+  bool OnHostDomainPolicyUpdate(const std::string& host_domain) {
+    // Returns true if the host has to be restarted after this policy update.
+    DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
     if (!host_domain.empty() &&
         !EndsWith(xmpp_login_, std::string("@") + host_domain, false)) {
       Shutdown(kInvalidHostDomainExitCode);
     }
+    return false;
   }
 
-  void OnNatPolicyUpdate(bool nat_traversal_enabled) {
-    if (!context_->network_task_runner()->BelongsToCurrentThread()) {
-      context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
-          &HostProcess::OnNatPolicyUpdate, base::Unretained(this),
-          nat_traversal_enabled));
-      return;
-    }
+  bool OnNatPolicyUpdate(bool nat_traversal_enabled) {
+    // Returns true if the host has to be restarted after this policy update.
+    DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
-    bool policy_changed = allow_nat_traversal_ != nat_traversal_enabled;
-    allow_nat_traversal_ = nat_traversal_enabled;
-
-    if (policy_changed) {
-      RestartHost();
+    if (allow_nat_traversal_ != nat_traversal_enabled) {
+      allow_nat_traversal_ = nat_traversal_enabled;
+      LOG(INFO) << "Updated NAT policy.";
+      return true;
     }
+    return false;
   }
 
-  void OnCurtainPolicyUpdate(bool curtain_required) {
+  bool OnCurtainPolicyUpdate(bool curtain_required) {
+    // Returns true if the host has to be restarted after this policy update.
+    DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
+
 #if defined(OS_MACOSX)
-    if (!context_->network_task_runner()->BelongsToCurrentThread()) {
-      context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
-          &HostProcess::OnCurtainPolicyUpdate, base::Unretained(this),
-          curtain_required));
-      return;
-    }
-
     if (curtain_required) {
       // If curtain mode is required, then we can't currently support remoting
       // the login screen. This is because we don't curtain the login screen
@@ -488,32 +468,29 @@ class HostProcess
       // daemon architecture (crbug.com/134894)
       if (getuid() == 0) {
         Shutdown(kLoginScreenNotSupportedExitCode);
-        return;
+        return false;
       }
-
-      host_->AddStatusObserver(&curtain_);
-      curtain_.SetEnabled(true);
-    } else {
-      curtain_.SetEnabled(false);
-      host_->RemoveStatusObserver(&curtain_);
     }
 #endif
+    if (curtain_->required() != curtain_required) {
+      LOG(INFO) << "Updated curtain policy.";
+      curtain_->set_required(curtain_required);
+      return true;
+    }
+    return false;
   }
 
-  void OnHostTalkGadgetPrefixPolicyUpdate(
+  bool OnHostTalkGadgetPrefixPolicyUpdate(
       const std::string& talkgadget_prefix) {
-    if (!context_->network_task_runner()->BelongsToCurrentThread()) {
-      context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
-          &HostProcess::OnHostTalkGadgetPrefixPolicyUpdate,
-          base::Unretained(this), talkgadget_prefix));
-      return;
-    }
+    // Returns true if the host has to be restarted after this policy update.
+    DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
     if (talkgadget_prefix != talkgadget_prefix_) {
-      LOG(INFO) << "Restarting host due to updated talkgadget policy:";
+      LOG(INFO) << "Updated talkgadget policy.";
       talkgadget_prefix_ = talkgadget_prefix;
-      RestartHost();
+      return true;
     }
+    return false;
   }
 
   void StartHost() {
@@ -530,10 +507,13 @@ class HostProcess
                                xmpp_auth_service_));
 
     scoped_ptr<DnsBlackholeChecker> dns_blackhole_checker(
-        new DnsBlackholeChecker(context_.get(), talkgadget_prefix_));
+        new DnsBlackholeChecker(context_->url_request_context_getter(),
+                                talkgadget_prefix_));
 
     signaling_connector_.reset(new SignalingConnector(
-        signal_strategy_.get(), context_.get(), dns_blackhole_checker.Pass(),
+        signal_strategy_.get(),
+        context_->url_request_context_getter(),
+        dns_blackhole_checker.Pass(),
         base::Bind(&HostProcess::OnAuthFailed, base::Unretained(this))));
 
     if (!oauth_refresh_token_.empty()) {
@@ -569,10 +549,13 @@ class HostProcess
     }
 
     host_ = new ChromotingHost(
-        context_.get(), signal_strategy_.get(),
+        signal_strategy_.get(),
         desktop_environment_factory_.get(),
         CreateHostSessionManager(network_settings,
-                                 context_->url_request_context_getter()));
+                                 context_->url_request_context_getter()),
+        context_->capture_task_runner(),
+        context_->encode_task_runner(),
+        context_->network_task_runner());
 
     // TODO(simonmorris): Get the maximum session duration from a policy.
 #if defined(OS_LINUX)
@@ -589,13 +572,14 @@ class HostProcess
     resizing_host_observer_.reset(
         new ResizingHostObserver(desktop_resizer_.get(), host_));
 
-#if defined(OS_MACOSX) || defined(OS_WIN)
+    curtaining_host_observer_.reset(new CurtainingHostObserver(
+          curtain_.get(), host_));
+
     if (host_user_interface_.get()) {
       host_user_interface_->Start(
           host_, base::Bind(&HostProcess::OnDisconnectRequested,
                             base::Unretained(this)));
     }
-#endif
 
     host_->Start(xmpp_login_);
 
@@ -607,7 +591,7 @@ class HostProcess
   }
 
   // Invoked when the user uses the Disconnect windows to terminate
-  // the sessions.
+  // the sessions, or when the local session is activated in curtain mode.
   void OnDisconnectRequested() {
     if (!context_->network_task_runner()->BelongsToCurrentThread()) {
       context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
@@ -676,6 +660,7 @@ class HostProcess
   void ResetHost() {
     DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
+    curtaining_host_observer_.reset();
     host_event_logger_.reset();
     log_to_server_.reset();
     heartbeat_sender_.reset();
@@ -689,10 +674,8 @@ class HostProcess
   scoped_ptr<net::NetworkChangeNotifier> network_change_notifier_;
 
   JsonHostConfig config_;
-#if !defined(REMOTING_MULTI_PROCESS)
   FilePath host_config_path_;
   scoped_ptr<ConfigFileWatcher> config_watcher_;
-#endif  // !defined(REMOTING_MULTI_PROCESS)
 
   std::string host_id_;
   HostKeyPair key_pair_;
@@ -708,6 +691,9 @@ class HostProcess
   bool allow_nat_traversal_;
   std::string talkgadget_prefix_;
 
+  scoped_ptr<CurtainMode> curtain_;
+  scoped_ptr<CurtainingHostObserver> curtaining_host_observer_;
+
   bool restarting_;
   bool shutting_down_;
 
@@ -720,17 +706,11 @@ class HostProcess
   scoped_ptr<LogToServer> log_to_server_;
   scoped_ptr<HostEventLogger> host_event_logger_;
 
-#if defined(OS_MACOSX) || defined(OS_WIN)
   scoped_ptr<HostUserInterface> host_user_interface_;
-#endif
 
   scoped_refptr<ChromotingHost> host_;
 
   int exit_code_;
-
-#if defined(OS_MACOSX)
-  remoting::CurtainMode curtain_;
-#endif  // defined(OS_MACOSX)
 };
 
 }  // namespace remoting

@@ -10,8 +10,6 @@
 #include "ui/views/examples/example_base.h"
 
 namespace views {
-class View;
-
 namespace examples {
 
 class ThrobberExample : public ExampleBase {

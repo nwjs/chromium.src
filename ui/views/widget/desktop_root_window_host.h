@@ -6,6 +6,7 @@
 #define UI_VIEWS_WIDGET_DESKTOP_ROOT_WINDOW_HOST_H_
 
 #include "ui/base/ui_base_types.h"
+#include "ui/views/views_export.h"
 #include "ui/views/widget/widget.h"
 
 namespace aura {
@@ -19,21 +20,25 @@ class Rect;
 }
 
 namespace views {
+class DesktopNativeWidgetAura;
 namespace internal {
 class InputMethodDelegate;
 class NativeWidgetDelegate;
 }
 
-class DesktopRootWindowHost {
+class VIEWS_EXPORT DesktopRootWindowHost {
  public:
   virtual ~DesktopRootWindowHost() {}
 
   static DesktopRootWindowHost* Create(
       internal::NativeWidgetDelegate* native_widget_delegate,
+      DesktopNativeWidgetAura* desktop_native_widget_aura,
       const gfx::Rect& initial_bounds);
 
-  virtual void Init(aura::Window* content_window,
-                    const Widget::InitParams& params) = 0;
+  // Creates the aura resources associated with the native window we built.
+  // Caller takes ownership of returned RootWindow.
+  virtual aura::RootWindow* Init(aura::Window* content_window,
+                                 const Widget::InitParams& params) = 0;
 
   virtual void Close() = 0;
   virtual void CloseNow() = 0;

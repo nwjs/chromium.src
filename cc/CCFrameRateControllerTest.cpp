@@ -7,7 +7,7 @@
 #include "CCFrameRateController.h"
 
 #include "CCSchedulerTestCommon.h"
-#include <gtest/gtest.h>
+#include "testing/gtest/include/gtest/gtest.h"
 
 using namespace cc;
 using namespace WebKitTests;
@@ -22,7 +22,7 @@ public:
     void reset() { m_vsyncTicked = false; }
     bool vsyncTicked() const { return m_vsyncTicked; }
 
-    virtual void vsyncTick() { m_vsyncTicked = true; }
+    virtual void vsyncTick(bool throttled) { m_vsyncTicked = !throttled; }
 
 protected:
     bool m_vsyncTicked;

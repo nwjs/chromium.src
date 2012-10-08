@@ -63,8 +63,6 @@ class CONTENT_EXPORT WebContentsViewAura
   virtual void SetInitialFocus() OVERRIDE;
   virtual void StoreFocus() OVERRIDE;
   virtual void RestoreFocus() OVERRIDE;
-  virtual bool IsDoingDrag() const OVERRIDE;
-  virtual void CancelDragAndCloseTab() OVERRIDE;
   virtual WebDropData* GetDropData() const OVERRIDE;
   virtual bool IsEventTracking() const OVERRIDE;
   virtual void CloseTabAfterEventTracking() OVERRIDE;
@@ -114,7 +112,7 @@ class CONTENT_EXPORT WebContentsViewAura
   // Overridden from ui::EventHandler:
   virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
   virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
-  virtual ui::TouchStatus OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
+  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
   virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
   // Overridden from aura::client::DragDropDelegate:
@@ -133,10 +131,6 @@ class CONTENT_EXPORT WebContentsViewAura
   scoped_ptr<content::WebContentsViewDelegate> delegate_;
 
   WebKit::WebDragOperationsMask current_drag_op_;
-
-  // Set to true if we want to close the tab after the system drag operation
-  // has finished.
-  bool close_tab_after_drag_ends_;
 
   content::WebDragDestDelegate* drag_dest_delegate_;
 

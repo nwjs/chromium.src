@@ -26,11 +26,11 @@ namespace WebKit {
 
 WebLayerTreeView* WebLayerTreeView::create(WebLayerTreeViewClient* client, const WebLayer& root, const WebLayerTreeView::Settings& settings)
 {
-    OwnPtr<WebLayerTreeViewImpl> layerTreeViewImpl = adoptPtr(new WebLayerTreeViewImpl(client));
+    scoped_ptr<WebLayerTreeViewImpl> layerTreeViewImpl(new WebLayerTreeViewImpl(client));
     if (!layerTreeViewImpl->initialize(settings))
         return 0;
     layerTreeViewImpl->setRootLayer(root);
-    return layerTreeViewImpl.leakPtr();
+    return layerTreeViewImpl.release();
 }
 
 WebLayerTreeViewImpl::WebLayerTreeViewImpl(WebLayerTreeViewClient* client)
@@ -54,7 +54,7 @@ bool WebLayerTreeViewImpl::initialize(const WebLayerTreeView::Settings& webSetti
     settings.defaultTileSize = convert(webSettings.defaultTileSize);
     settings.maxUntiledLayerSize = convert(webSettings.maxUntiledLayerSize);
     m_layerTreeHost = CCLayerTreeHost::create(this, settings);
-    if (!m_layerTreeHost)
+    if (!m_layerTreeHost.get())
         return false;
     return true;
 }
@@ -71,7 +71,7 @@ void WebLayerTreeViewImpl::setRootLayer(const WebLayer& root)
 
 void WebLayerTreeViewImpl::clearRootLayer()
 {
-    m_layerTreeHost->setRootLayer(PassRefPtr<LayerChromium>());
+    m_layerTreeHost->setRootLayer(scoped_refptr<LayerChromium>());
 }
 
 void WebLayerTreeViewImpl::setViewportSize(const WebSize& layoutViewportSize, const WebSize& deviceViewportSize)
@@ -168,13 +168,17 @@ void WebLayerTreeViewImpl::finishAllRendering()
 void WebLayerTreeViewImpl::renderingStats(WebRenderingStats& stats) const
 {
     CCRenderingStats ccStats;
-    m_layerTreeHost->renderingStats(ccStats);
+    m_layerTreeHost->renderingStats(&ccStats);
 
     stats.numAnimationFrames = ccStats.numAnimationFrames;
     stats.numFramesSentToScreen = ccStats.numFramesSentToScreen;
     stats.droppedFrameCount = ccStats.droppedFrameCount;
     stats.totalPaintTimeInSeconds = ccStats.totalPaintTimeInSeconds;
     stats.totalRasterizeTimeInSeconds = ccStats.totalRasterizeTimeInSeconds;
+    stats.totalCommitTimeInSeconds = ccStats.totalCommitTimeInSeconds;
+    stats.totalCommitCount = ccStats.totalCommitCount;
+    stats.numImplThreadScrolls = ccStats.numImplThreadScrolls;
+    stats.numMainThreadScrolls = ccStats.numMainThreadScrolls;
 }
 
 void WebLayerTreeViewImpl::setFontAtlas(SkBitmap bitmap, WebRect asciiToWebRectTable[128], int fontHeight)
@@ -182,8 +186,8 @@ void WebLayerTreeViewImpl::setFontAtlas(SkBitmap bitmap, WebRect asciiToWebRectT
     IntRect asciiToRectTable[128];
     for (int i = 0; i < 128; ++i)
         asciiToRectTable[i] = convert(asciiToWebRectTable[i]);
-    OwnPtr<CCFontAtlas> fontAtlas = CCFontAtlas::create(bitmap, asciiToRectTable, fontHeight);
-    m_layerTreeHost->setFontAtlas(fontAtlas.release());
+    scoped_ptr<CCFontAtlas> fontAtlas = CCFontAtlas::create(bitmap, asciiToRectTable, fontHeight);
+    m_layerTreeHost->setFontAtlas(fontAtlas.Pass());
 }
 
 void WebLayerTreeViewImpl::loseCompositorContext(int numTimes)
@@ -216,9 +220,9 @@ void WebLayerTreeViewImpl::applyScrollAndScale(const cc::IntSize& scrollDelta, f
     m_client->applyScrollAndScale(convert(scrollDelta), pageScale);
 }
 
-PassOwnPtr<WebCompositorOutputSurface> WebLayerTreeViewImpl::createOutputSurface()
+scoped_ptr<WebCompositorOutputSurface> WebLayerTreeViewImpl::createOutputSurface()
 {
-    return adoptPtr(m_client->createOutputSurface());
+    return scoped_ptr<WebCompositorOutputSurface>(m_client->createOutputSurface());
 }
 
 void WebLayerTreeViewImpl::didRecreateOutputSurface(bool success)
@@ -226,12 +230,13 @@ void WebLayerTreeViewImpl::didRecreateOutputSurface(bool success)
     m_client->didRecreateOutputSurface(success);
 }
 
-PassOwnPtr<CCInputHandler> WebLayerTreeViewImpl::createInputHandler()
+scoped_ptr<CCInputHandler> WebLayerTreeViewImpl::createInputHandler()
 {
+    scoped_ptr<CCInputHandler> ret;
     OwnPtr<WebInputHandler> handler = adoptPtr(m_client->createInputHandler());
     if (handler)
-        return WebToCCInputHandlerAdapter::create(handler.release());
-    return nullptr;
+        ret = WebToCCInputHandlerAdapter::create(handler.release());
+    return ret.Pass();
 }
 
 void WebLayerTreeViewImpl::willCommit()

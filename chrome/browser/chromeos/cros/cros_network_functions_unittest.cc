@@ -192,12 +192,22 @@ class CrosNetworkFunctionsTest : public testing::Test {
     callback.Run(DBUS_METHOD_CALL_SUCCESS, *dictionary_value_result_);
   }
 
+  // Handles responses for GetProperties method calls that return
+  // errors in an error callback.
+  void OnGetPropertiesWithoutStatus(
+      const dbus::ObjectPath& path,
+      const ShillClientHelper::DictionaryValueCallbackWithoutStatus& callback,
+      const ShillClientHelper::ErrorCallback& error_callback) {
+    callback.Run(*dictionary_value_result_);
+  }
+
   // Handles responses for GetEntry method calls.
   void OnGetEntry(
       const dbus::ObjectPath& profile_path,
       const std::string& entry_path,
-      const ShillClientHelper::DictionaryValueCallback& callback) {
-    callback.Run(DBUS_METHOD_CALL_SUCCESS, *dictionary_value_result_);
+      const ShillClientHelper::DictionaryValueCallbackWithoutStatus& callback,
+      const ShillClientHelper::ErrorCallback& error_callback) {
+    callback.Run(*dictionary_value_result_);
   }
 
   // Mock NetworkOperationCallback.
@@ -244,7 +254,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosSetNetworkServiceProperty) {
   value.SetString(key2, string2);
   EXPECT_CALL(*mock_service_client_,
               SetProperty(dbus::ObjectPath(service_path), property,
-                          IsEqualTo(&value), _)).Times(1);
+                          IsEqualTo(&value), _, _)).Times(1);
 
   CrosSetNetworkServiceProperty(service_path, property, value);
 }
@@ -253,7 +263,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosClearNetworkServiceProperty) {
   const std::string service_path = "/";
   const std::string property = "property";
   EXPECT_CALL(*mock_service_client_,
-              ClearProperty(dbus::ObjectPath(service_path), property, _))
+              ClearProperty(dbus::ObjectPath(service_path), property, _, _))
       .Times(1);
 
   CrosClearNetworkServiceProperty(service_path, property);
@@ -266,7 +276,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosSetNetworkDeviceProperty) {
   const base::FundamentalValue value(kBool);
   EXPECT_CALL(*mock_device_client_,
               SetProperty(dbus::ObjectPath(device_path), StrEq(property),
-                          IsEqualTo(&value), _)).Times(1);
+                          IsEqualTo(&value), _, _)).Times(1);
 
   CrosSetNetworkDeviceProperty(device_path, property, value);
 }
@@ -286,7 +296,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosSetNetworkManagerProperty) {
   const std::string property = "property";
   const base::StringValue value("string");
   EXPECT_CALL(*mock_manager_client_,
-              SetProperty(property, IsEqualTo(&value), _)).Times(1);
+              SetProperty(property, IsEqualTo(&value), _, _)).Times(1);
 
   CrosSetNetworkManagerProperty(property, value);
 }
@@ -295,7 +305,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosDeleteServiceFromProfile) {
   const std::string profile_path("/profile/path");
   const std::string service_path("/service/path");
   EXPECT_CALL(*mock_profile_client_,
-              DeleteEntry(dbus::ObjectPath(profile_path), service_path, _))
+              DeleteEntry(dbus::ObjectPath(profile_path), service_path, _, _))
       .Times(1);
   CrosDeleteServiceFromProfile(profile_path, service_path);
 }
@@ -311,17 +321,19 @@ TEST_F(CrosNetworkFunctionsTest, CrosMonitorNetworkManagerProperties) {
   const std::string key = "key";
   const int kValue = 42;
   const base::FundamentalValue value(kValue);
+
   // Start monitoring.
-  ShillClientHelper::PropertyChangedHandler handler;
-  EXPECT_CALL(*mock_manager_client_, SetPropertyChangedHandler(_))
-      .WillOnce(SaveArg<0>(&handler));
+  ShillPropertyChangedObserver* observer = NULL;
+  EXPECT_CALL(*mock_manager_client_, AddPropertyChangedObserver(_))
+      .WillOnce(SaveArg<0>(&observer));
   CrosNetworkWatcher* watcher = CrosMonitorNetworkManagerProperties(
       MockNetworkPropertiesWatcherCallback::CreateCallback(
           flimflam::kFlimflamServicePath, key, value));
   // Call callback.
-  handler.Run(key, value);
+  observer->OnPropertyChanged(key, value);
   // Stop monitoring.
-  EXPECT_CALL(*mock_manager_client_, ResetPropertyChangedHandler()).Times(1);
+  EXPECT_CALL(*mock_manager_client_,
+              RemovePropertyChangedObserver(_)).Times(1);
   delete watcher;
 }
 
@@ -331,19 +343,19 @@ TEST_F(CrosNetworkFunctionsTest, CrosMonitorNetworkServiceProperties) {
   const int kValue = 42;
   const base::FundamentalValue value(kValue);
   // Start monitoring.
-  ShillClientHelper::PropertyChangedHandler handler;
-  EXPECT_CALL(*mock_service_client_, SetPropertyChangedHandler(path, _))
-      .WillOnce(SaveArg<1>(&handler));
+  ShillPropertyChangedObserver* observer = NULL;
+  EXPECT_CALL(*mock_service_client_, AddPropertyChangedObserver(path, _))
+      .WillOnce(SaveArg<1>(&observer));
   NetworkPropertiesWatcherCallback callback =
       MockNetworkPropertiesWatcherCallback::CreateCallback(path.value(),
                                                            key, value);
   CrosNetworkWatcher* watcher = CrosMonitorNetworkServiceProperties(
       callback, path.value());
   // Call callback.
-  handler.Run(key, value);
+  observer->OnPropertyChanged(key, value);
   // Stop monitoring.
   EXPECT_CALL(*mock_service_client_,
-              ResetPropertyChangedHandler(path)).Times(1);
+              RemovePropertyChangedObserver(path, _)).Times(1);
   delete watcher;
 }
 
@@ -353,19 +365,19 @@ TEST_F(CrosNetworkFunctionsTest, CrosMonitorNetworkDeviceProperties) {
   const int kValue = 42;
   const base::FundamentalValue value(kValue);
   // Start monitoring.
-  ShillClientHelper::PropertyChangedHandler handler;
-  EXPECT_CALL(*mock_device_client_, SetPropertyChangedHandler(path, _))
-      .WillOnce(SaveArg<1>(&handler));
+  ShillPropertyChangedObserver* observer = NULL;
+  EXPECT_CALL(*mock_device_client_, AddPropertyChangedObserver(path, _))
+      .WillOnce(SaveArg<1>(&observer));
   NetworkPropertiesWatcherCallback callback =
       MockNetworkPropertiesWatcherCallback::CreateCallback(path.value(),
                                                            key, value);
   CrosNetworkWatcher* watcher = CrosMonitorNetworkDeviceProperties(
       callback, path.value());
   // Call callback.
-  handler.Run(key, value);
+  observer->OnPropertyChanged(key, value);
   // Stop monitoring.
   EXPECT_CALL(*mock_device_client_,
-              ResetPropertyChangedHandler(path)).Times(1);
+              RemovePropertyChangedObserver(path, _)).Times(1);
   delete watcher;
 }
 
@@ -619,9 +631,11 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkProfileProperties) {
   result.SetWithoutPathExpansion(key2, base::Value::CreateStringValue(value2));
   // Set expectations.
   dictionary_value_result_ = &result;
-  EXPECT_CALL(*mock_profile_client_,
-              GetProperties(dbus::ObjectPath(profile_path), _)).WillOnce(
-                  Invoke(this, &CrosNetworkFunctionsTest::OnGetProperties));
+  EXPECT_CALL(
+      *mock_profile_client_,
+      GetProperties(dbus::ObjectPath(profile_path), _, _)).WillOnce(
+          Invoke(this,
+                 &CrosNetworkFunctionsTest::OnGetPropertiesWithoutStatus));
 
   CrosRequestNetworkProfileProperties(
       profile_path,
@@ -642,7 +656,8 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkProfileEntryProperties) {
   // Set expectations.
   dictionary_value_result_ = &result;
   EXPECT_CALL(*mock_profile_client_,
-              GetEntry(dbus::ObjectPath(profile_path), profile_entry_path, _))
+              GetEntry(dbus::ObjectPath(profile_path),
+                       profile_entry_path, _, _))
       .WillOnce(Invoke(this, &CrosNetworkFunctionsTest::OnGetEntry));
 
   CrosRequestNetworkProfileEntryProperties(
@@ -679,8 +694,8 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestHiddenWifiNetworkProperties) {
       base::Value::CreateStringValue(security));
   // Set expectations.
   const dbus::ObjectPath service_path("/service/path");
-  ObjectPathDBusMethodCallback callback;
-  EXPECT_CALL(*mock_manager_client_, GetService(IsEqualTo(&properties), _))
+  ObjectPathCallback callback;
+  EXPECT_CALL(*mock_manager_client_, GetService(IsEqualTo(&properties), _, _))
       .WillOnce(SaveArg<1>(&callback));
   EXPECT_CALL(*mock_service_client_,
               GetProperties(service_path, _)).WillOnce(
@@ -692,7 +707,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestHiddenWifiNetworkProperties) {
       MockNetworkPropertiesCallback::CreateCallback(service_path.value(),
                                                     result));
   // Run callback to invoke GetProperties.
-  callback.Run(DBUS_METHOD_CALL_SUCCESS, service_path);
+  callback.Run(service_path);
 }
 
 TEST_F(CrosNetworkFunctionsTest, CrosRequestVirtualNetworkProperties) {
@@ -727,8 +742,8 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestVirtualNetworkProperties) {
 
   // Set expectations.
   const dbus::ObjectPath service_path("/service/path");
-  ObjectPathDBusMethodCallback callback;
-  EXPECT_CALL(*mock_manager_client_, GetService(IsEqualTo(&properties), _))
+  ObjectPathCallback callback;
+  EXPECT_CALL(*mock_manager_client_, GetService(IsEqualTo(&properties), _, _))
       .WillOnce(SaveArg<1>(&callback));
   EXPECT_CALL(*mock_service_client_,
               GetProperties(service_path, _)).WillOnce(
@@ -740,38 +755,38 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestVirtualNetworkProperties) {
       MockNetworkPropertiesCallback::CreateCallback(service_path.value(),
                                                     result));
   // Run callback to invoke GetProperties.
-  callback.Run(DBUS_METHOD_CALL_SUCCESS, service_path);
+  callback.Run(service_path);
 }
 
 TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkServiceDisconnect) {
   const std::string service_path = "/service/path";
   EXPECT_CALL(*mock_service_client_,
-              Disconnect(dbus::ObjectPath(service_path), _)).Times(1);
+              Disconnect(dbus::ObjectPath(service_path), _, _)).Times(1);
   CrosRequestNetworkServiceDisconnect(service_path);
 }
 
 TEST_F(CrosNetworkFunctionsTest, CrosRequestRemoveNetworkService) {
   const std::string service_path = "/service/path";
   EXPECT_CALL(*mock_service_client_,
-              Remove(dbus::ObjectPath(service_path), _)).Times(1);
+              Remove(dbus::ObjectPath(service_path), _, _)).Times(1);
   CrosRequestRemoveNetworkService(service_path);
 }
 
 TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkScan) {
   EXPECT_CALL(*mock_manager_client_,
-              RequestScan(flimflam::kTypeWifi, _)).Times(1);
+              RequestScan(flimflam::kTypeWifi, _, _)).Times(1);
   CrosRequestNetworkScan(flimflam::kTypeWifi);
 }
 
 TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkDeviceEnable) {
   const bool kEnable = true;
   EXPECT_CALL(*mock_manager_client_,
-              EnableTechnology(flimflam::kTypeWifi, _)).Times(1);
+              EnableTechnology(flimflam::kTypeWifi, _, _)).Times(1);
   CrosRequestNetworkDeviceEnable(flimflam::kTypeWifi, kEnable);
 
   const bool kDisable = false;
   EXPECT_CALL(*mock_manager_client_,
-              DisableTechnology(flimflam::kTypeWifi, _)).Times(1);
+              DisableTechnology(flimflam::kTypeWifi, _, _)).Times(1);
   CrosRequestNetworkDeviceEnable(flimflam::kTypeWifi, kDisable);
 }
 
@@ -882,7 +897,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosSetOfflineMode) {
   const bool kOffline = true;
   const base::FundamentalValue value(kOffline);
   EXPECT_CALL(*mock_manager_client_, SetProperty(
-      flimflam::kOfflineModeProperty, IsEqualTo(&value), _)).Times(1);
+      flimflam::kOfflineModeProperty, IsEqualTo(&value), _, _)).Times(1);
   CrosSetOfflineMode(kOffline);
 }
 
@@ -1059,7 +1074,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosConfigureService) {
   base::DictionaryValue value;
   value.SetString(key1, string1);
   value.SetString(key2, string2);
-  EXPECT_CALL(*mock_manager_client_, ConfigureService(IsEqualTo(&value), _))
+  EXPECT_CALL(*mock_manager_client_, ConfigureService(IsEqualTo(&value), _, _))
       .Times(1);
   CrosConfigureService(value);
 }

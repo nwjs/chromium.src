@@ -209,11 +209,6 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   WebSecurityPolicy::registerURLSchemeAsLocal(drive_scheme);
 #endif
 
-#if defined(OS_ANDROID)
-  WebString content_scheme(ASCIIToUTF16(chrome::kContentScheme));
-  WebSecurityPolicy::registerURLSchemeAsLocal(content_scheme);
-#endif
-
   // chrome: pages should not be accessible by bookmarklets or javascript:
   // URLs typed in the omnibox.
   WebSecurityPolicy::registerURLSchemeAsNotAllowingJavascriptURLs(
@@ -312,11 +307,12 @@ bool ChromeContentRendererClient::OverrideCreatePlugin(
     const WebPluginParams& params,
     WebPlugin** plugin) {
   std::string orig_mime_type = params.mimeType.utf8();
-  if (orig_mime_type == content::kBrowserPluginNewMimeType ||
-      ((orig_mime_type == content::kBrowserPluginMimeType) &&
-        extensions::ExtensionHelper::Get(render_view)->view_type() ==
-        VIEW_TYPE_APP_SHELL)) {
-      return false;
+  if ((orig_mime_type == content::kBrowserPluginMimeType &&
+      extensions::ExtensionHelper::Get(render_view)->view_type() ==
+          VIEW_TYPE_APP_SHELL) ||
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableBrowserPluginForAllViewTypes)) {
+    return false;
   }
 
   ChromeViewHostMsg_GetPluginInfo_Output output;
@@ -725,7 +721,11 @@ bool ChromeContentRendererClient::RunIdleHandlerWhenWidgetsHidden() {
 bool ChromeContentRendererClient::AllowPopup(const GURL& creator) {
   extensions::ChromeV8Context* current_context =
       extension_dispatcher_->v8_context_set().GetCurrent();
-  return current_context && current_context->extension();
+  return current_context && current_context->extension() &&
+      (current_context->context_type() ==
+       extensions::Feature::BLESSED_EXTENSION_CONTEXT ||
+       current_context->context_type() ==
+       extensions::Feature::CONTENT_SCRIPT_CONTEXT);
 }
 
 bool ChromeContentRendererClient::ShouldFork(WebFrame* frame,

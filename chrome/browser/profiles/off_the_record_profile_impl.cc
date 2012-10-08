@@ -54,6 +54,10 @@
 #include "net/http/http_server_properties.h"
 #include "webkit/database/database_tracker.h"
 
+#if defined(OS_ANDROID)
+#include "chrome/browser/prefs/scoped_user_pref_update.h"
+#endif
+
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/preferences.h"
 #include "chrome/browser/chromeos/proxy_config_service_impl.h"
@@ -93,6 +97,10 @@ void OffTheRecordProfileImpl::Init() {
 
   DCHECK_NE(IncognitoModePrefs::DISABLED,
             IncognitoModePrefs::GetAvailability(profile_->GetPrefs()));
+
+#if defined(OS_ANDROID)
+  UseSystemProxy();
+#endif  // defined(OS_ANDROID)
 
   // TODO(oshima): Remove the need to eagerly initialize the request context
   // getter. chromeos::OnlineAttempt is illegally trying to access this
@@ -156,6 +164,22 @@ void OffTheRecordProfileImpl::InitHostZoomMap() {
   registrar_.Add(this, content::NOTIFICATION_ZOOM_LEVEL_CHANGED,
                  content::Source<HostZoomMap>(parent_host_zoom_map));
 }
+
+#if defined(OS_ANDROID)
+void OffTheRecordProfileImpl::UseSystemProxy() {
+  // Force the use of the system-assigned proxy when off the record.
+  const char kProxyMode[] = "mode";
+  const char kProxyServer[] = "server";
+  const char kProxyBypassList[] = "bypass_list";
+  const char kProxyPacUrl[] = "pac_url";
+  DictionaryPrefUpdate update(prefs_, prefs::kProxy);
+  DictionaryValue* dict = update.Get();
+  dict->SetString(kProxyMode, ProxyModeToString(ProxyPrefs::MODE_SYSTEM));
+  dict->SetString(kProxyPacUrl, "");
+  dict->SetString(kProxyServer, "");
+  dict->SetString(kProxyBypassList, "");
+}
+#endif  // defined(OS_ANDROID)
 
 std::string OffTheRecordProfileImpl::GetProfileName() {
   // Incognito profile should not return the profile name.
@@ -248,12 +272,13 @@ net::URLRequestContextGetter* OffTheRecordProfileImpl::GetRequestContext() {
 net::URLRequestContextGetter*
     OffTheRecordProfileImpl::GetRequestContextForRenderProcess(
         int renderer_child_id) {
-  if (GetExtensionService()) {
-    const extensions::Extension* installed_app = GetExtensionService()->
-        GetInstalledAppForRenderer(renderer_child_id);
-    if (installed_app != NULL && installed_app->is_storage_isolated()) {
-      return GetRequestContextForStoragePartition(installed_app->id());
-    }
+  ExtensionService* extension_service =
+      extensions::ExtensionSystem::Get(this)->extension_service();
+  if (extension_service) {
+    const extensions::Extension* extension =
+        extension_service->GetIsolatedAppForRenderer(renderer_child_id);
+    if (extension)
+      return GetRequestContextForStoragePartition(extension->id());
   }
 
   content::RenderProcessHost* rph = content::RenderProcessHost::FromID(
@@ -334,10 +359,6 @@ content::SpeechRecognitionPreferences*
   return profile_->GetSpeechRecognitionPreferences();
 }
 
-bool OffTheRecordProfileImpl::DidLastSessionExitCleanly() {
-  return profile_->DidLastSessionExitCleanly();
-}
-
 quota::SpecialStoragePolicy*
     OffTheRecordProfileImpl::GetSpecialStoragePolicy() {
   return GetExtensionSpecialStoragePolicy();
@@ -363,7 +384,7 @@ history::TopSites* OffTheRecordProfileImpl::GetTopSites() {
   return NULL;
 }
 
-void OffTheRecordProfileImpl::MarkAsCleanShutdown() {
+void OffTheRecordProfileImpl::SetExitType(ExitType exit_type) {
 }
 
 void OffTheRecordProfileImpl::InitPromoResources() {
@@ -386,6 +407,10 @@ void OffTheRecordProfileImpl::set_last_selected_directory(
 bool OffTheRecordProfileImpl::WasCreatedByVersionOrLater(
     const std::string& version) {
   return profile_->WasCreatedByVersionOrLater(version);
+}
+
+Profile::ExitType OffTheRecordProfileImpl::GetLastSessionExitType() {
+  return profile_->GetLastSessionExitType();
 }
 
 #if defined(OS_CHROMEOS)

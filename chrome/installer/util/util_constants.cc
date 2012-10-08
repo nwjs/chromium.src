@@ -79,6 +79,9 @@ const char kDoNotRemoveSharedItems[] = "do-not-remove-shared-items";
 // Enable logging at the error level. This is the default behavior.
 const char kEnableLogging[] = "enable-logging";
 
+// Ensures that Google Update is present at the current level of installation.
+const char kEnsureGoogleUpdatePresent[] = "ensure-google-update-present";
+
 // If present, setup will uninstall chrome without asking for any
 // confirmation from user.
 const char kForceUninstall[] = "force-uninstall";
@@ -155,6 +158,9 @@ const char kVerboseLogging[] = "verbose-logging";
 // Show the embedded EULA dialog.
 const char kShowEula[] = "show-eula";
 
+// Show the embedded EULA dialog, relaunch metro Chrome on acceptance.
+const char kShowEulaForMetro[] = "show-eula-for-metro";
+
 // Use the alternate desktop shortcut name.
 const char kAltDesktopShortcut[] = "alt-desktop-shortcut";
 
@@ -189,12 +195,14 @@ const wchar_t kCmdQuickEnableApplicationHost[] =
     L"quick-enable-application-host";
 const wchar_t kCmdQuickEnableCf[] = L"quick-enable-cf";
 const wchar_t kDelegateExecuteExe[] = L"delegate_execute.exe";
+const char kEULASentinelFile[] = "EULA Accepted";
 const wchar_t kGoogleChromeInstallSubDir1[] = L"Google";
 const wchar_t kGoogleChromeInstallSubDir2[] = L"Chrome";
 const wchar_t kInstallBinaryDir[] = L"Application";
 const wchar_t kInstallerDir[] = L"Installer";
 const wchar_t kInstallTempDir[] = L"Temp";
 const wchar_t kInstallUserDataDir[] = L"User Data";
+const wchar_t kLnkExt[] = L".lnk";
 const wchar_t kNaClExe[] = L"nacl64.exe";
 const wchar_t kSetupExe[] = L"setup.exe";
 const wchar_t kSxSSuffix[] = L" SxS";

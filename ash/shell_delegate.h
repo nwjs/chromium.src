@@ -64,6 +64,11 @@ class ASH_EXPORT ShellDelegate {
   // Returns true if we're logged in and browser has been started
   virtual bool IsSessionStarted() = 0;
 
+  // Returns true if this is the first time that the shell has been run after
+  // the system has booted.  false is returned after the shell has been
+  // restarted, typically due to logging in as a guest or logging out.
+  virtual bool IsFirstRunAfterBoot() = 0;
+
   // Invoked when a user locks the screen.
   virtual void LockScreen() = 0;
 
@@ -157,6 +162,13 @@ class ASH_EXPORT ShellDelegate {
   // "13 Minuten übrig".
   // Used, for example, to display the remaining battery life.
   virtual string16 GetTimeRemainingString(base::TimeDelta delta) = 0;
+
+  // Saves the zoom scale of the full screen magnifier.
+  virtual void SaveScreenMagnifierScale(double scale) = 0;
+
+  // Gets a saved value of the zoom scale of full screen magnifier. If a value
+  // is not saved, return a negative value.
+  virtual double GetSavedScreenMagnifierScale() = 0;
 };
 
 }  // namespace ash

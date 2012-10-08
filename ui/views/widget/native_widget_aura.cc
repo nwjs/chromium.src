@@ -176,6 +176,8 @@ void NativeWidgetAura::InitNativeWidget(const Widget::InitParams& params) {
     window_->Show();
 
   delegate_->OnNativeWidgetCreated();
+
+  gfx::Rect window_bounds = params.bounds;
   if (desktop_helper_.get() && desktop_helper_->GetRootWindow()) {
     if (!params.child && params.GetParent())
       params.GetParent()->AddTransientChild(window_);
@@ -203,10 +205,16 @@ void NativeWidgetAura::InitNativeWidget(const Widget::InitParams& params) {
     // SetAlwaysOnTop before SetParent so that always-on-top container is used.
     SetAlwaysOnTop(params.keep_on_top);
     // If the parent is not specified, find the default parent for
-    // the |window_| using the desired |params.bounds|.
+    // the |window_| using the desired |window_bounds|.
     if (!parent) {
       parent = aura::client::GetStackingClient()->GetDefaultParent(
-          window_, params.bounds);
+          window_, window_bounds);
+    } else if (window_bounds == gfx::Rect()) {
+      // If a parent is specified but no bounds are given,
+      // use the origin of the parent's display so that the widget
+      // will be added to the same display as the parent.
+      gfx::Rect bounds = gfx::Screen::GetDisplayNearestWindow(parent).bounds();
+      window_bounds.set_origin(bounds.origin());
     }
     window_->SetParent(parent);
   }
@@ -215,9 +223,9 @@ void NativeWidgetAura::InitNativeWidget(const Widget::InitParams& params) {
   // true state/bounds (the LayoutManager may enforce a particular
   // state/bounds).
   if (IsMaximized())
-    SetRestoreBounds(window_, params.bounds);
+    SetRestoreBounds(window_, window_bounds);
   else
-    SetBounds(params.bounds);
+    SetBounds(window_bounds);
   window_->set_ignore_events(!params.accept_events);
   can_activate_ =
       params.can_activate && params.type != Widget::InitParams::TYPE_CONTROL;
@@ -875,9 +883,10 @@ ui::EventResult NativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {
   return delegate_->OnMouseEvent(*event) ? ui::ER_HANDLED : ui::ER_UNHANDLED;
 }
 
-ui::TouchStatus NativeWidgetAura::OnTouchEvent(ui::TouchEvent* event) {
+ui::EventResult NativeWidgetAura::OnTouchEvent(ui::TouchEvent* event) {
   DCHECK(window_->IsVisible());
-  return delegate_->OnTouchEvent(*event);
+  ui::TouchStatus status = delegate_->OnTouchEvent(*event);
+  return ui::EventResultFromTouchStatus(status);
 }
 
 ui::EventResult NativeWidgetAura::OnGestureEvent(ui::GestureEvent* event) {
@@ -1051,7 +1060,12 @@ void NativeWidgetPrivate::ReparentNativeView(gfx::NativeView native_view,
     (*it)->NotifyNativeViewHierarchyChanged(false, previous_parent);
   }
 
-  native_view->SetParent(new_parent);
+  // SetParent(NULL) sets the parent to StackingClient::GetDefaultParent().
+  // NativeViewHostAura needs NULL to mean remove, so we special case it here.
+  if (new_parent)
+    native_view->SetParent(new_parent);
+  else if (native_view->parent())
+    native_view->parent()->RemoveChild(native_view);
 
   // And now, notify them that they have a brand new parent.
   for (Widget::Widgets::iterator it = widgets.begin();

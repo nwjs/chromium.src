@@ -54,8 +54,7 @@ class TabStrip : public views::View,
  public:
   static const char kViewClassName[];
 
-  TabStrip(TabStripController* controller,
-           bool instant_extended_api_enabled);
+  explicit TabStrip(TabStripController* controller);
   virtual ~TabStrip();
 
   // Sets the layout type. If |adjust_layout| is true the layout type changes
@@ -188,6 +187,7 @@ class TabStrip : public views::View,
                                  const ui::MouseEvent& event) OVERRIDE;
   virtual bool ShouldPaintTab(const BaseTab* tab, gfx::Rect* clip) OVERRIDE;
   virtual bool IsInstantExtendedAPIEnabled() OVERRIDE;
+  virtual bool ShouldShowWhiteNTP() OVERRIDE;
 
   // MouseWatcherListener overrides:
   virtual void MouseMovedOutOfHost() OVERRIDE;
@@ -305,6 +305,17 @@ class TabStrip : public views::View,
   // of the tabs when the drag started.
   void DragActiveTab(const std::vector<int>& initial_positions, int delta);
 
+  // Sets the ideal bounds x-coordinates to |positions|.
+  void SetIdealBoundsFromPositions(const std::vector<int>& positions);
+
+  // Stacks the dragged tabs. This is used if the drag operation is
+  // MOVE_VISIBILE_TABS and the tabs don't fill the tabstrip. When this happens
+  // the active tab follows the mouse and the other tabs stack around it.
+  void StackDraggedTabs(int delta);
+
+  // Returns true if dragging has resulted in temporarily stacking the tabs.
+  bool IsStackingDraggedTabs() const;
+
   // Invoked during drag to layout the tabs being dragged in |tabs| at
   // |location|. If |initial_drag| is true, this is the initial layout after the
   // user moved the mouse far enough to trigger a drag.
@@ -341,8 +352,14 @@ class TabStrip : public views::View,
   // Invoked when TabDragController detaches a set of tabs.
   void DraggedTabsDetached();
 
-  // Used by TabDragController when the user stops dragging tabs.
-  void StoppedDraggingTabs(const std::vector<BaseTab*>& tabs);
+  // Used by TabDragController when the user stops dragging tabs. |move_only| is
+  // true if the move behavior is TabDragController::MOVE_VISIBILE_TABS.
+  // |completed| is true if the drag operation completed successfully, false if
+  // it was reverted.
+  void StoppedDraggingTabs(const std::vector<BaseTab*>& tabs,
+                           const std::vector<int>& initial_positions,
+                           bool move_only,
+                           bool completed);
 
   // Invoked from StoppedDraggingTabs to cleanup |tab|. If |tab| is known
   // |is_first_tab| is set to true.
@@ -495,8 +512,6 @@ class TabStrip : public views::View,
   TabsClosingMap tabs_closing_map_;
 
   scoped_ptr<TabStripController> controller_;
-
-  const bool instant_extended_api_enabled_;
 
   // The "New Tab" button.
   NewTabButton* newtab_button_;

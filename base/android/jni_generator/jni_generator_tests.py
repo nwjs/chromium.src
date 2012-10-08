@@ -1149,14 +1149,22 @@ import org.chromium.base.BuildInfo;
                       'com/foo/Bar', 'no PACKAGE line')
 
   def testMethodNameMangling(self):
-    self.assertEquals('close_pqV',
-                      jni_generator.GetMangledMethodName('close', '()V'))
-    self.assertEquals('read_paBIIqI',
-                      jni_generator.GetMangledMethodName('read', '([BII)I'))
-    self.assertEquals('open_pLjava_lang_StringxqLjava_io_InputStreamx',
-                      jni_generator.GetMangledMethodName(
-                          'open',
-                          '(Ljava/lang/String;)Ljava/io/InputStream;'))
+    self.assertEquals('closeV',
+        jni_generator.GetMangledMethodName('close', [], 'void'))
+    self.assertEquals('readI_AB_I_I',
+        jni_generator.GetMangledMethodName('read',
+            [Param(name='p1',
+                   datatype='byte[]'),
+             Param(name='p2',
+                   datatype='int'),
+             Param(name='p3',
+                   datatype='int'),],
+             'int'))
+    self.assertEquals('openJIIS_JLS',
+        jni_generator.GetMangledMethodName('open',
+            [Param(name='p1',
+                   datatype='java/lang/String'),],
+             'java/io/InputStream'))
 
   def testFromJavaP(self):
     contents = """
@@ -1265,47 +1273,49 @@ static jboolean Java_InputStream_markSupported(JNIEnv* env, jobject obj) {
   return ret;
 }
 
-static jmethodID g_InputStream_read_pqI = 0;
-static jint Java_InputStream_read(JNIEnv* env, jobject obj) __attribute__
+static jmethodID g_InputStream_readI = 0;
+static jint Java_InputStream_readI(JNIEnv* env, jobject obj) __attribute__
     ((unused));
-static jint Java_InputStream_read(JNIEnv* env, jobject obj) {
+static jint Java_InputStream_readI(JNIEnv* env, jobject obj) {
   /* Must call RegisterNativesImpl()  */
   DCHECK(g_InputStream_clazz);
-  DCHECK(g_InputStream_read_pqI);
+  DCHECK(g_InputStream_readI);
   jint ret =
     env->CallIntMethod(obj,
-      g_InputStream_read_pqI);
+      g_InputStream_readI);
   base::android::CheckException(env);
   return ret;
 }
 
-static jmethodID g_InputStream_read_paBqI = 0;
-static jint Java_InputStream_read(JNIEnv* env, jobject obj, jbyteArray p0)
+static jmethodID g_InputStream_readI_AB = 0;
+static jint Java_InputStream_readI_AB(JNIEnv* env, jobject obj, jbyteArray p0)
     __attribute__ ((unused));
-static jint Java_InputStream_read(JNIEnv* env, jobject obj, jbyteArray p0) {
+static jint Java_InputStream_readI_AB(JNIEnv* env, jobject obj, jbyteArray p0) {
   /* Must call RegisterNativesImpl()  */
   DCHECK(g_InputStream_clazz);
-  DCHECK(g_InputStream_read_paBqI);
+  DCHECK(g_InputStream_readI_AB);
   jint ret =
     env->CallIntMethod(obj,
-      g_InputStream_read_paBqI, p0);
+      g_InputStream_readI_AB, p0);
   base::android::CheckException(env);
   return ret;
 }
 
-static jmethodID g_InputStream_read_paBIIqI = 0;
-static jint Java_InputStream_read(JNIEnv* env, jobject obj, jbyteArray p0,
+static jmethodID g_InputStream_readI_AB_I_I = 0;
+static jint Java_InputStream_readI_AB_I_I(JNIEnv* env, jobject obj, jbyteArray
+    p0,
     jint p1,
     jint p2) __attribute__ ((unused));
-static jint Java_InputStream_read(JNIEnv* env, jobject obj, jbyteArray p0,
+static jint Java_InputStream_readI_AB_I_I(JNIEnv* env, jobject obj, jbyteArray
+    p0,
     jint p1,
     jint p2) {
   /* Must call RegisterNativesImpl()  */
   DCHECK(g_InputStream_clazz);
-  DCHECK(g_InputStream_read_paBIIqI);
+  DCHECK(g_InputStream_readI_AB_I_I);
   jint ret =
     env->CallIntMethod(obj,
-      g_InputStream_read_paBIIqI, p0, p1, p2);
+      g_InputStream_readI_AB_I_I, p0, p1, p2);
   base::android::CheckException(env);
   return ret;
 }
@@ -1339,6 +1349,8 @@ static jlong Java_InputStream_skip(JNIEnv* env, jobject obj, jlong p0) {
 }
 
 static jmethodID g_InputStream_Constructor = 0;
+static ScopedJavaLocalRef<jobject> Java_InputStream_Constructor(JNIEnv* env)
+__attribute__ ((unused));
 static ScopedJavaLocalRef<jobject> Java_InputStream_Constructor(JNIEnv* env) {
   /* Must call RegisterNativesImpl()  */
   DCHECK(g_InputStream_clazz);
@@ -1355,7 +1367,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
   g_InputStream_clazz = reinterpret_cast<jclass>(env->NewGlobalRef(
       base::android::GetUnscopedClass(env, kInputStreamClassPath)));
   g_InputStream_available =
-      base::android::GetMethodID(
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "available",
 
@@ -1364,7 +1376,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 "I");
 
   g_InputStream_close =
-      base::android::GetMethodID(
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "close",
 
@@ -1373,7 +1385,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 "V");
 
   g_InputStream_mark =
-      base::android::GetMethodID(
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "mark",
 
@@ -1383,7 +1395,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 "V");
 
   g_InputStream_markSupported =
-      base::android::GetMethodID(
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "markSupported",
 
@@ -1391,8 +1403,8 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 ")"
 "Z");
 
-  g_InputStream_read_pqI =
-      base::android::GetMethodID(
+  g_InputStream_readI =
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "read",
 
@@ -1400,8 +1412,8 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 ")"
 "I");
 
-  g_InputStream_read_paBqI =
-      base::android::GetMethodID(
+  g_InputStream_readI_AB =
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "read",
 
@@ -1410,8 +1422,8 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 ")"
 "I");
 
-  g_InputStream_read_paBIIqI =
-      base::android::GetMethodID(
+  g_InputStream_readI_AB_I_I =
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "read",
 
@@ -1423,7 +1435,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 "I");
 
   g_InputStream_reset =
-      base::android::GetMethodID(
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "reset",
 
@@ -1432,7 +1444,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 "V");
 
   g_InputStream_skip =
-      base::android::GetMethodID(
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "skip",
 
@@ -1442,7 +1454,7 @@ static void GetMethodIDsImpl(JNIEnv* env) {
 "J");
 
   g_InputStream_Constructor =
-      base::android::GetMethodID(
+      base::android::GetMethodIDOrNull(
           env, g_InputStream_clazz,
           "<init>",
 

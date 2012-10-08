@@ -7,10 +7,6 @@
 
 #include "content/browser/renderer_host/render_process_host_impl.h"
 
-#if defined(OS_WIN)
-#include <objbase.h>  // For CoInitialize/CoUninitialize.
-#endif
-
 #include <algorithm>
 #include <limits>
 #include <vector>
@@ -40,6 +36,7 @@
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/tracked_objects.h"
+#include "cc/switches.h"
 #include "content/browser/appcache/appcache_dispatcher_host.h"
 #include "content/browser/appcache/chrome_appcache_service.h"
 #include "content/browser/browser_main.h"
@@ -114,6 +111,7 @@
 #include "ipc/ipc_sync_channel.h"
 #include "media/base/media_switches.h"
 #include "net/url_request/url_request_context_getter.h"
+#include "ppapi/shared_impl/ppapi_switches.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gl/gl_switches.h"
 #include "webkit/fileapi/sandbox_mount_point_provider.h"
@@ -121,6 +119,7 @@
 #include "webkit/plugins/plugin_switches.h"
 
 #if defined(OS_WIN)
+#include "base/win/scoped_com_initializer.h"
 #include "content/common/font_cache_dispatcher_win.h"
 #endif
 
@@ -138,29 +137,28 @@ class RendererMainThread : public base::Thread {
  public:
   explicit RendererMainThread(const std::string& channel_id)
       : base::Thread("Chrome_InProcRendererThread"),
-        channel_id_(channel_id),
-        render_process_(NULL) {
+        channel_id_(channel_id) {
   }
 
-  ~RendererMainThread() {
+  virtual ~RendererMainThread() {
     Stop();
   }
 
  protected:
   virtual void Init() {
 #if defined(OS_WIN)
-    CoInitialize(NULL);
+    com_initializer_.reset(new base::win::ScopedCOMInitializer());
 #endif
 
-    render_process_ = new RenderProcessImpl();
+    render_process_.reset(new RenderProcessImpl());
     new RenderThreadImpl(channel_id_);
   }
 
   virtual void CleanUp() {
-    delete render_process_;
+    render_process_.reset();
 
 #if defined(OS_WIN)
-    CoUninitialize();
+    com_initializer_.reset();
 #endif
     // It's a little lame to manually set this flag.  But the single process
     // RendererThread will receive the WM_QUIT.  We don't need to assert on
@@ -176,8 +174,12 @@ class RendererMainThread : public base::Thread {
 
  private:
   std::string channel_id_;
-  // Deleted in CleanUp() on the renderer thread, so don't use a smart pointer.
-  RenderProcess* render_process_;
+#if defined(OS_WIN)
+  scoped_ptr<base::win::ScopedCOMInitializer> com_initializer_;
+#endif
+  scoped_ptr<RenderProcess> render_process_;
+
+  DISALLOW_COPY_AND_ASSIGN(RendererMainThread);
 };
 
 namespace {
@@ -651,9 +653,9 @@ void RenderProcessHostImpl::CancelResourceRequests(int render_widget_id) {
   widget_helper_->CancelResourceRequests(render_widget_id);
 }
 
-void RenderProcessHostImpl::CrossSiteSwapOutACK(
+void RenderProcessHostImpl::SimulateSwapOutACK(
     const ViewMsg_SwapOut_Params& params) {
-  widget_helper_->CrossSiteSwapOutACK(params);
+  widget_helper_->SimulateSwapOutACK(params);
 }
 
 bool RenderProcessHostImpl::WaitForBackingStoreMsg(
@@ -793,6 +795,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kDisableWebSockets,
     switches::kDomAutomationController,
     switches::kEnableAccessibilityLogging,
+    switches::kEnableBrowserPluginOldImplementation,
     switches::kEnableDCHECK,
     switches::kEnableEncryptedMedia,
     switches::kEnableExperimentalWebKitFeatures,
@@ -858,6 +861,8 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kVideoThreads,
     switches::kVModule,
     switches::kWebCoreLogChannels,
+    cc::switches::kJankInsteadOfCheckerboard,
+    cc::switches::kBackgroundColorInsteadOfCheckerboard,
   };
   renderer_cmd->CopySwitchesFrom(browser_cmd, kSwitchNames,
                                  arraysize(kSwitchNames));

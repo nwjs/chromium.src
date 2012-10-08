@@ -8,7 +8,7 @@
 
 #include "CCCheckerboardDrawQuad.h"
 #include "CCGeometryTestUtils.h"
-#include <gtest/gtest.h>
+#include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebFilterOperations.h>
 #include <public/WebTransformationMatrix.h>
 
@@ -46,7 +46,7 @@ TEST(CCRenderPassTest, copyShouldBeIdenticalExceptIdAndQuads)
     IntRect outputRect(45, 22, 120, 13);
     WebTransformationMatrix transformToRoot(1, 0.5, 0.5, -0.5, -1, 0);
 
-    OwnPtr<CCRenderPass> pass(CCRenderPass::create(id, outputRect, transformToRoot));
+    scoped_ptr<CCRenderPass> pass = CCRenderPass::create(id, outputRect, transformToRoot);
 
     IntRect damageRect(56, 123, 19, 43);
     bool hasTransparentBackground = true;
@@ -66,11 +66,11 @@ TEST(CCRenderPassTest, copyShouldBeIdenticalExceptIdAndQuads)
     // Stick a quad in the pass, this should not get copied.
     CCTestRenderPass* testPass = static_cast<CCTestRenderPass*>(pass.get());
     testPass->sharedQuadStateList().append(CCSharedQuadState::create(WebTransformationMatrix(), IntRect(), IntRect(), 1, false));
-    testPass->quadList().append(CCCheckerboardDrawQuad::create(testPass->sharedQuadStateList().last(), IntRect()));
+    testPass->quadList().append(CCCheckerboardDrawQuad::create(testPass->sharedQuadStateList().last(), IntRect(), SkColor()).PassAs<CCDrawQuad>());
 
     CCRenderPass::Id newId(63, 4);
 
-    OwnPtr<CCRenderPass> copy(pass->copy(newId));
+    scoped_ptr<CCRenderPass> copy = pass->copy(newId);
     EXPECT_EQ(newId, copy->id());
     EXPECT_RECT_EQ(pass->outputRect(), copy->outputRect());
     EXPECT_EQ(pass->transformToRootTarget(), copy->transformToRootTarget());

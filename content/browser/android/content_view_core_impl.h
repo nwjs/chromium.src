@@ -68,16 +68,32 @@ class ContentViewCoreImpl : public ContentViewCore,
       jbyteArray post_data,
       jstring base_url_for_data_url,
       jstring virtual_url_for_data_url);
+  void SetAllUserAgentOverridesInHistory(
+      JNIEnv* env,
+      jobject obj,
+      jstring user_agent_override);
   base::android::ScopedJavaLocalRef<jstring> GetURL(JNIEnv* env, jobject) const;
   base::android::ScopedJavaLocalRef<jstring> GetTitle(
       JNIEnv* env, jobject obj) const;
   jboolean IsIncognito(JNIEnv* env, jobject obj);
   jboolean Crashed(JNIEnv* env, jobject obj) const { return tab_crashed_; }
-  jboolean TouchEvent(JNIEnv* env,
-                      jobject obj,
-                      jlong time_ms,
-                      jint type,
-                      jobjectArray pts);
+  void SendOrientationChangeEvent(JNIEnv* env, jobject obj, jint orientation);
+  jboolean SendTouchEvent(JNIEnv* env,
+                          jobject obj,
+                          jlong time_ms,
+                          jint type,
+                          jobjectArray pts);
+  jboolean SendMouseMoveEvent(JNIEnv* env,
+                              jobject obj,
+                              jlong time_ms,
+                              jint x,
+                              jint y);
+  jboolean SendMouseWheelEvent(JNIEnv* env,
+                               jobject obj,
+                               jlong time_ms,
+                               jint x,
+                               jint y,
+                               jfloat vertical_axis);
   void ScrollBegin(JNIEnv* env, jobject obj, jlong time_ms, jint x, jint y);
   void ScrollEnd(JNIEnv* env, jobject obj, jlong time_ms);
   void ScrollBy(JNIEnv* env, jobject obj, jlong time_ms, jint x, jint y,
@@ -115,6 +131,7 @@ class ContentViewCoreImpl : public ContentViewCore,
   void SelectBetweenCoordinates(JNIEnv* env, jobject obj,
                                         jint x1, jint y1,
                                         jint x2, jint y2);
+
   jboolean CanGoBack(JNIEnv* env, jobject obj);
   jboolean CanGoForward(JNIEnv* env, jobject obj);
   jboolean CanGoToOffset(JNIEnv* env, jobject obj, jint offset);
@@ -127,6 +144,19 @@ class ContentViewCoreImpl : public ContentViewCore,
   void ClearHistory(JNIEnv* env, jobject obj);
   jint EvaluateJavaScript(JNIEnv* env, jobject obj, jstring script);
   int GetNativeImeAdapter(JNIEnv* env, jobject obj);
+  void SetFocus(JNIEnv* env, jobject obj, jboolean focused);
+
+  jint GetBackgroundColor(JNIEnv* env, jobject obj);
+  void SetBackgroundColor(JNIEnv* env, jobject obj, jint color);
+  void OnShow(JNIEnv* env, jobject obj);
+  void OnHide(JNIEnv* env, jobject obj);
+  void SetUseDesktopUserAgent(JNIEnv* env,
+                              jobject /* obj */,
+                              jboolean state,
+                              jboolean reload_on_state_change);
+  bool GetUseDesktopUserAgent(JNIEnv* env, jobject /* obj */);
+  void Show();
+  void Hide();
   void AddJavascriptInterface(JNIEnv* env,
                               jobject obj,
                               jobject object,
@@ -150,6 +180,7 @@ class ContentViewCoreImpl : public ContentViewCore,
   void OnTabCrashed(const base::ProcessHandle handle);
   void UpdateContentSize(int width, int height);
   void UpdateScrollOffsetAndPageScaleFactor(int x, int y, float scale);
+  void UpdatePageScaleLimits(float minimum_scale, float maximum_scale);
   void ImeUpdateAdapter(int native_ime_adapter, int text_input_type,
                         const std::string& text,
                         int selection_start, int selection_end,
@@ -168,8 +199,6 @@ class ContentViewCoreImpl : public ContentViewCore,
                                 int endy,
                                 base::i18n::TextDirection end_dir);
 
-  // Called when page loading begins.
-  void DidStartLoading();
   void StartContentIntent(const GURL& content_url);
 
   // --------------------------------------------------------------------------

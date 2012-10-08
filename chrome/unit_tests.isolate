@@ -102,7 +102,7 @@
       '../third_party/tlslite/tlslite/utils/keyfactory.py',
       '../third_party/tlslite/tlslite/utils/rijndael.py',
       '../third_party/tlslite/tlslite/utils/xmltools.py',
-      '../tools/isolate/run_test_cases.py',
+      '../tools/swarm_client/run_test_cases.py',
       '<(PRODUCT_DIR)/resources.pak',
       '<(PRODUCT_DIR)/test_data/chrome/browser/resources/print_preview/print_preview_utils.js',
       '<(PRODUCT_DIR)/unit_tests<(EXECUTABLE_SUFFIX)',
@@ -335,9 +335,6 @@
       'test/data/extensions/manifest_tests/sandboxed_pages_valid_3.json',
       'test/data/extensions/manifest_tests/sandboxed_pages_valid_4.json',
       'test/data/extensions/manifest_tests/sandboxed_pages_valid_5.json',
-      'test/data/extensions/manifest_tests/script_badge_basic.json',
-      'test/data/extensions/manifest_tests/script_badge_only_use_icon16.json',
-      'test/data/extensions/manifest_tests/script_badge_title_icons_ignored.json',
       'test/data/extensions/manifest_tests/tabs_extension.json',
       'test/data/extensions/manifest_tests/tts_engine_invalid_1.json',
       'test/data/extensions/manifest_tests/tts_engine_invalid_2.json',
@@ -522,7 +519,7 @@
         'command': [
           '../testing/xvfb.py',
           '<(PRODUCT_DIR)',
-          '../tools/isolate/run_test_cases.py',
+          '../tools/swarm_client/run_test_cases.py',
           '<(PRODUCT_DIR)/unit_tests<(EXECUTABLE_SUFFIX)',
         ],
         'isolate_dependency_tracked': [
@@ -595,7 +592,7 @@
       'variables': {
         'command': [
           '../testing/test_env.py',
-          '../tools/isolate/run_test_cases.py',
+          '../tools/swarm_client/run_test_cases.py',
           '<(PRODUCT_DIR)/unit_tests<(EXECUTABLE_SUFFIX)',
         ],
         'isolate_dependency_untracked': [

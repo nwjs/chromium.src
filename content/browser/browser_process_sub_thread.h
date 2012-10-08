@@ -9,6 +9,14 @@
 #include "content/browser/browser_thread_impl.h"
 #include "content/common/content_export.h"
 
+#if defined(OS_WIN)
+namespace base {
+namespace win {
+class ScopedCOMInitializer;
+}
+}
+#endif
+
 namespace content {
 class NotificationService;
 }
@@ -38,10 +46,12 @@ class CONTENT_EXPORT BrowserProcessSubThread : public BrowserThreadImpl {
   // before we call the embedder's CleanUp function.
   void IOThreadPreCleanUp();
 
+#if defined (OS_WIN)
+  scoped_ptr<base::win::ScopedCOMInitializer> com_initializer_;
+#endif
+
   // Each specialized thread has its own notification service.
-  // Note: We don't use scoped_ptr because the destructor runs on the wrong
-  // thread.
-  NotificationService* notification_service_;
+  scoped_ptr<NotificationService> notification_service_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserProcessSubThread);
 };

@@ -12,7 +12,8 @@ from chrome_remote_control import cros_interface
 class CrOSBrowserBackend(browser_backend.BrowserBackend):
   """The backend for controlling a browser instance running on CrOS.
   """
-  def __init__(self, browser_type, options, is_content_shell, cri):
+  def __init__(self, browser_type, options, extra_browser_args,
+               is_content_shell, cri):
     super(CrOSBrowserBackend, self).__init__(is_content_shell)
     # Initialize fields so that an explosion during init doesn't break in Close.
     self._options = options
@@ -43,6 +44,13 @@ class CrOSBrowserBackend(browser_backend.BrowserBackend):
     args = ['/opt/google/chrome/chrome',
             '--no-first-run',
             '--aura-host-window-use-fullscreen',
+            '--force-compositing-mode',
+            '--enable-smooth-scrolling',
+            '--enable-threaded-compositing',
+            '--enable-per-tile-painting',
+            '--enable-gpu--sandboxing',
+            '--allow-webui-compositing',
+            '--enable-accelerated-layers',
             '--remote-debugging-port=%i' % remote_port]
 
     if not is_content_shell:
@@ -58,6 +66,8 @@ class CrOSBrowserBackend(browser_backend.BrowserBackend):
       args.append('--user-data-dir=%s' % self._tmpdir)
 
     # Final bits of command line prep.
+    if extra_browser_args:
+      args.extend(extra_browser_args)
     args.extend(options.extra_browser_args)
     prevent_output = not options.show_stdout
 
@@ -129,7 +139,8 @@ class CrOSBrowserBackend(browser_backend.BrowserBackend):
 
   def CreateForwarder(self, host_port):
     assert self._cri
-    return SSHReverseForwarder(self._cri, host_port)
+    return SSHReverseForwarder(self._cri,
+                               host_port)
 
 class SSHReverseForwarder(object):
   def __init__(self, cri, host_port):

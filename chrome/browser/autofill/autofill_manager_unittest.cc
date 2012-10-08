@@ -32,6 +32,8 @@
 #include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/common/autofill_messages.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/form_data.h"
+#include "chrome/common/form_field_data.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/web_contents.h"
@@ -45,14 +47,10 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebAutofillClient.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/rect.h"
-#include "webkit/forms/form_data.h"
-#include "webkit/forms/form_field.h"
 
 using content::BrowserThread;
 using content::WebContents;
 using testing::_;
-using webkit::forms::FormData;
-using webkit::forms::FormField;
 
 namespace {
 
@@ -198,7 +196,7 @@ void CreateTestAddressFormData(FormData* form) {
   form->action = GURL("http://myform.com/submit.html");
   form->user_submitted = true;
 
-  FormField field;
+  FormFieldData field;
   autofill_test::CreateTestFormField(
       "First Name", "firstname", "", "text", &field);
   form->fields.push_back(field);
@@ -251,7 +249,7 @@ void CreateTestCreditCardFormData(FormData* form,
   }
   form->user_submitted = true;
 
-  FormField field;
+  FormFieldData field;
   autofill_test::CreateTestFormField(
       "Name on Card", "nameoncard", "", "text", &field);
   form->fields.push_back(field);
@@ -301,7 +299,7 @@ void ExpectFilledField(const char* expected_label,
                        const char* expected_name,
                        const char* expected_value,
                        const char* expected_form_control_type,
-                       const webkit::forms::FormField& field) {
+                       const FormFieldData& field) {
   SCOPED_TRACE(expected_label);
   EXPECT_EQ(UTF8ToUTF16(expected_label), field.label);
   EXPECT_EQ(UTF8ToUTF16(expected_name), field.name);
@@ -605,10 +603,11 @@ class AutofillManagerTest : public TabContentsTestHarness {
         profile, TestPersonalDataManager::Build);
 
     TabContentsTestHarness::SetUp();
-    manager_delegate_.reset(new TabAutofillManagerDelegate(tab_contents()));
-    autofill_manager_ = new TestAutofillManager(manager_delegate_.get(),
-                                                tab_contents(),
-                                                &personal_data_);
+    TabAutofillManagerDelegate::CreateForWebContents(web_contents());
+    autofill_manager_ = new TestAutofillManager(
+        TabAutofillManagerDelegate::FromWebContents(web_contents()),
+        tab_contents(),
+        &personal_data_);
 
     file_thread_.Start();
   }
@@ -623,8 +622,8 @@ class AutofillManagerTest : public TabContentsTestHarness {
   }
 
   void GetAutofillSuggestions(int query_id,
-                              const webkit::forms::FormData& form,
-                              const webkit::forms::FormField& field) {
+                              const FormData& form,
+                              const FormFieldData& field) {
     autofill_manager_->OnQueryFormFieldAutofill(query_id,
                                                 form,
                                                 field,
@@ -632,17 +631,17 @@ class AutofillManagerTest : public TabContentsTestHarness {
                                                 false);
   }
 
-  void GetAutofillSuggestions(const webkit::forms::FormData& form,
-                              const webkit::forms::FormField& field) {
+  void GetAutofillSuggestions(const FormData& form,
+                              const FormFieldData& field) {
     GetAutofillSuggestions(kDefaultPageID, form, field);
   }
 
   void AutocompleteSuggestionsReturned(const std::vector<string16>& result) {
-    tab_contents()->autocomplete_history_manager()->
+    AutocompleteHistoryManager::FromWebContents(web_contents())->
         SendSuggestions(&result);
   }
 
-  void FormsSeen(const std::vector<webkit::forms::FormData>& forms) {
+  void FormsSeen(const std::vector<FormData>& forms) {
     autofill_manager_->OnFormsSeen(forms, base::TimeTicks());
   }
 
@@ -652,8 +651,8 @@ class AutofillManagerTest : public TabContentsTestHarness {
   }
 
   void FillAutofillFormData(int query_id,
-                            const webkit::forms::FormData& form,
-                            const webkit::forms::FormField& field,
+                            const FormData& form,
+                            const FormFieldData& field,
                             int unique_id) {
     autofill_manager_->OnFillAutofillFormData(query_id, form, field, unique_id);
   }
@@ -686,7 +685,8 @@ class AutofillManagerTest : public TabContentsTestHarness {
     if (unique_ids)
       *unique_ids = autofill_param.e;
 
-    tab_contents()->autocomplete_history_manager()->CancelPendingQuery();
+    AutocompleteHistoryManager::FromWebContents(web_contents())->
+        CancelPendingQuery();
     process()->sink().ClearMessages();
     return true;
   }
@@ -712,7 +712,6 @@ class AutofillManagerTest : public TabContentsTestHarness {
   content::TestBrowserThread ui_thread_;
   content::TestBrowserThread file_thread_;
 
-  scoped_ptr<TabAutofillManagerDelegate> manager_delegate_;
   scoped_refptr<TestAutofillManager> autofill_manager_;
   TestPersonalDataManager personal_data_;
 
@@ -757,7 +756,7 @@ TEST_F(AutofillManagerTest, GetProfileSuggestionsEmptyValue) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  const FormField& field = form.fields[0];
+  const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -799,7 +798,7 @@ TEST_F(AutofillManagerTest, GetProfileSuggestionsMatchCharacter) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  FormField field;
+  FormFieldData field;
   autofill_test::CreateTestFormField("First Name", "firstname", "E", "text",
                                      &field);
   GetAutofillSuggestions(form, field);
@@ -836,7 +835,7 @@ TEST_F(AutofillManagerTest, GetProfileSuggestionsUnknownFields) {
   form.action = GURL("http://myform.com/submit.html");
   form.user_submitted = true;
 
-  FormField field;
+  FormFieldData field;
   autofill_test::CreateTestFormField("Username", "username", "", "text",
                                      &field);
   form.fields.push_back(field);
@@ -870,7 +869,7 @@ TEST_F(AutofillManagerTest, GetProfileSuggestionsWithDuplicates) {
               "00000000-0000-0000-0000-000000000001")));
   autofill_manager_->AddProfile(duplicate_profile);
 
-  const FormField& field = form.fields[0];
+  const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -912,7 +911,7 @@ TEST_F(AutofillManagerTest, GetProfileSuggestionsAutofillDisabledByUser) {
   // Disable Autofill.
   autofill_manager_->set_autofill_enabled(false);
 
-  const FormField& field = form.fields[0];
+  const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);
   EXPECT_FALSE(GetAutofillSuggestionsMessage(NULL, NULL, NULL, NULL, NULL));
 }
@@ -927,7 +926,7 @@ TEST_F(AutofillManagerTest, GetProfileSuggestionsMethodGet) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  const FormField& field = form.fields[0];
+  const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -994,7 +993,7 @@ TEST_F(AutofillManagerTest, GetCreditCardSuggestionsEmptyValue) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  FormField field = form.fields[1];
+  FormFieldData field = form.fields[1];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -1037,7 +1036,7 @@ TEST_F(AutofillManagerTest, GetCreditCardSuggestionsMatchCharacter) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  FormField field;
+  FormFieldData field;
   autofill_test::CreateTestFormField(
       "Card Number", "cardnumber", "4", "text", &field);
   GetAutofillSuggestions(form, field);
@@ -1073,7 +1072,7 @@ TEST_F(AutofillManagerTest, GetCreditCardSuggestionsNonCCNumber) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  const FormField& field = form.fields[0];
+  const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -1116,7 +1115,7 @@ TEST_F(AutofillManagerTest, GetCreditCardSuggestionsNonHTTPS) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  const FormField& field = form.fields[0];
+  const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -1190,7 +1189,7 @@ TEST_F(AutofillManagerTest, GetCreditCardSuggestionsRepeatedObfuscatedNumber) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  FormField field = form.fields[1];
+  FormFieldData field = form.fields[1];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -1240,7 +1239,7 @@ TEST_F(AutofillManagerTest, GetAddressAndCreditCardSuggestions) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  FormField field = form.fields[0];
+  FormFieldData field = form.fields[0];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -1314,7 +1313,7 @@ TEST_F(AutofillManagerTest, GetAddressAndCreditCardSuggestionsNonHttps) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  FormField field = form.fields[0];
+  FormFieldData field = form.fields[0];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -1381,7 +1380,7 @@ TEST_F(AutofillManagerTest, GetCombinedAutofillAndAutocompleteSuggestions) {
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
 
-  const FormField& field = form.fields[0];
+  const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);
 
   // Add some Autocomplete suggestions.
@@ -1432,7 +1431,7 @@ TEST_F(AutofillManagerTest, GetFieldSuggestionsWhenFormIsAutofilled) {
 
   // Mark one of the fields as filled.
   form.fields[2].is_autofilled = true;
-  const FormField& field = form.fields[0];
+  const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -1465,7 +1464,7 @@ TEST_F(AutofillManagerTest, GetFieldSuggestionsForAutocompleteOnly) {
   // Set up our form data.
   FormData form;
   CreateTestAddressFormData(&form);
-  FormField field;
+  FormFieldData field;
   autofill_test::CreateTestFormField(
       "Some Field", "somefield", "", "text", &field);
   form.fields.push_back(field);
@@ -1518,7 +1517,7 @@ TEST_F(AutofillManagerTest, GetFieldSuggestionsWithDuplicateValues) {
   profile->set_guid("00000000-0000-0000-0000-000000000101");
   autofill_manager_->AddProfile(profile);
 
-  FormField& field = form.fields[0];
+  FormFieldData& field = form.fields[0];
   field.is_autofilled = true;
   field.value = ASCIIToUTF16("Elvis");
   GetAutofillSuggestions(form, field);
@@ -1569,7 +1568,7 @@ TEST_F(AutofillManagerTest, GetFieldSuggestionsForMultiValuedProfileUnfilled) {
   {
     // Get the first name field.
     // Start out with "E", hoping for either "Elvis" or "Elena.
-    FormField& field = form.fields[0];
+    FormFieldData& field = form.fields[0];
     field.value = ASCIIToUTF16("E");
     field.is_autofilled = false;
     GetAutofillSuggestions(form, field);
@@ -1604,7 +1603,7 @@ TEST_F(AutofillManagerTest, GetFieldSuggestionsForMultiValuedProfileUnfilled) {
   {
     // Get the first name field.
     // This time, start out with "Ele", hoping for "Elena".
-    FormField& field = form.fields[0];
+    FormFieldData& field = form.fields[0];
     field.value = ASCIIToUTF16("Ele");
     field.is_autofilled = false;
     GetAutofillSuggestions(form, field);
@@ -1653,7 +1652,7 @@ TEST_F(AutofillManagerTest, GetFieldSuggestionsForMultiValuedProfileFilled) {
 
   // Get the first name field.  And start out with "Travis", hoping for all the
   // multi-valued variants as suggestions.
-  FormField& field = form.fields[0];
+  FormFieldData& field = form.fields[0];
   field.value = ASCIIToUTF16("Travis");
   field.is_autofilled = true;
   GetAutofillSuggestions(form, field);
@@ -1699,7 +1698,7 @@ TEST_F(AutofillManagerTest, GetProfileSuggestionsFancyPhone) {
   profile->SetMultiInfo(PHONE_HOME_WHOLE_NUMBER, multi_values);
   autofill_manager_->AddProfile(profile);
 
-  const FormField& field = form.fields[9];
+  const FormFieldData& field = form.fields[9];
   GetAutofillSuggestions(form, field);
 
   // No suggestions provided, so send an empty vector as the results.
@@ -1991,7 +1990,7 @@ TEST_F(AutofillManagerTest, FillFormWithAuthorSpecifiedSections) {
   form.action = GURL("https://myform.com/submit.html");
   form.user_submitted = true;
 
-  FormField field;
+  FormFieldData field;
 
   autofill_test::CreateTestFormField("", "country", "", "text", &field);
   field.autocomplete_type = ASCIIToUTF16("section-billing country");
@@ -2145,7 +2144,7 @@ TEST_F(AutofillManagerTest, FillFormWithMultipleEmails) {
   // Set up our form data.
   FormData form;
   CreateTestAddressFormData(&form);
-  FormField field;
+  FormFieldData field;
   autofill_test::CreateTestFormField(
       "Confirm email", "email2", "", "text", &field);
   form.fields.push_back(field);
@@ -2213,7 +2212,7 @@ TEST_F(AutofillManagerTest, FillAutofilledForm) {
 
   // Now set the credit card fields to also be auto-filled, and try again to
   // fill the credit card data
-  for (std::vector<FormField>::iterator iter = form.fields.begin();
+  for (std::vector<FormFieldData>::iterator iter = form.fields.begin();
        iter != form.fields.end();
        ++iter) {
     iter->is_autofilled = true;
@@ -2310,7 +2309,7 @@ TEST_F(AutofillManagerTest, FillPhoneNumber) {
     { "Phone Extension", "ext", 3, "phone-extension" }
   };
 
-  FormField field;
+  FormFieldData field;
   const size_t default_max_length = field.max_length;
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(test_fields); ++i) {
     autofill_test::CreateTestFormField(
@@ -2438,7 +2437,7 @@ TEST_F(AutofillManagerTest, FormChangesRemoveField) {
   CreateTestAddressFormData(&form);
 
   // Add a field -- we'll remove it again later.
-  FormField field;
+  FormFieldData field;
   autofill_test::CreateTestFormField("Some", "field", "", "text", &field);
   form.fields.insert(form.fields.begin() + 3, field);
 
@@ -2469,9 +2468,9 @@ TEST_F(AutofillManagerTest, FormChangesAddField) {
   CreateTestAddressFormData(&form);
 
   // Remove the phone field -- we'll add it back later.
-  std::vector<FormField>::iterator pos =
+  std::vector<FormFieldData>::iterator pos =
       form.fields.begin() + kPhoneFieldOffset;
-  FormField field = *pos;
+  FormFieldData field = *pos;
   pos = form.fields.erase(pos);
 
   std::vector<FormData> forms(1, form);
@@ -2570,7 +2569,7 @@ TEST_F(AutofillManagerTest, FormSubmittedWithDifferentFields) {
   // Websites would typically invoke JavaScript either on page load or on form
   // submit to achieve this.
   form.fields.pop_back();
-  FormField field = form.fields[3];
+  FormFieldData field = form.fields[3];
   form.fields[3] = form.fields[7];
   form.fields[7] = field;
 
@@ -2650,7 +2649,7 @@ TEST_F(AutofillManagerTest, DeterminePossibleFieldTypesForUpload) {
   std::vector<FieldTypeSet> expected_types;
 
   // These fields should all match.
-  FormField field;
+  FormFieldData field;
   FieldTypeSet types;
   autofill_test::CreateTestFormField("", "1", "Elvis", "text", &field);
   types.clear();
@@ -3082,14 +3081,14 @@ class MockAutofillExternalDelegate : public TestAutofillExternalDelegate {
   virtual ~MockAutofillExternalDelegate() {}
 
   MOCK_METHOD5(OnQuery, void(int query_id,
-                             const webkit::forms::FormData& form,
-                             const webkit::forms::FormField& field,
+                             const FormData& form,
+                             const FormFieldData& field,
                              const gfx::Rect& bounds,
                              bool display_warning));
 
   virtual void OnQueryPlatformSpecific(int query_id,
-                                       const webkit::forms::FormData& form,
-                                       const webkit::forms::FormField& field,
+                                       const FormData& form,
+                                       const FormFieldData& field,
                                        const gfx::Rect& bounds) OVERRIDE {}
 
  private:
@@ -3109,7 +3108,7 @@ TEST_F(AutofillManagerTest, TestExternalDelegate) {
   CreateTestAddressFormData(&form);
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
-  const FormField& field = form.fields[0];
+  const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);  // should call the delegate's OnQuery()
 
   autofill_manager_->SetExternalDelegate(NULL);
@@ -3134,7 +3133,7 @@ TEST_F(AutofillManagerTest, TestTabContentsWithExternalDelegate) {
   EXPECT_TRUE(autofill_manager->external_delegate());
 
   AutocompleteHistoryManager* autocomplete_history_manager =
-      tab_contents()->autocomplete_history_manager();
+      AutocompleteHistoryManager::FromWebContents(web_contents());
   EXPECT_TRUE(autocomplete_history_manager->external_delegate());
 }
 

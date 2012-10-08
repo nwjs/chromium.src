@@ -9,10 +9,14 @@
 
 #include "base/bind.h"
 #include "base/file_util.h"
+#include "base/path_service.h"
+#include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
+#include "chrome/common/extensions/extension_file_util.h"
 #include "chrome/common/extensions/extension_resource.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
@@ -29,30 +33,6 @@ using content::BrowserThread;
 using extensions::Extension;
 
 namespace {
-
-struct ComponentExtensionResource {
-  const char* extension_id;
-  const int resource_id;
-};
-
-const ComponentExtensionResource kSpecialComponentExtensionResources[] = {
-  { extension_misc::kWebStoreAppId, IDR_WEBSTORE_ICON },
-  { extension_misc::kChromeAppId, IDR_PRODUCT_LOGO_128 },
-};
-
-// Finds special component extension resource id for given extension id.
-bool FindSpecialExtensionResourceId(const std::string& extension_id,
-                                    int* out_resource_id) {
-  for (size_t i = 0; i < arraysize(kSpecialComponentExtensionResources); ++i) {
-    if (extension_id == kSpecialComponentExtensionResources[i].extension_id) {
-      if (out_resource_id)
-        *out_resource_id = kSpecialComponentExtensionResources[i].resource_id;
-      return true;
-    }
-  }
-
-  return false;
-}
 
 bool ShouldResizeImageRepresentation(
     ImageLoadingTracker::ImageRepresentation::ResizeCondition resize_method,
@@ -116,7 +96,7 @@ class ImageLoadingTracker::ImageLoader
   explicit ImageLoader(ImageLoadingTracker* tracker)
       : tracker_(tracker) {
     CHECK(BrowserThread::GetCurrentThreadIdentifier(&callback_thread_id_));
-    DCHECK(!BrowserThread::CurrentlyOn(BrowserThread::FILE));
+    DCHECK(!BrowserThread::GetBlockingPool()->RunsTasksOnCurrentThread());
   }
 
   // Lets this class know that the tracker is no longer interested in the
@@ -125,16 +105,16 @@ class ImageLoadingTracker::ImageLoader
     tracker_ = NULL;
   }
 
-  // Instructs the loader to load a task on the File thread.
+  // Instructs the loader to load a task on the blocking pool.
   void LoadImage(const ImageRepresentation& image_info, int id) {
     DCHECK(BrowserThread::CurrentlyOn(callback_thread_id_));
-    BrowserThread::PostTask(
-        BrowserThread::FILE, FROM_HERE,
-        base::Bind(&ImageLoader::LoadOnFileThread, this, image_info, id));
+    BrowserThread::PostBlockingPoolTask(
+        FROM_HERE,
+        base::Bind(&ImageLoader::LoadOnBlockingPool, this, image_info, id));
   }
 
-  void LoadOnFileThread(const ImageRepresentation& image_info, int id) {
-    DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+  void LoadOnBlockingPool(const ImageRepresentation& image_info, int id) {
+    DCHECK(BrowserThread::GetBlockingPool()->RunsTasksOnCurrentThread());
 
     // Read the file from disk.
     std::string file_contents;
@@ -167,33 +147,52 @@ class ImageLoadingTracker::ImageLoader
     ReportBack(decoded.release(), image_info, original_size, id);
   }
 
-  // Instructs the loader to load a resource on the File thread.
+  // Instructs the loader to load a resource on the UI thread.
   void LoadResource(const ImageRepresentation& image_info,
                     int id,
                     int resource_id) {
     DCHECK(BrowserThread::CurrentlyOn(callback_thread_id_));
+
+    if (BrowserThread::CurrentlyOn(BrowserThread::UI)) {
+      LoadResourceOnUIThread(image_info, id, resource_id);
+      return;
+    }
+
     BrowserThread::PostTask(
-        BrowserThread::FILE, FROM_HERE,
-        base::Bind(&ImageLoader::LoadResourceOnFileThread, this, image_info,
+        BrowserThread::UI, FROM_HERE,
+        base::Bind(&ImageLoader::LoadResourceOnUIThread, this, image_info,
                    id, resource_id));
   }
 
-  void LoadResourceOnFileThread(const ImageRepresentation& image_info,
-                                int id,
-                                int resource_id) {
-    DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
-    // TODO(xiyuan): Clean up to use SkBitmap here and in LoadOnFileThread.
-    scoped_ptr<SkBitmap> bitmap(new SkBitmap);
-    *bitmap = ResourceBundle::GetSharedInstance().GetImageNamed(
-        resource_id).AsBitmap();
+  void LoadResourceOnUIThread(const ImageRepresentation& image_info,
+                              int id,
+                              int resource_id) {
+    DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-    *bitmap = ResizeIfNeeded(*bitmap, image_info);
+    // Bundled image resources is only safe to be loaded on UI thread.
+    gfx::ImageSkia* image =
+        ResourceBundle::GetSharedInstance().GetImageSkiaNamed(resource_id);
+    image->MakeThreadSafe();
+
+    BrowserThread::PostBlockingPoolTask(
+        FROM_HERE,
+        base::Bind(&ImageLoader::ResizeOnBlockingPool, this, image_info,
+                   id, *image));
+  }
+
+  void ResizeOnBlockingPool(const ImageRepresentation& image_info,
+                            int id,
+                            const gfx::ImageSkia& image) {
+    DCHECK(BrowserThread::GetBlockingPool()->RunsTasksOnCurrentThread());
+    // TODO(xiyuan): Clean up to use SkBitmap here and in LoadOnBlockingPool.
+    scoped_ptr<SkBitmap> bitmap(new SkBitmap);
+    *bitmap = ResizeIfNeeded(*image.bitmap(), image_info);
     ReportBack(bitmap.release(), image_info, image_info.desired_size, id);
   }
 
   void ReportBack(const SkBitmap* bitmap, const ImageRepresentation& image_info,
                   const gfx::Size& original_size, int id) {
-    DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+    DCHECK(BrowserThread::GetBlockingPool()->RunsTasksOnCurrentThread());
 
     BrowserThread::PostTask(
         callback_thread_id_, FROM_HERE,
@@ -245,13 +244,6 @@ class ImageLoadingTracker::ImageLoader
 ////////////////////////////////////////////////////////////////////////////////
 // ImageLoadingTracker
 
-// static
-bool ImageLoadingTracker::IsSpecialBundledExtensionId(
-    const std::string& extension_id) {
-  int resource_id = -1;
-  return FindSpecialExtensionResourceId(extension_id, &resource_id);
-}
-
 ImageLoadingTracker::ImageLoadingTracker(Observer* observer)
     : observer_(observer),
       next_id_(0) {
@@ -293,16 +285,6 @@ void ImageLoadingTracker::LoadImages(
 
   for (std::vector<ImageRepresentation>::const_iterator it = info_list.begin();
        it != info_list.end(); ++it) {
-    int resource_id = -1;
-
-    // Load resources for special component extensions.
-    if (FindSpecialExtensionResourceId(load_info.extension_id, &resource_id)) {
-      if (!loader_)
-        loader_ = new ImageLoader(this);
-      loader_->LoadResource(*it, id, resource_id);
-      continue;
-    }
-
     // If we don't have a path we don't need to do any further work, just
     // respond back.
     if (it->resource.relative_path().empty()) {
@@ -325,7 +307,9 @@ void ImageLoadingTracker::LoadImages(
     if (!loader_)
       loader_ = new ImageLoader(this);
 
-    if (IsComponentExtensionResource(extension, it->resource, resource_id))
+    int resource_id = -1;
+    if (IsComponentExtensionResource(extension, it->resource.relative_path(),
+                                     &resource_id))
       loader_->LoadResource(*it, id, resource_id);
     else
       loader_->LoadImage(*it, id);
@@ -334,22 +318,50 @@ void ImageLoadingTracker::LoadImages(
 
 bool ImageLoadingTracker::IsComponentExtensionResource(
     const Extension* extension,
-    const ExtensionResource& resource,
-    int& resource_id) const {
+    const FilePath& resource_path,
+    int* resource_id) {
+  static const GritResourceMap kExtraComponentExtensionResources[] = {
+    {"web_store/webstore_icon_128.png", IDR_WEBSTORE_ICON},
+    {"web_store/webstore_icon_16.png", IDR_WEBSTORE_ICON_16},
+    {"chrome_app/product_logo_128.png", IDR_PRODUCT_LOGO_128},
+    {"chrome_app/product_logo_16.png", IDR_PRODUCT_LOGO_16},
+  };
+  static const size_t kExtraComponentExtensionResourcesSize =
+      arraysize(kExtraComponentExtensionResources);
+
   if (extension->location() != Extension::COMPONENT)
     return false;
 
   FilePath directory_path = extension->path();
-  FilePath relative_path = directory_path.BaseName().Append(
-      resource.relative_path());
+  FilePath resources_dir;
+  FilePath relative_path;
+  if (!PathService::Get(chrome::DIR_RESOURCES, &resources_dir) ||
+      !resources_dir.AppendRelativePath(directory_path, &relative_path)) {
+    return false;
+  }
+  relative_path = relative_path.Append(resource_path);
+  relative_path = relative_path.NormalizePathSeparators();
 
+  // TODO(tc): Make a map of FilePath -> resource ids so we don't have to
+  // covert to FilePaths all the time.  This will be more useful as we add
+  // more resources.
   for (size_t i = 0; i < kComponentExtensionResourcesSize; ++i) {
     FilePath resource_path =
         FilePath().AppendASCII(kComponentExtensionResources[i].name);
     resource_path = resource_path.NormalizePathSeparators();
 
     if (relative_path == resource_path) {
-      resource_id = kComponentExtensionResources[i].value;
+      *resource_id = kComponentExtensionResources[i].value;
+      return true;
+    }
+  }
+  for (size_t i = 0; i < kExtraComponentExtensionResourcesSize; ++i) {
+    FilePath resource_path =
+        FilePath().AppendASCII(kExtraComponentExtensionResources[i].name);
+    resource_path = resource_path.NormalizePathSeparators();
+
+    if (relative_path == resource_path) {
+      *resource_id = kExtraComponentExtensionResources[i].value;
       return true;
     }
   }

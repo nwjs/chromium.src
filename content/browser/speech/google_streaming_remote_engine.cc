@@ -44,6 +44,9 @@ const int kAudioPacketIntervalMs = 100;
 const speech::AudioEncoder::Codec kDefaultAudioCodec =
     speech::AudioEncoder::CODEC_FLAC;
 
+// This mathces the maximum maxAlternatives value supported by the server.
+const uint32 kMaxMaxAlternatives = 30;
+
 // TODO(hans): Remove this and other logging when we don't need it anymore.
 void DumpResponse(const std::string& response) {
   DVLOG(1) << "------------";
@@ -350,18 +353,20 @@ GoogleStreamingRemoteEngine::ConnectBothStreams(const FSMEventArgs&) {
   upstream_args.push_back(
       config_.filter_profanities ? "pFilter=2" : "pFilter=0");
   if (config_.max_hypotheses > 0U) {
+    int max_alternatives = std::min(kMaxMaxAlternatives,
+                                    config_.max_hypotheses);
     upstream_args.push_back("maxAlternatives=" +
-                            base::UintToString(config_.max_hypotheses));
+                            base::UintToString(max_alternatives));
   }
   upstream_args.push_back("client=chromium");
   if (!config_.hardware_info.empty()) {
     upstream_args.push_back(
         "xhw=" + net::EscapeQueryParamValue(config_.hardware_info, true));
   }
-  upstream_args.push_back("continuous");
-  upstream_args.push_back("interim");
-  // TODO(hans): Set 'continuous', 'interim', and 'confidence' based on user
-  // input.
+  if (config_.continuous)
+    upstream_args.push_back("continuous");
+  if (config_.interim_results)
+    upstream_args.push_back("interim");
 
   GURL upstream_url(std::string(kWebServiceBaseUrl) +
                     std::string(kUpstreamUrl) +
@@ -452,6 +457,8 @@ GoogleStreamingRemoteEngine::ProcessDownstreamResponse(
       SpeechRecognitionHypothesis hypothesis;
       if (ws_alternative.has_confidence())
         hypothesis.confidence = ws_alternative.confidence();
+      else if (ws_result.has_stability())
+        hypothesis.confidence = ws_result.stability();
       DCHECK(ws_alternative.has_transcript());
       // TODO(hans): Perhaps the transcript should be required in the proto?
       if (ws_alternative.has_transcript())

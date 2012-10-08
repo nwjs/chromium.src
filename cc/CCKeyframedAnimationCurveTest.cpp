@@ -6,12 +6,11 @@
 
 #include "CCKeyframedAnimationCurve.h"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebTransformOperations.h>
 #include <public/WebTransformationMatrix.h>
 #include <wtf/OwnPtr.h>
-#include <wtf/Vector.h>
 
 using namespace cc;
 using WebKit::WebTransformationMatrix;

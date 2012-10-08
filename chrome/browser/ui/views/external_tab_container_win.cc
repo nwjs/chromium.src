@@ -13,6 +13,7 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
+#include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/win_util.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -30,9 +31,9 @@
 #include "chrome/browser/ui/app_modal_dialogs/javascript_dialog_creator.h"
 #include "chrome/browser/ui/blocked_content/blocked_content_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_modal_confirm_dialog.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/tab_contents/render_view_context_menu_win.h"
 #include "chrome/common/automation_messages.h"
@@ -331,6 +332,26 @@ int ExternalTabContainerWin::GetTabHandle() const {
   return tab_handle_;
 }
 
+bool ExternalTabContainerWin::ExecuteContextMenuCommand(int command) {
+  if (!external_context_menu_.get()) {
+    NOTREACHED();
+    return false;
+  }
+
+  switch (command) {
+    case IDS_CONTENT_CONTEXT_SAVEAUDIOAS:
+    case IDS_CONTENT_CONTEXT_SAVEVIDEOAS:
+    case IDS_CONTENT_CONTEXT_SAVEIMAGEAS:
+    case IDS_CONTENT_CONTEXT_SAVELINKAS: {
+      NOTREACHED();  // Should be handled in host.
+      break;
+    }
+  }
+
+  external_context_menu_->ExecuteCommand(command);
+  return true;
+}
+
 void ExternalTabContainerWin::RunUnloadHandlers(IPC::Message* reply_message) {
   if (!automation_) {
     delete reply_message;
@@ -432,14 +453,13 @@ WebContents* ExternalTabContainerWin::OpenURLFromTab(
         nav_params.page_id = -1;
         nav_params.transition = content::PAGE_TRANSITION_LINK;
 
-        content::LoadCommittedDetails details;
-        details.did_replace_entry = false;
-
+        HistoryTabHelper* history_tab_helper =
+            HistoryTabHelper::FromWebContents(tab_contents_->web_contents());
         const history::HistoryAddPageArgs& add_page_args =
-            tab_contents_->history_tab_helper()->
-                CreateHistoryAddPageArgs(params.url, details, nav_params);
-        tab_contents_->history_tab_helper()->
-            UpdateHistoryForNavigation(add_page_args);
+            history_tab_helper->CreateHistoryAddPageArgs(
+                params.url, base::Time::Now(),
+                false /* did_replace_entry */, nav_params);
+        history_tab_helper->UpdateHistoryForNavigation(add_page_args);
 
         return tab_contents_->web_contents();
       }
@@ -595,10 +615,6 @@ void ExternalTabContainerWin::UpdateTargetURL(WebContents* source,
 void ExternalTabContainerWin::ContentsZoomChange(bool zoom_in) {
 }
 
-gfx::NativeWindow ExternalTabContainerWin::GetFrameNativeWindow() {
-  return GetNativeView();
-}
-
 bool ExternalTabContainerWin::TakeFocus(content::WebContents* source,
                                         bool reverse) {
   if (automation_) {
@@ -711,26 +727,6 @@ bool ExternalTabContainerWin::HandleContextMenu(
   return true;
 }
 
-bool ExternalTabContainerWin::ExecuteContextMenuCommand(int command) {
-  if (!external_context_menu_.get()) {
-    NOTREACHED();
-    return false;
-  }
-
-  switch (command) {
-    case IDS_CONTENT_CONTEXT_SAVEAUDIOAS:
-    case IDS_CONTENT_CONTEXT_SAVEVIDEOAS:
-    case IDS_CONTENT_CONTEXT_SAVEIMAGEAS:
-    case IDS_CONTENT_CONTEXT_SAVELINKAS: {
-      NOTREACHED();  // Should be handled in host.
-      break;
-    }
-  }
-
-  external_context_menu_->ExecuteCommand(command);
-  return true;
-}
-
 bool ExternalTabContainerWin::PreHandleKeyboardEvent(
     content::WebContents* source,
     const NativeWebKeyboardEvent& event,
@@ -771,7 +767,7 @@ void ExternalTabContainerWin::BeforeUnloadFired(WebContents* tab,
 }
 
 void ExternalTabContainerWin::ShowRepostFormWarningDialog(WebContents* source) {
-  chrome::ShowTabModalConfirmDialog(new RepostFormWarningController(source),
+  TabModalConfirmDialog::Create(new RepostFormWarningController(source),
                                     TabContents::FromWebContents(source));
 }
 
@@ -850,8 +846,10 @@ void ExternalTabContainerWin::DidFailProvisionalLoad(
     int error_code,
     const string16& error_description,
     content::RenderViewHost* render_view_host) {
-  automation_->Send(new AutomationMsg_NavigationFailed(
-      tab_handle_, error_code, validated_url));
+  if (automation_) {
+    automation_->Send(new AutomationMsg_NavigationFailed(
+        tab_handle_, error_code, validated_url));
+  }
   ignore_next_load_notification_ = true;
 }
 
@@ -1118,8 +1116,10 @@ void ExternalTabContainerWin::Navigate(const GURL& url, const GURL& referrer) {
 
 bool ExternalTabContainerWin::OnGoToEntryOffset(int offset) {
   if (load_requests_via_automation_) {
-    automation_->Send(new AutomationMsg_RequestGoToHistoryEntryOffset(
-        tab_handle_, offset));
+    if (automation_) {
+      automation_->Send(new AutomationMsg_RequestGoToHistoryEntryOffset(
+          tab_handle_, offset));
+    }
     return false;
   }
 

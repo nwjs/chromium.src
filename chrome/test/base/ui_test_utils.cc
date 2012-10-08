@@ -42,6 +42,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/find_bar/find_notification_details.h"
 #include "chrome/browser/ui/find_bar/find_tab_helper.h"
+#include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -101,8 +102,9 @@ class FindInPageNotificationObserver : public content::NotificationObserver {
       : parent_tab_(parent_tab),
         active_match_ordinal_(-1),
         number_of_matches_(0) {
-    current_find_request_id_ =
-        parent_tab->find_tab_helper()->current_find_request_id();
+    FindTabHelper* find_tab_helper =
+        FindTabHelper::FromWebContents(parent_tab->web_contents());
+    current_find_request_id_ = find_tab_helper->current_find_request_id();
     registrar_.Add(this, chrome::NOTIFICATION_FIND_RESULT_AVAILABLE,
                    content::Source<WebContents>(parent_tab_->web_contents()));
     message_loop_runner_ = new content::MessageLoopRunner;
@@ -195,9 +197,11 @@ Browser* WaitForBrowserNotInSet(std::set<Browser*> excluded_browsers) {
 }
 
 Browser* OpenURLOffTheRecord(Profile* profile, const GURL& url) {
-  chrome::OpenURLOffTheRecord(profile, url);
+  chrome::OpenURLOffTheRecord(profile, url, chrome::HOST_DESKTOP_TYPE_NATIVE);
   Browser* browser = browser::FindTabbedBrowser(
-      profile->GetOffTheRecordProfile(), false);
+      profile->GetOffTheRecordProfile(),
+      false,
+      chrome::HOST_DESKTOP_TYPE_NATIVE);
   WaitForNavigations(&chrome::GetActiveWebContents(browser)->GetController(),
                      1);
   return browser;
@@ -377,8 +381,9 @@ AppModalDialog* WaitForAppModalDialog() {
 int FindInPage(TabContents* tab_contents, const string16& search_string,
                bool forward, bool match_case, int* ordinal,
                gfx::Rect* selection_rect) {
-  tab_contents->
-      find_tab_helper()->StartFinding(search_string, forward, match_case);
+  FindTabHelper* find_tab_helper =
+      FindTabHelper::FromWebContents(tab_contents->web_contents());
+  find_tab_helper->StartFinding(search_string, forward, match_case);
   FindInPageNotificationObserver observer(tab_contents);
   if (ordinal)
     *ordinal = observer.active_match_ordinal();
@@ -607,44 +612,6 @@ Browser* BrowserAddedObserver::WaitForSingleNewBrowser() {
   // Ensure that only a single new browser has appeared.
   EXPECT_EQ(original_browsers_.size() + 1, BrowserList::size());
   return GetBrowserNotInSet(original_browsers_);
-}
-
-DOMMessageQueue::DOMMessageQueue() : waiting_for_message_(false) {
-  registrar_.Add(this, content::NOTIFICATION_DOM_OPERATION_RESPONSE,
-                 content::NotificationService::AllSources());
-}
-
-DOMMessageQueue::~DOMMessageQueue() {}
-
-void DOMMessageQueue::Observe(int type,
-                              const content::NotificationSource& source,
-                              const content::NotificationDetails& details) {
-  content::Details<DomOperationNotificationDetails> dom_op_details(details);
-  content::Source<RenderViewHost> sender(source);
-  message_queue_.push(dom_op_details->json);
-  if (waiting_for_message_) {
-    waiting_for_message_ = false;
-    message_loop_runner_->Quit();
-  }
-}
-
-void DOMMessageQueue::ClearQueue() {
-  message_queue_ = std::queue<std::string>();
-}
-
-bool DOMMessageQueue::WaitForMessage(std::string* message) {
-  if (message_queue_.empty()) {
-    waiting_for_message_ = true;
-    // This will be quit when a new message comes in.
-    message_loop_runner_ = new content::MessageLoopRunner;
-    message_loop_runner_->Run();
-  }
-  // The queue should not be empty, unless we were quit because of a timeout.
-  if (message_queue_.empty())
-    return false;
-  if (message)
-    *message = message_queue_.front();
-  return true;
 }
 
 // Coordinates taking snapshots of a |RenderWidget|.

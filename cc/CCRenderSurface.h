@@ -2,18 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #ifndef CCRenderSurface_h
 #define CCRenderSurface_h
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "base/basictypes.h"
+#include "base/memory/scoped_ptr.h"
 #include "CCRenderPass.h"
 #include "CCSharedQuadState.h"
 #include "FloatRect.h"
 #include "IntRect.h"
 #include <public/WebTransformationMatrix.h>
-#include <wtf/Noncopyable.h>
 
 namespace cc {
 
@@ -26,7 +26,6 @@ class CCLayerImpl;
 struct CCAppendQuadsData;
 
 class CCRenderSurface {
-    WTF_MAKE_NONCOPYABLE(CCRenderSurface);
 public:
     explicit CCRenderSurface(CCLayerImpl*);
     virtual ~CCRenderSurface();
@@ -73,7 +72,7 @@ public:
     void setContentRect(const IntRect&);
     const IntRect& contentRect() const { return m_contentRect; }
 
-    Vector<CCLayerImpl*>& layerList() { return m_layerList; }
+    std::vector<CCLayerImpl*>& layerList() { return m_layerList; }
     void addContributingDelegatedRenderPassLayer(CCLayerImpl*);
     void clearLayerLists();
 
@@ -109,20 +108,22 @@ private:
     // Uses the space of the surface's target surface.
     IntRect m_clipRect;
 
-    Vector<CCLayerImpl*> m_layerList;
-    Vector<CCDelegatedRendererLayerImpl*> m_contributingDelegatedRenderPassLayerList;
+    std::vector<CCLayerImpl*> m_layerList;
+    std::vector<CCDelegatedRendererLayerImpl*> m_contributingDelegatedRenderPassLayerList;
 
     // The nearest ancestor target surface that will contain the contents of this surface, and that is going
     // to move pixels within the surface (such as with a blur). This can point to itself.
     CCRenderSurface* m_nearestAncestorThatMovesPixels;
 
-    OwnPtr<CCDamageTracker> m_damageTracker;
+    scoped_ptr<CCDamageTracker> m_damageTracker;
 
     // For CCLayerIteratorActions
     int m_targetRenderSurfaceLayerIndexHistory;
     int m_currentLayerIndexHistory;
 
     friend struct CCLayerIteratorActions;
+
+    DISALLOW_COPY_AND_ASSIGN(CCRenderSurface);
 };
 
 }

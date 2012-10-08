@@ -337,6 +337,7 @@ void WebMediaPlayerAndroid::OnVideoSizeChanged(int width, int height) {
     video_frame_.reset(new WebVideoFrameImpl(VideoFrame::WrapNativeTexture(
         texture_id_, kGLTextureExternalOES, natural_size_, natural_size_,
         base::TimeDelta(),
+        VideoFrame::ReadPixelsCB(),
         base::Closure())));
   }
 }
@@ -407,6 +408,10 @@ void WebMediaPlayerAndroid::EstablishSurfaceTexturePeer() {
   if (stream_texture_factory_.get() && stream_id_)
     stream_texture_factory_->EstablishPeer(stream_id_, player_id_);
   needs_establish_peer_ = false;
+}
+
+void WebMediaPlayerAndroid::SetNeedsEstablishPeer(bool needs_establish_peer) {
+  needs_establish_peer_ = needs_establish_peer;
 }
 
 void WebMediaPlayerAndroid::UpdatePlayingState(bool is_playing) {

@@ -10,7 +10,7 @@
 #include "base/callback_forward.h"
 #include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
-#include "chrome/browser/tab_contents/web_contents_user_data.h"
+#include "chrome/browser/common/web_contents_user_data.h"
 
 class SSLAddCertHandler;
 
@@ -59,7 +59,6 @@ class SSLTabHelper : public WebContentsUserData<SSLTabHelper> {
 
  private:
   explicit SSLTabHelper(content::WebContents* contents);
-  static int kUserDataKey;
   friend class WebContentsUserData<SSLTabHelper>;
 
   content::WebContents* web_contents_;

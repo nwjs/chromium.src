@@ -212,7 +212,12 @@ void WebContentsViewMac::SizeContents(const gfx::Size& size) {
   // See web_contents_view.h.
   gfx::Rect rect(gfx::Point(), size);
   WebContentsViewCocoa* view = cocoa_view_.get();
-  [view setFrame:[view flipRectToNSRect:rect]];
+
+  NSPoint origin = [view frame].origin;
+  NSRect frame = [view flipRectToNSRect:rect];
+  frame.origin = NSMakePoint(NSMinX(frame) + origin.x,
+                             NSMinY(frame) + origin.y);
+  [view setFrame:frame];
 }
 
 void WebContentsViewMac::Focus() {
@@ -248,13 +253,6 @@ void WebContentsViewMac::RestoreFocus() {
   }
 
   focus_tracker_.reset(nil);
-}
-
-bool WebContentsViewMac::IsDoingDrag() const {
-  return false;
-}
-
-void WebContentsViewMac::CancelDragAndCloseTab() {
 }
 
 WebDropData* WebContentsViewMac::GetDropData() const {
@@ -515,6 +513,7 @@ void WebContentsViewMac::CloseTab() {
 
 - (void)clearWebContentsView {
   webContentsView_ = NULL;
+  [dragSource_ clearWebContentsView];
 }
 
 - (void)closeTabAfterEvent {

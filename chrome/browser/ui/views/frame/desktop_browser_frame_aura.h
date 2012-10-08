@@ -11,8 +11,15 @@
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/widget/desktop_native_widget_aura.h"
 
+class BrowserDesktopRootWindowHost;
 class BrowserFrame;
 class BrowserView;
+
+namespace ash {
+namespace internal {
+class VisibilityController;
+}
+}
 
 namespace views {
 class MenuRunner;
@@ -24,8 +31,7 @@ class MenuRunner;
 //  DesktopBrowserFrameAura is a DesktopNativeWidgetAura subclass that provides
 //  the window frame for the Chrome browser window.
 //
-class DesktopBrowserFrameAura : public views::ContextMenuController,
-                                public views::DesktopNativeWidgetAura,
+class DesktopBrowserFrameAura : public views::DesktopNativeWidgetAura,
                                 public NativeBrowserFrame {
  public:
   DesktopBrowserFrameAura(BrowserFrame* browser_frame,
@@ -34,13 +40,9 @@ class DesktopBrowserFrameAura : public views::ContextMenuController,
   BrowserView* browser_view() const { return browser_view_; }
 
  protected:
-  // Overridden from views::ContextMenuController:
-  virtual void ShowContextMenuForView(views::View* source,
-                                      const gfx::Point& p) OVERRIDE;
-
-  // Overridden from views::NativeWidgetAura:
-  virtual void OnWindowDestroying() OVERRIDE;
-  virtual void OnWindowTargetVisibilityChanged(bool visible) OVERRIDE;
+  // Overridden from views::DesktopNativeWidgetAura:
+  virtual void InitNativeWidget(
+      const views::Widget::InitParams& params) OVERRIDE;
 
   // Overridden from NativeBrowserFrame:
   virtual views::NativeWidget* AsNativeWidget() OVERRIDE;
@@ -50,17 +52,19 @@ class DesktopBrowserFrameAura : public views::ContextMenuController,
   virtual void TabStripDisplayModeChanged() OVERRIDE;
 
  private:
-  class WindowPropertyWatcher;
-
   virtual ~DesktopBrowserFrameAura();
 
   // The BrowserView is our ClientView. This is a pointer to it.
   BrowserView* browser_view_;
+  BrowserFrame* browser_frame_;
 
-  scoped_ptr<WindowPropertyWatcher> window_property_watcher_;
+  // Owned by the RootWindow.
+  BrowserDesktopRootWindowHost* browser_desktop_root_window_host_;
 
   // System menu.
   scoped_ptr<views::MenuRunner> menu_runner_;
+
+  scoped_ptr<ash::internal::VisibilityController> visibility_controller_;
 
   DISALLOW_COPY_AND_ASSIGN(DesktopBrowserFrameAura);
 };

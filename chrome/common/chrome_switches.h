@@ -70,8 +70,8 @@ extern const char kCrashOnHangSeconds[];
 extern const char kCrashOnHangThreads[];
 extern const char kCrashOnLive[];
 extern const char kCreateBrowserOnStartupForTests[];
-extern const char kDebugDevToolsFrontend[];
 extern const char kDebugEnableFrameToggle[];
+extern const char kDebugPackedApps[];
 extern const char kDebugPrint[];
 extern const char kDeviceManagementUrl[];
 extern const char kDiagnostics[];
@@ -95,7 +95,6 @@ extern const char kDisableExtensionsResourceWhitelist[];
 extern const char kDisableExtensions[];
 extern const char kDisableFlashSandbox[];
 extern const char kDisableImprovedDownloadProtection[];
-extern const char kDisableInBrowserThumbnailing[];
 extern const char kDisableInfiniteCache[];
 extern const char kDisableInternalFlash[];
 extern const char kDisableIPv6[];
@@ -136,16 +135,14 @@ extern const char kEnableAuthNegotiatePort[];
 extern const char kEnableAutofillFeedback[];
 extern const char kEnableAutologin[];
 extern const char kEnableBenchmarking[];
+extern const char kEnableBrowserPluginForAllViewTypes[];
 extern const char kEnableBundledPpapiFlash[];
-extern const char kEnableClientOAuthSignin[];
 extern const char kEnableCloudPolicyService[];
 extern const char kEnableCloudPrintProxy[];
 extern const char kEnableConnectBackupJobs[];
 extern const char kEnableContacts[];
 extern const char kEnableCrxlessWebApps[];
 extern const char kEnableDevToolsExperiments[];
-extern const char kEnableDiscoveryInNewTabPage[];
-extern const char kEnableDriveV2Api[];
 extern const char kEnableEasyOffStoreExtensionInstall[];
 extern const char kEnableExperimentalExtensionApis[];
 extern const char kEnableExtensionActivityLogging[];
@@ -208,7 +205,6 @@ extern const char kHomePage[];
 extern const char kHostRules[];
 extern const char kHostResolverParallelism[];
 extern const char kHostResolverRetryAttempts[];
-extern const char kHostResolverRules[];
 extern const char kHstsHosts[];
 extern const char kImport[];
 extern const char kImportFromFile[];
@@ -231,6 +227,7 @@ extern const char kMemoryProfiling[];
 extern const char kMessageLoopHistogrammer[];
 extern const char kMetricsRecordingOnly[];
 extern const char kMultiProfiles[];
+extern const char kNaClDebugMask[];
 extern const char kNaClGdb[];
 extern const char kNaClGdbScript[];
 extern const char kNaClLoaderCmdPrefix[];
@@ -266,6 +263,7 @@ extern const char kPackExtension[];
 extern const char kPackExtensionKey[];
 extern const char kParentProfile[];
 extern const char kPerformanceMonitorGathering[];
+extern const char kPerformCrashAnalysis[];
 extern const char kPlaybackMode[];
 extern const char kPnaclDir[];
 extern const char kPpapiFlashFieldTrial[];
@@ -308,8 +306,8 @@ extern const char kSavePageAsMHTML[];
 extern const char kSbURLPrefix[];
 extern const char kSbDisableAutoUpdate[];
 extern const char kSbDisableDownloadProtection[];
+extern const char kScriptBubbleEnabled[];
 extern const char kSearchInOmniboxHint[];
-extern const char kServiceAccountLsid[];
 extern const char kSetToken[];
 extern const char kShowAppList[];
 extern const char kShowAutofillTypePredictions[];
@@ -322,6 +320,7 @@ extern const char kSocketReusePolicy[];
 extern const char kSpeculativeResourcePrefetching[];
 extern const char kSpeculativeResourcePrefetchingDisabled[];
 extern const char kSpeculativeResourcePrefetchingLearning[];
+extern const char kSpdyProxyOrigin[];
 extern const char kSSLVersionMax[];
 extern const char kSSLVersionMin[];
 extern const char kStartMaximized[];
@@ -343,12 +342,11 @@ extern const char kTestNaClSandbox[];
 extern const char kTestName[];
 extern const char kTestType[];
 extern const char kTestingChannelID[];
-extern const char kTestingFixedHttpPort[];
-extern const char kTestingFixedHttpsPort[];
 extern const char kTrustedSpdyProxy[];
 extern const char kTryChromeAgain[];
 extern const char kUninstall[];
 extern const char kUseSpdy[];
+extern const char kUseGpuInTests[];
 extern const char kIgnoreCertificateErrors[];
 extern const char kMaxSpdySessionsPerDomain[];
 extern const char kMaxSpdyConcurrentStreams[];
@@ -356,10 +354,15 @@ extern const char kUserDataDir[];
 extern const char kVariationsServerURL[];
 extern const char kVersion[];
 extern const char kVisitURLs[];
+extern const char kWebIntentsNativeServicesEnabled[];
 extern const char kWhitelistedExtensionID[];
 extern const char kWindowPosition[];
 extern const char kWindowSize[];
 extern const char kWinHttpProxyResolver[];
+
+#if defined(ENABLE_PLUGIN_INSTALLATION)
+extern const char kPluginsMetadataServerURL[];
+#endif
 
 #if defined(OS_ANDROID)
 extern const char kTabletUI[];
@@ -384,7 +387,6 @@ extern const char kEnableGView[];
 extern const char kEnableKioskMode[];
 extern const char kEnableRequestTabletSite[];
 extern const char kEnableStaticIPConfig[];
-extern const char kEnableUnsupportedBluetoothDevices[];
 extern const char kFirstBoot[];
 extern const char kKioskModeScreensaverPath[];
 extern const char kLoginManager[];
@@ -438,6 +440,10 @@ extern const char kWaitForMutex[];
 #if defined(USE_AURA)
 extern const char kDisableTCVA[];
 extern const char kOpenAsh[];
+#endif
+
+#if defined(USE_ASH)
+extern const char kEnableAsh[];
 #endif
 
 #ifndef NDEBUG

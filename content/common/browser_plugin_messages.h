@@ -28,6 +28,25 @@
 // -----------------------------------------------------------------------------
 // These messages are from the embedder to the browser process.
 
+// This message is sent to the browser process to create the browser plugin
+// embedder and helper. It is sent once prior to sending the first
+// BrowserPluginHostMsg_NavigateGuest message.
+IPC_MESSAGE_ROUTED3(BrowserPluginHostMsg_CreateGuest,
+                    int /* instance_id */,
+                    std::string /* storage_partition_id */,
+                    bool /* persist_storage */)
+
+// Tells the browser process to terminate the guest associated with the
+// browser plugin associated with the provided |instance_id|.
+IPC_MESSAGE_ROUTED1(BrowserPluginHostMsg_TerminateGuest,
+                    int /* instance_id */)
+
+// Tells the guest to navigate to an entry |relative_index| away from the
+// current navigation entry.
+IPC_MESSAGE_ROUTED2(BrowserPluginHostMsg_Go,
+                    int /* instance_id */,
+                    int /* relative_index */)
+
 // Tells the guest to focus or defocus itself.
 IPC_MESSAGE_ROUTED2(BrowserPluginHostMsg_SetFocus,
                     int /* instance_id */,
@@ -58,29 +77,15 @@ IPC_MESSAGE_ROUTED3(BrowserPluginHostMsg_UpdateRect_ACK,
                     int /* message_id */,
                     gfx::Size /* repaint_view_size */)
 
-// A BrowserPlugin sends this to the browser process when it wants to navigate
-// to a given src URL. If a guest WebContents already exists, it will navigate
-// that WebContents. If not, it will create the WebContents, associate it with
-// the BrowserPlugin's browser-side BrowserPluginHost as a guest, and navigate
-// it to the requested URL.
-IPC_MESSAGE_ROUTED4(BrowserPluginHostMsg_NavigateGuest,
-                    int /* instance_id*/,
-                    int64 /* frame_id */,
-                    std::string /* src */,
-                    gfx::Size /* size */)
-
-// When a BrowserPlugin has been removed from the embedder's DOM, it informs
-// the browser process to cleanup the guest.
-IPC_MESSAGE_ROUTED1(BrowserPluginHostMsg_PluginDestroyed,
-                    int /* instance_id */)
-
-// -----------------------------------------------------------------------------
-// These messages are from the guest renderer to the browser process
-
 IPC_STRUCT_BEGIN(BrowserPluginHostMsg_ResizeGuest_Params)
-  // A handle to the new buffer to use to transport damage to the
-  // embedder renderer process.
+  // An identifier to the new buffer to use to transport damage to the embedder
+  // renderer process.
   IPC_STRUCT_MEMBER(TransportDIB::Id, damage_buffer_id)
+#if defined(OS_MACOSX)
+  // On OSX, a handle to the new buffer is used to map the transport dib since
+  // we don't let browser manage the dib.
+  IPC_STRUCT_MEMBER(TransportDIB::Handle, damage_buffer_handle)
+#endif
 #if defined(OS_WIN)
   // The size of the damage buffer because this information is not available
   // on Windows.
@@ -97,6 +102,24 @@ IPC_STRUCT_BEGIN(BrowserPluginHostMsg_ResizeGuest_Params)
   IPC_STRUCT_MEMBER(float, scale_factor)
 IPC_STRUCT_END()
 
+// A BrowserPlugin sends this to BrowserPluginEmbedder (browser process) when it
+// wants to navigate to a given src URL. If a guest WebContents already exists,
+// it will navigate that WebContents. If not, it will create the WebContents,
+// associate it with the BrowserPluginGuest, and navigate it to the requested
+// URL.
+IPC_MESSAGE_ROUTED3(BrowserPluginHostMsg_NavigateGuest,
+                    int /* instance_id*/,
+                    std::string /* src */,
+                    BrowserPluginHostMsg_ResizeGuest_Params /* resize_params */)
+
+// When a BrowserPlugin has been removed from the embedder's DOM, it informs
+// the browser process to cleanup the guest.
+IPC_MESSAGE_ROUTED1(BrowserPluginHostMsg_PluginDestroyed,
+                    int /* instance_id */)
+
+// -----------------------------------------------------------------------------
+// These messages are from the guest renderer to the browser process
+
 // A embedder sends this message to the browser when it wants
 // to resize a guest plugin container so that the guest is relaid out
 // according to the new size.
@@ -106,6 +129,31 @@ IPC_SYNC_MESSAGE_ROUTED2_0(BrowserPluginHostMsg_ResizeGuest,
 
 // -----------------------------------------------------------------------------
 // These messages are from the browser process to the embedder.
+
+// When the guest begins to load a page, the browser process informs the
+// embedder through the BrowserPluginMsg_LoadStart message.
+IPC_MESSAGE_CONTROL3(BrowserPluginMsg_LoadStart,
+                     int /* instance_id */,
+                     GURL /* url */,
+                     bool /* is_top_level */)
+
+// If the guest fails to commit a page load then it will inform the
+// embedder through the BrowserPluginMsg_LoadAbort. A description
+// of the error will be stored in |type|.  The list of known error
+// types can be found in net/base/net_error_list.h.
+IPC_MESSAGE_CONTROL4(BrowserPluginMsg_LoadAbort,
+                     int /* instance_id */,
+                     GURL /* url */,
+                     bool /* is_top_level */,
+                     std::string /* type */)
+
+// When the guest redirects a navigation, the browser process informs the
+// embedder through the BrowserPluginMsg_LoadRedirect message.
+IPC_MESSAGE_CONTROL4(BrowserPluginMsg_LoadRedirect,
+                     int /* instance_id */,
+                     GURL /* old_url */,
+                     GURL /* new_url */,
+                     bool /* is_top_level */)
 
 // When the guest navigates, the browser process informs the embedder through
 // the BrowserPluginMsg_DidNavigate message.
@@ -159,6 +207,12 @@ IPC_STRUCT_END()
 IPC_MESSAGE_CONTROL2(BrowserPluginMsg_AdvanceFocus,
                      int /* instance_id */,
                      bool /* reverse */)
+
+// When the guest starts/stops listening to touch events, it needs to notify the
+// plugin in the embedder about it.
+IPC_MESSAGE_CONTROL2(BrowserPluginMsg_ShouldAcceptTouchEvents,
+                     int /* instance_id */,
+                     bool /* accept */)
 
 // The guest has damage it wants to convey to the embedder so that it can
 // update its backing store.

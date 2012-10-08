@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
+#include "chrome/browser/ui/webui/instant_ui.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -370,6 +371,14 @@ void BrowserTabStripController::LayoutTypeMaybeChanged() {
       static_cast<int>(tabstrip_->layout_type()));
 }
 
+bool BrowserTabStripController::IsInstantExtendedAPIEnabled() {
+  return chrome::search::IsInstantExtendedAPIEnabled(browser_->profile());
+}
+
+bool BrowserTabStripController::ShouldShowWhiteNTP() {
+  return InstantUI::ShouldShowWhiteNTP(browser_->profile());
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserTabStripController, TabStripModelObserver implementation:
 
@@ -512,17 +521,17 @@ void BrowserTabStripController::SetTabRendererDataFromModel(
     int model_index,
     TabRendererData* data,
     TabStatus tab_status) {
-  TabContents* tab_contents = TabContents::FromWebContents(contents);
+  FaviconTabHelper* favicon_tab_helper =
+      FaviconTabHelper::FromWebContents(contents);
 
-  data->favicon =
-      tab_contents->favicon_tab_helper()->GetFavicon().AsImageSkia();
+  data->favicon = favicon_tab_helper->GetFavicon().AsImageSkia();
   data->network_state = TabContentsNetworkState(contents);
   data->title = contents->GetTitle();
   data->url = contents->GetURL();
   data->loading = contents->IsLoading();
   data->crashed_status = contents->GetCrashedStatus();
   data->incognito = contents->GetBrowserContext()->IsOffTheRecord();
-  data->show_icon = tab_contents->favicon_tab_helper()->ShouldDisplayFavicon();
+  data->show_icon = favicon_tab_helper->ShouldDisplayFavicon();
   data->mini = model_->IsMiniTab(model_index);
   data->blocked = model_->IsTabBlocked(model_index);
   data->app = extensions::TabHelper::FromWebContents(contents)->is_app();

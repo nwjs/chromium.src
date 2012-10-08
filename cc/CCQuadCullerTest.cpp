@@ -14,8 +14,8 @@
 #include "CCSingleThreadProxy.h"
 #include "CCTileDrawQuad.h"
 #include "CCTiledLayerImpl.h"
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebTransformationMatrix.h>
 
 using namespace cc;
@@ -38,9 +38,9 @@ private:
     IntRect m_scissorRectInScreen;
 };
 
-typedef CCLayerIterator<CCLayerImpl, Vector<CCLayerImpl*>, CCRenderSurface, CCLayerIteratorActions::FrontToBack> CCLayerIteratorType;
+typedef CCLayerIterator<CCLayerImpl, std::vector<CCLayerImpl*>, CCRenderSurface, CCLayerIteratorActions::FrontToBack> CCLayerIteratorType;
 
-static PassOwnPtr<CCTiledLayerImpl> makeLayer(CCTiledLayerImpl* parent, const WebTransformationMatrix& drawTransform, const IntRect& layerRect, float opacity, bool opaque, const IntRect& layerOpaqueRect, Vector<CCLayerImpl*>& surfaceLayerList)
+static PassOwnPtr<CCTiledLayerImpl> makeLayer(CCTiledLayerImpl* parent, const WebTransformationMatrix& drawTransform, const IntRect& layerRect, float opacity, bool opaque, const IntRect& layerOpaqueRect, std::vector<CCLayerImpl*>& surfaceLayerList)
 {
     OwnPtr<CCTiledLayerImpl> layer = CCTiledLayerImpl::create(1);
     OwnPtr<CCLayerTilingData> tiler = CCLayerTilingData::create(IntSize(100, 100), CCLayerTilingData::NoBorderTexels);
@@ -51,7 +51,7 @@ static PassOwnPtr<CCTiledLayerImpl> makeLayer(CCTiledLayerImpl* parent, const We
     layer->setScreenSpaceTransform(drawTransform);
     layer->setVisibleContentRect(layerRect);
     layer->setDrawOpacity(opacity);
-    layer->setOpaque(opaque);
+    layer->setContentsOpaque(opaque);
     layer->setBounds(layerRect.size());
     layer->setContentBounds(layerRect.size());
 
@@ -65,11 +65,11 @@ static PassOwnPtr<CCTiledLayerImpl> makeLayer(CCTiledLayerImpl* parent, const We
     IntRect rectInTarget = CCMathUtil::mapClippedRect(layer->drawTransform(), layer->visibleContentRect());
     if (!parent) {
         layer->createRenderSurface();
-        surfaceLayerList.append(layer.get());
-        layer->renderSurface()->layerList().append(layer.get());
+        surfaceLayerList.push_back(layer.get());
+        layer->renderSurface()->layerList().push_back(layer.get());
     } else {
         layer->setRenderTarget(parent->renderTarget());
-        parent->renderSurface()->layerList().append(layer.get());
+        parent->renderSurface()->layerList().push_back(layer.get());
         rectInTarget.unite(CCMathUtil::mapClippedRect(parent->drawTransform(), parent->visibleContentRect()));
     }
     layer->setDrawableContentRect(rectInTarget);
@@ -91,7 +91,7 @@ static void appendQuads(CCQuadList& quadList, CCSharedQuadStateList& sharedState
     DebugScopedSetImplThread impl;                      \
     CCQuadList quadList;                                \
     CCSharedQuadStateList sharedStateList;              \
-    Vector<CCLayerImpl*> renderSurfaceLayerList;        \
+    std::vector<CCLayerImpl*> renderSurfaceLayerList;   \
     WebTransformationMatrix childTransform;             \
     IntSize rootSize = IntSize(300, 300);               \
     IntRect rootRect = IntRect(IntPoint(), rootSize);   \

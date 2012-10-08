@@ -10,7 +10,6 @@
 #include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/rand_util.h"
-#include "base/win/scoped_com_initializer.h"
 #include "content/browser/renderer_host/media/audio_input_device_manager.h"
 #include "content/browser/renderer_host/media/media_stream_device_settings.h"
 #include "content/browser/renderer_host/media/media_stream_requester.h"
@@ -20,6 +19,10 @@
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/media_observer.h"
 #include "googleurl/src/gurl.h"
+
+#if defined(OS_WIN)
+#include "base/win/scoped_com_initializer.h"
+#endif
 
 using content::BrowserThread;
 
@@ -51,8 +54,8 @@ static bool Requested(const StreamOptions& options,
           options.video_type == stream_type);
 }
 
-DeviceThread::DeviceThread(const char* name)
-    : base::Thread(name) {
+#if defined(OS_WIN)
+DeviceThread::DeviceThread(const char* name) : base::Thread(name) {
 }
 
 DeviceThread::~DeviceThread() {
@@ -60,14 +63,14 @@ DeviceThread::~DeviceThread() {
 }
 
 void DeviceThread::Init() {
-  using base::win::ScopedCOMInitializer;
-  // Enter the multi-threaded apartment.
-  com_initializer_.reset(new ScopedCOMInitializer(ScopedCOMInitializer::kMTA));
+  com_initializer_.reset(new base::win::ScopedCOMInitializer(
+      base::win::ScopedCOMInitializer::kMTA));
 }
 
 void DeviceThread::CleanUp() {
   com_initializer_.reset();
 }
+#endif
 
 // TODO(xians): Merge DeviceRequest with MediaStreamRequest.
 struct MediaStreamManager::DeviceRequest {
@@ -651,31 +654,18 @@ void MediaStreamManager::Error(MediaStreamType stream_type,
         continue;
       }
       // We've found the failing device. Find the error case:
-      if (it->second.state[stream_type] == DeviceRequest::STATE_DONE) {
-        // 1. Already opened -> signal device failure and close device.
-        //    Use device_idx to signal which of the devices encountered an
-        //    error.
-        if (content::IsAudioMediaType(stream_type)) {
-          it->second.requester->AudioDeviceFailed(it->first, audio_device_idx);
-        } else if (content::IsVideoMediaType(stream_type)) {
-          it->second.requester->VideoDeviceFailed(it->first, video_device_idx);
-        } else {
-          NOTREACHED();
-          return;
-        }
-        GetDeviceManager(stream_type)->Close(capture_session_id);
-        // We don't erase the devices here so that we can update the UI
-        // properly in StopGeneratedStream().
-        it->second.state[stream_type] = DeviceRequest::STATE_ERROR;
-      } else {
+      // An error should only be reported to the MediaStreamManager if
+      // the request has not been fulfilled yet.
+      DCHECK(it->second.state[stream_type] != DeviceRequest::STATE_DONE);
+      if (it->second.state[stream_type] != DeviceRequest::STATE_DONE) {
         // Request is not done, devices are not opened in this case.
         if (devices.size() <= 1) {
-          // 2. Device not opened and no other devices for this request ->
+          // 1. Device not opened and no other devices for this request ->
           //    signal stream error and remove the request.
           it->second.requester->StreamGenerationFailed(it->first);
           requests_.erase(it);
         } else {
-          // 3. Not opened but other devices exists for this request -> remove
+          // 2. Not opened but other devices exists for this request -> remove
           //    device from list, but don't signal an error.
           devices.erase(device_it);  // NOTE: This invalidates device_it!
         }
