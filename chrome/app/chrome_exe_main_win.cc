@@ -21,10 +21,8 @@ class ThreadTracker {
  public:
   static void NTAPI UpdateCount(PVOID module, DWORD reason, PVOID reserved) {
     if (reason == DLL_THREAD_ATTACH) {
-      // We hit the threshold, but the loader would eat an exception fired now.
-      // So schedule an APC to fire the exception once loading is done.
       if (::InterlockedIncrement(&count_) > cap_)
-        ::QueueUserAPC(CrashProcessCallback, ::GetCurrentThread(), NULL);
+        __debugbreak();
     } else if (reason == DLL_THREAD_DETACH) {
       ::InterlockedDecrement(&count_);
     }
@@ -33,10 +31,8 @@ class ThreadTracker {
   static void SetCap(LONG cap) { cap_ = cap; }
 
  private:
-  static void CALLBACK CrashProcessCallback(ULONG_PTR) { __debugbreak(); }
-
-  static volatile LONG count_;
-  static volatile LONG cap_;
+  static LONG volatile count_;
+  static LONG volatile cap_;
 };
 
 LONG volatile ThreadTracker::count_ = 1;
