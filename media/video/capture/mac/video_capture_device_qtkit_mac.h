@@ -10,6 +10,8 @@
 
 #import <Foundation/Foundation.h>
 
+#include <vector>
+
 namespace media {
   class VideoCaptureDeviceMac;
 }
@@ -31,6 +33,11 @@ namespace media {
   QTCaptureSession *captureSession_;
   QTCaptureDeviceInput *captureDeviceInput_;
   QTCaptureDecompressedVideoOutput *captureDecompressedOutput_;
+
+  // Buffer for adjusting frames which do not fit receiver
+  // assumptions.  scoped_array<> might make more sense, if the size
+  // can be proven invariant.
+  std::vector<UInt8> adjustedFrame_;
 }
 
 // Returns a dictionary of capture devices with friendly name and unique id.
