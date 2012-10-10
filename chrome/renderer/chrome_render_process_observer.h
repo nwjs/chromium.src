@@ -62,8 +62,6 @@ class ChromeRenderProcessObserver : public content::RenderProcessObserver {
   void OnGetCacheResourceStats();
   void OnSetFieldTrialGroup(const std::string& fiel_trial_name,
                             const std::string& group_name);
-  void OnSetTcmallocHeapProfiling(bool profiling, const std::string& prefix);
-  void OnWriteTcmallocHeapProfile(const FilePath::StringType& filename);
   void OnGetV8HeapStats();
   void OnPurgeMemory();
 
