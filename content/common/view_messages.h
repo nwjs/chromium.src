@@ -251,6 +251,7 @@ IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(sync_xhr_in_documents_enabled)
   IPC_STRUCT_TRAITS_MEMBER(number_of_cpu_cores)
   IPC_STRUCT_TRAITS_MEMBER(cookie_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(apply_page_scale_factor_in_compositor)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(WebMenuItem)
@@ -1423,6 +1424,10 @@ IPC_MESSAGE_ROUTED2(ViewMsg_SelectPopupMenuItems,
                     bool /* user canceled the popup */,
                     std::vector<int> /* selected indices */)
 
+// Tells the renderer to try to revert to the zoom level we were at before
+// ViewMsg_ScrollFocusedEditableNodeIntoView was called.
+IPC_MESSAGE_ROUTED0(ViewMsg_UndoScrollFocusedEditableNodeIntoView)
+
 #elif defined(OS_MACOSX)
 // Let the RenderView know its window has changed visibility.
 IPC_MESSAGE_ROUTED1(ViewMsg_SetWindowVisibility,
@@ -1737,10 +1742,12 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_HandleInputEvent_ACK,
                     WebKit::WebInputEvent::Type,
                     bool /* processed */)
 
-IPC_MESSAGE_ROUTED3(ViewHostMsg_BeginSmoothScroll,
+IPC_MESSAGE_ROUTED5(ViewHostMsg_BeginSmoothScroll,
                     int /* gesture_id */,
                     bool /* scroll_down */,
-                    bool /* scroll_far */)
+                    bool /* scroll_far */,
+                    int /* mouse_event_x */,
+                    int /* mouse_event_y */)
 
 IPC_MESSAGE_ROUTED0(ViewHostMsg_Focus)
 IPC_MESSAGE_ROUTED0(ViewHostMsg_Blur)

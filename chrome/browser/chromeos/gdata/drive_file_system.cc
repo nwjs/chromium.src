@@ -16,10 +16,13 @@
 #include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/drive_files.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_observer.h"
 #include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
 #include "chrome/browser/chromeos/gdata/drive_function_remove.h"
+#include "chrome/browser/chromeos/gdata/drive_scheduler.h"
 #include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/drive_uploader.h"
+#include "chrome/browser/chromeos/gdata/gdata_wapi_feed_loader.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_feed_processor.h"
 #include "chrome/browser/google_apis/drive_api_parser.h"
 #include "chrome/browser/google_apis/gdata_util.h"
@@ -100,7 +103,7 @@ void OnAddUploadFileCompleted(
 
 // The class to wait for the initial load of root feed and runs the callback
 // after the initialization.
-class InitialLoadObserver : public DriveFileSystemInterface::Observer {
+class InitialLoadObserver : public DriveFileSystemObserver {
  public:
   InitialLoadObserver(DriveFileSystemInterface* file_system,
                       const FileOperationCallback& callback)
@@ -451,6 +454,7 @@ DriveFileSystem::DriveFileSystem(
       blocking_task_runner_(blocking_task_runner),
       remove_function_(new DriveFunctionRemove(
           drive_service, ALLOW_THIS_IN_INITIALIZER_LIST(this), cache_)),
+      scheduler_(new DriveScheduler(profile, remove_function_.get())),
       ALLOW_THIS_IN_INITIALIZER_LIST(ui_weak_ptr_factory_(this)),
       ui_weak_ptr_(ui_weak_ptr_factory_.GetWeakPtr()) {
   // Should be created from the file browser extension API on UI thread.
@@ -472,6 +476,8 @@ void DriveFileSystem::Initialize() {
 
   PrefService* pref_service = profile_->GetPrefs();
   hide_hosted_docs_ = pref_service->GetBoolean(prefs::kDisableGDataHostedFiles);
+
+  scheduler_->Initialize();
 
   InitializePreferenceObserver();
 }
@@ -511,14 +517,12 @@ DriveFileSystem::~DriveFileSystem() {
   drive_service_->CancelAll();
 }
 
-void DriveFileSystem::AddObserver(
-    DriveFileSystemInterface::Observer* observer) {
+void DriveFileSystem::AddObserver(DriveFileSystemObserver* observer) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   observers_.AddObserver(observer);
 }
 
-void DriveFileSystem::RemoveObserver(
-    DriveFileSystemInterface::Observer* observer) {
+void DriveFileSystem::RemoveObserver(DriveFileSystemObserver* observer) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   observers_.RemoveObserver(observer);
 }
@@ -1286,7 +1290,7 @@ void DriveFileSystem::RemoveOnUIThread(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
-  remove_function_->Remove(file_path, is_recursive, callback);
+  scheduler_->Remove(file_path, is_recursive, callback);
 }
 
 void DriveFileSystem::CreateDirectory(
@@ -2334,21 +2338,21 @@ void DriveFileSystem::SearchAsyncOnUIThread(
 void DriveFileSystem::OnDirectoryChanged(const FilePath& directory_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  FOR_EACH_OBSERVER(DriveFileSystemInterface::Observer, observers_,
+  FOR_EACH_OBSERVER(DriveFileSystemObserver, observers_,
                     OnDirectoryChanged(directory_path));
 }
 
 void DriveFileSystem::OnDocumentFeedFetched(int num_accumulated_entries) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  FOR_EACH_OBSERVER(DriveFileSystemInterface::Observer, observers_,
+  FOR_EACH_OBSERVER(DriveFileSystemObserver, observers_,
                     OnDocumentFeedFetched(num_accumulated_entries));
 }
 
 void DriveFileSystem::OnFeedFromServerLoaded() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  FOR_EACH_OBSERVER(DriveFileSystemInterface::Observer, observers_,
+  FOR_EACH_OBSERVER(DriveFileSystemObserver, observers_,
                     OnFeedFromServerLoaded());
 }
 
@@ -2594,7 +2598,7 @@ void DriveFileSystem::NotifyFileSystemMounted() {
 
   DVLOG(1) << "File System is mounted";
   // Notify the observers that the file system is mounted.
-  FOR_EACH_OBSERVER(DriveFileSystemInterface::Observer, observers_,
+  FOR_EACH_OBSERVER(DriveFileSystemObserver, observers_,
                     OnFileSystemMounted());
 }
 
@@ -2603,7 +2607,7 @@ void DriveFileSystem::NotifyFileSystemToBeUnmounted() {
 
   DVLOG(1) << "File System is to be unmounted";
   // Notify the observers that the file system is being unmounted.
-  FOR_EACH_OBSERVER(DriveFileSystemInterface::Observer, observers_,
+  FOR_EACH_OBSERVER(DriveFileSystemObserver, observers_,
                     OnFileSystemBeingUnmounted());
 }
 
@@ -2617,7 +2621,8 @@ void DriveFileSystem::NotifyInitialLoadFinishedAndRun(
     resource_metadata_->set_origin(UNINITIALIZED);
 
   // Notify the observers that root directory has been initialized.
-  FOR_EACH_OBSERVER(DriveFileSystemInterface::Observer, observers_,
+  FOR_EACH_OBSERVER(DriveFileSystemObserver,
+                    observers_,
                     OnInitialLoadFinished(error));
 
   callback.Run(error);
@@ -2894,7 +2899,7 @@ void DriveFileSystem::SetHideHostedDocuments(bool hide) {
   const FilePath root_path = resource_metadata_->root()->GetFilePath();
 
   // Kick off directory refresh when this setting changes.
-  FOR_EACH_OBSERVER(DriveFileSystemInterface::Observer, observers_,
+  FOR_EACH_OBSERVER(DriveFileSystemObserver, observers_,
                     OnDirectoryChanged(root_path));
 }
 

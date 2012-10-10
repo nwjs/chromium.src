@@ -40,6 +40,7 @@ class MouseEvent;
 class ScrollEvent;
 class TouchEvent;
 class Transform;
+class ViewProp;
 }
 
 namespace aura {
@@ -99,6 +100,8 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   explicit RootWindow(const CreateParams& params);
   virtual ~RootWindow();
 
+  // Returns the RootWindowHost for the specified accelerated widget, or NULL
+  // if there is none associated.
   static RootWindow* GetForAcceleratedWidget(gfx::AcceleratedWidget widget);
 
   ui::Compositor* compositor() { return compositor_.get(); }
@@ -406,6 +409,8 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   // Used to schedule DispatchHeldMouseMove() when |mouse_move_hold_count_| goes
   // to 0.
   base::WeakPtrFactory<RootWindow> held_mouse_event_factory_;
+
+  scoped_ptr<ui::ViewProp> prop_;
 
   CompositorLock* compositor_lock_;
   bool draw_on_compositor_unlock_;

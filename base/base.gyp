@@ -149,9 +149,6 @@
           'dependencies': [
             'base_java',
           ],
-          'export_dependent_settings': [
-            'base_java',
-          ],
         }],
         ['os_bsd==1', {
           'include_dirs': [
@@ -376,6 +373,7 @@
       'sources': [
         # Tests.
         'android/jni_android_unittest.cc',
+        'android/jni_array_unittest.cc',
         'android/path_utils_unittest.cc',
         'android/scoped_java_ref_unittest.cc',
         'at_exit_unittest.cc',

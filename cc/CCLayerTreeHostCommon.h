@@ -25,9 +25,6 @@ public:
     static void calculateDrawTransforms(LayerChromium* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, int maxTextureSize, std::vector<scoped_refptr<LayerChromium> >& renderSurfaceLayerList);
     static void calculateDrawTransforms(CCLayerImpl* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, CCLayerSorter*, int maxTextureSize, std::vector<CCLayerImpl*>& renderSurfaceLayerList);
 
-    static void calculateVisibleRects(std::vector<CCLayerImpl*>& renderSurfaceLayerList);
-    static void calculateVisibleRects(std::vector<scoped_refptr<LayerChromium> >& renderSurfaceLayerList);
-
     // Performs hit testing for a given renderSurfaceLayerList.
     static CCLayerImpl* findLayerThatIsHitByPoint(const IntPoint& viewportPoint, std::vector<CCLayerImpl*>& renderSurfaceLayerList);
 

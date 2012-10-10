@@ -31,9 +31,9 @@ static const double contextRecreationTickRate = 0.03;
 
 namespace cc {
 
-PassOwnPtr<CCProxy> CCThreadProxy::create(CCLayerTreeHost* layerTreeHost)
+scoped_ptr<CCProxy> CCThreadProxy::create(CCLayerTreeHost* layerTreeHost)
 {
-    return adoptPtr(new CCThreadProxy(layerTreeHost));
+    return make_scoped_ptr(new CCThreadProxy(layerTreeHost)).PassAs<CCProxy>();
 }
 
 CCThreadProxy::CCThreadProxy(CCLayerTreeHost* layerTreeHost)
@@ -343,20 +343,18 @@ void CCThreadProxy::setNeedsForcedCommitOnImplThread()
     m_schedulerOnImplThread->setNeedsForcedCommit();
 }
 
-void CCThreadProxy::postAnimationEventsToMainThreadOnImplThread(PassOwnPtr<CCAnimationEventsVector> events, double wallClockTime)
+void CCThreadProxy::postAnimationEventsToMainThreadOnImplThread(scoped_ptr<CCAnimationEventsVector> events, double wallClockTime)
 {
     ASSERT(isImplThread());
     TRACE_EVENT0("cc", "CCThreadProxy::postAnimationEventsToMainThreadOnImplThread");
-    m_mainThreadProxy->postTask(createCCThreadTask(this, &CCThreadProxy::setAnimationEvents, events, wallClockTime));
+    m_mainThreadProxy->postTask(createCCThreadTask(this, &CCThreadProxy::setAnimationEvents, events.release(), wallClockTime));
 }
 
 void CCThreadProxy::releaseContentsTexturesOnImplThread()
 {
     ASSERT(isImplThread());
 
-    CCResourceProvider::debugNotifyEnterZone(0x1000000);
     m_layerTreeHost->reduceContentsTexturesMemoryOnImplThread(0, m_layerTreeHostImpl->resourceProvider());
-    CCResourceProvider::debugNotifyLeaveZone();
 
     // Make sure that we get a new commit before drawing again.
     m_resetContentsTexturesPurgedAfterCommitOnImplThread = false;
@@ -468,6 +466,7 @@ void CCThreadProxy::scheduledActionBeginFrame()
     m_pendingBeginFrameRequest = adoptPtr(new BeginFrameAndCommitState());
     m_pendingBeginFrameRequest->monotonicFrameBeginTime = monotonicallyIncreasingTime();
     m_pendingBeginFrameRequest->scrollInfo = m_layerTreeHostImpl->processScrollDeltas();
+    m_pendingBeginFrameRequest->implTransform = m_layerTreeHostImpl->implTransform();
     m_pendingBeginFrameRequest->memoryAllocationLimitBytes = m_layerTreeHostImpl->memoryAllocationLimitBytes();
     m_layerTreeHost->getEvictedContentTexturesBackings(m_pendingBeginFrameRequest->evictedContentsTexturesBackings);
 
@@ -512,6 +511,7 @@ void CCThreadProxy::beginFrame()
     // FIXME: technically, scroll deltas need to be applied for dropped commits as well.
     // Re-do the commit flow so that we don't send the scrollInfo on the BFAC message.
     m_layerTreeHost->applyScrollAndScale(*request->scrollInfo);
+    m_layerTreeHost->setImplTransform(request->implTransform);
 
     if (!m_inCompositeAndReadback && !m_layerTreeHost->visible()) {
         m_commitRequested = false;
@@ -617,10 +617,8 @@ void CCThreadProxy::beginFrameCompleteOnImplThread(CCCompletionEvent* completion
     }
 
     m_currentTextureUpdateControllerOnImplThread = CCTextureUpdateController::create(this, CCProxy::implThread(), queue, m_layerTreeHostImpl->resourceProvider(), m_layerTreeHostImpl->resourceProvider()->textureUploader());
-    CCResourceProvider::debugNotifyEnterZone(0x2000000);
     m_currentTextureUpdateControllerOnImplThread->performMoreUpdates(
         m_schedulerOnImplThread->anticipatedDrawTime());
-    CCResourceProvider::debugNotifyLeaveZone();
 
     m_commitCompletionEventOnImplThread = completion;
 }
@@ -643,17 +641,13 @@ void CCThreadProxy::scheduledActionCommit()
     ASSERT(m_currentTextureUpdateControllerOnImplThread);
 
     // Complete all remaining texture updates.
-    CCResourceProvider::debugNotifyEnterZone(0x3000000);
     m_currentTextureUpdateControllerOnImplThread->finalize();
     m_currentTextureUpdateControllerOnImplThread.clear();
-    CCResourceProvider::debugNotifyLeaveZone();
 
     m_layerTreeHostImpl->beginCommit();
 
-    CCResourceProvider::debugNotifyEnterZone(0x4000000);
     m_layerTreeHost->beginCommitOnImplThread(m_layerTreeHostImpl.get());
     m_layerTreeHost->finishCommitOnImplThread(m_layerTreeHostImpl.get());
-    CCResourceProvider::debugNotifyLeaveZone();
 
     if (m_resetContentsTexturesPurgedAfterCommitOnImplThread) {
         m_resetContentsTexturesPurgedAfterCommitOnImplThread = false;
@@ -790,9 +784,7 @@ void CCThreadProxy::didAnticipatedDrawTimeChange(base::TimeTicks time)
     if (!m_currentTextureUpdateControllerOnImplThread)
         return;
 
-    CCResourceProvider::debugNotifyEnterZone(0x5000000);
     m_currentTextureUpdateControllerOnImplThread->performMoreUpdates(time);
-    CCResourceProvider::debugNotifyLeaveZone();
 }
 
 void CCThreadProxy::readyToFinalizeTextureUpdates()
@@ -817,13 +809,15 @@ void CCThreadProxy::didCompleteSwapBuffers()
     m_layerTreeHost->didCompleteSwapBuffers();
 }
 
-void CCThreadProxy::setAnimationEvents(PassOwnPtr<CCAnimationEventsVector> events, double wallClockTime)
+void CCThreadProxy::setAnimationEvents(CCAnimationEventsVector* passed_events, double wallClockTime)
 {
+    scoped_ptr<CCAnimationEventsVector> events(make_scoped_ptr(passed_events));
+
     TRACE_EVENT0("cc", "CCThreadProxy::setAnimationEvents");
     ASSERT(isMainThread());
     if (!m_layerTreeHost)
         return;
-    m_layerTreeHost->setAnimationEvents(events, wallClockTime);
+    m_layerTreeHost->setAnimationEvents(events.Pass(), wallClockTime);
 }
 
 class CCThreadProxyContextRecreationTimer : public CCTimer, CCTimerClient {
@@ -913,9 +907,7 @@ void CCThreadProxy::layerTreeHostClosedOnImplThread(CCCompletionEvent* completio
 {
     TRACE_EVENT0("cc", "CCThreadProxy::layerTreeHostClosedOnImplThread");
     ASSERT(isImplThread());
-    CCResourceProvider::debugNotifyEnterZone(0x6000000);
     m_layerTreeHost->deleteContentsTexturesOnImplThread(m_layerTreeHostImpl->resourceProvider());
-    CCResourceProvider::debugNotifyLeaveZone();
     m_inputHandlerOnImplThread.reset();
     m_layerTreeHostImpl.reset();
     m_schedulerOnImplThread.clear();
@@ -937,9 +929,7 @@ void CCThreadProxy::recreateContextOnImplThread(CCCompletionEvent* completion, C
 {
     TRACE_EVENT0("cc", "CCThreadProxy::recreateContextOnImplThread");
     ASSERT(isImplThread());
-    CCResourceProvider::debugNotifyEnterZone(0x7000000);
     m_layerTreeHost->deleteContentsTexturesOnImplThread(m_layerTreeHostImpl->resourceProvider());
-    CCResourceProvider::debugNotifyLeaveZone();
     *recreateSucceeded = m_layerTreeHostImpl->initializeRenderer(scoped_ptr<CCGraphicsContext>(contextPtr).Pass());
     if (*recreateSucceeded) {
         *capabilities = m_layerTreeHostImpl->rendererCapabilities();

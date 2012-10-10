@@ -16,7 +16,9 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.ResultReceiver;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.ActionMode;
 import android.view.InputDevice;
@@ -156,6 +158,15 @@ public class ContentViewCore implements MotionEventDelegate {
     // Native pointer to C++ ContentViewCoreImpl object which will be set by nativeInit().
     private int mNativeContentViewCore = 0;
 
+    // The vsync monitor is used to lock the compositor to the display refresh rate.
+    private VSyncMonitor mVSyncMonitor;
+
+    // The VSyncMonitor gives the timebase for the actual vsync, but we don't want render until
+    // we have had a chance for input events to propagate to the compositor thread. This takes
+    // 3 ms typically, so we adjust the vsync timestamps forward by a bit to give input events a
+    // chance to arrive.
+    private static final long INPUT_EVENT_LAG_FROM_VSYNC_MICROSECONDS = 3200;
+
     private ContentViewGestureHandler mContentViewGestureHandler;
     private ZoomManager mZoomManager;
 
@@ -204,10 +215,35 @@ public class ContentViewCore implements MotionEventDelegate {
     // Whether a physical keyboard is connected.
     private boolean mKeyboardConnected;
 
+    private final VSyncMonitor.Listener mVSyncListener = new VSyncMonitor.Listener() {
+        @Override
+        public void onVSync(VSyncMonitor monitor, long vsyncTimeMicros) {
+            TraceEvent.instant("VSync");
+            if (mNativeContentViewCore == 0 || mVSyncMonitor == null) {
+                return;
+            }
+            // Compensate for input event lag. Input events are delivered immediately on pre-JB
+            // releases, so this adjustment is only done for later versions.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                vsyncTimeMicros += INPUT_EVENT_LAG_FROM_VSYNC_MICROSECONDS;
+            }
+            nativeUpdateVSyncParameters(mNativeContentViewCore, vsyncTimeMicros,
+                                        mVSyncMonitor.getVSyncPeriodInMicroseconds());
+        }
+    };
+
     // The AccessibilityInjector that handles loading Accessibility scripts into the web page.
     private AccessibilityInjector mAccessibilityInjector;
 
+    // Temporary notification to tell onSizeChanged to focus a form element,
+    // because the OSK was just brought up.
+    private boolean mFocusOnNextSizeChanged = false;
+    private boolean mUnfocusOnNextSizeChanged = false;
+
     private boolean mNeedUpdateOrientationChanged;
+
+    // Used to keep track of whether we should try to undo the last zoom-to-textfield operation.
+    private boolean mScrolledAndZoomedFocusedEditableNode = false;
 
     // Whether we use hardware-accelerated drawing.
     private boolean mHardwareAccelerated = false;
@@ -279,19 +315,21 @@ public class ContentViewCore implements MotionEventDelegate {
         return mContainerView;
     }
 
-   private ImeAdapter createImeAdapter(Context context) {
+    private ImeAdapter createImeAdapter(Context context) {
         return new ImeAdapter(context, getSelectionHandleController(),
                 getInsertionHandleController(),
                 new ImeAdapter.ViewEmbedder() {
                     @Override
                     public void onImeEvent(boolean isFinish) {
                         getContentViewClient().onImeEvent();
-                        // TODO(olilan): Add undoScrollFocusedEditableNodeIntoViewIfNeeded
-                        // call when available.
+                        if (!isFinish) {
+                            undoScrollFocusedEditableNodeIntoViewIfNeeded(false);
+                        }
                     }
 
                     @Override
                     public void onSetFieldValue() {
+                        scrollFocusedEditableNodeIntoView();
                     }
 
                     @Override
@@ -305,9 +343,23 @@ public class ContentViewCore implements MotionEventDelegate {
 
                     @Override
                     public ResultReceiver getNewShowKeyboardReceiver() {
-                        // TODO(olilan): Add receiver when scrollFocusedEditableNodeIntoView
-                        // is upstreamed.
-                        return null;
+                        return new ResultReceiver(new Handler()) {
+                            @Override
+                            public void onReceiveResult(int resultCode, Bundle resultData) {
+                                if (resultCode == InputMethodManager.RESULT_SHOWN) {
+                                    // If OSK is newly shown, delay the form focus until
+                                    // the onSizeChanged (in order to adjust relative to the
+                                    // new size).
+                                    mFocusOnNextSizeChanged = true;
+                                } else if (resultCode ==
+                                        InputMethodManager.RESULT_UNCHANGED_SHOWN) {
+                                    // If the OSK was already there, focus the form immediately.
+                                    scrollFocusedEditableNodeIntoView();
+                                } else {
+                                    undoScrollFocusedEditableNodeIntoViewIfNeeded(false);
+                                }
+                            }
+                        };
                     }
                 }
         );
@@ -458,6 +510,7 @@ public class ContentViewCore implements MotionEventDelegate {
         mImeAdapter = createImeAdapter(mContext);
         mKeyboardConnected = mContainerView.getResources().getConfiguration().keyboard
                 != Configuration.KEYBOARD_NOKEYS;
+        mVSyncMonitor = new VSyncMonitor(mContext, mContainerView, mVSyncListener);
         TraceEvent.end();
     }
 
@@ -515,6 +568,7 @@ public class ContentViewCore implements MotionEventDelegate {
         // Do not propagate the destroy() to settings, as the client may still hold a reference to
         // that and could still be using it.
         mContentSettings = null;
+        mVSyncMonitor.stop();
     }
 
     /**
@@ -597,7 +651,7 @@ public class ContentViewCore implements MotionEventDelegate {
                 params.mLoadUrlType,
                 params.mTransitionType,
                 params.mUaOverrideOption,
-                params.mExtraHeaders,
+                params.getExtraHeadersString(),
                 params.mPostData,
                 params.mBaseUrlForDataUrl,
                 params.mVirtualUrlForDataUrl);
@@ -763,6 +817,7 @@ public class ContentViewCore implements MotionEventDelegate {
      * @see View#onTouchEvent(MotionEvent)
      */
     public boolean onTouchEvent(MotionEvent event) {
+        undoScrollFocusedEditableNodeIntoViewIfNeeded(false);
         return mContentViewGestureHandler.onTouchEvent(event);
     }
 
@@ -870,14 +925,17 @@ public class ContentViewCore implements MotionEventDelegate {
     public void onActivityPause() {
         TraceEvent.begin();
         hidePopupDialog();
+        nativeOnHide(mNativeContentViewCore);
         setAccessibilityState(false);
         TraceEvent.end();
+        mVSyncMonitor.stop();
     }
 
     /**
      * This method should be called when the containing activity is resumed.
      */
     public void onActivityResume() {
+        nativeOnShow(mNativeContentViewCore);
         setAccessibilityState(true);
     }
 
@@ -885,6 +943,7 @@ public class ContentViewCore implements MotionEventDelegate {
      * To be called when the ContentView is shown.
      */
     public void onShow() {
+        nativeOnShow(mNativeContentViewCore);
         setAccessibilityState(true);
     }
 
@@ -894,6 +953,8 @@ public class ContentViewCore implements MotionEventDelegate {
     public void onHide() {
         hidePopupDialog();
         setAccessibilityState(false);
+        nativeOnHide(mNativeContentViewCore);
+        mVSyncMonitor.stop();
     }
 
     /**
@@ -1001,6 +1062,62 @@ public class ContentViewCore implements MotionEventDelegate {
         if (mContentHeight < h) mContentHeight = h;
     }
 
+    public void updateAfterSizeChanged() {
+        // Execute a delayed form focus operation because the OSK was brought
+        // up earlier.
+        if (mFocusOnNextSizeChanged) {
+            scrollFocusedEditableNodeIntoView();
+            mFocusOnNextSizeChanged = false;
+        } else if (mUnfocusOnNextSizeChanged) {
+            undoScrollFocusedEditableNodeIntoViewIfNeeded(true);
+            mUnfocusOnNextSizeChanged = false;
+        }
+    }
+
+    private void scrollFocusedEditableNodeIntoView() {
+        if (mNativeContentViewCore != 0) {
+            Runnable scrollTask = new Runnable() {
+                @Override
+                public void run() {
+                    if (mNativeContentViewCore != 0) {
+                        nativeScrollFocusedEditableNodeIntoView(mNativeContentViewCore);
+                    }
+                }
+            };
+
+            scrollTask.run();
+
+            // The native side keeps track of whether the zoom and scroll actually occurred. It is
+            // more efficient to do it this way and sometimes fire an unnecessary message rather
+            // than synchronize with the renderer and always have an additional message.
+            mScrolledAndZoomedFocusedEditableNode = true;
+        }
+    }
+
+    private void undoScrollFocusedEditableNodeIntoViewIfNeeded(boolean backButtonPressed) {
+        // The only call to this function that matters is the first call after the
+        // scrollFocusedEditableNodeIntoView function call.
+        // If the first call to this function is a result of a back button press we want to undo the
+        // preceding scroll. If the call is a result of some other action we don't want to perform
+        // an undo.
+        // All subsequent calls are ignored since only the scroll function sets
+        // mScrolledAndZoomedFocusedEditableNode to true.
+        if (mScrolledAndZoomedFocusedEditableNode && backButtonPressed &&
+                mNativeContentViewCore != 0) {
+            Runnable scrollTask = new Runnable() {
+                @Override
+                public void run() {
+                    if (mNativeContentViewCore != 0) {
+                        nativeUndoScrollFocusedEditableNodeIntoView(mNativeContentViewCore);
+                    }
+                }
+            };
+
+            scrollTask.run();
+        }
+        mScrolledAndZoomedFocusedEditableNode = false;
+    }
+
     /**
      * @see View#onFocusedChanged(boolean, int, Rect)
      */
@@ -1018,6 +1135,24 @@ public class ContentViewCore implements MotionEventDelegate {
             return true;
         }
         return mContainerViewInternals.super_onKeyUp(keyCode, event);
+    }
+
+    /**
+     * @see View#dispatchKeyEventPreIme(KeyEvent)
+     */
+    public boolean dispatchKeyEventPreIme(KeyEvent event) {
+        try {
+            TraceEvent.begin();
+            if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && mImeAdapter.isActive()) {
+                mUnfocusOnNextSizeChanged = true;
+            } else {
+                undoScrollFocusedEditableNodeIntoViewIfNeeded(false);
+            }
+            mImeAdapter.dispatchKeyEventPreIme(event);
+            return mContainerViewInternals.super_dispatchKeyEventPreIme(event);
+        } finally {
+            TraceEvent.end();
+        }
     }
 
     /**
@@ -1085,12 +1220,12 @@ public class ContentViewCore implements MotionEventDelegate {
         return mContainerViewInternals.super_onGenericMotionEvent(event);
     }
 
-    // Note: Currently the ContentView scrolling happens in the native side. In
-    // the Java view system, it is always pinned at (0, 0). Override scrollBy()
-    // and scrollTo(), so that View's mScrollX and mScrollY will be unchanged at
-    // (0, 0). This is critical for drawing ContentView correctly.
     /**
      * @see View#scrollBy(int, int)
+     * Currently the ContentView scrolling happens in the native side. In
+     * the Java view system, it is always pinned at (0, 0). scrollBy() and scrollTo()
+     * are overridden, so that View's mScrollX and mScrollY will be unchanged at
+     * (0, 0). This is critical for drawing ContentView correctly.
      */
     public void scrollBy(int x, int y) {
         if (mNativeContentViewCore != 0) {
@@ -1485,11 +1620,6 @@ public class ContentViewCore implements MotionEventDelegate {
         getContentViewClient().onEvaluateJavaScriptResult(id, jsonResult);
     }
 
-    @CalledByNative
-    private void startContentIntent(String contentUrl) {
-        getContentViewClient().onStartContentIntent(getContext(), contentUrl);
-    }
-
     /**
      * @return Whether a reload happens when this ContentView is activated.
      */
@@ -1657,7 +1787,7 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     /**
-     * Return the current scale of the WebView
+     * Return the current scale of the ContentView.
      * @return The current scale.
      */
     public float getScale() {
@@ -1681,6 +1811,11 @@ public class ContentViewCore implements MotionEventDelegate {
     public boolean isAvailable() {
         // TODO(nileshagrawal): Implement this.
         return false;
+    }
+
+    @CalledByNative
+    private void startContentIntent(String contentUrl) {
+        getContentViewClient().onStartContentIntent(getContext(), contentUrl);
     }
 
     /**
@@ -1715,9 +1850,6 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         mAccessibilityInjector.onInitializeAccessibilityNodeInfo(info);
-
-        // TODO(dtrainor): Upstream accessibility scrolling event information once that data is
-        // available in ContentViewCore.  Currently internal scrolling variables aren't upstreamed.
     }
 
     /**
@@ -1725,6 +1857,23 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public void onInitializeAccessibilityEvent(AccessibilityEvent event) {
         event.setClassName(this.getClass().getName());
+
+        // Identify where the top-left of the screen currently points to.
+        event.setScrollX(mNativeScrollX);
+        event.setScrollY(mNativeScrollY);
+
+        // The maximum scroll values are determined by taking the content dimensions and
+        // subtracting off the actual dimensions of the ChromeView.
+        int maxScrollX = Math.max(0, mContentWidth - getWidth());
+        int maxScrollY = Math.max(0, mContentHeight - getHeight());
+        event.setScrollable(maxScrollX > 0 || maxScrollY > 0);
+
+        // Setting the maximum scroll values requires API level 15 or higher.
+        final int SDK_VERSION_REQUIRED_TO_SET_SCROLL = 15;
+        if (Build.VERSION.SDK_INT >= SDK_VERSION_REQUIRED_TO_SET_SCROLL) {
+            event.setMaxScrollX(maxScrollX);
+            event.setMaxScrollY(maxScrollY);
+        }
     }
 
     /**
@@ -1894,6 +2043,8 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private native void nativeSelectPopupMenuItems(int nativeContentViewCoreImpl, int[] indices);
 
+    private native void nativeScrollFocusedEditableNodeIntoView(int nativeContentViewCoreImpl);
+    private native void nativeUndoScrollFocusedEditableNodeIntoView(int nativeContentViewCoreImpl);
     private native boolean nativeNeedsReload(int nativeContentViewCoreImpl);
 
     private native void nativeClearHistory(int nativeContentViewCoreImpl);
@@ -1921,4 +2072,7 @@ public class ContentViewCore implements MotionEventDelegate {
     private native void nativeRemoveJavascriptInterface(int nativeContentViewCoreImpl, String name);
 
     private native int nativeGetNavigationHistory(int nativeContentViewCoreImpl, Object context);
+
+    private native void nativeUpdateVSyncParameters(int nativeContentViewCoreImpl,
+            long timebaseMicros, long intervalMicros);
 }

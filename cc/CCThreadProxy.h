@@ -26,7 +26,7 @@ class CCThreadProxyContextRecreationTimer;
 
 class CCThreadProxy : public CCProxy, CCLayerTreeHostImplClient, CCSchedulerClient, CCTextureUpdateControllerClient {
 public:
-    static PassOwnPtr<CCProxy> create(CCLayerTreeHost*);
+    static scoped_ptr<CCProxy> create(CCLayerTreeHost*);
 
     virtual ~CCThreadProxy();
 
@@ -61,7 +61,7 @@ public:
     virtual void onCanDrawStateChanged(bool canDraw) OVERRIDE;
     virtual void setNeedsRedrawOnImplThread() OVERRIDE;
     virtual void setNeedsCommitOnImplThread() OVERRIDE;
-    virtual void postAnimationEventsToMainThreadOnImplThread(PassOwnPtr<CCAnimationEventsVector>, double wallClockTime) OVERRIDE;
+    virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<CCAnimationEventsVector>, double wallClockTime) OVERRIDE;
     virtual void releaseContentsTexturesOnImplThread() OVERRIDE;
 
     // CCSchedulerClient implementation
@@ -87,6 +87,7 @@ private:
 
         double monotonicFrameBeginTime;
         OwnPtr<CCScrollAndScaleSet> scrollInfo;
+        WebKit::WebTransformationMatrix implTransform;
         CCPrioritizedTextureManager::BackingVector evictedContentsTexturesBackings;
         size_t memoryAllocationLimitBytes;
     };
@@ -96,7 +97,7 @@ private:
     void beginFrame();
     void didCommitAndDrawFrame();
     void didCompleteSwapBuffers();
-    void setAnimationEvents(PassOwnPtr<CCAnimationEventsVector>, double wallClockTime);
+    void setAnimationEvents(CCAnimationEventsVector*, double wallClockTime);
     void beginContextRecreation();
     void tryToRecreateContext();
 

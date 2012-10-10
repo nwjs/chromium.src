@@ -487,11 +487,11 @@ bool RenderProcessHostImpl::Init() {
     base::Thread::Options options;
 #if !defined(TOOLKIT_GTK) && !defined(OS_ANDROID)
     // In-process plugins require this to be a UI message loop.
-    options.message_loop_type = MessageLoop::TYPE_NODE;
+    options.message_loop_type = MessageLoop::TYPE_UI;
 #else
     // We can't have multiple UI loops on GTK and Android, so we don't support
     // in-process plugins.
-    options.message_loop_type = MessageLoop::TYPE_NODE;
+    options.message_loop_type = MessageLoop::TYPE_DEFAULT;
 #endif
     in_process_renderer_->StartWithOptions(options);
 
@@ -815,6 +815,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kEnablePreparsedJsCaching,
     switches::kEnablePruneGpuCommandBuffers,
     switches::kEnablePinch,
+    switches::kEnablePinchInCompositor,
 #if defined(OS_MACOSX)
     // Allow this to be set when invoking the browser and relayed along.
     switches::kEnableSandboxLogging,
@@ -971,7 +972,11 @@ TransportDIB* RenderProcessHostImpl::GetTransportDIB(
       }
     }
 
+#if defined(USE_X11)
+    smallest_iterator->second->Detach();
+#else
     delete smallest_iterator->second;
+#endif
     cached_dibs_.erase(smallest_iterator);
   }
 
@@ -981,8 +986,15 @@ TransportDIB* RenderProcessHostImpl::GetTransportDIB(
 }
 
 void RenderProcessHostImpl::ClearTransportDIBCache() {
+#if defined(USE_X11)
+  std::map<TransportDIB::Id, TransportDIB*>::const_iterator dib =
+      cached_dibs_.begin();
+  for (; dib != cached_dibs_.end(); ++dib)
+    dib->second->Detach();
+#else
   STLDeleteContainerPairSecondPointers(
       cached_dibs_.begin(), cached_dibs_.end());
+#endif
   cached_dibs_.clear();
 }
 

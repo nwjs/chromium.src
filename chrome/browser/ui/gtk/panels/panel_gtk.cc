@@ -873,6 +873,10 @@ void PanelGtk::NotifyPanelOnUserChangedTheme() {
   InvalidateWindow();
 }
 
+void PanelGtk::PanelWebContentsFocused(content::WebContents* contents) {
+  // Nothing to do.
+}
+
 void PanelGtk::PanelCut() {
   gtk_window_util::DoCut(window_, panel_->GetWebContents());
 }
@@ -1028,7 +1032,7 @@ class GtkNativePanelTesting : public NativePanelTesting {
   virtual void FinishDragTitlebar() OVERRIDE;
   virtual bool VerifyDrawingAttention() const OVERRIDE;
   virtual bool VerifyActiveState(bool is_active) OVERRIDE;
-  virtual void WaitForWindowCreationToComplete() const OVERRIDE;
+  virtual bool VerifyAppIcon() const OVERRIDE;
   virtual bool IsWindowSizeKnown() const OVERRIDE;
   virtual bool IsAnimatingBounds() const OVERRIDE;
   virtual bool IsButtonVisible(
@@ -1111,9 +1115,11 @@ bool GtkNativePanelTesting::VerifyActiveState(bool is_active) {
   return false;
 }
 
-void GtkNativePanelTesting::WaitForWindowCreationToComplete() const {
-  while (GetFrameSize().IsEmpty())
-    MessageLoopForUI::current()->RunAllPending();
+bool GtkNativePanelTesting::VerifyAppIcon() const {
+  GdkPixbuf* icon = gtk_window_get_icon(panel_gtk_->GetNativePanelHandle());
+  return icon &&
+         gdk_pixbuf_get_width(icon) == panel::kPanelAppIconSize &&
+         gdk_pixbuf_get_height(icon) == panel::kPanelAppIconSize;
 }
 
 bool GtkNativePanelTesting::IsWindowSizeKnown() const {

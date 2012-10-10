@@ -114,16 +114,27 @@ static IntRect calculateVisibleContentRect(LayerType* layer)
 {
     ASSERT(layer->renderTarget());
 
-    IntRect targetSurfaceRect = layer->renderTarget()->renderSurface()->contentRect();
-
-    targetSurfaceRect.intersect(layer->drawableContentRect());
-
-    if (targetSurfaceRect.isEmpty() || layer->contentBounds().isEmpty())
+    // Nothing is visible if the layer bounds are empty.
+    if (!layer->drawsContent() || layer->contentBounds().isEmpty() || layer->drawableContentRect().isEmpty())
         return IntRect();
 
-    const IntRect contentRect = IntRect(IntPoint(), layer->contentBounds());
-    IntRect visibleContentRect = CCLayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, contentRect, layer->drawTransform());
-    return visibleContentRect;
+    IntRect targetSurfaceClipRect;
+
+    // First, compute visible bounds in target surface space.
+    if (layer->renderTarget()->renderSurface()->clipRect().isEmpty())
+        targetSurfaceClipRect = layer->drawableContentRect();
+    else {
+        // In this case the target surface does clip layers that contribute to it. So, we
+        // have convert the current surface's clipRect from its ancestor surface space to
+        // the current surface space.
+        targetSurfaceClipRect = enclosingIntRect(CCMathUtil::projectClippedRect(layer->renderTarget()->renderSurface()->drawTransform().inverse(), layer->renderTarget()->renderSurface()->clipRect()));
+        targetSurfaceClipRect.intersect(layer->drawableContentRect());
+    }
+
+    if (targetSurfaceClipRect.isEmpty())
+        return IntRect();
+
+    return CCLayerTreeHostCommon::calculateVisibleRect(targetSurfaceClipRect, IntRect(IntPoint(), layer->contentBounds()), layer->drawTransform());
 }
 
 static bool isScaleOrTranslation(const WebTransformationMatrix& m)
@@ -271,7 +282,7 @@ WebTransformationMatrix computeScrollCompensationForThisLayer(CCLayerImpl* scrol
     //
 
     WebTransformationMatrix partialLayerOriginTransform = parentMatrix;
-    partialLayerOriginTransform.scale(scrollingLayer->pageScaleDelta());
+    partialLayerOriginTransform.multiply(scrollingLayer->implTransform());
 
     WebTransformationMatrix scrollCompensationForThisLayer = partialLayerOriginTransform; // Step 3
     scrollCompensationForThisLayer.translate(scrollingLayer->scrollDelta().width(), scrollingLayer->scrollDelta().height()); // Step 2
@@ -369,7 +380,7 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     //
     // 2. The anchor point, when given as a FloatPoint object, is specified in "unit layer space",
     //    where the bounds of the layer map to [0, 1]. However, as a WebTransformationMatrix object,
-    //    the transform to the anchor point is specified in "pixel layer space", where the bounds
+    //    the transform to the anchor point is specified in "layer space", where the bounds
     //    of the layer map to [bounds.width(), bounds.height()].
     //
     // 3. Definition of various transforms used:
@@ -380,11 +391,7 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     //        Tr[origin2center] is the translation from the layer's origin to its center
     //        M[layer] is the layer's matrix (applied at the anchor point)
     //        M[sublayer] is the layer's sublayer transform (applied at the layer's center)
-    //        Tr[anchor2center] is the translation offset from the anchor point and the center of the layer
-    //        S[content2layer] is the ratio of a layer's contentBounds() to its bounds().
-    //
-    //    Some shortcuts and substitutions are used in the code to reduce matrix multiplications:
-    //        Tr[anchor2center] = Tr[origin2anchor].inverse() * Tr[origin2center]
+    //        S[layer2content] is the ratio of a layer's contentBounds() to its bounds().
     //
     //    Some composite transforms can help in understanding the sequence of transforms:
     //        compositeLayerTransform = Tr[origin2anchor] * M[layer] * Tr[origin2anchor].inverse()
@@ -402,28 +409,27 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     // Using these definitions, then:
     //
     // The draw transform for the layer is:
-    //        M[draw] = M[parent] * Tr[origin] * compositeLayerTransform * S[content2layer]
-    //                = M[parent] * Tr[layer->position()] * M[layer] * Tr[anchor2origin] * S[content2layer]
+    //        M[draw] = M[parent] * Tr[origin] * compositeLayerTransform * S[layer2content]
+    //                = M[parent] * Tr[layer->position() + anchor] * M[layer] * Tr[anchor2origin] * S[layer2content]
     //
     //        Interpreting the math left-to-right, this transforms from the layer's render surface to the origin of the layer in content space.
     //
     // The screen space transform is:
-    //        M[screenspace] = M[root] * Tr[origin] * compositeLayerTransform * S[content2layer]
-    //                       = M[root] * Tr[layer->position()] * M[layer] * Tr[origin2anchor].inverse() * S[content2layer]
+    //        M[screenspace] = M[root] * Tr[origin] * compositeLayerTransform * S[layer2content]
+    //                       = M[root] * Tr[layer->position() + anchor] * M[layer] * Tr[anchor2origin] * S[layer2content]
     //
     //        Interpreting the math left-to-right, this transforms from the root render surface's content space to the local layer's origin in layer space.
     //
     // The transform hierarchy that is passed on to children (i.e. the child's parentMatrix) is:
     //        M[parent]_for_child = M[parent] * Tr[origin] * compositeLayerTransform * compositeSublayerTransform
-    //                            = M[parent] * Tr[layer->position()] * M[layer] * Tr[anchor2center] * M[sublayer] * Tr[origin2center].inverse()
-    //                            = M[draw] * M[sublayer] * Tr[origin2center].inverse()
+    //                            = M[parent] * Tr[layer->position() + anchor] * M[layer] * Tr[anchor2origin] * compositeSublayerTransform
     //
     //        and a similar matrix for the full hierarchy with respect to the root.
     //
     // Finally, note that the final matrix used by the shader for the layer is P * M[draw] * S . This final product
     // is computed in drawTexturedQuad(), where:
     //        P is the projection matrix
-    //        S is the scale adjustment (to scale up to the layer size)
+    //        S is the scale adjustment (to scale up a canonical quad to the layer's size)
     //
     // When a render surface has a replica layer, that layer's transform is used to draw a second copy of the surface.
     // Transforms named here are relative to the surface, unless they specify they are relative to the replica layer.
@@ -463,19 +469,15 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     FloatPoint anchorPoint = layer->anchorPoint();
     FloatPoint position = layer->position() - layer->scrollDelta();
 
-    // Offset between anchor point and the center of the quad.
-    float centerOffsetX = (0.5 - anchorPoint.x()) * bounds.width();
-    float centerOffsetY = (0.5 - anchorPoint.y()) * bounds.height();
-
     WebTransformationMatrix layerLocalTransform;
-    // LT = S[pageScaleDelta]
-    layerLocalTransform.scale(layer->pageScaleDelta());
-    // LT = S[pageScaleDelta] * Tr[origin] * Tr[origin2anchor]
+    // LT = M[impl transformation]
+    layerLocalTransform.multiply(layer->implTransform());
+    // LT = M[impl transformation] * Tr[origin] * Tr[origin2anchor]
     layerLocalTransform.translate3d(position.x() + anchorPoint.x() * bounds.width(), position.y() + anchorPoint.y() * bounds.height(), layer->anchorPointZ());
-    // LT = S[pageScaleDelta] * Tr[origin] * Tr[origin2anchor] * M[layer]
+    // LT = M[impl transformation] * Tr[origin] * Tr[origin2anchor] * M[layer]
     layerLocalTransform.multiply(layer->transform());
-    // LT = S[pageScaleDelta] * Tr[origin] * Tr[origin2anchor] * M[layer] * Tr[anchor2center]
-    layerLocalTransform.translate3d(centerOffsetX, centerOffsetY, -layer->anchorPointZ());
+    // LT = S[impl transformation] * Tr[origin] * Tr[origin2anchor] * M[layer] * Tr[anchor2origin]
+    layerLocalTransform.translate3d(-anchorPoint.x() * bounds.width(), -anchorPoint.y() * bounds.height(), -layer->anchorPointZ());
 
     WebTransformationMatrix combinedTransform = parentMatrix;
     combinedTransform.multiply(layerLocalTransform);
@@ -490,10 +492,8 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     // The drawTransform that gets computed below is effectively the layer's drawTransform, unless
     // the layer itself creates a renderSurface. In that case, the renderSurface re-parents the transforms.
     WebTransformationMatrix drawTransform = combinedTransform;
-    // M[draw] = M[parent] * LT * Tr[anchor2center] * Tr[center2origin]
-    drawTransform.translate(-layer->bounds().width() / 2.0, -layer->bounds().height() / 2.0);
     if (!layer->contentBounds().isEmpty() && !layer->bounds().isEmpty()) {
-        // M[draw] = M[parent] * LT * Tr[anchor2origin] * S[layer2content]
+        // M[draw] = M[parent] * LT * S[layer2content]
         drawTransform.scaleNonUniform(layer->bounds().width() / static_cast<double>(layer->contentBounds().width()),
                                       layer->bounds().height() / static_cast<double>(layer->contentBounds().height()));
     }
@@ -544,7 +544,6 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         // surface content space.
         sublayerMatrix.makeIdentity();
         sublayerMatrix.scale(deviceScaleFactor);
-        sublayerMatrix.translate(0.5 * bounds.width(), 0.5 * bounds.height());
 
         // The opacity value is moved from the layer to its surface, so that the entire subtree properly inherits opacity.
         renderSurface->setDrawOpacity(drawOpacity);
@@ -568,14 +567,24 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         // current target surface space that could cause more w < 0 headaches.
         subtreeShouldBeClipped = false;
 
-        if (layer->maskLayer())
+        if (layer->maskLayer()) {
             layer->maskLayer()->setRenderTarget(layer);
+            layer->maskLayer()->setVisibleContentRect(IntRect(IntPoint(), layer->contentBounds()));
+        }
 
-        if (layer->replicaLayer() && layer->replicaLayer()->maskLayer())
+        if (layer->replicaLayer() && layer->replicaLayer()->maskLayer()) {
             layer->replicaLayer()->maskLayer()->setRenderTarget(layer);
+            layer->replicaLayer()->maskLayer()->setVisibleContentRect(IntRect(IntPoint(), layer->contentBounds()));
+        }
 
         if (layer->filters().hasFilterThatMovesPixels())
             nearestAncestorThatMovesPixels = renderSurface;
+
+        // The render surface clipRect is expressed in the space where this surface draws, i.e. the same space as clipRectFromAncestor.
+        if (ancestorClipsSubtree)
+            renderSurface->setClipRect(clipRectFromAncestor);
+        else
+            renderSurface->setClipRect(IntRect());
 
         renderSurface->setNearestAncestorThatMovesPixels(nearestAncestorThatMovesPixels);
 
@@ -626,10 +635,9 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         CCMathUtil::flattenTransformTo2d(sublayerMatrix);
 
     // Apply the sublayer transform at the center of the layer.
+    sublayerMatrix.translate(0.5 * bounds.width(), 0.5 * bounds.height());
     sublayerMatrix.multiply(layer->sublayerTransform());
-
-    // The coordinate system given to children is located at the layer's origin, not the center.
-    sublayerMatrix.translate3d(-bounds.width() * 0.5, -bounds.height() * 0.5, 0);
+    sublayerMatrix.translate(-0.5 * bounds.width(), -0.5 * bounds.height());
 
     LayerList& descendants = (layer->renderSurface() ? layer->renderSurface()->layerList() : layerList);
 
@@ -668,16 +676,14 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         drawableContentRectOfLayer.intersect(clipRectForSubtree);
     layer->setDrawableContentRect(drawableContentRectOfLayer);
 
+    // Compute the layer's visible content rect (the rect is in content space)
+    IntRect visibleContentRectOfLayer = calculateVisibleContentRect(layer);
+    layer->setVisibleContentRect(visibleContentRectOfLayer);
+
     // Compute the remaining properties for the render surface, if the layer has one.
     if (layer->renderSurface() && layer != rootLayer) {
         RenderSurfaceType* renderSurface = layer->renderSurface();
         IntRect clippedContentRect = localDrawableContentRectOfSubtree;
-
-        // The render surface clipRect is expressed in the space where this surface draws, i.e. the same space as clipRectFromAncestor.
-        if (ancestorClipsSubtree)
-            renderSurface->setClipRect(clipRectFromAncestor);
-        else
-            renderSurface->setClipRect(IntRect());
 
         // Don't clip if the layer is reflected as the reflection shouldn't be
         // clipped. If the layer is animating, then the surface's transform to
@@ -757,31 +763,6 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         layer->renderTarget()->renderSurface()->addContributingDelegatedRenderPassLayer(layer);
 }
 
-// FIXME: Instead of using the following function to set visibility rects on a second
-// tree pass, revise calculateVisibleContentRect() so that this can be done in a single
-// pass inside calculateDrawTransformsInternal<>().
-template<typename LayerType, typename LayerList, typename RenderSurfaceType>
-static void calculateVisibleRectsInternal(const LayerList& renderSurfaceLayerList)
-{
-    // Use BackToFront since it's cheap and this isn't order-dependent.
-    typedef CCLayerIterator<LayerType, LayerList, RenderSurfaceType, CCLayerIteratorActions::BackToFront> CCLayerIteratorType;
-
-    CCLayerIteratorType end = CCLayerIteratorType::end(&renderSurfaceLayerList);
-    for (CCLayerIteratorType it = CCLayerIteratorType::begin(&renderSurfaceLayerList); it != end; ++it) {
-        if (it.representsTargetRenderSurface()) {
-            LayerType* maskLayer = it->maskLayer();
-            if (maskLayer)
-                maskLayer->setVisibleContentRect(IntRect(IntPoint(), it->contentBounds()));
-            LayerType* replicaMaskLayer = it->replicaLayer() ? it->replicaLayer()->maskLayer() : 0;
-            if (replicaMaskLayer)
-                replicaMaskLayer->setVisibleContentRect(IntRect(IntPoint(), it->contentBounds()));
-        } else if (it.representsItself()) {
-            IntRect visibleContentRect = calculateVisibleContentRect(*it);
-            it->setVisibleContentRect(visibleContentRect);
-        }
-    }
-}
-
 void CCLayerTreeHostCommon::calculateDrawTransforms(LayerChromium* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, int maxTextureSize, std::vector<scoped_refptr<LayerChromium> >& renderSurfaceLayerList)
 {
     IntRect totalDrawableContentRect;
@@ -808,16 +789,6 @@ void CCLayerTreeHostCommon::calculateDrawTransforms(CCLayerImpl* rootLayer, cons
     cc::calculateDrawTransformsInternal<CCLayerImpl, std::vector<CCLayerImpl*>, CCRenderSurface, CCLayerSorter>(rootLayer, rootLayer, deviceScaleTransform, identityMatrix, identityMatrix,
                                                                                                                 rootLayer->renderSurface()->contentRect(), true, 0, renderSurfaceLayerList,
                                                                                                                 rootLayer->renderSurface()->layerList(), layerSorter, maxTextureSize, deviceScaleFactor, totalDrawableContentRect);
-}
-
-void CCLayerTreeHostCommon::calculateVisibleRects(std::vector<scoped_refptr<LayerChromium> >& renderSurfaceLayerList)
-{
-    calculateVisibleRectsInternal<LayerChromium, std::vector<scoped_refptr<LayerChromium> >, RenderSurfaceChromium>(renderSurfaceLayerList);
-}
-
-void CCLayerTreeHostCommon::calculateVisibleRects(std::vector<CCLayerImpl*>& renderSurfaceLayerList)
-{
-    calculateVisibleRectsInternal<CCLayerImpl, std::vector<CCLayerImpl*>, CCRenderSurface>(renderSurfaceLayerList);
 }
 
 static bool pointHitsRect(const IntPoint& viewportPoint, const WebTransformationMatrix& localSpaceToScreenSpaceTransform, FloatRect localSpaceRect)

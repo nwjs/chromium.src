@@ -52,12 +52,16 @@
 
 {
   'variables': {
-    'asset_location': '',
+    'asset_location%': '',
     'additional_input_paths': [],
     'input_jars_paths': [],
     'native_libs_paths': [],
     'additional_src_dirs': [],
     'generated_src_dirs': [],
+    'app_manifest_version_name%': '<(android_app_version_name)',
+    'app_manifest_version_code%': '<(android_app_version_code)',
+    'proguard_enabled%': 'false',
+    'proguard_flags%': ''
   },
   'actions': [
     {
@@ -77,6 +81,8 @@
         '>@(additional_input_paths)',
       ],
       'outputs': [
+        # TODO(cjhopman): Apks are built with a -debug suffix even when they are
+        # built in release. This should be fixed.
         '<(PRODUCT_DIR)/apks/<(apk_name)-debug.apk',
       ],
       'action': [
@@ -99,10 +105,18 @@
         '-DINPUT_JARS_PATHS=>(input_jars_paths)',
         '-DPACKAGE_NAME=<(package_name)',
         '-DRESOURCE_DIR=<(resource_dir)',
+        '-DAPP_MANIFEST_VERSION_NAME=<(app_manifest_version_name)',
+        '-DAPP_MANIFEST_VERSION_CODE=<(app_manifest_version_code)',
+        '-DPROGUARD_FLAGS=>(proguard_flags)',
+        '-DPROGUARD_ENABLED=>(proguard_enabled)',
 
         '-Dbasedir=<(java_in_dir)',
         '-buildfile',
-        '<(DEPTH)/build/android/ant/chromium-apk.xml'
+        '<(DEPTH)/build/android/ant/chromium-apk.xml',
+
+        # Specify CONFIGURATION_NAME as the target for ant to build. The
+        # buildfile will then build the appropriate SDK tools target.
+        '<(CONFIGURATION_NAME)',
       ]
     },
   ],

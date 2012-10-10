@@ -48,7 +48,7 @@
         {
           'target_name': 'gcapi_test',
           'type': 'executable',
-          'dependencies': [   
+          'dependencies': [
             'common',
             'gcapi_dll',
             'gcapi_lib',
@@ -204,7 +204,7 @@
           },
           'defines': [
               '<@(nacl_win64_defines)',
-          ], 
+          ],
               'dependencies': [
               '<(DEPTH)/base/base.gyp:base_nacl_win64',
           ],
@@ -262,7 +262,7 @@
             'installer_util_strings',
             '../base/base.gyp:base',
             '../build/temp_gyp/googleurl.gyp:googleurl',
-            '../chrome/chrome.gyp:common_constants',
+            '../chrome/common_constants.gyp:common_constants',
             '../chrome_frame/chrome_frame.gyp:chrome_tab_idl',
             '../chrome_frame/chrome_frame.gyp:npchrome_frame',
             '../breakpad/breakpad.gyp:breakpad_handler',
@@ -536,6 +536,7 @@
             'rpm_arch': 'i386',
             'packaging_files_binaries': [
               '<(PRODUCT_DIR)/nacl_irt_x86_32.nexe',
+              '<(PRODUCT_DIR)/nacl_ipc_irt_x86_32.nexe',
             ],
           }],
           ['target_arch=="x64"', {
@@ -543,6 +544,7 @@
             'rpm_arch': 'x86_64',
             'packaging_files_binaries': [
               '<(PRODUCT_DIR)/nacl_irt_x86_64.nexe',
+              '<(PRODUCT_DIR)/nacl_ipc_irt_x86_64.nexe',
             ],
           }],
           ['target_arch=="arm"', {
@@ -1076,7 +1078,7 @@
         {
           'target_name': 'gcapi_example',
           'type': 'executable',
-          'dependencies': [   
+          'dependencies': [
             'gcapi_lib',
           ],
           'include_dirs': [

@@ -91,7 +91,7 @@ scoped_ptr<WebCompositorOutputSurface> TestHooks::createOutputSurface()
 
 scoped_ptr<MockLayerTreeHostImpl> MockLayerTreeHostImpl::create(TestHooks* testHooks, const CCLayerTreeSettings& settings, CCLayerTreeHostImplClient* client)
 {
-    return scoped_ptr<MockLayerTreeHostImpl>(new MockLayerTreeHostImpl(testHooks, settings, client));
+    return make_scoped_ptr(new MockLayerTreeHostImpl(testHooks, settings, client));
 }
 
 void MockLayerTreeHostImpl::beginCommit()
@@ -559,4 +559,4 @@ void CCThreadedTest::runTest(bool threaded)
     Platform::current()->compositorSupport()->shutdown();
 }
 
-} // namespace WebKitTests
+}  // namespace WebKitTests

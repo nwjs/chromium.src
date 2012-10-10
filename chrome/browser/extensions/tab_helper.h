@@ -8,17 +8,16 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
-#include "chrome/browser/common/web_contents_user_data.h"
 #include "chrome/browser/extensions/active_tab_permission_granter.h"
 #include "chrome/browser/extensions/app_notify_channel_setup.h"
 #include "chrome/browser/extensions/extension_function_dispatcher.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/extensions/script_executor.h"
-#include "chrome/browser/extensions/webstore_inline_installer.h"
 #include "chrome/common/web_apps.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/browser/web_contents_user_data.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
 struct WebApplicationInfo;
@@ -40,7 +39,7 @@ class TabHelper : public content::WebContentsObserver,
                   public AppNotifyChannelSetup::Delegate,
                   public base::SupportsWeakPtr<TabHelper>,
                   public content::NotificationObserver,
-                  public WebContentsUserData<TabHelper> {
+                  public content::WebContentsUserData<TabHelper> {
  public:
   // Different types of action when web app info is available.
   // OnDidGetApplicationInfo uses this to dispatch calls.
@@ -149,7 +148,7 @@ class TabHelper : public content::WebContentsObserver,
 
  private:
   explicit TabHelper(content::WebContents* web_contents);
-  friend class WebContentsUserData<TabHelper>;
+  friend class content::WebContentsUserData<TabHelper>;
 
   // content::WebContentsObserver overrides.
   virtual void RenderViewCreated(
@@ -201,7 +200,7 @@ class TabHelper : public content::WebContentsObserver,
                              const std::string& extension_id,
                              int index) OVERRIDE;
 
-  // WebstoreInlineInstaller::Callback.
+  // WebstoreStandaloneInstaller::Callback.
   virtual void OnInlineInstallComplete(int install_id,
                                        int return_route_id,
                                        bool success,

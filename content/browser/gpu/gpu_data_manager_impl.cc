@@ -87,8 +87,8 @@ GpuDataManagerImpl* GpuDataManagerImpl::GetInstance() {
 
 GpuDataManagerImpl::GpuDataManagerImpl()
     : complete_gpu_info_already_requested_(false),
-      gpu_feature_type_(content::GPU_FEATURE_TYPE_UNKNOWN),
-      preliminary_gpu_feature_type_(content::GPU_FEATURE_TYPE_UNKNOWN),
+      blacklisted_features_(content::GPU_FEATURE_TYPE_UNKNOWN),
+      preliminary_blacklisted_features_(content::GPU_FEATURE_TYPE_UNKNOWN),
       gpu_switching_(content::GPU_SWITCHING_OPTION_AUTOMATIC),
       observer_list_(new GpuDataManagerObserverList),
       software_rendering_(false),
@@ -271,7 +271,7 @@ GpuFeatureType GpuDataManagerImpl::GetBlacklistedFeatures() const {
     return flags;
   }
 
-  return gpu_feature_type_;
+  return blacklisted_features_;
 }
 
 GpuSwitchingOption GpuDataManagerImpl::GetGpuSwitchingOption() const {
@@ -298,8 +298,16 @@ bool GpuDataManagerImpl::GpuAccessAllowed() const {
   // We only need to block GPU process if more features are disallowed other
   // than those in the preliminary gpu feature flags because the latter work
   // through renderer commandline switches.
-  uint32 mask = ~(preliminary_gpu_feature_type_);
-  return (gpu_feature_type_ & mask) == 0;
+  uint32 mask = ~(preliminary_blacklisted_features_);
+  if ((blacklisted_features_ & mask) != 0)
+    return false;
+
+  if (blacklisted_features_ == content::GPU_FEATURE_TYPE_ALL) {
+    if (gpu_blacklist_.get() && !gpu_blacklist_->needs_more_info())
+      return false;
+  }
+
+  return true;
 }
 
 void GpuDataManagerImpl::HandleGpuSwitch() {
@@ -392,7 +400,7 @@ void GpuDataManagerImpl::AppendGpuCommandLine(
   } else if (!use_gl.empty()) {
     command_line->AppendSwitchASCII(switches::kUseGL, use_gl);
   }
-  if (gfx::GpuSwitchingManager::GetInstance()->SupportsDualGpus()) {
+  if (ui::GpuSwitchingManager::GetInstance()->SupportsDualGpus()) {
     command_line->AppendSwitchASCII(switches::kSupportsDualGpus, "true");
     switch (gpu_switching_) {
       case content::GPU_SWITCHING_OPTION_FORCE_DISCRETE:
@@ -410,6 +418,9 @@ void GpuDataManagerImpl::AppendGpuCommandLine(
   } else {
     command_line->AppendSwitchASCII(switches::kSupportsDualGpus, "false");
   }
+
+  if (!gpu_blacklist_.get() || !gpu_blacklist_->needs_more_info())
+    command_line->AppendSwitch(switches::kSkipGpuFullInfoCollection);
 
   if (!swiftshader_path.empty())
     command_line->AppendSwitchPath(switches::kSwiftShaderPath,
@@ -481,7 +492,7 @@ void GpuDataManagerImpl::AppendPluginCommandLine(
 }
 
 void GpuDataManagerImpl::UpdatePreliminaryBlacklistedFeatures() {
-  preliminary_gpu_feature_type_ = gpu_feature_type_;
+  preliminary_blacklisted_features_ = blacklisted_features_;
 }
 
 void GpuDataManagerImpl::NotifyGpuInfoUpdate() {
@@ -518,19 +529,19 @@ void GpuDataManagerImpl::UpdateBlacklistedFeatures(
   if (Stage3DBlacklisted()) {
     flags |= content::GPU_FEATURE_TYPE_FLASH_STAGE3D;
   }
-  gpu_feature_type_ = static_cast<GpuFeatureType>(flags);
+  blacklisted_features_ = static_cast<GpuFeatureType>(flags);
 
   EnableSoftwareRenderingIfNecessary();
 }
 
 void GpuDataManagerImpl::UpdateGpuSwitchingManager() {
-  if (gfx::GpuSwitchingManager::GetInstance()->SupportsDualGpus()) {
+  if (ui::GpuSwitchingManager::GetInstance()->SupportsDualGpus()) {
     switch (gpu_switching_) {
       case content::GPU_SWITCHING_OPTION_FORCE_DISCRETE:
-        gfx::GpuSwitchingManager::GetInstance()->ForceUseOfDiscreteGpu();
+        ui::GpuSwitchingManager::GetInstance()->ForceUseOfDiscreteGpu();
         break;
       case content::GPU_SWITCHING_OPTION_FORCE_INTEGRATED:
-        gfx::GpuSwitchingManager::GetInstance()->ForceUseOfIntegratedGpu();
+        ui::GpuSwitchingManager::GetInstance()->ForceUseOfIntegratedGpu();
         break;
       case content::GPU_SWITCHING_OPTION_AUTOMATIC:
       case content::GPU_SWITCHING_OPTION_UNKNOWN:
@@ -546,7 +557,7 @@ void GpuDataManagerImpl::RegisterSwiftShaderPath(const FilePath& path) {
 
 void GpuDataManagerImpl::EnableSoftwareRenderingIfNecessary() {
   if (!GpuAccessAllowed() ||
-      (gpu_feature_type_ & content::GPU_FEATURE_TYPE_WEBGL)) {
+      (blacklisted_features_ & content::GPU_FEATURE_TYPE_WEBGL)) {
     if (!swiftshader_path_.empty() &&
         !CommandLine::ForCurrentProcess()->HasSwitch(
              switches::kDisableSoftwareRasterizer))
@@ -561,7 +572,7 @@ bool GpuDataManagerImpl::ShouldUseSoftwareRendering() const {
 void GpuDataManagerImpl::BlacklistCard() {
   card_blacklisted_ = true;
 
-  gpu_feature_type_ = content::GPU_FEATURE_TYPE_ALL;
+  blacklisted_features_ = content::GPU_FEATURE_TYPE_ALL;
 
   EnableSoftwareRenderingIfNecessary();
   NotifyGpuInfoUpdate();

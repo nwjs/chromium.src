@@ -489,6 +489,12 @@ void InstantController::OnAutocompleteGotFocus() {
   CreateDefaultLoader();
 }
 
+void InstantController::OnActiveTabModeChanged(bool active_tab_is_ntp) {
+  active_tab_is_ntp_ = active_tab_is_ntp;
+  if (GetPreviewContents())
+    loader_->OnActiveTabModeChanged(active_tab_is_ntp_);
+}
+
 bool InstantController::commit_on_pointer_release() const {
   return GetPreviewContents() && loader_->IsPointerDownFromActivate();
 }
@@ -554,10 +560,11 @@ void InstantController::CommitInstantLoader(InstantLoader* loader) {
 void InstantController::SetInstantPreviewHeight(InstantLoader* loader,
                                                 int height,
                                                 InstantSizeUnits units) {
-  // TODO(samarth): we need to relax the IsOutOfDate() check to support cases
-  // where we may want to show the overlay even if the overlay does not reflect
-  // what the user has typed (e.g. doodle).
-  if (loader_ != loader || mode_ != EXTENDED || IsOutOfDate())
+  // Show even if IsOutOfDate() on the extended mode NTP to enable a search
+  // provider call SetInstantPreviewHeight() to show a custom logo, e.g. a
+  // Google doodle, before the user interacts with the page.
+  if (loader_ != loader || mode_ != EXTENDED ||
+      (IsOutOfDate() && !active_tab_is_ntp_))
     return;
 
   Show(height, units);
@@ -613,7 +620,8 @@ InstantController::InstantController(InstantControllerDelegate* delegate,
       last_match_was_search_(false),
       is_showing_(false),
       loader_processed_last_update_(false),
-      is_omnibox_focused_(false) {
+      is_omnibox_focused_(false),
+      active_tab_is_ntp_(false) {
 }
 
 void InstantController::ResetLoader(const std::string& instant_url,
@@ -624,11 +632,12 @@ void InstantController::ResetLoader(const std::string& instant_url,
   if (!GetPreviewContents()) {
     loader_.reset(new InstantLoader(this, instant_url, active_tab));
     loader_->Init();
-    // Ensure the searchbox API has the correct focus state.
+    // Ensure the searchbox API has the correct focus state and context.
     if (is_omnibox_focused_)
       loader_->OnAutocompleteGotFocus();
     else
       loader_->OnAutocompleteLostFocus();
+    loader_->OnActiveTabModeChanged(active_tab_is_ntp_);
     AddPreviewUsageForHistogram(mode_, PREVIEW_CREATED);
 
     // Reset the loader timer.

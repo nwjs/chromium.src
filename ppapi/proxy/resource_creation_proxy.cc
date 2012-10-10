@@ -10,6 +10,7 @@
 #include "ppapi/proxy/connection.h"
 #include "ppapi/proxy/file_chooser_resource.h"
 #include "ppapi/proxy/flash_device_id_resource.h"
+#include "ppapi/proxy/flash_font_file_resource.h"
 #include "ppapi/proxy/plugin_dispatcher.h"
 #include "ppapi/proxy/plugin_globals.h"
 #include "ppapi/proxy/plugin_proxy_delegate.h"
@@ -39,6 +40,7 @@
 #include "ppapi/proxy/ppb_x509_certificate_private_proxy.h"
 #include "ppapi/proxy/printing_resource.h"
 #include "ppapi/proxy/url_request_info_resource.h"
+#include "ppapi/proxy/websocket_resource.h"
 #include "ppapi/shared_impl/api_id.h"
 #include "ppapi/shared_impl/host_resource.h"
 #include "ppapi/shared_impl/ppb_audio_config_shared.h"
@@ -256,6 +258,10 @@ PP_Resource ResourceCreationProxy::CreateUDPSocketPrivate(
   return PPB_UDPSocket_Private_Proxy::CreateProxyResource(instance);
 }
 
+PP_Resource ResourceCreationProxy::CreateWebSocket(PP_Instance instance) {
+  return (new WebSocketResource(GetConnection(), instance))->GetReference();
+}
+
 PP_Resource ResourceCreationProxy::CreateX509CertificatePrivate(
     PP_Instance instance) {
   return PPB_X509Certificate_Private_Proxy::CreateProxyResource(instance);
@@ -314,6 +320,14 @@ PP_Resource ResourceCreationProxy::CreateFlashDeviceID(PP_Instance instance) {
   return (new FlashDeviceIDResource(GetConnection(), instance))->GetReference();
 }
 
+PP_Resource ResourceCreationProxy::CreateFlashFontFile(
+    PP_Instance instance,
+    const PP_FontDescription_Dev* description,
+    PP_PrivateFontCharset charset) {
+  return (new FlashFontFileResource(
+      GetConnection(), instance, description, charset))->GetReference();
+}
+
 PP_Resource ResourceCreationProxy::CreateFlashMenu(
     PP_Instance instance,
     const PP_Flash_Menu* menu_data) {
@@ -349,11 +363,6 @@ PP_Resource ResourceCreationProxy::CreateVideoDecoder(
     PP_VideoDecoder_Profile profile) {
   return PPB_VideoDecoder_Proxy::CreateProxyResource(
       instance, context3d_id, profile);
-}
-
-PP_Resource ResourceCreationProxy::CreateWebSocket(PP_Instance instance) {
-  NOTIMPLEMENTED();
-  return 0;
 }
 
 #endif  // !defined(OS_NACL)

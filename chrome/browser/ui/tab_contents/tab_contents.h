@@ -8,12 +8,10 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class AutofillExternalDelegate;
-class AutofillManager;
 class BasePanelBrowserTest;
 class Browser;
 class BrowserCommandsTabContentsCreator;
@@ -29,14 +27,11 @@ class InfoBarTabHelper;
 class InstantLoader;
 class OffscreenTabContentsCreator;
 class PanelHost;
-class PasswordManager;
-class PasswordManagerDelegate;
 class Profile;
 class ShellWindow;
 class TabContentsTestHarness;
 class TabStripModel;
 class TabStripModelContentsCreator;
-class ThumbnailGenerator;
 class TranslationInfoBarTestContentsCreator;
 class WebDialogGtk;
 class WebDialogWindowControllerTabContentsCreator;
@@ -141,16 +136,7 @@ class TabContents : public content::WebContentsObserver {
 
   // Tab Helpers ---------------------------------------------------------------
 
-  AutofillManager* autofill_manager() { return autofill_manager_.get(); }
-
   InfoBarTabHelper* infobar_tab_helper() { return infobar_tab_helper_.get(); }
-
-  PasswordManager* password_manager() { return password_manager_.get(); }
-
-  // NOTE: This returns NULL unless in-browser thumbnail generation is enabled.
-  ThumbnailGenerator* thumbnail_generator() {
-    return thumbnail_generator_.get();
-  }
 
   // Overrides -----------------------------------------------------------------
 
@@ -172,16 +158,8 @@ class TabContents : public content::WebContentsObserver {
   // (These provide API for callers and have a getter function listed in the
   // "Tab Helpers" section in the member functions area, above.)
 
-  scoped_refptr<AutofillManager> autofill_manager_;
   scoped_ptr<AutofillExternalDelegate> autofill_external_delegate_;
   scoped_ptr<InfoBarTabHelper> infobar_tab_helper_;
-
-  // PasswordManager and its delegate. The delegate must outlive the manager,
-  // per documentation in password_manager.h.
-  scoped_ptr<PasswordManagerDelegate> password_manager_delegate_;
-  scoped_ptr<PasswordManager> password_manager_;
-
-  scoped_ptr<ThumbnailGenerator> thumbnail_generator_;
 
   // WebContents (MUST BE LAST) ------------------------------------------------
 

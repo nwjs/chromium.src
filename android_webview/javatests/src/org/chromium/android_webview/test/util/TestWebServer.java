@@ -73,8 +73,11 @@ public class TestWebServer {
     private static class Response {
         final byte[] mResponseData;
         final List<Pair<String, String>> mResponseHeaders;
+        final boolean mIsRedirect;
 
-        Response(byte[] resposneData, List<Pair<String, String>> responseHeaders) {
+        Response(byte[] resposneData, List<Pair<String, String>> responseHeaders,
+                boolean isRedirect) {
+            mIsRedirect = isRedirect;
             mResponseData = resposneData;
             mResponseHeaders = responseHeaders == null ?
                     new ArrayList<Pair<String, String>>() : responseHeaders;
@@ -83,6 +86,7 @@ public class TestWebServer {
 
     private Map<String, Response> mResponseMap = new HashMap<String, Response>();
     private Map<String, Integer> mResponseCountMap = new HashMap<String, Integer>();
+    private Map<String, HttpRequest> mLastRequestMap = new HashMap<String, HttpRequest>();
 
     /**
      * Create and start a local HTTP server instance.
@@ -141,6 +145,32 @@ public class TestWebServer {
         sInstance = null;
     }
 
+    private final static int RESPONSE_STATUS_NORMAL = 0;
+    private final static int RESPONSE_STATUS_MOVED_TEMPORARILY = 1;
+
+    private String setResponseInternal(
+            String requestPath, byte[] responseData,
+            List<Pair<String, String>> responseHeaders,
+            int status) {
+        final boolean isRedirect = (status == RESPONSE_STATUS_MOVED_TEMPORARILY);
+        mResponseMap.put(requestPath, new Response(responseData, responseHeaders, isRedirect));
+        mResponseCountMap.put(requestPath, new Integer(0));
+        mLastRequestMap.put(requestPath, null);
+        return getResponseUrl(requestPath);
+    }
+
+    /**
+     * Gets the URL on the server under which a particular request path will be accessible.
+     *
+     * This only gets the URL, you still need to set the response if you intend to access it.
+     *
+     * @param requestPath The path to respond to.
+     * @return The full URL including the requestPath.
+     */
+    public String getResponseUrl(String requestPath) {
+        return mServerUri + requestPath;
+    }
+
     /**
      * Sets a response to be returned when a particular request path is passed
      * in (with the option to specify additional headers).
@@ -155,9 +185,25 @@ public class TestWebServer {
     public String setResponse(
             String requestPath, String responseString,
             List<Pair<String, String>> responseHeaders) {
-        mResponseMap.put(requestPath, new Response(responseString.getBytes(), responseHeaders));
-        mResponseCountMap.put(requestPath, new Integer(0));
-        return mServerUri + requestPath;
+        return setResponseInternal(requestPath, responseString.getBytes(), responseHeaders,
+                RESPONSE_STATUS_NORMAL);
+    }
+
+    /**
+     * Sets a redirect.
+     *
+     * @param requestPath The path to respond to.
+     * @param targetPath The path to redirect to.
+     * @return The full URL including the path that should be requested to get the expected
+     *         response.
+     */
+    public String setRedirect(
+            String requestPath, String targetPath) {
+        List<Pair<String, String>> responseHeaders = new ArrayList<Pair<String, String>>();
+        responseHeaders.add(Pair.create("Location", targetPath));
+
+        return setResponseInternal(requestPath, targetPath.getBytes(), responseHeaders,
+                RESPONSE_STATUS_MOVED_TEMPORARILY);
     }
 
     /**
@@ -175,17 +221,28 @@ public class TestWebServer {
     public String setResponseBase64(
             String requestPath, String base64EncodedResponse,
             List<Pair<String, String>> responseHeaders) {
-        mResponseMap.put(requestPath,
-                new Response(Base64.decode(base64EncodedResponse, Base64.DEFAULT),
-                responseHeaders));
-        mResponseCountMap.put(requestPath, Integer.valueOf(0));
-        return mServerUri + requestPath;
+        return setResponseInternal(requestPath,
+                                   Base64.decode(base64EncodedResponse, Base64.DEFAULT),
+                                   responseHeaders,
+                                   RESPONSE_STATUS_NORMAL);
     }
 
+    /**
+     * Get the number of requests was made at this path since it was last set.
+     */
     public int getRequestCount(String requestPath) {
         Integer count = mResponseCountMap.get(requestPath);
         if (count == null) throw new IllegalArgumentException("Path not set: " + requestPath);
         return count.intValue();
+    }
+
+    /**
+     * Returns the last HttpRequest at this path. Can return null if it is never requested.
+     */
+    public HttpRequest getLastRequest(String requestPath) {
+        if (!mLastRequestMap.containsKey(requestPath))
+            throw new IllegalArgumentException("Path not set: " + requestPath);
+        return mLastRequestMap.get(requestPath);
     }
 
     public String getBaseUrl() {
@@ -263,6 +320,11 @@ public class TestWebServer {
         Response response = mResponseMap.get(path);
         if (path.equals(SHUTDOWN_PREFIX)) {
             httpResponse = createResponse(HttpStatus.SC_OK);
+        } else if (response.mIsRedirect) {
+            httpResponse = createResponse(HttpStatus.SC_MOVED_TEMPORARILY);
+            for (Pair<String, String> header : response.mResponseHeaders) {
+                httpResponse.addHeader(header.first, header.second);
+            }
         } else if (response == null) {
             httpResponse = createResponse(HttpStatus.SC_NOT_FOUND);
         } else {
@@ -273,6 +335,7 @@ public class TestWebServer {
             }
             mResponseCountMap.put(path, Integer.valueOf(
                     mResponseCountMap.get(path).intValue() + 1));
+            mLastRequestMap.put(path, request);
         }
         StatusLine sl = httpResponse.getStatusLine();
         Log.i(TAG, sl.getStatusCode() + "(" + sl.getReasonPhrase() + ")");

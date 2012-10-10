@@ -53,6 +53,7 @@
         'apk_name': 'ChromiumTestShell',
         'java_in_dir': 'android/testshell/java',
         'resource_dir': '../res',
+        'asset_location': '<(ant_build_out)/../assets/chrome',
         'native_libs_paths': [ '<(PRODUCT_DIR)/chromium_testshell/libs/<(android_app_abi)/libchromiumtestshell.so', ],
         'additional_input_paths': [ '<@(chrome_android_pak_output_resources)', ],
       },
@@ -94,14 +95,12 @@
         'chrome.gyp:chrome_java',
         'chromium_testshell',
       ],
-      'export_dependent_settings': [
-        '../media/media.gyp:media_java',
-        'chrome.gyp:chrome_java',
-      ],
       'outputs': [
         '<(PRODUCT_DIR)/lib.java/chromium_chromium_testshell.jar',
       ],
-      'direct_dependent_settings': {
+      # This all_dependent_settings is used for java targets only. This will add
+      # the chromium_testshell jar to the classpath of dependent java targets.
+      'all_dependent_settings': {
         'variables': {
           'input_jars_paths': ['<(PRODUCT_DIR)/lib.java/chromium_chromium_testshell.jar'],
         },
