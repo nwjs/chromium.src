@@ -2073,7 +2073,8 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
 - (void)viewWillMoveToWindow:(NSWindow*)newWindow {
   // We're messing with the window, so do this to ensure no flashes. This one
   // prevents a flash when the current tab is closed.
-  [[self window] disableScreenUpdatesUntilFlush];
+  if ([self window])
+    [[self window] disableScreenUpdatesUntilFlush];
 
   if ([self window]) {
     [[NSNotificationCenter defaultCenter]
