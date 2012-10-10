@@ -1053,6 +1053,7 @@ class RenderViewImpl : public RenderWidget,
                          const string16& search_string,
                          const WebKit::WebFindOptions& options,
                          IPC::Message* reply_msg);
+  void OnUndoScrollFocusedEditableNodeIntoRect();
 #elif defined(OS_MACOSX)
   void OnCopyToFindPboard();
   void OnPluginImeCompositionCompleted(const string16& text, int plugin_id);
@@ -1168,6 +1169,10 @@ class RenderViewImpl : public RenderWidget,
   // Processes the command-line flags --enable-viewport and
   // --enable-fixed-layout[=w,h].
   void ProcessViewLayoutFlags(const CommandLine& command_line);
+
+  // Processes the command-line flags --enable-pinch and
+  // --enable-pinch-in-compositor
+  void ProcessAcceleratedPinchZoomFlags(const CommandLine& command_line);
 
   // Sends a reply to the current find operation handling if it was a
   // synchronous find request.

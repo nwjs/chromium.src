@@ -29,6 +29,7 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_source.h"
 #include "ui/gfx/screen.h"
+#include "ui/gfx/size_conversions.h"
 #include "ui/gfx/skbitmap_operations.h"
 
 namespace ui {
@@ -73,7 +74,7 @@ class ResourceBundle::ResourceBundleImageSource : public gfx::ImageSkiaSource {
       ui::ScaleFactor scale_factor) OVERRIDE {
     scoped_ptr<SkBitmap> result(rb_->LoadBitmap(resource_id_, scale_factor));
     float scale = ui::GetScaleFactorScale(scale_factor);
-    gfx::Size size_in_pixel = size_in_dip_.Scale(scale);
+    gfx::Size size_in_pixel = gfx::ToFlooredSize(size_in_dip_.Scale(scale));
 
     if (scale_factor != SCALE_FACTOR_100P &&
         (!result.get() ||
@@ -316,11 +317,6 @@ std::string ResourceBundle::ReloadLocaleResources(
   base::AutoLock lock_scope(*locale_resources_data_lock_);
   UnloadLocaleResources();
   return LoadLocaleResources(pref_locale);
-}
-
-SkBitmap* ResourceBundle::GetBitmapNamed(int resource_id) {
-  const SkBitmap* bitmap = GetImageNamed(resource_id).ToSkBitmap();
-  return const_cast<SkBitmap*>(bitmap);
 }
 
 gfx::ImageSkia* ResourceBundle::GetImageSkiaNamed(int resource_id) {
@@ -600,11 +596,14 @@ SkBitmap* ResourceBundle::LoadBitmap(const ResourceHandle& data_handle,
   if (gfx::PNGCodec::Decode(memory->front(), memory->size(), &bitmap))
     return new SkBitmap(bitmap);
 
+#if !defined(OS_IOS)
+  // iOS does not compile or use the JPEG codec.  On other platforms,
   // 99% of our assets are PNGs, however fallback to JPEG.
   SkBitmap* allocated_bitmap =
       gfx::JPEGCodec::Decode(memory->front(), memory->size());
   if (allocated_bitmap)
     return allocated_bitmap;
+#endif
 
   NOTREACHED() << "Unable to decode theme image resource " << resource_id;
   return NULL;

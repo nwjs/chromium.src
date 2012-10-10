@@ -151,6 +151,17 @@ enum NotificationType {
   // starting and finishing all painting.
   NOTIFICATION_INITIAL_NEW_TAB_UI_LOAD,
 
+#if defined(OS_ANDROID)
+  // Indicates that the new tab page is ready.  This is different than
+  // NOTIFICATION_INITIAL_NEW_TAB_UI_LOAD as the NTP might do some more in-page
+  // navigations after it's done loading, potentially causing flakyness in tests
+  // that would navigate as soon as the NTP is done loading.
+  // When this notification happen, it guarantees the page is not going to do
+  // any further navigation.
+  // The source is the TabContents containing the NTP.
+  NOTIFICATION_NEW_TAB_READY,
+#endif
+
   // Used to fire notifications about how long various events took to
   // complete.  E.g., this is used to get more fine grained timings from the
   // new tab page.  The source is a WebContents and the details is a
@@ -660,11 +671,6 @@ enum NotificationType {
   // Sent when an omnibox extension has updated the default suggestion. The
   // source is the profile.
   NOTIFICATION_EXTENSION_OMNIBOX_DEFAULT_SUGGESTION_CHANGED,
-
-  // Sent when an extension changes a preference value. The source is the
-  // profile, and the details are an ExtensionPrefStore::ExtensionPrefDetails
-  // object.
-  NOTIFICATION_EXTENSION_PREF_CHANGED,
 
   // Sent when a recording session for speech input has started.
   NOTIFICATION_EXTENSION_SPEECH_INPUT_RECORDING_STARTED,
@@ -1223,6 +1229,10 @@ enum NotificationType {
   // window creation is async and size of the window only becomes known later.
   // Used only in unit testing.
   NOTIFICATION_PANEL_WINDOW_SIZE_KNOWN,
+
+  // Sent when panel app icon is loaded.
+  // Used only in unit testing.
+  NOTIFICATION_PANEL_APP_ICON_LOADED,
 
   // Sent when panel strip get updated.
   // The source is the PanelStrip, no details.

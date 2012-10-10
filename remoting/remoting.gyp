@@ -11,17 +11,25 @@
     'remoting_host_linux_clipboard%': 1,
     'remoting_multi_process%': 0,
 
-    # The version is composed from major & minor versions specific to remoting
-    # and build & patch versions inherited from Chrome.
+    # The |major|, |build| and |patch| versions are inherited from Chrome.
+    # Since Chrome's |minor| version is always '0', we replace it with a
+    # Chromoting-specific patch version.
+    # Note that we check both the |chrome_version_path| file and the
+    # |remoting_version_path| so that we can override the Chrome version
+    # numbers if needed.
     'version_py_path': '../chrome/tools/build/version.py',
-    'version_path': '../remoting/VERSION',
+    'remoting_version_path': '../remoting/VERSION',
     'chrome_version_path': '../chrome/VERSION',
-    'version_full':
-      '<!(python <(version_py_path) -f <(version_path) -t "@MAJOR@.@MINOR@").'
-      '<!(python <(version_py_path) -f <(chrome_version_path) -t "@BUILD@.@PATCH@")',
+    'version_major':
+      '<!(python <(version_py_path) -f <(chrome_version_path) -f <(remoting_version_path) -t "@MAJOR@")',
+    'version_minor':
+      '<!(python <(version_py_path) -f <(remoting_version_path) -t "@REMOTING_PATCH@")',
     'version_short':
-      '<!(python <(version_py_path) -f <(version_path) -t "@MAJOR@.@MINOR@").'
-      '<!(python <(version_py_path) -f <(chrome_version_path) -t "@BUILD@")',
+      '<(version_major).<(version_minor).'
+      '<!(python <(version_py_path) -f <(chrome_version_path) -f <(remoting_version_path) -t "@BUILD@")',
+    'version_full':
+      '<(version_short).'
+      '<!(python <(version_py_path) -f <(chrome_version_path) -f <(remoting_version_path) -t "@PATCH@")',
 
     'branding_path': '../remoting/branding_<(branding)',
     'copyright_info': '<!(python <(version_py_path) -f <(branding_path) -t "@COPYRIGHT@")',
@@ -340,8 +348,8 @@
               'defs': [
                 'VERSION=<(version_full)',
                 'VERSION_SHORT=<(version_short)',
-                'VERSION_MAJOR=<!(python <(version_py_path) -f <(version_path) -t "@MAJOR@")',
-                'VERSION_MINOR=<!(python <(version_py_path) -f <(version_path) -t "@MINOR@")',
+                'VERSION_MAJOR=<(version_major)',
+                'VERSION_MINOR=<(version_minor)',
                 'COPYRIGHT_INFO=<(copyright_info)',
                 'HOST_NAME=<(host_name)',
                 'HOST_SERVICE_NAME=<(host_service_name)',
@@ -635,8 +643,9 @@
         # placed in the "<(SHARED_INTERMEDIATE_DIR)/remoting" folder.
         # The substitution strings are taken from:
         #   - build/util/LASTCHANGE - the last source code revision.
-        #   - chrome/VERSION - the build & patch versions.
-        #   - remoting/VERSION - the major & minor versions.
+        #   - chrome/VERSION - the major, build & patch versions.
+        #   - remoting/VERSION - the chromoting patch version (and overrides
+        #       for chrome/VERSION).
         #   - (branding_path) - UI/localizable strings.
         #   - xxx.ver - per-binary non-localizable strings such as the binary
         #     name.
@@ -647,7 +656,7 @@
             '<(branding_path)',
             'version.rc.version',
             '<(DEPTH)/build/util/LASTCHANGE',
-            '<(version_path)',
+            '<(remoting_version_path)',
             '<(chrome_version_path)',
           ],
           'direct_dependent_settings': {
@@ -671,11 +680,11 @@
                 'template_input_path': 'version.rc.version',
               },
               'inputs': [
-                '<(template_input_path)',
-                '<(version_path)',
-                '<(chrome_version_path)',
                 '<(branding_path)',
+                '<(chrome_version_path)',
                 '<(lastchange_path)',
+                '<(remoting_version_path)',
+                '<(template_input_path)',
               ],
               'outputs': [
                 '<(SHARED_INTERMEDIATE_DIR)/remoting/<(RULE_INPUT_ROOT)_version.rc',
@@ -685,7 +694,9 @@
                 '<(version_py_path)',
                 '-f', '<(RULE_INPUT_PATH)',
                 '-f', '<(chrome_version_path)',
-                '-f', '<(version_path)',
+                # |remoting_version_path| must be after |chrome_version_path|
+                # because it can contain overrides for the version numbers.
+                '-f', '<(remoting_version_path)',
                 '-f', '<(branding_path)',
                 '-f', '<(lastchange_path)',
                 '<(template_input_path)',
@@ -1019,9 +1030,12 @@
       'variables': { 'enable_wexit_time_destructors': 1, },
       'dependencies': [
         '../base/base.gyp:base',
+        '../google_apis/google_apis.gyp:google_apis',
         'remoting_host',
       ],
       'sources': [
+        'host/setup/auth_code_getter_win.cc',
+        'host/setup/auth_code_getter_win.h',
         'host/setup/daemon_controller.h',
         'host/setup/daemon_controller_linux.cc',
         'host/setup/daemon_controller_mac.cc',
@@ -1030,6 +1044,8 @@
         'host/setup/daemon_installer_win.h',
         'host/setup/host_starter.cc',
         'host/setup/host_starter.h',
+        'host/setup/oauth_helper.cc',
+        'host/setup/oauth_helper.h',
       ],
       'conditions': [
         ['OS=="win"', {
@@ -1129,7 +1145,7 @@
       'sources': [
         'webapp/build-webapp.py',
         'webapp/verify-webapp.py',
-        '<(version_path)',
+        '<(remoting_version_path)',
         '<(chrome_version_path)',
         '<@(remoting_webapp_files)',
         '<@(remoting_webapp_locale_files)',
@@ -1181,7 +1197,7 @@
           'inputs': [
             'webapp/build-webapp.py',
             '<(_plugin_path)',
-            '<(version_path)',
+            '<(remoting_version_path)',
             '<(chrome_version_path)',
             '<@(remoting_webapp_files)',
             '<@(remoting_webapp_locale_files)',
@@ -1235,6 +1251,8 @@
       # depend on chromotocol_proto_lib for headers.
       'hard_dependency': 1,
       'sources': [
+        'base/auto_thread.cc',
+        'base/auto_thread.h',
         'base/auto_thread_task_runner.cc',
         'base/auto_thread_task_runner.h',
         'base/auth_token_util.cc',
@@ -1518,6 +1536,7 @@
       'sources': [
         'client/audio_decode_scheduler.cc',
         'client/audio_decode_scheduler.h',
+        'client/audio_player.cc',
         'client/audio_player.h',
         'client/chromoting_client.cc',
         'client/chromoting_client.h',
@@ -1862,6 +1881,7 @@
         'remoting_host',
         'remoting_jingle_glue',
         'remoting_protocol',
+        'remoting_host_setup_base',
         '../base/base.gyp:base',
         '../base/base.gyp:base_i18n',
         '../base/base.gyp:test_support_base',
@@ -1880,12 +1900,14 @@
       ],
       'sources': [
         'base/auth_token_util_unittest.cc',
+        'base/auto_thread_unittest.cc',
         'base/auto_thread_task_runner_unittest.cc',
         'base/breakpad_win_unittest.cc',
         'base/compound_buffer_unittest.cc',
         'base/compressor_zlib_unittest.cc',
         'base/decompressor_zlib_unittest.cc',
         'base/util_unittest.cc',
+        'client/audio_player_unittest.cc',
         'client/key_event_mapper_unittest.cc',
         'client/plugin/mac_key_event_processor_unittest.cc',
         'codec/codec_test.cc',
@@ -1917,6 +1939,7 @@
         'host/resizing_host_observer_unittest.cc',
         'host/screen_recorder_unittest.cc',
         'host/server_log_entry_unittest.cc',
+        'host/setup/oauth_helper_unittest.cc',
         'host/test_key_pair.h',
         'host/video_frame_capturer_helper_unittest.cc',
         'host/video_frame_capturer_mac_unittest.cc',

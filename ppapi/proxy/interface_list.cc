@@ -55,6 +55,7 @@
 #include "ppapi/c/private/ppb_file_ref_private.h"
 #include "ppapi/c/private/ppb_flash_clipboard.h"
 #include "ppapi/c/private/ppb_flash_file.h"
+#include "ppapi/c/private/ppb_flash_font_file.h"
 #include "ppapi/c/private/ppb_flash_fullscreen.h"
 #include "ppapi/c/private/ppb_flash.h"
 #include "ppapi/c/private/ppb_flash_device_id.h"
@@ -183,7 +184,6 @@ InterfaceList::InterfaceList() {
     #include "ppapi/thunk/interfaces_ppb_public_stable.h"
   }
 
-#if !defined(OS_NACL)
   {
     Permission current_required_permission = PERMISSION_DEV;
     #include "ppapi/thunk/interfaces_ppb_public_dev.h"
@@ -192,14 +192,12 @@ InterfaceList::InterfaceList() {
     Permission current_required_permission = PERMISSION_PRIVATE;
     #include "ppapi/thunk/interfaces_ppb_private.h"
   }
-#endif
-
-  #if !defined(OS_NACL)
   {
+#if !defined(OS_NACL)
     Permission current_required_permission = PERMISSION_FLASH;
     #include "ppapi/thunk/interfaces_ppb_private_flash.h"
+#endif  // !defined(OS_NACL)
   }
-  #endif
 
   #undef PROXIED_API
   #undef PROXIED_IFACE

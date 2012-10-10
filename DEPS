@@ -8,11 +8,11 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "130552",
+  "webkit_revision": "130831",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9930",
+  "nacl_revision": "9944",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
   "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
@@ -29,17 +29,17 @@ vars = {
   "ffmpeg_hash": "3a9bce0eec65d13e2cf071e51757b7e90d082a4f",
 
   "sfntly_revision": "134",
-  "skia_revision": "5820",
+  "skia_revision": "5857",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
-  "v8_revision": "12666",
+  "v8_revision": "12683",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling WebRTC
   # and V8 without interference from each other.
   "webrtc_revision": "2718",
   "jsoncpp_revision": "248",
-  "nss_revision": "159459",
+  "nss_revision": "158129",
 }
 
 deps = {
@@ -103,10 +103,10 @@ deps = {
     (Var("googlecode_url") % "grit-i18n") + "/trunk@73",
 
   "src/tools/gyp":
-    (Var("googlecode_url") % "gyp") + "/trunk@1514",
+    (Var("googlecode_url") % "gyp") + "/trunk@1519",
 
   "src/tools/swarm_client":
-    "/trunk/tools/swarm_client@160586",
+    "/trunk/tools/swarm_client@160845",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
@@ -317,7 +317,7 @@ deps = {
     (Var("googlecode_url") % "web-page-replay") + "/trunk@494",
 
   "src/third_party/pywebsocket/src":
-    (Var("googlecode_url") % "pywebsocket") + "/trunk/src@661",
+    (Var("googlecode_url") % "pywebsocket") + "/trunk/src@662",
 }
 
 
@@ -528,7 +528,7 @@ deps_os = {
     # For Chromium OS.
     "src/third_party/cros_system_api":
       Var("chromiumos_git") + "/platform/system_api.git" +
-      "@94ed6fa5e9c8d55d183260a41856899502af0459",
+      "@572f3ee95be807777dced75795eb916ce53ac3b9",
   },
   "android": {
     "src/third_party/freetype":

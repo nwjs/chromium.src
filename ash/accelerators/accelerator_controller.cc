@@ -33,6 +33,7 @@
 #include "ash/system/tray/system_tray_delegate.h"
 #include "ash/volume_control_delegate.h"
 #include "ash/wm/partial_screenshot_view.h"
+#include "ash/wm/power_button_controller.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/window_cycle_controller.h"
 #include "ash/wm/window_util.h"
@@ -57,6 +58,7 @@
 #if defined(OS_CHROMEOS)
 #include "ash/display/output_configurator_animation.h"
 #include "base/chromeos/chromeos_version.h"
+#include "base/time.h"
 #include "chromeos/display/output_configurator.h"
 #endif  // defined(OS_CHROMEOS)
 
@@ -185,6 +187,12 @@ bool HandleRotateWindows() {
   for (size_t i = 0; i < controllers.size(); ++i) {
     aura::Window* target = controllers[i]->GetContainer(
         internal::kShellWindowId_DefaultContainer);
+    // The rotation animation bases its target transform on the current
+    // rotation and position. Since there could be an animation in progress
+    // right now, queue this animation so when it starts it picks up a neutral
+    // rotation and position. Use replace so we only enqueue one at a time.
+    target->layer()->GetAnimator()->
+        set_preemption_strategy(ui::LayerAnimator::REPLACE_QUEUED_ANIMATIONS);
     scoped_ptr<ui::LayerAnimationSequence> screen_rotation(
         new ui::LayerAnimationSequence(new ash::ScreenRotation(360)));
     target->layer()->GetAnimator()->StartAnimation(
@@ -713,19 +721,7 @@ bool AcceleratorController::PerformAction(int action,
         shell->delegate()->RecordUserMetricsAction(
             UMA_ACCEL_MAXIMIZE_RESTORE_F4);
       }
-      aura::Window* window = wm::GetActiveWindow();
-      if (!window)
-        return true;
-      if (wm::IsWindowFullscreen(window)) {
-        // Chrome also uses VKEY_F4 as a shortcut. Its action is to toggle
-        // fullscreen. We return false below so Chrome will process the
-        // shortcut again and, in case of VKEY_F4, exit fullscreen.
-        return false;
-      }
-      if (wm::IsWindowMaximized(window))
-        wm::RestoreWindow(window);
-      else if (wm::CanMaximizeWindow(window))
-        wm::MaximizeWindow(window);
+      shell->delegate()->ToggleMaximized();
       return true;
     }
     case TOGGLE_MAXIMIZED_RELEASED: {
@@ -763,10 +759,35 @@ bool AcceleratorController::PerformAction(int action,
        return HandleMediaPrevTrack();
     case POWER_PRESSED:  // fallthrough
     case POWER_RELEASED:
-       // We don't do anything with these at present, but we consume them to
-       // prevent them from getting passed to apps -- see
-       // http://crbug.com/146609.
-       return true;
+#if defined(OS_CHROMEOS)
+      if (!base::chromeos::IsRunningOnChromeOS()) {
+        // There is no powerd in linux desktop, so call the
+        // PowerButtonController here.
+        Shell::GetInstance()->power_button_controller()->
+            OnPowerButtonEvent(action == POWER_PRESSED, base::TimeTicks());
+      }
+#endif
+      // We don't do anything with these at present on the device,
+      // (power button evets are reported to us from powerm via
+      // D-BUS), but we consume them to prevent them from getting
+      // passed to apps -- see http://crbug.com/146609.
+      return true;
+    case LOCK_PRESSED:
+    case LOCK_RELEASED:
+#if defined(OS_CHROMEOS)
+      if (!base::chromeos::IsRunningOnChromeOS()) {
+        // There is no powerd in linux desktop, so call the
+        // PowerButtonController here.
+        Shell::GetInstance()->power_button_controller()->
+            OnLockButtonEvent(action == LOCK_PRESSED, base::TimeTicks());
+        return true;
+      }
+#endif
+      // LOCK_PRESSED/RELEASED in debug only action that is meant for
+      // testing lock behavior on linux desktop. If we ever reached
+      // here (when you run a debug build on the device), pass it onto
+      // apps.
+      return false;
 #if !defined(NDEBUG)
     case PRINT_LAYER_HIERARCHY:
       return HandlePrintLayerHierarchy();

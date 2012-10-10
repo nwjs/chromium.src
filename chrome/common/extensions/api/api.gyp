@@ -19,6 +19,7 @@
         'chromium_code': 1,
         'json_schema_files': [
           'bookmarks.json',
+          'cloud_print_private.json',
           'content_settings.json',
           'context_menus.json',
           'cookies.json',
@@ -51,6 +52,7 @@
           'experimental_identity.idl',
           'experimental_idltest.idl',
           'experimental_media_galleries.idl',
+          'experimental_notification.idl',
           'experimental_push_messaging.idl',
           'experimental_system_info_cpu.idl',
           'experimental_system_info_storage.idl',

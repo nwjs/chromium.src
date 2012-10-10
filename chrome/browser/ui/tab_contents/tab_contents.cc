@@ -30,7 +30,7 @@
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/ssl/ssl_tab_helper.h"
 #include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
-#include "chrome/browser/tab_contents/thumbnail_generator.h"
+#include "chrome/browser/thumbnails/thumbnail_tab_helper.h"
 #include "chrome/browser/translate/translate_tab_helper.h"
 #include "chrome/browser/ui/alternate_error_tab_observer.h"
 #include "chrome/browser/ui/autofill/tab_autofill_manager_delegate.h"
@@ -115,14 +115,15 @@ TabContents::TabContents(WebContents* contents)
   AlternateErrorPageTabObserver::CreateForWebContents(contents);
   AutocompleteHistoryManager::CreateForWebContents(contents);
   TabAutofillManagerDelegate::CreateForWebContents(contents);
-  autofill_manager_ =
-      new AutofillManager(TabAutofillManagerDelegate::FromWebContents(contents),
-                          this);
+  AutofillManager::CreateForWebContentsAndDelegate(
+      contents,
+      TabAutofillManagerDelegate::FromWebContents(contents));
   if (CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kExternalAutofillPopup)) {
-    autofill_external_delegate_.reset(
-        AutofillExternalDelegate::Create(this, autofill_manager_.get()));
-    autofill_manager_->SetExternalDelegate(autofill_external_delegate_.get());
+    autofill_external_delegate_.reset(AutofillExternalDelegate::Create(
+        this, AutofillManager::FromWebContents(contents)));
+    AutofillManager::FromWebContents(contents)->SetExternalDelegate(
+        autofill_external_delegate_.get());
     AutocompleteHistoryManager::FromWebContents(contents)->SetExternalDelegate(
         autofill_external_delegate_.get());
   }
@@ -141,9 +142,9 @@ TabContents::TabContents(WebContents* contents)
   infobar_tab_helper_.reset(new InfoBarTabHelper(contents));
   MetroPinTabHelper::CreateForWebContents(contents);
   NavigationMetricsRecorder::CreateForWebContents(contents);
-  password_manager_delegate_.reset(new PasswordManagerDelegateImpl(this));
-  password_manager_.reset(
-      new PasswordManager(contents, password_manager_delegate_.get()));
+  PasswordManagerDelegateImpl::CreateForWebContents(contents);
+  PasswordManager::CreateForWebContentsAndDelegate(
+      contents, PasswordManagerDelegateImpl::FromWebContents(contents));
   PepperBrokerObserver::CreateForWebContents(contents);
   PluginObserver::CreateForWebContents(contents);
   PrefsTabHelper::CreateForWebContents(contents);
@@ -155,6 +156,7 @@ TabContents::TabContents(WebContents* contents)
   SSLTabHelper::CreateForWebContents(contents);
   TabContentsSyncedTabDelegate::CreateForWebContents(contents);
   TabSpecificContentSettings::CreateForWebContents(contents);
+  ThumbnailTabHelper::CreateForWebContents(contents);
   TranslateTabHelper::CreateForWebContents(contents);
   ZoomController::CreateForWebContents(contents);
 
@@ -178,9 +180,6 @@ TabContents::TabContents(WebContents* contents)
   printing::PrintPreviewMessageHandler::CreateForWebContents(contents);
   printing::PrintViewManager::CreateForWebContents(contents);
 #endif
-
-  thumbnail_generator_.reset(new ThumbnailGenerator);
-  thumbnail_generator_->StartThumbnailing(web_contents_.get());
 
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   // If this is not an incognito window, setup to handle one-click login.

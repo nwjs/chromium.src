@@ -7,13 +7,16 @@
 
 #include "ppapi/thunk/interfaces_preamble.h"
 
+PROXIED_IFACE(NoAPIName, PPB_CURSOR_CONTROL_DEV_INTERFACE_0_4,
+              PPB_CursorControl_Dev_0_4)
+
+#if !defined(OS_NACL)
 PROXIED_API(PPB_AudioInput)
 PROXIED_API(PPB_Buffer)
 UNPROXIED_API(PPB_DirectoryReader)
 UNPROXIED_API(PPB_Scrollbar)
 PROXIED_API(PPB_VideoCapture)
 PROXIED_API(PPB_VideoDecoder)
-UNPROXIED_API(PPB_WebSocket)
 UNPROXIED_API(PPB_Widget)
 
 PROXIED_IFACE(PPB_AudioInput, PPB_AUDIO_INPUT_DEV_INTERFACE_0_1,
@@ -29,8 +32,6 @@ PROXIED_IFACE(PPB_Graphics3D,
               PPB_GLES_CHROMIUM_TEXTURE_MAPPING_DEV_INTERFACE_0_1,
               PPB_GLESChromiumTextureMapping_Dev_0_1)
 PROXIED_IFACE(NoAPIName, PPB_CRYPTO_DEV_INTERFACE_0_1, PPB_Crypto_Dev_0_1)
-PROXIED_IFACE(NoAPIName, PPB_CURSOR_CONTROL_DEV_INTERFACE_0_4,
-              PPB_CursorControl_Dev_0_4)
 PROXIED_IFACE(NoAPIName, PPB_DEVICEREF_DEV_INTERFACE_0_1, PPB_DeviceRef_Dev_0_1)
 UNPROXIED_IFACE(PPB_DirectoryReader, PPB_DIRECTORYREADER_DEV_INTERFACE_0_5,
                 PPB_DirectoryReader_Dev_0_5)
@@ -68,9 +69,8 @@ PROXIED_IFACE(PPB_VideoDecoder, PPB_VIDEODECODER_DEV_INTERFACE_0_16,
               PPB_VideoDecoder_Dev_0_16)
 PROXIED_IFACE(NoAPIName, PPB_VIEW_DEV_INTERFACE_0_1,
               PPB_View_Dev_0_1)
-UNPROXIED_IFACE(PPB_WebSocket, PPB_WEBSOCKET_INTERFACE_1_0,
-                PPB_WebSocket_1_0)
 UNPROXIED_IFACE(PPB_Widget, PPB_WIDGET_DEV_INTERFACE_0_3, PPB_Widget_Dev_0_3)
 UNPROXIED_IFACE(PPB_Widget, PPB_WIDGET_DEV_INTERFACE_0_4, PPB_Widget_Dev_0_4)
+#endif  // !defined(OS_NACL)
 
 #include "ppapi/thunk/interfaces_postamble.h"

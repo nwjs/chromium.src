@@ -680,6 +680,9 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
 
   prefs.number_of_cpu_cores = base::SysInfo::NumberOfProcessors();
 
+  prefs.apply_page_scale_factor_in_compositor =
+      command_line.HasSwitch(switches::kEnablePinchInCompositor);
+
   content::GetContentClient()->browser()->OverrideWebkitPrefs(rvh, url, &prefs);
 
   // Disable compositing in guests until we have compositing path implemented
@@ -2347,7 +2350,7 @@ void WebContentsImpl::OnSetSelectedColorInColorChooser(int color_chooser_id,
 void WebContentsImpl::OnPepperPluginHung(int plugin_child_id,
                                          const FilePath& path,
                                          bool is_hung) {
-  HISTOGRAM_COUNTS("Pepper.PluginHung", 1);
+  UMA_HISTOGRAM_COUNTS("Pepper.PluginHung", 1);
 
   // Determine how often hangs happen when using worker pool versus
   // FILE thread.  kFieldTrialName needs to match the value in
@@ -2359,8 +2362,8 @@ void WebContentsImpl::OnPepperPluginHung(int plugin_child_id,
   static const bool hung_trial_exists =
       base::FieldTrialList::TrialExists(kFieldTrialName);
   if (hung_trial_exists) {
-    HISTOGRAM_COUNTS(base::FieldTrial::MakeName("Pepper.PluginHung",
-                                                kFieldTrialName), 1);
+    UMA_HISTOGRAM_COUNTS(base::FieldTrial::MakeName("Pepper.PluginHung",
+                                                    kFieldTrialName), 1);
   }
 
   FOR_EACH_OBSERVER(WebContentsObserver, observers_,

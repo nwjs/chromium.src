@@ -61,7 +61,6 @@ void executeCalculateDrawTransformsAndVisibility(LayerChromium* rootLayer, float
     // We are probably not testing what is intended if the rootLayer bounds are empty.
     ASSERT(!rootLayer->bounds().isEmpty());
     CCLayerTreeHostCommon::calculateDrawTransforms(rootLayer, deviceViewportSize, deviceScaleFactor, dummyMaxTextureSize, dummyRenderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(dummyRenderSurfaceLayerList);
 }
 
 void executeCalculateDrawTransformsAndVisibility(CCLayerImpl* rootLayer, float deviceScaleFactor = 1)
@@ -76,7 +75,6 @@ void executeCalculateDrawTransformsAndVisibility(CCLayerImpl* rootLayer, float d
     // We are probably not testing what is intended if the rootLayer bounds are empty.
     ASSERT(!rootLayer->bounds().isEmpty());
     CCLayerTreeHostCommon::calculateDrawTransforms(rootLayer, deviceViewportSize, deviceScaleFactor, 0, dummyMaxTextureSize, dummyRenderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(dummyRenderSurfaceLayerList);
 }
 
 WebTransformationMatrix remove3DComponentOfMatrix(const WebTransformationMatrix& mat)
@@ -660,7 +658,6 @@ TEST(CCLayerTreeHostCommonTest, verifyRenderSurfaceListForRenderSurfaceWithClipp
     std::vector<scoped_refptr<LayerChromium> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(parent.get(), parent->bounds(), 1, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // The child layer's content is entirely outside the parent's clip rect, so the intermediate
     // render surface should not be listed here, even if it was forced to be created. Render surfaces without children or visible
@@ -688,7 +685,6 @@ TEST(CCLayerTreeHostCommonTest, verifyRenderSurfaceListForTransparentChild)
     std::vector<scoped_refptr<LayerChromium> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(parent.get(), parent->bounds(), 1, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Since the layer is transparent, renderSurface1->renderSurface() should not have gotten added anywhere.
     // Also, the drawable content rect should not have been extended by the children.
@@ -1344,8 +1340,6 @@ TEST(CCLayerTreeHostCommonTest, verifyClipRectCullsRenderSurfaces)
     std::vector<scoped_refptr<LayerChromium> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(parent.get(), parent->bounds(), 1, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
-
 
     ASSERT_EQ(2U, renderSurfaceLayerList.size());
     EXPECT_EQ(parent->id(), renderSurfaceLayerList[0]->id());
@@ -1457,7 +1451,6 @@ TEST(CCLayerTreeHostCommonTest, verifyDrawableContentRectForLayers)
     std::vector<scoped_refptr<LayerChromium> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(parent.get(), parent->bounds(), 1, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     EXPECT_RECT_EQ(IntRect(IntPoint(5, 5), IntSize(10, 10)), grandChild1->drawableContentRect());
     EXPECT_RECT_EQ(IntRect(IntPoint(15, 15), IntSize(5, 5)), grandChild3->drawableContentRect());
@@ -1523,7 +1516,6 @@ TEST(CCLayerTreeHostCommonTest, verifyClipRectIsPropagatedCorrectlyToSurfaces)
     std::vector<scoped_refptr<LayerChromium> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(parent.get(), parent->bounds(), 1, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     ASSERT_TRUE(grandChild1->renderSurface());
     ASSERT_TRUE(grandChild2->renderSurface());
@@ -2545,7 +2537,6 @@ TEST(CCLayerTreeHostCommonTest, verifyBackFaceCullingWithAnimatingTransforms)
     std::vector<scoped_refptr<LayerChromium> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(parent.get(), parent->bounds(), 1, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     EXPECT_FALSE(child->renderSurface());
     EXPECT_TRUE(animatingSurface->renderSurface());
@@ -2666,7 +2657,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForSingleLayer)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -2716,7 +2706,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForUninvertibleTransform)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -2771,7 +2760,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForSinglePositionedLayer)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -2819,7 +2807,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForSingleRotatedLayer)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -2876,7 +2863,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForSinglePerspectiveLayer)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -2941,7 +2927,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForSingleLayerWithScaledContents
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     // The visibleContentRect for testLayer is actually 100x100, even though its layout size is 50x50, positioned at 25x25.
@@ -3006,7 +2991,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForSimpleClippedLayer)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3097,7 +3081,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForMultiClippedRotatedLayer)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     // The grandChild is expected to create a renderSurface because it masksToBounds and is not axis aligned.
@@ -3180,7 +3163,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForNonClippingIntermediateLayer)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3261,7 +3243,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForMultipleLayers)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     ASSERT_TRUE(child1);
@@ -3370,7 +3351,6 @@ TEST(CCLayerTreeHostCommonTest, verifyHitTestingForMultipleLayerLists)
     std::vector<CCLayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
     CCLayerTreeHostCommon::calculateDrawTransforms(root.get(), root->bounds(), 1, 0, dummyMaxTextureSize, renderSurfaceLayerList);
-    CCLayerTreeHostCommon::calculateVisibleRects(renderSurfaceLayerList);
 
     // Sanity check the scenario we just created.
     ASSERT_TRUE(child1);

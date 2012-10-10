@@ -12,6 +12,7 @@
 #include "base/path_service.h"
 #include "base/scoped_temp_dir.h"
 #include "base/string_number_conversions.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/app_shortcut_manager.h"
 #include "chrome/browser/extensions/component_loader.h"
@@ -51,12 +52,9 @@ ExtensionBrowserTest::ExtensionBrowserTest()
       target_visible_page_action_count_(-1),
       current_channel_(chrome::VersionInfo::CHANNEL_DEV) {
   EXPECT_TRUE(temp_dir_.CreateUniqueTempDir());
-  extensions::AppShortcutManager::SetShortcutCreationDisabledForTesting(true);
 }
 
-ExtensionBrowserTest::~ExtensionBrowserTest() {
-  extensions::AppShortcutManager::SetShortcutCreationDisabledForTesting(false);
-}
+ExtensionBrowserTest::~ExtensionBrowserTest() {}
 
 void ExtensionBrowserTest::SetUpCommandLine(CommandLine* command_line) {
   PathService::Get(chrome::DIR_TEST_DATA, &test_data_dir_);

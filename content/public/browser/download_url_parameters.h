@@ -10,7 +10,6 @@
 
 #include "base/basictypes.h"
 #include "base/callback.h"
-#include "content/public/browser/download_id.h"
 #include "content/public/browser/download_save_info.h"
 #include "content/public/common/referrer.h"
 #include "googleurl/src/gurl.h"
@@ -18,6 +17,7 @@
 
 namespace content {
 
+class DownloadItem;
 class ResourceContext;
 class ResourceDispatcherHost;
 class WebContents;
@@ -38,8 +38,8 @@ class WebContents;
 
 class CONTENT_EXPORT DownloadUrlParameters {
  public:
-  // If there is an error, the DownloadId will be invalid.
-  typedef base::Callback<void(DownloadId, net::Error)> OnStartedCallback;
+  // If there is an error, then |item| will be NULL.
+  typedef base::Callback<void(DownloadItem*, net::Error)> OnStartedCallback;
 
   typedef std::pair<std::string, std::string> RequestHeadersNameValuePair;
   typedef std::vector<RequestHeadersNameValuePair> RequestHeadersType;

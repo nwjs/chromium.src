@@ -3,8 +3,17 @@
   Use of this source code is governed by a BSD-style license that can be
   found in the LICENSE file.
 -->
-<project default="debug">
+<project default="error">
   <property name="ant.project.name" value="${APK_NAME}"/>
+  <!--
+    Gyp will pass CONFIGURATION_NAME as the target for ant to build. These targets will call the
+    appropriate sdk tools target.
+  -->
+  <target name="Debug" depends="debug"/>
+  <target name="Release" depends="release"/>
+  <target name="error">
+    <fail message="CONFIGURATION_NAME should be passed as a target to ant."/>
+  </target>
 
   <description>
     Building ${ant.project.name}.apk
@@ -28,6 +37,13 @@
   <property-location name="native.libs.absolute.dir" location="${out.dir}/libs"
       check-exists="false"/>
 
+  <property-value name="version.code" value="${APP_MANIFEST_VERSION_CODE}"/>
+  <property-value name="version.name" value="${APP_MANIFEST_VERSION_NAME}"/>
+
+  <property name="proguard.config" value="${PROGUARD_FLAGS}"/>
+  <property name="proguard.enabled" value="${PROGUARD_ENABLED}"/>
+  <!-- TODO(shashishekhar): Enable emma and code-coverage filters. -->
+
   <condition property="asset.absolute.dir"
       value="${out.dir}/assets"
       else="${ASSET_DIR}">
@@ -39,13 +55,13 @@
       location="${apks.dir}/${ant.project.name}-debug.apk"
       check-exists="false"/>
 
-  <path id="out.dex.jar.input.ref">
+  <!-- Classpath for javac -->
+  <path id="javac.custom.classpath">
     <filelist files="${INPUT_JARS_PATHS}"/>
   </path>
 
-  <!-- Classpath for javac -->
-  <path id="javac.custom.classpath">
-    <path refid="out.dex.jar.input.ref"/>
+  <path id="out.dex.jar.input.ref">
+    <path refid="javac.custom.classpath"/>
   </path>
 
   <import file="sdk-targets.xml"/>

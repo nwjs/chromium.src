@@ -161,6 +161,10 @@ void PanelCocoa::NotifyPanelOnUserChangedTheme() {
   NOTIMPLEMENTED();
 }
 
+void PanelCocoa::PanelWebContentsFocused(content::WebContents* contents) {
+  // Nothing to do.
+}
+
 void PanelCocoa::PanelCut() {
   // Nothing to do since we do not have panel-specific system menu on Mac.
 }
@@ -290,6 +294,7 @@ class CocoaNativePanelTesting : public NativePanelTesting {
   virtual void FinishDragTitlebar() OVERRIDE;
   virtual bool VerifyDrawingAttention() const OVERRIDE;
   virtual bool VerifyActiveState(bool is_active) OVERRIDE;
+  virtual bool VerifyAppIcon() const OVERRIDE;
   virtual bool IsWindowSizeKnown() const OVERRIDE;
   virtual bool IsAnimatingBounds() const OVERRIDE;
   virtual bool IsButtonVisible(
@@ -355,6 +360,11 @@ bool CocoaNativePanelTesting::VerifyDrawingAttention() const {
 bool CocoaNativePanelTesting::VerifyActiveState(bool is_active) {
   // TODO(jianli): to be implemented.
   return false;
+}
+
+bool CocoaNativePanelTesting::VerifyAppIcon() const {
+// Nothing to do since panel does not show dock icon.
+  return true;
 }
 
 bool CocoaNativePanelTesting::IsWindowSizeKnown() const {

@@ -38,6 +38,7 @@
 #include "ui/gfx/point.h"
 #include "ui/gfx/rect_conversions.h"
 #include "ui/gfx/size.h"
+#include "ui/gfx/size_conversions.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gl/gl_switches.h"
 #include "ui/surface/transport_dib.h"
@@ -1494,8 +1495,10 @@ void RenderWidget::OnMsgPaintAtSize(const TransportDIB::Handle& dib_handle,
   scoped_ptr<TransportDIB> paint_at_size_buffer(
       TransportDIB::CreateWithHandle(dib_handle));
 
-  gfx::Size page_size_in_pixel = page_size.Scale(device_scale_factor_);
-  gfx::Size desired_size_in_pixel = desired_size.Scale(device_scale_factor_);
+  gfx::Size page_size_in_pixel = gfx::ToFlooredSize(
+      page_size.Scale(device_scale_factor_));
+  gfx::Size desired_size_in_pixel = gfx::ToFlooredSize(
+      desired_size.Scale(device_scale_factor_));
   gfx::Size canvas_size = page_size_in_pixel;
   float x_scale = static_cast<float>(desired_size_in_pixel.width()) /
                   static_cast<float>(canvas_size.width());
@@ -1877,10 +1880,13 @@ bool RenderWidget::GetGpuRenderingStats(
 void RenderWidget::BeginSmoothScroll(
     bool down,
     bool scroll_far,
-    const SmoothScrollCompletionCallback& callback) {
+    const SmoothScrollCompletionCallback& callback,
+    int mouse_event_x,
+    int mouse_event_y) {
   DCHECK(!callback.is_null());
   int id = next_smooth_scroll_gesture_id_++;
-  Send(new ViewHostMsg_BeginSmoothScroll(routing_id_, id, down, scroll_far));
+  Send(new ViewHostMsg_BeginSmoothScroll(routing_id_, id, down, scroll_far,
+                                         mouse_event_x, mouse_event_y));
   pending_smooth_scroll_gestures_.insert(std::make_pair(id, callback));
 }
 

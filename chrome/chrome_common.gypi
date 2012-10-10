@@ -26,7 +26,6 @@
         # TODO(gregoryd): chrome_resources and chrome_strings could be
         #  shared with the 64-bit target, but it does not work due to a gyp
         # issue.
-        'common_constants',
         'common_net',
         'common_version',
         'metrics_proto',
@@ -39,6 +38,7 @@
         '<(DEPTH)/chrome/chrome_resources.gyp:chrome_strings',
         '<(DEPTH)/chrome/chrome_resources.gyp:theme_resources',
         '<(DEPTH)/chrome/common/extensions/api/api.gyp:api',
+        '<(DEPTH)/chrome/common_constants.gyp:common_constants',
         '<(DEPTH)/content/content.gyp:content_common',
         '<(DEPTH)/ipc/ipc.gyp:ipc',
         '<(DEPTH)/net/net.gyp:net',
@@ -367,11 +367,7 @@
             '../build/linux/system.gyp:selinux',
           ],
         }],
-        ['chromeos==0', {
-          'sources!': [
-            'common/chrome_version_info_chromeos.cc',
-          ],
-        }, {  # chromeos==1
+        ['chromeos==1', {
           'sources!': [
             'common/chrome_version_info_linux.cc',
           ],

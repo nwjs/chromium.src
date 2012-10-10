@@ -1049,7 +1049,7 @@ public:
     {
         EXPECT_EQ(IntSize(20, 20), impl->layoutViewportSize());
         EXPECT_EQ(SK_ColorGRAY, impl->backgroundColor());
-        EXPECT_EQ(5, impl->pageScale());
+        EXPECT_EQ(5, impl->pageScaleFactor());
 
         endTest();
     }
@@ -1088,7 +1088,7 @@ public:
     {
         impl->rootLayer()->setScrollable(true);
         impl->rootLayer()->setScrollPosition(IntPoint());
-        impl->setPageScaleFactorAndLimits(impl->pageScale(), 0.5, 2);
+        impl->setPageScaleFactorAndLimits(impl->pageScaleFactor(), 0.5, 2);
 
         // We request animation only once.
         if (!m_animationRequested) {
@@ -1109,7 +1109,7 @@ public:
         impl->processScrollDeltas();
         // We get one commit before the first draw, and the animation doesn't happen until the second draw.
         if (impl->sourceFrameNumber() == 1) {
-            EXPECT_EQ(1.25, impl->pageScale());
+            EXPECT_EQ(1.25, impl->pageScaleFactor());
             endTest();
         } else
             postSetNeedsRedrawToMainThread();
@@ -2401,7 +2401,7 @@ SINGLE_AND_MULTI_THREAD_TEST_F(CCLayerTreeHostTestSurfaceNotAllocatedForLayersOu
 
 class EvictionTrackingTexture : public LayerTextureUpdater::Texture {
 public:
-    static PassOwnPtr<EvictionTrackingTexture> create(PassOwnPtr<CCPrioritizedTexture> texture) { return adoptPtr(new EvictionTrackingTexture(texture)); }
+    static PassOwnPtr<EvictionTrackingTexture> create(scoped_ptr<CCPrioritizedTexture> texture) { return adoptPtr(new EvictionTrackingTexture(texture.Pass())); }
     virtual ~EvictionTrackingTexture() { }
 
     virtual void updateRect(CCResourceProvider* resourceProvider, const IntRect&, const IntSize&) OVERRIDE
@@ -2414,8 +2414,8 @@ public:
     bool updated() const { return m_updated; }
 
 private:
-    explicit EvictionTrackingTexture(PassOwnPtr<CCPrioritizedTexture> texture)
-        : LayerTextureUpdater::Texture(texture)
+    explicit EvictionTrackingTexture(scoped_ptr<CCPrioritizedTexture> texture)
+        : LayerTextureUpdater::Texture(texture.Pass())
         , m_updated(false)
     { }
     bool m_updated;

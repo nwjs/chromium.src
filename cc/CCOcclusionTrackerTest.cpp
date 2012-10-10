@@ -255,7 +255,6 @@ protected:
         ASSERT(!root->renderSurface());
 
         CCLayerTreeHostCommon::calculateDrawTransforms(root, root->bounds(), 1, &layerSorter, dummyMaxTextureSize, m_renderSurfaceLayerListImpl);
-        CCLayerTreeHostCommon::calculateVisibleRects(m_renderSurfaceLayerListImpl);
 
         m_layerIterator = m_layerIteratorBegin = Types::LayerIterator::begin(&m_renderSurfaceLayerListImpl);
     }
@@ -268,7 +267,6 @@ protected:
         ASSERT(!root->renderSurface());
 
         CCLayerTreeHostCommon::calculateDrawTransforms(root, root->bounds(), 1, dummyMaxTextureSize, m_renderSurfaceLayerListChromium);
-        CCLayerTreeHostCommon::calculateVisibleRects(m_renderSurfaceLayerListChromium);
 
         m_layerIterator = m_layerIteratorBegin = Types::LayerIterator::begin(&m_renderSurfaceLayerListChromium);
     }

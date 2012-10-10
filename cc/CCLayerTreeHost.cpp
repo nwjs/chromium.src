@@ -134,17 +134,13 @@ CCLayerTreeHost::~CCLayerTreeHost()
         m_rootLayer->setLayerTreeHost(0);
     ASSERT(CCProxy::isMainThread());
     TRACE_EVENT0("cc", "CCLayerTreeHost::~CCLayerTreeHost");
-    ASSERT(m_proxy);
+    ASSERT(m_proxy.get());
     m_proxy->stop();
-    m_proxy.clear();
+    m_proxy.reset();
     numLayerTreeInstances--;
     RateLimiterMap::iterator it = m_rateLimiters.begin();
     if (it != m_rateLimiters.end())
-#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
-        it->value->stop();
-#else
         it->second->stop();
-#endif
 }
 
 void CCLayerTreeHost::setSurfaceReady()
@@ -380,10 +376,10 @@ bool CCLayerTreeHost::commitRequested() const
     return m_proxy->commitRequested();
 }
 
-void CCLayerTreeHost::setAnimationEvents(PassOwnPtr<CCAnimationEventsVector> events, double wallClockTime)
+void CCLayerTreeHost::setAnimationEvents(scoped_ptr<CCAnimationEventsVector> events, double wallClockTime)
 {
     ASSERT(CCThreadProxy::isMainThread());
-    setAnimationEventsRecursive(*events, m_rootLayer.get(), wallClockTime);
+    setAnimationEventsRecursive(*events.get(), m_rootLayer.get(), wallClockTime);
 }
 
 void CCLayerTreeHost::didAddAnimation()
@@ -542,6 +538,23 @@ static void setScale(LayerChromium* layer, float deviceScaleFactor, float pageSc
         layer->setContentsScale(deviceScaleFactor * pageScaleFactor);
 }
 
+static LayerChromium* findFirstScrollableLayer(LayerChromium* layer)
+{
+    if (!layer)
+        return 0;
+
+    if (layer->scrollable())
+        return layer;
+
+    for (size_t i = 0; i < layer->children().size(); ++i) {
+        LayerChromium* found = findFirstScrollableLayer(layer->children()[i].get());
+        if (found)
+            return found;
+    }
+
+    return 0;
+}
+
 static void updateLayerScale(LayerChromium* layer, float deviceScaleFactor, float pageScaleFactor)
 {
     setScale(layer, deviceScaleFactor, pageScaleFactor);
@@ -568,9 +581,14 @@ void CCLayerTreeHost::updateLayers(LayerChromium* rootLayer, CCTextureUpdateQueu
     LayerList updateList;
 
     {
+        if (CCSettings::pageScalePinchZoomEnabled()) {
+            LayerChromium* rootScroll = findFirstScrollableLayer(rootLayer);
+            if (rootScroll)
+                rootScroll->setImplTransform(m_implTransform);
+        }
+
         TRACE_EVENT0("cc", "CCLayerTreeHost::updateLayers::calcDrawEtc");
         CCLayerTreeHostCommon::calculateDrawTransforms(rootLayer, deviceViewportSize(), m_deviceScaleFactor, rendererCapabilities().maxTextureSize, updateList);
-        CCLayerTreeHostCommon::calculateVisibleRects(updateList);
     }
 
     // Reset partial texture update requests.
@@ -706,23 +724,6 @@ bool CCLayerTreeHost::paintLayerContents(const LayerList& renderSurfaceLayerList
     return needMoreUpdates;
 }
 
-static LayerChromium* findFirstScrollableLayer(LayerChromium* layer)
-{
-    if (!layer)
-        return 0;
-
-    if (layer->scrollable())
-        return layer;
-
-    for (size_t i = 0; i < layer->children().size(); ++i) {
-        LayerChromium* found = findFirstScrollableLayer(layer->children()[i].get());
-        if (found)
-            return found;
-    }
-
-    return 0;
-}
-
 void CCLayerTreeHost::applyScrollAndScale(const CCScrollAndScaleSet& info)
 {
     if (!m_rootLayer)
@@ -744,6 +745,11 @@ void CCLayerTreeHost::applyScrollAndScale(const CCScrollAndScaleSet& info)
         m_client->applyScrollAndScale(rootScrollDelta, info.pageScaleDelta);
 }
 
+void CCLayerTreeHost::setImplTransform(const WebKit::WebTransformationMatrix& transform)
+{
+    m_implTransform = transform;
+}
+
 void CCLayerTreeHost::startRateLimiter(WebKit::WebGraphicsContext3D* context)
 {
     if (m_animating)
@@ -752,14 +758,10 @@ void CCLayerTreeHost::startRateLimiter(WebKit::WebGraphicsContext3D* context)
     ASSERT(context);
     RateLimiterMap::iterator it = m_rateLimiters.find(context);
     if (it != m_rateLimiters.end())
-#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
-        it->value->start();
-#else
         it->second->start();
-#endif
     else {
-        RefPtr<RateLimiter> rateLimiter = RateLimiter::create(context, this);
-        m_rateLimiters.set(context, rateLimiter);
+        scoped_refptr<RateLimiter> rateLimiter = RateLimiter::create(context, this);
+        m_rateLimiters[context] = rateLimiter;
         rateLimiter->start();
     }
 }
@@ -768,12 +770,8 @@ void CCLayerTreeHost::stopRateLimiter(WebKit::WebGraphicsContext3D* context)
 {
     RateLimiterMap::iterator it = m_rateLimiters.find(context);
     if (it != m_rateLimiters.end()) {
-#if WTF_NEW_HASHMAP_ITERATORS_INTERFACE
-        it->value->stop();
-#else
         it->second->stop();
-#endif
-        m_rateLimiters.remove(it);
+        m_rateLimiters.erase(it);
     }
 }
 
@@ -798,9 +796,9 @@ bool CCLayerTreeHost::requestPartialTextureUpdate()
     return true;
 }
 
-void CCLayerTreeHost::deleteTextureAfterCommit(PassOwnPtr<CCPrioritizedTexture> texture)
+void CCLayerTreeHost::deleteTextureAfterCommit(scoped_ptr<CCPrioritizedTexture> texture)
 {
-    m_deleteTextureAfterCommitList.append(texture);
+    m_deleteTextureAfterCommitList.append(texture.Pass());
 }
 
 void CCLayerTreeHost::setDeviceScaleFactor(float deviceScaleFactor)

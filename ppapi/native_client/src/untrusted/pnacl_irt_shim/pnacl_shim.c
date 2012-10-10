@@ -3,7 +3,7 @@
  * found in the LICENSE file.
  */
 
-/* Last generated from IDL: Thu Oct  4 12:24:28 2012. */
+/* Last generated from IDL: Mon Oct  8 16:28:58 2012. */
 #include "ppapi/generators/pnacl_shim.h"
 
 #include "ppapi/c/ppb.h"
@@ -70,12 +70,13 @@
 #include "ppapi/c/private/ppb_flash.h"
 #include "ppapi/c/private/ppb_flash_clipboard.h"
 #include "ppapi/c/private/ppb_flash_device_id.h"
+#include "ppapi/c/private/ppb_flash_font_file.h"
 #include "ppapi/c/private/ppb_flash_fullscreen.h"
 #include "ppapi/c/private/ppb_flash_message_loop.h"
 #include "ppapi/c/private/ppb_flash_print.h"
 #include "ppapi/c/private/ppb_flash_tcp_socket.h"
-#include "ppapi/c/private/ppb_flash_udp_socket.h"
 #include "ppapi/c/private/ppb_host_resolver_private.h"
+#include "ppapi/c/private/ppb_instance_private.h"
 #include "ppapi/c/private/ppb_net_address_private.h"
 #include "ppapi/c/private/ppb_network_list_private.h"
 #include "ppapi/c/private/ppb_network_monitor_private.h"
@@ -212,13 +213,14 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_12_5;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Clipboard_3_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Clipboard_4_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_DeviceID_1_0;
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_FontFile_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_FlashFullscreen_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_FlashFullscreen_1_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_MessageLoop_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Print_1_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2;
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_HostResolver_Private_0_1;
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Instance_Private_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_NetAddress_Private_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_NetAddress_Private_1_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_NetAddress_Private_1_1;
@@ -2564,6 +2566,8 @@ int32_t Pnacl_M21_PPB_Flash_DeviceID_GetDeviceID(PP_Resource device_id, struct P
 
 /* End wrapper methods for PPB_Flash_DeviceID_1_0 */
 
+/* Not generating wrapper methods for PPB_Flash_FontFile_0_1 */
+
 /* Not generating wrapper methods for PPB_FlashFullscreen_0_1 */
 
 /* Not generating wrapper methods for PPB_FlashFullscreen_1_0 */
@@ -2636,52 +2640,6 @@ void Pnacl_M15_PPB_Flash_TCPSocket_Disconnect(PP_Resource tcp_socket) {
 
 /* End wrapper methods for PPB_Flash_TCPSocket_0_2 */
 
-/* Begin wrapper methods for PPB_Flash_UDPSocket_0_1 */
-
-static __attribute__((pnaclcall))
-PP_Resource Pnacl_M16_PPB_Flash_UDPSocket_Create(PP_Instance instance_id) {
-  const struct PPB_Flash_UDPSocket_0_1 *iface = Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1.real_iface;
-  return iface->Create(instance_id);
-}
-
-static __attribute__((pnaclcall))
-PP_Bool Pnacl_M16_PPB_Flash_UDPSocket_IsFlashUDPSocket(PP_Resource resource_id) {
-  const struct PPB_Flash_UDPSocket_0_1 *iface = Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1.real_iface;
-  return iface->IsFlashUDPSocket(resource_id);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M16_PPB_Flash_UDPSocket_Bind(PP_Resource udp_socket, const struct PP_NetAddress_Private* addr, struct PP_CompletionCallback callback) {
-  const struct PPB_Flash_UDPSocket_0_1 *iface = Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1.real_iface;
-  return iface->Bind(udp_socket, addr, callback);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M16_PPB_Flash_UDPSocket_RecvFrom(PP_Resource udp_socket, char* buffer, int32_t num_bytes, struct PP_CompletionCallback callback) {
-  const struct PPB_Flash_UDPSocket_0_1 *iface = Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1.real_iface;
-  return iface->RecvFrom(udp_socket, buffer, num_bytes, callback);
-}
-
-static __attribute__((pnaclcall))
-PP_Bool Pnacl_M16_PPB_Flash_UDPSocket_GetRecvFromAddress(PP_Resource udp_socket, struct PP_NetAddress_Private* addr) {
-  const struct PPB_Flash_UDPSocket_0_1 *iface = Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1.real_iface;
-  return iface->GetRecvFromAddress(udp_socket, addr);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M16_PPB_Flash_UDPSocket_SendTo(PP_Resource udp_socket, const char* buffer, int32_t num_bytes, const struct PP_NetAddress_Private* addr, struct PP_CompletionCallback callback) {
-  const struct PPB_Flash_UDPSocket_0_1 *iface = Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1.real_iface;
-  return iface->SendTo(udp_socket, buffer, num_bytes, addr, callback);
-}
-
-static __attribute__((pnaclcall))
-void Pnacl_M16_PPB_Flash_UDPSocket_Close(PP_Resource udp_socket) {
-  const struct PPB_Flash_UDPSocket_0_1 *iface = Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1.real_iface;
-  iface->Close(udp_socket);
-}
-
-/* End wrapper methods for PPB_Flash_UDPSocket_0_1 */
-
 /* Begin wrapper methods for PPB_HostResolver_Private_0_1 */
 
 static __attribute__((pnaclcall))
@@ -2721,6 +2679,28 @@ PP_Bool Pnacl_M19_PPB_HostResolver_Private_GetNetAddress(PP_Resource host_resolv
 }
 
 /* End wrapper methods for PPB_HostResolver_Private_0_1 */
+
+/* Begin wrapper methods for PPB_Instance_Private_0_1 */
+
+static __attribute__((pnaclcall))
+struct PP_Var Pnacl_M13_PPB_Instance_Private_GetWindowObject(PP_Instance instance) {
+  const struct PPB_Instance_Private_0_1 *iface = Pnacl_WrapperInfo_PPB_Instance_Private_0_1.real_iface;
+  return iface->GetWindowObject(instance);
+}
+
+static __attribute__((pnaclcall))
+struct PP_Var Pnacl_M13_PPB_Instance_Private_GetOwnerElementObject(PP_Instance instance) {
+  const struct PPB_Instance_Private_0_1 *iface = Pnacl_WrapperInfo_PPB_Instance_Private_0_1.real_iface;
+  return iface->GetOwnerElementObject(instance);
+}
+
+static __attribute__((pnaclcall))
+struct PP_Var Pnacl_M13_PPB_Instance_Private_ExecuteScript(PP_Instance instance, struct PP_Var script, struct PP_Var* exception) {
+  const struct PPB_Instance_Private_0_1 *iface = Pnacl_WrapperInfo_PPB_Instance_Private_0_1.real_iface;
+  return iface->ExecuteScript(instance, script, exception);
+}
+
+/* End wrapper methods for PPB_Instance_Private_0_1 */
 
 /* Begin wrapper methods for PPB_NetAddress_Private_0_1 */
 
@@ -3971,6 +3951,8 @@ struct PPB_Flash_DeviceID_1_0 Pnacl_Wrappers_PPB_Flash_DeviceID_1_0 = {
     .GetDeviceID = (int32_t (*)(PP_Resource device_id, struct PP_Var* id, struct PP_CompletionCallback callback))&Pnacl_M21_PPB_Flash_DeviceID_GetDeviceID
 };
 
+/* Not generating wrapper interface for PPB_Flash_FontFile_0_1 */
+
 /* Not generating wrapper interface for PPB_FlashFullscreen_0_1 */
 
 /* Not generating wrapper interface for PPB_FlashFullscreen_1_0 */
@@ -3992,16 +3974,6 @@ struct PPB_Flash_TCPSocket_0_2 Pnacl_Wrappers_PPB_Flash_TCPSocket_0_2 = {
     .Disconnect = (void (*)(PP_Resource tcp_socket))&Pnacl_M15_PPB_Flash_TCPSocket_Disconnect
 };
 
-struct PPB_Flash_UDPSocket_0_1 Pnacl_Wrappers_PPB_Flash_UDPSocket_0_1 = {
-    .Create = (PP_Resource (*)(PP_Instance instance_id))&Pnacl_M16_PPB_Flash_UDPSocket_Create,
-    .IsFlashUDPSocket = (PP_Bool (*)(PP_Resource resource_id))&Pnacl_M16_PPB_Flash_UDPSocket_IsFlashUDPSocket,
-    .Bind = (int32_t (*)(PP_Resource udp_socket, const struct PP_NetAddress_Private* addr, struct PP_CompletionCallback callback))&Pnacl_M16_PPB_Flash_UDPSocket_Bind,
-    .RecvFrom = (int32_t (*)(PP_Resource udp_socket, char* buffer, int32_t num_bytes, struct PP_CompletionCallback callback))&Pnacl_M16_PPB_Flash_UDPSocket_RecvFrom,
-    .GetRecvFromAddress = (PP_Bool (*)(PP_Resource udp_socket, struct PP_NetAddress_Private* addr))&Pnacl_M16_PPB_Flash_UDPSocket_GetRecvFromAddress,
-    .SendTo = (int32_t (*)(PP_Resource udp_socket, const char* buffer, int32_t num_bytes, const struct PP_NetAddress_Private* addr, struct PP_CompletionCallback callback))&Pnacl_M16_PPB_Flash_UDPSocket_SendTo,
-    .Close = (void (*)(PP_Resource udp_socket))&Pnacl_M16_PPB_Flash_UDPSocket_Close
-};
-
 struct PPB_HostResolver_Private_0_1 Pnacl_Wrappers_PPB_HostResolver_Private_0_1 = {
     .Create = (PP_Resource (*)(PP_Instance instance))&Pnacl_M19_PPB_HostResolver_Private_Create,
     .IsHostResolver = (PP_Bool (*)(PP_Resource resource))&Pnacl_M19_PPB_HostResolver_Private_IsHostResolver,
@@ -4009,6 +3981,12 @@ struct PPB_HostResolver_Private_0_1 Pnacl_Wrappers_PPB_HostResolver_Private_0_1 
     .GetCanonicalName = (struct PP_Var (*)(PP_Resource host_resolver))&Pnacl_M19_PPB_HostResolver_Private_GetCanonicalName,
     .GetSize = (uint32_t (*)(PP_Resource host_resolver))&Pnacl_M19_PPB_HostResolver_Private_GetSize,
     .GetNetAddress = (PP_Bool (*)(PP_Resource host_resolver, uint32_t index, struct PP_NetAddress_Private* addr))&Pnacl_M19_PPB_HostResolver_Private_GetNetAddress
+};
+
+struct PPB_Instance_Private_0_1 Pnacl_Wrappers_PPB_Instance_Private_0_1 = {
+    .GetWindowObject = (struct PP_Var (*)(PP_Instance instance))&Pnacl_M13_PPB_Instance_Private_GetWindowObject,
+    .GetOwnerElementObject = (struct PP_Var (*)(PP_Instance instance))&Pnacl_M13_PPB_Instance_Private_GetOwnerElementObject,
+    .ExecuteScript = (struct PP_Var (*)(PP_Instance instance, struct PP_Var script, struct PP_Var* exception))&Pnacl_M13_PPB_Instance_Private_ExecuteScript
 };
 
 struct PPB_NetAddress_Private_0_1 Pnacl_Wrappers_PPB_NetAddress_Private_0_1 = {
@@ -4768,6 +4746,12 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_DeviceID_1_0 = {
   .real_iface = NULL
 };
 
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_FontFile_0_1 = {
+  .iface_macro = PPB_FLASH_FONTFILE_INTERFACE_0_1,
+  .wrapped_iface = NULL /* Still need slot for real_iface */,
+  .real_iface = NULL
+};
+
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_FlashFullscreen_0_1 = {
   .iface_macro = PPB_FLASHFULLSCREEN_INTERFACE_0_1,
   .wrapped_iface = NULL /* Still need slot for real_iface */,
@@ -4798,15 +4782,15 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2 = {
   .real_iface = NULL
 };
 
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1 = {
-  .iface_macro = PPB_FLASH_UDPSOCKET_INTERFACE_0_1,
-  .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_Flash_UDPSocket_0_1,
-  .real_iface = NULL
-};
-
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_HostResolver_Private_0_1 = {
   .iface_macro = PPB_HOSTRESOLVER_PRIVATE_INTERFACE_0_1,
   .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_HostResolver_Private_0_1,
+  .real_iface = NULL
+};
+
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Instance_Private_0_1 = {
+  .iface_macro = PPB_INSTANCE_PRIVATE_INTERFACE_0_1,
+  .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_Instance_Private_0_1,
   .real_iface = NULL
 };
 
@@ -5012,13 +4996,14 @@ static struct __PnaclWrapperInfo *s_ppb_wrappers[] = {
   &Pnacl_WrapperInfo_PPB_Flash_Clipboard_3_0,
   &Pnacl_WrapperInfo_PPB_Flash_Clipboard_4_0,
   &Pnacl_WrapperInfo_PPB_Flash_DeviceID_1_0,
+  &Pnacl_WrapperInfo_PPB_Flash_FontFile_0_1,
   &Pnacl_WrapperInfo_PPB_FlashFullscreen_0_1,
   &Pnacl_WrapperInfo_PPB_FlashFullscreen_1_0,
   &Pnacl_WrapperInfo_PPB_Flash_MessageLoop_0_1,
   &Pnacl_WrapperInfo_PPB_Flash_Print_1_0,
   &Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2,
-  &Pnacl_WrapperInfo_PPB_Flash_UDPSocket_0_1,
   &Pnacl_WrapperInfo_PPB_HostResolver_Private_0_1,
+  &Pnacl_WrapperInfo_PPB_Instance_Private_0_1,
   &Pnacl_WrapperInfo_PPB_NetAddress_Private_0_1,
   &Pnacl_WrapperInfo_PPB_NetAddress_Private_1_0,
   &Pnacl_WrapperInfo_PPB_NetAddress_Private_1_1,

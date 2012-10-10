@@ -18,9 +18,11 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/managed_mode.h"
 #include "chrome/browser/native_window_notification_source.h"
 #include "chrome/browser/ntp_background_util.h"
+#include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/avatar_menu_model.h"
 #include "chrome/browser/profiles/profile.h"
@@ -351,6 +353,7 @@ BrowserView::BrowserView(Browser* browser)
       ALLOW_THIS_IN_INITIALIZER_LIST(color_change_listener_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(activate_modal_dialog_factory_(this)) {
   browser_->tab_strip_model()->AddObserver(this);
+  browser_->search_model()->AddObserver(this);
 }
 
 BrowserView::~BrowserView() {
@@ -366,6 +369,7 @@ BrowserView::~BrowserView() {
 #endif
 
   browser_->tab_strip_model()->RemoveObserver(this);
+  browser_->search_model()->RemoveObserver(this);
 
 #if defined(OS_WIN) && !defined(USE_AURA)
   // Stop hung plugin monitoring.
@@ -845,18 +849,23 @@ void BrowserView::ToolbarSizeChanged(bool is_animating) {
   // changed.  We have to do this after the block above so that the toolbars are
   // laid out correctly for calculating the maximum arrow height below.
   {
-    const LocationIconView* location_icon_view =
-        toolbar_->location_bar()->location_icon_view();
-    // The +1 in the next line creates a 1-px gap between icon and arrow tip.
-    gfx::Point icon_bottom(0, location_icon_view->GetImageBounds().bottom() -
-        LocationBarView::kIconInternalPadding + 1);
-    ConvertPointToTarget(location_icon_view, this, &icon_bottom);
-    gfx::Point infobar_top(0, infobar_container_->GetVerticalOverlap(NULL));
-    ConvertPointToTarget(infobar_container_, this, &infobar_top);
-
+    int top_arrow_height = 0;
+    // Hide the arrows on the Instant Extended NTP.
+    if (!chrome::search::IsInstantExtendedAPIEnabled(browser()->profile()) ||
+        !browser()->search_model()->mode().is_ntp()) {
+      const LocationIconView* location_icon_view =
+          toolbar_->location_bar()->location_icon_view();
+      // The +1 in the next line creates a 1-px gap between icon and arrow tip.
+      gfx::Point icon_bottom(0, location_icon_view->GetImageBounds().bottom() -
+          LocationBarView::kIconInternalPadding + 1);
+      ConvertPointToTarget(location_icon_view, this, &icon_bottom);
+      gfx::Point infobar_top(0, infobar_container_->GetVerticalOverlap(NULL));
+      ConvertPointToTarget(infobar_container_, this, &infobar_top);
+      top_arrow_height = infobar_top.y() - icon_bottom.y();
+    }
     AutoReset<CallState> resetter(&call_state,
         is_animating ? REENTRANT_FORCE_FAST_RESIZE : REENTRANT);
-    infobar_container_->SetMaxTopArrowHeight(infobar_top.y() - icon_bottom.y());
+    infobar_container_->SetMaxTopArrowHeight(top_arrow_height);
   }
 
   // When transitioning from animating to not animating we need to make sure the
@@ -1636,8 +1645,7 @@ bool BrowserView::GetSavedWindowPlacement(
     ui::WindowShowState* show_state) const {
   if (!ShouldSaveOrRestoreWindowPos())
     return false;
-  *bounds = chrome::GetSavedWindowBounds(browser_.get());
-  *show_state = chrome::GetSavedWindowShowState(browser_.get());
+  chrome::GetSavedWindowBoundsAndShowState(browser_.get(), bounds, show_state);
 
 #if defined(USE_ASH)
   if (browser_->is_type_popup() || browser_->is_type_panel()) {
@@ -2504,7 +2512,11 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
   // reparent the |contents_container_|.
   if (change_tab_contents)
     contents_container_->SetWebContents(NULL);
-  infobar_container_->ChangeTabContents(new_contents->infobar_tab_helper());
+  // Hide infobars when showing Instant Extended suggestions.
+  infobar_container_->ChangeTabContents(
+      (chrome::search::IsInstantExtendedAPIEnabled(browser()->profile()) &&
+          browser()->search_model()->mode().is_search_suggestions()) ?
+          NULL : new_contents->infobar_tab_helper());
   if (bookmark_bar_view_.get()) {
     bookmark_bar_view_->SetBookmarkBarState(
         browser_->bookmark_bar_state(),
@@ -2512,15 +2524,15 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
   }
   UpdateUIForContents(new_contents);
 
-  if (change_tab_contents)
-    contents_container_->SetWebContents(new_contents->web_contents());
-
 #if defined(USE_AURA)
   // |change_tab_contents| can mean same WebContents but different TabContents,
   // so let SearchViewController decide how it would handle |new_contents|.
   if (search_view_controller_.get())
     search_view_controller_->SetTabContents(new_contents);
 #endif
+
+  if (change_tab_contents)
+    contents_container_->SetWebContents(new_contents->web_contents());
 
   UpdateDevToolsForContents(new_contents);
   if (!browser_->tab_strip_model()->closing_all() && GetWidget()->IsActive() &&
@@ -2544,6 +2556,19 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
 
 gfx::Size BrowserView::GetResizeCornerSize() const {
   return ResizeCorner::GetSize();
+}
+
+void BrowserView::ModeChanged(const chrome::search::Mode& old_mode,
+                              const chrome::search::Mode& new_mode) {
+  // Hide infobars when showing Instant Extended suggestions and when moving
+  // from SUGGESTIONS to DEFAULT which happens when a URL is selected or typed
+  // from the NTP. Moving to DEFAULT will replace the infobars with those of the
+  // new tab contents, therefore we avoid the showing the current infobars for
+  // a brief moment.
+  bool hide_infobars = new_mode.is_search_suggestions() ||
+      (old_mode.is_search_suggestions() && new_mode.is_default());
+  infobar_container_->ChangeTabContents(
+      hide_infobars ? NULL : GetActiveTabContents()->infobar_tab_helper());
 }
 
 void BrowserView::CreateLauncherIcon() {
@@ -2596,8 +2621,8 @@ void BrowserView::ShowPasswordGenerationBubble(
   gfx::Rect bounds(origin, rect.size());
 
   // Create the bubble.
-  TabContents* tab_contents = GetActiveTabContents();
-  if (!tab_contents)
+  WebContents* web_contents = GetActiveWebContents();
+  if (!web_contents)
     return;
 
   PasswordGenerationBubbleView* bubble =
@@ -2605,8 +2630,8 @@ void BrowserView::ShowPasswordGenerationBubble(
           form,
           bounds,
           this,
-          tab_contents->web_contents()->GetRenderViewHost(),
-          tab_contents->password_manager(),
+          web_contents->GetRenderViewHost(),
+          PasswordManager::FromWebContents(web_contents),
           password_generator,
           browser_.get(),
           GetWidget()->GetThemeProvider());
@@ -2620,8 +2645,16 @@ void BrowserView::RestackLocationBarContainer() {
 #if defined(USE_AURA)
   if (search_view_controller_.get())
     search_view_controller_->StackAtTop();
+  if (preview_container_) {
+    // Keep the preview on top so that a doodle can be shown on the NTP in
+    // InstantExtended mode.
+    ui::Layer* native_view_layer =
+        preview_container_->web_contents()->GetNativeView()->layer();
+    native_view_layer->parent()->StackAtTop(native_view_layer);
+  }
 #endif
   toolbar_->location_bar_container()->StackAtTop();
+  infobar_container_->StackAtTop();
 }
 
 bool BrowserView::DoCutCopyPaste(void (content::RenderWidgetHost::*method)()) {

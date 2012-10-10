@@ -13,7 +13,6 @@
 #include "ash/system/web_notification/popup_bubble.h"
 #include "ash/system/web_notification/web_notification.h"
 #include "ash/system/web_notification/web_notification_bubble.h"
-#include "ash/system/web_notification/web_notification_contents_view.h"
 #include "ash/system/web_notification/web_notification_list.h"
 #include "ash/system/web_notification/web_notification_view.h"
 #include "ash/wm/shelf_layout_manager.h"
@@ -121,7 +120,8 @@ void WebNotificationTray::SetNotificationImage(const std::string& id,
   if (!notification_list_->SetNotificationImage(id, image))
     return;
   UpdateTrayAndBubble();
-  popup_bubble()->set_dirty(true);
+  if (popup_bubble())
+    popup_bubble()->set_dirty(true);
   ShowPopupBubble();
 }
 

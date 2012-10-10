@@ -18,10 +18,12 @@
 #include "ppapi/c/ppb_input_event.h"
 #include "ppapi/c/ppb_websocket.h"
 #include "ppapi/c/dev/pp_video_dev.h"
+#include "ppapi/c/private/pp_private_font_charset.h"
 #include "ppapi/c/private/ppb_network_monitor_private.h"
 #include "ppapi/shared_impl/api_id.h"
 
 struct PP_Flash_Menu;
+struct PP_FontDescription_Dev;
 struct PP_BrowserFont_Trusted_Description;
 struct PP_Size;
 
@@ -123,6 +125,7 @@ class ResourceCreationAPI {
   virtual PP_Resource CreateTCPServerSocketPrivate(PP_Instance instance) = 0;
   virtual PP_Resource CreateTCPSocketPrivate(PP_Instance instace) = 0;
   virtual PP_Resource CreateUDPSocketPrivate(PP_Instance instace) = 0;
+  virtual PP_Resource CreateWebSocket(PP_Instance instance) = 0;
   virtual PP_Resource CreateX509CertificatePrivate(PP_Instance instance) = 0;
 #if !defined(OS_NACL)
   virtual PP_Resource CreateAudioInput0_1(
@@ -142,6 +145,10 @@ class ResourceCreationAPI {
       PP_FileChooserMode_Dev mode,
       const char* accept_types) = 0;
   virtual PP_Resource CreateFlashDeviceID(PP_Instance instance) = 0;
+  virtual PP_Resource CreateFlashFontFile(
+      PP_Instance instance,
+      const PP_FontDescription_Dev* description,
+      PP_PrivateFontCharset charset) = 0;
   virtual PP_Resource CreateFlashMenu(PP_Instance instance,
                                       const PP_Flash_Menu* menu_data) = 0;
   virtual PP_Resource CreateFlashMessageLoop(PP_Instance instance) = 0;
@@ -154,7 +161,6 @@ class ResourceCreationAPI {
       PP_Instance instance,
       PP_Resource context3d_id,
       PP_VideoDecoder_Profile profile) = 0;
-  virtual PP_Resource CreateWebSocket(PP_Instance instance) = 0;
 #endif  // !defined(OS_NACL)
 
   static const ApiID kApiID = API_ID_RESOURCE_CREATION;

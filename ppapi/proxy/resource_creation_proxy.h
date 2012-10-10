@@ -122,6 +122,7 @@ class ResourceCreationProxy : public InterfaceProxy,
       PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateTCPSocketPrivate(PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateUDPSocketPrivate(PP_Instance instance) OVERRIDE;
+  virtual PP_Resource CreateWebSocket(PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateX509CertificatePrivate(
       PP_Instance instance) OVERRIDE;
 #if !defined(OS_NACL)
@@ -143,6 +144,10 @@ class ResourceCreationProxy : public InterfaceProxy,
       PP_FileChooserMode_Dev mode,
       const char* accept_types) OVERRIDE;
   virtual PP_Resource CreateFlashDeviceID(PP_Instance instance) OVERRIDE;
+  virtual PP_Resource CreateFlashFontFile(
+      PP_Instance instance,
+      const PP_FontDescription_Dev* description,
+      PP_PrivateFontCharset charset) OVERRIDE;
   virtual PP_Resource CreateFlashMenu(PP_Instance instance,
                                       const PP_Flash_Menu* menu_data) OVERRIDE;
   virtual PP_Resource CreateFlashMessageLoop(PP_Instance instance) OVERRIDE;
@@ -155,7 +160,6 @@ class ResourceCreationProxy : public InterfaceProxy,
       PP_Instance instance,
       PP_Resource context3d_id,
       PP_VideoDecoder_Profile profile) OVERRIDE;
-  virtual PP_Resource CreateWebSocket(PP_Instance instance) OVERRIDE;
 #endif  // !defined(OS_NACL)
 
   virtual bool Send(IPC::Message* msg) OVERRIDE;

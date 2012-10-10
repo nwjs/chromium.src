@@ -145,6 +145,8 @@ class ContentViewCoreImpl : public ContentViewCore,
   jint EvaluateJavaScript(JNIEnv* env, jobject obj, jstring script);
   int GetNativeImeAdapter(JNIEnv* env, jobject obj);
   void SetFocus(JNIEnv* env, jobject obj, jboolean focused);
+  void ScrollFocusedEditableNodeIntoView(JNIEnv* env, jobject obj);
+  void UndoScrollFocusedEditableNodeIntoView(JNIEnv* env, jobject obj);
 
   jint GetBackgroundColor(JNIEnv* env, jobject obj);
   void SetBackgroundColor(JNIEnv* env, jobject obj, jint color);
@@ -164,6 +166,8 @@ class ContentViewCoreImpl : public ContentViewCore,
                               jboolean require_annotation);
   void RemoveJavascriptInterface(JNIEnv* env, jobject obj, jstring name);
   int GetNavigationHistory(JNIEnv* env, jobject obj, jobject context);
+  void UpdateVSyncParameters(JNIEnv* env, jobject obj, jlong timebase_micros,
+                             jlong interval_micros);
 
   // --------------------------------------------------------------------------
   // Public methods that call to Java via JNI
@@ -230,9 +234,9 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   int GetTouchPadding();
 
-  void SendGestureEvent(WebKit::WebInputEvent::Type type, long time_ms,
-                        int x, int y);
-
+  float DpiScale() const;
+  WebKit::WebGestureEvent MakeGestureEvent(WebKit::WebInputEvent::Type type,
+                                           long time_ms, int x, int y) const;
   struct JavaObject;
   JavaObject* java_object_;
 
@@ -247,6 +251,8 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   // Whether the renderer backing this ContentViewCore has crashed.
   bool tab_crashed_;
+
+  float dpi_scale_;
 
   // The owning window that has a hold of main application activity.
   ui::WindowAndroid* window_android_;

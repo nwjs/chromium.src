@@ -22,6 +22,8 @@ class ObjectPath;
 
 namespace chromeos {
 
+class DBusThreadManagerObserver;
+
 // Style Note: Clients are sorted by names.
 class BluetoothAdapterClient;
 class BluetoothDeviceClient;
@@ -33,12 +35,6 @@ class CashewClient;
 class CrosDisksClient;
 class CryptohomeClient;
 class DebugDaemonClient;
-class ShillDeviceClient;
-class ShillIPConfigClient;
-class ShillManagerClient;
-class ShillNetworkClient;
-class ShillProfileClient;
-class ShillServiceClient;
 class GsmSMSClient;
 class IBusClient;
 class IBusEngineFactoryService;
@@ -52,6 +48,12 @@ class PermissionBrokerClient;
 class PowerManagerClient;
 class SMSClient;
 class SessionManagerClient;
+class ShillDeviceClient;
+class ShillIPConfigClient;
+class ShillManagerClient;
+class ShillNetworkClient;
+class ShillProfileClient;
+class ShillServiceClient;
 class SpeechSynthesizerClient;
 class UpdateEngineClient;
 
@@ -94,6 +96,10 @@ class CHROMEOS_EXPORT DBusThreadManager {
 
   // Gets the global instance. Initialize() must be called first.
   static DBusThreadManager* Get();
+
+  // Adds or removes an observer.
+  virtual void AddObserver(DBusThreadManagerObserver* observer) = 0;
+  virtual void RemoveObserver(DBusThreadManagerObserver* observer) = 0;
 
   // Creates new IBusBus instance to communicate with ibus-daemon with specified
   // ibus address. Must be called before using ibus related clients.
