@@ -13,35 +13,38 @@
 #include "base/mac/scoped_nsautorelease_pool.h"
 #endif
 
+namespace base {
+
 namespace {
 
-static uv_async_t g_wakeup_event;
-static uv_idle_t idle_handle;
-static bool timer_cb_called;
-
-static void wakeup_callback(uv_async_t* handle, int status) {
-  // do nothing
+void wakeup_callback(uv_async_t* handle, int status) {
+  // do nothing, just make libuv exit loop.
 }
 
-static void idle_null_cb(uv_idle_t* handle, int status) {
+void idle_callback(uv_idle_t* handle, int status) {
+  // do nothing, just make libuv exit loop.
 }
 
-static void timer_callback(uv_timer_t* timer, int status) {
+void timer_callback(uv_timer_t* timer, int status) {
   // libuv would block unexpectedly with zero-timeout timer
   // this is a workaround of libuv bug #574:
-  //  https://github.com/joyent/libuv/issues/574
-  timer_cb_called = true;
-  uv_idle_start(&idle_handle, idle_null_cb);
+  // https://github.com/joyent/libuv/issues/574
+  static_cast<MessagePumpUV*>(timer->data)->WakeupInSameThread();
 }
 
-}
-
-namespace base {
+}  // namespace
 
 MessagePumpUV::MessagePumpUV()
     : keep_running_(true)
 {
-  uv_async_init(uv_default_loop(), &g_wakeup_event, wakeup_callback);
+  wakeup_event_.data = this;
+  uv_async_init(uv_default_loop(), &wakeup_event_, wakeup_callback);
+
+  idle_handle_.data = this;
+  uv_idle_init(uv_default_loop(), &idle_handle_);
+
+  delay_timer_.data = this;
+  uv_timer_init(uv_default_loop(), &delay_timer_);
 }
 
 MessagePumpUV::~MessagePumpUV()
@@ -51,11 +54,7 @@ MessagePumpUV::~MessagePumpUV()
 void MessagePumpUV::Run(Delegate* delegate) {
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
 
-  uv_timer_t delay_timer;
-  uv_timer_init(uv_default_loop(), &delay_timer);
-  uv_idle_init(uv_default_loop(), &idle_handle);
   // Enter Loop
-
   for (;;) {
 #if defined(OS_MACOSX)
     mac::ScopedNSAutoreleasePool autorelease_pool;
@@ -84,11 +83,11 @@ void MessagePumpUV::Run(Delegate* delegate) {
     } else {
       TimeDelta delay = delayed_work_time_ - TimeTicks::Now();
       if (delay > TimeDelta()) {
-        uv_timer_start(&delay_timer, (uv_timer_cb)timer_callback,
+        uv_timer_start(&delay_timer_, timer_callback,
                        delay.InMilliseconds(), 0);
         uv_run_once(uv_default_loop());
-        uv_idle_stop(&idle_handle);
-        uv_timer_stop(&delay_timer);
+        uv_idle_stop(&idle_handle_);
+        uv_timer_stop(&delay_timer_);
       } else {
         // It looks like delayed_work_time_ indicates a time in the past, so we
         // need to call DoDelayedWork now.
@@ -109,7 +108,7 @@ void MessagePumpUV::Quit() {
 void MessagePumpUV::ScheduleWork() {
   // Since this can be called on any thread, we need to ensure that our Run
   // loop wakes up.
-  uv_async_send(&g_wakeup_event);
+  uv_async_send(&wakeup_event_);
 }
 
 void MessagePumpUV::ScheduleDelayedWork(
@@ -118,6 +117,11 @@ void MessagePumpUV::ScheduleDelayedWork(
   // only be called on the same thread as Run, so we only need to update our
   // record of how long to sleep when we do sleep.
   delayed_work_time_ = delayed_work_time;
+}
+
+void MessagePumpUV::WakeupInSameThread() {
+  // Calling idle_start is cheaper than calling async_send.
+  uv_idle_start(&idle_handle_, idle_callback);
 }
 
 }  // namespace base

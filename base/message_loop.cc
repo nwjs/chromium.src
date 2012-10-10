@@ -157,6 +157,7 @@ MessageLoop::MessageLoop(Type type)
 #if defined(OS_WIN)
 #define MESSAGE_PUMP_UI new base::MessagePumpForUI()
 #define MESSAGE_PUMP_IO new base::MessagePumpForIO()
+#define MESSAGE_PUMP_UV new base::MessagePumpUV()
 #elif defined(OS_MACOSX)
 #define MESSAGE_PUMP_UI base::MessagePumpMac::Create()
 #define MESSAGE_PUMP_NODE base::MessagePumpMac::Create(true)
@@ -171,11 +172,10 @@ MessageLoop::MessageLoop(Type type)
 #elif defined(OS_POSIX)  // POSIX but not MACOSX.
 #define MESSAGE_PUMP_UI new base::MessagePumpForUI()
 #define MESSAGE_PUMP_IO new base::MessagePumpLibevent()
+#define MESSAGE_PUMP_UV new base::MessagePumpUV()
 #else
 #error Not implemented
 #endif
-
-#define MESSAGE_PUMP_UV new base::MessagePumpUV()
 
   if (type_ == TYPE_UI) {
     if (message_pump_for_ui_factory_)

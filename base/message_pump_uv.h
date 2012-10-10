@@ -23,11 +23,19 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
   virtual void ScheduleWork() OVERRIDE;
   virtual void ScheduleDelayedWork(const TimeTicks& delayed_work_time) OVERRIDE;
 
+  // Wakeup loop cheaply.
+  void WakeupInSameThread();
+
  private:
   virtual ~MessagePumpUV();
 
   // This flag is set to false when Run should return.
   bool keep_running_;
+
+  // libuv structures.
+  uv_async_t wakeup_event_;
+  uv_idle_t idle_handle_;
+  uv_timer_t delay_timer_;
 
   TimeTicks delayed_work_time_;
 
