@@ -21,6 +21,7 @@
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_web_ui.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
+#include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/geolocation/geolocation_prefs.h"
 #include "chrome/browser/google/google_url_tracker.h"
 #include "chrome/browser/google/google_url_tracker_factory.h"
@@ -202,6 +203,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   chrome_browser_net::Predictor::RegisterUserPrefs(user_prefs);
   DownloadPrefs::RegisterUserPrefs(user_prefs);
   ExtensionWebUI::RegisterUserPrefs(user_prefs);
+  first_run::RegisterUserPrefs(user_prefs);
   GAIAInfoUpdateService::RegisterUserPrefs(user_prefs);
   HostContentSettingsMap::RegisterUserPrefs(user_prefs);
   IncognitoModePrefs::RegisterUserPrefs(user_prefs);

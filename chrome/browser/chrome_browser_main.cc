@@ -1190,11 +1190,12 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   }
 
   PrefService* pref_service = profile_->GetPrefs();
-  bool google_search_homepage = pref_service &&
-      google_util::IsGoogleHomePageUrl(
+  bool google_search_homepage = google_util::IsGoogleHomePageUrl(
           pref_service->GetString(prefs::kHomePage));
 
-  RLZTracker::InitRlzDelayed(is_first_run_, master_prefs_->ping_delay,
+  int ping_delay = is_first_run_ ? master_prefs_->ping_delay :
+      pref_service->GetInteger(first_run::GetPingDelayPrefName().c_str());
+  RLZTracker::InitRlzDelayed(is_first_run_, ping_delay,
                              google_search_default, google_search_homepage);
 
   // Prime the RLZ cache for the home page access point so that its avaiable
