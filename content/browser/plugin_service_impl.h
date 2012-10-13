@@ -115,6 +115,8 @@ class CONTENT_EXPORT PluginServiceImpl
   virtual void RegisterInternalPlugin(
       const webkit::WebPluginInfo& info, bool add_at_beginning) OVERRIDE;
   virtual string16 GetPluginGroupName(const std::string& plugin_name) OVERRIDE;
+  virtual void GetInternalPlugins(
+      std::vector<webkit::WebPluginInfo>* plugins) OVERRIDE;
   virtual webkit::npapi::PluginList* GetPluginList() OVERRIDE;
   virtual void SetPluginListForTesting(
       webkit::npapi::PluginList* plugin_list) OVERRIDE;

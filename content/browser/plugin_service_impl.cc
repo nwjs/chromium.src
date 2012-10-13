@@ -736,6 +736,11 @@ string16 PluginServiceImpl::GetPluginGroupName(const std::string& plugin_name) {
   return plugin_list_->GetPluginGroupName(plugin_name);
 }
 
+void PluginServiceImpl::GetInternalPlugins(
+    std::vector<webkit::WebPluginInfo>* plugins) {
+  plugin_list_->GetInternalPlugins(plugins);
+}
+
 webkit::npapi::PluginList* PluginServiceImpl::GetPluginList() {
   return plugin_list_;
 }
