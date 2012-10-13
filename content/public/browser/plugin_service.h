@@ -134,8 +134,6 @@ class PluginService {
   virtual void RegisterInternalPlugin(const webkit::WebPluginInfo& info,
                                       bool add_at_beginning) = 0;
   virtual string16 GetPluginGroupName(const std::string& plugin_name) = 0;
-  virtual void GetInternalPlugins(
-      std::vector<webkit::WebPluginInfo>* plugins) = 0;
 
   // TODO(dpranke): This should be private.
   virtual webkit::npapi::PluginList* GetPluginList() = 0;
