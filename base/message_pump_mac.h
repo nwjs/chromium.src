@@ -290,7 +290,7 @@ class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
 
 class MessagePumpCrApplication : public MessagePumpNSApplication {
  public:
-  MessagePumpCrApplication(bool forNode = false);
+  MessagePumpCrApplication();
 
  protected:
   virtual ~MessagePumpCrApplication() {}

@@ -619,8 +619,8 @@ void MessagePumpNSApplication::Quit() {
            atStart:NO];
 }
 
-MessagePumpCrApplication::MessagePumpCrApplication(bool forNode) 
- : MessagePumpNSApplication(forNode) {
+MessagePumpCrApplication::MessagePumpCrApplication() 
+ : MessagePumpNSApplication(false) {
 }
 
 // Prevents an autorelease pool from being created if the app is in the midst of
@@ -686,14 +686,14 @@ bool MessagePumpMac::IsHandlingSendEvent() {
 // static
 MessagePump* MessagePumpMac::Create(bool forNode) {
   if ([NSThread isMainThread]) {
-    if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kmNodejs))
-      forNode = false;
-
 #if defined(OS_IOS)
     return new MessagePumpUIApplication;
 #else
     if ([NSApp conformsToProtocol:@protocol(CrAppProtocol)])
-      return new MessagePumpCrApplication(forNode);
+      return new MessagePumpCrApplication();
+
+    if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kmNodejs))
+      forNode = false;
 
     // The main-thread MessagePump implementations REQUIRE an NSApp.
     // Executables which have specific requirements for their
