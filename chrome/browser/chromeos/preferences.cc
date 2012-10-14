@@ -408,6 +408,17 @@ void Preferences::NotifyPrefChanged(const std::string* pref_name) {
       UMA_HISTOGRAM_BOOLEAN("Touchpad.ThreeFingerClick.Started", enabled);
   }
   if (!pref_name || *pref_name == prefs::kNaturalScroll) {
+    // Force natural scroll to on if kNaturalScrollDefault is specified on the
+    // cmd line.
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kNaturalScrollDefault) &&
+        !pref_name &&
+        !prefs_->GetUserPrefValue(prefs::kNaturalScroll)) {
+      natural_scroll_.SetValue(true);
+      DVLOG(1) << "Natural scroll forced to true";
+      UMA_HISTOGRAM_BOOLEAN("Touchpad.NaturalScroll.Forced", true);
+    }
+
     const bool enabled = natural_scroll_.GetValue();
     ui::SetNaturalScroll(enabled);
     if (pref_name)
