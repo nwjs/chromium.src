@@ -644,8 +644,11 @@ gfx::Size LocationBarView::GetPreferredSize() {
         location_entry_->GetFont()));
   int delta = chrome::search::IsInstantExtendedAPIEnabled(profile_) ?
       kSearchEditHeightPadding : 0;
-  return gfx::Size(0, GetThemeProvider()->GetImageSkiaNamed(mode_ == POPUP ?
-      IDR_LOCATIONBG_POPUPMODE_CENTER : IDR_LOCATIONBG_C)->height() + delta);
+  int sizing_image_id = mode_ == POPUP ? IDR_LOCATIONBG_POPUPMODE_CENTER :
+                                         IDR_LOCATION_BAR_BORDER;
+  return gfx::Size(
+      0,
+      GetThemeProvider()->GetImageSkiaNamed(sizing_image_id)->height() + delta);
 }
 
 void LocationBarView::Layout() {
