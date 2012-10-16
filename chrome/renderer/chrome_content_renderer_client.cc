@@ -627,7 +627,7 @@ bool ChromeContentRendererClient::IsNaClAllowed(
     // TODO(dschuff): remove this when the ABI is stable
     (is_extension_from_webstore &&
      manifest_url.SchemeIs("chrome-extension") &&
-     IsWhiteListedARM(manifest_url) ||
+     IsWhiteListedARM(manifest_url)) ||
 #else
     is_extension_from_webstore ||
     is_whitelisted_url ||
