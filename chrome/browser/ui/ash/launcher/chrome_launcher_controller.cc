@@ -42,7 +42,6 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_resource.h"
-#include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/navigation_entry.h"
@@ -66,13 +65,6 @@ class AppShortcutLauncherItemController : public LauncherItemController {
   AppShortcutLauncherItemController(const std::string& app_id,
                                     ChromeLauncherController* controller)
       : LauncherItemController(TYPE_SHORTCUT, app_id, controller) {
-    // Google Drive should just refocus to it's main app UI.
-    // TODO[davemoore] Generalize this for other applications.
-    if (app_id == "apdfllckaahabafndbhieahigkjlhalf") {
-      const Extension* extension =
-          launcher_controller()->GetExtensionForAppID(app_id);
-      refocus_url_ = GURL(extension->launch_web_url() + "*");
-    }
   }
 
   virtual ~AppShortcutLauncherItemController() {}
@@ -109,16 +101,7 @@ class AppShortcutLauncherItemController : public LauncherItemController {
     delete this;
   }
 
-  virtual void LauncherItemChanged(int model_index,
-                                   const ash::LauncherItem& old_item) OVERRIDE {
-  }
-
-  // Stores the optional refocus url pattern for this item.
-  const GURL& refocus_url() const { return refocus_url_; }
-  void set_refocus_url(const GURL& refocus_url) { refocus_url_ = refocus_url; }
-
  private:
-  GURL refocus_url_;
   DISALLOW_COPY_AND_ASSIGN(AppShortcutLauncherItemController);
 };
 
@@ -353,51 +336,36 @@ void ChromeLauncherController::OpenAppID(const std::string& app_id,
                                          int event_flags) {
   // If there is an existing non-shortcut controller for this app, open it.
   ash::LauncherID id = GetLauncherIDForAppID(app_id);
-  URLPattern refocus_pattern(URLPattern::SCHEME_ALL);
-  refocus_pattern.SetMatchAllURLs(true);
-
   if (id > 0) {
     LauncherItemController* controller = id_to_item_controller_map_[id];
     if (controller->type() != LauncherItemController::TYPE_SHORTCUT) {
       controller->Open(event_flags);
       return;
     }
-
-    AppShortcutLauncherItemController* app_controller =
-        static_cast<AppShortcutLauncherItemController*>(controller);
-    const GURL refocus_url = app_controller->refocus_url();
-
-    if (!refocus_url.is_empty())
-      refocus_pattern.Parse(refocus_url.spec());
   }
 
   // Check if there are any open tabs for this app.
-  AppIDToTabContentsListMap::iterator app_i =
+  AppIDToTabContentsListMap::iterator i =
       app_id_to_tab_contents_list_.find(app_id);
-  if (app_i != app_id_to_tab_contents_list_.end()) {
-    for (TabContentsList::iterator tab_i = app_i->second.begin();
-         tab_i != app_i->second.end();
-         ++tab_i) {
-      TabContents* tab = *tab_i;
-      const GURL tab_url = tab->web_contents()->GetURL();
-      if (refocus_pattern.MatchesURL(tab_url)) {
-        Browser* browser = browser::FindBrowserWithWebContents(
-            tab->web_contents());
-        TabStripModel* tab_strip = browser->tab_strip_model();
-        int index = tab_strip->GetIndexOfTabContents(tab);
-        DCHECK_NE(TabStripModel::kNoTab, index);
-        tab_strip->ActivateTabAt(index, false);
-        browser->window()->Show();
-        ash::wm::ActivateWindow(browser->window()->GetNativeWindow());
-        return;
-      }
-    }
-  }
 
-  const Extension* extension = GetExtensionForAppID(app_id);
-  extension_utils::OpenExtension(GetProfileForNewWindows(),
-                                 extension,
-                                 event_flags);
+  if (i != app_id_to_tab_contents_list_.end()) {
+    DCHECK(!i->second.empty());
+    TabContents* tab = i->second.front();
+    Browser* browser = browser::FindBrowserWithWebContents(
+        tab->web_contents());
+    TabStripModel* tab_strip = browser->tab_strip_model();
+    int index = tab_strip->GetIndexOfTabContents(tab);
+    DCHECK_NE(TabStripModel::kNoTab, index);
+    tab_strip->ActivateTabAt(index, false);
+    browser->window()->Show();
+    ash::wm::ActivateWindow(browser->window()->GetNativeWindow());
+  } else {
+    const Extension* extension =
+        profile_->GetExtensionService()->GetInstalledExtension(app_id);
+    extension_utils::OpenExtension(GetProfileForNewWindows(),
+                                   extension,
+                                   event_flags);
+  }
 }
 
 void ChromeLauncherController::Close(ash::LauncherID id) {
@@ -410,16 +378,6 @@ bool ChromeLauncherController::IsOpen(ash::LauncherID id) {
   if (!HasItemController(id))
     return false;
   return id_to_item_controller_map_[id]->IsOpen();
-}
-
-bool ChromeLauncherController::IsPlatformApp(ash::LauncherID id) {
-  if (!HasItemController(id))
-    return false;
-
-  std::string app_id = GetAppIDForLauncherID(id);
-  const Extension* extension = GetExtensionForAppID(app_id);
-  DCHECK(extension);
-  return extension->is_platform_app();
 }
 
 extensions::ExtensionPrefs::LaunchType ChromeLauncherController::GetLaunchType(
@@ -575,17 +533,11 @@ void ChromeLauncherController::UpdateAppState(TabContents* tab,
     RemoveTabFromRunningApp(tab, app_id);
   } else {
     TabContentsList& tab_list(app_id_to_tab_contents_list_[app_id]);
-
     if (app_state == APP_STATE_INACTIVE) {
       TabContentsList::const_iterator i_tab =
           std::find(tab_list.begin(), tab_list.end(), tab);
       if (i_tab == tab_list.end())
         tab_list.push_back(tab);
-      if (i_tab != tab_list.begin()) {
-        // Going inactive, but wasn't the front tab, indicating that a new
-        // tab has already become active.
-        return;
-      }
     } else {
       tab_list.remove(tab);
       tab_list.push_front(tab);
@@ -597,33 +549,6 @@ void ChromeLauncherController::UpdateAppState(TabContents* tab,
           ash::STATUS_ACTIVE : ash::STATUS_RUNNING);
     }
   }
-}
-
-void ChromeLauncherController::SetRefocusURLPattern(
-    ash::LauncherID id,
-    const GURL& url) {
-  DCHECK(HasItemController(id));
-  LauncherItemController* controller = id_to_item_controller_map_[id];
-
-  int index = model_->ItemIndexByID(id);
-  if (index == -1) {
-    NOTREACHED() << "Invalid launcher id";
-    return;
-  }
-
-  ash::LauncherItemType type = model_->items()[index].type;
-  if (type == ash::TYPE_APP_SHORTCUT) {
-    AppShortcutLauncherItemController* app_controller =
-        static_cast<AppShortcutLauncherItemController*>(controller);
-    app_controller->set_refocus_url(url);
-  } else {
-    NOTREACHED() << "Invalid launcher type";
-  }
-}
-
-const Extension* ChromeLauncherController::GetExtensionForAppID(
-    const std::string& app_id) {
-  return profile_->GetExtensionService()->GetInstalledExtension(app_id);
 }
 
 void ChromeLauncherController::CreateNewTab() {
@@ -704,8 +629,11 @@ void ChromeLauncherController::LauncherItemMoved(
 void ChromeLauncherController::LauncherItemChanged(
     int index,
     const ash::LauncherItem& old_item) {
-  ash::LauncherID id = model_->items()[index].id;
-  id_to_item_controller_map_[id]->LauncherItemChanged(index, old_item);
+  if (model_->items()[index].status == ash::STATUS_ACTIVE &&
+      old_item.status == ash::STATUS_RUNNING) {
+    ash::LauncherID id = model_->items()[index].id;
+    id_to_item_controller_map_[id]->Open(ui::EF_NONE);
+  }
 }
 
 void ChromeLauncherController::LauncherStatusChanged() {
