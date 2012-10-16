@@ -1,0 +1,313 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ *
+ * This is the stylesheet used by user pods row of account picker UI.
+ */
+
+podrow {
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  display: -webkit-box;
+  position: relative;
+}
+
+/* Hide the pod row while images are loading. */
+podrow.images-loading {
+  visibility: hidden;
+}
+
+html[oobe=old] podrow {
+  height: 230px;
+}
+
+.pod {
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+  padding: 10px;
+  position: relative;
+  text-align: center;
+}
+
+html[oobe=old] .pod {
+  -webkit-transition: all 230ms ease;
+  margin: 0 10px;
+  width: 170px;
+}
+
+html[oobe=new] .pod {
+  -webkit-transition: all 180ms ease;
+  background-color: white;
+  box-shadow: 0 4px 23px 5px rgba(0, 0, 0, 0.2),
+              0 2px 6px rgba(0, 0, 0, 0.15),
+              0 3px 0 rgba(0, 0, 0, 0.08);
+  margin: 0 20px;
+  padding-bottom: 3px;
+  width: 160px;
+}
+
+html[oobe=old] .pod .user-image {
+  -webkit-transition: all 140ms ease;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  box-shadow: 0 3px 12px #ccc;
+  margin-bottom: 10px;
+  padding: 4px;
+}
+
+.pod .user-image {
+  height: 160px;
+  width: 160px;
+}
+
+.pod.focused {
+  cursor: default;
+}
+
+.pod.faded {
+  opacity: .75;
+}
+
+html[oobe=old] .pod.focused .user-image {
+  -webkit-transform: translateY(-1px);
+  box-shadow: 0 6px 16px #a4a4a4;
+}
+
+html[oobe=new] .pod .user-image {
+  opacity: 0.7;
+}
+
+html[oobe=new] .pod.focused .user-image {
+  opacity: 1;
+}
+
+html[oobe=new] .pod:not(.focused) {
+  -webkit-transform: scale(0.9);
+}
+
+/* TODO(ivankr): workaround that forces a reflow for remove button when it
+ * becomes .active and its width/height change.
+ */
+html[oobe=new] .pod.focused {
+  -webkit-transform: scale(1.0);
+}
+
+.pod.init {
+  -webkit-transform: scale(2.4);
+  opacity: 0;
+}
+
+.pod.left {
+  -webkit-transform: translateX(-25px);
+  opacity: 0;
+}
+
+.pod.right {
+  -webkit-transform: translateX(25px);
+  opacity: 0;
+}
+
+.pod.zoom {
+  -webkit-transform: scale(2.2);
+  opacity: 0;
+}
+
+.name {
+  color: #565656;
+  font-size: 18px;
+  margin: 10px 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[oobe=old] .name {
+  -webkit-transition: opacity 800ms ease;
+  margin-top: 4px;
+}
+
+html[oobe=new] .name {
+  -webkit-transition: all 170ms ease;
+  /* Matching font-size 14px but since name is visible
+     when pod is not focused increase that a bit. */
+  font-size: 16px;
+  height: 26px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.name.init {
+  opacity: 0;
+}
+
+.pod.focused .name {
+  display: none;
+}
+
+.pod input[type='password'] {
+  box-sizing: border-box;
+  padding: 4px 6px;
+  width: 100%;
+}
+
+html[oobe=old] .pod input[type='password'] {
+  -webkit-border-radius: 2px;
+  -webkit-transition: box-shadow 100ms, background 100ms, border 500ms;
+  border: 1px solid #aaa;
+  box-shadow: inset 0 2px 2px rgba(0, 0, 0, .1),
+              0 1px 0 white,
+              0 0 1px transparent,
+              0 0 1px transparent,
+              0 0 1px transparent;
+  height: 26px;
+}
+
+html[oobe=new] .pod input[type='password'] {
+  -webkit-transition: opacity linear 150ms;
+  background: white;
+  border: none;
+  height: 40px;
+  outline: none;
+}
+
+.pod:not(.focused) input[type='password'] {
+  display: none;
+}
+
+html[oobe=old] .pod input[type='password']:focus {
+  -webkit-transition: box-shadow 200ms, background 200ms, border 200ms;
+  background: #f8f8f8;
+  border-color: rgb(64, 128, 250);
+  box-shadow: inset 0 2px 2px rgba(0, 0, 0, .15),
+              0 1px 0 transparent,
+              0 0 1px #c0c0c0,
+              0 0 1px #c0c0c0,
+              0 0 1px #c0c0c0;
+  outline: none;
+}
+
+.pod .signin-button {
+  box-sizing: border-box;
+  display: inline-block;
+  height: 26px;
+  max-width: 100%;
+  min-width: 72px !important;
+  padding: 4px 8px;
+}
+
+html[oobe=new] .pod .signin-button {
+  margin: 6px 0;
+}
+
+.pod:not(.focused) .signin-button {
+  display: none;
+}
+
+.pod .capslock-hint {
+  cursor: text;
+  padding: 4px 8px;
+  position: absolute;
+  right: 10px;
+  visibility: hidden;
+  z-index: 1;
+}
+
+html[oobe=old] .pod .capslock-hint {
+  top: 194px;
+}
+
+html[oobe=new] .pod .capslock-hint {
+  top: 180px;
+}
+
+html[dir=rtl] .pod .capslock-hint {
+  left: 10px;
+  right: auto;
+}
+
+.capslock-on .pod.focused input[type='password']:not([hidden]) ~ .capslock-hint {
+  visibility: visible;
+}
+
+.remove-user-button {
+  -webkit-transition: width 100ms ease-in-out, background 200ms ease-in-out;
+  background: -webkit-image-set(
+      url('../../../../../ui/resources/default_100_percent/close_bar.png') 1x,
+      url('../../../../../ui/resources/default_200_percent/close_bar.png') 2x)
+      center center no-repeat;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  box-shadow: none;
+  height: 16px;
+  margin: 0;
+  min-width: 16px;
+  opacity: 0;
+  padding: 0;
+  position: absolute;
+  width: 16px;
+}
+
+html[oobe=old] .remove-user-button {
+  right: 14px;
+  top: 14px;
+}
+
+html[oobe=new] .remove-user-button {
+  right: 10px;
+  top: 10px;
+}
+
+.pod .remove-user-button:focus,
+.pod .remove-user-button:hover,
+.user-image:hover ~ .remove-user-button {
+  opacity: 1;
+}
+
+html[oobe=old] .pod.focused .remove-user-button {
+  /* Track shifting of .user-image on pod focus. */
+  -webkit-transform: translateY(-1px);
+  -webkit-transition: -webkit-transform 140ms ease;
+  opacity: 1;
+}
+
+.remove-user-button:hover {
+  background-image: -webkit-image-set(
+      url('../../../../../ui/resources/default_100_percent/close_bar_hover.png')
+          1x,
+      url('../../../../../ui/resources/default_200_percent/close_bar_hover.png')
+          2x);
+  box-shadow: none;
+}
+
+.remove-user-button.active {
+  background-color: rgb(233, 73, 73);
+  background-image: none;
+  color: white;
+  font-size: 10px;
+  height: initial;
+  padding: 2px 4px;
+  width: initial;
+}
+
+.signed-in-indicator {
+  -webkit-transition: all 140ms ease;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  font-size: small;
+  padding: 3px 0;
+  position: absolute;
+  /* Width of .user-image. */
+  width: 160px;
+  z-index: 1;
+}
+
+html[oobe=old] .signed-in-indicator {
+  margin: 5px;
+}
+
+html[oobe=old] .pod.focused .signed-in-indicator {
+  /* Track shifting of .user-image on pod focus. */
+  -webkit-transform: translateY(-1px);
+  -webkit-transition: -webkit-transform 140ms ease;
+}

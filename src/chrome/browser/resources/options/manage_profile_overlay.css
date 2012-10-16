@@ -1,0 +1,147 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+#manage-profile-overlay {
+  width: 512px;
+}
+
+.profile-icon-grid-item {
+  height: 31px;
+  margin: 2px 4px;
+  padding: 4px;
+  width: 38px;
+}
+
+.profile-icon {
+  height: 31px;
+  width: 38px;
+}
+
+#create-profile-name-label-container,
+#create-profile-name-input-container,
+#manage-profile-name-label-container,
+#manage-profile-name-input-container {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: center;
+  display: -webkit-box;
+  margin-left: auto;
+  margin-right: auto;
+  width: 50%;
+}
+
+#create-profile-name:invalid {
+  background-color: pink;
+}
+
+#manage-profile-name:invalid {
+  background-color: pink;
+}
+
+#create-profile-error-bubble {
+  -webkit-transition: max-height 200ms, padding 200ms;
+  background-color: rgb(238, 185, 57);
+  border-radius: 4px;
+  font-weight: bold;
+  margin-left: auto;
+  margin-right: auto;
+  max-height: 50px;
+  overflow: hidden;
+  padding: 1px 10px;
+  text-align: center;
+  width: 80%;
+}
+
+#manage-profile-error-bubble {
+  -webkit-transition: max-height 200ms, padding 200ms;
+  background-color: rgb(238, 185, 57);
+  border-radius: 4px;
+  font-weight: bold;
+  margin-left: auto;
+  margin-right: auto;
+  max-height: 50px;
+  overflow: hidden;
+  padding: 1px 10px;
+  text-align: center;
+  width: 80%;
+}
+
+#create-profile-error-bubble[hidden] {
+  display: block !important;
+  max-height: 0;
+  padding: 0 10px;
+}
+
+#manage-profile-error-bubble[hidden] {
+  display: block !important;
+  max-height: 0;
+  padding: 0 10px;
+}
+
+#create-profile-icon-grid,
+#manage-profile-icon-grid {
+  background-color: rgba(255, 255, 255, 0.75);
+  padding: 2px;
+}
+
+/* Adds a grey horizontal line below content area  */
+#create-profile-content:after,
+#manage-profile-content:after {
+  background: #c0c0c0;
+  content: '';
+  display: block;
+  height: 1px;
+  margin-top: 25px;
+  width: 100%;
+}
+
+#create-profile-content > :first-child {
+  margin-bottom: 10px;
+}
+
+#manage-profile-content > :first-child {
+  margin-bottom: 10px;
+}
+
+#create-profile-content > :last-child {
+  margin-top: 10px;
+}
+
+#manage-profile-content > :last-child {
+  margin-top: 10px;
+}
+
+#create-profile-content > :not(:first-child):not(:last-child) {
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+
+#manage-profile-content > :not(:first-child):not(:last-child) {
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+
+#create-profile-content > #create-profile-name-input-container,
+#manage-profile-content > #manage-profile-name-input-container {
+  margin-top: 5px;
+}
+
+#create-profile-content > #create-profile-name-label-container,
+#manage-profile-content > #manage-profile-name-label-container {
+  margin-bottom: 5px;
+  margin-top: 10px;
+}
+
+.action-area-checkbox-container {
+  -webkit-box-flex: 1;
+}
+
+#delete-profile-message {
+  -webkit-padding-start: 48px;
+  background-repeat: no-repeat;
+}
+
+html[dir='rtl'] #delete-profile-message {
+  background-position: right;
+

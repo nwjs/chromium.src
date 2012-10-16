@@ -1,0 +1,17 @@
+{
+  "name": "Test of old-style page actions API",
+  "version": "1.0",
+  "background": {
+    "page": "background.html"
+  },
+  "permissions": ["tabs"],
+  "page_actions": [
+    { "id": "action",
+      "name": "action",
+      "icons": ["icon.png", "icon1.png"]
+    }
+  ],
+  "background": {
+    "page": "background.html"
+  }
+}

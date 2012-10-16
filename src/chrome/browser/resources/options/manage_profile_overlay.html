@@ -1,0 +1,92 @@
+<div id="manage-profile-overlay" class="page" hidden>
+  <div class="close-button"></div>
+  <!-- Dialog for managing profiles. -->
+  <div id="manage-profile-overlay-manage" hidden>
+    <h1 i18n-content="manageProfile"></h1>
+    <div id="manage-profile-content" class="content-area">
+      <div id="manage-profile-icon-label"
+          i18n-content="manageProfilesIconLabel">
+      </div>
+      <grid id="manage-profile-icon-grid"></grid>
+      <div id="manage-profile-name-label-container">
+        <span id="manage-profile-name-label"
+          i18n-content="manageProfilesNameLabel"></span>
+      </div>
+      <div id="manage-profile-name-input-container">
+        <input id="manage-profile-name" type="text" required>
+      </div>
+      <div id="manage-profile-error-bubble" hidden>
+      </div>
+    </div>
+    <div class="action-area">
+      <!-- TODO(rlp): Enable checkbox for M24
+      <if expr="is_win">
+        <div class="action-area-checkbox-container">
+          <div class="checkbox">
+            <label>
+              <input id="manage-shortcut" type="checkbox">
+              <span for="manage-shortcut" 
+                  i18n-content="createProfileShortcut">
+              </span>
+            </label>
+          </div>
+        </div>
+      </if> -->
+      <div class="button-strip">
+        <button id="manage-profile-cancel" i18n-content="cancel"></button>
+        <button id="manage-profile-ok" i18n-content="ok"></button>
+      </div>
+    </div>
+  </div>
+  <!-- Dialog for deleting profiles. -->
+  <div id="manage-profile-overlay-delete" hidden>
+    <h1 i18n-content="deleteProfileTitle"></h1>
+    <div class="content-area">
+      <div id="delete-profile-message"></div>
+    </div>
+    <div class="action-area">
+      <div class="button-strip">
+        <button id="delete-profile-cancel" i18n-content="cancel"></button>
+        <button id="delete-profile-ok"
+            i18n-content="deleteProfileOK"></button>
+      </div>
+    </div>
+  </div>
+  <!-- Dialog for creating profiles. -->
+  <div id="manage-profile-overlay-create" hidden>
+    <h1 i18n-content="createProfileTitle"></h1>
+    <div id="create-profile-content" class="content-area">
+      <div id="create-profile-instructions"></div>
+      <grid id="create-profile-icon-grid"></grid>
+      <div id="create-profile-name-label-container">
+        <span id="create-profile-name-label"
+            i18n-content="manageProfilesNameLabel">
+        </span>
+      </div>
+      <div id="create-profile-name-input-container">
+        <input id="create-profile-name" type="text" required>
+      </div>
+      <div id="create-profile-error-bubble" hidden></div>
+    </div>
+    <div class="action-area">
+      <!-- TODO(rlp): Enable checkbox for M24
+      <if expr="is_win">
+        <div class="action-area-checkbox-container">
+          <div class="checkbox">
+            <label>
+              <input id="create-shortcut" type="checkbox">
+              <span for="create-shortcut"
+                  i18n-content="createProfileShortcut">
+              </span>
+            </label>
+          </div>
+        </div>
+      </if> -->
+      <div class="button-strip">
+        <button id="create-profile-cancel" i18n-content="cancel"></button>
+        <button id="create-profile-ok" i18n-content="createProfileConfirm">
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

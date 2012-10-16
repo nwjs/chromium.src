@@ -1,0 +1,75 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef UI_GFX_SIZE_H_
+#define UI_GFX_SIZE_H_
+
+#include <string>
+
+#include "build/build_config.h"
+#include "ui/base/ui_export.h"
+#include "ui/gfx/size_base.h"
+#include "ui/gfx/size_f.h"
+
+#if defined(OS_WIN)
+typedef struct tagSIZE SIZE;
+#elif defined(OS_IOS)
+#include <CoreGraphics/CoreGraphics.h>
+#elif defined(OS_MACOSX)
+#include <ApplicationServices/ApplicationServices.h>
+#endif
+
+namespace gfx {
+
+// A size has width and height values.
+class UI_EXPORT Size : public SizeBase<Size, int> {
+ public:
+  Size();
+  Size(int width, int height);
+#if defined(OS_MACOSX)
+  explicit Size(const CGSize& s);
+#endif
+
+  ~Size();
+
+#if defined(OS_MACOSX)
+  Size& operator=(const CGSize& s);
+#endif
+
+#if defined(OS_WIN)
+  SIZE ToSIZE() const;
+#elif defined(OS_MACOSX)
+  CGSize ToCGSize() const;
+#endif
+
+  operator SizeF() const {
+    return SizeF(width(), height());
+  }
+
+  SizeF Scale(float scale) const WARN_UNUSED_RESULT {
+    return Scale(scale, scale);
+  }
+
+  SizeF Scale(float x_scale, float y_scale) const WARN_UNUSED_RESULT {
+    return SizeF(width() * x_scale, height() * y_scale);
+  }
+
+  std::string ToString() const;
+};
+
+inline bool operator==(const Size& lhs, const Size& rhs) {
+  return lhs.width() == rhs.width() && lhs.height() == rhs.height();
+}
+
+inline bool operator!=(const Size& lhs, const Size& rhs) {
+  return !(lhs == rhs);
+}
+
+#if !defined(COMPILER_MSVC)
+extern template class SizeBase<Size, int>;
+#endif
+
+}  // namespace gfx
+
+#endif  // UI_GFX_SIZE_H_

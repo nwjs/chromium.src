@@ -1,0 +1,313 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* This file contains "borrowed" copy of standard styles. To simplify merging,
+ * when altering, please preserve original property value by adding comments.
+ */
+input.common[type='checkbox'],
+input.common[type='radio'] {
+  -webkit-appearance: none;
+  -webkit-border-radius: 1px;
+  -webkit-box-sizing: border-box;
+  border: 1px solid #555;
+  border-radius: 1px;
+  box-sizing: border-box;
+  cursor: default;
+  height: 13px;
+  margin: 0;
+  opacity: 0.4;
+  width: 13px;
+}
+
+input.common[type='checkbox']:hover,
+input.common[type='checkbox']:checked,
+input.common[type='radio']:hover,
+input.common[type='radio']:checked {
+  opacity: 1;
+}
+
+input.common[type='checkbox'] {
+  position: relative;
+}
+
+input.common[type='checkbox']:checked::after {
+  background-image: -webkit-image-set(
+    url('../images/common/check_no_box.png') 1x,
+    url('../images/common/2x/check_no_box.png') 2x);
+  background-position: -3px -4px;
+  background-repeat: no-repeat;
+}
+
+input.common[type='checkbox'].white {
+  border: none;
+}
+
+input.common[type='checkbox'].white:not(:checked):after {
+  background-image: -webkit-image-set(
+    url('../images/common/checkbox_white_unchecked.png') 1x,
+    url('../images/common/2x/checkbox_white_unchecked.png') 2x);
+  background-position: -1px 0;
+}
+
+input.common[type='checkbox'].white:checked::after {
+  background-image: -webkit-image-set(
+    url('../images/common/checkbox_white_checked.png') 1x,
+    url('../images/common/2x/checkbox_white_checked.png') 2x);
+  background-position: -1px 0;
+}
+
+input.common[type='checkbox']::after {
+  content: '';
+  display: -webkit-box;
+  height: 15px;
+  left: -2px;
+  position: absolute;
+  top: -2px;
+  width: 17px;
+}
+
+.bubble {
+  -webkit-border-radius: 2px;
+  background: #FFF;
+  cursor: default;
+  outline: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 16px;
+}
+
+.bubble .pointer {
+  background: -webkit-image-set(
+    url('../images/common/bubble_point_white.png') 1x,
+    url('../images/common/2x/bubble_point_white.png') 2x);
+  display: block;
+  height: 11px;
+  left: 24px;
+  margin: 0 0 0 -5px;
+  outline: none;
+  position: absolute;
+  width: 17px;
+}
+
+.bubble .pointer:not(.bottom) {
+  top: -11px;
+}
+
+.bubble .pointer.bottom {
+  -webkit-transform: rotate(180deg);
+  bottom: -11px;
+}
+
+.bubble .close-x {
+  background: -webkit-image-set(
+    url('../images/common/close_x_gray.png') 1x,
+    url('../images/common/2x/close_x_gray.png') 2x);
+  height: 21px;
+  opacity: 0.3;
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 21px;
+}
+
+.bubble .close-x:hover {
+  opacity: 0.7;
+}
+
+.buttonbar {
+  display: -webkit-box;
+  height: 29px;
+  line-height: 29px;
+}
+
+.buttonbar.right {
+  float: right;
+  margin-right: 12px;
+}
+
+.buttonbar button:first-child {
+  margin-left: 0;
+}
+
+.buttonbar button.right {
+  -webkit-border-radius: 0 2px 2px 0;
+  margin-left: -1px;
+}
+
+.buttonbar button.left {
+  -webkit-border-radius: 2px 0 0 2px;
+  border-right-color: transparent;
+  margin-right: 0;
+}
+
+.buttonbar button.small {
+  min-width: 34px;
+  padding: 0;
+  width: 34px;
+}
+
+.buttonbar button {
+  -webkit-border-radius: 2px;
+  -webkit-box-shadow: none;
+  -webkit-transition: all 218ms;
+  -webkit-user-select: none;
+  background-color: whiteSmoke;
+  background-image: -webkit-linear-gradient(top, whiteSmoke, #F1F1F1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-sizing: content-box;
+  color: #444;
+  cursor: default;
+  display: inline-block;
+  font-size: 13px;
+  height: 27px;
+  line-height: 27px;
+  margin: 0 0 0 8px;
+  min-width: 54px;
+  padding: 0 8px;
+  position: relative;
+  text-align: center;
+  z-index: 1;
+}
+
+.buttonbar button:hover {
+  -webkit-transition: all 0;
+  background-image: -webkit-linear-gradient(top, #F8F8F8, #F1F1F1);
+  border: 1px solid #C6C6C6;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  color: #222;
+}
+
+.buttonbar button:active {
+  background-color: #F6F6F6;
+  background-image: -webkit-linear-gradient(top,#F6F6F6,#F1F1F1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.buttonbar button[disabled] {
+  background-color: #EEE;
+  background-image: -webkit-linear-gradient(top, #EEE, #E0E0E0);
+  border: 1px solid #CCC;
+  color: #333;
+}
+
+.buttonbar button:active img {
+  opacity: 1.0;
+}
+
+.buttonbar button:hover img {
+  opacity: 0.72;
+}
+
+.buttonbar button[disabled] img {
+  opacity: 0.9;
+}
+
+.buttonbar button img {
+  display: inline-block;
+  margin: -3px 0 0;
+  opacity: 0.55;
+  vertical-align: middle;
+}
+
+.buttonbar button.menubutton span.disclosureindicator {
+  -webkit-transform: rotate(90deg);
+  -webkit-transition: none;
+  float: right;
+  margin-left: 7px;
+  margin-top: 10px;
+  opacity: .8;
+}
+
+.buttonbar button.action {
+  background-color: rgb(209, 72, 54);
+  background-image: -webkit-gradient(linear,
+      left top, left bottom, from(rgb(221, 75, 57)), to(rgb(209, 72, 54)));
+  border: 1px solid transparent;
+  color: #FFF;
+  font-weight: bold;
+  letter-spacing: 1;
+  text-transform: uppercase;
+}
+
+.buttonbar button.action:not([disabled]):focus {
+  border-color: rgb(209, 72, 54);
+}
+
+.buttonbar button.action:not([disabled]):hover {
+  background-color: rgb(197, 55, 39);
+  background-image: -webkit-gradient(linear,
+      left top, left bottom, from(rgb(221, 75, 57)), to(rgb(197, 55, 39)));
+  border-bottom-color: rgb(175, 48, 31);
+  border-color: rgb(176, 40, 26);
+}
+
+.buttonbar button.action:not([disabled]):active {
+  background-color: rgb(176, 40, 26);
+  background-image: -webkit-gradient(linear,
+      left top, left bottom, from(rgb(221, 75, 57)), to(rgb(176, 40, 26)));
+  border-color: rgb(153, 42, 27);
+}
+
+.buttonbar button.action[disabled] {
+  background-color: rgb(209, 72, 54);
+  border-color: rgb(176, 40, 26);
+  opacity: 0.5;
+}
+
+span.disclosureindicator {
+  background-image: -webkit-image-set(
+    url('../images/common/disclosure_arrow_dk_grey.png') 1x,
+    url('../images/common/2x/disclosure_arrow_dk_grey.png') 2x);
+  background-position: center;
+  background-repeat: no-repeat;
+  display: inline-block;
+  height: 7px;
+  width: 5px;
+}
+
+/* "chrome-menu" class overrides some standard menu.css styles, to make custom
+   menus in FileBrowser look like native ChromeOS menus. */
+
+menu.chrome-menu {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+  outline: none;
+  padding: 2px 0;
+  z-index: 15;
+}
+menu.chrome-menu > :not(hr) {
+  background-position: 6px center;
+  background-repeat: no-repeat;
+  color: rgb(34, 34, 34);
+  height: 30px;
+  line-height: 28px;
+  padding-left: 28px;
+  padding-right: 20px;
+}
+
+menu.chrome-menu > :not(hr)[disabled] {
+  background-color: rgb(255, 255, 255);
+  color: rgb(153, 153, 153);
+}
+
+menu.chrome-menu > :not(hr):not([disabled])[selected],
+menu.chrome-menu > :not(hr):not([disabled])[selected]:active {
+  background-color: rgb(241, 241, 241);
+  color: rgb(34, 34, 34);
+}
+
+menu.chrome-menu > hr {
+  background: rgb(218, 218, 218);
+  height: 1px;
+  margin: 2px 0;
+}
+
+menu.chrome-menu > :not(hr)[checked] {
+  background-image: -webkit-image-set(
+    url('../images/common/check_no_box.png') 1x,
+    url('../images/common/2x/check_no_box.png') 2x);
+  background-position: 2px center;
+}
+
+menu.chrome-menu > [checked]:before {
+  display: none;
+}

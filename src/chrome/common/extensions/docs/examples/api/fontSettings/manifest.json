@@ -1,0 +1,12 @@
+{
+  "name": "Font Settings",
+  "version": "0.2",
+  "manifest_version": 2,
+  "description": "Sample extension for Font Settings API",
+  "options_page": "options.html",
+  "icons": {
+    "16": "fonts16.png",
+    "128": "fonts128.png"
+  },
+  "permissions": ["fontSettings"]
+}

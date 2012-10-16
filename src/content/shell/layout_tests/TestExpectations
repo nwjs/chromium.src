@@ -1,0 +1,7 @@
+# These are additional layout test expectations for content shell
+#
+# See  http://trac.webkit.org/wiki/TestExpectations for more information on this file.
+
+# Crash in WebCore::RenderTextControlSingleLine::layout
+crbug.com/153282 fast/dom/shadow/input-with-validation.html [ Crash ]
+crbug.com/155474 fast/dom/shadow/shadowdom-for-progress-dynamic.html [ Crash ]

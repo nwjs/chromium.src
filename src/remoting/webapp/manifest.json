@@ -1,0 +1,45 @@
+{
+  "name": "__MSG_PRODUCT_NAME__",
+  "version": "FULL_APP_VERSION",
+  "description": "__MSG_PRODUCT_DESCRIPTION__",
+  "manifest_version": 2,
+  "default_locale": "en",
+  "app": {
+    "launch": {
+      "local_path": "main.html"
+    }
+  },
+  "icons": {
+    "128": "chromoting128.png",
+    "48": "chromoting48.png",
+    "16": "chromoting16.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "OAUTH2_REDIRECT_URL"
+      ],
+      "js": [ "cs_oauth2_trampoline.js" ]
+    }
+  ],
+  "content_security_policy": "default-src 'self'; script-src 'self' https://*.talkgadget.google.com; style-src 'self' https://fonts.googleapis.com; img-src 'self' https://*.talkgadget.google.com; font-src *; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://*.talkgadget.google.com https://relay.google.com",
+  "permissions": [
+    "https://accounts.google.com/*",
+    "https://www.googleapis.com/chromoting/*",
+    "https://*.talkgadget.google.com/talkgadget/*",
+    "https://relay.google.com/*",
+    "clipboardRead",
+    "clipboardWrite"
+  ],
+  "plugins": [
+    { "path": "remoting_host_plugin.dll", "public": false },
+    { "path": "libremoting_host_plugin.ia32.so", "public": false },
+    { "path": "libremoting_host_plugin.x64.so", "public": false },
+    { "path": "remoting_host_plugin.plugin", "public": false }
+  ],
+  "requirements": {
+    "plugins": {
+      "npapi": false
+    }
+  }
+}

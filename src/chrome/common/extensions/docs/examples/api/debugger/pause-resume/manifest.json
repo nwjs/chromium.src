@@ -1,0 +1,17 @@
+{
+  "name": "JavaScript pause/resume",
+  "description": "Pauses / resumes JavaScript execution",
+  "version": "0.6",
+  "permissions": [
+    "tabs",
+    "debugger"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_action": {
+    "default_icon": "debuggerPause.png",
+    "default_title": "Pause JavaScript"
+  },
+  "manifest_version": 2
+}

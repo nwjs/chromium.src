@@ -1,0 +1,66 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Protocol for event messages.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+
+package remoting.protocol;
+
+// Defines a keyboard event.
+message KeyEvent {
+  // The Windows Virtual Key code.
+  //optional int32 keycode = 1;
+  optional bool pressed = 2;
+
+  // The USB key code.
+  // The upper 16-bits are the USB Page (0x07 for key events).
+  // The lower 16-bits are the USB Usage ID (which identifies the actual key).
+  optional uint32 usb_keycode = 3;
+}
+
+// Defines a mouse event message on the event channel. 
+message MouseEvent {
+
+  enum MouseButton {
+    BUTTON_UNDEFINED = 0;
+    BUTTON_LEFT = 1;
+    BUTTON_MIDDLE = 2;
+    BUTTON_RIGHT = 3;
+    BUTTON_MAX = 4;
+  }
+
+  // Mouse position information.
+  optional int32 x = 1;
+  optional int32 y = 2;
+
+  // Legacy mouse wheel information.
+  // These values encode the number of wheel 'ticks' (sometimes called
+  // 'clicks' although 'ticks' is the most common cross-platform term).
+  // TODO(wez): Remove these when hosts no longer need them (crbug.com/155668).
+  optional int32 wheel_offset_x = 3;
+  optional int32 wheel_offset_y = 4;
+
+  // Mouse button event.
+  optional MouseButton button = 5;
+  optional bool button_down = 6;
+
+  // Mouse wheel information.
+  // These values encode the number of pixels of movement that would result
+  // from the wheel event on the client system.
+  optional float wheel_delta_x = 7;
+  optional float wheel_delta_y = 8;
+}
+
+// Defines an event that sends clipboard data between peers.
+message ClipboardEvent {
+
+  // The MIME type of the data being sent.
+  optional string mime_type = 1;
+
+  // The data being sent.
+  optional bytes data = 2;
+}

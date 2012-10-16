@@ -1,0 +1,39 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+.destination-list-item {
+  -webkit-padding-end: 2px;
+  -webkit-padding-start: 18px;
+  -webkit-transition: background-color 150ms;
+  cursor: default;
+  padding-bottom: 3px;
+  padding-top: 3px;
+}
+
+.destination-list-item:hover {
+  background-color: rgb(228, 236, 247);
+}
+
+.destination-list-item.stale {
+  opacity: 0.4;
+}
+
+.destination-list-item-icon {
+  -webkit-margin-end: 8px;
+  -webkit-transition: opacity 150ms;
+  display: inline-block;
+  height: 24px;
+  vertical-align: middle;
+  width: 24px;
+}
+
+.destination-list-item-name {
+  vertical-align: middle;
+}
+
+.destination-list-item .offline-status {
+  -webkit-margin-start: 1em;
+  font-size: 75%;
+  opacity: 0.6;
+}

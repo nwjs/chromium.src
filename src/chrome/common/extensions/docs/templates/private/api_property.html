@@ -1,0 +1,28 @@
+<div>
+  <h3 id="{{id}}">{{name}}</h3>
+  <div class="summary">
+    <span>chrome.{{api.name}}.{{name}}</span>
+  </div>
+  <div>
+    <dt><span class="property">{{name}}</span> {{+partials.type_name}}</dt>
+    {{?description}}<dd>
+      {{{description}}}
+    </dd>{{/description}}
+    {{?properties}}
+    <h4 id="{{property.name}}-properties">
+      Properties of <a href="#property-{{property.name}}">{{property.name}}</a>
+    </h4>
+    <dd><dl>{{#properties}}
+      {{+partials.parameter_full}}
+    {{/}}</dl></dd>
+    {{/properties}}
+    {{?functions}}
+    <h4 id="{{property.name}}-functions">
+      Methods of <a href="#property-{{property.name}}">{{property.name}}</a>
+    </h4>
+    <dd><dl>{{#functions}}
+      {{+partials.function}}
+    {{/}}</dl></dd>
+    {{/functions}}
+  </div>
+</div>

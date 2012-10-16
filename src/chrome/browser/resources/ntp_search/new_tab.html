@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html i18n-values="
+    dir:textdirection;
+    hasattribution:hasattribution;
+    themegravity:themegravity;
+    bookmarkbarattached:bookmarkbarattached;"
+  class="starting-up">
+<head>
+<meta charset="utf-8">
+<title i18n-content="title"></title>
+<!-- Don't scale the viewport in either portrait or landscape mode.
+     Note that this means apps will be reflowed when rotated (like iPad).
+     If we wanted to maintain position we could remove 'maximum-scale' so
+     that we'd zoom out in portrait mode, but then there would be a bunch
+     of unusable space at the bottom.
+-->
+<meta name="viewport"
+      content="user-scalable=no, width=device-width, maximum-scale=1.0">
+
+<!-- Mock setup -->
+<script src="../shared/js/load_time_data.js"></script>
+<script src="mock/mock.js"></script>
+<script src="mock/mock_data_autogen.js"></script>
+<link rel="stylesheet" href="mock/debug.css">
+<!-- Mock setup end -->
+
+<!-- It's important that this be the first script loaded. -->
+<script src="../ntp4/logging.js"></script>
+
+<!-- TODO(jeremycho): This is only used for notifications.  Discuss with UX. -->
+<link rel="stylesheet" href="../shared/css/expandable_bubble.css">
+<link rel="stylesheet" href="../shared/css/menu.css">
+<link rel="stylesheet" href="../shared/css/menu_button.css">
+<link rel="stylesheet" href="../shared/css/widgets.css">
+
+<link rel="stylesheet" href="most_visited_page.css">
+<link rel="stylesheet" href="nav_dot.css">
+<link rel="stylesheet" href="new_tab.css">
+<link rel="stylesheet" href="other_devices_page.css">
+<link rel="stylesheet" href="thumbnail_page.css">
+<link rel="stylesheet" href="tile_page.css">
+
+<link id="themecss" rel="stylesheet">
+
+<script src="../shared/js/event_tracker.js"></script>
+<!-- TODO(pedrosimonetti): we need to load this file before the mock script,
+     so we are temporarily commenting this out. We should remove once the NTP5
+     work is done.
+<script src="../shared/js/load_time_data.js"></script>
+-->
+<script src="../shared/js/parse_html_subset.js"></script>
+<script src="../shared/js/util.js"></script>
+<script src="../shared/js/cr.js"></script>
+<script src="../shared/js/cr/ui.js"></script>
+<script src="../shared/js/cr/ui/card_slider.js"></script>
+<script src="../shared/js/cr/ui/context_menu_handler.js"></script>
+<script src="../shared/js/cr/ui/drag_wrapper.js"></script>
+<script src="../shared/js/cr/ui/expandable_bubble.js"></script>
+<script src="../shared/js/cr/ui/menu.js"></script>
+<script src="../shared/js/cr/ui/menu_item.js"></script>
+<script src="../shared/js/cr/ui/position_util.js"></script>
+<script src="../shared/js/cr/ui/menu_button.js"></script>
+<script src="../shared/js/cr/ui/context_menu_button.js"></script>
+<script src="../shared/js/cr/ui/touch_handler.js"></script>
+
+<script src="tile_page.js"></script>
+<script src="dot_list.js"></script>
+<script src="thumbnail_page.js"></script>
+<script src="most_visited_page.js"></script>
+<script src="nav_dot.js"></script>
+<script src="new_tab.js"></script>
+<script src="recently_closed_page.js"></script>
+<script src="other_devices_page.js"></script>
+</head>
+
+<body id="ntp5" i18n-values=".style.fontSize:fontsize">
+  <div id="card-slider-frame">
+    <div id="page-list-menu">
+      <ul id="dot-list"></ul>
+      <div id="notification-container" class="inactive" hidden>
+        <div id="notification">
+          <span></span>
+          <div id="notificationLinks"></div>
+          <button class="close-button custom-appearance">
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="page-list"></div>
+    <div id="attribution">
+      <span i18n-content="attributionintro"></span>
+      <img id="attribution-img">
+    </div>
+  </div>
+
+</body>
+
+<!-- A div to hold all the templates, and in the darkness bind them. -->
+<div hidden>
+
+<!-- NTP4 intro bubble -->
+<div id="ntp4-intro-bubble-contents">
+  <div></div>
+  <a i18n-content="learn_more" target="_blank"></a>
+</div>
+
+<!-- App Contents w/ Large Icon -->
+<div id="app-large-icon-template" class="app-contents">
+  <div class="app-img-container">
+    <img class="invisible">
+  </div>
+  <span class="title"></span>
+</div>
+
+<!-- App Contents w/ Small Icon -->
+<div id="app-small-icon-template" class="app-contents">
+  <div class="app-icon-div">
+    <div class="app-img-container">
+      <img class="invisible">
+    </div>
+  </div>
+  <span class="title"></span>
+</div>
+
+</div>
+
+</html>

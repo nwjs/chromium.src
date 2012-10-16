@@ -1,0 +1,260 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+html {
+  height: 100%;
+}
+
+body {
+  background-color: #f1f1f1;
+  font-size: 80%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#categories-list {
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  height: 40px;
+  outline: none;
+  width: 100%;
+}
+
+#categories-list > li {
+  -webkit-box-align: center;
+  -webkit-user-select: none;
+  border-top: 6px solid transparent;
+  color: #777;
+  display: -webkit-box;
+  height: 22px;
+}
+
+#categories-list > li:hover {
+  color: rgb(70, 78, 90);
+  cursor: pointer;
+}
+
+#categories-list > li[selected] {
+  border-top-color: rgb(78, 87, 100);
+  color: rgb(70, 78, 90);
+  cursor: default;
+}
+
+#categories-list > li > div {
+  line-height: 34px;
+  padding: 0 10px;
+}
+
+.dialog-container {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  height: 100%;
+  overflow: hidden;
+}
+
+.dialog-topbar {
+  -webkit-padding-start: 15px;
+  display: -webkit-box;
+  overflow: hidden;
+}
+
+.dialog-main {
+  -webkit-box-align: stretch;
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+}
+
+#category-container,
+#custom-container {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+#custom-container {
+  margin: 10px;
+  padding: 10px;
+}
+
+#custom-container > div {
+  margin: 10px 0 5px 0;
+}
+
+.image-picker {
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+  /* Set font size to 0 to remove the extra vertical margin between two rows of
+   * thumbnails.
+   * TODO(bshe): Find the root cause of the margin.
+   */
+  font-size: 0;
+  outline: none;
+  overflow-y: auto;
+}
+
+.image-picker > * {
+  display: inline-block;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.image-picker [role=listitem] {
+  height: 68px;
+  margin: 1px;
+  width: 108px;
+}
+
+/* The width and height of img tag need to be set here. Otherwise, an incorrect
+ * image size may be used during layout. Some images may be misaligned as a
+ * result. See http://code.google.com/p/chromium/issues/detail?id=148480 for
+ * screen shot.
+ */
+.image-picker img {
+  height: 68px;
+  width: 108px;
+}
+
+.image-picker [selected][lead] img {
+  border: 2px solid rgb(0, 102, 204);
+  height: 64px;
+  width: 104px;
+}
+
+#wallpaper-attribute {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+.bottom-bar {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: end;
+  display: -webkit-box;
+  height: 30px;
+  padding: 15px;
+}
+
+.bottom-bar > .spacer {
+  -webkit-box-flex: 1;
+}
+
+/* Custom wallpaper thumbnail container. */
+#preview {
+  -webkit-box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  height: 80px;
+  width: 128px;
+}
+
+/* [hidden] does display:none, but its priority is too low. */
+[hidden] {
+  display: none !important;
+}
+
+/* The butter bar styles are copied from file_manager.css. We will revisit
+ * it to see if we can share some code after butter bar is integrated with
+ * Photo Editor.
+ * See http://codereview.chromium.org/10916149/ for details.
+ */
+/* TODO(bshe): Remove these styles if we can share code with file manager. */
+#butter-bar-container {
+  -webkit-box-pack: center;
+  display: -webkit-box;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  z-index: 3;
+}
+
+#butter-bar {
+  -webkit-box-align: end;
+  -webkit-box-orient: horizontal;
+  -webkit-transition: opacity 300ms;
+  background-color: #e3e3e3;
+  color: #222;
+  display: -webkit-box;
+  max-width: 340px;
+  min-width: 40px;
+  padding: 0 1em;
+  pointer-events: auto;
+  top: 1px;
+  width: 30%;
+  z-index: 2;
+}
+
+#butter-bar:not(.visible) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#butter-bar .content {
+  -webkit-box-flex: 1;
+  overflow: hidden;
+  padding-bottom: 4px;
+  padding-top: 4px;
+}
+
+#butter-bar .actions {
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: end;
+  display: -webkit-box;
+  height: 20px;
+}
+
+#butter-bar .actions a {
+  background: center center no-repeat;
+  background-image: -webkit-image-set(
+    url('../images/ui/close_bar.png') 1x,
+    url('../images/ui/2x/close_bar.png') 2x);
+  display: inline-block;
+  height: 12px;
+  padding: 4px 2px;
+  width: 12px;
+}
+
+#butter-bar .actions a:first-child {
+  margin-left: 2px;
+}
+
+#butter-bar .actions a:last-child {
+  margin-right: -2px;  /* Overlap the padding with butter-bar padding. */
+}
+
+#butter-bar.error {
+  background-color: rgba(221, 75, 57, 0.2);
+  border: 1px solid rgba(221, 75, 57, 0.5);
+  border-radius: 2px;
+  padding: 2px 1em;
+}
+
+.progress-bar {
+  -webkit-box-flex: 1;
+  border: 1px solid #999;
+  margin-bottom: 2px;
+  margin-top: 3px;
+  padding: 1px;
+}
+
+.progress-track {
+  -webkit-animation-duration: 800ms;
+  -webkit-animation-iteration-count: infinite;
+  -webkit-animation-name: bg;
+  -webkit-animation-timing-function: linear;
+  background-color: #ccc;
+  background-image: -webkit-linear-gradient(315deg, transparent,
+      transparent 33%, rgba(0, 0, 0, 0.12) 33%, rgba(0, 0, 0, 0.12) 66%,
+      transparent 66%, transparent);
+  background-position: 0 0;
+  background-repeat: repeat-x;
+  background-size: 16px 8px;
+  height: 5px;
+}
+
+@-webkit-keyframes bg {
+  0% { background-position: 0 0; }
+  100% { background-position: -16px 0; }
+}

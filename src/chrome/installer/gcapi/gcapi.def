@@ -1,0 +1,9 @@
+LIBRARY    "gcapi_dll.dll"
+
+EXPORTS
+  GoogleChromeCompatibilityCheck         
+  LaunchGoogleChrome                       
+  LaunchGoogleChromeWithDimensions      
+  GoogleChromeDaysSinceLastRun             
+  CanOfferReactivation                     
+  ReactivateChrome                         

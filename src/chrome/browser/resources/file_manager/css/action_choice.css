@@ -1,0 +1,169 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+input:focus,
+button:focus {
+  outline-color: rgb(77, 144, 254);
+}
+
+.action-choice {
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  -webkit-user-select: none;
+  background: white;
+  bottom: 0;
+  color: black;
+  display: -webkit-box;
+  font-family: Open Sans, Droid Sans Fallback, sans-serif;
+  font-size: 84%;
+  left: 0;
+  margin: 0;
+  overflow: hidden;
+  padding: 10px;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.action-choice[loading] .content,
+.action-choice:not([loading]) .loading {
+  display: none;
+}
+
+/* The loading preview */
+
+.loading {
+  -webkit-box-align: center;
+  -webkit-box-orient: vertical;
+  color: #333;
+  display: -webkit-box;
+  font-size: 12px;
+}
+
+.spinner {
+  background-image: url('../images/common/spinner.svg');
+  background-size: 100%;
+  height: 21px;
+  left: 44px;
+  margin-left: -10px;
+  margin-top: -10px;
+  opacity: 0.5;
+  position: absolute;
+  top: 29px;
+  width: 21px;
+}
+
+.device-type {
+  height: 64px;
+  position: relative;
+  width: 116px;
+}
+
+.device-type[device-type=usb] {
+  background-image: -webkit-image-set(
+    url('../images/files/volumes/device_usb_large.png') 1x,
+    url('../images/files/volumes/2x/device_usb_large.png') 2x);
+}
+
+.device-type[device-type=sd] {
+  -webkit-transform: rotate(-90deg);
+  background-image: -webkit-image-set(
+    url('../images/files/volumes/device_sd_large.png') 1x,
+    url('../images/files/volumes/2x/device_sd_large.png') 2x);
+  bottom: 10px; /* Adjust the rotated image to not overlap with element below */
+}
+
+/* The action choice content */
+
+.content {
+  -webkit-box-align: start;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.previews {
+  -webkit-box-orient: horizontal;
+  -webkit-mask-image: -webkit-linear-gradient(right, rgba(0, 0, 0, 0) 0,
+                                                     rgba(0, 0, 0, 1) 80px);
+  display: -webkit-box;
+  height: 130px;
+  position: relative;
+  width: 100%;
+}
+
+.img-container {
+  height: 120px;
+  margin: 0 2px;
+  overflow: hidden;
+  position: relative;
+  width: 120px;
+}
+
+.img-container > img {
+  -webkit-user-drag: none;
+  position: absolute;
+}
+
+.counter {
+  color: #808080;
+  margin: 5px 0 20px 3px;
+  width: 100%;
+}
+
+.choices {
+  margin: 5px 0;
+}
+
+.choices > div {
+  -webkit-box-align: start;
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  margin: 20px 0;
+}
+
+.choices > div > * {
+  display: block;
+  margin: 0 3px;
+}
+
+.choices label[for=import-photos-to-drive] {
+  background: -webkit-image-set(
+    url('chrome://theme/IDR_FILE_MANAGER_IMG_FILETYPE_DRIVE') 1x,
+    url('chrome://theme/IDR_FILE_MANAGER_IMG_FILETYPE_DRIVE@2x') 2x) no-repeat;
+  padding-left: 20px;
+}
+
+.choices label[for=view-files] {
+  background: -webkit-image-set(
+    url('../images/icon16.png') 1x,
+    url('../images/icon32.png') 2x) no-repeat;
+  padding-left: 20px;
+}
+
+.choices label[for=watch-single-video] {
+  background: -webkit-image-set(
+    url('chrome://theme/IDR_FILE_MANAGER_IMG_FILETYPE_VIDEO') 1x,
+    url('chrome://theme/IDR_FILE_MANAGER_IMG_FILETYPE_VIDEO@2x') 2x) no-repeat;
+  padding-left: 20px;
+}
+
+.footer {
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: end;
+  bottom: 0;
+  display: -webkit-box;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.footer button {
+  height: 27px;
+  margin-left: 10px;
+  min-width: 80px;
+}

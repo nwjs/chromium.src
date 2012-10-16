@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<!DOCTYPE translationbundle>
+<translationbundle lang="zh-TW">
+<translation id="IDS_STANDARD_FONT_FAMILY">Droid Sans Fallback</translation>
+<translation id="IDS_FIXED_FONT_FAMILY">MingLiU</translation>
+<!-- PMingLiU looks really bad. For now, use Song ASC (Simplified Chinese). -->
+<translation id="IDS_SERIF_FONT_FAMILY">Song ASC</translation>
+<translation id="IDS_SANS_SERIF_FONT_FAMILY">Droid Sans Fallback</translation>
+<translation id="IDS_MINIMUM_FONT_SIZE">12</translation>
+<translation id="IDS_MINIMUM_LOGICAL_FONT_SIZE">12</translation>
+</translationbundle>

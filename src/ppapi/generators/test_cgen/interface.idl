@@ -1,0 +1,34 @@
+/*
+ * Copyright (c) 2011 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+/**
+ * This file will test that the IDL snippet matches the comment.
+ */
+
+/* struct ist { void* X; }; */
+struct ist {
+  mem_t X;
+};
+
+/*
+ * struct iface1 {
+ * int8_t (*mem1)(int16_t x, int32_t y);
+ * int32_t (*mem2)(const struct ist* a);
+ * int32_t (*mem3)(struct ist* b);
+ * int32_t (*mem4)(const void** ptr);
+ * int32_t (*mem5)(void** ptr);
+ * int32_t (*mem6)(void** ptr);
+ * };
+ */
+interface iface1 {
+  int8_t mem1([in] int16_t x, [in] int32_t y);
+  int32_t mem2([in] ist a);
+  int32_t mem3([out] ist b);
+  int32_t mem4([in] blob_t ptr);
+  int32_t mem5([out] blob_t ptr);
+  int32_t mem6([inout] blob_t ptr);
+};
+

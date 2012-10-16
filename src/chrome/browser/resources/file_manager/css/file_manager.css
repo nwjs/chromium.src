@@ -1,0 +1,1623 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+html {
+  height: 100%;
+}
+
+html.col-resize * {
+  cursor: col-resize !important;
+}
+
+/* Outer frame of the dialog. */
+body {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  -webkit-transition: opacity 70ms linear;
+  -webkit-user-select: none;
+  cursor: default;
+  display: -webkit-box;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+body.loaded {
+  /* Do not use display:none because list will calculate metrics incorrectly. */
+  /*display: -webkit-box;*/
+  opacity: 1;
+}
+
+button,
+input[type='button'],
+input[type='submit'],
+select {
+  -webkit-border-radius: 2px;
+  -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  -webkit-user-select: none;
+  background: -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
+  border: 1px solid #aaa;
+  color: #444;
+  font-size: inherit;
+  margin-bottom: 0;
+  min-width: 4em;
+  padding: 3px 12px 3px 12px;
+}
+
+button:hover,
+input[type='button']:hover,
+input[type='submit']:hover,
+select:hover {
+  -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  background: #ebebeb -webkit-linear-gradient(#fefefe, #f8f8f8 40%, #e9e9e9);
+  border-color: #999;
+  color: #222;
+}
+
+button:active,
+input[type='button']:active,
+input[type='submit']:active {
+  -webkit-box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+  background: #ebebeb -webkit-linear-gradient(#f4f4f4, #efefef 40%, #dcdcdc);
+  color: #333;
+}
+
+button[disabled],
+input[type='button'][disabled],
+input[type='submit'][disabled],
+button[disabled]:hover,
+input[type='button'][disabled]:hover,
+input[type='submit'][disabled]:hover {
+  -webkit-box-shadow: none;
+  background: -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
+  border-color: #aaa;
+  color: #888;
+}
+
+/* Drop opacity of selected rows to give a visual feedback on copy/cut
+ * operation. */
+.blink {
+  opacity: 0.8;
+}
+
+#butter-bar-container {
+  -webkit-box-pack: center;
+  display: -webkit-box;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  z-index: 3;
+}
+
+#butter-bar {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-transition: opacity 300ms;
+  background-color: #e3e3e3;
+  color: #222;
+  display: -webkit-box;
+  max-width: 340px;
+  min-width: 40px;
+  padding: 0 1em;
+  pointer-events: auto;
+  top: 1px;
+  width: 30%;
+  z-index: 2;
+}
+
+#butter-bar:not(.visible) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#butter-bar .content {
+  -webkit-box-flex: 1;
+  overflow: hidden;
+  padding-bottom: 4px;
+  padding-top: 4px;
+}
+
+#butter-bar .actions {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: end;
+  -webkit-margin-start: 6px;
+  display: -webkit-box;
+  height: 20px;
+}
+
+#butter-bar .actions a {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+#butter-bar .actions a.x {
+  background: center center no-repeat;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/close_bar.png') 1x,
+    url('../images/files/ui/2x/close_bar.png') 2x);
+  display: inline-block;
+  height: 12px;
+  padding: 4px 2px;
+  width: 12px;
+}
+
+#butter-bar .actions a:first-child {
+  margin-left: 2px;
+}
+
+#butter-bar .actions a:last-child {
+  margin-right: -2px;  /* Overlap the padding with butter-bar padding. */
+}
+
+#butter-bar.error {
+  background-color: rgba(221, 75, 57, 0.2);
+  border: 1px solid rgba(221, 75, 57, 0.5);
+  border-radius: 2px;
+  padding: 2px 1em;
+}
+
+.progress-bar {
+  -webkit-box-flex: 1;
+  border: 1px solid #999;
+  margin-bottom: 2px;
+  margin-top: 3px;
+  padding: 1px;
+}
+
+.progress-track {
+  -webkit-animation-duration: 800ms;
+  -webkit-animation-iteration-count: infinite;
+  -webkit-animation-name: bg;
+  -webkit-animation-timing-function: linear;
+  background-color: #ccc;
+  background-image: -webkit-linear-gradient(315deg, transparent,
+      transparent 33%, rgba(0, 0, 0, 0.12) 33%, rgba(0, 0, 0, 0.12) 66%,
+      transparent 66%, transparent);
+  background-position: 0 0;
+  background-repeat: repeat-x;
+  background-size: 16px 8px;
+  height: 5px;
+}
+
+@-webkit-keyframes bg {
+  0% { background-position: 0 0; }
+  100% { background-position: -16px 0; }
+}
+
+/* The top title of the dialog. */
+.dialog-title {
+  -webkit-box-sizing: border-box;
+  -webkit-padding-start: 15px;
+  background-image: -webkit-linear-gradient(top, #fff, #f6f6f6);
+  border-bottom: 1px rgb(214, 217, 227) solid;
+  color: rgb(66, 80, 108);
+  font-size: 15px;
+  font-weight: bold;
+  height: 32px;
+  padding-bottom: 8px;
+  padding-top: 8px;
+}
+
+/* Main part of the dialog between header and footer. */
+.dialog-container {
+  -webkit-box-align: stretch;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  background-color: white;  /* Makes #drag-image-container invisible. */
+  display: -webkit-box;
+  overflow: hidden;
+  position: relative;
+}
+
+/* List/grid and preview are inside this container. */
+.dialog-main {
+  -webkit-box-align: stretch;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+/* Roots list at the left. */
+.dialog-sidebar {
+  -webkit-box-flex: 0;
+  background-color: #e6e6e6;
+  overflow: hidden;
+  position: relative;
+  width: 168px;
+}
+
+/* A vertical splitter between the roots list and the file list. It is actually
+  a transparent area centered on the roots list right border.*/
+div.sidebar-splitter {
+  -webkit-box-flex: 0;
+  cursor: col-resize;
+  margin-left: -4px;  /* +1px to accomodate the roots list border */
+  margin-right: -3px;
+  position: relative;
+  width: 7px;
+  z-index: 2;
+}
+
+/* Roots list at the left. */
+#roots-list {
+  border-right: 1px solid rgb(170, 170, 170);
+}
+
+#roots-list > * {
+  background-color: #e6e6e6;
+  background-image: none;
+  border: none;
+  height: 39px;
+  margin: 0;
+  padding: 0 5px;
+}
+
+#roots-list > :hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.05);
+}
+
+#roots-list > .accepts,
+#roots-list > [lead][selected],
+#roots-list > [lead],
+#roots-list > [selected],
+#roots-list > [anchor] {
+  background-color: rgb(204, 204, 204);
+}
+
+#roots-list > .accepts:hover,
+#roots-list > [lead]:hover,
+#roots-list > [lead][selected]:hover,
+#roots-list > [selected]:hover,
+#roots-list > [anchor]:hover {
+  background-color: rgb(192, 192, 192);
+}
+
+#roots-list li.root-item {
+  -webkit-box-align: center;
+  display: -webkit-box;
+  line-height: 22px;  /* To accomodate for icons. */
+  padding-left: 11px;
+}
+
+li.root-item > .root-label {
+  -webkit-box-flex: 1;
+  margin-right: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.root-label {
+  -webkit-padding-start: 38px;
+  background-position: left center;
+  background-repeat: no-repeat;
+}
+
+div.root-eject {
+  -webkit-transition: opacity 70ms linear;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/eject.png') 1x,
+    url('../images/files/ui/2x/eject.png') 2x);
+  background-position: center center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  height: 20px;
+  margin-right: 6px;
+  opacity: 0;
+  width: 20px;
+}
+
+div.root-eject:hover {
+  opacity: 1;
+}
+
+.root-item[selected] > div.root-eject:not(:hover),
+.root-item:hover > div.root-eject:not(:hover) {
+  opacity: 0.7;
+}
+
+.root-item[disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Breadcrumbs and things under the title but above the list view. */
+.dialog-header {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-transition: all 180ms ease;
+  display: -webkit-box;
+  margin-bottom: 7px;
+  margin-left: 0;
+  margin-right: 10px;
+  margin-top: 5px;
+}
+
+[maximized] .dialog-header {
+  -webkit-padding-end: 70px;
+}
+
+/* Container for the detail and thumbnail list views. */
+.dialog-body {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  -webkit-transition: all 180ms ease;
+  border-top: 1px solid #d4d4d4;
+  display: -webkit-box;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Container for the ok/cancel buttons. */
+.dialog-footer {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  border-top: 1px solid #d2d2d2;
+  display: -webkit-box;
+  padding: 10px 17px 14px 15px;
+}
+
+.dialog-footer:not([progress]) .progress-bar,
+.dialog-footer:not([progress]) .preparing-label {
+  display: none;
+}
+
+.dialog-footer[progress] .ok,
+.dialog-footer[progress] #filename-input-box,
+.dialog-footer[progress] #file-type {
+  display: none;
+}
+
+.dialog-footer .progress-bar {
+  -webkit-margin-end: 20px;
+  -webkit-margin-start: 20px;
+}
+
+#file-type {
+  -webkit-margin-end: 10px;
+}
+
+/* The container for breadcrumb elements. */
+.breadcrumbs {
+  -webkit-box-align: center;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  line-height: 20px;
+  overflow: hidden;
+  padding-top: 1px;
+}
+
+#dir-breadcrumbs {
+  -webkit-margin-end: 5px;
+  -webkit-margin-start: 10px;
+}
+
+#search-breadcrumbs {
+  -webkit-margin-end: 5px;
+  -webkit-margin-start: 5px;
+}
+
+.breadcrumbs > [collapsed]:before {
+  content: '...';
+}
+
+.breadcrumbs > [collapsed] {
+  width: 1em;
+}
+
+/* A single directory name in the list of path breadcrumbs. */
+.breadcrumb-path {
+  color: rgb(38, 86, 146);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#search-breadcrumbs .breadcrumb-path {
+  color: #888;
+}
+
+#search-breadcrumbs .breadcrumb-path:hover {
+  color: #666;
+}
+
+/* The final breadcrumb, representing the current directory. */
+.breadcrumb-last {
+  color: black;
+  cursor: default;
+}
+
+/* The > arrow between breadcrumbs. */
+
+.breadcrumbs .separator {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/breadcrumb-separator.png') 1x,
+    url('../images/files/ui/2x/breadcrumb-separator.png') 2x);
+  background-position: center center;
+  background-repeat: no-repeat;
+  height: 10px;
+  overflow: hidden;
+  width: 25px;
+}
+
+.dialog-header div[role=button] {
+  -webkit-transition: border-color 130ms linear;
+  background-color: transparent;
+  background-position: center center;
+  background-repeat: no-repeat;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  height: 29px;
+  width: 29px;
+}
+
+.dialog-header div[role=button]:focus {
+  -webkit-transition: border-color 200ms;
+  border-color: rgb(77, 144, 254);
+  outline: none;
+}
+
+.dialog-header div[role=button][disabled],
+.dialog-header div[role=button]:hover,
+.dialog-header div[role=button]:active {
+  border-color: #ddd;
+}
+
+.dialog-header div[role=button][disabled] {
+  background-color: #f1f1f1;
+}
+
+#search-box,
+#filename-input-box input {
+  border: 1px solid #d9d9d9;
+  border-radius: 1px;
+  border-top: 1px solid #c0c0c0;
+  box-sizing: border-box;
+}
+
+#search-box {
+  -webkit-transition: width 200ms;
+  background: -webkit-image-set(
+    url('../images/files/ui/icon_search.png') 1x,
+    url('../images/files/ui/2x/icon_search.png') 2x);
+  background-color: #fff;
+  background-position: 4px 5.5px;
+  background-repeat: no-repeat;
+  color: #333;
+  display: -webkit-box;
+  height: 29px;
+  line-height: 27px;
+  margin-right: 10px;
+  padding: 1px 6px 2px 23px;
+  width: 150px;
+}
+
+.searching #search-box {
+  background-image: url('../images/common/spinner.svg');
+  background-size: 17px 17px;
+}
+
+#search-box:hover {
+  border: 1px solid #b9b9b9;
+  border-top: 1px solid #a0a0a0;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+}
+
+#search-box:focus {
+  border: 1px solid rgb(77, 144, 254);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+  outline: none;
+  width: 240px;
+}
+
+#search-box::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_clear.png') 1x,
+    url('../images/files/ui/2x/search_clear.png') 2x);
+  height: 16px;
+  width: 16px;
+}
+
+#search-box::-webkit-search-cancel-button:hover {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_clear_hover.png') 1x,
+    url('../images/files/ui/2x/search_clear_hover.png') 2x);
+}
+
+#search-box::-webkit-search-cancel-button:active {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_clear_pressed.png') 1x,
+    url('../images/files/ui/2x/search_clear_pressed.png') 2x);
+}
+
+button#detail-view:before {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/view_list_black.png') 1x,
+    url('../images/files/ui/2x/view_list_black.png') 2x);
+}
+
+button#thumbnail-view:before {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/view_thumbs_black.png') 1x,
+    url('../images/files/ui/2x/view_thumbs_black.png') 2x);
+}
+
+button#detail-view:before,
+button#thumbnail-view:before {
+  background-position: center;
+  background-repeat: no-repeat;
+  bottom: 0;
+  content: '';
+  left: 0;
+  opacity: 0.5;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+button#detail-view[disabled]:before,
+button#thumbnail-view[disabled]:before {
+  opacity: 0.75;
+}
+
+button#detail-view:hover:before,
+button#thumbnail-view:hover:before {
+  opacity: 1;
+}
+
+
+/* When detail-view is not disabled (thus thumbnail view is disabled), push
+   it up a little, to make it's right glowing border visible while focused.*/
+button#detail-view:not([disabled]) {
+  z-index: 2;
+}
+
+.filelist-panel {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+#list-container {
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+  position: relative;
+}
+
+.spinner {
+  background-image: url('../images/common/spinner.svg');
+  background-size: 100%;
+  height: 22px;
+  left: 50%;
+  margin-left: -11px;
+  margin-top: -11px;
+  opacity: 0.5;
+  position: absolute;
+  top: 50%;
+  width: 22px;
+}
+
+#spinner-container {
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  bottom: 0;
+  display: -webkit-box;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+#spinner-with-text {
+  background-image: url('../images/common/spinner.svg');
+  background-repeat: no-repeat;
+  font-size: 16px;
+  height: 22px;
+  min-width: 22px;
+  opacity: 0.6;
+  padding-left: 26px;
+}
+
+.downloads-warning {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-transition: height 70ms linear;
+  background-color: #f0f0f0;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/warning_icon_square.png') 1x,
+    url('../images/files/ui/2x/warning_icon_square.png') 2x);
+  background-position: 15px center;
+  background-repeat: no-repeat;
+  color: #666;
+  display: -webkit-box;
+  font-size: 13px;
+  height: 57px;
+  overflow: hidden;
+  padding-left: 57px;  /* Make space for the icon. */
+}
+
+.downloads-warning[hidden] {
+  height: 0;
+}
+
+/* Drive space warning banner. */
+.gdrive-space-warning {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-transition: height 70ms linear;
+  background-image: url(chrome://resources/images/clouds.png);
+  background-repeat: repeat-x;
+  background-size: 150px 44px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  color: #333;
+  display: -webkit-box;
+  font-size: 13px;
+  height: 44px;
+  overflow: hidden;
+  position: relative;
+}
+
+.gdrive-space-warning[hidden] {
+  border-top-width: 0;
+  height: 0;
+}
+
+.gdrive-space-warning .gdrive-icon {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/gdrive_logo.png') 1x,
+    url('../images/files/ui/2x/gdrive_logo.png') 2x);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 25px 22px;
+  height: 44px;
+  width: 50px;
+}
+
+.gdrive-space-warning .gdrive-text {
+  margin-right: 11px;
+}
+
+/* The cr.ui.Grid representing the detailed file list. */
+.thumbnail-grid {
+  overflow-y: auto;
+  width: 100%;
+}
+
+/* Common styles for the grid view and draggable thumbnails. */
+.thumbnail-item {
+  padding: 0;
+  position: relative;
+  text-align: center;
+}
+
+.thumbnail-frame {
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.img-container {
+  position: relative;
+}
+
+body[type='full-page'] .thumbnail-frame > .img-container,
+body[type='full-page'] .detail-name .detail-icon,
+body[type='full-page'] .filename-label > * {
+  cursor: pointer;
+}
+
+body[type='full-page'] grid .filename-label > :hover {
+  text-decoration: underline;
+}
+
+body[type='full-page'] list .filename-label > :hover,
+.breadcrumb-path:not(.breadcrumb-last):hover {
+  color: rgb(17, 85, 204);
+  text-decoration: underline;
+}
+
+.img-container > img {
+  -webkit-user-drag: none;
+  position: absolute;
+}
+
+.thumbnail-bottom {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: center;
+  bottom: 0;
+  cursor: auto;
+  display: -webkit-box;
+  left: 0;
+  padding: 0 5px;
+  position: absolute;
+  right: 0;
+}
+
+.thumbnail-bottom .filename-label {
+  -webkit-box-flex: 1;
+}
+
+/* Styles specific for the grid view. */
+
+/* The item width and margins are chosen so that the standard File Open/Save
+   dialogs have three nicely aligned columns of thumbnails. */
+.thumbnail-grid .thumbnail-item {
+  border: 2px solid transparent;  /* Selection will make the border visible. */
+  height: 182px;
+  margin-left: 8px;
+  margin-top: 7px;
+  width: 242px;
+}
+
+.thumbnail-grid .thumbnail-frame {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/hashed_bg.gif') 1x,
+    url('../images/files/ui/2x/hashed_bg.gif') 2x);
+  border: 1px solid rgb(217, 217, 217);
+}
+
+.thumbnail-grid .thumbnail-item[selected] .thumbnail-frame,
+.thumbnail-grid .thumbnail-item:hover .thumbnail-frame {
+  border-color: white;
+}
+
+.thumbnail-grid .img-container {
+  height: 100%;
+  width: 100%;
+}
+
+.thumbnail-grid .thumbnail-bottom {
+  background: rgba(0, 0, 0, 0.75);
+  color: #eee;
+  height: 30px;
+}
+
+.thumbnail-item .thumbnail-bottom .file-checkbox {
+  left: 9px;
+  position: absolute;
+  top: 10px;
+}
+
+/* Show the file name differently if the checkbox is present */
+.thumbnail-bottom.show-checkbox {
+  -webkit-box-pack: start;
+  padding-left: 28px;
+  text-align: left;
+}
+
+/* In the full page mode we can afford to show thumbnails as large as 320x240
+   with no downscaling. */
+body[type='full-page'] .thumbnail-grid .thumbnail-item {
+  height: 242px;
+  margin-left: 21px;
+  margin-top: 20px;
+  width: 322px;
+}
+
+body[type='full-page'] .thumbnail-grid .thumbnail-bottom {
+  height: 34px;
+}
+
+/* Padding counterweights negative margins of items, thus eliminating scroll
+   bar when it's not needed. Max height is set to fit 8 items before showing
+   scroll bar. */
+#default-actions-list {
+  max-height: 328px;
+  padding: 1px 0;
+}
+
+#default-actions-list > li > * {
+  background-position: 5px center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  line-height: 39px;
+  padding-left: 26px;
+}
+
+#list-container list > *,
+#list-container grid > *,
+#default-actions-list > * {
+  background-image: none;
+  border-radius: 0;
+}
+
+#list-container list > [selected],
+#list-container grid > [selected],
+#default-actions-list > [selected] {
+  background-color: rgb(203, 219, 241);
+}
+
+#list-container list > li.table-row[selected],
+#default-actions-list > li[selected] {
+  border-top: 1px solid rgb(224, 233, 247);
+}
+
+#list-container list > .accepts[selected],
+#list-container grid > .accepts[selected],
+#list-container list > [selected]:hover,
+#list-container grid > [selected]:hover,
+#default-actions-list > [selected]:hover {
+  background-color: rgb(193, 211, 236);
+}
+
+#list-container list > .accepts,
+#list-container grid > .accepts,
+#list-container list > :hover,
+#list-container grid > :hover,
+#default-actions-list > :hover {
+  background-color: #f1f1f1;
+}
+
+#list-container.nohover list > :not([selected]):hover,
+#list-container.nohover grid > :not([selected]):hover {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.table-row-cell .filename-label,
+.thumbnail-item .filename-label,
+/* Show ellipsis in cells. The name column has different structure and overrides
+   this rule. */
+.table-row-cell > div {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Text box used for renaming in the detail list. */
+.table-row-cell input.rename {
+  -webkit-margin-start: -3px;
+  line-height: 20px;
+}
+
+input.rename:focus {
+  outline-color: rgb(77, 144, 254);
+}
+
+/* Elements that need to be LTR even in an RTL context, but should align
+ * left. Display size in Hebrew is such a case.
+ */
+html[dir='rtl'] .align-end-weakrtl {
+  direction: ltr;
+  text-align: left;
+}
+
+input.rename {
+  font: inherit;
+  line-height: 1;
+  text-align: inherit;
+}
+
+.table-row-cell .filename-label,
+.table-row-cell input.rename {
+  -webkit-box-flex: 1;
+}
+
+[renaming] > .filename-label {
+  display: none;
+}
+
+/* Text box used for renaming in the thumbnail list. */
+.thumbnail-grid input.rename {
+  -webkit-box-sizing: border-box;
+  -webkit-margin-start: -1px;
+  height: 20px;
+  width: 114px;
+}
+
+/* The cr.ui.Table representing the detailed file list. */
+.detail-table {
+  border: 0;
+  width: 100%;
+}
+
+/* Bottom pane describing current selection. */
+.preview-panel {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-transform: translate(0, 0);
+  background-color: #F0F0F0;
+  display: -webkit-box;
+  height: 61px;
+  opacity: 1;
+  padding: 0 14px;
+  position: relative;
+  z-index: 3;
+}
+
+.preview-panel[visibility=hiding] {
+  /* Using all seems to cause preview panel and checkbox flicking issue. */
+  -webkit-transform: translate(0, 5px);
+  -webkit-transition: opacity 220ms ease;
+   opacity: 0;
+}
+
+.preview-panel[visibility=hidden] {
+  display: none;
+  opacity: 0;
+}
+
+.preview-thumbnails {
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  padding-left: 39px;
+}
+
+.preview-thumbnails > .thumbnail {
+  -webkit-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  background-color: #F2F2F2;
+  border: 1px solid #fff;
+  height: 45px;
+  margin: 0 0 0 -39px;  /* Show 7 pixels of the overlapped image */
+  position: relative;
+  width: 45px;
+}
+
+.preview-thumbnails > .thumbnail > .img-container {
+  background-size: 45px 45px;
+  height: 45px;
+  overflow: hidden;
+  width: 45px;
+}
+
+.preview-thumbnails > .popup {
+  -webkit-transform: translate(0, 3px) scale(0.95);
+  background-color: #F2F2F2;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #F0F0F0,
+              0 0 0 2px #D0D0D0,
+              2px 2px 6px rgba(0, 0, 0, 0.2);
+  margin: 6px 0 0 -40px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.preview-thumbnails > .popup > img {
+  -webkit-user-drag: none;
+}
+
+.preview-thumbnails > * {
+  -webkit-transition: all 180ms ease-in;
+  -webkit-transition-delay: 300ms;
+}
+
+.preview-thumbnails.has-zoom:hover > .popup {
+  -webkit-transform: translate(0, 0) scale(1.0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.preview-thumbnails.has-zoom:hover > .thumbnail {
+  opacity: 0;
+}
+
+/* cr.ui.Table has a black focus border by default, which we don't want. */
+.detail-table:focus {
+  border: 0;
+}
+
+/* Table splitter element */
+.table-header-splitter {
+  -webkit-border-start: 1px #d4d4d4 solid;
+  background-color: inherit;
+  height: 27px;
+}
+
+/* Container for a table header. */
+.table-header {
+  -webkit-box-sizing: border-box;
+  background-color: #f5f5f5;
+  border-bottom: 1px #d2d2d2 solid;
+  height: 27px;
+}
+
+.table-header-sort-image-desc::after {
+  -webkit-padding-start: 13px;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/sort_desc.png') 1x,
+    url('../images/files/ui/2x/sort_desc.png') 2x);
+  background-position: center center;
+  background-repeat: no-repeat;
+  color: #888;
+  content: '\00a0';
+  position: relative;
+  top: 1px;
+}
+
+.table-header-sort-image-asc::after {
+  -webkit-padding-start: 13px;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/sort_asc.png') 1x,
+    url('../images/files/ui/2x/sort_asc.png') 2x);
+  background-position: center center;
+  background-repeat: no-repeat;
+  color: #888;
+  content: '\00a0';
+  position: relative;
+  top: -1px;
+}
+
+
+.preview-container .table-header {
+  border-radius: 0 4px 0 0;
+}
+
+/* Text label in a table header. */
+.table-header-label {
+  margin: 5px 10px 0 9px;
+}
+
+.table-row-cell > * {
+  -webkit-box-align: center;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  margin: 0;
+  padding: 0 10px;
+}
+
+.table-row-cell > .detail-name {
+  display: -webkit-box;
+}
+
+.table-row-cell {
+  -webkit-box-align: center;
+}
+
+.file-checkbox {
+  -webkit-margin-end: 0;
+  -webkit-margin-start: 0;
+  position: relative;
+  z-index: 2;
+}
+
+#select-all-checkbox {
+  -webkit-margin-end: 11px;
+  -webkit-margin-start: 1px;
+  margin-bottom: 0;
+  margin-top: 0;
+  /* 1px below text */
+  position: relative;
+  top: 1px;
+}
+
+#list-container li.table-row:hover .file-checkbox,
+#list-container li.table-row:hover .pin,
+#list-container li.thumbnail-item:hover .file-checkbox {
+  opacity: 0.6;
+}
+
+#list-container li.table-row[selected] .file-checkbox,
+#list-container li.table-row[selected] .pin,
+#list-container li.thumbnail-item[selected] .file-checkbox {
+  opacity: 1.0 !important;
+}
+
+#list-container li.table-row,
+#default-actions-list li {
+  border: none;
+  border-top: 1px solid transparent;
+  height: 39px;
+  padding-bottom: 1px;
+  padding-top: 1px;
+}
+
+/* The icon in the name column. See file_types.css for specific icons. */
+.detail-icon {
+  height: 24px;
+  width: 24px;
+}
+
+.metadata-item {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  -webkit-padding-start: 8px;
+  display: -webkit-box;
+}
+
+.metadata-label {
+  -webkit-margin-end: 6px;
+}
+
+.preview-panel .spacer {
+  -webkit-box-flex: 1;
+}
+
+.delete-button {
+  -webkit-margin-end: 8px;
+  -webkit-margin-start: 8px;
+}
+
+.delete-button[disabled] {
+  /* Copied colors from cr-button:disabled */
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #999;
+  pointer-events: none;
+}
+
+.task-item {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  padding: 5px 10px 4px;
+  text-align: left;
+}
+
+.task-item > div {
+  overflow: hidden;
+  padding-right: 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-item > img {
+  -webkit-margin-end: 5px;
+}
+
+#preview-lines {
+  -webkit-box-flex: 1;
+  vertical-align: middle;
+}
+
+/* The selection summary text at the bottom of the preview pane. */
+.preview-summary {
+  color: #666;
+  overflow: hidden;
+  padding-left: 5px;
+  padding-right: 5px;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.detail-name > * {
+  -webkit-box-align: center;
+  display: -webkit-box;
+}
+
+/* Overriding input.common[type='checkbox'] rule in common.css. */
+.detail-name > input.common[type='checkbox'] {
+  -webkit-margin-end: 4px;
+  -webkit-margin-start: -1px;
+  border-color: #444;
+}
+
+list .detail-name > .file-checkbox::before,
+.pin::before {
+  /* Invisible area that reacts on mouse events. */
+  content: '';
+  display: -webkit-box;
+  height: 38px;
+  left: -8px;
+  position: absolute;
+  right: -9px;
+  top: -14px;
+}
+
+#filename-input-box {
+  -webkit-box-align: center;
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+}
+
+#filename-input-box input {
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+  padding: 1px 2px;
+}
+
+#filename-input-box .filename-label {
+  -webkit-box-orient: horizontal;
+  background-color: white;
+  color: #333;
+  display: -webkit-box;
+  padding-right: 4px;
+}
+
+body:not([type='saveas-file']) #filename-input-box {
+  display: none;
+}
+
+/* A horizontal spring. */
+.horizontal-spacer {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+}
+
+/* A vertical spring. */
+.vertical-spacer {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+/* Dimmed items */
+
+body[type='folder'] .file,
+[gdata][connection='offline'] .dim-offline,
+[gdata][connection='metered'] .dim-metered {
+  opacity: 0.4;
+}
+
+/* Overlay pane covering the entire file manager window (e.g. image editor)*/
+.overlay-pane {
+  border: none;
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  z-index: 100;
+}
+
+/* Invisible container for elements representing files while dragging. */
+#drag-image-container {
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  /* Only nodes in visible viewport will be rendered. */
+  left: 0;
+  padding-left: 100px;
+  position: fixed;
+  top: 0;
+  z-index: -1;  /* below .dialog-container */
+}
+
+#drag-image-container > .thumbnail-item {
+  background-color: rgb(203, 219, 241);
+  border: 1px solid white; /* transparent white */
+  cursor: default;
+  display: inline-block;
+  height: 140px;
+  line-height: 20px;
+  margin: 0 0 0 -100px;
+  overflow: hidden;
+  position: relative; /* to allow overlap */
+  white-space: pre;
+  width: 120px;
+}
+
+/* When changing these properties please preserve these conditions:
+   1. width == height (so that the rotated thumbnail does not look off-center)
+   2. width % 8 == 0 (to minimize rounding errors in the centering code) */
+#drag-image-container .img-container {
+  height: 112px;
+  margin: 4px;
+  width: 112px;
+}
+
+menu.file-context-menu {
+  z-index: 4;
+}
+
+input.common.pin[type='checkbox']:checked::after {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/pin.png') 1x,
+    url('../images/files/ui/2x/pin.png') 2x);
+  background-position: 4px 0;
+}
+
+div.offline {
+  -webkit-box-pack: center;
+  display: -webkit-box;
+}
+
+div.offline > * {
+  -webkit-box-align: center;
+  display: -webkit-box;
+}
+
+div.shade {
+  /* -webkit-transition: opacity 1000ms linear; */
+  background-color: rgba(255, 255, 255, 0.8);
+  bottom: 0;
+  left: 0;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+div.shade[fadein] {
+  opacity: 1;
+}
+
+/* Message panel for unmounted GData */
+#unmounted-panel,
+#format-panel {
+  bottom: 0;
+  color: #333;
+  display: none;
+  left: 0;
+  padding-left: 50px;
+  padding-top: 20px;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.dialog-container[gdata='mounting'] #unmounted-panel,
+.dialog-container[gdata='error'] #unmounted-panel,
+.dialog-container[unformatted] #format-panel {
+  display: block;
+}
+
+.dialog-container[gdata='unmounted'] .filelist-panel,
+.dialog-container[gdata='mounting'] .filelist-panel,
+.dialog-container[gdata='error'] .filelist-panel,
+.dialog-container[unformatted] .filelist-panel {
+  /* Hide file list when GData is not mounted.
+     Use opacity to avoid manual resizing.*/
+  opacity: 0;
+}
+
+#unmounted-panel > *,
+#format-panel > * {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: start;
+  display: none;
+  height: 22px;
+  margin-bottom: 10px;
+}
+
+#unmounted-panel > .loading {
+  position: relative;
+}
+
+#unmounted-panel > .loading > .spinner-box {
+  bottom: 0;
+  position: absolute;
+  right: 100%;
+  top: 0;
+  width: 40px;
+}
+
+[unformatted] #format-panel > .error,
+[gdata='mounting'] #unmounted-panel > .loading,
+[gdata='mounting'] #unmounted-panel > .progress,
+[gdata='error'] #unmounted-panel > .error,
+#format-panel > #format-button,
+#unmounted-panel.retry-enabled > .retry,
+#unmounted-panel.retry-enabled > .learn-more {
+  display: -webkit-box;
+}
+
+#unmounted-panel > .progress {
+  color: #999;
+  margin-top: -10px;
+}
+
+.plain-link {
+  color: rgb(17, 85, 204);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+body[ash] .dialog-title,
+
+body[type='folder'] [invisibleif~='folder'],
+body[type='saveas-file'] [invisibleif~='saveas-file'],
+body[type='open-file'] [invisibleif~='open-file'],
+body[type='open-multi-file'] [invisibleif~='open-multi-file'],
+body[type='full-page'] [invisibleif~='full-page'],
+
+body[type='folder'] [visibleif]:not([visibleif~='folder']),
+body[type='saveas-file'] [visibleif]:not([visibleif~='saveas-file']),
+body[type='open-file'] [visibleif]:not([visibleif~='open-file']),
+body[type='open-multi-file'] [visibleif]:not([visibleif~='open-multi-file']),
+body[type='full-page'] [visibleif]:not([visibleif~='full-page']) {
+  display: none;
+}
+
+body:not([ctrl-pressing]) [required_attr='ctrl-pressing'] {
+  display: none;
+}
+
+#gdata-settings:before {
+  background-image: url('../images/files/ui/settings.svg');
+  background-position: 20px center;
+  background-repeat: no-repeat;
+  bottom: 0;
+  content: '';
+  left: 0;
+  opacity: 0.75;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+#gdata-settings:hover:before {
+  opacity: 1;
+}
+
+
+#gdata-settings {
+  overflow: hidden;
+  text-align: left;
+  width: 54px;
+}
+
+#gdata-settings span.disclosureindicator {
+  float: none;
+  margin-left: 42px;
+}
+
+/* To animate the #gdata-settings element to invisibility we set every property
+  that affects its horizontal size to 0. */
+.dialog-container:not([gdata]) #gdata-settings {
+  border-color: transparent;  /* Changing only the color to preserve layout. */
+  border-left-width: 0;
+  border-right-width: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+  width: 0;
+}
+
+.dialog-container:not([gdata]) #gdata-settings > * {
+  display: none;
+}
+
+.buttonbar > * {
+  position: relative;
+}
+
+.buttonbar .tooltip {
+  right: -12px;
+  top: 35px;
+}
+
+/* Tooltips */
+.tooltip {
+  -webkit-border-radius: 0;
+  -webkit-box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  -webkit-box-sizing: border-box;
+  background: #2d2d2d;
+  box-shadow: 1px 2px 4px #ccc;
+  color: white;
+  display: block;
+  font-size: 11px;
+  font-weight: bold;
+  height: 29px;
+  line-height: 29px;
+  margin-left: -20px;
+  min-width: 50px;
+  opacity: 0;
+  outline: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 0 10px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  top: 5px;
+  white-space: nowrap;
+  z-index: 15;
+}
+
+.tooltip:after,
+.tooltip:before {
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: transparent;
+  content: '';
+  display: block;
+  margin-left: -5px;
+  position: absolute;
+  right: 24px;
+  top: -5px;
+}
+
+.tooltip:after {
+  border-bottom: 5px solid #2d2d2d;
+}
+
+.tooltip:before {
+  border-bottom: 5px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Show with delay, disappear instantly */
+@-webkit-keyframes tooltip-show {
+  0% { opacity: 0; }
+  90% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+:hover > .tooltip {
+  -webkit-animation-duration: 800ms;
+  -webkit-animation-iteration-count: 1;
+  -webkit-animation-name: tooltip-show;
+  -webkit-animation-timing-function: linear;
+  opacity: 1;
+}
+
+#no-search-results {
+  bottom: 0;
+  display: none;
+  left: 0;
+  padding: 10px;
+  position: absolute;
+  right: 0;
+  top: 28px;  /* Leave room for the file list header. */
+}
+
+.dialog-container:not([gdrive-welcome='page']) #no-search-results[show] {
+  display: block;
+}
+
+#gdata-space-info {
+  -webkit-box-pack: justify;
+  display: -webkit-box;
+}
+
+#gdata-space-info-label {
+  display: block;
+}
+
+#gdata-space-info > div {
+  -webkit-box-flex: 1;
+  border: 1px solid rgb(192, 192, 192);
+  display: block;
+  height: 11px;
+  margin: 8px 0 9px 10px;
+}
+
+#gdata-space-info-bar[pending] {
+  -webkit-animation-duration: 800ms;
+  -webkit-animation-iteration-count: infinite;
+  -webkit-animation-name: bg;
+  -webkit-animation-timing-function: linear;
+  background-color: rgb(192, 192, 192);
+  background-image: -webkit-linear-gradient(315deg, transparent,
+      transparent 33%, rgba(0, 0, 0, 0.12) 33%, rgba(0, 0, 0, 0.12) 66%,
+      transparent 66%, transparent);
+  background-position: 0 0;
+  background-repeat: repeat-x;
+  background-size: 16px 8px;
+}
+
+#gdata-space-info-bar {
+  background-color: rgb(192, 192, 192);
+  border: 1px solid rgb(255, 255, 255);
+  box-sizing: border-box;
+  height: 100%;
+  width: 50%;
+}
+
+#list-container .table-header-inner {
+  height: 100%;
+}
+
+#list-container .table-header-cell:hover {
+  background-color: #ececec;
+}
+
+button:focus {
+  outline-color: rgb(77, 144, 254);
+}
+
+#new-folder {
+  margin-right: 30px;
+}
+
+#default-action-dialog {
+  min-width: 300px;
+  width: auto;
+}

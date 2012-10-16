@@ -1,0 +1,9 @@
+application: chrome-apps-doc
+version: 2-0-7
+runtime: python27
+api_version: 1
+threadsafe: false
+
+handlers:
+- url: /.*
+  script: appengine_main.py

@@ -1,0 +1,109 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+#login-header-bar {
+  -webkit-padding-after: 7px;
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+html[oobe=new] #login-header-bar {
+  -webkit-padding-before: 7px;
+  /* Using copy of Ash launcher background with 0.8 opacity applied to it.
+     Otherwise if opacity: 0.8 is set here it will affect button text as well.
+     Have to position background differently so that opacity is not applied
+     to child elements. */
+  background-image: url('chrome://theme/IDR_LAUNCHER_BACKGROUND');
+}
+
+html[oobe=new] .header-bar-item:first-child {
+  -webkit-padding-start: 15px;
+}
+
+#login-header-bar button,
+#login-header-bar button:active,
+#login-header-bar button:focus,
+#login-header-bar button:hover {
+  -webkit-box-shadow: none;
+  background: transparent none;
+  cursor: pointer;
+  height: 34px;
+  margin: 0;
+  min-width: 0;
+  opacity: 0.6;
+  padding: 5px 8px;
+  vertical-align: middle;
+}
+
+html[oobe=new] #login-header-bar button,
+html[oobe=new] #login-header-bar button:active,
+html[oobe=new] #login-header-bar button:focus,
+html[oobe=new] #login-header-bar button:hover {
+  color: white !important;
+  opacity: 1 !important;
+}
+
+html[oobe=old] .header-bar-item {
+  -webkit-padding-start: 15px;
+  background-image: url('chrome://theme/IDR_DIVIDER_VERT');
+  background-position: -2px center;
+  background-repeat: no-repeat;
+  background-size: 15px;
+}
+
+.header-bar-item {
+  display: inline-block;
+  height: 34px;
+}
+
+html[dir=rtl] .header-bar-item {
+  background-position: right center;
+}
+
+html[oobe=old] .header-bar-item:first-child {
+  -webkit-padding-start: 9px;
+  background: none;
+}
+
+#login-header-bar #shutdown-button,
+#login-header-bar #add-user-button,
+#login-header-bar #guest-user-button {
+  -webkit-padding-start: 24px;
+  background-position: left center;
+  background-repeat: no-repeat;
+  background-size: 24px;
+}
+
+html[dir=rtl] #login-header-bar #shutdown-button,
+html[dir=rtl] #login-header-bar #add-user-button,
+html[dir=rtl] #login-header-bar #guest-user-button {
+  background-position: right center;
+}
+
+#login-header-bar #shutdown-button {
+  background-image: url('chrome://theme/IDR_ICON_POWER24');
+}
+
+html[oobe=new] #login-header-bar #shutdown-button {
+  background-image: url('chrome://theme/IDR_ICON_POWER_WHITE');
+}
+
+#login-header-bar #add-user-button {
+  background-image: url('chrome://theme/IDR_ICON_ADD_USER24');
+}
+
+html[oobe=new] #login-header-bar #add-user-button {
+  background-image: url('chrome://theme/IDR_ICON_ADD_USER_WHITE');
+}
+
+#login-header-bar #guest-user-button {
+  background-image: url('chrome://theme/IDR_ICON_GUEST_WHITE');
+}
+
+ .button-restricted {
+  opacity: 0.4 !important;
+}

@@ -1,0 +1,59 @@
+<!-- Host resolver info -->
+<div id=dns-view-tab-content class=content-box>
+  <h4>Host resolver</h4>
+  <ul>
+    <li><a href='#events&q=type:HOST_RESOLVER_IMPL_REQUEST,HOST_RESOLVER_IMPL_JOB%20is:active'>View pending lookups</a></li>
+    <li>Default address family: <span id=dns-view-default-family></span>
+      <span id=dns-view-ipv6-disabled class=warning-text style="display: none;">
+        (IPv6 disabled)
+        <input type=button value="Enable IPv6" id=dns-view-enable-ipv6 class="hide-when-not-capturing">
+      </span>
+    </li>
+    <li>
+      <span id=dns-view-ipv6-probe-complete style="display: none;">IPv6 probe complete</span>
+      <span id=dns-view-ipv6-probe-running class=warning-text style="display: none;">IPv6 probe running</span>
+      <input type=button value="Run IPv6 Probe" id=dns-view-run-ipv6-probe class="hide-when-not-capturing">
+    </li>
+    <li><a href="#events&q=type:IPV6_PROBE_JOB">View all IPv6 probe events</a></li>
+  </ul>
+
+  <div>
+    <h4>Async DNS Configuration</h4>
+    <ul>
+      <li>Internal DNS client enabled:
+        <span id=dns-view-internal-dns-enabled></span>
+        <span id=dns-view-internal-dns-invalid-config class=warning-text style="display: none;">
+          (No valid configuration found)</span>
+      </li>
+    </ul>
+    <table class="styled-table">
+      <tbody id=dns-view-internal-dns-config-tbody></tbody>
+    </table>
+  </div>
+
+  <h4>
+    Host resolver cache
+    <input type=button value="Clear host cache" id=dns-view-clear-cache class="hide-when-not-capturing">
+  </h4>
+  <ul>
+    <li>Capacity: <span id=dns-view-cache-capacity></span></li>
+  </ul>
+  <h4>Current State</h4>
+  <ul>
+    <li>Active entries: <span id=dns-view-cache-active></span></li>
+    <li>Expired entries: <span id=dns-view-cache-expired></span></li>
+  </ul>
+
+  <table class="styled-table">
+    <thead>
+      <tr>
+        <th>Hostname</th>
+        <th>Family</th>
+        <th>Addresses</th>
+        <th>Expires</th>
+      </tr>
+    </thead>
+    <tbody id=dns-view-cache-tbody>
+    </tbody>
+  </table>
+</div>

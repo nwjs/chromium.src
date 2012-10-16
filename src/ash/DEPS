@@ -1,0 +1,14 @@
+include_rules = [
+  "+chromeos",
+  "+content/public",
+  "+grit/ash_resources.h",
+  "+grit/ash_strings.h",
+  "+grit/ash_wallpaper_resources.h",
+  "+grit/ui_resources.h",
+  "+grit/ui_strings.h",
+  "+skia/ext",
+  "+third_party/cros_system_api",
+  "+third_party/skia",
+  "+net",
+  "+ui",
+]

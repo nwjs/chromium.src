@@ -1,0 +1,16 @@
+set noparent
+
+# This OWNERS list is a last resort. Please prefer to use more specific OWNERS
+# where possible.
+
+# Reviewers:
+ben@chromium.org
+brettw@chromium.org
+jhawkins@chromium.org
+sky@chromium.org
+thakis@chromium.org
+thestig@chromium.org
+
+# Just owners:
+darin@chromium.org
+jam@chromium.org

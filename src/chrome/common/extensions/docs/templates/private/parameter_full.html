@@ -1,0 +1,13 @@
+<div>
+  {{?parent_name}}<a name="{{id}}"></a>{{/}}
+  {{+partials.property}}
+  {{?properties}}
+  <dd>
+    <dl>
+    {{#properties}}
+      {{+partials.parameter_full}}
+    {{/}}
+    </dl>
+  </dd>
+  {{/properties}}
+</div>

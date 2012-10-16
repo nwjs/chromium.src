@@ -1,0 +1,6 @@
+include_rules = [
+  "+remoting/protocol",
+
+  "+google/protobuf",
+  "+third_party/speex",
+]

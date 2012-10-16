@@ -1,0 +1,95 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/ui/toolbar/action_box_menu_model.h"
+
+#include "base/logging.h"
+#include "base/utf_string_conversions.h"
+#include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/chrome_to_mobile_service.h"
+#include "chrome/browser/chrome_to_mobile_service_factory.h"
+#include "chrome/browser/command_updater.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
+#include "chrome/browser/extensions/extension_toolbar_model.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/common/url_constants.h"
+#include "grit/generated_resources.h"
+#include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
+
+////////////////////////////////////////////////////////////////////////////////
+// ActionBoxMenuModel
+
+ActionBoxMenuModel::ActionBoxMenuModel(Browser* browser,
+                                       ui::SimpleMenuModel::Delegate* delegate)
+    : ui::SimpleMenuModel(delegate),
+      browser_(browser) {
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  content::WebContents* current_web_contents =
+      chrome::GetActiveWebContents(browser_);
+  if (!browser_->profile()->IsOffTheRecord() &&
+      !current_web_contents->GetURL().SchemeIs(chrome::kChromeUIScheme) &&
+      !current_web_contents->GetURL().SchemeIs(chrome::kFileScheme) &&
+      ChromeToMobileServiceFactory::GetForProfile(browser_->profile())->
+      HasMobiles()) {
+    AddItemWithStringId(IDC_CHROME_TO_MOBILE_PAGE,
+                        IDS_CHROME_TO_MOBILE_BUBBLE_TOOLTIP);
+    SetIcon(GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE),
+            rb.GetNativeImageNamed(IDR_MOBILE));
+  }
+
+  BookmarkTabHelper* bookmark_tab_helper =
+      BookmarkTabHelper::FromWebContents(current_web_contents);
+  bool starred = bookmark_tab_helper->is_starred();
+  AddItemWithStringId(IDC_BOOKMARK_PAGE,
+                      starred ? IDS_TOOLTIP_STARRED : IDS_TOOLTIP_STAR);
+  SetIcon(GetIndexOfCommandId(IDC_BOOKMARK_PAGE),
+          rb.GetNativeImageNamed(starred ? IDR_STAR_LIT : IDR_STAR));
+}
+
+ActionBoxMenuModel::~ActionBoxMenuModel() {
+}
+
+void ActionBoxMenuModel::AddExtension(const extensions::Extension& extension,
+                                      int command_id) {
+  if (extension_ids_.empty())
+    AddSeparator(ui::NORMAL_SEPARATOR);
+  extension_ids_.push_back(extension.id());
+  AddItem(command_id, UTF8ToUTF16(extension.name()));
+}
+
+bool ActionBoxMenuModel::IsItemExtension(int index) {
+  // The extensions are always at the end of the model.
+  CHECK(index < GetItemCount());
+  return index >= GetFirstExtensionIndex();
+}
+
+const extensions::Extension* ActionBoxMenuModel::GetExtensionAt(int index) {
+  if (!IsItemExtension(index))
+    return NULL;
+
+  int index_in_extension_ids = index - GetFirstExtensionIndex();
+  CHECK_GE(index_in_extension_ids, 0);
+  CHECK_LT(index_in_extension_ids, static_cast<int>(extension_ids_.size()));
+
+  ExtensionService* extension_service =
+      extensions::ExtensionSystem::Get(browser_->profile())->
+          extension_service();
+  return extension_service->extensions()->GetByID(
+      extension_ids_[index_in_extension_ids]);
+}
+
+void ActionBoxMenuModel::ExecuteCommand(int command_id) {
+  delegate()->ExecuteCommand(command_id);
+}
+
+int ActionBoxMenuModel::GetFirstExtensionIndex() {
+  return GetItemCount() - extension_ids_.size();
+}

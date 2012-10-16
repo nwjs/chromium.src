@@ -1,0 +1,19 @@
+{
+  "name": "chrome.socket",
+  "version": "0.1",
+  "description": "end-to-end browser test for chrome.socket API",
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "permissions": [
+    "experimental",
+    {"socket": [
+      "tcp-connect",
+      "tcp-listen",
+      "udp-send-to",
+      "udp-bind"
+    ]}
+  ]
+}

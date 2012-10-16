@@ -1,0 +1,33 @@
+<div>
+  <h3 id="{{id}}">{{name}}</h3>
+  <div>
+    <dt>{{+partials.type_name}}</dt>
+    {{?description}}<dd>
+      {{{description}}}
+    </dd>{{/description}}
+    {{?properties}}
+    <h4 id="{{type.name}}-properties">
+      Properties of <a href="#type-{{type.name}}">{{type.name}}</a>
+    </h4>
+    <dd><dl>{{#properties}}
+      {{+partials.parameter_full}}
+    {{/}}</dl></dd>
+    {{/properties}}
+    {{?functions}}
+    <h4 id="{{type.name}}-methods">
+      Methods of <a href="#type-{{type.name}}">{{type.name}}</a>
+    </h4>
+    <dd><dl>{{#functions}}
+      {{+partials.function api:api}}
+    {{/}}</dl></dd>
+    {{/functions}}
+    {{?events}}
+    <h4 id="{{type.name}}-events">
+      Events of <a href="#type-{{type.name}}">{{type.name}}</a>
+    </h4>
+    <dd><dl>{{#events}}
+      {{+partials.event api:api}}
+    {{/}}</dl></dd>
+    {{/events}}
+  </div>
+</div>

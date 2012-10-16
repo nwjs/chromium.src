@@ -1,0 +1,5 @@
+# "impossible happened" http://crbug.com/51716
+ResourceFetcherTests.ResourceFetcherTimeout
+ResourceFetcherTests.ResourceFetcherDeletedInCallback
+PluginTest.DeleteFrameDuringEvent
+PluginTest.ForceReload

@@ -1,0 +1,71 @@
+<!doctype html>
+
+<!-- Copyright (c) 2012 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file. -->
+
+<!-- This page uses Flot version 0.7 in compressed form for efficiency.
+Readable Flot source is available at http://code.google.com/p/flot/
+Good caliber Flot API docs are at: http://people.iola.dk/olau/flot/API.txt
+as of 6/2012. -->
+
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="chart.css">
+  </head>
+  <body>
+    <div class="horizontal-box">
+      <div id="choose-block">
+        <div id="choose-time-range-header" class="tab-label">
+          Time Range
+        </div>
+        <div class="category-label">Time Resolution</div>
+        <div id="choose-time-range">
+        </div>
+        <div class="category-label">Back/Forward by Half-Ranges</div>
+        <div class="horizontal-box">
+          <button id="back-time" title="Back">&lt;&lt;</button>
+          <div class="spacer"></div>
+          <button id="forward-time" title="Forward">&gt;&gt;</button>
+        </div>
+  
+        <div id="choose-metrics-header" class="tab-label">
+          Metrics to Display
+        </div>
+        <div id="choose-metrics">
+        </div>
+  
+        <div id="choose-events-header" class="tab-label">
+          Events to Display
+        </div>
+        <div id="choose-events">
+        </div>
+      </div>
+  
+      <div id="charts"></div>
+      <div id="templates" hidden>
+        <div id="label-template" class="event-label"></div>
+        <div id="category-label-template" class="category-label"></div>
+        <div id="detail-checkbox-template" class="detail-checkbox">
+          <div class="horizontal-box">
+            <input type="checkbox"></input>
+            <div class="detail-label">Change this label</div>
+            <div class="spacer"></div>
+            <div class="color-icon"></div>
+          </div>
+        </div>
+        <div id="radio-template" class="radio">
+          <div class="horizontal-box">
+            <input type="radio" name="time-range"/>
+            <span>Change this label</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="chrome://resources/js/cr.js"></script>
+    <script src="chrome://resources/js/util.js"></script>
+    <script src="jquery.js"></script>
+    <script src="flot.js"></script>
+    <script src="chart.js"></script>
+  </body>
+</html>

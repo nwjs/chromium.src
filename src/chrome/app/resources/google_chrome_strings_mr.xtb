@@ -1,0 +1,160 @@
+<?xml version="1.0" ?>
+<!DOCTYPE translationbundle>
+<translationbundle lang="mr">
+<translation id="8000275528373650868">Google Chrome साठी SP2 किंवा त्यापेक्षा उच्च आवृत्ती सह Windows Vista किंवा Windows XP आवश्यक आहे.</translation>
+<translation id="8485767968786176057">या प्रकरणात, प्रमाणपत्रात सूचीबद्ध केलेला पत्ता आपल्या ब्राउझरने जाण्याचा प्रयत्न केलेल्या वेबसाइटच्या पत्त्याशी जुळत नाही. याचे एक संभाव्य कारण म्हणजे आपली संप्रेषणे एका आक्रमणकर्त्याकडून मध्‍येच पाहिली जात असून हा वेगळ्या वेबसाइटचे प्रमाणपत्र सादर करीत आहे ज्यामुळे ते जुळत नाही. दुसरे संभाव्य कारण म्हणजे जरी त्या सर्व वेबसाइटसाठी वैध नसले तरी सर्व्हरने आपण भेट देण्‍याचा प्रयत्न करीत आहात त्यासह एकाधिक वेबसाइटसाठी तेच प्रमाणपत्र देण्‍यास सेट केले आहे. Google Chrome खात्रीने सांगू शकते की आपण &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; वर पोहोचला आहात, परंतु आपल्याला इच्छित असलेल्या &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; साइटवर आपण गेला आहात याचे सत्यापन ते करु शकत नाही. आपण पुढे गेल्यास पुढील नावातील कोणत्याही विसंगती Chrome तपासणार नाही.</translation>
+<translation id="5430073640787465221">आपली प्राधान्ये फाइल दूषित किंवा अवैध आहेत.
+
+Google Chrome आपली सेटिंग्ज पुर्नप्राप्त करण्‍यात अक्षम आहे.</translation>
+<translation id="6676384891291319759">इंटरनेटमध्ये प्रवेश करा</translation>
+<translation id="573759479754913123">Chrome OS बद्दल</translation>
+<translation id="5453904507266736060">Google Chrome ला पार्श्वभूमीत चालू द्या</translation>
+<translation id="2383457833405848421">Chrome Frame बद्दल...</translation>
+<translation id="3454512769850953877">होय, Chrome च्या बाहेर पडा</translation>
+<translation id="386202838227397562">कृपया सर्व Google Chrome विंडो बंद करा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="2770231113462710648">डीफॉल्ट ब्राउझर यावर बदला:</translation>
+<translation id="7400722733683201933">Google Chrome बद्दल</translation>
+<translation id="1065672644894730302">आपली प्राधान्ये वाचता आली नाहीत.
+काही वैशिष्‍ट्ये अनुपलब्ध असू शकतात आणि प्राधान्यांमधील बदल जतन केले जाणार नाहीत.</translation>
+<translation id="7781002470561365167">Google Chrome ची नवी आवृत्ती उपलब्ध आहे. </translation>
+<translation id="1484802885942301358">Google Chrome अद्ययावत झाले आहे (<ph name="VERSION"/>)</translation>
+<translation id="7101265395643981223">Google Chrome प्रारंभ करा</translation>
+<translation id="4891791193823137474">पार्श्वभूमीत Google Chrome चालू द्या</translation>
+<translation id="2879385160622431163">Google Chrome झटपट</translation>
+<translation id="2370289711218562573">Google Chrome आता मनपसंत/बुकमार्क् आयात करीत आहे.</translation>
+<translation id="1761870329818521071">सध्या चालत असलेली Google Chrome Frame ची समान आवृत्ती स्थापित करू शकत नाही. कृपया Google Chrome Frame बंद करा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="2040709530900803995">Google Chrome Renderer</translation>
+<translation id="3140883423282498090">पुढील वेळी आपण Google Chrome पुन्हा लाँच केल्यानंतर आपले बदल प्रभावी होतील.</translation>
+<translation id="1773601347087397504">Chrome OS वापरून मदत मिळवा </translation>
+<translation id="1872436416934435136">Google Chrome यापुढे अद्यतन करीत नाही कारण आपले ऑपरेटिंग सिस्‍टम अप्रचलित आहे.</translation>
+<translation id="5339639696978861456">Chrome Frame अद्यतनित केली गेली आहे. कृपया आपला ब्राउझर पुन्हा लाँच करा. Chrome आवृत्ती: <ph name="TODO_0001"/>, Chrome Frame आवृत्ती: <ph name="TODO_0002"/></translation>
+<translation id="4281844954008187215">सेवा अटी</translation>
+<translation id="8398145039500709259">आपल्या Chrome च्या सर्व गोष्‍टी समक्रमित करण्‍यासाठी हे  Google खाते वापरायचे?</translation>
+<translation id="1779550429052479749">सिस्टमवर Google Chrome किंवा Google Chrome Frame ची विरोधी स्थापना सापडली. कृपया ती विस्थापित करा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="3555616473548901994">विस्थापन पूर्ण.</translation>
+<translation id="8556340503434111824">Google Chrome ची नवीन आवृत्ती उपलब्ध आहे, आणि ही नेहमीपेक्षा द्रुत आहे. </translation>
+<translation id="4728575227883772061">अनिर्दिष्ट त्रुटीमुळे स्थापना अयशस्वी. जर Google Chrome सध्या चालू असेल तर, कृपया त्यास बंद करा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="3080151273017101988">जेव्हा Google Chrome बंद असेल तेव्हा पार्श्वभूमीत अनुप्रयोग चालणे सुरू ठेवा</translation>
+<translation id="4149882025268051530">संग्रहणाचा असंक्षिप्त करण्यास इन्स्टॉलर अयशस्वी. कृपया Google Chrome पुन्हा डाउनलोड करा.</translation>
+<translation id="6989339256997917931">Google Chrome अद्यतनित केला गेला, परंतु आपण तो किमान 30 दिवसांपासून वापरलेला नाही.</translation>
+<translation id="5744005218040929396">Google Chrome Utility</translation>
+<translation id="1682634494516646069">Google Chrome त्याची डेटा निर्देशिका वाचू किंवा लिहू शकत नाही:  
+
+<ph name="USER_DATA_DIRECTORY"/></translation>
+<translation id="4343226815564935778">Google Chrome स्थापना निर्देशिका कदाचित वापरात आहे. कृपया आपला संगणक रीबूट करा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="8227755444512189073">Google Chrome ला <ph name="SCHEME"/> दुवे हाताळण्यासाठी बाह्य अनुप्रयोग लाँच करण्याची आवश्यकता आहे. अनुरोधित दुवा <ph name="PROTOLINK"/> आहे.</translation>
+<translation id="8290100596633877290">अरेरे! Google Chrome क्रॅश झाला. त्वरित पुन्हा लाँच करायचा?</translation>
+<translation id="1281036569101707544">Google Chrome <ph name="TERMS_OF_SERVICE_LINK"/></translation>
+<translation id="5204098752394657250">Google Chrome <ph name="TERMS_OF_SERVICE_LINK"/>सेवा अटी<ph name="END_TERMS_OF_SERVICE_LINK"/></translation>
+<translation id="1393853151966637042">Chrome वापरून मदत मिळवा</translation>
+<translation id="3487814320513494737">Chrome चे नवीन टॅब पृष्ठ पुन्हा मोल्ड केले गेले आहे. या लेबलांवर क्लिक करून या विभागांदरम्यान स्विच करा. Chrome पुढच्या वेळेसाठी आपले प्राधान्य लक्षात ठेवेल.</translation>
+<translation id="1697213158865901863">Google Chrome फ्रेम</translation>
+<translation id="6423071462708908582">आपण &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; वर पोहोचण्याचा प्रयत्न केला, परंतु सर्व्हरने कालबाह्य झालेले प्रमाणपत्र सादर केले. त्या प्रमाणपत्राने ते कालबाह्य होताना तडजोड केल्याबद्दल सूचित करणारी कोणतीही माहिती उपलब्ध नाही. म्हणजेच आपण &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt; शी संप्रेषण करीत असून आक्रमणकर्त्याशी करीत नाही याची Google Chrome हमी देऊ शकत नाही. आपल्या संगणकाचे घड्याळ सध्या <ph name="CURRENT_TIME"/> वर सेट केले आहे. ते बरोबर दिसते आहे? नसल्यास, आपण त्रुटी दुरुस्त करून हे पृष्ठ रीफ्रेश करावे.</translation>
+<translation id="3197823471738295152">आपले डिव्हाइस अद्ययावत आहे.</translation>
+<translation id="2653935705142821164">Chrome Renderer</translation>
+<translation id="3889417619312448367">Google Chrome विस्थापित करा</translation>
+<translation id="8551886023433311834">जवळपास अद्ययावत! अद्यतन करणे पूर्ण करण्यासाठी आपल्या डिव्हाइसचा पुनरारंभ करा.</translation>
+<translation id="6169866489629082767"><ph name="PAGE_TITLE"/> – Google Chrome</translation>
+<translation id="3282568296779691940">Chrome वर साइन इन करा</translation>
+<translation id="3089968997497233615">Google Chrome ची नवीन, सुरक्षित आवृत्ती उपलब्ध आहे.</translation>
+<translation id="5037239767309817516">कृपया सर्व Google Chrome विंडो बंद करा आणि हा बदल प्रभावी करण्यासाठी त्या पुन्हा लाँच करा.</translation>
+<translation id="7451721381978275812">अवैध वितर्क. Google Chrome स्थापित केल्याशिवाय सज्ज मोडमध्ये Google Chrome Frame स्थापित करणे शक्य नाही.</translation>
+<translation id="4585888816441913908">या संगणकात आधीपासूनच Google Chrome आणि Google Chrome फ्रेम ची अलीकडील आवृत्ती आहे. सॉफ्टवेअर कार्य करीत नसल्यास, कृपया दोन्ही Google Chrome आणि Google Chrome फ्रेम विस्थापित करा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="6368958679917195344"> Chrome OS अतिरिक्त <ph name="BEGIN_LINK_CROS_OSS"/>मुक्त स्रोत सॉफ्टवेअर<ph name="END_LINK_CROS_OSS"/> द्वारे शक्य झाले आहे.</translation>
+<translation id="7459554271817304652">आपली वैयक्तीकृत केलेली ब्राउझर वैशिष्ट्ये जतन करण्यासाठी समक्रमण सेट करा आणि कोणत्याही संगणकावरील Google Chrome वरून त्यात प्रवेश करा.</translation>
+<translation id="4561681684759837226"><ph name="PAGE_TITLE"/></translation>
+<translation id="3215326788962391210">आपण &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; वर पोहोचण्‍याचा प्रयत्न केलात, परंतु संगणकाच्या ऑपरेटिंग सिस्‍टमचा विश्‍वास नसलेल्या स्वायत्त संस्थेने जारी केलेले प्रमाणपत्र सर्व्हरने सादर केले. याचा अर्थ सर्व्हरने त्याचे स्वत:चेच सुरक्षा क्रे‍डेन्शियल व्युत्पन्न केले असून Google Chrome ओळख माहितीसाठी त्यावर अवलंबून राहू शकत नाही, किंवा एखादा आक्रमणकर्ता आपली संप्रेषणे चोरुन ऐकण्याचा प्रयत्न करत असू शकतो.</translation>
+<translation id="4331809312908958774">Chrome OS</translation>
+<translation id="1195935957447623558">Google Chrome नीट बंद झाले नाही. आपण उघडलेले पृष्ठ पुन्हा उघडण्यासाठी, पुनर्संचयित क्लिक करा.</translation>
+<translation id="2783467918276328046">Chrome मध्‍ये साइन इन करण्‍याचे <ph name="BEGIN_LINK"/>अधिक लाभ<ph name="END_LINK"/> पहा.</translation>
+<translation id="2580411288591421699">सध्या चालत असलेली Google Chrome ची समान आवृत्ती स्थापित करू शकत नाही. कृपया Google Chrome बंद करा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="1457721931618994305">Google Chrome अद्यतनित करीत आहे...</translation>
+<translation id="7747138024166251722">इन्स्टॉलर तात्पुरती निर्देशिका तयार करू शकत नाही. कृपया सॉफ्टवेअर स्थापन करण्यासाठी रिक्त डिस्क स्थान आणि परवानगी करिता पहा.</translation>
+<translation id="5170938038195470297">आपले प्रोफाइल वापरले जाणे शक्य नाही कारण ते Google Chrome च्या नवीनतम आवृत्तीमधील आहे.
+काही वैशिष्‍ट्ये अनुपलब्ध असू शकतात. कृपया एक भिन्न प्रोफाइल निर्देशिका निर्दिष्‍ट करा किंवा Google Chrome ची नवीनतम आवृत्ती वापरा.</translation>
+<translation id="8738921060445980047">अज्ञात आवृत्ती.</translation>
+<translation id="6970811910055250180">आपले डिव्हाइस अद्यतनित करीत आहे...</translation>
+<translation id="2485422356828889247">अनइन्स्टॉल करणे</translation>
+<translation id="2748463065602559597">आपण सुरक्षित Google Chrome पृष्ठ पहात आहात.</translation>
+<translation id="7185038942300673794"><ph name="EXTENSION_NAME"/> Chrome मध्‍ये जोडले गेले आहे.</translation>
+<translation id="9073088951656332330">अपडेट करण्यासाठी Google Chrome किंवा Google Chrome Frame ची कोणतीही स्थापना आढळली नाही.</translation>
+<translation id="9107728822479888688"><ph name="BEGIN_BOLD"/>चेतावणी:<ph name="END_BOLD"/> Google Chrome आपला ब्राउझिंग इतिहास रेकॉर्ड करण्यापासून विस्तारांना प्रतिबंध करू शकत नाही. हा विस्तार गुप्त मोडमध्ये अक्षम करण्यासाठी, या पर्यायाची निवड रद्द करा.</translation>
+<translation id="1759842336958782510">Chrome</translation>
+<translation id="911206726377975832">आपला ब्राउझिंग डेटा देखील हटवायचा?</translation>
+<translation id="2044287590254833138">Google Chrome टूलबार</translation>
+<translation id="5074344184765391290">Chrome Plug-In Host</translation>
+<translation id="8862326446509486874">आपल्‍याकडे सिस्टम-स्तर स्थापनेसाठी उचित अधिकार नाहीत. प्रशासक म्हणून पुन्हा इन्स्टॉलर चालविण्याचा प्रयत्न करा.</translation>
+<translation id="595871952790078940">Chrome Utility</translation>
+<translation id="2874156562296220396"><ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> मुक्त-स्रोत प्रोजेक्ट आणि अन्य <ph name="BEGIN_LINK_OSS"/>मुक्त स्रोत सॉफ्टवेअर<ph name="END_LINK_OSS"/> द्वारे Google Chrome ची निर्मिती करणे शक्य झाले.</translation>
+<translation id="3847841918622877581">Google Chrome आपला ब्राउझिंग अनुभव सुधारण्यासाठी वेब सेवा वापरू शकतो.</translation>
+<translation id="7436949144778751379">Google Chrome साठी Windows XP किंवा नंतरची आवृत्ती आवश्यक आहे. काही वैशिष्ट्ये कार्य करत नाही.</translation>
+<translation id="6757767188268205357">माझा बग नोंदवू नका</translation>
+<translation id="2290095356545025170">आपली खात्री आहे की आपण Google Chrome विस्थापित करू इच्छिता?</translation>
+<translation id="7062966102157262887">एक डाउनलोड सध्या प्रगतीपथावर आहे. आपण Google Chrome बाहेर पडू आणि डाउनलोड रद्द करु इच्छिता?</translation>
+<translation id="4273752058983339720">आपण आपल्या संगणकाचा प्रारंभ करता तेव्हा स्वयंचलितपणे लाँच होण्यासाठी Google Chrome कॉन्फिगर करण्यात आले आहे.</translation>
+<translation id="1104959162601287462">&amp;Chrome OS विषयी</translation>
+<translation id="5941830788786076944">Google Chromeला डीफॉल्ट ब्राउझर बनवा</translation>
+<translation id="4990567037958725628">Google Chrome कॅनरी</translation>
+<translation id="4561051373932531560">Google Chrome आपल्याला वेबवरील फोन नंबर क्लिक करू देते आणि त्या नंबरवर Skype द्वारा कॉल करू देते!</translation>
+<translation id="3612333635265770873">यासारख्या नावाचे मॉड्यूल Google Chrome बरोबर संघर्षाकरिता ओळखले जाते. </translation>
+<translation id="61852838583753520">&amp;Chrome OS अद्यतनित करा</translation>
+<translation id="6650142020817594541">ही साइट Google Chrome Frame ची शिफारस करते (आधीपासून स्थापित).</translation>
+<translation id="4535984553437295350">अद्यतन समाप्त करण्यासाठी Google Chrome पुन्हा लाँच करा</translation>
+<translation id="2712549016134575851">अन्य स्थापित अनुप्रयोगाशी विरोध आढळला आहे.</translation>
+<translation id="5577648424992741236">या संगणकात आधीपासून Google Chrome Frame ची अगदी अलिकडील आवृत्ती आहे. सॉफ्टवेअर कार्य करत नसल्यास, कृपया Google Chrome Frame विस्थापित करा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="7018032895891496381">Google Chrome आपले डीफॉल्ट शोध इंजिन वापरते, जे सध्या <ph name="PAGE_TITLE"/> वर सेट केले आहे. आपण आपले डीफॉल्ट शोध इंजिन ठेवू इच्छिता?</translation>
+<translation id="6326175484149238433">Chrome मधून काढा</translation>
+<translation id="7161904924553537242">Google Chromeमध्ये आपले स्वागत आहे</translation>
+<translation id="8669527147644353129">Google Chrome मदतनीस</translation>
+<translation id="870251953148363156">&amp;Google Chrome अद्यतनित करा</translation>
+<translation id="130631256467250065">आपण आपल्या डिव्हाइसचा पुढील वेळी पुनरारंभ कराल तेव्हा आपले बदल प्रभावी होतील.</translation>
+<translation id="1399397803214730675">या संगणकात आधीपासून Google Chrome ची अगदी अलिकडील आवृत्ती आहे. सॉफ्टवेअर कार्य करत नसल्यास, कृपया Google Chrome विस्थापित करा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="3444832043240812445">हे पृष्ठ आपण <ph name="BEGIN_LINK"/>कॅश अहवाल सक्षम<ph name="END_LINK"/> केल्यास केवळ आपल्याला अलीकडील क्रॅशची माहिती दर्शविते.</translation>
+<translation id="8614913330719544658">Google Chrome प्रतिसाद देत नाही. त्वरित पुन्हा लाँच करायचा?</translation>
+<translation id="5318056482164160049">Google Chrome Plug-In Host</translation>
+<translation id="5699533844376998780">विस्तार &quot;<ph name="EXTENSION_NAME"/>&quot; जोडला गेला आहे.</translation>
+<translation id="6126631249883707068">आपण Google Chrome वर आपला संकेतशब्द जतन करू इच्छिता?</translation>
+<translation id="5046764976540625289">Chrome मधून निर्गमन करा</translation>
+<translation id="9039578207253536065">Google Chrome Worker</translation>
+<translation id="2680623880102270805">Google Chrome अनुप्रयोग शॉर्टकट तयार करु शकत नाही कारण ते वर्तमान डेस्कटॉप वातावरण निर्धारित करु शक‍त नाही.</translation>
+<translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
+<translation id="8865765905101981392">इंटरनेट ब्राउझर</translation>
+<translation id="2189123953385179981">Google ChromeOS <ph name="SCHEME"/> दुवे हाताळणीसाठी बाह्य अनुप्रयोग लाँच करण्यास समर्थन देत नाही. <ph name="PROTOLINK"/> या दुव्याची विनंती केली आहे.</translation>
+<translation id="711654979569750606">Copyright © 2006-2011 Google Inc. सर्व हक्क राखीव.</translation>
+<translation id="8205111949707227942">पर्यायी: कडे स्वयंचलितपणे उपयोग आकडेवारी आणि Google कडे क्रॅश अहवाल पाठवून Chrome OS ला अधिक चांगले करण्यात मदत करा.</translation>
+<translation id="7253415505590551024">डाऊनलोड्स सध्या प्रगतीपथावर आहेत. आपण Google Chrome बाहेर पडू आणि डाउनलोड रद्द करु इच्छिता?</translation>
+<translation id="7196020411877309443">मी हे का पहात आहे?</translation>
+<translation id="2769762047821873045">Google Chrome आपला डीफॉल्ट ब्राउझर नाही.</translation>
+<translation id="7825851276765848807">अनिर्दिष्ट त्रुटीमुळे स्थापना अयशस्वी. कृपया Google Chrome पुन्हा डाउनलोड करा.</translation>
+<translation id="1061257178446858647">आपण आता Chrome मध्ये साइन इन केले आहे! आपले बुकमार्क, इतिहास आणि अन्य सेटिंग्ज आपल्या Google खात्यात समक्रमित केले जातील.</translation>
+<translation id="3335672657969596251"><ph name="OS_NAME"/> ला Google Chrome समर्थन देत नाही.</translation>
+<translation id="4458285410772214805">कृपया हा बदल प्रभावी होण्यासाठी साइन आउट करा आणि साइन इन करा.</translation>
+<translation id="2666187591945638709">Google Chrome <ph name="VERSION"/> मध्‍ये अद्यतनित केले गेले आहे</translation>
+<translation id="5334545119300433702">हे मॉड्यूल Google Chrome सह विरोध असण्यासाठी ज्ञात आहे.</translation>
+<translation id="4407807842708586359">Google Chrome OS</translation>
+<translation id="6634887557811630702">Google Chrome अद्ययावत आहे.</translation>
+<translation id="2084710999043359739">Chrome मध्ये जोडा</translation>
+<translation id="4084877369264707540">Google Chrome Frame याआधीच स्‍थापित असून या संगणकाच्या सर्व वापरकर्त्यांसाठी उपलब्ध आहे. आपण वापरकर्ता स्तरावर Google Chrome Frame स्‍थापित करु इच्छित असाल तर प्रथम प्रशासकाने स्‍थापन केलेली सिस्टम-स्तरावरील आवृत्ती विस्‍थापित करा.</translation>
+<translation id="3360895254066713204">Chrome मदतनीस</translation>
+<translation id="3451115285585441894">Chrome मध्‍ये जोडत आहे...</translation>
+<translation id="1001534784610492198">इन्स्टॉलर संग्रहण भ्रष्ट किंवा अवैध आहे. कृपया Google Chrome पुन्हा डाउनलोड करा.</translation>
+<translation id="2246246234298806438">बिल्ट-इन PDF दर्शक गहाळ असताना Google Chrome मुद्रण पूर्वावलोकन दर्शवू शकत नाही.</translation>
+<translation id="6626317981028933585">दुर्दैवाने, तो ब्राउझर चालू असताना आपली Mozilla Firefox सेटिंग्ज उपलब्ध नाहीत. Google Chrome वर ती सेटिंग्ज आयात करण्यासाठी, आपले कार्य जतन करा आणि सर्व Firefox विंडो बंद करा. नंतर सुरू ठेवा क्लिक करा.</translation>
+<translation id="8540666473246803645">Google Chrome</translation>
+<translation id="1698376642261615901">Google Chrome एक वेब ब्राउझर आहे जो वेब पृष्ठे आणि अनुप्रयोग विजेच्या गतीने चालवितो. तो जलद, स्थिर आणि वापरण्यास सोपा आहे. Google Chrome मध्ये तयार केलेल्या मालवेयर आणि फिशिंग संरक्षणासह वेब अधिक सुरक्षितपणे ब्राउझ करा.</translation>
+<translation id="3419750618886995598">Chrome Frame अद्यतन.</translation>
+<translation id="3336524238463733095">विसंगत Google अद्यतन गट धोरण सेटिंग्जमुळे Google Chrome किंवा Google Chrome Frame अद्यतनित करता येत नाही. Google Chrome Binaries अनुप्रयोगासाठी अद्यतन धोरण अधिलिखित सेट करण्‍या‍कर‍िता गट धोरण संपादक वापरा आणि पुन्हा प्रयत्न करा; तपशीलांसाठी पहा http://goo.gl/uJ9gV</translation>
+<translation id="6049075767726609708">प्रशासकाने या सिस्टम वर Google Chrome स्थापित केले आहे आणि ते सर्व वापरकर्त्यांसाठी उपलब्ध आहे. आता हे सिस्टम-स्तरा Google Chrome आपल्या वापरकर्ता-स्तर स्थापनेवर पुनर्स्थित होईल.</translation>
+<translation id="7123348595797445166">हे वापरुन पहा (आधीपासूनच स्थापित केलेले)</translation>
+<translation id="4338032231047635328">आपण &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt; वर पोहोचण्‍याचा प्रयत्न केलात, परंतु सर्व्हरने सादर केलेल्या प्रमाणपत्रात त्रुटी आहेत. Google Chrome त्रुटी असलेले प्रमाणपत्र वापरू शकत नाही आणि आपण कनेक्ट करण्याचा प्रयत्न केलेल्या साइटच्या ओळखीचे प्रमाणीकरण करू शकत नाही.</translation>
+<translation id="3870154837782082782">Google Inc.</translation>
+<translation id="1847321074516120686">Chrome स्वयंभरण सेटिंग्ज</translation>
+<translation id="3836351788193713666">जवळपास अद्ययावत! अद्यतन समाप्त करण्यासाठी Google Chrome रीलाँच करा.</translation>
+<translation id="546394857889685352">आपले डिव्हाइस <ph name="VERSION"/> मध्ये अद्यतनित केले गेले आले आहे</translation>
+<translation id="7106741999175697885">कार्य व्यवस्थापक – Google Chrome</translation>
+<translation id="8449380764213232436">Google Chrome आता <ph name="BROWSER_COMPONENT"/> मधून निम्नलिखित आयटम आयात करीत आहे:</translation>
+<translation id="852884188147941900">Chrome Worker</translation>
+<translation id="3396977131400919238">स्थापनेदरम्यान एक ऑपरेटिंग सिस्टम‍ त्रुटी आली. कृपया Google Chrome पुन्हा डाउनलोड करा.</translation>
+<translation id="5495581687705680288">Google Chrome मध्ये लोड केलेली मॉड्यूल</translation>
+<translation id="8129812357326543296">&amp;Google Chrome विषयी</translation>
+</translationbundle>

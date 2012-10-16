@@ -1,0 +1,267 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// A BrowserPluginGuest represents the browser side of browser <--> renderer
+// communication. A BrowserPlugin (a WebPlugin) is on the renderer side of
+// browser <--> guest renderer communication. The 'guest' renderer is a
+// <browser> tag.
+//
+// BrowserPluginGuest lives on the UI thread of the browser process. It has a
+// helper, BrowserPluginGuestHelper, which is a RenderViewHostObserver. The
+// helper object receives messages (ViewHostMsg_*) directed at the browser
+// plugin and redirects them to this class. Any messages the embedder might be
+// interested in knowing or modifying about the guest should be listened for
+// here.
+//
+// Since BrowserPlugin is a WebPlugin, we need to provide overridden behaviors
+// for messages like handleInputEvent, updateGeometry. Such messages get
+// routed into BrowserPluginGuest via its embedder (BrowserPluginEmbedder).
+// These are BrowserPluginHost_* messages sent from the BrowserPlugin.
+//
+// BrowserPluginGuest knows about its embedder process. Communication to
+// renderer happens through the embedder process.
+//
+// A BrowserPluginGuest is also associated directly with the WebContents related
+// to the BrowserPlugin. BrowserPluginGuest is a WebContentsDelegate and
+// WebContentsObserver for the WebContents.
+
+#ifndef CONTENT_BROWSER_BROWSER_PLUGIN_BROWSER_PLUGIN_GUEST_H_
+#define CONTENT_BROWSER_BROWSER_PLUGIN_BROWSER_PLUGIN_GUEST_H_
+
+#include <map>
+
+#include "base/compiler_specific.h"
+#include "base/id_map.h"
+#include "base/time.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
+#include "content/public/browser/web_contents_delegate.h"
+#include "content/public/browser/web_contents_observer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragStatus.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragOperation.h"
+#include "ui/gfx/rect.h"
+#include "webkit/glue/webcursor.h"
+
+class TransportDIB;
+struct ViewHostMsg_UpdateRect_Params;
+struct WebDropData;
+
+namespace WebKit {
+class WebInputEvent;
+}
+
+namespace content {
+
+class BrowserPluginHostFactory;
+class BrowserPluginEmbedder;
+class RenderProcessHost;
+
+// A browser plugin guest provides functionality for WebContents to operate in
+// the guest role and implements guest specific overrides for ViewHostMsg_*
+// messages.
+//
+// BrowserPluginEmbedder is responsible for creating and destroying a guest.
+class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
+                                          public WebContentsDelegate,
+                                          public WebContentsObserver {
+ public:
+  virtual ~BrowserPluginGuest();
+
+  static BrowserPluginGuest* Create(int instance_id,
+                                    WebContentsImpl* web_contents,
+                                    content::RenderViewHost* render_view_host);
+
+  // Overrides factory for testing. Default (NULL) value indicates regular
+  // (non-test) environment.
+  static void set_factory_for_testing(BrowserPluginHostFactory* factory) {
+    content::BrowserPluginGuest::factory_ = factory;
+  }
+
+  void set_guest_hang_timeout_for_testing(const base::TimeDelta& timeout) {
+    guest_hang_timeout_ = timeout;
+  }
+
+  void set_embedder_render_process_host(
+      RenderProcessHost* render_process_host) {
+    embedder_render_process_host_ = render_process_host;
+  }
+  void set_embedder_render_view_host(RenderViewHost* render_view_host) {
+    embedder_render_view_host_ = render_view_host;
+  }
+
+  bool visible() const { return visible_; }
+
+  // NotificationObserver implementation.
+  virtual void Observe(int type,
+                       const NotificationSource& source,
+                       const NotificationDetails& details) OVERRIDE;
+
+  // WebContentsObserver implementation.
+  virtual void DidStartProvisionalLoadForFrame(
+      int64 frame_id,
+      int64 parent_frame_id,
+      bool is_main_frame,
+      const GURL& validated_url,
+      bool is_error_page,
+      RenderViewHost* render_view_host) OVERRIDE;
+  virtual void DidFailProvisionalLoad(
+      int64 frame_id,
+      bool is_main_frame,
+      const GURL& validated_url,
+      int error_code,
+      const string16& error_description,
+      RenderViewHost* render_view_host) OVERRIDE;
+  virtual void DidCommitProvisionalLoadForFrame(
+      int64 frame_id,
+      bool is_main_frame,
+      const GURL& url,
+      PageTransition transition_type,
+      RenderViewHost* render_view_host) OVERRIDE;
+  virtual void RenderViewGone(base::TerminationStatus status) OVERRIDE;
+
+  // WebContentsDelegate implementation.
+  virtual bool CanDownload(RenderViewHost* render_view_host,
+                           int request_id,
+                           const std::string& request_method) OVERRIDE;
+  virtual bool HandleContextMenu(const ContextMenuParams& params) OVERRIDE;
+  virtual void RendererUnresponsive(WebContents* source) OVERRIDE;
+
+  void UpdateRect(RenderViewHost* render_view_host,
+                  const ViewHostMsg_UpdateRect_Params& params);
+  void UpdateRectACK(int message_id, const gfx::Size& size);
+  // Overrides default ShowWidget message so we show them on the correct
+  // coordinates.
+  void ShowWidget(RenderViewHost* render_view_host,
+                  int route_id,
+                  const gfx::Rect& initial_pos);
+  void SetCursor(const WebCursor& cursor);
+  // Handles input event acks so they are sent to browser plugin host (via
+  // embedder) instead of default view/widget host.
+  void HandleInputEventAck(RenderViewHost* render_view_host, bool handled);
+
+  // The guest needs to notify the plugin in the embedder to start (or stop)
+  // accepting touch events.
+  void SetIsAcceptingTouchEvents(bool accept);
+
+  // The guest WebContents is visible if both its embedder is visible and
+  // the browser plugin element is visible. If either one is not then the
+  // WebContents is marked as hidden. A hidden WebContents will consume
+  // fewer GPU and CPU resources.
+  //
+  // When the every WebContents in a RenderProcessHost is hidden, it will lower
+  // the priority of the process (see RenderProcessHostImpl::WidgetHidden).
+  //
+  // It will also send a message to the guest renderer process to cleanup
+  // resources such as dropping back buffers and adjusting memory limits (if in
+  // compositing mode, see CCLayerTreeHost::setVisible).
+  //
+  // Additionally it will slow down Javascript execution and garbage collection.
+  // See RenderThreadImpl::IdleHandler (executed when hidden) and
+  // RenderThreadImpl::IdleHandlerInForegroundTab (executed when visible).
+  void SetVisibility(bool embedder_visible, bool visible);
+
+  // Handles drag events from the embedder.
+  // When dragging, the drag events go to the embedder first, and if the drag
+  // happens on the browser plugin, then the plugin sends a corresponding
+  // drag-message to the guest. This routes the drag-message to the guest
+  // renderer.
+  void DragStatusUpdate(WebKit::WebDragStatus drag_status,
+                        const WebDropData& drop_data,
+                        WebKit::WebDragOperationsMask drag_mask,
+                        const gfx::Point& location);
+
+  // Updates the cursor during dragging.
+  // During dragging, if the guest notifies to update the cursor for a drag,
+  // then it is necessary to route the cursor update to the embedder correctly
+  // so that the cursor updates properly.
+  void UpdateDragCursor(WebKit::WebDragOperation operation);
+
+  // Exposes the protected web_contents() from WebContentsObserver.
+  WebContents* GetWebContents();
+
+  // Kill the guest process.
+  void Terminate();
+
+  // Overridden in tests.
+  // Handles input event routed through the embedder (which is initiated in the
+  // browser plugin (renderer side of the embedder)).
+  virtual void HandleInputEvent(RenderViewHost* render_view_host,
+                                const gfx::Rect& guest_rect,
+                                const WebKit::WebInputEvent& event,
+                                IPC::Message* reply_message);
+  virtual bool ViewTakeFocus(bool reverse);
+  // If possible, navigate the guest to |relative_index| entries away from the
+  // current navigation entry.
+  virtual void Go(int relative_index);
+  // Overridden in tests.
+  virtual void SetFocus(bool focused);
+  // Reload the guest.
+  virtual void Reload();
+  // Stop loading the guest.
+  virtual void Stop();
+  // Overridden in tests.
+  virtual void SetDamageBuffer(TransportDIB* damage_buffer,
+#if defined(OS_WIN)
+                               int damage_buffer_size,
+#endif
+                               const gfx::Size& damage_view_size,
+                               float scale_factor);
+
+ private:
+  friend class TestBrowserPluginGuest;
+
+  BrowserPluginGuest(int instance_id,
+                     WebContentsImpl* web_contents,
+                     RenderViewHost* render_view_host);
+
+  RenderProcessHost* embedder_render_process_host() {
+    return embedder_render_process_host_;
+  }
+  // Returns the identifier that uniquely identifies a browser plugin guest
+  // within an embedder.
+  int instance_id() const { return instance_id_; }
+  TransportDIB* damage_buffer() const { return damage_buffer_.get(); }
+  const gfx::Size& damage_view_size() const { return damage_view_size_; }
+  float damage_buffer_scale_factor() const {
+    return damage_buffer_scale_factor_;
+  }
+
+  // Helper to send messages to embedder. Overridden in test implementation
+  // since we want to intercept certain messages for testing.
+  virtual void SendMessageToEmbedder(IPC::Message* msg);
+
+  // Called when a redirect notification occurs.
+  void LoadRedirect(const GURL& old_url,
+                    const GURL& new_url,
+                    bool is_top_level);
+
+  // Static factory instance (always NULL for non-test).
+  static content::BrowserPluginHostFactory* factory_;
+
+  NotificationRegistrar notification_registrar_;
+  RenderProcessHost* embedder_render_process_host_;
+  RenderViewHost* embedder_render_view_host_;
+  // An identifier that uniquely identifies a browser plugin guest within an
+  // embedder.
+  int instance_id_;
+  scoped_ptr<TransportDIB> damage_buffer_;
+#if defined(OS_WIN)
+  size_t damage_buffer_size_;
+#endif
+  gfx::Size damage_view_size_;
+  float damage_buffer_scale_factor_;
+  scoped_ptr<IPC::Message> pending_input_event_reply_;
+  gfx::Rect guest_rect_;
+  WebCursor cursor_;
+  IDMap<RenderViewHost> pending_updates_;
+  int pending_update_counter_;
+  base::TimeDelta guest_hang_timeout_;
+  bool visible_;
+
+  DISALLOW_COPY_AND_ASSIGN(BrowserPluginGuest);
+};
+
+}  // namespace content
+
+#endif  // CONTENT_BROWSER_BROWSER_PLUGIN_BROWSER_PLUGIN_GUEST_H_

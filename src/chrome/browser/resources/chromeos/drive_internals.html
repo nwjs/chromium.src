@@ -1,0 +1,95 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>drive-internals</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="drive_internals.css">
+    <script src="chrome://resources/js/util.js"></script>
+    <script src="chrome://drive-internals/drive_internals.js"></script>
+  </head>
+  <body>
+    <h1>Drive Internals</h1>
+    <div>
+      <a href="#auth-status-section">Authentication Status</a> |
+      <a href="#gcache-contents-section">GCache Contents</a> |
+      <a href="#file-system-contents-section">File System Contents</a> |
+      <a href="#cache-contents-section">Cache Contents</a>
+    </div>
+
+    <h2 id='auth-status-contents-section'>Authentication Status</h2>
+    <ul>
+      <li>Has refresh token: <span id='has-refresh-token'></span></li>
+      <li>Has access token: <span id='has-access-token'></span></li>
+    </ul>
+
+    <h2 id='account-metadata-contents-section'>Account Metadata</h2>
+    <ul>
+      <li>Quota Information: <span id='account-quota-info'></span></li>
+      <li>Largest Changestamp (remote):
+        <span id='account-largest-changestamp-remote'></span>
+      </li>
+      <li>Largest Changestamp (local):
+        <span id='account-largest-changestamp-local'></span>
+      </li>
+    </ul>
+    <table>
+      <tbody id='account-installed-apps'>
+        <tr>
+          <th>App Name</th>
+          <th>App ID</th>
+          <th>Object Type</th>
+          <th>Support Create</th>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id='in-flight-operations-section'>In-flight Operations</h2>
+    <table>
+      <tbody id='in-flight-operations-contents'>
+        <tr>
+          <th>Operation ID</th>
+          <th>Operation Type</th>
+          <th>File Path</th>
+          <th>Transfer State</th>
+          <th>Start Time</th>
+          <th>Progress</th>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id='gcache-contents-section'>GCache Contents</h2>
+    <table>
+      <tbody id='gcache-contents'>
+        <tr><th>Path</th><th>Size</th><th>Last Modified</th></tr>
+      </tbody>
+    </table>
+
+    <ul>
+      <li>
+        Total Size:
+        <span id='gcache-summary-total-size'>(calculating...)</span> bytes.
+      </li>
+    </ul>
+
+    <h2 id='file-system-contents-section'>File System Contents</h2>
+    <div id='file-system-contents'></div>
+
+    <h2 id='cache-contents-section'>Cache Contents</h2>
+    <table>
+      <tbody id='cache-contents'>
+        <tr>
+          <th>Resource ID</th>
+          <th>MD5</th>
+          <th>Present</th>
+          <th>Pinned</th>
+          <th>Dirty</th>
+          <th>Mounted</th>
+          <th>Persistent</th>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id='local-storage-usage-section'>Local Storage Usage</h2>
+    <div>Free space: <span id='local-storage-freespace'></span> MB</div>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+<html><body><h1>Instant</h1><script>
+
+var onchangecalls = 0;
+var onsubmitcalls = 0;
+var oncancelcalls = 0;
+var onresizecalls = 0;
+var onfocuscalls = 0;
+var onblurcalls = 0;
+
+var value = "";
+var verbatim = false;
+var height = 0;
+
+var suggestion = [ { value: "query suggestion" } ];
+var behavior = "now";
+
+chrome.searchBox.onchange = function() {
+  onchangecalls++;
+  value = chrome.searchBox.value;
+  verbatim = chrome.searchBox.verbatim;
+  chrome.searchBox.setSuggestions({
+    suggestions: suggestion,
+    complete_behavior: behavior
+  });
+};
+
+chrome.searchBox.onsubmit = function() {
+  onsubmitcalls++;
+  value = chrome.searchBox.value;
+  verbatim = chrome.searchBox.verbatim;
+};
+
+chrome.searchBox.oncancel = function() {
+  oncancelcalls++;
+  value = chrome.searchBox.value;
+  verbatim = chrome.searchBox.verbatim;
+};
+
+chrome.searchBox.onresize = function() {
+  onresizecalls++;
+  height = chrome.searchBox.height;
+};
+
+chrome.searchBox.onfocus = function() {
+  onfocuscalls++;
+};
+
+chrome.searchBox.onblur = function() {
+  onblurcalls++;
+};
+
+if (chrome.searchBox.value != "")
+  chrome.searchBox.onchange();
+
+</script></body></html>
