@@ -170,7 +170,6 @@ const AcceleratorAction kReservedActions[] = {
 #if defined(OS_CHROMEOS)
   POWER_PRESSED,
   POWER_RELEASED,
-  TOGGLE_MAXIMIZED,
 #endif
 };
 
