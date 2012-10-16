@@ -55,10 +55,9 @@ class OperationRunner {
   void StartOperation(AuthenticatedOperationInterface* operation);
 
   // Called when the authentication token is refreshed.
-  void OnOperationAuthRefresh(
-      const base::WeakPtr<AuthenticatedOperationInterface>& operation,
-      GDataErrorCode error,
-      const std::string& auth_token);
+  void OnOperationAuthRefresh(AuthenticatedOperationInterface* operation,
+                              GDataErrorCode error,
+                              const std::string& auth_token);
 
   // Clears any authentication token and retries the operation, which
   // forces an authentication token refresh.
