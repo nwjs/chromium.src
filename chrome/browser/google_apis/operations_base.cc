@@ -171,7 +171,9 @@ UrlFetchOperationBase::UrlFetchOperationBase(OperationRegistry* registry)
     : OperationRegistry::Operation(registry),
       re_authenticate_count_(0),
       save_temp_file_(false),
-      started_(false) {
+      started_(false),
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
 
 UrlFetchOperationBase::UrlFetchOperationBase(OperationRegistry* registry,
@@ -179,7 +181,10 @@ UrlFetchOperationBase::UrlFetchOperationBase(OperationRegistry* registry,
                                              const FilePath& path)
     : OperationRegistry::Operation(registry, type, path),
       re_authenticate_count_(0),
-      save_temp_file_(false) {
+      save_temp_file_(false),
+      started_(false),
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
 
 UrlFetchOperationBase::~UrlFetchOperationBase() {}
@@ -342,6 +347,12 @@ std::string UrlFetchOperationBase::GetResponseHeadersAsString(
   }
   return headers;
 }
+
+base::WeakPtr<AuthenticatedOperationInterface>
+UrlFetchOperationBase::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
+}
+
 
 //============================ EntryActionOperation ============================
 
