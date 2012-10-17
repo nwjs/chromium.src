@@ -185,6 +185,15 @@ void GpuVideoDecoder::SetVDA(VideoDecodeAccelerator* vda) {
   weak_vda_ = vda->AsWeakPtr();
 }
 
+void GpuVideoDecoder::DestroyTextures() {
+  for (std::map<int32, PictureBuffer>::iterator it =
+          picture_buffers_in_decoder_.begin();
+          it != picture_buffers_in_decoder_.end(); ++it) {
+    factories_->DeleteTexture(it->second.texture_id());
+  }
+  picture_buffers_in_decoder_.clear();
+}
+
 void GpuVideoDecoder::DestroyVDA() {
   DCHECK(gvd_loop_proxy_->BelongsToCurrentThread());
   VideoDecodeAccelerator* vda ALLOW_UNUSED = vda_.release();
@@ -196,6 +205,8 @@ void GpuVideoDecoder::DestroyVDA() {
       FROM_HERE,
       base::Bind(&VideoDecodeAccelerator::Destroy, weak_vda_),
       base::Bind(&GpuVideoDecoder::Release, this));
+
+  DestroyTextures();
 }
 
 void GpuVideoDecoder::Read(const ReadCB& read_cb) {
@@ -526,6 +537,8 @@ GpuVideoDecoder::~GpuVideoDecoder() {
     it->second.shm_buffer->shm->Close();
   }
   bitstream_buffers_in_decoder_.clear();
+
+  DestroyTextures();
 }
 
 void GpuVideoDecoder::EnsureDemuxOrDecode() {
