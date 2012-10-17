@@ -178,9 +178,6 @@
   "content/shell/shell_resources.grd": {
     "includes": [25500],
   },
-  "content/nw/src/nw_resources.grd": {
-    "includes": [25500],
-  },
   "ash/ash_strings.grd": {
     "messages": [26000],
   },
@@ -189,5 +186,9 @@
   },
   "third_party/trace-viewer/src/tracing.grd": {
     "includes": [27000],
+  },
+  "content/nw/src/resources/nw_resources.grd": {
+    "includes": [27500],
+    "structures": [28000],
   },
 }
