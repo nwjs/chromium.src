@@ -25,6 +25,10 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebMediaStreamDescriptor.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebMediaStreamSource.h"
 
+#if !defined(USE_OPENSSL)
+#include "net/socket/nss_ssl_util.h"
+#endif
+
 class P2PPortAllocatorFactory : public webrtc::PortAllocatorFactoryInterface {
  public:
   P2PPortAllocatorFactory(
@@ -337,6 +341,11 @@ bool MediaStreamDependencyFactory::EnsurePeerConnectionFactory() {
     socket_factory_.reset(
         new content::IpcPacketSocketFactory(p2p_socket_dispatcher_));
   }
+
+#if !defined(USE_OPENSSL)
+  // Init NSS, which will be needed by PeerConnection.
+  net::EnsureNSSSSLInit();
+#endif
 
   if (!CreatePeerConnectionFactory(
       worker_thread_,
