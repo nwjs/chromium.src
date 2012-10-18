@@ -200,6 +200,10 @@ void SimpleMenuModel::SetIcon(int index, const gfx::Image& icon) {
   items_[ValidateItemIndex(index)].icon = icon;
 }
 
+void SimpleMenuModel::RemoveAt(int index) {
+  items_.erase(items_.begin() + index);
+}
+
 void SimpleMenuModel::Clear() {
   items_.clear();
 }

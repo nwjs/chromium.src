@@ -104,6 +104,9 @@ class UI_EXPORT SimpleMenuModel : public MenuModel {
   // Sets the icon for the item at |index|.
   void SetIcon(int index, const gfx::Image& icon);
 
+  // Remove item from index.
+  void RemoveAt(int index);
+
   // Clears all items. Note that it does not free MenuModel of submenu.
   void Clear();
 
