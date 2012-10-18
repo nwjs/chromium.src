@@ -48,13 +48,11 @@ WebAuthFlow::WebAuthFlow(
     Profile* profile,
     const std::string& extension_id,
     const GURL& provider_url,
-    Mode mode,
-    const gfx::Rect& initial_bounds)
+    Mode mode)
     : delegate_(delegate),
       profile_(profile),
       provider_url_(provider_url),
       mode_(mode),
-      initial_bounds_(initial_bounds),
       contents_(NULL),
       tab_contents_(NULL) {
   InitValidRedirectUrlPrefixes(extension_id);
@@ -112,9 +110,8 @@ void WebAuthFlow::ShowAuthFlowPopup() {
   // Pass ownership of WebContents to TabContents.
   tab_contents_ = TabContents::Factory::CreateTabContents(contents_);
   contents_ = NULL;
-  Browser::CreateParams browser_params(Browser::TYPE_POPUP, profile_);
-  browser_params.initial_bounds = initial_bounds_;
-  Browser* browser = new Browser(browser_params);
+  Browser* browser = new Browser(Browser::CreateParams(
+      Browser::TYPE_POPUP, profile_));
   chrome::NavigateParams params(browser, tab_contents_);
   params.disposition = CURRENT_TAB;
   params.window_action = chrome::NavigateParams::SHOW_WINDOW;
@@ -173,8 +170,6 @@ void WebAuthFlow::Observe(int type,
     break;
     case content::NOTIFICATION_WEB_CONTENTS_DESTROYED: {
       // User closed the auth flow window; report a failure.
-      contents_ = NULL;
-      tab_contents_ = NULL;
       ReportResult(GURL());
     }
     break;

@@ -38,7 +38,6 @@ const char kInvalidRedirect[] = "Did not redirect to the right URL.";
 namespace GetAuthToken = extensions::api::experimental_identity::GetAuthToken;
 namespace LaunchWebAuthFlow =
     extensions::api::experimental_identity::LaunchWebAuthFlow;
-namespace identity = extensions::api::experimental_identity;
 
 IdentityGetAuthTokenFunction::IdentityGetAuthTokenFunction()
     : interactive_(false) {}
@@ -226,28 +225,15 @@ bool IdentityLaunchWebAuthFlowFunction::RunImpl() {
   scoped_ptr<LaunchWebAuthFlow::Params> params(
       LaunchWebAuthFlow::Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params.get());
-  const identity::WebAuthFlowDetails& details = params->details;
 
-  GURL auth_url(details.url);
+  GURL auth_url(params->details.url);
   WebAuthFlow::Mode mode =
-      details.interactive && *details.interactive ?
+      params->details.interactive.get() && *params->details.interactive ?
       WebAuthFlow::INTERACTIVE : WebAuthFlow::SILENT;
-
-  // The bounds attributes are optional, but using 0 when they're not available
-  // does the right thing.
-  gfx::Rect initial_bounds;
-  if (details.width)
-    initial_bounds.set_width(*details.width);
-  if (details.height)
-    initial_bounds.set_height(*details.height);
-  if (details.left)
-    initial_bounds.set_x(*details.left);
-  if (details.top)
-    initial_bounds.set_y(*details.top);
 
   AddRef();  // Balanced in OnAuthFlowSuccess/Failure.
   auth_flow_.reset(new WebAuthFlow(
-      this, profile(), GetExtension()->id(), auth_url, mode, initial_bounds));
+      this, profile(), GetExtension()->id(), auth_url, mode));
   auth_flow_->Start();
   return true;
 }
