@@ -467,6 +467,8 @@ class HostProcess
   }
 
   void OnCurtainPolicyUpdate(bool curtain_required) {
+    // Curtain mode is currently broken, so let's disable it for now.
+    return;
 #if defined(OS_MACOSX)
     if (!context_->network_task_runner()->BelongsToCurrentThread()) {
       context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
