@@ -5508,6 +5508,7 @@ TEST_F(ExtensionSourcePriorityTest, InstallExternalBlocksSyncRequest) {
   ASSERT_FALSE(AddPendingSyncInstall());
 }
 
+#if !defined(OS_CHROMEOS)
 TEST_F(ExtensionServiceTest, AlertableExtensionHappyPath) {
   InitializeEmptyExtensionService();
   scoped_ptr<ExtensionErrorUI> extension_error_ui(
@@ -5542,3 +5543,4 @@ TEST_F(ExtensionServiceTest, AlertableExtensionHappyPath) {
   ASSERT_TRUE(service_->PopulateExtensionErrorUI(extension_error_ui.get()));
   ASSERT_EQ(1u, extension_error_ui->get_external_extension_ids()->size());
 }
+#endif
