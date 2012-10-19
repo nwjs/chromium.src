@@ -46,7 +46,7 @@ class PluginPlaceholder : public content::RenderViewObserver,
       const std::string& identifier,
       const string16& name,
       int resource_id,
-      int message_id);
+      const string16& message);
 
 #if defined(ENABLE_MOBILE_YOUTUBE_PLUGIN)
   // Placeholder for old style embedded youtube video on mobile device. For old
