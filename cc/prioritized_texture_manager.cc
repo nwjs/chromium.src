@@ -207,11 +207,11 @@ void CCPrioritizedTextureManager::acquireBackingTextureIfNeeded(CCPrioritizedTex
     backing->updatePriority();
 }
 
-bool CCPrioritizedTextureManager::evictBackingsToReduceMemory(size_t limitBytes, EvictionPriorityPolicy evictionPolicy, CCResourceProvider* resourceProvider)
+void CCPrioritizedTextureManager::evictBackingsToReduceMemory(size_t limitBytes, EvictionPriorityPolicy evictionPolicy, CCResourceProvider* resourceProvider)
 {
     ASSERT(CCProxy::isImplThread());
     if (memoryUseBytes() <= limitBytes)
-        return false;
+        return;
 
     // Destroy backings until we are below the limit,
     // or until all backings remaining are above the cutoff.
@@ -222,7 +222,6 @@ bool CCPrioritizedTextureManager::evictBackingsToReduceMemory(size_t limitBytes,
                 break;
         evictFirstBackingResource(resourceProvider);
     }
-    return true;
 }
 
 void CCPrioritizedTextureManager::reduceMemory(CCResourceProvider* resourceProvider)
@@ -264,7 +263,7 @@ void CCPrioritizedTextureManager::clearAllMemory(CCResourceProvider* resourcePro
     evictBackingsToReduceMemory(0, DoNotRespectManagerPriorityCutoff, resourceProvider);
 }
 
-bool CCPrioritizedTextureManager::reduceMemoryOnImplThread(size_t limitBytes, CCResourceProvider* resourceProvider)
+void CCPrioritizedTextureManager::reduceMemoryOnImplThread(size_t limitBytes, CCResourceProvider* resourceProvider)
 {
     ASSERT(CCProxy::isImplThread());
     ASSERT(resourceProvider);
@@ -272,7 +271,7 @@ bool CCPrioritizedTextureManager::reduceMemoryOnImplThread(size_t limitBytes, CC
     // the list are not sorted by priority. Sort them before doing the eviction.
     if (m_backingsTailNotSorted)
         sortBackings();
-    return evictBackingsToReduceMemory(limitBytes, DoNotRespectManagerPriorityCutoff, resourceProvider);
+    evictBackingsToReduceMemory(limitBytes, DoNotRespectManagerPriorityCutoff, resourceProvider);
 }
 
 void CCPrioritizedTextureManager::getEvictedBackings(BackingList& evictedBackings)

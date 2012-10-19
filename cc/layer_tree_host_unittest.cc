@@ -2509,7 +2509,7 @@ public:
         virtual void run() OVERRIDE
         {
             ASSERT(m_test->m_implForEvictTextures);
-            m_test->m_implForEvictTextures->reduceContentsTextureMemoryOnImplThread(0);
+            m_test->m_implForEvictTextures->releaseContentsTextures();
         }
 
     private:
@@ -2666,7 +2666,7 @@ public:
     void evictTexturesOnImplThread()
     {
         ASSERT(m_implForEvictTextures);
-           m_implForEvictTextures->reduceContentsTextureMemoryOnImplThread(0);
+        m_implForEvictTextures->releaseContentsTextures();
     }
 
     // Commit 1: Just commit and draw normally, then at the end, set ourselves

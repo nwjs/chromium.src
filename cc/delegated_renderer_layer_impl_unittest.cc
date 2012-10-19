@@ -51,7 +51,7 @@ public:
     virtual void setNeedsRedrawOnImplThread() OVERRIDE { }
     virtual void setNeedsCommitOnImplThread() OVERRIDE { }
     virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<CCAnimationEventsVector>, double wallClockTime) OVERRIDE { }
-    virtual bool reduceContentsTextureMemoryOnImplThread(size_t limitBytes) OVERRIDE { return true; }
+    virtual void releaseContentsTexturesOnImplThread() OVERRIDE { }
 
 protected:
     scoped_ptr<CCGraphicsContext> createContext()

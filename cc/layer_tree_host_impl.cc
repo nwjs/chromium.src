@@ -634,23 +634,23 @@ bool CCLayerTreeHostImpl::prepareToDraw(FrameData& frame)
     return true;
 }
 
-void CCLayerTreeHostImpl::reduceContentsTextureMemoryOnImplThread(size_t limitBytes)
+void CCLayerTreeHostImpl::releaseContentsTextures()
 {
-    bool evictedResources = m_client->reduceContentsTextureMemoryOnImplThread(limitBytes);
-    if (evictedResources) {
-        setContentsTexturesPurged();
-        m_client->setNeedsCommitOnImplThread();
-        m_client->onCanDrawStateChanged(canDraw());
-    }
+    if (m_contentsTexturesPurged)
+        return;
+    m_client->releaseContentsTexturesOnImplThread();
+    setContentsTexturesPurged();
+    m_client->setNeedsCommitOnImplThread();
+    m_client->onCanDrawStateChanged(canDraw());
 }
 
 void CCLayerTreeHostImpl::setMemoryAllocationLimitBytes(size_t bytes)
 {
-    ASSERT(bytes);
     if (m_memoryAllocationLimitBytes == bytes)
         return;
     m_memoryAllocationLimitBytes = bytes;
-    reduceContentsTextureMemoryOnImplThread(m_visible ? m_memoryAllocationLimitBytes : 0);
+
+    ASSERT(bytes);
     m_client->setNeedsCommitOnImplThread();
 }
 
@@ -817,7 +817,6 @@ void CCLayerTreeHostImpl::setVisible(bool visible)
         return;
     m_visible = visible;
     didVisibilityChange(this, m_visible);
-    reduceContentsTextureMemoryOnImplThread(m_visible ? m_memoryAllocationLimitBytes : 0);
 
     if (!m_renderer)
         return;

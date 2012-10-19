@@ -76,7 +76,6 @@ CCRendererGL::CCRendererGL(CCRendererClient* client,
     , m_context(resourceProvider->graphicsContext3D())
     , m_isViewportChanged(false)
     , m_isFramebufferDiscarded(false)
-    , m_discardFramebufferWhenNotVisible(false)
     , m_isUsingBindUniform(false)
     , m_visible(true)
 {
@@ -175,8 +174,6 @@ void CCRendererGL::setVisible(bool visible)
     // crbug.com/116049
     if (m_capabilities.usingSetVisibility)
         m_context->setVisibilityCHROMIUM(visible);
-
-    enforceMemoryPolicy();
 }
 
 void CCRendererGL::releaseRenderPassTextures()
@@ -1070,24 +1067,18 @@ void CCRendererGL::onMemoryAllocationChanged(WebGraphicsMemoryAllocation allocat
 
 void CCRendererGL::onMemoryAllocationChangedOnImplThread(WebKit::WebGraphicsMemoryAllocation allocation)
 {
-    m_discardFramebufferWhenNotVisible = !allocation.suggestHaveBackbuffer;
-    // Just ignore the memory manager when it says to set the limit to zero
-    // bytes. This will happen when the memory manager thinks that the renderer
-    // is not visible (which the renderer knows better).
-    if (allocation.gpuResourceSizeInBytes)
-        m_client->setMemoryAllocationLimitBytes(allocation.gpuResourceSizeInBytes);
-    enforceMemoryPolicy();
-}
+    if (m_visible && !allocation.gpuResourceSizeInBytes)
+        return;
 
-void CCRendererGL::enforceMemoryPolicy()
-{
-    if (!m_visible) {
-        TRACE_EVENT0("cc", "CCRendererGL::enforceMemoryPolicy dropping resources");
+    if (!allocation.suggestHaveBackbuffer && !m_visible)
+        discardFramebuffer();
+
+    if (!allocation.gpuResourceSizeInBytes) {
         releaseRenderPassTextures();
-        if (m_discardFramebufferWhenNotVisible)
-            discardFramebuffer();
+        m_client->releaseContentsTextures();
         GLC(m_context, m_context->flush());
-    }
+    } else
+        m_client->setMemoryAllocationLimitBytes(allocation.gpuResourceSizeInBytes);
 }
 
 void CCRendererGL::discardFramebuffer()
@@ -1188,7 +1179,13 @@ void CCRendererGL::getFramebufferPixels(void *pixels, const IntRect& rect)
         GLC(m_context, m_context->deleteTexture(temporaryTexture));
     }
 
-    enforceMemoryPolicy();
+    if (!m_visible) {
+        TRACE_EVENT0("cc", "CCRendererGL::getFramebufferPixels dropping resources after readback");
+        discardFramebuffer();
+        releaseRenderPassTextures();
+        m_client->releaseContentsTextures();
+        GLC(m_context, m_context->flush());
+    }
 }
 
 bool CCRendererGL::getFramebufferTexture(CCScopedTexture* texture, const IntRect& deviceRect)
