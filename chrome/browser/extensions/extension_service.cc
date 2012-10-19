@@ -1756,6 +1756,7 @@ bool ExtensionService::PopulateExtensionErrorUI(
   for (ExtensionSet::const_iterator iter = extensions_.begin();
        iter != extensions_.end(); ++iter) {
     const Extension* e = *iter;
+#if !defined(OS_CHROMEOS)
     if (Extension::IsExternalLocation(e->location())) {
       if (!e->is_hosted_app()) {
         if (!extension_prefs_->IsExternalExtensionAcknowledged(e->id())) {
@@ -1764,6 +1765,7 @@ bool ExtensionService::PopulateExtensionErrorUI(
         }
       }
     }
+#endif
     if (!extension_prefs_->UserMayLoad(e, NULL)) {
       if (!extension_prefs_->IsBlacklistedExtensionAcknowledged(e->id())) {
         extension_error_ui->AddBlacklistedExtension(e->id());
