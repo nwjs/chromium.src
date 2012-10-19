@@ -7,7 +7,6 @@
 #include "base/win/metro.h"
 #include "base/win/wrapped_window_proc.h"
 #include "chrome/browser/ui/views/status_icons/status_icon_win.h"
-#include "chrome/common/chrome_constants.h"
 #include "ui/base/win/hwnd_util.h"
 #include "ui/gfx/screen.h"
 
@@ -21,7 +20,7 @@ StatusTrayWin::StatusTrayWin()
   // Register our window class
   WNDCLASSEX window_class;
   base::win::InitializeWindowClass(
-      chrome::kStatusTrayWindowClass,
+      L"Chrome_StatusTrayWindow",
       &base::win::WrappedWindowProc<StatusTrayWin::WndProcStatic>,
       0, 0, 0, NULL, NULL, NULL, NULL, NULL,
       &window_class);
