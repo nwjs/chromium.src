@@ -376,22 +376,22 @@ static OutputState GetNextState(Display* display,
       bool mirror_supported = (0 != outputs[0].mirror_mode) &&
           (0 != outputs[1].mirror_mode);
       switch (current_state) {
-        case STATE_DUAL_PRIMARY_ONLY:
+        case STATE_DUAL_SECONDARY_ONLY:
           // TODO(oshima): Temporarily disable extended
           // desktop. crbug.com/152003.
-          state = STATE_DUAL_SECONDARY_ONLY;
+          state = STATE_DUAL_PRIMARY_ONLY;
           break;
-        case STATE_DUAL_SECONDARY_ONLY:
+        case STATE_DUAL_PRIMARY_ONLY:
           state = mirror_supported ?
-              STATE_DUAL_MIRROR : STATE_DUAL_PRIMARY_ONLY;
+              STATE_DUAL_MIRROR : STATE_DUAL_SECONDARY_ONLY;
           break;
         case STATE_DUAL_MIRROR:
-          state = STATE_DUAL_PRIMARY_ONLY;
+          state = STATE_DUAL_SECONDARY_ONLY;
           break;
         default:
           // Default to mirror mode for m23 if it's supported.
           state =
-              mirror_supported ? STATE_DUAL_MIRROR : STATE_DUAL_PRIMARY_ONLY;
+              mirror_supported ? STATE_DUAL_MIRROR : STATE_DUAL_SECONDARY_ONLY;
       }
       break;
     }
