@@ -501,9 +501,11 @@ bool AcceleratorController::PerformAction(int action,
       ash::Shell::GetInstance()->ToggleAppList();
       return true;
     case DISABLE_CAPS_LOCK:
-      if (shell->caps_lock_delegate()->IsCapsLockEnabled())
+      if (shell->caps_lock_delegate()->IsCapsLockEnabled()) {
         shell->caps_lock_delegate()->SetCapsLockEnabled(false);
-      return true;
+        return true;
+      }
+      return false;
     case TOGGLE_CAPS_LOCK:
       shell->caps_lock_delegate()->ToggleCapsLock();
       return true;
