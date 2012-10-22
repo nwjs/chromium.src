@@ -37,7 +37,6 @@
 #include "content/public/browser/web_contents_view.h"
 #include "content/public/common/frame_navigate_params.h"
 #include "content/public/common/page_transition_types.h"
-#include "google_apis/gaia/gaia_urls.h"
 #include "googleurl/src/gurl.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -67,15 +66,6 @@ void StartSync(content::WebContents* web_contents,
   Browser* browser = browser::FindBrowserWithWebContents(web_contents);
   new OneClickSigninSyncStarter(browser, session_index, email, password,
                                 start_mode);
-}
-
-bool IsGaiaSignonRealm(const GURL& url) {
-  if (!url.SchemeIsSecure())
-    return false;
-
-  // Also check "https://www.google.com" to support old style dasher logins.
-  return url == GURL(GaiaUrls::GetInstance()->gaia_origin_url()) ||
-      url == GURL("https://www.google.com/");
 }
 
 }  // namespace
@@ -349,9 +339,6 @@ void OneClickSigninHelper::ShowInfoBarIfPossible(net::URLRequest* request,
   if (value.empty())
     return;
 
-  if (!IsGaiaSignonRealm(request->original_url().GetOrigin()))
-    return;
-
   std::vector<std::pair<std::string, std::string> > pairs;
   if (!base::SplitStringIntoKeyValuePairs(value, '=', ',', &pairs))
     return;
@@ -406,9 +393,7 @@ void OneClickSigninHelper::ShowInfoBarUIThread(
 void OneClickSigninHelper::DidNavigateAnyFrame(
     const content::LoadCommittedDetails& details,
     const content::FrameNavigateParams& params) {
-  // We only need to scrape the password for Gaia logins.
-  const content::PasswordForm& form = params.password_form;
-  if (form.origin.is_valid() && IsGaiaSignonRealm(GURL(form.signon_realm)))
+  if (params.password_form.origin.is_valid())
     SavePassword(UTF16ToUTF8(params.password_form.password_value));
 }
 
