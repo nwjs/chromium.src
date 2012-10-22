@@ -73,7 +73,9 @@ bool IsGaiaSignonRealm(const GURL& url) {
   if (!url.SchemeIsSecure())
     return false;
 
-  return url == GURL(GaiaUrls::GetInstance()->gaia_origin_url());
+  // Also check "https://www.google.com" to support old style dasher logins.
+  return url == GURL(GaiaUrls::GetInstance()->gaia_origin_url()) ||
+      url == GURL("https://www.google.com/");
 }
 
 }  // namespace
