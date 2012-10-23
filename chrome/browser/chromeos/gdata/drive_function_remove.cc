@@ -63,9 +63,10 @@ void DriveFunctionRemove::RemoveAfterGetEntryInfo(
   }
   DCHECK(entry_proto.get());
 
-  // The edit URL can be empty for some reason.
+  // The edit URL can be empty non-editable files (such as files shared with
+  // read-only privilege).
   if (entry_proto->edit_url().empty()) {
-    callback.Run(DRIVE_FILE_ERROR_NOT_FOUND);
+    callback.Run(DRIVE_FILE_ERROR_ACCESS_DENIED);
     return;
   }
 
