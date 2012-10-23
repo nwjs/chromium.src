@@ -40,6 +40,12 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
                                      public ui::ListModelObserver,
                                      public PaginationModelObserver {
  public:
+  enum Pointer {
+    NONE,
+    MOUSE,
+    TOUCH,
+  };
+
   AppsGridView(AppsGridViewDelegate* delegate,
                PaginationModel* pagination_model);
   virtual ~AppsGridView();
@@ -56,13 +62,20 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   bool IsSelectedView(const views::View* view) const;
 
   // Ensures the view is visible. Note that if there is a running page
-  // transition, this does not thing.
+  // transition, this does nothing.
   void EnsureViewVisible(const views::View* view);
 
-  void InitiateDrag(views::View* view, const ui::LocatedEvent& event);
-  void UpdateDrag(views::View* view, const ui::LocatedEvent& event);
+  void InitiateDrag(views::View* view,
+                    Pointer pointer,
+                    const ui::LocatedEvent& event);
+  void UpdateDrag(views::View* view,
+                  Pointer pointer,
+                  const ui::LocatedEvent& event);
   void EndDrag(bool cancel);
   bool IsDraggedView(const views::View* view) const;
+
+  bool has_dragged_view() const { return drag_view_ != NULL; }
+  bool dragging() const { return drag_pointer_ != NONE; }
 
   // Overridden from views::View:
   virtual gfx::Size GetPreferredSize() OVERRIDE;
@@ -110,6 +123,15 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   void CalculateIdealBounds();
   void AnimateToIdealBounds();
 
+  // Invoked when the given |view|'s current bounds and target bounds are on
+  // different rows. To avoid moving diagonally, |view| would be put into a
+  // slot prior |target| and fade in while moving to |target|. In the meanwhile,
+  // a layer copy of |view| would start at |current| and fade out while moving
+  // to succeeding slot of |current|.
+  void AnimationBetweenRows(views::View* view,
+                            const gfx::Rect& current,
+                            const gfx::Rect& target);
+
   // Calculates |drop_target_| based on |drag_point|. |drag_point| is in the
   // grid view's coordinates.
   void CalculateDropTarget(const gfx::Point& drag_point);
@@ -155,7 +177,7 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
 
   views::View* drag_view_;
   gfx::Point drag_offset_;
-  bool dragging_;
+  Pointer drag_pointer_;
   Index drop_target_;
 
   gfx::Point last_drag_point_;

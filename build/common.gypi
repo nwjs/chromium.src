@@ -672,9 +672,6 @@
     # Use system yasm instead of bundled one.
     'use_system_yasm%': 0,
 
-    # Use compositor implementation in cc/ instead of in WebKit.
-    'use_libcc_for_compositor%': 1,
-
     # Default to enabled PIE; this is important for ASLR but we may need to be
     # able to turn it off for various reasons.
     'linux_disable_pie%': 0,
@@ -925,6 +922,9 @@
         'directx_sdk_path%': '<(directx_sdk_default_path)',
       }, {
         'directx_sdk_path%': '$(DXSDK_DIR)',
+      }],
+      ['OS=="win"', {
+        'windows_driver_kit_path%': '$(WDK_DIR)',
       }],
       # If use_official_google_api_keys is already set (to 0 or 1), we
       # do none of the implicit checking.  If it is set to 1 and the
@@ -1378,7 +1378,10 @@
         # Iterator debugging is slow.
         'win_debug_disable_iterator_debugging': '1',
         # Try to disable optimizations that mess up stacks in a release build.
-        'win_release_InlineFunctionExpansion': '0',
+        # DrM-i#1054 (http://code.google.com/p/drmemory/issues/detail?id=1054)
+        # /O2 and /Ob0 (disable inline) cannot be used together because of a
+        # compiler bug, so we use /Ob1 instead.
+        'win_release_InlineFunctionExpansion': '1',
         'win_release_OmitFramePointers': '0',
         # Ditto for debug, to support bumping win_debug_Optimization.
         'win_debug_InlineFunctionExpansion': 0,
@@ -1662,11 +1665,13 @@
       }],
       ['coverage!=0', {
         'conditions': [
-          ['OS=="mac"', {
+          ['OS=="mac" or OS=="ios"', {
             'xcode_settings': {
               'GCC_INSTRUMENT_PROGRAM_FLOW_ARCS': 'YES',  # -fprofile-arcs
               'GCC_GENERATE_TEST_COVERAGE_FILES': 'YES',  # -ftest-coverage
             },
+          }],
+          ['OS=="mac"', {
             # Add -lgcov for types executable, shared_library, and
             # loadable_module; not for static_library.
             # This is a delayed conditional.
@@ -1701,6 +1706,9 @@
           '__STD_C',
           '_CRT_SECURE_NO_DEPRECATE',
           '_SCL_SECURE_NO_DEPRECATE',
+          # This define is required to pull in the new Win8 interfaces from
+          # system headers like ShObjIdl.h.
+          'NTDDI_VERSION=0x06020000',
         ],
         'include_dirs': [
           '<(DEPTH)/third_party/wtl/include',
@@ -2521,11 +2529,20 @@
 
               # TODO(thakis): Remove this.
               '-Wno-implicit-conversion-floating-point-to-bool',
+              # TODO(thakis): Remove this once http://crbug.com/151927 is fixed.
+              '-Wno-tautological-constant-out-of-range-compare',
             ],
             'cflags!': [
               # Clang doesn't seem to know know this flag.
               '-mfpmath=sse',
             ],
+          }],
+          ['OS=="android"', {
+            'cflags!': [
+              # Clang ARM does not support the following option.
+              # TODO: Add this flag back http://crbug.com/157195.
+              '-Wno-tautological-constant-out-of-range-compare',
+            ]
           }],
           ['clang==1 and clang_use_chrome_plugins==1', {
             'cflags': [
@@ -2993,6 +3010,8 @@
         'mac_bundle': 0,
         'xcode_settings': {
           'ALWAYS_SEARCH_USER_PATHS': 'NO',
+          # Don't link in libarclite_macosx.a, see http://crbug.com/156530.
+          'CLANG_LINK_OBJC_RUNTIME': 'NO',          # -fno-objc-link-runtime
           'GCC_C_LANGUAGE_STANDARD': 'c99',         # -std=c99
           'GCC_CW_ASM_SYNTAX': 'NO',                # No -fasm-blocks
           'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',        # -fno-exceptions
@@ -3085,6 +3104,8 @@
 
                 # TODO(thakis): Remove this.
                 '-Wno-implicit-conversion-floating-point-to-bool',
+                # TODO(thakis): Remove this once http://crbug.com/151927 is fixed.
+                '-Wno-tautological-constant-out-of-range-compare',
               ],
             }],
             ['clang==1 and clang_use_chrome_plugins==1', {
@@ -3390,6 +3411,52 @@
               '_SECURE_ATL',
             ],
           }],
+          ['msvs_express', {
+            'configurations': {
+              'x86_Base': {
+                'msvs_settings': {
+                  'VCLinkerTool': {
+                    'AdditionalLibraryDirectories':
+                      ['<(windows_driver_kit_path)/lib/ATL/i386'],
+                  },
+                  'VCLibrarianTool': {
+                    'AdditionalLibraryDirectories':
+                      ['<(windows_driver_kit_path)/lib/ATL/i386'],
+                  },
+                },
+              },
+              'x64_Base': {
+                'msvs_settings': {
+                  'VCLibrarianTool': {
+                    'AdditionalLibraryDirectories':
+                      ['<(windows_driver_kit_path)/lib/ATL/amd64'],
+                  },
+                  'VCLinkerTool': {
+                    'AdditionalLibraryDirectories':
+                      ['<(windows_driver_kit_path)/lib/ATL/amd64'],
+                  },
+                },
+              },
+            },
+            'msvs_settings': {
+              'VCLinkerTool': {
+                # Explicitly required when using the ATL with express
+                'AdditionalDependencies': ['atlthunk.lib'],
+
+                # ATL 8.0 included in WDK 7.1 makes the linker to generate
+                # almost eight hundred LNK4254 and LNK4078 warnings:
+                #   - warning LNK4254: section 'ATL' (50000040) merged into
+                #     '.rdata' (40000040) with different attributes
+                #   - warning LNK4078: multiple 'ATL' sections found with
+                #     different attributes
+                'AdditionalOptions': ['/ignore:4254', '/ignore:4078'],
+              },
+            },
+            'msvs_system_include_dirs': [
+              '<(windows_driver_kit_path)/inc/atl71',
+              '<(windows_driver_kit_path)/inc/mfc42',
+            ],
+          }],
         ],
         'msvs_system_include_dirs': [
           '<(windows_sdk_path)/Include/shared',
@@ -3446,20 +3513,6 @@
             ],
 
             'conditions': [
-              ['msvs_express', {
-                # Explicitly required when using the ATL with express
-                'AdditionalDependencies': [
-                  'atlthunk.lib',
-                ],
-
-                # ATL 8.0 included in WDK 7.1 makes the linker to generate
-                # almost eight hundred LNK4254 and LNK4078 warnings:
-                #   - warning LNK4254: section 'ATL' (50000040) merged into
-                #     '.rdata' (40000040) with different attributes
-                #   - warning LNK4078: multiple 'ATL' sections found with
-                #     different attributes
-                'AdditionalOptions': ['/ignore:4254', '/ignore:4078'],
-              }],
               ['MSVS_VERSION=="2005e"', {
                 # Non-express versions link automatically to these
                 'AdditionalDependencies': [

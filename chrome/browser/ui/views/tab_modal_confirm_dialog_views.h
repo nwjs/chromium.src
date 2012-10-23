@@ -24,14 +24,15 @@ class TabModalConfirmDialogViews : public TabModalConfirmDialog,
                                    public views::DialogDelegate {
  public:
   TabModalConfirmDialogViews(TabModalConfirmDialogDelegate* delegate,
-                             TabContents* tab_contents);
+                             TabContents* tab_contents,
+                             bool enable_chrome_style);
 
   // views::DialogDelegate:
   virtual string16 GetWindowTitle() const OVERRIDE;
   virtual string16 GetDialogButtonLabel(ui::DialogButton button) const OVERRIDE;
+  virtual bool UseChromeStyle() const OVERRIDE;
   virtual bool Cancel() OVERRIDE;
   virtual bool Accept() OVERRIDE;
-  virtual views::ClientView* CreateClientView(views::Widget* widget) OVERRIDE;
 
   // views::WidgetDelegate:
   virtual views::View* GetContentsView() OVERRIDE;
@@ -50,6 +51,8 @@ class TabModalConfirmDialogViews : public TabModalConfirmDialog,
 
   // The message box view whose commands we handle.
   views::MessageBoxView* message_box_view_;
+
+  bool enable_chrome_style_;
 
   DISALLOW_COPY_AND_ASSIGN(TabModalConfirmDialogViews);
 };

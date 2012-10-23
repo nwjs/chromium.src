@@ -18,6 +18,8 @@
 #include "ui/gl/gl_switches.h"
 #include "ui/gl/gl_implementation.h"
 
+namespace content {
+
 ImageTransportSurface::ImageTransportSurface() {}
 
 ImageTransportSurface::~ImageTransportSurface() {}
@@ -134,6 +136,7 @@ void ImageTransportHelper::SendAcceleratedSurfacePostSubBuffer(
     GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params params) {
   params.surface_id = stub_->surface_id();
   params.route_id = route_id_;
+  params.surface_size = surface_->GetSize();
 #if defined(OS_MACOSX)
   params.window = handle_;
 #endif
@@ -335,5 +338,7 @@ gfx::Size PassThroughImageTransportSurface::GetSize() {
 }
 
 PassThroughImageTransportSurface::~PassThroughImageTransportSurface() {}
+
+}  // namespace content
 
 #endif  // defined(ENABLE_GPU)

@@ -15,9 +15,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_details.h"
@@ -159,14 +158,41 @@ bool DefaultBrowserInfoBarDelegate::ShouldExpireInternal(
   return should_expire_;
 }
 
-void CheckDefaultBrowserCallback() {
+void NotifyNotDefaultBrowserCallback(chrome::HostDesktopType desktop_type) {
+  Browser* browser = browser::FindLastActiveWithHostDesktopType(desktop_type);
+  if (!browser)
+    return;  // Reached during ui tests.
+
+  // In ChromeBot tests, there might be a race. This line appears to get
+  // called during shutdown and |tab| can be NULL.
+  content::WebContents* web_contents = chrome::GetActiveWebContents(browser);
+  if (!web_contents)
+    return;
+
+  // Don't show the info-bar if there are already info-bars showing.
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(web_contents);
+  if (infobar_helper->GetInfoBarCount() > 0)
+    return;
+
+  bool interactive_flow = ShellIntegration::CanSetAsDefaultBrowser() ==
+      ShellIntegration::SET_DEFAULT_INTERACTIVE;
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  infobar_helper->AddInfoBar(
+      new DefaultBrowserInfoBarDelegate(infobar_helper,
+                                        profile->GetPrefs(),
+                                        interactive_flow));
+}
+
+void CheckDefaultBrowserCallback(chrome::HostDesktopType desktop_type) {
   if (!ShellIntegration::IsDefaultBrowser()) {
     ShellIntegration::DefaultWebClientSetPermission default_change_mode =
         ShellIntegration::CanSetAsDefaultBrowser();
 
     if (default_change_mode != ShellIntegration::SET_DEFAULT_NOT_ALLOWED) {
       BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-          base::Bind(&chrome::internal::NotifyNotDefaultBrowserCallback));
+          base::Bind(&NotifyNotDefaultBrowserCallback, desktop_type));
     }
   }
 }
@@ -175,7 +201,7 @@ void CheckDefaultBrowserCallback() {
 
 namespace chrome {
 
-void ShowDefaultBrowserPrompt(Profile* profile) {
+void ShowDefaultBrowserPrompt(Profile* profile, HostDesktopType desktop_type) {
   // We do not check if we are the default browser if:
   // - the user said "don't ask me again" on the infobar earlier.
   // - There is a policy in control of this setting.
@@ -197,7 +223,8 @@ void ShowDefaultBrowserPrompt(Profile* profile) {
     return;
   }
   BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
-                          base::Bind(&CheckDefaultBrowserCallback));
+                          base::Bind(&CheckDefaultBrowserCallback,
+                                     desktop_type));
 
 }
 
@@ -207,31 +234,4 @@ bool ShowFirstRunDefaultBrowserPrompt(Profile* profile) {
 }
 #endif
 
-namespace internal {
-
-void NotifyNotDefaultBrowserCallback() {
-  Browser* browser = BrowserList::GetLastActive();
-  if (!browser)
-    return;  // Reached during ui tests.
-
-  // In ChromeBot tests, there might be a race. This line appears to get
-  // called during shutdown and |tab| can be NULL.
-  TabContents* tab = chrome::GetActiveTabContents(browser);
-  if (!tab)
-    return;
-
-  // Don't show the info-bar if there are already info-bars showing.
-  InfoBarTabHelper* infobar_helper = tab->infobar_tab_helper();
-  if (infobar_helper->GetInfoBarCount() > 0)
-    return;
-
-  bool interactive_flow = ShellIntegration::CanSetAsDefaultBrowser() ==
-      ShellIntegration::SET_DEFAULT_INTERACTIVE;
-  infobar_helper->AddInfoBar(
-      new DefaultBrowserInfoBarDelegate(infobar_helper,
-                                        tab->profile()->GetPrefs(),
-                                        interactive_flow));
-}
-
-}  // namespace internal
 }  // namespace chrome

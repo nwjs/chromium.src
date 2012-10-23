@@ -56,6 +56,12 @@ function getURLHttpWithHeaders() {
       "files/extensions/api_test/webrequest/declarative/headers.html");
 }
 
+function getURLThirdParty() {
+  // Returns the URL of a HTML document with a third-party resource.
+  return getServerURL(
+      "files/extensions/api_test/webrequest/declarative/third-party.html");
+}
+
 function getURLSetCookie() {
   return getServerURL('set-cookie?Foo=Bar');
 }
@@ -74,9 +80,77 @@ function getURLHttpXHRData() {
                       "b.com");
 }
 
-function getURLHttpSimpleOnB() {
-  return getServerURL("files/extensions/api_test/webrequest/simpleLoad/a.html",
-                      "b.com");
+// Shared test sections.
+function cancelThirdPartyExpected() {
+    return [
+      { label: "onBeforeRequest",
+        event: "onBeforeRequest",
+        details: {
+          url: getURLThirdParty(),
+          frameUrl: getURLThirdParty()
+        }
+      },
+      { label: "onBeforeSendHeaders",
+        event: "onBeforeSendHeaders",
+        details: {url: getURLThirdParty()}
+      },
+      { label: "onSendHeaders",
+        event: "onSendHeaders",
+        details: {url: getURLThirdParty()}
+      },
+      { label: "onHeadersReceived",
+        event: "onHeadersReceived",
+        details: {
+          url: getURLThirdParty(),
+          statusLine: "HTTP/1.0 200 OK"
+        }
+      },
+      { label: "onResponseStarted",
+        event: "onResponseStarted",
+        details: {
+          url: getURLThirdParty(),
+          fromCache: false,
+          ip: "127.0.0.1",
+          statusCode: 200,
+          statusLine: "HTTP/1.0 200 OK"
+        }
+      },
+      { label: "onCompleted",
+        event: "onCompleted",
+        details: {
+          fromCache: false,
+          ip: "127.0.0.1",
+          url: getURLThirdParty(),
+          statusCode: 200,
+          statusLine: "HTTP/1.0 200 OK"
+        }
+      },
+      { label: "img-onBeforeRequest",
+        event: "onBeforeRequest",
+        details: {
+          type: "image",
+          url: "http://non_existing_third_party.com/image.png",
+          frameUrl: getURLThirdParty()
+        }
+      },
+      { label: "img-onErrorOccurred",
+        event: "onErrorOccurred",
+        details: {
+          error: "net::ERR_BLOCKED_BY_CLIENT",
+          fromCache: false,
+          type: "image",
+          url: "http://non_existing_third_party.com/image.png"
+        }
+      },
+    ];
+}
+
+function cancelThirdPartyExpectedOrder() {
+    return [
+      ["onBeforeRequest", "onBeforeSendHeaders", "onSendHeaders",
+       "onHeadersReceived", "onResponseStarted", "onCompleted"],
+      ["img-onBeforeRequest", "img-onErrorOccurred"]
+    ];
 }
 
 runTests([
@@ -106,11 +180,47 @@ runTests([
              'resourceType': ["main_frame"],
              'contentType': ["text/plain"],
              'excludeContentType': ["image/png"],
-             'responseHeaders': [{ nameContains: ["content", "type"] } ],
+             'responseHeaders': [{ nameContains: ["content", "type"] }],
              'excludeResponseHeaders': [{ valueContains: "nonsense" }] })],
          'actions': [new CancelRequest()]}
       ],
       function() {navigateAndWait(getURLHttpWithHeaders());}
+    );
+  },
+
+  // Tests that "thirdPartyForCookies: true" matches third party requests.
+  function testThirdParty() {
+    ignoreUnexpected = false;
+    expect(cancelThirdPartyExpected(), cancelThirdPartyExpectedOrder());
+    onRequest.addRules(
+      [ {'conditions': [new RequestMatcher({thirdPartyForCookies: true})],
+         'actions': [new chrome.declarativeWebRequest.CancelRequest()]},],
+      function() {navigateAndWait(getURLThirdParty());}
+    );
+  },
+
+  // Tests that "thirdPartyForCookies: false" matches first party requests,
+  // by cancelling all requests, and overriding the cancelling rule only for
+  // requests matching "thirdPartyForCookies: false".
+  function testFirstParty() {
+    ignoreUnexpected = false;
+    expect(cancelThirdPartyExpected(), cancelThirdPartyExpectedOrder());
+    onRequest.addRules(
+      [ {'priority': 2,
+         'conditions': [
+           new RequestMatcher({thirdPartyForCookies: false})
+         ],
+         'actions': [
+           new chrome.declarativeWebRequest.IgnoreRules({
+              lowerPriorityThan: 2 })
+         ]
+        },
+        {'priority': 1,
+         'conditions': [new RequestMatcher({})],
+         'actions': [new chrome.declarativeWebRequest.CancelRequest()]
+        },
+      ],
+      function() {navigateAndWait(getURLThirdParty());}
     );
   },
 
@@ -475,13 +585,14 @@ runTests([
     // Test that a redirect is ignored if the extension has no permission.
     // we load a.html from a.com and issue an XHR to b.com, which is not
     // contained in the extension's host permissions. Therefore, we cannot
-    // redirect it and the request succeeds.
+    // redirect the XHR from b.com to a.com, and the request returns the
+    // original file from b.com.
     ignoreUnexpected = true;
     expect();
     onRequest.addRules(
       [ {'conditions': [new RequestMatcher({'url': {'pathContains': ".json"}})],
          'actions': [
-             new RedirectRequest({'redirectUrl': getURLHttpSimpleOnB()})]}
+             new RedirectRequest({'redirectUrl': getURLHttpSimple()})]}
       ],
       function() {
         var callback = chrome.test.callbackAdded();
@@ -491,17 +602,49 @@ runTests([
           req.onreadystatechange = function() {
             if (this.readyState != this.DONE)
               return;
+            // "{}" is the contents of the file at getURLHttpXHRData().
             if (this.status == 200 && this.responseText == "{}\n") {
               callback();
             } else {
               chrome.test.fail("Redirect was not prevented. Status: " +
                   this.status + ", responseText: " + this.responseText);
             }
-          }
+          };
           req.open("GET", getURLHttpXHRData(), asynchronous);
-          req.send(null);
+          req.send();
         });
       }
+    );
+  },
+
+  function testRequestHeaders() {
+    ignoreUnexpected = true;
+    expect(
+      [
+        { label: "onErrorOccurred",
+          event: "onErrorOccurred",
+          details: {
+            url: getURLHttpSimple(),
+            fromCache: false,
+            error: "net::ERR_BLOCKED_BY_CLIENT"
+          }
+        },
+      ],
+      [ ["onErrorOccurred"] ]);
+    onRequest.addRules(
+      [ {'conditions': [
+           new RequestMatcher({
+             'url': {
+                 'pathSuffix': ".html",
+                 'ports': [testServerPort, [1000, 2000]],
+                 'schemes': ["http"]
+             },
+             'requestHeaders': [{ nameContains: "" }],
+             'excludeRequestHeaders': [{ valueContains: ["", "value123"] }]
+              })],
+         'actions': [new CancelRequest()]}
+      ],
+      function() {navigateAndWait(getURLHttpSimple());}
     );
   },
   ]);

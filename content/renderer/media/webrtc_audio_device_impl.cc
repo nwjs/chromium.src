@@ -15,8 +15,10 @@
 #include "media/audio/audio_util.h"
 #include "media/audio/sample_rates.h"
 
-using content::AudioDeviceFactory;
 using media::AudioParameters;
+using media::ChannelLayout;
+
+namespace content {
 
 static const int64 kMillisecondsBetweenProcessCalls = 5000;
 static const double kMaxVolumeLevel = 255.0;
@@ -418,7 +420,7 @@ int32_t WebRtcAudioDeviceImpl::Init() {
 
   // Ask the browser for the default audio output hardware sample-rate.
   // This request is based on a synchronous IPC message.
-  int out_sample_rate = audio_hardware::GetOutputSampleRate();
+  int out_sample_rate = AudioHardware::GetOutputSampleRate();
   DVLOG(1) << "Audio output hardware sample rate: " << out_sample_rate;
   AddHistogramSampleRate(kAudioOutput, out_sample_rate);
 
@@ -434,7 +436,7 @@ int32_t WebRtcAudioDeviceImpl::Init() {
 
   // Ask the browser for the default audio input hardware sample-rate.
   // This request is based on a synchronous IPC message.
-  int in_sample_rate = audio_hardware::GetInputSampleRate();
+  int in_sample_rate = AudioHardware::GetInputSampleRate();
   DVLOG(1) << "Audio input hardware sample rate: " << in_sample_rate;
   AddHistogramSampleRate(kAudioInput, in_sample_rate);
 
@@ -450,9 +452,9 @@ int32_t WebRtcAudioDeviceImpl::Init() {
 
   // Ask the browser for the default number of audio input channels.
   // This request is based on a synchronous IPC message.
-  ChannelLayout in_channel_layout = audio_hardware::GetInputChannelLayout();
+  ChannelLayout in_channel_layout = AudioHardware::GetInputChannelLayout();
   DVLOG(1) << "Audio input hardware channels: " << in_channel_layout;
-  ChannelLayout out_channel_layout = CHANNEL_LAYOUT_MONO;
+  ChannelLayout out_channel_layout = media::CHANNEL_LAYOUT_MONO;
 
   AudioParameters::Format in_format = AudioParameters::AUDIO_PCM_LINEAR;
   int in_buffer_size = 0;
@@ -464,7 +466,7 @@ int32_t WebRtcAudioDeviceImpl::Init() {
 // Windows
 #if defined(OS_WIN)
   // Always use stereo rendering on Windows.
-  out_channel_layout = CHANNEL_LAYOUT_STEREO;
+  out_channel_layout = media::CHANNEL_LAYOUT_STEREO;
 
   DVLOG(1) << "Using AUDIO_PCM_LOW_LATENCY as input mode on Windows.";
   in_format = AudioParameters::AUDIO_PCM_LOW_LATENCY;
@@ -511,7 +513,7 @@ int32_t WebRtcAudioDeviceImpl::Init() {
 
 // Mac OS X
 #elif defined(OS_MACOSX)
-  out_channel_layout = CHANNEL_LAYOUT_MONO;
+  out_channel_layout = media::CHANNEL_LAYOUT_MONO;
 
   DVLOG(1) << "Using AUDIO_PCM_LOW_LATENCY as input mode on Mac OS X.";
   in_format = AudioParameters::AUDIO_PCM_LOW_LATENCY;
@@ -545,8 +547,8 @@ int32_t WebRtcAudioDeviceImpl::Init() {
   }
 // Linux
 #elif defined(OS_LINUX) || defined(OS_OPENBSD)
-  in_channel_layout = CHANNEL_LAYOUT_STEREO;
-  out_channel_layout = CHANNEL_LAYOUT_MONO;
+  in_channel_layout = media::CHANNEL_LAYOUT_STEREO;
+  out_channel_layout = media::CHANNEL_LAYOUT_MONO;
 
   // Based on tests using the current ALSA implementation in Chrome, we have
   // found that the best combination is 20ms on the input side and 10ms on the
@@ -575,9 +577,9 @@ int32_t WebRtcAudioDeviceImpl::Init() {
   audio_input_device_->Initialize(input_audio_parameters_, this, this);
 
   UMA_HISTOGRAM_ENUMERATION("WebRTC.AudioOutputChannelLayout",
-                            out_channel_layout, CHANNEL_LAYOUT_MAX);
+                            out_channel_layout, media::CHANNEL_LAYOUT_MAX);
   UMA_HISTOGRAM_ENUMERATION("WebRTC.AudioInputChannelLayout",
-                            in_channel_layout, CHANNEL_LAYOUT_MAX);
+                            in_channel_layout, media::CHANNEL_LAYOUT_MAX);
   AddHistogramFramesPerBuffer(kAudioOutput, out_buffer_size);
   AddHistogramFramesPerBuffer(kAudioInput, in_buffer_size);
 
@@ -1163,3 +1165,5 @@ int32_t WebRtcAudioDeviceImpl::GetLoudspeakerStatus(bool* enabled) const {
 void WebRtcAudioDeviceImpl::SetSessionId(int session_id) {
   session_id_ = session_id;
 }
+
+}  // namespace content

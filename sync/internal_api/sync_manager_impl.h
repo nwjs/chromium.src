@@ -127,7 +127,9 @@ class SyncManagerImpl : public SyncManager,
   virtual void OnEncryptionComplete() OVERRIDE;
   virtual void OnCryptographerStateChanged(
       Cryptographer* cryptographer) OVERRIDE;
-  virtual void OnPassphraseTypeChanged(PassphraseType type) OVERRIDE;
+  virtual void OnPassphraseTypeChanged(
+      PassphraseType type,
+      base::Time explicit_passphrase_time) OVERRIDE;
 
   // Return the currently active (validated) username for use with syncable
   // types.
@@ -243,12 +245,6 @@ class SyncManagerImpl : public SyncManager,
                                 const syncable::EntryKernel& original,
                                 bool existed_before,
                                 bool exists_now);
-
-  // Internal callback used by GetSessionName.
-  // TODO(rlarocque): not currently called from anywhere. This should be
-  // hooked up to something once we start preserving device information again.
-  void UpdateSessionNameCallback(const std::string& chrome_version,
-                                 const std::string& session_name);
 
   // Called for every notification. This updates the notification statistics
   // to be displayed in about:sync.

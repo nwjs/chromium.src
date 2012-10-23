@@ -31,6 +31,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/win/registry.h"
+#include "base/win/scoped_co_mem.h"
 #include "base/win/scoped_comptr.h"
 #include "base/win/shortcut.h"
 #include "base/win/win_util.h"
@@ -39,8 +40,11 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/install_util.h"
+#include "chrome/installer/util/l10n_string_util.h"
 #include "chrome/installer/util/master_preferences.h"
 #include "chrome/installer/util/master_preferences_constants.h"
+
+#include "installer_util_strings.h"  // NOLINT
 
 using base::win::RegKey;
 
@@ -239,17 +243,33 @@ class RegistryEntry {
 
       // <root hkey>\Software\Classes\<app_id>\.exe\shell @=open
       entries->push_back(new RegistryEntry(model_id_shell,
-                                          ShellUtil::kRegVerbOpen));
+                                           ShellUtil::kRegVerbOpen));
 
-      const wchar_t* const verbs[] = { ShellUtil::kRegVerbOpen,
-                                       ShellUtil::kRegVerbOpenNewWindow,
-                                       ShellUtil::kRegVerbRun };
+      // Each of Chrome's shortcuts has an appid; which, as of Windows 8, is
+      // registered to handle some verbs. This registration has the side-effect
+      // that these verbs now show up in the shortcut's context menu. We
+      // mitigate this side-effect by making the context menu entries
+      // user readable/localized strings. See relevant MSDN article:
+      // http://msdn.microsoft.com/en-US/library/windows/desktop/cc144171.aspx
+      const struct {
+        const wchar_t* verb;
+        int name_id;
+      } verbs[] = {
+          { ShellUtil::kRegVerbOpen, -1 },
+          { ShellUtil::kRegVerbOpenNewWindow, IDS_SHORTCUT_NEW_WINDOW_BASE },
+      };
       for (size_t i = 0; i < arraysize(verbs); ++i) {
         string16 sub_path(model_id_shell);
         sub_path.push_back(FilePath::kSeparators[0]);
-        sub_path.append(verbs[i]);
+        sub_path.append(verbs[i].verb);
 
         // <root hkey>\Software\Classes\<app_id>\.exe\shell\<verb>
+        if (verbs[i].name_id != -1) {
+          // TODO(grt): http://crbug.com/75152 Write a reference to a localized
+          // resource.
+          string16 verb_name(installer::GetLocalizedString(verbs[i].name_id));
+          entries->push_back(new RegistryEntry(sub_path, verb_name.c_str()));
+        }
         entries->push_back(new RegistryEntry(
             sub_path, L"CommandId", L"Browser.Launch"));
 
@@ -425,11 +445,12 @@ class RegistryEntry {
   }
 
   // This method returns a list of all the user level registry entries that
-  // are needed to make Chromium the default handler for a protocol.
-  static void GetUserProtocolEntries(const string16& protocol,
-                                     const string16& chrome_icon,
-                                     const string16& chrome_open,
-                                     ScopedVector<RegistryEntry>* entries) {
+  // are needed to make Chromium the default handler for a protocol on XP.
+  static void GetXPStyleUserProtocolEntries(
+      const string16& protocol,
+      const string16& chrome_icon,
+      const string16& chrome_open,
+      ScopedVector<RegistryEntry>* entries) {
     // Protocols associations.
     string16 url_key(ShellUtil::kRegClasses);
     url_key.push_back(FilePath::kSeparators[0]);
@@ -459,11 +480,11 @@ class RegistryEntry {
   }
 
   // This method returns a list of all the user level registry entries that
-  // are needed to make Chromium default browser.
+  // are needed to make Chromium default browser on XP.
   // Some of these entries are irrelevant in recent versions of Windows, but
   // we register them anyways as some legacy apps are hardcoded to lookup those
   // values.
-  static void GetDefaultBrowserUserEntries(
+  static void GetXPStyleDefaultBrowserUserEntries(
       BrowserDistribution* dist,
       const string16& chrome_exe,
       const string16& suffix,
@@ -481,8 +502,8 @@ class RegistryEntry {
     string16 chrome_open = ShellUtil::GetChromeShellOpenCmd(chrome_exe);
     string16 chrome_icon = ShellUtil::GetChromeIcon(dist, chrome_exe);
     for (int i = 0; ShellUtil::kBrowserProtocolAssociations[i] != NULL; i++) {
-      GetUserProtocolEntries(ShellUtil::kBrowserProtocolAssociations[i],
-                             chrome_icon, chrome_open, entries);
+      GetXPStyleUserProtocolEntries(ShellUtil::kBrowserProtocolAssociations[i],
+                                    chrome_icon, chrome_open, entries);
     }
 
     // start->Internet shortcut.
@@ -735,54 +756,6 @@ bool LaunchApplicationAssociationDialog(const string16& app_id) {
   return SUCCEEDED(hr);
 }
 
-// As of r133333, the DelegateExecute verb handler was being registered for
-// Google Chrome installs on Windows 8 even though the binary itself wasn't
-// present.  This affected Chrome 20.0.1115.1 on the dev channel (and anyone who
-// pulled a Canary >= 20.0.1112.0 and installed it manually as Google Chrome).
-// This egregious hack is here to remove the bad values for those installs, and
-// should be removed after a reasonable time, say 2012-08-01.  Anyone on Win8
-// dev channel who hasn't been autoupdated or manually updated by then will have
-// to uninstall and reinstall Chrome to repair.  See http://crbug.com/124666 and
-// http://crbug.com/123994 for gory details.
-// This function is also used to remove DelegateExecute verb handler
-// registrations on builds for which Metro is no longer supported. This will
-// also become irrelevant sometime after Windows 8 RC (thus the aforementioned
-// removal date remains correct).
-void RemoveBadWindows8RegistrationIfNeeded(
-    BrowserDistribution* dist,
-    const string16& chrome_exe) {
-  if (dist->GetCommandExecuteImplClsid(NULL) &&
-      (!InstallUtil::HasDelegateExecuteHandler(dist, chrome_exe) ||
-       !IsChromeMetroSupported())) {
-    // There's no need to rollback, so forgo the usual work item lists and just
-    // remove the values from the registry.
-    bool is_per_user_install =
-        InstallUtil::IsPerUserInstall(chrome_exe.c_str());
-    const HKEY root_key = is_per_user_install ? HKEY_CURRENT_USER :
-                                                HKEY_LOCAL_MACHINE;
-    // Use the current installation's suffix, not the about-to-be-installed
-    // suffix.
-    const string16 installation_suffix(
-        ShellUtil::GetCurrentInstallationSuffix(dist, chrome_exe));
-    const string16 app_id(ShellUtil::GetBrowserModelId(dist,
-                                                       is_per_user_install));
-
-    // <root hkey>\Software\Classes\<app_id>
-    string16 key(ShellUtil::kRegClasses);
-    key.push_back(FilePath::kSeparators[0]);
-    key.append(app_id);
-    InstallUtil::DeleteRegistryKey(root_key, key);
-
-    // <root hkey>\Software\Classes\ChromiumHTML[.user]\shell\open\command
-    key = ShellUtil::kRegClasses;
-    key.push_back(FilePath::kSeparators[0]);
-    key.append(GetBrowserProgId(installation_suffix));
-    key.append(ShellUtil::kRegShellOpen);
-    InstallUtil::DeleteRegistryValue(root_key, key,
-                                     ShellUtil::kRegDelegateExecute);
-  }
-}
-
 // Returns true if the current install's |chrome_exe| has been registered with
 // |suffix|.
 // |confirmation_level| is the level of verification desired as described in
@@ -881,10 +854,10 @@ bool GetInstallationSpecificSuffix(BrowserDistribution* dist,
   return ShellUtil::GetUserSpecificRegistrySuffix(suffix);
 }
 
-// Returns the root registry key (HKLM or HKCU) into which shell integration
-// registration for default protocols must be placed. As of Windows 8 everything
-// can go in HKCU for per-user installs.
-HKEY DetermineShellIntegrationRoot(bool is_per_user) {
+// Returns the root registry key (HKLM or HKCU) under which registrations must
+// be placed for this install. As of Windows 8 everything can go in HKCU for
+// per-user installs.
+HKEY DetermineRegistrationRoot(bool is_per_user) {
   return is_per_user && base::win::GetVersion() >= base::win::VERSION_WIN8 ?
       HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
 }
@@ -892,12 +865,12 @@ HKEY DetermineShellIntegrationRoot(bool is_per_user) {
 // Associates Chrome with supported protocols and file associations. This should
 // not be required on Vista+ but since some applications still read
 // Software\Classes\http key directly, we have to do this on Vista+ as well.
-bool RegisterChromeAsDefaultForXP(BrowserDistribution* dist,
-                                  int shell_change,
-                                  const string16& chrome_exe) {
+bool RegisterChromeAsDefaultXPStyle(BrowserDistribution* dist,
+                                    int shell_change,
+                                    const string16& chrome_exe) {
   bool ret = true;
   ScopedVector<RegistryEntry> entries;
-  RegistryEntry::GetDefaultBrowserUserEntries(
+  RegistryEntry::GetXPStyleDefaultBrowserUserEntries(
       dist, chrome_exe,
       ShellUtil::GetCurrentInstallationSuffix(dist, chrome_exe), &entries);
 
@@ -922,14 +895,14 @@ bool RegisterChromeAsDefaultForXP(BrowserDistribution* dist,
 // required on Vista+ but since some applications still read these registry
 // keys directly, we have to do this on Vista+ as well.
 // See http://msdn.microsoft.com/library/aa767914.aspx for more details.
-bool RegisterChromeAsDefaultProtocolClientForXP(BrowserDistribution* dist,
-                                                const string16& chrome_exe,
-                                                const string16& protocol) {
+bool RegisterChromeAsDefaultProtocolClientXPStyle(BrowserDistribution* dist,
+                                                  const string16& chrome_exe,
+                                                  const string16& protocol) {
   ScopedVector<RegistryEntry> entries;
   const string16 chrome_open(ShellUtil::GetChromeShellOpenCmd(chrome_exe));
   const string16 chrome_icon(ShellUtil::GetChromeIcon(dist, chrome_exe));
-  RegistryEntry::GetUserProtocolEntries(protocol, chrome_icon, chrome_open,
-                                        &entries);
+  RegistryEntry::GetXPStyleUserProtocolEntries(protocol, chrome_icon,
+                                               chrome_open, &entries);
   // Change the default protocol handler for current user.
   if (!AddRegistryEntries(HKEY_CURRENT_USER, entries)) {
     LOG(ERROR) << "Could not make Chrome default protocol client (XP).";
@@ -1013,6 +986,179 @@ base::win::ShortcutProperties GetShortcutPropertiesFromChromeShortcutProperties(
     shortcut_properties.set_dual_mode(properties.dual_mode);
 
   return shortcut_properties;
+}
+
+// Cleans up an old verb (run) we used to register in
+// <root>\Software\Classes\Chrome<.suffix>\.exe\shell\run on Windows 8.
+void RemoveRunVerbOnWindows8(
+    BrowserDistribution* dist,
+    const string16& chrome_exe) {
+  if (IsChromeMetroSupported()) {
+    bool is_per_user_install =InstallUtil::IsPerUserInstall(chrome_exe.c_str());
+    HKEY root_key = DetermineRegistrationRoot(is_per_user_install);
+    // There's no need to rollback, so forgo the usual work item lists and just
+    // remove the key from the registry.
+    string16 run_verb_key(ShellUtil::kRegClasses);
+    run_verb_key.push_back(FilePath::kSeparators[0]);
+    run_verb_key.append(ShellUtil::GetBrowserModelId(
+        dist, is_per_user_install));
+    run_verb_key.append(ShellUtil::kRegExePath);
+    run_verb_key.append(ShellUtil::kRegShellPath);
+    run_verb_key.push_back(FilePath::kSeparators[0]);
+    run_verb_key.append(ShellUtil::kRegVerbRun);
+    InstallUtil::DeleteRegistryKey(root_key, run_verb_key);
+  }
+}
+
+// Gets the short (8.3) form of |path|, putting the result in |short_path| and
+// returning true on success.  |short_path| is not modified on failure.
+bool ShortNameFromPath(const FilePath& path, string16* short_path) {
+  DCHECK(short_path);
+  string16 result(MAX_PATH, L'\0');
+  DWORD short_length = GetShortPathName(path.value().c_str(), &result[0],
+                                        result.size());
+  if (short_length == 0 || short_length > result.size()) {
+    PLOG(ERROR) << "Error getting short (8.3) path";
+    return false;
+  }
+
+  result.resize(short_length);
+  short_path->swap(result);
+  return true;
+}
+
+// Probe using IApplicationAssociationRegistration::QueryCurrentDefault
+// (Windows 8); see ProbeProtocolHandlers.  This mechanism is not suitable for
+// use on previous versions of Windows despite the presence of
+// QueryCurrentDefault on them since versions of Windows prior to Windows 8
+// did not perform validation on the ProgID registered as the current default.
+// As a result, stale ProgIDs could be returned, leading to false positives.
+ShellUtil::DefaultState ProbeCurrentDefaultHandlers(
+    const wchar_t* const* protocols,
+    size_t num_protocols) {
+  base::win::ScopedComPtr<IApplicationAssociationRegistration> registration;
+  HRESULT hr = registration.CreateInstance(
+      CLSID_ApplicationAssociationRegistration, NULL, CLSCTX_INPROC);
+  if (FAILED(hr))
+    return ShellUtil::UNKNOWN_DEFAULT;
+
+  BrowserDistribution* dist = BrowserDistribution::GetDistribution();
+  FilePath chrome_exe;
+  if (!PathService::Get(base::FILE_EXE, &chrome_exe)) {
+    NOTREACHED();
+    return ShellUtil::UNKNOWN_DEFAULT;
+  }
+  string16 prog_id(ShellUtil::kChromeHTMLProgId);
+  prog_id += ShellUtil::GetCurrentInstallationSuffix(dist, chrome_exe.value());
+
+  for (size_t i = 0; i < num_protocols; ++i) {
+    base::win::ScopedCoMem<wchar_t> current_app;
+    hr = registration->QueryCurrentDefault(protocols[i], AT_URLPROTOCOL,
+                                           AL_EFFECTIVE, &current_app);
+    if (FAILED(hr) || prog_id.compare(current_app) != 0)
+      return ShellUtil::NOT_DEFAULT;
+  }
+
+  return ShellUtil::IS_DEFAULT;
+}
+
+// Probe using IApplicationAssociationRegistration::QueryAppIsDefault (Vista and
+// Windows 7); see ProbeProtocolHandlers.
+ShellUtil::DefaultState ProbeAppIsDefaultHandlers(
+    const wchar_t* const* protocols,
+    size_t num_protocols) {
+  base::win::ScopedComPtr<IApplicationAssociationRegistration> registration;
+  HRESULT hr = registration.CreateInstance(
+      CLSID_ApplicationAssociationRegistration, NULL, CLSCTX_INPROC);
+  if (FAILED(hr))
+    return ShellUtil::UNKNOWN_DEFAULT;
+
+  BrowserDistribution* dist = BrowserDistribution::GetDistribution();
+  FilePath chrome_exe;
+  if (!PathService::Get(base::FILE_EXE, &chrome_exe)) {
+    NOTREACHED();
+    return ShellUtil::UNKNOWN_DEFAULT;
+  }
+  string16 app_name(ShellUtil::GetApplicationName(dist, chrome_exe.value()));
+
+  BOOL result;
+  for (size_t i = 0; i < num_protocols; ++i) {
+    result = TRUE;
+    hr = registration->QueryAppIsDefault(protocols[i], AT_URLPROTOCOL,
+        AL_EFFECTIVE, app_name.c_str(), &result);
+    if (FAILED(hr) || result == FALSE)
+      return ShellUtil::NOT_DEFAULT;
+  }
+
+  return ShellUtil::IS_DEFAULT;
+}
+
+// Probe the current commands registered to handle the shell "open" verb for
+// |protocols| (Windows XP); see ProbeProtocolHandlers.
+ShellUtil::DefaultState ProbeOpenCommandHandlers(
+    const wchar_t* const* protocols,
+    size_t num_protocols) {
+  // Get the path to the current exe (Chrome).
+  FilePath app_path;
+  if (!PathService::Get(base::FILE_EXE, &app_path)) {
+    LOG(ERROR) << "Error getting app exe path";
+    return ShellUtil::UNKNOWN_DEFAULT;
+  }
+
+  // Get its short (8.3) form.
+  string16 short_app_path;
+  if (!ShortNameFromPath(app_path, &short_app_path))
+    return ShellUtil::UNKNOWN_DEFAULT;
+
+  const HKEY root_key = HKEY_CLASSES_ROOT;
+  string16 key_path;
+  base::win::RegKey key;
+  string16 value;
+  CommandLine command_line(CommandLine::NO_PROGRAM);
+  string16 short_path;
+
+  for (size_t i = 0; i < num_protocols; ++i) {
+    // Get the command line from HKCU\<protocol>\shell\open\command.
+    key_path.assign(protocols[i]).append(ShellUtil::kRegShellOpen);
+    if ((key.Open(root_key, key_path.c_str(),
+                  KEY_QUERY_VALUE) != ERROR_SUCCESS) ||
+        (key.ReadValue(L"", &value) != ERROR_SUCCESS)) {
+      return ShellUtil::NOT_DEFAULT;
+    }
+
+    // Need to normalize path in case it's been munged.
+    command_line = CommandLine::FromString(value);
+    if (!ShortNameFromPath(command_line.GetProgram(), &short_path))
+      return ShellUtil::UNKNOWN_DEFAULT;
+
+    if (!FilePath::CompareEqualIgnoreCase(short_path, short_app_path))
+      return ShellUtil::NOT_DEFAULT;
+  }
+
+  return ShellUtil::IS_DEFAULT;
+}
+
+// A helper function that probes default protocol handler registration (in a
+// manner appropriate for the current version of Windows) to determine if
+// Chrome is the default handler for |protocols|.  Returns IS_DEFAULT_WEB_CLIENT
+// only if Chrome is the default for all specified protocols.
+ShellUtil::DefaultState ProbeProtocolHandlers(
+    const wchar_t* const* protocols,
+    size_t num_protocols) {
+  DCHECK(!num_protocols || protocols);
+  if (DCHECK_IS_ON()) {
+    for (size_t i = 0; i < num_protocols; ++i)
+      DCHECK(protocols[i] && *protocols[i]);
+  }
+
+  const base::win::Version windows_version = base::win::GetVersion();
+
+  if (windows_version >= base::win::VERSION_WIN8)
+    return ProbeCurrentDefaultHandlers(protocols, num_protocols);
+  else if (windows_version >= base::win::VERSION_VISTA)
+    return ProbeAppIsDefaultHandlers(protocols, num_protocols);
+
+  return ProbeOpenCommandHandlers(protocols, num_protocols);
 }
 
 }  // namespace
@@ -1157,19 +1303,20 @@ bool ShellUtil::CreateOrUpdateChromeShortcut(
   if (chosen_path->empty())
     return true;
 
-  // Make sure the parent directories exist when creating the shortcut.
-  if (operation == SHORTCUT_CREATE_ALWAYS &&
-      !file_util::CreateDirectory(chosen_path->DirName())) {
-    NOTREACHED();
-    return false;
-  }
-
   base::win::ShortcutOperation shortcut_operation =
       (operation == SHORTCUT_UPDATE_EXISTING ?
            base::win::SHORTCUT_UPDATE_EXISTING :
            (operation == SHORTCUT_REPLACE_EXISTING ?
                 base::win::SHORTCUT_REPLACE_EXISTING :
                 base::win::SHORTCUT_CREATE_ALWAYS));
+
+  // Make sure the parent directories exist when creating the shortcut.
+  if (shortcut_operation == base::win::SHORTCUT_CREATE_ALWAYS &&
+      !file_util::CreateDirectory(chosen_path->DirName())) {
+    NOTREACHED();
+    return false;
+  }
+
   base::win::ShortcutProperties shortcut_properties(
       GetShortcutPropertiesFromChromeShortcutProperties(dist, properties,
                                                         shortcut_operation));
@@ -1336,6 +1483,29 @@ string16 ShellUtil::BuildAppModelId(
   return app_id;
 }
 
+ShellUtil::DefaultState ShellUtil::GetChromeDefaultState() {
+  // When we check for default browser we don't necessarily want to count file
+  // type handlers and icons as having changed the default browser status,
+  // since the user may have changed their shell settings to cause HTML files
+  // to open with a text editor for example. We also don't want to aggressively
+  // claim FTP, since the user may have a separate FTP client. It is an open
+  // question as to how to "heal" these settings. Perhaps the user should just
+  // re-run the installer or run with the --set-default-browser command line
+  // flag. There is doubtless some other key we can hook into to cause "Repair"
+  // to show up in Add/Remove programs for us.
+  static const wchar_t* const kChromeProtocols[] = { L"http", L"https" };
+  return ProbeProtocolHandlers(kChromeProtocols, arraysize(kChromeProtocols));
+}
+
+ShellUtil::DefaultState ShellUtil::GetChromeDefaultProtocolClientState(
+    const string16& protocol) {
+  if (protocol.empty())
+    return UNKNOWN_DEFAULT;
+
+  const wchar_t* const protocols[] = { protocol.c_str() };
+  return ProbeProtocolHandlers(protocols, arraysize(protocols));
+}
+
 // static
 bool ShellUtil::CanMakeChromeDefaultUnattended() {
   return base::win::GetVersion() < base::win::VERSION_WIN8;
@@ -1398,7 +1568,7 @@ bool ShellUtil::MakeChromeDefault(BrowserDistribution* dist,
     }
   }
 
-  if (!RegisterChromeAsDefaultForXP(dist, shell_change, chrome_exe))
+  if (!RegisterChromeAsDefaultXPStyle(dist, shell_change, chrome_exe))
     ret = false;
 
   // Send Windows notification event so that it can update icons for
@@ -1425,8 +1595,8 @@ bool ShellUtil::ShowMakeChromeDefaultSystemUI(BrowserDistribution* dist,
   // Return true only when the user took an action and there was no error.
   const bool ret = LaunchSelectDefaultProtocolHandlerDialog(L"http");
 
-  if (ret)
-    RegisterChromeAsDefaultForXP(dist, CURRENT_USER, chrome_exe);
+  if (ret && GetChromeDefaultState() == IS_DEFAULT)
+    RegisterChromeAsDefaultXPStyle(dist, CURRENT_USER, chrome_exe);
 
   return ret;
 }
@@ -1468,9 +1638,9 @@ bool ShellUtil::MakeChromeDefaultProtocolClient(BrowserDistribution* dist,
   }
 
   // Now use the old way to associate Chrome with the desired protocol. This
-  // should not be required on Vista but since some applications still read
-  // Software\Classes\http key directly, we have to do this on Vista also.
-  if (!RegisterChromeAsDefaultProtocolClientForXP(dist, chrome_exe, protocol))
+  // should not be required on Vista+, but since some applications still read
+  // Software\Classes\<protocol> key directly, do this on Vista+ also.
+  if (!RegisterChromeAsDefaultProtocolClientXPStyle(dist, chrome_exe, protocol))
     ret = false;
 
   return ret;
@@ -1496,8 +1666,8 @@ bool ShellUtil::ShowMakeChromeDefaultProtocolClientSystemUI(
   // Return true only when the user took an action and there was no error.
   const bool ret = LaunchSelectDefaultProtocolHandlerDialog(protocol.c_str());
 
-  if (ret)
-    RegisterChromeAsDefaultProtocolClientForXP(dist, chrome_exe, protocol);
+  if (ret && GetChromeDefaultProtocolClientState(protocol) == IS_DEFAULT)
+    RegisterChromeAsDefaultProtocolClientXPStyle(dist, chrome_exe, protocol);
 
   return ret;
 }
@@ -1516,15 +1686,14 @@ bool ShellUtil::RegisterChromeBrowser(BrowserDistribution* dist,
     return false;
   }
 
-  // TODO(grt): remove this on or after 2012-08-01; see impl for details.
-  RemoveBadWindows8RegistrationIfNeeded(dist, chrome_exe);
+  RemoveRunVerbOnWindows8(dist, chrome_exe);
 
   // Check if Chromium is already registered with this suffix.
   if (IsChromeRegistered(dist, chrome_exe, suffix))
     return true;
 
   bool user_level = InstallUtil::IsPerUserInstall(chrome_exe.c_str());
-  HKEY root = DetermineShellIntegrationRoot(user_level);
+  HKEY root = DetermineRegistrationRoot(user_level);
 
   // Do the full registration if we can do it at user-level or if the user is an
   // admin.
@@ -1596,7 +1765,7 @@ bool ShellUtil::RegisterChromeForProtocol(BrowserDistribution* dist,
   if (IsChromeRegisteredForProtocol(dist, suffix, protocol))
     return true;
 
-  HKEY root = DetermineShellIntegrationRoot(
+  HKEY root = DetermineRegistrationRoot(
       InstallUtil::IsPerUserInstall(chrome_exe.c_str()));
 
   if (root == HKEY_CURRENT_USER || IsUserAnAdmin()) {

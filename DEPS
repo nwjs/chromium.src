@@ -8,46 +8,46 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "130831",
+  "webkit_revision": "132013",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9944",
+  "nacl_revision": "10059",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
-  "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
+  "nacl_tools_revision": "10001",  # native_client/DEPS: tools_rev
   "gtm_revision": "578",
 
-  "libjingle_revision": "199",
+  "libjingle_revision": "206",
   "libphonenumber_revision": "456",
-  "libvpx_revision": "152423",
+  "libvpx_revision": "163000",
   "lss_revision": "13",
 
   # These two FFmpeg variables must be updated together.  One is used for SVN
   # checkouts and the other for Git checkouts.
-  "ffmpeg_revision": "159317",
-  "ffmpeg_hash": "3a9bce0eec65d13e2cf071e51757b7e90d082a4f",
+  "ffmpeg_revision": "163218",
+  "ffmpeg_hash": "ff0d22abf29332410489dc567c70b3e6f23ffa60",
 
   "sfntly_revision": "134",
-  "skia_revision": "5857",
+  "skia_revision": "6023",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
-  "v8_revision": "12683",
+  "v8_revision": "12787",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling WebRTC
   # and V8 without interference from each other.
-  "webrtc_revision": "2718",
+  "webrtc_revision": "2961",
   "jsoncpp_revision": "248",
-  "nss_revision": "158129",
+  "nss_revision": "163113",
 }
 
 deps = {
   "src/breakpad/src":
-    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1052",
+    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1069",
 
   "src/googleurl":
-    (Var("googlecode_url") % "google-url") + "/trunk@179",
+    (Var("googlecode_url") % "google-url") + "/trunk@180",
 
   "src/sandbox/linux/seccomp-legacy":
     (Var("googlecode_url") % "seccompsandbox") + "/trunk@187",
@@ -65,7 +65,7 @@ deps = {
     (Var("googlecode_url") % "angleproject") + "/trunk@1289",
 
   "src/third_party/trace-viewer":
-    (Var("googlecode_url") % "trace-viewer") + "/trunk@168",
+    (Var("googlecode_url") % "trace-viewer") + "/trunk@179",
 
   # Note that this is *not* where we check out WebKit -- this just
   # puts some extra files into place for the real WebKit checkout to
@@ -75,7 +75,7 @@ deps = {
     "/trunk/deps/third_party/WebKit@76115",
 
   "src/third_party/icu":
-    "/trunk/deps/third_party/icu46@158118",
+    "/trunk/deps/third_party/icu46@161442",
 
   "src/third_party/libexif/sources":
     "/trunk/deps/third_party/libexif/sources@146817",
@@ -89,24 +89,24 @@ deps = {
   "src/third_party/safe_browsing/testing":
     (Var("googlecode_url") % "google-safe-browsing") + "/trunk/testing@112",
 
-  "src/third_party/cacheinvalidation/files/src/google":
+  "src/third_party/cacheinvalidation/src":
     (Var("googlecode_url") % "google-cache-invalidation-api") +
-    "/trunk/src/google@220",
+    "/trunk/src@220",
 
   "src/third_party/leveldatabase/src":
-    (Var("googlecode_url") % "leveldb") + "/trunk@67",
+    (Var("googlecode_url") % "leveldb") + "/trunk@68",
 
   "src/third_party/snappy/src":
     (Var("googlecode_url") % "snappy") + "/trunk@63",
 
   "src/tools/grit":
-    (Var("googlecode_url") % "grit-i18n") + "/trunk@73",
+    (Var("googlecode_url") % "grit-i18n") + "/trunk@81",
 
   "src/tools/gyp":
-    (Var("googlecode_url") % "gyp") + "/trunk@1519",
+    (Var("googlecode_url") % "gyp") + "/trunk@1521",
 
   "src/tools/swarm_client":
-    "/trunk/tools/swarm_client@160845",
+    "/trunk/tools/swarm_client@163381",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
@@ -165,7 +165,7 @@ deps = {
     (Var("googlecode_url") % "bidichecker") + "/trunk/lib@4",
 
   "src/third_party/v8-i18n":
-    (Var("googlecode_url") % "v8-i18n") + "/trunk@150",
+    (Var("googlecode_url") % "v8-i18n") + "/trunk@153",
 
   # When roll to another webgl conformance tests revision, please goto
   # chrome/test/gpu and run generate_webgl_conformance_test_list.py.
@@ -253,7 +253,7 @@ deps = {
     Var("libjingle_revision"),
 
   "src/third_party/libsrtp":
-    "/trunk/deps/third_party/libsrtp@157430",
+    "/trunk/deps/third_party/libsrtp@162569",
 
   "src/third_party/speex":
     "/trunk/deps/third_party/speex@160092",
@@ -265,7 +265,7 @@ deps = {
     "/trunk/deps/third_party/libjpeg_turbo@149334",
 
   "src/third_party/flac":
-    "/trunk/deps/third_party/flac@149334",
+    "/trunk/deps/third_party/flac@160844",
 
   "src/third_party/pyftpdlib/src":
     (Var("googlecode_url") % "pyftpdlib") + "/trunk@977",
@@ -286,7 +286,7 @@ deps = {
         "/trunk/jsoncpp/src/lib_json@" + Var("jsoncpp_revision"),
 
   "src/third_party/libyuv":
-    (Var("googlecode_url") % "libyuv") + "/trunk@389",
+    (Var("googlecode_url") % "libyuv") + "/trunk@426",
 
   "src/third_party/mozc/session":
     (Var("googlecode_url") % "mozc") + "/trunk/src/session@83",
@@ -314,10 +314,13 @@ deps = {
     "/trunk/tools/deps2git@157441",
 
   "src/third_party/webpagereplay":
-    (Var("googlecode_url") % "web-page-replay") + "/trunk@494",
+    (Var("googlecode_url") % "web-page-replay") + "/trunk@497",
 
   "src/third_party/pywebsocket/src":
     (Var("googlecode_url") % "pywebsocket") + "/trunk/src@662",
+
+  "src/third_party/opus/src":
+    "/trunk/deps/third_party/opus@162558",
 }
 
 
@@ -523,12 +526,22 @@ deps_os = {
       "/trunk/deps/third_party/gold@149858",
 
     "src/third_party/libmtp":
-      "/trunk/deps/third_party/libmtp@160216",
+      "/trunk/deps/third_party/libmtp@163169",
 
-    # For Chromium OS.
+    # Used on Linux only. CrOS already has a copy.
+    "src/third_party/mtpd/source":
+      Var("chromiumos_git") + "/platform/mtpd.git" +
+      "@47f8e78eefbeeda76ec43cac3d2bdc54a010115c",
+
+    # Used on Linux only. CrOS already has a copy.
+    "src/third_party/cros_dbus_cplusplus/source":
+      Var("chromiumos_git") + "/third_party/dbus-cplusplus.git" +
+      "@5e8f6d9db5c2abfb91d91f751184f25bb5cd0900",
+
+    # For Linux and Chromium OS.
     "src/third_party/cros_system_api":
       Var("chromiumos_git") + "/platform/system_api.git" +
-      "@572f3ee95be807777dced75795eb916ce53ac3b9",
+      "@c8e074febccd2e86b5c64231d657bc49c0e53c3d",
   },
   "android": {
     "src/third_party/freetype":

@@ -19,11 +19,13 @@
 #include "content/common/gpu/gpu_messages.h"
 #include "content/common/gpu/sync_point_manager.h"
 #include "content/public/common/content_switches.h"
+#include "gpu/command_buffer/service/image_manager.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
 #include "gpu/command_buffer/service/gpu_scheduler.h"
 #include "ipc/ipc_channel.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "ui/gl/gl_context.h"
+#include "ui/gl/gl_image.h"
 #include "ui/gl/gl_surface.h"
 
 #if defined(OS_POSIX)
@@ -34,6 +36,7 @@
 #include "content/common/gpu/stream_texture_manager_android.h"
 #endif
 
+namespace content {
 namespace {
 // This filter does two things:
 // - it counts the number of messages coming in on the channel
@@ -153,6 +156,7 @@ GpuChannel::GpuChannel(GpuChannelManager* gpu_channel_manager,
       client_id_(client_id),
       share_group_(share_group ? share_group : new gfx::GLShareGroup),
       mailbox_manager_(mailbox ? mailbox : new gpu::gles2::MailboxManager),
+      image_manager_(new gpu::gles2::ImageManager),
       watchdog_(watchdog),
       software_(software),
       handle_messages_scheduled_(false),
@@ -167,7 +171,7 @@ GpuChannel::GpuChannel(GpuChannelManager* gpu_channel_manager,
   disallowed_features_.multisampling =
       command_line->HasSwitch(switches::kDisableGLMultisampling);
 #if defined(OS_ANDROID)
-  stream_texture_manager_.reset(new content::StreamTextureManagerAndroid(this));
+  stream_texture_manager_.reset(new StreamTextureManagerAndroid(this));
 #endif
 }
 
@@ -323,6 +327,7 @@ void GpuChannel::CreateViewCommandBuffer(
       share_group,
       window,
       mailbox_manager_,
+      image_manager_,
       gfx::Size(),
       disallowed_features_,
       init_params.allowed_extensions,
@@ -342,6 +347,39 @@ void GpuChannel::CreateViewCommandBuffer(
 
 GpuCommandBufferStub* GpuChannel::LookupCommandBuffer(int32 route_id) {
   return stubs_.Lookup(route_id);
+}
+
+void GpuChannel::CreateImage(
+    gfx::PluginWindowHandle window,
+    int32 image_id,
+    gfx::Size* size) {
+  TRACE_EVENT1("gpu",
+               "GpuChannel::CreateImage",
+               "image_id",
+               image_id);
+
+  *size = gfx::Size();
+
+  if (image_manager_->LookupImage(image_id)) {
+    LOG(ERROR) << "CreateImage failed, image_id already in use.";
+    return;
+  }
+
+  scoped_refptr<gfx::GLImage> image = gfx::GLImage::CreateGLImage(window);
+  if (!image)
+    return;
+
+  image_manager_->AddImage(image.get(), image_id);
+  *size = image->GetSize();
+}
+
+void GpuChannel::DeleteImage(int32 image_id) {
+  TRACE_EVENT1("gpu",
+               "GpuChannel::DeleteImage",
+               "image_id",
+               image_id);
+
+  image_manager_->RemoveImage(image_id);
 }
 
 void GpuChannel::LoseAllContexts() {
@@ -478,6 +516,7 @@ void GpuChannel::OnCreateOffscreenCommandBuffer(
       share_group,
       gfx::GLSurfaceHandle(),
       mailbox_manager_.get(),
+      image_manager_.get(),
       size,
       disallowed_features_,
       init_params.allowed_extensions,
@@ -533,7 +572,7 @@ void GpuChannel::OnRegisterStreamTextureProxy(
 }
 
 void GpuChannel::OnEstablishStreamTexture(
-    int32 stream_id, content::SurfaceTexturePeer::SurfaceTextureTarget type,
+    int32 stream_id, SurfaceTexturePeer::SurfaceTextureTarget type,
     int32 primary_id, int32 secondary_id) {
   stream_texture_manager_->EstablishStreamTexture(
       stream_id, type, primary_id, secondary_id);
@@ -542,7 +581,7 @@ void GpuChannel::OnEstablishStreamTexture(
 
 void GpuChannel::OnCollectRenderingStatsForSurface(
     int32 surface_id, IPC::Message* reply_message) {
-  content::GpuRenderingStats stats;
+  GpuRenderingStats stats;
 
   for (StubMap::Iterator<GpuCommandBufferStub> it(&stubs_);
        !it.IsAtEnd(); it.Advance()) {
@@ -569,3 +608,5 @@ void GpuChannel::OnCollectRenderingStatsForSurface(
       stats);
   Send(reply_message);
 }
+
+}  // namespace content

@@ -102,12 +102,21 @@ void MockIBusInputContextClient::ProcessKeyEvent(
     const ProcessKeyEventCallback& callback,
     const ErrorCallback& error_callback) {
   process_key_event_call_count_++;
+  if (!process_key_event_handler_.is_null()) {
+    process_key_event_handler_.Run(keyval, keycode, state, callback,
+                                   error_callback);
+  }
 }
 
 void MockIBusInputContextClient::SetSurroundingText(
     const std::string& text,
     uint32 cursor_pos,
     uint32 anchor_pos) {
+}
+
+void MockIBusInputContextClient::PropertyActivate(
+    const std::string& key,
+    ibus::IBusPropertyState state) {
 }
 
 }  // namespace chromeos

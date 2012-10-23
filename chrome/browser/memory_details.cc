@@ -227,8 +227,10 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
           Profile::FromBrowserContext(
               render_process_host->GetBrowserContext());
       ExtensionService* extension_service = profile->GetExtensionService();
-      extensions::ProcessMap* extension_process_map =
-          extension_service->process_map();
+      extensions::ProcessMap* extension_process_map = NULL;
+      // No extensions on Android. So extension_service can be NULL.
+      if (extension_service)
+          extension_process_map = extension_service->process_map();
 
       // The RenderProcessHost may host multiple WebContentses.  Any
       // of them which contain diagnostics information make the whole
@@ -250,8 +252,8 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
         chrome::ViewType type = chrome::GetViewType(contents);
         if (host->GetEnabledBindings() & content::BINDINGS_POLICY_WEB_UI) {
           process.renderer_type = ProcessMemoryInformation::RENDERER_CHROME;
-        } else if (extension_process_map->Contains(
-            host->GetProcess()->GetID())) {
+        } else if (extension_process_map &&
+            extension_process_map->Contains(host->GetProcess()->GetID())) {
           // For our purposes, don't count processes containing only hosted apps
           // as extension processes. See also: crbug.com/102533.
           std::set<std::string> extension_ids =
@@ -268,7 +270,8 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
             }
           }
         }
-        if (extension_process_map->Contains(host->GetProcess()->GetID())) {
+        if (extension_process_map &&
+            extension_process_map->Contains(host->GetProcess()->GetID())) {
           const Extension* extension =
               extension_service->extensions()->GetByID(url.host());
           if (extension) {
@@ -371,6 +374,7 @@ void MemoryDetails::UpdateHistograms() {
   int extension_count = 0;
   int plugin_count = 0;
   int pepper_plugin_count = 0;
+  int pepper_plugin_broker_count = 0;
   int renderer_count = 0;
   int other_count = 0;
   int worker_count = 0;
@@ -441,6 +445,10 @@ void MemoryDetails::UpdateHistograms() {
         UMA_HISTOGRAM_MEMORY_KB("Memory.PepperPlugin", sample);
         pepper_plugin_count++;
         break;
+      case content::PROCESS_TYPE_PPAPI_BROKER:
+        UMA_HISTOGRAM_MEMORY_KB("Memory.PepperPluginBroker", sample);
+        pepper_plugin_broker_count++;
+        break;
       default:
         NOTREACHED();
         break;
@@ -457,6 +465,8 @@ void MemoryDetails::UpdateHistograms() {
   UMA_HISTOGRAM_COUNTS_100("Memory.PluginProcessCount", plugin_count);
   UMA_HISTOGRAM_COUNTS_100("Memory.PepperPluginProcessCount",
       pepper_plugin_count);
+  UMA_HISTOGRAM_COUNTS_100("Memory.PepperPluginBrokerProcessCount",
+      pepper_plugin_broker_count);
   UMA_HISTOGRAM_COUNTS_100("Memory.RendererProcessCount", renderer_count);
   UMA_HISTOGRAM_COUNTS_100("Memory.WorkerProcessCount", worker_count);
   // TODO(viettrungluu): Do we want separate counts for the other

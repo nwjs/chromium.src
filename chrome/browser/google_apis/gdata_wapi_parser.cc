@@ -23,7 +23,7 @@ using base::Value;
 using base::DictionaryValue;
 using base::ListValue;
 
-namespace gdata {
+namespace google_apis {
 
 namespace {
 
@@ -581,7 +581,7 @@ void FeedEntry::RegisterJSONConverter(
   converter->RegisterCustomField<base::Time>(
       kUpdatedField,
       &FeedEntry::updated_time_,
-      &gdata::util::GetTimeFromString);
+      &google_apis::util::GetTimeFromString);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -615,10 +615,10 @@ void DocumentEntry::RegisterJSONConverter(
   converter->RegisterStringField(kTitleTField, &DocumentEntry::title_);
   converter->RegisterCustomField<base::Time>(
       kPublishedField, &DocumentEntry::published_time_,
-      &gdata::util::GetTimeFromString);
+      &google_apis::util::GetTimeFromString);
   converter->RegisterCustomField<base::Time>(
       kLastViewedField, &DocumentEntry::last_viewed_time_,
-      &gdata::util::GetTimeFromString);
+      &google_apis::util::GetTimeFromString);
   converter->RegisterRepeatedMessage(
       kFeedLinkField, &DocumentEntry::feed_links_);
   converter->RegisterNestedField(kContentField, &DocumentEntry::content_);
@@ -809,12 +809,12 @@ DocumentEntry* DocumentEntry::CreateFromXml(XmlReader* xml_reader) {
     } else if (xml_reader->NodeName() == kUpdatedNode) {
       std::string time;
       if (xml_reader->ReadElementContent(&time))
-        gdata::util::GetTimeFromString(time, &entry->updated_time_);
+        google_apis::util::GetTimeFromString(time, &entry->updated_time_);
       skip_read = true;
     } else if (xml_reader->NodeName() == kPublishedNode) {
       std::string time;
       if (xml_reader->ReadElementContent(&time))
-        gdata::util::GetTimeFromString(time, &entry->published_time_);
+        google_apis::util::GetTimeFromString(time, &entry->published_time_);
       skip_read = true;
     } else if (xml_reader->NodeName() == kIDNode) {
       xml_reader->ReadElementContent(&entry->id_);
@@ -848,7 +848,7 @@ DocumentEntry* DocumentEntry::CreateFromXml(XmlReader* xml_reader) {
     } else if (xml_reader->NodeName() == kLastViewedNode) {
       std::string time;
       if (xml_reader->ReadElementContent(&time))
-        gdata::util::GetTimeFromString(time, &entry->last_viewed_time_);
+        google_apis::util::GetTimeFromString(time, &entry->last_viewed_time_);
       skip_read = true;
     } else {
       DVLOG(1) << "Unknown node " << xml_reader->NodeName();
@@ -932,6 +932,7 @@ DocumentEntry*
 DocumentEntry::CreateFromChangeResource(const ChangeResource& change) {
   DocumentEntry* entry = CreateFromFileResource(change.file());
 
+  entry->resource_id_ = change.file_id();
   // If |is_deleted()| returns true, the file is removed from Drive.
   entry->removed_ = change.is_deleted();
 
@@ -1021,9 +1022,9 @@ scoped_ptr<DocumentFeed> DocumentFeed::CreateFromChangeList(
   ScopedVector<ChangeResource>::const_iterator iter =
       changelist.items().begin();
   while (iter != changelist.items().end()) {
-    const FileResource& file = (*iter)->file();
-    largest_changestamp = std::max(largest_changestamp, (*iter)->change_id());
-    feed->entries_.push_back(DocumentEntry::CreateFromFileResource(file));
+    const ChangeResource& change = **iter;
+    largest_changestamp = std::max(largest_changestamp, change.change_id());
+    feed->entries_.push_back(DocumentEntry::CreateFromChangeResource(change));
     ++iter;
   }
   feed->largest_changestamp_ = largest_changestamp;
@@ -1183,4 +1184,4 @@ bool AccountMetadataFeed::Parse(const base::Value& value) {
   return true;
 }
 
-}  // namespace gdata
+}  // namespace google_apis

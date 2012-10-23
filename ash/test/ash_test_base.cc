@@ -56,7 +56,7 @@ AshTestBase::~AshTestBase() {
 void AshTestBase::SetUp() {
   // Disable animations during tests.
   ui::LayerAnimator::set_disable_animations_for_test(true);
-  ui::TextInputTestSupport::Initilaize();
+  ui::TextInputTestSupport::Initialize();
   // Creates Shell and hook with Desktop.
   TestShellDelegate* delegate = new TestShellDelegate;
   ash::Shell::CreateInstance(delegate);
@@ -80,7 +80,8 @@ void AshTestBase::TearDown() {
 
 void AshTestBase::ChangeDisplayConfig(float scale,
                                       const gfx::Rect& bounds_in_pixel) {
-  gfx::Display display = gfx::Display(gfx::Screen::GetPrimaryDisplay().id());
+  gfx::Display display =
+      gfx::Display(Shell::GetScreen()->GetPrimaryDisplay().id());
   display.SetScaleAndBounds(scale, bounds_in_pixel);
   std::vector<gfx::Display> displays;
   displays.push_back(display);

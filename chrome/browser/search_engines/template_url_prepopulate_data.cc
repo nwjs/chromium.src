@@ -1189,7 +1189,8 @@ const PrepopulatedEngine google = {
   "{google:baseURL}webhp?sourceid=chrome-instant&{google:RLZ}"
       "{google:instantEnabledParameter}ie={inputEncoding}",
   "[\"{google:baseURL}#q={searchTerms}\", "
-  "\"{google:baseURL}search#q={searchTerms}\"]",
+  "\"{google:baseURL}search#q={searchTerms}\", "
+  "\"{google:baseURL}webhp#q={searchTerms}\"]",
   SEARCH_ENGINE_GOOGLE,
   1,
 };
@@ -3509,7 +3510,7 @@ void RegisterUserPrefs(PrefService* prefs) {
 int GetDataVersion(PrefService* prefs) {
   // Increment this if you change the above data in ways that mean users with
   // existing data should get a new version.
-  const int kCurrentDataVersion = 44;
+  const int kCurrentDataVersion = 45;
   // Allow tests to override the local version.
   return (prefs && prefs->HasPrefPath(prefs::kSearchProviderOverridesVersion)) ?
       prefs->GetInteger(prefs::kSearchProviderOverridesVersion) :
@@ -3560,40 +3561,36 @@ void GetPrepopulatedTemplateFromPrefs(Profile* profile,
   if (!list)
     return;
 
-  string16 name;
-  string16 keyword;
-  std::string search_url;
-  std::string suggest_url;
-  std::string instant_url;
-  const ListValue* alternate_urls;
-  std::string favicon_url;
-  std::string encoding;
-  int id;
-
   size_t num_engines = list->GetSize();
   for (size_t i = 0; i != num_engines; ++i) {
     const DictionaryValue* engine;
+    string16 name;
+    string16 keyword;
+    std::string search_url;
+    std::string favicon_url;
+    std::string encoding;
+    int id;
+    // The following fields are required for each search engine configuration.
     if (list->GetDictionary(i, &engine) &&
-        engine->GetString("name", &name) &&
-        engine->GetString("keyword", &keyword) &&
-        engine->GetString("search_url", &search_url) &&
-        engine->GetString("suggest_url", &suggest_url) &&
-        engine->GetString("instant_url", &instant_url) &&
-        engine->GetList("alternate_urls", &alternate_urls) &&
+        engine->GetString("name", &name) && !name.empty() &&
+        engine->GetString("keyword", &keyword) && !keyword.empty() &&
+        engine->GetString("search_url", &search_url) && !search_url.empty() &&
         engine->GetString("favicon_url", &favicon_url) &&
-        engine->GetString("encoding", &encoding) &&
+        !favicon_url.empty() &&
+        engine->GetString("encoding", &encoding) && !encoding.empty() &&
         engine->GetInteger("id", &id)) {
-      // These next fields are not allowed to be empty.
-      if (name.empty() || keyword.empty() || search_url.empty() ||
-          favicon_url.empty() || encoding.empty())
-        return;
-    } else {
-      // Got a parsing error. No big deal.
-      continue;
+      // These fields are optional.
+      std::string suggest_url;
+      std::string instant_url;
+      ListValue empty_list;
+      const ListValue* alternate_urls = &empty_list;
+      engine->GetString("suggest_url", &suggest_url);
+      engine->GetString("instant_url", &instant_url);
+      engine->GetList("alternate_urls", &alternate_urls);
+      t_urls->push_back(MakePrepopulatedTemplateURL(profile, name, keyword,
+          search_url, suggest_url, instant_url, *alternate_urls, favicon_url,
+          encoding, id));
     }
-    t_urls->push_back(MakePrepopulatedTemplateURL(profile, name, keyword,
-        search_url, suggest_url, instant_url, *alternate_urls, favicon_url,
-        encoding, id));
   }
 }
 

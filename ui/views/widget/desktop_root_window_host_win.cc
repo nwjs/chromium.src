@@ -6,6 +6,7 @@
 
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkRegion.h"
+#include "ui/aura/client/aura_constants.h"
 #include "ui/aura/desktop/desktop_activation_client.h"
 #include "ui/aura/desktop/desktop_cursor_client.h"
 #include "ui/aura/desktop/desktop_dispatcher_client.h"
@@ -106,13 +107,12 @@ aura::RootWindow* DesktopRootWindowHostWin::Init(
   // CEF sets focus to the window the user clicks down on.
   // TODO(beng): see if we can't do this some other way. CEF seems a heavy-
   //             handed way of accomplishing focus.
-  aura::shared::CompoundEventFilter* root_window_event_filter =
-      new aura::shared::CompoundEventFilter;
-  root_window_->SetEventFilter(root_window_event_filter);
+  root_window_event_filter_ = new aura::shared::CompoundEventFilter;
+  root_window_->SetEventFilter(root_window_event_filter_);
 
   input_method_filter_.reset(new aura::shared::InputMethodEventFilter);
   input_method_filter_->SetInputMethodPropertyInRootWindow(root_window_);
-  root_window_event_filter->AddFilter(input_method_filter_.get());
+  root_window_event_filter_->AddFilter(input_method_filter_.get());
 
   return root_window_;
 }
@@ -225,7 +225,17 @@ void DesktopRootWindowHostWin::SetAlwaysOnTop(bool always_on_top) {
 }
 
 InputMethod* DesktopRootWindowHostWin::CreateInputMethod() {
-  return new InputMethodWin(message_handler_.get(), message_handler_->hwnd());
+  // TODO(ime): This is wrong. We need to hook up the native win32 IME on the
+  // InputMethodEventFilter, and instead create an InputMethodBridge
+  // per-NativeWidget implementation. Once we achieve that we can get rid of
+  // this function on this object and DesktopRootWindowHostLinux and just
+  // create the InputMethodBridge directly in DesktopNativeWidgetAura. Also
+  // at that time DNWA can become the InputMethodDelegate.
+  ui::InputMethod* host =
+      root_window_->GetProperty(aura::client::kRootWindowInputMethodKey);
+  return new InputMethodWin(message_handler_.get(),
+                            message_handler_->hwnd(),
+                            host);
 }
 
 internal::InputMethodDelegate*
@@ -309,6 +319,13 @@ void DesktopRootWindowHostWin::FlashFrame(bool flash_frame) {
   message_handler_->FlashFrame(flash_frame);
 }
 
+void DesktopRootWindowHostWin::OnNativeWidgetFocus() {
+  // HWNDMessageHandler will perform the proper updating on its own.
+}
+
+void DesktopRootWindowHostWin::OnNativeWidgetBlur() {
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // DesktopRootWindowHostWin, RootWindowHost implementation:
 
@@ -365,9 +382,6 @@ void DesktopRootWindowHostWin::SetCursor(gfx::NativeCursor cursor) {
   cursor_loader.SetPlatformCursor(&cursor);
 
   message_handler_->SetCursor(cursor.platform());
-}
-
-void DesktopRootWindowHostWin::ShowCursor(bool show) {
 }
 
 bool DesktopRootWindowHostWin::QueryMouseLocation(gfx::Point* location_return) {
@@ -562,6 +576,7 @@ void DesktopRootWindowHostWin::HandleDestroying() {
 }
 
 void DesktopRootWindowHostWin::HandleDestroyed() {
+  root_window_event_filter_->RemoveFilter(input_method_filter_.get());
   desktop_native_widget_aura_->OnHostClosed();
 }
 

@@ -2,5 +2,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This is an empty Android makefile to prevent the Android build system from
-# erroneously picking up other Android.mk files in the Chromium tree.
+# This Android makefile is used to build WebView in the Android build system.
+# gyp autogenerates most of the real makefiles, which we just include here if
+# we are doing a WebView build. For other builds, this makefile does nothing,
+# which prevents the Android build system from mistakenly loading any other
+# Android.mk that may exist in the Chromium tree.
+
+ifdef CHROME_ANDROID_BUILD_WEBVIEW
+CHROMIUM_WEBVIEW_DIR := $(call my-dir)
+include $(CHROMIUM_WEBVIEW_DIR)/GypAndroid.mk
+include $(CHROMIUM_WEBVIEW_DIR)/android_webview/Android.mk
+endif

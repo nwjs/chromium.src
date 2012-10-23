@@ -170,7 +170,32 @@ void BrowserWindowCocoa::Close() {
   if ([controller_ overlayWindow]) {
     [controller_ deferPerformClose];
   } else {
-    [window() performClose:controller_];
+    // Using |-performClose:| can prevent the window from actually closing if
+    // a JavaScript beforeunload handler opens an alert during shutdown, as
+    // documented at <http://crbug.com/118424>. Re-implement
+    // -[NSWindow performClose:] as closely as possible to how Apple documents
+    // it.
+    //
+    // Before calling |-close|, hide the window immediately. |-performClose:|
+    // would do something similar, and this ensures that the window is removed
+    // from AppKit's display list. Not doing so can lead to crashes like
+    // <http://crbug.com/156101>.
+    id<NSWindowDelegate> delegate = [window() delegate];
+    SEL window_should_close = @selector(windowShouldClose:);
+    if ([delegate respondsToSelector:window_should_close]) {
+      if ([delegate windowShouldClose:window()]) {
+        [window() orderOut:nil];
+        [window() close];
+      }
+    } else if ([window() respondsToSelector:window_should_close]) {
+      if ([window() performSelector:window_should_close withObject:window()]) {
+        [window() orderOut:nil];
+        [window() close];
+      }
+    } else {
+      [window() orderOut:nil];
+      [window() close];
+    }
   }
 }
 
@@ -230,10 +255,6 @@ void BrowserWindowCocoa::BookmarkBarStateChanged(
 void BrowserWindowCocoa::UpdateDevTools() {
   [controller_ updateDevToolsForContents:
       chrome::GetActiveWebContents(browser_)];
-}
-
-void BrowserWindowCocoa::SetDevToolsDockSide(DevToolsDockSide side) {
-  [controller_ setDevToolsDockToRight:side == DEVTOOLS_DOCK_SIDE_RIGHT];
 }
 
 void BrowserWindowCocoa::UpdateLoadingAnimations(bool should_animate) {
@@ -551,18 +572,6 @@ void BrowserWindowCocoa::ExitPresentationMode() {
 
 bool BrowserWindowCocoa::InPresentationMode() {
   return [controller_ inPresentationMode];
-}
-
-void BrowserWindowCocoa::ShowInstant(TabContents* preview,
-                                     int height,
-                                     InstantSizeUnits units) {
-  // TODO(jered): Support height < 100%.
-  DCHECK(height == 100 && units == INSTANT_SIZE_PERCENT);
-  [controller_ showInstant:preview->web_contents()];
-}
-
-void BrowserWindowCocoa::HideInstant() {
-  [controller_ hideInstant];
 }
 
 gfx::Rect BrowserWindowCocoa::GetInstantBounds() {

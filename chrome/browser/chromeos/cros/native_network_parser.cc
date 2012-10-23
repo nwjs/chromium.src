@@ -116,10 +116,13 @@ EnumMapper<PropertyIndex>::Pair property_index_table[] = {
   { flimflam::kProfilesProperty, PROPERTY_INDEX_PROFILES },
   { flimflam::kProviderHostProperty, PROPERTY_INDEX_PROVIDER_HOST },
   { flimflam::kProviderProperty, PROPERTY_INDEX_PROVIDER },
+  { shill::kProviderRequiresRoamingProperty,
+    PROPERTY_INDEX_PROVIDER_REQUIRES_ROAMING },
   { flimflam::kProviderTypeProperty, PROPERTY_INDEX_PROVIDER_TYPE },
   { flimflam::kProxyConfigProperty, PROPERTY_INDEX_PROXY_CONFIG },
   { flimflam::kRoamingStateProperty, PROPERTY_INDEX_ROAMING_STATE },
   { flimflam::kSIMLockStatusProperty, PROPERTY_INDEX_SIM_LOCK },
+  { shill::kSIMPresentProperty, PROPERTY_INDEX_SIM_PRESENT },
   { flimflam::kSSIDProperty, PROPERTY_INDEX_SSID },
   { flimflam::kSaveCredentialsProperty, PROPERTY_INDEX_SAVE_CREDENTIALS },
   { flimflam::kScanningProperty, PROPERTY_INDEX_SCANNING },
@@ -365,6 +368,13 @@ bool NativeNetworkDeviceParser::ParseValue(
       }
       break;
     }
+    case PROPERTY_INDEX_PROVIDER_REQUIRES_ROAMING: {
+      bool provider_requires_roaming;
+      if (!value.GetAsBoolean(&provider_requires_roaming))
+        return false;
+      device->set_provider_requires_roaming(provider_requires_roaming);
+      return true;
+    }
     case PROPERTY_INDEX_MEID:
     case PROPERTY_INDEX_IMEI:
     case PROPERTY_INDEX_IMSI:
@@ -438,6 +448,13 @@ bool NativeNetworkDeviceParser::ParseValue(
         return true;
       }
       break;
+    case PROPERTY_INDEX_SIM_PRESENT: {
+      bool sim_present;
+      if (!value.GetAsBoolean(&sim_present))
+        return false;
+      device->set_sim_present(sim_present);
+      return true;
+    }
     case PROPERTY_INDEX_POWERED:
       // we don't care about the value, just the fact that it changed
       return true;

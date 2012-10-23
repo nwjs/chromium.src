@@ -12,21 +12,19 @@
 #include "content/common/webkitplatformsupport_impl.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebGraphicsContext3D.h"
 
-class RendererClipboardClient;
-class WebSharedWorkerRepositoryImpl;
-class WebFileSystemImpl;
-
-namespace content {
-class GamepadSharedMemoryReader;
-class Hyphenator;
-}
-
 namespace webkit_glue {
 class WebClipboardImpl;
 }
 
+namespace content {
+class GamepadSharedMemoryReader;
+class Hyphenator;
+class RendererClipboardClient;
+class WebFileSystemImpl;
+class WebSharedWorkerRepositoryImpl;
+
 class CONTENT_EXPORT RendererWebKitPlatformSupportImpl
-    : public content::WebKitPlatformSupportImpl {
+    : public WebKitPlatformSupportImpl {
  public:
   RendererWebKitPlatformSupportImpl();
   virtual ~RendererWebKitPlatformSupportImpl();
@@ -139,9 +137,11 @@ class CONTENT_EXPORT RendererWebKitPlatformSupportImpl
 
   scoped_ptr<WebKit::WebBlobRegistry> blob_registry_;
 
-  scoped_ptr<content::GamepadSharedMemoryReader> gamepad_shared_memory_reader_;
+  scoped_ptr<GamepadSharedMemoryReader> gamepad_shared_memory_reader_;
 
   scoped_ptr<content::Hyphenator> hyphenator_;
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_RENDERER_WEBKITPLATFORMSUPPORT_IMPL_H_

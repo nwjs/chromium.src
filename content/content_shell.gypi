@@ -38,6 +38,7 @@
         '../v8/tools/gyp/v8.gyp:v8',
         '../webkit/support/webkit_support.gyp:webkit_support',
         '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
+        '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit_test_support',
       ],
       'include_dirs': [
         '..',
@@ -105,6 +106,11 @@
         'shell/shell_web_contents_view_delegate_mac.mm',
         'shell/shell_web_contents_view_delegate_win.cc',
         'shell/shell_web_contents_view_delegate.h',
+        'shell/webkit_test_platform_support.h',
+        'shell/webkit_test_platform_support_android.cc',
+        'shell/webkit_test_platform_support_linux.cc',
+        'shell/webkit_test_platform_support_mac.mm',
+        'shell/webkit_test_platform_support_win.cc',
         'shell/webkit_test_runner.cc',
         'shell/webkit_test_runner.h',
         'shell/webkit_test_runner_bindings.cc',
@@ -170,7 +176,7 @@
             '../ui/base/strings/ui_strings.gyp:ui_strings',
             '../ui/views/controls/webview/webview.gyp:webview',
             '../ui/views/views.gyp:views',
-            '../ui/views/views.gyp:test_support_views',
+            '../ui/views/views.gyp:views_test_support',
             '../ui/ui.gyp:ui_resources',
           ],
           'sources/': [
@@ -183,25 +189,6 @@
             '../chromeos/chromeos.gyp:chromeos',
            ],
         }], # chromeos==1
-        ['inside_chromium_build==0 or component!="shared_library"', {
-          'dependencies': [
-            '<(webkit_src_dir)/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore_test_support',
-            '<(webkit_src_dir)/Source/WTF/WTF.gyp/WTF.gyp:wtf',
-          ],
-          'include_dirs': [
-            # Required for WebTestingSupport.cpp to find our custom config.h.
-            'shell/',
-            '<(webkit_src_dir)/Source/WebKit/chromium/public',
-            # WARNING: Do not view this particular case as a precedent for
-            # including WebCore headers in the content shell.
-            '<(webkit_src_dir)/Source/WebCore/testing/v8', # for WebCoreTestSupport.h needed  to link in window.internals code.
-          ],
-          'sources': [
-            'shell/config.h',
-            '<(webkit_src_dir)/Source/WebKit/chromium/src/WebTestingSupport.cpp',
-            '<(webkit_src_dir)/Source/WebKit/chromium/public/WebTestingSupport.h',
-          ],
-        }],
       ],
     },
     {
@@ -300,6 +287,8 @@
       'dependencies': [
         'content_shell_lib',
         'content_shell_pak',
+        '../third_party/mesa/mesa.gyp:osmesa',
+        '<(webkit_src_dir)/Tools/DumpRenderTree/DumpRenderTree.gyp/DumpRenderTree.gyp:TestRunner_resources',
       ],
       'include_dirs': [
         '..',
@@ -431,7 +420,6 @@
       'type': 'none',
       'dependencies': [
         'content_shell',
-        '<(webkit_src_dir)/Tools/DumpRenderTree/DumpRenderTree.gyp/DumpRenderTree.gyp:DumpRenderTree',
       ],
     },
   ],
@@ -601,9 +589,10 @@
           # content_shell_java.
           'target_name': 'content_shell_java',
           'type': 'none',
-          'outputs': [
-            '<(PRODUCT_DIR)/lib.java/chromium_content_shell.jar',
-          ],
+          'variables': {
+            'output_jar': '<(PRODUCT_DIR)/lib.java/chromium_apk_content_shell.jar'
+          },
+          'outputs': ['<(output_jar)'],
           'dependencies': [
             'content_java',
             'content_shell_apk',
@@ -617,7 +606,7 @@
           # targets.
           'all_dependent_settings': {
             'variables': {
-              'input_jars_paths': ['<(PRODUCT_DIR)/lib.java/chromium_content_shell.jar'],
+              'input_jars_paths': ['<(output_jar)'],
             },
           },
           # Add an action with the appropriate output. This allows the generated
@@ -626,7 +615,7 @@
             {
               'action_name': 'fake_generate_jar',
               'inputs': [],
-              'outputs': ['<(PRODUCT_DIR)/lib.java/chromium_content_shell.jar'],
+              'outputs': ['<(output_jar)'],
               'action': [],
             },
           ],
@@ -644,27 +633,14 @@
           'variables': {
             'package_name': 'content_shell',
             'apk_name': 'ContentShell',
+            'manifest_package_name': 'org.chromium.content_shell',
             'java_in_dir': 'shell/android/java',
             # TODO(cjhopman): The resource directory of all apks should be in
             # <java_in_dir>/res.
             'resource_dir': '../res',
-            'native_libs_paths': ['<(PRODUCT_DIR)/content_shell/libs/<(android_app_abi)/libcontent_shell_content_view.so'],
+            'native_libs_paths': ['<(SHARED_LIB_DIR)/libcontent_shell_content_view.so'],
             'additional_input_paths': ['<(PRODUCT_DIR)/content_shell/assets/content_shell.pak'],
           },
-          'actions': [
-            {
-              'action_name': 'copy_and_strip_so',
-              'inputs': ['<(SHARED_LIB_DIR)/libcontent_shell_content_view.so'],
-              'outputs': ['<(PRODUCT_DIR)/content_shell/libs/<(android_app_abi)/libcontent_shell_content_view.so'],
-              'action': [
-                '<(android_strip)',
-                '--strip-unneeded',  # All symbols not needed for relocation.
-                '<@(_inputs)',
-                '-o',
-                '<@(_outputs)',
-              ],
-            },
-          ],
           'includes': [ '../build/java_apk.gypi' ],
         },
       ],

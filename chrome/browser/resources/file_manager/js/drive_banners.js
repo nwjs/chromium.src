@@ -16,7 +16,7 @@ function FileListBannerController(directoryModel, volumeManager, document) {
   this.driveEnabled_ = false;
 
   var board = str('CHROMEOS_RELEASE_BOARD');
-  if (board.match(/^(stumpy|lumpy)/i))
+  if (!board.match(/^x86-(mario|zgb|alex)/i))
     this.checkPromoAvailable_();
   else
     this.newWelcome_ = false;
@@ -49,11 +49,6 @@ var WELCOME_HEADER_COUNTER_KEY = 'gdataWelcomeHeaderCounter';
 var WELCOME_HEADER_COUNTER_LIMIT = 5;
 
 /**
- * Location of the Chromebook information page.
- */
-var CHROMEBOOK_INFO_URL = 'http://google.com/chromebook';
-
-/**
  * Location of the FAQ about Google Drive.
  */
 var GOOGLE_DRIVE_FAQ_URL =
@@ -65,7 +60,8 @@ var GOOGLE_DRIVE_FAQ_URL =
 var GOOGLE_DRIVE_BUY_STORAGE =
     'https://www.google.com/settings/storage';
 
-var GOOGLE_DRIVE_REDEEM = 'https://drive.google.com/redeem';
+var GOOGLE_DRIVE_REDEEM =
+    'http://www.google.com/intl/en/chrome/devices/goodies.html';
 
 /**
  * Location of the FAQ about the downloads directory.
@@ -99,6 +95,14 @@ FileListBannerController.prototype.showBanner_ = function(type, messageId) {
   if (container.firstElementChild)
     return;  // Do not re-create.
 
+  if (!this.document_.querySelector('link[gdrive-welcome-style]')) {
+    var style = this.document_.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = 'css/gdrive_welcome.css';
+    style.setAttribute('gdrive-welcome-style', '');
+    this.document_.head.appendChild(style);
+  }
+
   var wrapper = util.createChild(container, 'gdrive-welcome-wrapper');
   util.createChild(wrapper, 'gdrive-welcome-icon');
 
@@ -120,7 +124,7 @@ FileListBannerController.prototype.showBanner_ = function(type, messageId) {
     more = util.createChild(links,
         'gdata-welcome-button gdata-welcome-start', 'a');
     more.textContent = str('GDATA_WELCOME_GET_STARTED');
-    more.href = CHROMEBOOK_INFO_URL;
+    more.href = GOOGLE_DRIVE_REDEEM;
   } else {
     title.textContent = str('GDATA_WELCOME_TITLE');
     more = util.createChild(links, 'plain-link', 'a');
@@ -155,19 +159,7 @@ FileListBannerController.prototype.maybeShowBanner_ = function() {
   if (this.getHeaderCounter_() >= WELCOME_HEADER_COUNTER_LIMIT)
     return;
 
-  if (!this.document_.querySelector('link[gdrive-welcome-style]')) {
-    var style = this.document_.createElement('link');
-    style.rel = 'stylesheet';
-    style.href = 'css/gdrive_welcome.css';
-    style.setAttribute('gdrive-welcome-style', '');
-    this.document_.head.appendChild(style);
-    var self = this;
-    style.onload = function() { self.maybeShowBanner_() };
-    return;
-  }
-
   var counter = this.getHeaderCounter_();
-
   if (this.directoryModel_.getFileList().length == 0 && counter == 0) {
     // Only show the full page banner if the header banner was never shown.
     // Do not increment the counter.
@@ -177,9 +169,10 @@ FileListBannerController.prototype.maybeShowBanner_ = function() {
     setTimeout(this.preparePromo_.bind(this, function() {
       var container = self.document_.querySelector('.dialog-container');
       if (self.isOnGData() &&
-          container.getAttribute('gdrive-welcome') != 'header')
-            self.showBanner_('page', 'GDATA_WELCOME_TEXT_LONG');
-        }, 2000));
+          self.getHeaderCounter_() == 0) {
+        self.showBanner_('page', 'GDATA_WELCOME_TEXT_LONG');
+      }
+    }, 2000));
   } else if (counter < WELCOME_HEADER_COUNTER_LIMIT) {
     // We do not want to increment the counter when the user navigates
     // between different directories on GDrive, but we increment the counter
@@ -200,7 +193,8 @@ FileListBannerController.prototype.maybeShowBanner_ = function() {
 /**
  * Show or hide the "Low Google Drive space" warning.
  * @param {boolean} show True if the box need to be shown.
- * @param {object} sizeStats Size statistics.
+ * @param {object} sizeStats Size statistics. Should be defined when showing the
+ *     warning.
  * @private
  */
 FileListBannerController.prototype.showLowGDriveSpaceWarning_ =
@@ -209,9 +203,11 @@ FileListBannerController.prototype.showLowGDriveSpaceWarning_ =
 
   // Avoid showing two banners.
   // TODO(kaznacheev): Unify the low space warning and the promo header.
-  if (show) this.cleanupGDataWelcome_();
+  if (show)
+    this.cleanupGDataWelcome_();
 
-  if (box.hidden == !show) return;
+  if (box.hidden == !show)
+    return;
 
   // If the warning was dismissed before, this key stores the quota value
   // (as of the moment of dismissal).
@@ -293,7 +289,8 @@ FileListBannerController.prototype.checkFreeSpace_ = function(currentPath) {
         function(sizeStats) {
           // If new check started while we were in async getSizeStats call,
           // then we shouldn't do anything.
-          if (selfTimer != self.checkFreeSpaceTimer_) return;
+          if (selfTimer != self.checkFreeSpaceTimer_)
+            return;
 
           // sizeStats is undefined, if some error occurs.
           var ratio = (sizeStats && sizeStats.totalSizeKB > 0) ?
@@ -345,16 +342,18 @@ FileListBannerController.prototype.closeBanner_ = function() {
 FileListBannerController.prototype.checkSpaceAndShowBanner_ = function() {
   var self = this;
   this.preparePromo_(function() {
-    if (this.newWelcome_ && this.isOnGData())
+    if (this.newWelcome_ && this.isOnGData()) {
       chrome.fileBrowserPrivate.getSizeStats(
           util.makeFilesystemUrl(this.directoryModel_.getCurrentRootPath()),
-      function(result) {
-        if (result.totalSizeKB >= 100 * 1024 * 1024)  // Already >= 100 GB.
-          self.newWelcome_ = false;
-          self.maybeShowBanner_();
-      });
-    else
+          function(result) {
+            // Already >= 100 GB.
+            if (result && result.totalSizeKB >= 100 * 1024 * 1024)
+              self.newWelcome_ = false;
+            self.maybeShowBanner_();
+          });
+    } else {
       self.maybeShowBanner_();
+    }
   });
 };
 
@@ -494,6 +493,12 @@ FileListBannerController.prototype.updateGDataUnmountedPanel_ = function() {
         status == VolumeManager.GDataStatus.ERROR) {
       this.ensureGDataUnmountedPanelInitialized_();
     }
+    if (status == VolumeManager.GDataStatus.MOUNTING &&
+        this.getHeaderCounter_() == 0) {
+      // Do not increment banner counter in order to not prevent the full
+      // page banner of being shown (otherwise it would never be shown).
+      this.showBanner_('header', 'GDATA_WELCOME_TEXT_SHORT');
+    }
     if (status == VolumeManager.GDataStatus.ERROR)
       this.unmountedPanel_.classList.add('retry-enabled');
     else
@@ -509,19 +514,12 @@ FileListBannerController.prototype.updateGDataUnmountedPanel_ = function() {
  * @private
  */
 FileListBannerController.prototype.checkPromoAvailable_ = function() {
-  var r = new XMLHttpRequest();
-  r.open('HEAD', GOOGLE_DRIVE_REDEEM, true);
-  r.onreadystatechange = function() {
-    if (r.readyState != 4)
-      return;
-    this.newWelcome_ = r.status == 200;
-    if (this.promoCallbacks_) {
-      for (var i = 0; i < this.promoCallbacks_.length; i++)
-        this.promoCallbacks_[i]();
-      this.promoCallbacks_ = undefined;
-    }
-  }.bind(this);
-  r.send();
+  this.newWelcome_ = true;
+  if (this.promoCallbacks_) {
+    for (var i = 0; i < this.promoCallbacks_.length; i++)
+      this.promoCallbacks_[i]();
+    this.promoCallbacks_ = undefined;
+  }
 };
 
 /**

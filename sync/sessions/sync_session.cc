@@ -157,7 +157,7 @@ SyncSessionSnapshot SyncSession::TakeSnapshot() const {
 
   bool is_share_useable = true;
   ModelTypeSet initial_sync_ended;
-  ModelTypeInvalidationMap download_progress_markers;
+  ProgressMarkerMap download_progress_markers;
   for (int i = FIRST_REAL_MODEL_TYPE; i < MODEL_TYPE_COUNT; ++i) {
     ModelType type(ModelTypeFromInt(i));
     if (routing_info_.count(type) != 0) {
@@ -166,10 +166,7 @@ SyncSessionSnapshot SyncSession::TakeSnapshot() const {
       else
         is_share_useable = false;
     }
-    // TODO(dcheng): Is this correct? I'm guessing GetDownloadProgressAsString()
-    // shouldn't care about the ack handle...
-    dir->GetDownloadProgressAsString(type,
-                                     &download_progress_markers[type].payload);
+    dir->GetDownloadProgressAsString(type, &download_progress_markers[type]);
   }
 
   return SyncSessionSnapshot(
@@ -220,24 +217,6 @@ std::set<ModelSafeGroup> SyncSession::GetEnabledGroupsWithConflicts() const {
     }
   }
   return enabled_groups_with_conflicts;
-}
-
-std::set<ModelSafeGroup>
-    SyncSession::GetEnabledGroupsWithVerifiedUpdates() const {
-  const std::set<ModelSafeGroup>& enabled_groups = GetEnabledGroups();
-  std::set<ModelSafeGroup> enabled_groups_with_verified_updates;
-  for (std::set<ModelSafeGroup>::const_iterator it =
-           enabled_groups.begin(); it != enabled_groups.end(); ++it) {
-    const UpdateProgress* update_progress =
-        status_controller_->GetUnrestrictedUpdateProgress(*it);
-    if (update_progress &&
-        (update_progress->VerifiedUpdatesBegin() !=
-         update_progress->VerifiedUpdatesEnd())) {
-      enabled_groups_with_verified_updates.insert(*it);
-    }
-  }
-
-  return enabled_groups_with_verified_updates;
 }
 
 namespace {

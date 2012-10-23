@@ -37,14 +37,28 @@ class EncryptedMediaTest
     : public testing::WithParamInterface<const char*>,
       public content::ContentBrowserTest {
  public:
-  void PlayMedia(const char* key_system, const string16 expectation) {
+  void TestSimplePlayback(const char* encrypted_video, const char* key_system,
+                          const string16 expectation) {
+    PlayEncryptedMedia("encrypted_media_player.html", encrypted_video,
+                       key_system, expectation);
+  }
+
+  void TestFrameSizeChange(const char* key_system, const string16 expectation) {
+    PlayEncryptedMedia("encrypted_frame_size_change.html",
+                       "frame_size_change-av-enc-v.webm", key_system,
+                       expectation);
+  }
+
+  void PlayEncryptedMedia(const char* html_page, const char* media_file,
+                          const char* key_system, const string16 expectation) {
     // TODO(shadi): Add non-HTTP tests once src is supported for EME.
     ASSERT_TRUE(test_server()->Start());
 
     const string16 kError = ASCIIToUTF16("ERROR");
     const string16 kFailed = ASCIIToUTF16("FAILED");
     GURL player_gurl = test_server()->GetURL(base::StringPrintf(
-       "files/media/encrypted_media_player.html?keysystem=%s", key_system));
+        "files/media/%s?keysystem=%s&mediafile=%s", html_page, key_system,
+        media_file));
     content::TitleWatcher title_watcher(shell()->web_contents(), expectation);
     title_watcher.AlsoWaitForTitle(kError);
     title_watcher.AlsoWaitForTitle(kFailed);
@@ -64,50 +78,63 @@ class EncryptedMediaTest
   }
 
  protected:
-  // Registers all necessary CDM plugins.
+  // Registers any CDM plugins not registered by default.
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
     command_line->AppendSwitch(switches::kDisableAudio);
     command_line->AppendSwitch(switches::kEnableEncryptedMedia);
+    command_line->AppendSwitch(switches::kPpapiOutOfProcess);
 
-    // Append the switch to register the clearkeycdm plugin.
-    // library name = <out dir>/<test_name>.<library_extension>
-    // MIME type = application/x-ppapi-clearkey-cdm
+    // Append the switch to register the Clear Key CDM plugin.
     FilePath plugin_dir;
     EXPECT_TRUE(PathService::Get(base::DIR_MODULE, &plugin_dir));
     FilePath plugin_lib = plugin_dir.Append(kLibraryName);
     EXPECT_TRUE(file_util::PathExists(plugin_lib));
     FilePath::StringType pepper_plugin = plugin_lib.value();
     pepper_plugin.append(FILE_PATH_LITERAL(
-        "#ClearKey CDM#ClearKey CDM 0.1.0.0#0.1.0.0;"));
-    #if defined(OS_WIN)
+        "#Clear Key CDM#Clear Key CDM 0.1.0.0#0.1.0.0;"));
+#if defined(OS_WIN)
       pepper_plugin.append(ASCIIToWide(
           webkit_media::GetPluginType(kExternalClearKeyKeySystem)));
-    #else
+#else
       pepper_plugin.append(
           webkit_media::GetPluginType(kExternalClearKeyKeySystem));
-    #endif
+#endif
     command_line->AppendSwitchNative(switches::kRegisterPepperPlugins,
                                      pepper_plugin);
   }
 };
 
 // Fails on Linux/ChromeOS with ASan.  http://crbug.com/153231
+// IN_PROC_BROWSER_TEST_P doesn't accept #define MAYBE_test DISABLED_test.
 #if (defined(OS_LINUX) || defined(OS_CHROMEOS)) && defined(ADDRESS_SANITIZER)
 IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, DISABLED_BasicPlayback) {
   const string16 kExpected = ASCIIToUTF16("ENDED");
-  ASSERT_NO_FATAL_FAILURE(PlayMedia(GetParam(), kExpected));
+  ASSERT_NO_FATAL_FAILURE(TestSimplePlayback("bear-320x240-encrypted.webm",
+                                             GetParam(), kExpected));
+}
+
+IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, DISABLED_FrameChangeVideo) {
+  const string16 kExpected = ASCIIToUTF16("ENDED");
+  ASSERT_NO_FATAL_FAILURE(TestFrameSizeChange(GetParam(), kExpected));
 }
 #else
 IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, BasicPlayback) {
   const string16 kExpected = ASCIIToUTF16("ENDED");
-  ASSERT_NO_FATAL_FAILURE(PlayMedia(GetParam(), kExpected));
+  ASSERT_NO_FATAL_FAILURE(TestSimplePlayback("bear-320x240-encrypted.webm",
+                                             GetParam(), kExpected));
+}
+
+IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, FrameChangeVideo) {
+  const string16 kExpected = ASCIIToUTF16("ENDED");
+  ASSERT_NO_FATAL_FAILURE(TestFrameSizeChange(GetParam(), kExpected));
 }
 #endif
 
 IN_PROC_BROWSER_TEST_F(EncryptedMediaTest, InvalidKeySystem) {
   const string16 kExpected = ASCIIToUTF16(
       StringToUpperASCII(std::string("GenerateKeyRequestException")));
-  ASSERT_NO_FATAL_FAILURE(PlayMedia("com.example.invalid", kExpected));
+  ASSERT_NO_FATAL_FAILURE(TestSimplePlayback("bear-320x240-encrypted.webm",
+                                             "com.example.invalid", kExpected));
 }
 
 INSTANTIATE_TEST_CASE_P(ClearKey, EncryptedMediaTest,

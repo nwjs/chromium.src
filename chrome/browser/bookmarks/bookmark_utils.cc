@@ -11,20 +11,17 @@
 #include "base/i18n/case_conversion.h"
 #include "base/i18n/string_search.h"
 #include "base/metrics/histogram.h"
+#include "base/prefs/public/pref_service_base.h"
 #include "base/string16.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/api/prefs/pref_service_base.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/bookmark_node_data.h"
 #include "chrome/browser/history/query_parser.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/user_metrics.h"
-#include "content/public/browser/web_contents.h"
 #include "grit/ui_strings.h"
 #include "net/base/net_util.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
@@ -48,7 +45,6 @@
 #endif
 
 using base::Time;
-using content::WebContents;
 
 namespace {
 
@@ -508,25 +504,6 @@ void RegisterUserPrefs(PrefServiceBase* prefs) {
   prefs->RegisterBooleanPref(prefs::kEditBookmarksEnabled,
                              true,
                              PrefServiceBase::UNSYNCABLE_PREF);
-}
-
-void GetURLAndTitleToBookmark(WebContents* web_contents,
-                              GURL* url,
-                              string16* title) {
-  *url = web_contents->GetURL();
-  *title = web_contents->GetTitle();
-}
-
-void GetURLsForOpenTabs(
-    Browser* browser,
-    std::vector<std::pair<GURL, string16> >* urls) {
-  for (int i = 0; i < browser->tab_count(); ++i) {
-    std::pair<GURL, string16> entry;
-    GetURLAndTitleToBookmark(
-        chrome::GetWebContentsAt(browser, i), &(entry.first),
-        &(entry.second));
-    urls->push_back(entry);
-  }
 }
 
 const BookmarkNode* GetParentForNewNodes(

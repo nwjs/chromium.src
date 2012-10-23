@@ -18,6 +18,7 @@ class ActionBoxMenuModel;
 namespace views {
 class Background;
 class Border;
+struct MenuConfig;
 class MenuItemView;
 class MenuRunner;
 class View;
@@ -42,8 +43,6 @@ class ActionBoxMenu : public views::MenuDelegate,
 
   // Overridden from views::MenuDelegate:
   virtual void ExecuteCommand(int id) OVERRIDE;
-  virtual views::Border* CreateMenuBorder() OVERRIDE;
-  virtual views::Background* CreateMenuBackground() OVERRIDE;
 
   // Overridden from BrowserActionView::Delegate and DragController overrides:
   virtual void InspectPopup(ExtensionAction* button) OVERRIDE;
@@ -64,6 +63,8 @@ class ActionBoxMenu : public views::MenuDelegate,
 
   // Populates |root_| with all the child menu items from the |model_|.
   void PopulateMenu();
+
+  void CustomizeMenu(views::MenuConfig* menu_config);
 
   Browser* browser_;
 

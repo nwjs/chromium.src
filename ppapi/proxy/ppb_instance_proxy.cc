@@ -4,6 +4,7 @@
 
 #include "ppapi/proxy/ppb_instance_proxy.h"
 
+#include "build/build_config.h"
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/pp_time.h"
 #include "ppapi/c/pp_var.h"
@@ -14,6 +15,7 @@
 #include "ppapi/c/private/pp_content_decryptor.h"
 #include "ppapi/proxy/content_decryptor_private_serializer.h"
 #include "ppapi/proxy/enter_proxy.h"
+#include "ppapi/proxy/flash_resource.h"
 #include "ppapi/proxy/gamepad_resource.h"
 #include "ppapi/proxy/host_dispatcher.h"
 #include "ppapi/proxy/plugin_dispatcher.h"
@@ -143,6 +145,8 @@ bool PPB_Instance_Proxy::OnMessageReceived(const IPC::Message& msg) {
                         OnHostMsgCancelCompositionText)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_UpdateSurroundingText,
                         OnHostMsgUpdateSurroundingText)
+    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_GetDocumentURL,
+                        OnHostMsgGetDocumentURL)
 
 #if !defined(OS_NACL)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_ResolveRelativeToDocument,
@@ -151,8 +155,6 @@ bool PPB_Instance_Proxy::OnMessageReceived(const IPC::Message& msg) {
                         OnHostMsgDocumentCanRequest)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_DocumentCanAccessDocument,
                         OnHostMsgDocumentCanAccessDocument)
-    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_GetDocumentURL,
-                        OnHostMsgGetDocumentURL)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_GetPluginInstanceURL,
                         OnHostMsgGetPluginInstanceURL)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_NeedKey,
@@ -165,6 +167,12 @@ bool PPB_Instance_Proxy::OnMessageReceived(const IPC::Message& msg) {
                         OnHostMsgKeyError)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_DeliverBlock,
                         OnHostMsgDeliverBlock)
+    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_DecoderInitializeDone,
+                        OnHostMsgDecoderInitializeDone)
+    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_DecoderDeinitializeDone,
+                        OnHostMsgDecoderDeinitializeDone)
+    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_DecoderResetDone,
+                        OnHostMsgDecoderResetDone)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_DeliverFrame,
                         OnHostMsgDeliverFrame)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_DeliverSamples,
@@ -313,6 +321,28 @@ thunk::PPB_Flash_API* PPB_Instance_Proxy::GetFlashAPI() {
   return static_cast<PPB_Flash_Proxy*>(ip);
 }
 
+thunk::PPB_Flash_Functions_API* PPB_Instance_Proxy::GetFlashFunctionsAPI(
+    PP_Instance instance) {
+#if !defined(OS_NACL) && !defined(NACL_WIN64)
+  InstanceData* data = static_cast<PluginDispatcher*>(dispatcher())->
+      GetInstanceData(instance);
+  if (!data)
+    return NULL;
+
+  if (!data->flash_resource.get()) {
+    Connection connection(
+        PluginGlobals::Get()->plugin_proxy_delegate()->GetBrowserSender(),
+        dispatcher());
+    data->flash_resource = new FlashResource(connection, instance);
+  }
+  return data->flash_resource.get();
+#else
+  // Flash functions aren't implemented for nacl.
+  NOTIMPLEMENTED();
+  return NULL;
+#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
+}
+
 thunk::PPB_Gamepad_API* PPB_Instance_Proxy::GetGamepadAPI(
     PP_Instance instance) {
   InstanceData* data = static_cast<PluginDispatcher*>(dispatcher())->
@@ -377,6 +407,17 @@ void PPB_Instance_Proxy::ZoomLimitsChanged(PP_Instance instance,
   NOTIMPLEMENTED();
 }
 
+PP_Var PPB_Instance_Proxy::GetDocumentURL(PP_Instance instance,
+                                          PP_URLComponents_Dev* components) {
+  ReceiveSerializedVarReturnValue result;
+  PP_URLComponents_Dev url_components;
+  dispatcher()->Send(new PpapiHostMsg_PPBInstance_GetDocumentURL(
+      API_ID_PPB_INSTANCE, instance, &url_components, &result));
+  if (components)
+    *components = url_components;
+  return result.Return(dispatcher());
+}
+
 #if !defined(OS_NACL)
 PP_Var PPB_Instance_Proxy::ResolveRelativeToDocument(
     PP_Instance instance,
@@ -408,16 +449,6 @@ PP_Bool PPB_Instance_Proxy::DocumentCanAccessDocument(PP_Instance instance,
   dispatcher()->Send(new PpapiHostMsg_PPBInstance_DocumentCanAccessDocument(
       API_ID_PPB_INSTANCE, instance, target, &result));
   return result;
-}
-
-PP_Var PPB_Instance_Proxy::GetDocumentURL(PP_Instance instance,
-                                          PP_URLComponents_Dev* components) {
-  ReceiveSerializedVarReturnValue result;
-  dispatcher()->Send(new PpapiHostMsg_PPBInstance_GetDocumentURL(
-      API_ID_PPB_INSTANCE, instance, &result));
-  return PPB_URLUtil_Shared::ConvertComponentsAndReturnURL(
-      result.Return(dispatcher()),
-      components);
 }
 
 PP_Var PPB_Instance_Proxy::GetPluginInstanceURL(
@@ -492,10 +523,15 @@ void PPB_Instance_Proxy::KeyError(PP_Instance instance,
 void PPB_Instance_Proxy::DeliverBlock(PP_Instance instance,
                                       PP_Resource decrypted_block,
                                       const PP_DecryptedBlockInfo* block_info) {
-  Resource* object =
-      PpapiGlobals::Get()->GetResourceTracker()->GetResource(decrypted_block);
-  if (!object || object->pp_instance() != instance)
-    return;
+  PP_Resource decrypted_block_host_resource = 0;
+
+  if (decrypted_block) {
+    Resource* object =
+        PpapiGlobals::Get()->GetResourceTracker()->GetResource(decrypted_block);
+    if (!object || object->pp_instance() != instance)
+      return;
+    decrypted_block_host_resource = object->host_resource().host_resource();
+  }
 
   std::string serialized_block_info;
   if (!SerializeBlockInfo(*block_info, &serialized_block_info))
@@ -504,10 +540,48 @@ void PPB_Instance_Proxy::DeliverBlock(PP_Instance instance,
   dispatcher()->Send(
       new PpapiHostMsg_PPBInstance_DeliverBlock(API_ID_PPB_INSTANCE,
           instance,
-          object->host_resource().host_resource(),
+          decrypted_block_host_resource,
           serialized_block_info));
 }
 
+void PPB_Instance_Proxy::DecoderInitializeDone(
+    PP_Instance instance,
+    PP_DecryptorStreamType decoder_type,
+    uint32_t request_id,
+    PP_Bool success) {
+  dispatcher()->Send(
+      new PpapiHostMsg_PPBInstance_DecoderInitializeDone(
+          API_ID_PPB_INSTANCE,
+          instance,
+          decoder_type,
+          request_id,
+          success));
+}
+
+void PPB_Instance_Proxy::DecoderDeinitializeDone(
+    PP_Instance instance,
+    PP_DecryptorStreamType decoder_type,
+    uint32_t request_id) {
+  dispatcher()->Send(
+      new PpapiHostMsg_PPBInstance_DecoderDeinitializeDone(
+          API_ID_PPB_INSTANCE,
+          instance,
+          decoder_type,
+          request_id));
+}
+
+void PPB_Instance_Proxy::DecoderResetDone(PP_Instance instance,
+                                          PP_DecryptorStreamType decoder_type,
+                                          uint32_t request_id) {
+  dispatcher()->Send(
+      new PpapiHostMsg_PPBInstance_DecoderResetDone(
+          API_ID_PPB_INSTANCE,
+          instance,
+          decoder_type,
+          request_id));
+}
+
+// TODO(tomfinegan): Handle null decrypted_frame after landing other patches.
 void PPB_Instance_Proxy::DeliverFrame(PP_Instance instance,
                                       PP_Resource decrypted_frame,
                                       const PP_DecryptedFrameInfo* frame_info) {
@@ -527,12 +601,13 @@ void PPB_Instance_Proxy::DeliverFrame(PP_Instance instance,
           serialized_block_info));
 }
 
+// TODO(tomfinegan): Handle null audio_frames after landing other patches.
 void PPB_Instance_Proxy::DeliverSamples(
     PP_Instance instance,
-    PP_Resource decrypted_samples,
+    PP_Resource audio_frames,
     const PP_DecryptedBlockInfo* block_info) {
   Resource* object =
-      PpapiGlobals::Get()->GetResourceTracker()->GetResource(decrypted_samples);
+      PpapiGlobals::Get()->GetResourceTracker()->GetResource(audio_frames);
   if (!object || object->pp_instance() != instance)
     return;
 
@@ -547,7 +622,6 @@ void PPB_Instance_Proxy::DeliverSamples(
           object->host_resource().host_resource(),
           serialized_block_info));
 }
-
 #endif  // !defined(OS_NACL)
 
 void PPB_Instance_Proxy::PostMessage(PP_Instance instance,
@@ -561,7 +635,6 @@ PP_Bool PPB_Instance_Proxy::SetCursor(PP_Instance instance,
                                       PP_MouseCursor_Type type,
                                       PP_Resource image,
                                       const PP_Point* hot_spot) {
-#if !defined(OS_NACL)
   // Some of these parameters are important for security. This check is in the
   // plugin process just for the convenience of the caller (since we don't
   // bother returning errors from the other process with a sync message). The
@@ -582,9 +655,6 @@ PP_Bool PPB_Instance_Proxy::SetCursor(PP_Instance instance,
       API_ID_PPB_INSTANCE, instance, static_cast<int32_t>(type),
       image_host_resource, hot_spot ? *hot_spot : PP_MakePoint(0, 0)));
   return PP_TRUE;
-#else  // defined(OS_NACL)
-  return PP_FALSE;
-#endif
 }
 
 int32_t PPB_Instance_Proxy::LockMouse(PP_Instance instance,
@@ -806,6 +876,18 @@ void PPB_Instance_Proxy::OnHostMsgUnlockMouse(PP_Instance instance) {
     enter.functions()->UnlockMouse(instance);
 }
 
+void PPB_Instance_Proxy::OnHostMsgGetDocumentURL(
+    PP_Instance instance,
+    PP_URLComponents_Dev* components,
+    SerializedVarReturnValue result) {
+  EnterInstanceNoLock enter(instance);
+  if (enter.succeeded()) {
+    PP_Var document_url = enter.functions()->GetDocumentURL(instance,
+                                                            components);
+    result.Return(dispatcher(), document_url);
+  }
+}
+
 #if !defined(OS_NACL)
 void PPB_Instance_Proxy::OnHostMsgResolveRelativeToDocument(
     PP_Instance instance,
@@ -836,16 +918,6 @@ void PPB_Instance_Proxy::OnHostMsgDocumentCanAccessDocument(PP_Instance active,
   EnterInstanceNoLock enter(active);
   if (enter.succeeded())
     *result = enter.functions()->DocumentCanAccessDocument(active, target);
-}
-
-void PPB_Instance_Proxy::OnHostMsgGetDocumentURL(
-    PP_Instance instance,
-    SerializedVarReturnValue result) {
-  EnterInstanceNoLock enter(instance);
-  if (enter.succeeded()) {
-    result.Return(dispatcher(),
-                  enter.functions()->GetDocumentURL(instance, NULL));
-  }
 }
 
 void PPB_Instance_Proxy::OnHostMsgGetPluginInstanceURL(
@@ -928,6 +1000,40 @@ void PPB_Instance_Proxy::OnHostMsgDeliverBlock(
     enter.functions()->DeliverBlock(instance, decrypted_block, &block_info);
 }
 
+void PPB_Instance_Proxy::OnHostMsgDecoderInitializeDone(
+    PP_Instance instance,
+    PP_DecryptorStreamType decoder_type,
+    uint32_t request_id,
+    PP_Bool success) {
+  EnterInstanceNoLock enter(instance);
+  if (enter.succeeded()) {
+    enter.functions()->DecoderInitializeDone(instance,
+                                             decoder_type,
+                                             request_id,
+                                             success);
+  }
+}
+
+void PPB_Instance_Proxy::OnHostMsgDecoderDeinitializeDone(
+    PP_Instance instance,
+    PP_DecryptorStreamType decoder_type,
+    uint32_t request_id) {
+  EnterInstanceNoLock enter(instance);
+  if (enter.succeeded())
+    enter.functions()->DecoderDeinitializeDone(instance,
+                                               decoder_type,
+                                               request_id);
+}
+
+void PPB_Instance_Proxy::OnHostMsgDecoderResetDone(
+    PP_Instance instance,
+    PP_DecryptorStreamType decoder_type,
+    uint32_t request_id) {
+  EnterInstanceNoLock enter(instance);
+  if (enter.succeeded())
+    enter.functions()->DecoderResetDone(instance, decoder_type, request_id);
+}
+
 void PPB_Instance_Proxy::OnHostMsgDeliverFrame(
     PP_Instance instance,
     PP_Resource decrypted_frame,
@@ -943,7 +1049,7 @@ void PPB_Instance_Proxy::OnHostMsgDeliverFrame(
 
 void PPB_Instance_Proxy::OnHostMsgDeliverSamples(
     PP_Instance instance,
-    PP_Resource decrypted_samples,
+    PP_Resource audio_frames,
     const std::string& serialized_block_info) {
   PP_DecryptedBlockInfo block_info;
   if (!DeserializeBlockInfo(serialized_block_info, &block_info))
@@ -951,9 +1057,8 @@ void PPB_Instance_Proxy::OnHostMsgDeliverSamples(
 
   EnterInstanceNoLock enter(instance);
   if (enter.succeeded())
-    enter.functions()->DeliverSamples(instance, decrypted_samples, &block_info);
+    enter.functions()->DeliverSamples(instance, audio_frames, &block_info);
 }
-
 #endif  // !defined(OS_NACL)
 
 void  PPB_Instance_Proxy::OnHostMsgSetCursor(

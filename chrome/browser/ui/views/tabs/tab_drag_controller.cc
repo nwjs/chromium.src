@@ -404,6 +404,8 @@ void TabDragController::Init(
   DCHECK(!tabs.empty());
   DCHECK(std::find(tabs.begin(), tabs.end(), source_tab) != tabs.end());
   source_tabstrip_ = source_tabstrip;
+  screen_ = gfx::Screen::GetScreenFor(
+      source_tabstrip->GetWidget()->GetNativeView());
   source_tab_offset_ = source_tab_offset;
   start_point_in_screen_ = gfx::Point(source_tab_offset, mouse_offset.y());
   views::View::ConvertPointToScreen(source_tab, &start_point_in_screen_);
@@ -505,8 +507,10 @@ void TabDragController::InitTabDragData(BaseTab* tab,
   drag_data->contents = GetModel(source_tabstrip_)->GetTabContentsAt(
       drag_data->source_model_index);
   drag_data->pinned = source_tabstrip_->IsTabPinned(tab);
-  registrar_.Add(this, chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
-                 content::Source<TabContents>(drag_data->contents));
+  registrar_.Add(
+      this,
+      content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
+      content::Source<WebContents>(drag_data->contents->web_contents()));
 
   if (!detach_into_browser_) {
     drag_data->original_delegate =
@@ -596,12 +600,11 @@ void TabDragController::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  DCHECK_EQ(chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED, type);
-  TabContents* destroyed_tab_contents =
-      content::Source<TabContents>(source).ptr();
-  WebContents* destroyed_web_contents = destroyed_tab_contents->web_contents();
+  DCHECK_EQ(content::NOTIFICATION_WEB_CONTENTS_DESTROYED, type);
+  WebContents* destroyed_web_contents =
+      content::Source<WebContents>(source).ptr();
   for (size_t i = 0; i < drag_data_.size(); ++i) {
-    if (drag_data_[i].contents == destroyed_tab_contents) {
+    if (drag_data_[i].contents->web_contents() == destroyed_web_contents) {
       // One of the tabs we're dragging has been destroyed. Cancel the drag.
       if (destroyed_web_contents->GetDelegate() == this)
         destroyed_web_contents->SetDelegate(NULL);
@@ -673,7 +676,7 @@ gfx::Point TabDragController::GetWindowCreatePoint(
 
   // If the cursor is outside the monitor area, move it inside. For example,
   // dropping a tab onto the task bar on Windows produces this situation.
-  gfx::Rect work_area = gfx::Screen::GetDisplayNearestPoint(origin).work_area();
+  gfx::Rect work_area = screen_->GetDisplayNearestPoint(origin).work_area();
   gfx::Point create_point(origin);
   if (!work_area.IsEmpty()) {
     if (create_point.x() < work_area.x())
@@ -1988,7 +1991,7 @@ gfx::Point TabDragController::GetCursorScreenPoint() {
     return touch_point;
   }
 #endif
-  return gfx::Screen::GetCursorScreenPoint();
+  return screen_->GetCursorScreenPoint();
 }
 
 gfx::Point TabDragController::GetWindowOffset(

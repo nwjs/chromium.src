@@ -35,6 +35,10 @@ struct WebScreenInfo;
 }
 #endif
 
+namespace skia {
+class PlatformBitmap;
+};
+
 namespace content {
 class BackingStore;
 class SmoothScrollGesture;
@@ -161,7 +165,7 @@ class CONTENT_EXPORT RenderWidgetHostViewPort : public RenderWidgetHostView {
       const gfx::Rect& src_subrect,
       const gfx::Size& dst_size,
       const base::Callback<void(bool)>& callback,
-      skia::PlatformCanvas* output) = 0;
+      skia::PlatformBitmap* output) = 0;
 
   // Called when accelerated compositing state changes.
   virtual void OnAcceleratedCompositingStateChange() = 0;
@@ -228,7 +232,7 @@ class CONTENT_EXPORT RenderWidgetHostViewPort : public RenderWidgetHostView {
   virtual void UpdateFrameInfo(const gfx::Point& scroll_offset,
                                float page_scale_factor,
                                const gfx::Size& content_size) = 0;
-  virtual void DidSetNeedTouchEvents(bool need_touch_events) = 0;
+  virtual void HasTouchEventHandlers(bool need_touch_events) = 0;
 #endif
 
   virtual void AcceleratedSurfaceNew(
@@ -257,15 +261,16 @@ class CONTENT_EXPORT RenderWidgetHostViewPort : public RenderWidgetHostView {
 
   // Because the associated remote WebKit instance can asynchronously
   // prevent-default on a dispatched touch event, the touch events are queued in
-  // the GestureRecognizer until invocation of ProcessTouchAck releases it to be
-  // processed (when |processed| is false) or ignored (when |processed| is true)
-  virtual void ProcessTouchAck(WebKit::WebInputEvent::Type type,
-                               bool processed) = 0;
+  // the GestureRecognizer until invocation of ProcessAckedTouchEvent releases
+  // it to be processed (when |processed| is false) or ignored (when |processed|
+  // is true).
+  virtual void ProcessAckedTouchEvent(const WebKit::WebTouchEvent& touch,
+                                      bool processed) = 0;
 
   // Asks the view to create a smooth scroll gesture that will be used to
   // simulate a user-initiated scroll.
   virtual SmoothScrollGesture* CreateSmoothScrollGesture(
-      bool scroll_down, bool scroll_far, int mouse_event_x,
+      bool scroll_down, int pixels_to_scroll, int mouse_event_x,
       int mouse_event_y) = 0;
 
   virtual void SetHasHorizontalScrollbar(bool has_horizontal_scrollbar) = 0;

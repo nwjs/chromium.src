@@ -8,18 +8,9 @@
 #include <string>
 
 #include "base/logging.h"
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
-#include "third_party/skia/include/effects/SkBlurMaskFilter.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/color_utils.h"
-#include "ui/gfx/font.h"
-#include "ui/gfx/insets.h"
-#include "ui/views/background.h"
-#include "ui/views/border.h"
-#include "ui/views/painter.h"
 
 namespace {
 
@@ -41,8 +32,6 @@ void AddRoundRectPathWithPadding(int x, int y,
                                  SkScalar padding,
                                  SkPath* path) {
   DCHECK(path);
-  if (path == NULL)
-    return;
   SkRect rect;
   rect.set(
       SkIntToScalar(x) + padding, SkIntToScalar(y) + padding,
@@ -169,9 +158,7 @@ void ProgressBar::SetTooltipText(const string16& tooltip_text) {
 
 bool ProgressBar::GetTooltipText(const gfx::Point& p, string16* tooltip) const {
   DCHECK(tooltip);
-  if (tooltip == NULL)
-    return false;
-  tooltip->assign(tooltip_text_);
+  *tooltip = tooltip_text_;
   return !tooltip_text_.empty();
 }
 

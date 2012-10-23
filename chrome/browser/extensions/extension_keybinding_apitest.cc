@@ -4,6 +4,8 @@
 
 #include "chrome/browser/extensions/active_tab_permission_granter.h"
 #include "chrome/browser/extensions/browser_action_test_util.h"
+#include "chrome/browser/extensions/extension_action.h"
+#include "chrome/browser/extensions/extension_action_manager.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/sessions/session_tab_helper.h"
@@ -12,7 +14,6 @@
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_action.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
@@ -38,8 +39,8 @@ class ScriptBadgesCommandsApiTest : public ExtensionApiTest {
   ScriptBadgesCommandsApiTest() {
     // We cannot add this to CommandsApiTest because then PageActions get
     // treated like BrowserActions and the PageAction test starts failing.
-    CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kEnableScriptBadges);
+    CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+        switches::kScriptBadges, "1");
     CommandLine::ForCurrentProcess()->AppendSwitch(
         switches::kEnableExperimentalExtensionApis);
   }
@@ -129,7 +130,9 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, PageAction) {
   ASSERT_TRUE(WaitForPageActionVisibilityChangeTo(1));
   int tab_id = SessionTabHelper::FromWebContents(
       chrome::GetActiveWebContents(browser()))->session_id().id();
-  ExtensionAction* action = extension->page_action();
+  ExtensionAction* action =
+      ExtensionActionManager::Get(browser()->profile())->
+      GetPageAction(*extension);
   ASSERT_TRUE(action);
   EXPECT_EQ("Make this page red", action->GetTitle(tab_id));
 

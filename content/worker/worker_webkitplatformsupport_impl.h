@@ -9,15 +9,15 @@
 #include "content/common/webkitplatformsupport_impl.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebMimeRegistry.h"
 
-class WebFileSystemImpl;
-
 namespace WebKit {
 class WebFileUtilities;
 }
 
-class WorkerWebKitPlatformSupportImpl
-    : public content::WebKitPlatformSupportImpl,
-      public WebKit::WebMimeRegistry {
+namespace content {
+class WebFileSystemImpl;
+
+class WorkerWebKitPlatformSupportImpl : public WebKitPlatformSupportImpl,
+                                        public WebKit::WebMimeRegistry {
  public:
   WorkerWebKitPlatformSupportImpl();
   virtual ~WorkerWebKitPlatformSupportImpl();
@@ -97,5 +97,7 @@ class WorkerWebKitPlatformSupportImpl
   scoped_ptr<WebFileSystemImpl> web_file_system_;
   scoped_ptr<WebKit::WebIDBFactory> web_idb_factory_;
 };
+
+}  // namespace content
 
 #endif  // CONTENT_WORKER_WORKER_WEBKITPLATFORMSUPPORT_IMPL_H_

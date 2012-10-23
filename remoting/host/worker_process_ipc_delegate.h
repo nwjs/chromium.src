@@ -21,10 +21,13 @@ class WorkerProcessIpcDelegate {
   virtual ~WorkerProcessIpcDelegate() {}
 
   // Notifies that a client has been connected to the channel.
-  virtual void OnChannelConnected() = 0;
+  virtual void OnChannelConnected(int32 peer_pid) = 0;
 
   // Processes messages sent by the client.
   virtual bool OnMessageReceived(const IPC::Message& message) = 0;
+
+  // Notifies that a permanent error was encountered.
+  virtual void OnPermanentError() = 0;
 };
 
 }  // namespace remoting

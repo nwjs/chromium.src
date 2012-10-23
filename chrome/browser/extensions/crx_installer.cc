@@ -10,7 +10,6 @@
 #include "base/bind.h"
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
-#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
 #include "base/scoped_temp_dir.h"
@@ -23,7 +22,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/convert_user_script.h"
 #include "chrome/browser/extensions/convert_web_app.h"
-#include "chrome/browser/extensions/default_apps_trial.h"
 #include "chrome/browser/extensions/extension_error_reporter.h"
 #include "chrome/browser/extensions/extension_install_ui.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -39,7 +37,7 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_file_util.h"
 #include "chrome/common/extensions/extension_icon_set.h"
-#include "chrome/common/extensions/extension_switch_utils.h"
+#include "chrome/common/extensions/feature_switch.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/resource_dispatcher_host.h"
@@ -124,6 +122,8 @@ CrxInstaller::CrxInstaller(
     expected_id_ = approval->extension_id;
     record_oauth2_grant_ = approval->record_oauth2_grant;
   }
+
+  show_dialog_callback_ = approval->show_dialog_callback;
 }
 
 CrxInstaller::~CrxInstaller() {
@@ -156,6 +156,7 @@ void CrxInstaller::InstallCrx(const FilePath& source_file) {
           content::ResourceDispatcherHost::Get() != NULL,
           install_source_,
           creation_flags_,
+          install_directory_,
           this));
 
   if (!BrowserThread::PostTask(
@@ -180,7 +181,7 @@ void CrxInstaller::InstallUserScript(const FilePath& source_file,
 void CrxInstaller::ConvertUserScriptOnFileThread() {
   string16 error;
   scoped_refptr<Extension> extension = ConvertUserScriptToExtension(
-      source_file_, download_url_, &error);
+      source_file_, download_url_, install_directory_, &error);
   if (!extension) {
     ReportFailureFromFileThread(CrxInstallerError(error));
     return;
@@ -192,15 +193,18 @@ void CrxInstaller::ConvertUserScriptOnFileThread() {
 void CrxInstaller::InstallWebApp(const WebApplicationInfo& web_app) {
   if (!BrowserThread::PostTask(
           BrowserThread::FILE, FROM_HERE,
-          base::Bind(&CrxInstaller::ConvertWebAppOnFileThread, this, web_app)))
+          base::Bind(&CrxInstaller::ConvertWebAppOnFileThread,
+                     this,
+                     web_app,
+                     install_directory_)))
     NOTREACHED();
 }
 
 void CrxInstaller::ConvertWebAppOnFileThread(
-    const WebApplicationInfo& web_app) {
+    const WebApplicationInfo& web_app, const FilePath& install_directory) {
   string16 error;
   scoped_refptr<Extension> extension(
-      ConvertWebAppToExtension(web_app, base::Time::Now()));
+      ConvertWebAppToExtension(web_app, base::Time::Now(), install_directory));
   if (!extension) {
     // Validation should have stopped any potential errors before getting here.
     NOTREACHED() << "Could not convert web app to extension.";
@@ -255,7 +259,7 @@ CrxInstallerError CrxInstaller::AllowInstall(const Extension* extension) {
   }
 
   if (install_cause_ == extension_misc::INSTALL_CAUSE_USER_DOWNLOAD) {
-    if (switch_utils::IsEasyOffStoreInstallEnabled()) {
+    if (FeatureSwitch::easy_off_store_install()->IsEnabled()) {
       const char* kHistogramName = "Extensions.OffStoreInstallDecisionEasy";
       if (is_gallery_install()) {
         UMA_HISTOGRAM_ENUMERATION(kHistogramName, OnStoreInstall,
@@ -400,6 +404,8 @@ void CrxInstaller::OnUnpackSuccess(const FilePath& temp_dir,
 
 void CrxInstaller::CheckRequirements() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  if (!frontend_weak_.get() || frontend_weak_->browser_terminating())
+    return;
   AddRef();  // Balanced in OnRequirementsChecked().
   requirements_checker_->Check(extension_,
                                base::Bind(&CrxInstaller::OnRequirementsChecked,
@@ -424,7 +430,7 @@ void CrxInstaller::OnRequirementsChecked(
 
 void CrxInstaller::ConfirmInstall() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  if (!frontend_weak_.get())
+  if (!frontend_weak_.get() || frontend_weak_->browser_terminating())
     return;
 
   string16 error;
@@ -453,7 +459,7 @@ void CrxInstaller::ConfirmInstall() {
 
   if (client_ && (!allow_silent_install_ || !approved_)) {
     AddRef();  // Balanced in Proceed() and Abort().
-    client_->ConfirmInstall(this, extension_.get());
+    client_->ConfirmInstall(this, extension_.get(), show_dialog_callback_);
   } else {
     if (!BrowserThread::PostTask(
             BrowserThread::FILE, FROM_HERE,
@@ -589,18 +595,8 @@ void CrxInstaller::ReportSuccessFromFileThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
 
   // Tracking number of extensions installed by users
-  if (install_cause() == extension_misc::INSTALL_CAUSE_USER_DOWNLOAD) {
+  if (install_cause() == extension_misc::INSTALL_CAUSE_USER_DOWNLOAD)
     UMA_HISTOGRAM_ENUMERATION("Extensions.ExtensionInstalled", 1, 2);
-
-    static bool default_apps_trial_exists =
-        base::FieldTrialList::TrialExists(kDefaultAppsTrialName);
-    if (default_apps_trial_exists) {
-      UMA_HISTOGRAM_ENUMERATION(
-          base::FieldTrial::MakeName("Extensions.ExtensionInstalled",
-                                     kDefaultAppsTrialName),
-          1, 2);
-    }
-  }
 
   if (!BrowserThread::PostTask(
           BrowserThread::UI, FROM_HERE,
@@ -611,7 +607,7 @@ void CrxInstaller::ReportSuccessFromFileThread() {
 void CrxInstaller::ReportSuccessFromUIThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (!frontend_weak_.get())
+  if (!frontend_weak_.get() || frontend_weak_->browser_terminating())
     return;
 
   // If there is a client, tell the client about installation.

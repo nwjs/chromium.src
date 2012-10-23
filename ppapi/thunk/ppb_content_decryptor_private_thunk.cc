@@ -61,6 +61,38 @@ void DeliverBlock(PP_Instance instance,
     enter.functions()->DeliverBlock(instance, decrypted_block, block_info);
 }
 
+void DecoderInitializeDone(PP_Instance instance,
+                           PP_DecryptorStreamType decoder_type,
+                           uint32_t request_id,
+                           PP_Bool success) {
+  EnterInstance enter(instance);
+  if (enter.succeeded()) {
+    enter.functions()->DecoderInitializeDone(instance,
+                                             decoder_type,
+                                             request_id,
+                                             success);
+  }
+}
+
+void DecoderDeinitializeDone(PP_Instance instance,
+                             PP_DecryptorStreamType decoder_type,
+                             uint32_t request_id) {
+  EnterInstance enter(instance);
+  if (enter.succeeded()) {
+    enter.functions()->DecoderDeinitializeDone(instance,
+                                               decoder_type,
+                                               request_id);
+  }
+}
+
+void DecoderResetDone(PP_Instance instance,
+                      PP_DecryptorStreamType decoder_type,
+                      uint32_t request_id) {
+  EnterInstance enter(instance);
+  if (enter.succeeded())
+    enter.functions()->DecoderResetDone(instance, decoder_type, request_id);
+}
+
 void DeliverFrame(PP_Instance instance,
                   PP_Resource decrypted_frame,
                   const PP_DecryptedFrameInfo* frame_info) {
@@ -70,11 +102,11 @@ void DeliverFrame(PP_Instance instance,
 }
 
 void DeliverSamples(PP_Instance instance,
-                    PP_Resource decrypted_samples,
+                    PP_Resource audio_frames,
                     const PP_DecryptedBlockInfo* block_info) {
   EnterInstance enter(instance);
   if (enter.succeeded())
-    enter.functions()->DeliverSamples(instance, decrypted_samples, block_info);
+    enter.functions()->DeliverSamples(instance, audio_frames, block_info);
 }
 
 const PPB_ContentDecryptor_Private g_ppb_decryption_thunk = {
@@ -83,6 +115,9 @@ const PPB_ContentDecryptor_Private g_ppb_decryption_thunk = {
   &KeyMessage,
   &KeyError,
   &DeliverBlock,
+  &DecoderInitializeDone,
+  &DecoderDeinitializeDone,
+  &DecoderResetDone,
   &DeliverFrame,
   &DeliverSamples
 };
@@ -90,7 +125,7 @@ const PPB_ContentDecryptor_Private g_ppb_decryption_thunk = {
 }  // namespace
 
 const PPB_ContentDecryptor_Private*
-    GetPPB_ContentDecryptor_Private_0_2_Thunk() {
+    GetPPB_ContentDecryptor_Private_0_4_Thunk() {
   return &g_ppb_decryption_thunk;
 }
 

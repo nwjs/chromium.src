@@ -14,7 +14,7 @@
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/display/display_preferences.h"
-#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
+#include "chrome/browser/chromeos/drive/drive_file_system_util.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
 #include "chrome/browser/chromeos/input_method/xkeyboard.h"
@@ -37,17 +37,6 @@
 #include "unicode/timezone.h"
 
 namespace chromeos {
-namespace {
-
-// TODO(achuith): Get rid of this.
-bool IsLink() {
-  std::string board;
-  system::StatisticsProvider::GetInstance()->GetMachineStatistic(
-      "CHROMEOS_RELEASE_BOARD", &board);
-  return StartsWithASCII(board, "link", false);
-}
-
-}  // namespace
 
 static const char kFallbackInputMethodLocale[] = "en-US";
 
@@ -125,20 +114,20 @@ void Preferences::RegisterUserPrefs(PrefService* prefs) {
   }
   prefs->RegisterIntegerPref(prefs::kMouseSensitivity,
                              3,
-                             PrefService::UNSYNCABLE_PREF);
+                             PrefService::SYNCABLE_PREF);
   prefs->RegisterIntegerPref(prefs::kTouchpadSensitivity,
                              3,
-                             PrefService::UNSYNCABLE_PREF);
+                             PrefService::SYNCABLE_PREF);
   prefs->RegisterBooleanPref(prefs::kUse24HourClock,
                              base::GetHourClockType() == base::k24HourClock,
                              PrefService::SYNCABLE_PREF);
-  prefs->RegisterBooleanPref(prefs::kDisableGData,
+  prefs->RegisterBooleanPref(prefs::kDisableDrive,
                              false,
                              PrefService::SYNCABLE_PREF);
-  prefs->RegisterBooleanPref(prefs::kDisableGDataOverCellular,
+  prefs->RegisterBooleanPref(prefs::kDisableDriveOverCellular,
                              true,
                              PrefService::SYNCABLE_PREF);
-  prefs->RegisterBooleanPref(prefs::kDisableGDataHostedFiles,
+  prefs->RegisterBooleanPref(prefs::kDisableDriveHostedFiles,
                              false,
                              PrefService::SYNCABLE_PREF);
   // We don't sync prefs::kLanguageCurrentInputMethod and PreviousInputMethod
@@ -301,10 +290,10 @@ void Preferences::InitUserPrefs(PrefService* prefs) {
   mouse_sensitivity_.Init(prefs::kMouseSensitivity, prefs, this);
   touchpad_sensitivity_.Init(prefs::kTouchpadSensitivity, prefs, this);
   use_24hour_clock_.Init(prefs::kUse24HourClock, prefs, this);
-  disable_drive_.Init(prefs::kDisableGData, prefs, this);
-  disable_drive_over_cellular_.Init(prefs::kDisableGDataOverCellular,
+  disable_drive_.Init(prefs::kDisableDrive, prefs, this);
+  disable_drive_over_cellular_.Init(prefs::kDisableDriveOverCellular,
                                    prefs, this);
-  disable_drive_hosted_files_.Init(prefs::kDisableGDataHostedFiles,
+  disable_drive_hosted_files_.Init(prefs::kDisableDriveHostedFiles,
                                    prefs, this);
   download_default_directory_.Init(prefs::kDownloadDefaultDirectory,
                                    prefs, this);
@@ -424,8 +413,10 @@ void Preferences::NotifyPrefChanged(const std::string* pref_name) {
       UMA_HISTOGRAM_BOOLEAN("Touchpad.ThreeFingerClick.Started", enabled);
   }
   if (!pref_name || *pref_name == prefs::kNaturalScroll) {
-    // If user is on link, force natural scroll to on.
-    if (IsLink() &&
+    // Force natural scroll to on if kNaturalScrollDefault is specified on the
+    // cmd line.
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kNaturalScrollDefault) &&
         !pref_name &&
         !prefs_->GetUserPrefValue(prefs::kNaturalScroll)) {
       natural_scroll_.SetValue(true);
@@ -479,7 +470,7 @@ void Preferences::NotifyPrefChanged(const std::string* pref_name) {
     }
   }
   if (!pref_name || *pref_name == prefs::kDownloadDefaultDirectory) {
-    const bool default_download_to_drive = gdata::util::IsUnderDriveMountPoint(
+    const bool default_download_to_drive = drive::util::IsUnderDriveMountPoint(
         download_default_directory_.GetValue());
     if (pref_name)
       UMA_HISTOGRAM_BOOLEAN(
@@ -636,11 +627,11 @@ void Preferences::NotifyPrefChanged(const std::string* pref_name) {
     system::ToggleDrm(enable_drm_.GetValue());
   }
 
-  // Change the download directory to the default value if a GData directory is
-  // selected and GData is disabled.
-  if (!pref_name || *pref_name == prefs::kDisableGData) {
+  // Change the download directory to the default value if a Drive directory is
+  // selected and Drive is disabled.
+  if (!pref_name || *pref_name == prefs::kDisableDrive) {
     if (disable_drive_.GetValue()) {
-      if (gdata::util::IsUnderDriveMountPoint(
+      if (drive::util::IsUnderDriveMountPoint(
           download_default_directory_.GetValue())) {
         prefs_->SetFilePath(prefs::kDownloadDefaultDirectory,
                             download_util::GetDefaultDownloadDirectory());

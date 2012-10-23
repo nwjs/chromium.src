@@ -10,14 +10,12 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
-#include "chrome/browser/extensions/default_apps_trial.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/managed_mode.h"
@@ -131,18 +129,8 @@ void ProfileSizeTask(const FilePath& path, int extension_count) {
   UMA_HISTOGRAM_COUNTS_10000("Profile.ExtensionSize", size_MB);
 
   // Count number of extensions in this profile, if we know.
-  if (extension_count != -1) {
+  if (extension_count != -1)
     UMA_HISTOGRAM_COUNTS_10000("Profile.AppCount", extension_count);
-
-    static bool default_apps_trial_exists = base::FieldTrialList::TrialExists(
-        kDefaultAppsTrialName);
-    if (default_apps_trial_exists) {
-      UMA_HISTOGRAM_COUNTS_10000(
-          base::FieldTrial::MakeName("Profile.AppCount",
-                                     kDefaultAppsTrialName),
-          extension_count);
-    }
-  }
 }
 
 void QueueProfileDirectoryForDeletion(const FilePath& path) {
@@ -247,7 +235,7 @@ ProfileManager::ProfileManager(const FilePath& user_data_dir)
       logged_in_(false),
       will_import_(false),
       profile_shortcut_manager_(NULL),
-#if !defined(OS_ANDROID)
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
       ALLOW_THIS_IN_INITIALIZER_LIST(
           browser_list_observer_(this)),
 #endif
@@ -649,7 +637,7 @@ void ProfileManager::OnImportFinished(Profile* profile) {
       content::NotificationService::NoDetails());
 }
 
-#if !defined(OS_ANDROID)
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
 ProfileManager::BrowserListObserver::BrowserListObserver(
     ProfileManager* manager)
     : profile_manager_(manager) {
@@ -685,7 +673,7 @@ void ProfileManager::BrowserListObserver::OnBrowserSetLastActive(
                            last_active->GetPath().BaseName().MaybeAsASCII());
   }
 }
-#endif  // !defined(OS_ANDROID)
+#endif  // !defined(OS_ANDROID) && !defined(OS_IOS)
 
 void ProfileManager::DoFinalInit(Profile* profile, bool go_off_the_record) {
   DoFinalInitForServices(profile, go_off_the_record);

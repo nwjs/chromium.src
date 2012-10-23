@@ -48,6 +48,9 @@ class VIEWS_EXPORT Textfield : public View {
     STYLE_LOWERCASE = 1 << 1
   };
 
+  // Returns true if the build or commandline dictates NativeTextfieldViews use.
+  static bool IsViewsTextfieldEnabled();
+
   Textfield();
   explicit Textfield(StyleFlags style);
   virtual ~Textfield();
@@ -80,6 +83,9 @@ class VIEWS_EXPORT Textfield : public View {
 
   // Appends the given string to the previously-existing text in the field.
   void AppendText(const string16& text);
+
+  // Returns the text direction.
+  base::i18n::TextDirection GetTextDirection() const;
 
   // Returns the text that is currently selected.
   string16 GetSelectedText() const;

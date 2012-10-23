@@ -7,8 +7,9 @@
   },
   'targets': [
     {
-      'target_name': 'libwebview',
+      'target_name': 'libwebviewchromium',
       'type': 'shared_library',
+      'android_unmangled_name': 1,
       'dependencies': [
         '../chrome/chrome.gyp:browser',
         '../chrome/chrome.gyp:renderer',
@@ -25,6 +26,9 @@
       'sources': [
         'common/android_webview_message_generator.cc',
         'common/android_webview_message_generator.h',
+        'common/aw_content_client.cc',
+        'common/aw_content_client.h',
+        'common/aw_resource.h',
         'common/render_view_messages.cc',
         'common/render_view_messages.h',
         'common/url_constants.cc',
@@ -36,8 +40,11 @@
         'browser/aw_http_auth_handler_base.h',
         'browser/aw_login_delegate.cc',
         'browser/aw_login_delegate.h',
+        'browser/aw_request_interceptor.cc',
+        'browser/aw_request_interceptor.h',
         'browser/find_helper.cc',
         'browser/find_helper.h',
+        'browser/intercepted_request_data.h',
         'browser/net/aw_network_delegate.cc',
         'browser/net/aw_network_delegate.h',
         'browser/net_disk_cache_remover.cc',
@@ -56,39 +63,12 @@
         'lib/main/aw_main_delegate.h',
         'lib/main/webview_entry_point.cc',
         'lib/main/webview_stubs.cc',
+        'renderer/aw_content_renderer_client.cc',
+        'renderer/aw_content_renderer_client.h',
         'renderer/aw_render_process_observer.cc',
         'renderer/aw_render_process_observer.h',
         'renderer/aw_render_view_ext.cc',
         'renderer/aw_render_view_ext.h',
-      ],
-    },
-    {
-      'target_name': 'android_webview',
-      'type' : 'none',
-      'dependencies': [
-        'libwebview',
-      ],
-      'variables': {
-        'install_binary_script': 'build/install_binary',
-      },
-      'actions': [
-        {
-          'action_name': 'libwebview_strip_and_install_in_android',
-          'inputs': [
-            '<(SHARED_LIB_DIR)/libwebview.so',
-          ],
-          'outputs': [
-            '<(android_product_out)/obj/lib/libwebview.so',
-            '<(android_product_out)/system/lib/libwebview.so',
-            '<(android_product_out)/symbols/system/lib/libwebview.so',
-            '<(android_product_out)/symbols/data/data/org.chromium.android_webview/lib/libwebview.so',
-          ],
-          'action': [
-            '<(install_binary_script)',
-            '<@(_inputs)',
-            '<@(_outputs)',
-          ],
-        },
       ],
     },
     {
@@ -119,14 +99,14 @@
         '../media/media.gyp:media_java',
         '../net/net.gyp:net_java',
         '../ui/ui.gyp:ui_java',
-        'libwebview',
+        'libwebviewchromium',
       ],
       'variables': {
         'package_name': 'android_webview',
         'apk_name': 'AndroidWebView',
+        'manifest_package_name': 'org.chromium.android_webview',
         'java_in_dir': '../android_webview/java',
-        'resource_dir': '../res',
-        'native_libs_paths': ['<(PRODUCT_DIR)/android_webview/libs/<(android_app_abi)/libwebview.so'],
+        'native_libs_paths': ['<(SHARED_LIB_DIR)/libwebviewchromium.so'],
         'input_pak_files': [
           '<(SHARED_INTERMEDIATE_DIR)/repack/chrome.pak',
           '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_100_percent.pak',
@@ -141,20 +121,6 @@
         ],
         'additional_input_paths': [ '<@(copied_pak_files)' ],
       },
-      'actions': [
-        {
-          'action_name': 'copy_and_strip_so',
-          'inputs': ['<(SHARED_LIB_DIR)/libwebview.so'],
-          'outputs': ['<(PRODUCT_DIR)/android_webview/libs/<(android_app_abi)/libwebview.so'],
-          'action': [
-            '<(android_strip)',
-            '--strip-unneeded',  # All symbols not needed for relocation.
-            '<@(_inputs)',
-            '-o',
-            '<@(_outputs)',
-          ],
-        },
-      ],
       'copies': [
         {
           'destination': '<(PRODUCT_DIR)/android_webview/assets',
@@ -179,7 +145,7 @@
         '../net/net.gyp:net_java',
         '../ui/ui.gyp:ui_java',
         'android_webview_java',
-        'libwebview',
+        'libwebviewchromium',
       ],
       'variables': {
         'package_name': 'android_webview_test',

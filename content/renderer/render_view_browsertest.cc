@@ -17,7 +17,6 @@
 #include "content/renderer/render_view_impl.h"
 #include "content/shell/shell_content_browser_client.h"
 #include "content/shell/shell_content_client.h"
-#include "content/shell/shell_main_delegate.h"
 #include "content/test/mock_keyboard.h"
 #include "net/base/net_errors.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -56,7 +55,8 @@ using WebKit::WebMouseEvent;
 using WebKit::WebString;
 using WebKit::WebTextDirection;
 using WebKit::WebURLError;
-using content::NativeWebKeyboardEvent;
+
+namespace content  {
 
 namespace {
 #if defined(USE_AURA) && defined(USE_X11)
@@ -83,34 +83,33 @@ int ConvertMockKeyboardModifier(MockKeyboard::Modifiers modifiers) {
 }
 #endif
 
-class WebUITestWebUIControllerFactory : public content::WebUIControllerFactory {
+class WebUITestWebUIControllerFactory : public WebUIControllerFactory {
  public:
-  virtual content::WebUIController* CreateWebUIControllerForURL(
-      content::WebUI* web_ui, const GURL& url) const OVERRIDE {
+  virtual WebUIController* CreateWebUIControllerForURL(
+      WebUI* web_ui, const GURL& url) const OVERRIDE {
     return NULL;
   }
-  virtual content::WebUI::TypeID GetWebUIType(
-      content::BrowserContext* browser_context,
-      const GURL& url) const OVERRIDE {
-    return content::WebUI::kNoWebUI;
+  virtual WebUI::TypeID GetWebUIType(BrowserContext* browser_context,
+                                     const GURL& url) const OVERRIDE {
+    return WebUI::kNoWebUI;
   }
-  virtual bool UseWebUIForURL(content::BrowserContext* browser_context,
+  virtual bool UseWebUIForURL(BrowserContext* browser_context,
                               const GURL& url) const OVERRIDE {
-    return content::GetContentClient()->HasWebUIScheme(url);
+    return GetContentClient()->HasWebUIScheme(url);
   }
-  virtual bool UseWebUIBindingsForURL(content::BrowserContext* browser_context,
+  virtual bool UseWebUIBindingsForURL(BrowserContext* browser_context,
                                       const GURL& url) const OVERRIDE {
-    return content::GetContentClient()->HasWebUIScheme(url);
+    return GetContentClient()->HasWebUIScheme(url);
   }
   virtual bool IsURLAcceptableForWebUI(
-      content::BrowserContext* browser_context,
+      BrowserContext* browser_context,
       const GURL& url,
       bool data_urls_allowed) const OVERRIDE {
     return false;
   }
 };
 
-class WebUITestClient : public content::ShellContentClient {
+class WebUITestClient : public ShellContentClient {
  public:
   WebUITestClient() {
   }
@@ -120,12 +119,11 @@ class WebUITestClient : public content::ShellContentClient {
   }
 };
 
-class WebUITestBrowserClient : public content::ShellContentBrowserClient {
+class WebUITestBrowserClient : public ShellContentBrowserClient {
  public:
   WebUITestBrowserClient() {}
 
-  virtual content::WebUIControllerFactory*
-      GetWebUIControllerFactory() OVERRIDE {
+  virtual WebUIControllerFactory* GetWebUIControllerFactory() OVERRIDE {
     return &factory_;
   }
 
@@ -135,16 +133,11 @@ class WebUITestBrowserClient : public content::ShellContentBrowserClient {
 
 }
 
-class RenderViewImplTest : public content::RenderViewTest {
+class RenderViewImplTest : public RenderViewTest {
  public:
   RenderViewImplTest() {
     // Attach a pseudo keyboard device to this object.
     mock_keyboard_.reset(new MockKeyboard());
-  }
-
-  virtual void SetUp() OVERRIDE {
-    content::RenderViewTest::SetUp();
-    content::ShellMainDelegate::InitializeResourceBundle();
   }
 
   RenderViewImpl* view() {
@@ -283,7 +276,7 @@ class RenderViewImplTest : public content::RenderViewTest {
 };
 
 // Test that we get form state change notifications when input fields change.
-TEST_F(RenderViewImplTest, OnNavStateChanged) {
+TEST_F(RenderViewImplTest, DISABLED_OnNavStateChanged) {
   // Don't want any delay for form state sync changes. This will still post a
   // message so updates will get coalesced, but as soon as we spin the message
   // loop, it will generate an update.
@@ -310,7 +303,7 @@ TEST_F(RenderViewImplTest, OnNavigationHttpPost) {
   // An http url will trigger a resource load so cannot be used here.
   nav_params.url = GURL("data:text/html,<div>Page</div>");
   nav_params.navigation_type = ViewMsg_Navigate_Type::NORMAL;
-  nav_params.transition = content::PAGE_TRANSITION_TYPED;
+  nav_params.transition = PAGE_TRANSITION_TYPED;
   nav_params.page_id = -1;
   nav_params.is_post = true;
 
@@ -349,12 +342,11 @@ TEST_F(RenderViewImplTest, OnNavigationHttpPost) {
 TEST_F(RenderViewImplTest, DecideNavigationPolicy) {
   WebUITestClient client;
   WebUITestBrowserClient browser_client;
-  content::ContentClient* old_client = content::GetContentClient();
-  content::ContentBrowserClient* old_browser_client =
-      content::GetContentClient()->browser();
+  ContentClient* old_client = GetContentClient();
+  ContentBrowserClient* old_browser_client = GetContentClient()->browser();
 
-  content::SetContentClient(&client);
-  content::GetContentClient()->set_browser_for_testing(&browser_client);
+  SetContentClient(&client);
+  GetContentClient()->set_browser_for_testing(&browser_client);
   client.set_renderer_for_testing(old_client->renderer());
 
   // Navigations to normal HTTP URLs can be handled locally.
@@ -391,13 +383,13 @@ TEST_F(RenderViewImplTest, DecideNavigationPolicy) {
       false);
   EXPECT_EQ(WebKit::WebNavigationPolicyIgnore, policy);
 
-  content::GetContentClient()->set_browser_for_testing(old_browser_client);
-  content::SetContentClient(old_client);
+  GetContentClient()->set_browser_for_testing(old_browser_client);
+  SetContentClient(old_client);
 }
 
 TEST_F(RenderViewImplTest, DecideNavigationPolicyForWebUI) {
   // Enable bindings to simulate a WebUI view.
-  view()->OnAllowBindings(content::BINDINGS_POLICY_WEB_UI);
+  view()->OnAllowBindings(BINDINGS_POLICY_WEB_UI);
 
   // Navigations to normal HTTP URLs will be sent to browser process.
   WebKit::WebURLRequest request(GURL("http://foo.com"));
@@ -497,7 +489,7 @@ TEST_F(RenderViewImplTest, SendSwapOutACK) {
   ViewMsg_Navigate_Params nav_params;
   nav_params.url = GURL("data:text/html,<div>Page B</div>");
   nav_params.navigation_type = ViewMsg_Navigate_Type::NORMAL;
-  nav_params.transition = content::PAGE_TRANSITION_TYPED;
+  nav_params.transition = PAGE_TRANSITION_TYPED;
   nav_params.current_history_list_length = 1;
   nav_params.current_history_list_offset = 0;
   nav_params.pending_history_list_offset = 1;
@@ -559,7 +551,7 @@ TEST_F(RenderViewImplTest, LastCommittedUpdateState) {
   // Go back to C and commit, preparing for our real test.
   ViewMsg_Navigate_Params params_C;
   params_C.navigation_type = ViewMsg_Navigate_Type::NORMAL;
-  params_C.transition = content::PAGE_TRANSITION_FORWARD_BACK;
+  params_C.transition = PAGE_TRANSITION_FORWARD_BACK;
   params_C.current_history_list_length = 4;
   params_C.current_history_list_offset = 3;
   params_C.pending_history_list_offset = 2;
@@ -576,7 +568,7 @@ TEST_F(RenderViewImplTest, LastCommittedUpdateState) {
   // Back to page B (page_id 2), without committing.
   ViewMsg_Navigate_Params params_B;
   params_B.navigation_type = ViewMsg_Navigate_Type::NORMAL;
-  params_B.transition = content::PAGE_TRANSITION_FORWARD_BACK;
+  params_B.transition = PAGE_TRANSITION_FORWARD_BACK;
   params_B.current_history_list_length = 4;
   params_B.current_history_list_offset = 2;
   params_B.pending_history_list_offset = 1;
@@ -587,7 +579,7 @@ TEST_F(RenderViewImplTest, LastCommittedUpdateState) {
   // Back to page A (page_id 1) and commit.
   ViewMsg_Navigate_Params params;
   params.navigation_type = ViewMsg_Navigate_Type::NORMAL;
-  params.transition = content::PAGE_TRANSITION_FORWARD_BACK;
+  params.transition = PAGE_TRANSITION_FORWARD_BACK;
   params_B.current_history_list_length = 4;
   params_B.current_history_list_offset = 2;
   params_B.pending_history_list_offset = 0;
@@ -639,7 +631,7 @@ TEST_F(RenderViewImplTest, StaleNavigationsIgnored) {
   // Back to page A (page_id 1) and commit.
   ViewMsg_Navigate_Params params_A;
   params_A.navigation_type = ViewMsg_Navigate_Type::NORMAL;
-  params_A.transition = content::PAGE_TRANSITION_FORWARD_BACK;
+  params_A.transition = PAGE_TRANSITION_FORWARD_BACK;
   params_A.current_history_list_length = 2;
   params_A.current_history_list_offset = 1;
   params_A.pending_history_list_offset = 0;
@@ -657,7 +649,7 @@ TEST_F(RenderViewImplTest, StaleNavigationsIgnored) {
   // The browser then sends a stale navigation to B, which should be ignored.
   ViewMsg_Navigate_Params params_B;
   params_B.navigation_type = ViewMsg_Navigate_Type::NORMAL;
-  params_B.transition = content::PAGE_TRANSITION_FORWARD_BACK;
+  params_B.transition = PAGE_TRANSITION_FORWARD_BACK;
   params_B.current_history_list_length = 2;
   params_B.current_history_list_offset = 0;
   params_B.pending_history_list_offset = 1;
@@ -721,7 +713,7 @@ TEST_F(RenderViewImplTest, DontIgnoreBackAfterNavEntryLimit) {
   // Ensure that going back to page B (page_id 2) at offset 0 is successful.
   ViewMsg_Navigate_Params params_B;
   params_B.navigation_type = ViewMsg_Navigate_Type::NORMAL;
-  params_B.transition = content::PAGE_TRANSITION_FORWARD_BACK;
+  params_B.transition = PAGE_TRANSITION_FORWARD_BACK;
   params_B.current_history_list_length = 2;
   params_B.current_history_list_offset = 1;
   params_B.pending_history_list_offset = 0;
@@ -1706,9 +1698,9 @@ TEST_F(RenderViewImplTest, GetCompositionCharacterBoundsTest) {
 
 TEST_F(RenderViewImplTest, ZoomLimit) {
   const double kMinZoomLevel =
-      WebKit::WebView::zoomFactorToZoomLevel(content::kMinimumZoomFactor);
+      WebKit::WebView::zoomFactorToZoomLevel(kMinimumZoomFactor);
   const double kMaxZoomLevel =
-      WebKit::WebView::zoomFactorToZoomLevel(content::kMaximumZoomFactor);
+      WebKit::WebView::zoomFactorToZoomLevel(kMaximumZoomFactor);
 
   ViewMsg_Navigate_Params params;
   params.page_id = -1;
@@ -1796,3 +1788,5 @@ TEST_F(RenderViewImplTest, OnExtendSelectionAndDelete) {
   EXPECT_EQ(2, info.selectionStart);
   EXPECT_EQ(2, info.selectionEnd);
 }
+
+}  // namespace content

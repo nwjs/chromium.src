@@ -26,9 +26,9 @@
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/base/gestures/gesture_types.h"
 #include "ui/base/ime/text_input_client.h"
+#include "ui/base/ime/win/tsf_bridge.h"
 #include "ui/base/win/extra_sdk_defines.h"
 #include "ui/base/win/ime_input.h"
-#include "ui/base/win/tsf_bridge.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/point.h"
 #include "ui/surface/accelerated_surface_win.h"
@@ -199,10 +199,10 @@ class RenderWidgetHostViewWin
       const gfx::Rect& src_subrect,
       const gfx::Size& dst_size,
       const base::Callback<void(bool)>& callback,
-      skia::PlatformCanvas* output) OVERRIDE;
+      skia::PlatformBitmap* output) OVERRIDE;
   virtual void OnAcceleratedCompositingStateChange() OVERRIDE;
-  virtual void ProcessTouchAck(WebKit::WebInputEvent::Type type,
-                               bool processed) OVERRIDE;
+  virtual void ProcessAckedTouchEvent(const WebKit::WebTouchEvent& touch,
+                                      bool processed) OVERRIDE;
   virtual void SetHasHorizontalScrollbar(
       bool has_horizontal_scrollbar) OVERRIDE;
   virtual void SetScrollOffsetPinning(
@@ -407,15 +407,9 @@ class RenderWidgetHostViewWin
   // a WM_POINTERDOWN message.
   void ResetPointerDownContext();
 
-  // Switches between raw-touches mode and gesture mode. Currently touch mode
-  // will only take effect when kEnableTouchEvents is in effect.
-  void UpdateDesiredTouchMode(bool touch);
-
-  // Set window to receive gestures.
-  void SetToGestureMode();
-
-  // Set window to raw touch events. Returns whether registering was successful.
-  bool SetToTouchMode();
+  // Sets the appropriate mode for raw-touches or gestures. Currently touch mode
+  // will only take effect when kEnableTouchEvents is in effect (on Win7+).
+  void UpdateDesiredTouchMode();
 
   // Configures the enable/disable state of |ime_input_| to match with the
   // current |text_input_type_|.

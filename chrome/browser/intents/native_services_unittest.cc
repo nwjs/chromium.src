@@ -18,13 +18,12 @@
 namespace {
 
 TEST(NativeServiceRegistryTest, GetSupportedServices) {
-#if defined(TOOLKIT_VIEWS)
-
+#if !defined(ANDROID)
   // enable native services feature, then check results again
   CommandLine::ForCurrentProcess()->AppendSwitch(
       switches::kWebIntentsNativeServicesEnabled);
 
-  std::vector<webkit_glue::WebIntentServiceData> services;
+  web_intents::IntentServiceList services;
   web_intents::NativeServiceRegistry registry;
 
   registry.GetSupportedServices(ASCIIToUTF16("dothedew"), &services);
@@ -39,23 +38,19 @@ TEST(NativeServiceRegistryTest, GetSupportedServices) {
   // verify the service returned is for "pick"
   EXPECT_EQ(ASCIIToUTF16(web_intents::kActionPick), services[0].action);
   EXPECT_EQ(GURL(web_intents::kNativeFilePickerUrl), services[0].service_url);
-
 #endif
 }
 
 TEST(NativeServiceRegistryTest, GetSupportedServicesDisabled) {
-#if defined(TOOLKIT_VIEWS)
-
-  std::vector<webkit_glue::WebIntentServiceData> services;
+#if !defined(ANDROID)
+  web_intents::IntentServiceList services;
   web_intents::NativeServiceRegistry registry;
 
   registry.GetSupportedServices(
       ASCIIToUTF16(web_intents::kActionPick), &services);
 
   ASSERT_EQ(0U, services.size());
-
 #endif
 }
 
-
-} // namespace
+}  // namespace

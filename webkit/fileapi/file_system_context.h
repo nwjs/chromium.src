@@ -14,14 +14,14 @@
 #include "base/platform_file.h"
 #include "base/sequenced_task_runner_helpers.h"
 #include "webkit/fileapi/file_system_types.h"
-#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/task_runner_bound_observer_list.h"
-#include "webkit/quota/special_storage_policy.h"
+#include "webkit/storage/webkit_storage_export.h"
 
 class FilePath;
 
 namespace quota {
 class QuotaManagerProxy;
+class SpecialStoragePolicy;
 }
 
 namespace webkit_blob {
@@ -41,12 +41,13 @@ class FileSystemURL;
 class IsolatedMountPointProvider;
 class LocalFileChangeTracker;
 class SandboxMountPointProvider;
+class LocalFileSyncContext;
 
 struct DefaultContextDeleter;
 
 // This class keeps and provides a file system context for FileSystem API.
 // An instance of this class is created and owned by profile.
-class FILEAPI_EXPORT FileSystemContext
+class WEBKIT_STORAGE_EXPORT FileSystemContext
     : public base::RefCountedThreadSafe<FileSystemContext,
                                         DefaultContextDeleter> {
  public:
@@ -146,14 +147,19 @@ class FILEAPI_EXPORT FileSystemContext
       base::PlatformFileError* error_code);
 
   // Creates new FileStreamReader instance to read a file pointed by the given
-  // filesystem URL |url| starting from |offset|.
+  // filesystem URL |url| starting from |offset|. |expected_modification_time|
+  // specifies the expected last modification if the value is non-null, the
+  // reader will check the underlying file's actual modification time to see if
+  // the file has been modified, and if it does any succeeding read operations
+  // should fail with ERR_UPLOAD_FILE_CHANGED error.
   // This method internally cracks the |url|, get an appropriate
   // MountPointProvider for the URL and call the provider's CreateFileReader.
   // The resolved MountPointProvider could perform further specialization
   // depending on the filesystem type pointed by the |url|.
   webkit_blob::FileStreamReader* CreateFileStreamReader(
       const FileSystemURL& url,
-      int64 offset);
+      int64 offset,
+      const base::Time& expected_modification_time);
 
   // Register a filesystem provider. The ownership of |provider| is
   // transferred to this instance.
@@ -164,6 +170,9 @@ class FILEAPI_EXPORT FileSystemContext
 
   LocalFileChangeTracker* change_tracker() { return change_tracker_.get(); }
   void SetLocalFileChangeTracker(scoped_ptr<LocalFileChangeTracker> tracker);
+
+  LocalFileSyncContext* sync_context() { return sync_context_.get(); }
+  void set_sync_context(LocalFileSyncContext* sync_context);
 
   const FilePath& partition_path() const { return partition_path_; }
 
@@ -189,10 +198,11 @@ class FILEAPI_EXPORT FileSystemContext
   std::map<FileSystemType, FileSystemMountPointProvider*> provider_map_;
 
   // The base path of the storage partition for this context.
-  const FilePath& partition_path_;
+  const FilePath partition_path_;
 
   // For syncable file systems.
   scoped_ptr<LocalFileChangeTracker> change_tracker_;
+  scoped_refptr<LocalFileSyncContext> sync_context_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(FileSystemContext);
 };

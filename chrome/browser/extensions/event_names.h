@@ -41,7 +41,7 @@ extern const char kOnFileChanged[];
 extern const char kOnFileBrowserMountCompleted[];
 extern const char kOnFileTransfersUpdated[];
 extern const char kOnDocumentFeedFetched[];
-extern const char kOnFileBrowserGDataPreferencesChanged[];
+extern const char kOnFileBrowserPreferencesChanged[];
 extern const char kOnFileBrowserNetworkConnectionChanged[];
 
 // InputMethod.
@@ -65,19 +65,19 @@ extern const char kOnTerminalProcessOutput[];
 // OffscreenTabs.
 extern const char kOnOffscreenTabUpdated[];
 
-#if defined(OS_CHROMEOS)
 // Bluetooth.
 extern const char kBluetoothOnAvailabilityChanged[];
 extern const char kBluetoothOnDeviceDiscovered[];
+extern const char kBluetoothOnDeviceSearchFinished[];
 extern const char kBluetoothOnDeviceSearchResult[];
 extern const char kBluetoothOnDiscoveringChanged[];
 extern const char kBluetoothOnPowerChanged[];
-#endif
 
 // Push messaging.
 extern const char kOnPushMessage[];
 
-// SystemInfo storage
+// systemInfo event names.
+extern const char kOnCpuUpdated[];
 extern const char kOnStorageAvailableCapacityChanged[];
 extern const char kOnStorageAdded[];
 extern const char kOnStorageRemoved[];

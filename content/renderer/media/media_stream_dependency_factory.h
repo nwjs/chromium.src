@@ -19,11 +19,6 @@ namespace base {
 class WaitableEvent;
 }
 
-namespace content {
-class IpcNetworkManager;
-class IpcPacketSocketFactory;
-}
-
 namespace talk_base {
 class NetworkManager;
 class PacketSocketFactory;
@@ -43,6 +38,10 @@ class WebRTCPeerConnectionHandler;
 class WebRTCPeerConnectionHandlerClient;
 }
 
+namespace content {
+
+class IpcNetworkManager;
+class IpcPacketSocketFactory;
 class VideoCaptureImplManager;
 class WebRtcAudioDeviceImpl;
 
@@ -52,7 +51,7 @@ class CONTENT_EXPORT MediaStreamDependencyFactory
  public:
   MediaStreamDependencyFactory(
       VideoCaptureImplManager* vc_manager,
-      content::P2PSocketDispatcher* p2p_socket_dispatcher);
+      P2PSocketDispatcher* p2p_socket_dispatcher);
   virtual ~MediaStreamDependencyFactory();
 
   // Create a PeerConnectionHandlerJsep object that implements the
@@ -116,7 +115,8 @@ class CONTENT_EXPORT MediaStreamDependencyFactory
   // Asks the PeerConnection factory to create a Local VideoTrack object.
   virtual scoped_refptr<webrtc::LocalVideoTrackInterface>
       CreateLocalVideoTrack(const std::string& label,
-                            int video_session_id);
+                            int video_session_id,
+                            bool is_screencast);
 
   // Asks the PeerConnection factory to create a Local AudioTrack object.
   virtual scoped_refptr<webrtc::LocalAudioTrackInterface>
@@ -141,13 +141,13 @@ class CONTENT_EXPORT MediaStreamDependencyFactory
 
   // We own network_manager_, must be deleted on the worker thread.
   // The network manager uses |p2p_socket_dispatcher_|.
-  content::IpcNetworkManager* network_manager_;
-  scoped_ptr<content::IpcPacketSocketFactory> socket_factory_;
+  IpcNetworkManager* network_manager_;
+  scoped_ptr<IpcPacketSocketFactory> socket_factory_;
 
   scoped_refptr<webrtc::PeerConnectionFactoryInterface> pc_factory_;
 
   scoped_refptr<VideoCaptureImplManager> vc_manager_;
-  scoped_refptr<content::P2PSocketDispatcher> p2p_socket_dispatcher_;
+  scoped_refptr<P2PSocketDispatcher> p2p_socket_dispatcher_;
   scoped_refptr<WebRtcAudioDeviceImpl> audio_device_;
 
   // PeerConnection threads. signaling_thread_ is created from the
@@ -158,5 +158,7 @@ class CONTENT_EXPORT MediaStreamDependencyFactory
 
   DISALLOW_COPY_AND_ASSIGN(MediaStreamDependencyFactory);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_MEDIA_MEDIA_STREAM_DEPENDENCY_FACTORY_H_

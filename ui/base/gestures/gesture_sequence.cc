@@ -310,7 +310,7 @@ GestureSequence::Gestures* GestureSequence::ProcessTouchEventForGesture(
     EventResult result) {
   StopLongPressTimerIfRequired(event);
   last_touch_location_ = event.location();
-  if (result & ER_ASYNC)
+  if (result & ER_CONSUMED)
     return NULL;
 
   // Set a limit on the number of simultaneous touches in a gesture.
@@ -350,7 +350,6 @@ GestureSequence::Gestures* GestureSequence::ProcessTouchEventForGesture(
   if (event.type() == ui::ET_TOUCH_PRESSED)
     AppendBeginGestureEvent(point, gestures.get());
 
-  CHECK_NE(ER_ASYNC, result);
   TouchStatusInternal status_internal = (result == ER_UNHANDLED) ?
       TSI_NOT_PROCESSED : TSI_PROCESSED;
 
@@ -385,7 +384,8 @@ GestureSequence::Gestures* GestureSequence::ProcessTouchEventForGesture(
       }
       break;
     case GST_PENDING_SYNTHETIC_CLICK_FIRST_MOVED_PROCESSED:
-      point.UpdateForScroll();
+      // TODO(rbyers): This should be able to trigger a TapCancel
+      // if we moved far enough. crbug.com/146397
       break;
     case GST_PENDING_SYNTHETIC_CLICK_FIRST_RELEASED_HANDLED:
     case GST_PENDING_SYNTHETIC_CLICK_FIRST_CANCELLED:

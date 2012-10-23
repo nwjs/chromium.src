@@ -70,6 +70,7 @@ class InstantLoader::WebContentsDelegateImpl
   virtual bool CanDownload(content::RenderViewHost* render_view_host,
                            int request_id,
                            const std::string& request_method) OVERRIDE;
+  virtual void HandleMouseDown() OVERRIDE;
   virtual void HandleMouseUp() OVERRIDE;
   virtual void HandlePointerActivate() OVERRIDE;
   virtual void HandleGestureBegin() OVERRIDE;
@@ -93,10 +94,11 @@ class InstantLoader::WebContentsDelegateImpl
   // Message from the renderer determining whether it supports the Instant API.
   void OnInstantSupportDetermined(int page_id, bool result);
 
-  // Message from the renderer requesting the preview be resized.
-  void OnSetInstantPreviewHeight(int page_id,
-                                 int height,
-                                 InstantSizeUnits units);
+  // Message from the renderer requesting the preview be shown.
+  void OnShowInstantPreview(int page_id,
+                            InstantShownReason reason,
+                            int height,
+                            InstantSizeUnits units);
 
   void CommitFromPointerReleaseIfNecessary();
   void MaybeSetAndNotifyInstantSupportDetermined(bool supports_instant);
@@ -157,6 +159,10 @@ bool InstantLoader::WebContentsDelegateImpl::CanDownload(
   return false;
 }
 
+void InstantLoader::WebContentsDelegateImpl::HandleMouseDown() {
+  is_pointer_down_from_activate_ = true;
+}
+
 void InstantLoader::WebContentsDelegateImpl::HandleMouseUp() {
   CommitFromPointerReleaseIfNecessary();
 }
@@ -202,8 +208,8 @@ bool InstantLoader::WebContentsDelegateImpl::OnMessageReceived(
     IPC_MESSAGE_HANDLER(ChromeViewHostMsg_SetSuggestions, OnSetSuggestions)
     IPC_MESSAGE_HANDLER(ChromeViewHostMsg_InstantSupportDetermined,
                         OnInstantSupportDetermined)
-    IPC_MESSAGE_HANDLER(ChromeViewHostMsg_SetInstantPreviewHeight,
-                        OnSetInstantPreviewHeight);
+    IPC_MESSAGE_HANDLER(ChromeViewHostMsg_ShowInstantPreview,
+                        OnShowInstantPreview);
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -233,8 +239,9 @@ void InstantLoader::WebContentsDelegateImpl::OnInstantSupportDetermined(
     MaybeSetAndNotifyInstantSupportDetermined(result);
 }
 
-void InstantLoader::WebContentsDelegateImpl::OnSetInstantPreviewHeight(
+void InstantLoader::WebContentsDelegateImpl::OnShowInstantPreview(
     int page_id,
+    InstantShownReason reason,
     int height,
     InstantSizeUnits units) {
   DCHECK(loader_->preview_contents());
@@ -243,7 +250,8 @@ void InstantLoader::WebContentsDelegateImpl::OnSetInstantPreviewHeight(
                                         GetController().GetActiveEntry();
   if (entry && page_id == entry->GetPageID()) {
     MaybeSetAndNotifyInstantSupportDetermined(true);
-    loader_->loader_delegate_->SetInstantPreviewHeight(loader_, height, units);
+    loader_->loader_delegate_->ShowInstantPreview(loader_,
+                                                  reason, height, units);
   }
 }
 

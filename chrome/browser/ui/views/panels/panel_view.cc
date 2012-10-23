@@ -244,7 +244,6 @@ PanelView::PanelView(Panel* panel, const gfx::Rect& bounds)
 }
 
 PanelView::~PanelView() {
-  web_view_->SetWebContents(NULL);
 }
 
 void PanelView::ShowPanel() {
@@ -343,8 +342,16 @@ void PanelView::DeactivatePanel() {
     return;
 
 #if defined(OS_WIN) && !defined(AURA) && !defined(USE_ASH)
-  ::SetForegroundWindow(::GetDesktopWindow());
+  // Need custom behavior for always-on-top panels to avoid
+  // the OS activating a minimized panel when this one is
+  // deactivated.
+  if (always_on_top_) {
+    ::SetForegroundWindow(::GetDesktopWindow());
+    return;
+  }
 #endif
+
+  window_->Deactivate();
 }
 
 bool PanelView::IsPanelActive() const {
@@ -577,6 +584,21 @@ gfx::ImageSkia PanelView::GetWindowIcon() {
   return icon.IsEmpty() ? gfx::ImageSkia() : *icon.ToImageSkia();
 }
 
+void PanelView::WindowClosing() {
+  // When closing a panel via window.close, API or the close button,
+  // ClosePanel() is called first, destroying the native |window_|
+  // which results in this method being called. ClosePanel() sets
+  // |window_| to NULL.
+  // If we still have a |window_| here, the close was triggered by the OS,
+  // (e.g. clicking on taskbar menu), which destroys the native |window_|
+  // without invoking ClosePanel() beforehand.
+  if (window_) {
+    panel_->OnWindowClosing();
+    ClosePanel();
+    DCHECK(!window_);
+  }
+}
+
 void PanelView::DeleteDelegate() {
   delete this;
 }
@@ -678,8 +700,8 @@ void PanelView::OnWidgetActivationChanged(views::Widget* widget, bool active) {
   // When the user clicks on the minimized panel, the panel expansion will be
   // done when we process the mouse button pressed message.
   if (focused_ && panel_->IsMinimized() &&
-      gfx::Screen::GetWindowAtCursorScreenPoint() !=
-          widget->GetNativeWindow()) {
+      gfx::Screen::GetScreenFor(widget->GetNativeWindow())->
+          GetWindowAtCursorScreenPoint() != widget->GetNativeWindow()) {
     panel_->Restore();
   }
 

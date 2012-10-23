@@ -259,7 +259,7 @@ class RenderWidgetHostViewMac : public RenderWidgetHostViewBase {
       const gfx::Rect& src_subrect,
       const gfx::Size& dst_size,
       const base::Callback<void(bool)>& callback,
-      skia::PlatformCanvas* output) OVERRIDE;
+      skia::PlatformBitmap* output) OVERRIDE;
   virtual void OnAcceleratedCompositingStateChange() OVERRIDE;
 
   virtual void OnAccessibilityNotifications(
@@ -319,8 +319,6 @@ class RenderWidgetHostViewMac : public RenderWidgetHostViewBase {
   // to be reloaded.
   void ForceTextureReload();
 
-  virtual void ProcessTouchAck(WebKit::WebInputEvent::Type type,
-                               bool processed) OVERRIDE;
   virtual void SetHasHorizontalScrollbar(
       bool has_horizontal_scrollbar) OVERRIDE;
   virtual void SetScrollOffsetPinning(

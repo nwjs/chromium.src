@@ -17,8 +17,10 @@
 #include "sync/protocol/autofill_specifics.pb.h"
 #include "sync/protocol/bookmark_specifics.pb.h"
 #include "sync/protocol/encryption.pb.h"
+#include "sync/protocol/experiments_specifics.pb.h"
 #include "sync/protocol/extension_setting_specifics.pb.h"
 #include "sync/protocol/extension_specifics.pb.h"
+#include "sync/protocol/history_delete_directive_specifics.pb.h"
 #include "sync/protocol/nigori_specifics.pb.h"
 #include "sync/protocol/password_specifics.pb.h"
 #include "sync/protocol/preference_specifics.pb.h"
@@ -71,7 +73,10 @@ ListValue* MakeRepeatedValue(const F& fields, V* (*converter_fn)(T)) {
 
 // Helper macros to reduce the amount of boilerplate.
 
-#define SET(field, fn) value->Set(#field, fn(proto.field()))
+#define SET(field, fn) \
+  if (proto.has_##field()) { \
+    value->Set(#field, fn(proto.field())); \
+  }
 #define SET_REP(field, fn) \
   value->Set(#field, MakeRepeatedValue(proto.field(), fn))
 #define SET_ENUM(field, fn) \
@@ -166,10 +171,11 @@ DictionaryValue* TabNavigationToValue(
   SET_INT32(unique_id);
   SET_INT64(timestamp);
   SET_BOOL(navigation_forward_back);
-  SET_BOOL(navigation_from_address_bar),
+  SET_BOOL(navigation_from_address_bar);
   SET_BOOL(navigation_home_page);
   SET_BOOL(navigation_chain_start);
   SET_BOOL(navigation_chain_end);
+  SET_INT64(global_id);
   return value;
 }
 
@@ -191,13 +197,25 @@ DictionaryValue* PasswordSpecificsDataToValue(
   return value;
 }
 
-DictionaryValue* DeviceInformationToValue(
-    const sync_pb::DeviceInformation& proto) {
+DictionaryValue* KeystoreEncryptionFlagsToValue(
+    const sync_pb::KeystoreEncryptionFlags& proto) {
   DictionaryValue* value = new DictionaryValue();
-  SET_STR(cache_guid);
-  SET_STR(name);
-  SET_STR(platform);
-  SET_STR(chrome_version);
+  SET_BOOL(enabled);
+  return value;
+}
+
+base::DictionaryValue* GlobalIdDirectiveToValue(
+    const sync_pb::GlobalIdDirective& proto) {
+  DictionaryValue* value = new DictionaryValue();
+  SET_INT64_REP(global_id);
+  return value;
+}
+
+base::DictionaryValue* TimeRangeDirectiveToValue(
+    const sync_pb::TimeRangeDirective& proto) {
+  DictionaryValue* value = new DictionaryValue();
+  SET_INT64(start_time_usec);
+  SET_INT64(end_time_usec);
   return value;
 }
 
@@ -271,6 +289,25 @@ DictionaryValue* BookmarkSpecificsToValue(
   SET_STR(url);
   SET_BYTES(favicon);
   SET_STR(title);
+  SET_INT64(creation_time_us);
+  return value;
+}
+
+DictionaryValue* DeviceInfoSpecificsToValue(
+    const sync_pb::DeviceInfoSpecifics& proto) {
+  DictionaryValue* value = new DictionaryValue();
+  SET_STR(cache_guid);
+  SET_STR(client_name);
+  SET_ENUM(device_type, GetDeviceTypeString);
+  SET_STR(sync_user_agent);
+  SET_STR(chrome_version);
+  return value;
+}
+
+DictionaryValue* ExperimentsSpecificsToValue(
+    const sync_pb::ExperimentsSpecifics& proto) {
+  DictionaryValue* value = new DictionaryValue();
+  SET(keystore_encryption, KeystoreEncryptionFlagsToValue);
   return value;
 }
 
@@ -295,6 +332,14 @@ DictionaryValue* ExtensionSpecificsToValue(
   return value;
 }
 
+base::DictionaryValue* HistoryDeleteDirectiveSpecificsToValue(
+    const sync_pb::HistoryDeleteDirectiveSpecifics& proto) {
+  DictionaryValue* value = new DictionaryValue();
+  SET(global_id_directive, GlobalIdDirectiveToValue);
+  SET(time_range_directive, TimeRangeDirectiveToValue);
+  return value;
+}
+
 DictionaryValue* NigoriSpecificsToValue(
     const sync_pb::NigoriSpecifics& proto) {
   DictionaryValue* value = new DictionaryValue();
@@ -313,11 +358,11 @@ DictionaryValue* NigoriSpecificsToValue(
   SET_BOOL(encrypt_apps);
   SET_BOOL(encrypt_search_engines);
   SET_BOOL(encrypt_everything);
-  SET_REP(device_information, DeviceInformationToValue);
   SET_BOOL(sync_tab_favicons);
   SET_ENUM(passphrase_type, PassphraseTypeString);
   SET(keystore_decryptor_token, EncryptedDataToValue);
   SET_INT64(keystore_migration_time);
+  SET_INT64(custom_passphrase_time);
   return value;
 }
 
@@ -399,8 +444,11 @@ DictionaryValue* EntitySpecificsToValue(
   SET_FIELD(autofill, AutofillSpecificsToValue);
   SET_FIELD(autofill_profile, AutofillProfileSpecificsToValue);
   SET_FIELD(bookmark, BookmarkSpecificsToValue);
+  SET_FIELD(device_info, DeviceInfoSpecificsToValue);
+  SET_FIELD(experiments, ExperimentsSpecificsToValue);
   SET_FIELD(extension, ExtensionSpecificsToValue);
   SET_FIELD(extension_setting, ExtensionSettingSpecificsToValue);
+  SET_FIELD(history_delete_directive, HistoryDeleteDirectiveSpecificsToValue);
   SET_FIELD(nigori, NigoriSpecificsToValue);
   SET_FIELD(password, PasswordSpecificsToValue);
   SET_FIELD(preference, PreferenceSpecificsToValue);
@@ -499,6 +547,13 @@ DictionaryValue* GetUpdatesMessageToValue(
   return value;
 }
 
+DictionaryValue* ClientStatusToValue(
+    const sync_pb::ClientStatus& proto) {
+  DictionaryValue* value = new DictionaryValue();
+  SET_BOOL(hierarchy_conflict_detected);
+  return value;
+}
+
 DictionaryValue* EntryResponseToValue(
     const sync_pb::CommitResponse::EntryResponse& proto) {
   DictionaryValue* value = new DictionaryValue();
@@ -585,6 +640,7 @@ DictionaryValue* ClientToServerMessageToValue(
   SET(get_updates, GetUpdatesMessageToValue);
   SET_STR(store_birthday);
   SET_BOOL(sync_problem_detected);
+  SET(client_status, ClientStatusToValue);
   return value;
 }
 

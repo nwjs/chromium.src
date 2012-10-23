@@ -3,13 +3,15 @@
 // found in the LICENSE file.
 
 #include "testing/gtest/include/gtest/gtest.h"
+#include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_task_runners.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/isolated_context.h"
 #include "webkit/fileapi/local_file_system_operation.h"
 #include "webkit/fileapi/syncable/canned_syncable_file_system.h"
-#include "webkit/fileapi/syncable/syncable_file_system_util.h"
 #include "webkit/fileapi/syncable/local_file_change_tracker.h"
+#include "webkit/fileapi/syncable/local_file_sync_context.h"
+#include "webkit/fileapi/syncable/syncable_file_system_util.h"
 #include "webkit/quota/quota_manager.h"
 #include "webkit/quota/quota_types.h"
 
@@ -22,7 +24,8 @@ namespace fileapi {
 class SyncableFileSystemTest : public testing::Test {
  public:
   SyncableFileSystemTest()
-      : file_system_(GURL("http://example.com/"), "test"),
+      : file_system_(GURL("http://example.com/"), "test",
+                     base::MessageLoopProxy::current()),
         quota_status_(quota::kQuotaStatusUnknown),
         usage_(-1),
         quota_(-1),
@@ -30,9 +33,18 @@ class SyncableFileSystemTest : public testing::Test {
 
   void SetUp() {
     file_system_.SetUp();
+
+    sync_context_ = new LocalFileSyncContext(base::MessageLoopProxy::current(),
+                                             base::MessageLoopProxy::current());
+    ASSERT_EQ(SYNC_STATUS_OK,
+              file_system_.MaybeInitializeFileSystemContext(sync_context_));
   }
 
   void TearDown() {
+    if (sync_context_)
+      sync_context_->ShutdownOnUIThread();
+    sync_context_ = NULL;
+
     file_system_.TearDown();
 
     // Make sure we don't leave the external filesystem.
@@ -63,23 +75,15 @@ class SyncableFileSystemTest : public testing::Test {
       *quota = quota_;
   }
 
-  void RegisterChangeTracker() {
-    scoped_ptr<LocalFileChangeTracker> tracker(
-        new LocalFileChangeTracker(
-            file_system_context()->partition_path(),
-            file_system_context()->task_runners()->file_task_runner()));
-    file_system_context()->SetLocalFileChangeTracker(tracker.Pass());
-  }
-
   void VerifyAndClearChange(const FileSystemURL& url,
                             const FileChange& expected_change) {
-    SCOPED_TRACE(testing::Message() << url.path().value() <<
+    SCOPED_TRACE(testing::Message() << url.DebugString() <<
                  " expecting:" << expected_change.DebugString());
     // Get the changes for URL and verify.
     FileChangeList changes;
     change_tracker()->GetChangesForURL(url, &changes);
     ASSERT_EQ(1U, changes.size());
-    SCOPED_TRACE(testing::Message() << url.path().value() <<
+    SCOPED_TRACE(testing::Message() << url.DebugString() <<
                  " actual:" << changes.DebugString());
     EXPECT_EQ(expected_change, changes.list()[0]);
 
@@ -103,6 +107,7 @@ class SyncableFileSystemTest : public testing::Test {
   MessageLoop message_loop_;
 
   CannedSyncableFileSystem file_system_;
+  scoped_refptr<LocalFileSyncContext> sync_context_;
 
   QuotaStatusCode quota_status_;
   int64 usage_;
@@ -123,6 +128,8 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
             file_system_.CreateDirectory(URL("dir")));
   EXPECT_EQ(base::PLATFORM_FILE_OK,
             file_system_.CreateFile(URL("dir/foo")));
+
+  const int64 kOriginalQuota = QuotaManager::kSyncableStorageDefaultHostQuota;
 
   const int64 kQuota = 12345 * 1024;
   QuotaManager::kSyncableStorageDefaultHostQuota = kQuota;
@@ -163,13 +170,13 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
   // Now the usage must be zero.
   GetUsageAndQuota(&usage, NULL);
   EXPECT_EQ(0, usage);
+
+  // Restore the system default quota.
+  QuotaManager::kSyncableStorageDefaultHostQuota = kOriginalQuota;
 }
 
 // Combined testing with LocalFileChangeTracker.
 TEST_F(SyncableFileSystemTest, ChangeTrackerSimple) {
-  // Register a new change tracker (before opening a file system).
-  RegisterChangeTracker();
-
   EXPECT_EQ(base::PLATFORM_FILE_OK,
             file_system_.OpenFileSystem());
 

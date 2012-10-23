@@ -18,7 +18,7 @@ using ui::NativeTheme;
 namespace views {
 
 void MenuItemView::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
-  const MenuConfig& config = MenuConfig::instance();
+  const MenuConfig& config = GetMenuConfig();
 
   // Hook to make sure the enabled state gets update.
   SetEnabled(GetDelegate()->IsCommandEnabled(GetCommand()));
@@ -143,7 +143,7 @@ void MenuItemView::PaintCheck(gfx::Canvas* canvas,
   }
 
   int top_margin = GetTopMargin();
-  int icon_x = MenuConfig::instance().item_left_margin;
+  int icon_x = GetMenuConfig().item_left_margin;
   int icon_y = top_margin +
       (height() - top_margin - GetBottomMargin() - icon_height) / 2;
   NativeTheme::ExtraParams extra;

@@ -478,26 +478,26 @@ const char kUrlBlacklist[] = "policy.url_blacklist";
 // Allows access to the listed host patterns, as exceptions to the blacklist.
 const char kUrlWhitelist[] = "policy.url_whitelist";
 
-// Double pref for a scaling factor used to slow down animations.
-const char kInstantAnimationScaleFactor[] =
-    "instant.animation_scale_factor";
-
 // Boolean pref indicating whether the instant confirm dialog has been shown.
 const char kInstantConfirmDialogShown[] = "instant.confirm_dialog_shown";
 
 // Boolean pref indicating if instant is enabled.
 const char kInstantEnabled[] = "instant.enabled";
 
-// Prefix URL for the (experimental) ZeroSuggest provider.
-const char kExperimentalZeroSuggestUrlPrefix[] =
-    "instant.experimental_zero_suggest_url_prefix";
+// Double pref for a scaling factor used to slow down animations.
+const char kInstantUIAnimationScaleFactor[] =
+    "instant_ui.animation_scale_factor";
 
-// Boolean pref indicating if instant search provider logo should be shown.
-const char kInstantShowSearchProviderLogo[] =
-    "instant.show_search_provider_logo";
+// Boolean pref indicating if Instant search provider logo should be shown.
+const char kInstantUIShowSearchProviderLogo[] =
+    "instant_ui.show_search_provider_logo";
 
 // Boolean pref indicating a white NTP background is desired.
-const char kInstantShowWhiteNTP[] = "instant.show_white_ntp";
+const char kInstantUIShowWhiteNTP[] = "instant_ui.show_white_ntp";
+
+// Prefix URL for the experimental Instant ZeroSuggest provider.
+const char kInstantUIZeroSuggestUrlPrefix[] =
+    "instant_ui.zero_suggest_url_prefix";
 
 // Used to migrate preferences from local state to user preferences to
 // enable multiple profiles.
@@ -530,10 +530,6 @@ const char kDefaultAppsInstallState[] = "default_apps_install_state";
 // when the policy is lifted the original mute state is restored.
 const char kAudioMute[] = "settings.audio.mute";
 
-// TODO(derat): This is deprecated in favor of |kAudioVolumePercent|; remove it
-// after R20 once we've cleared old user settings: http://crbug.com/112039
-const char kAudioVolumeDb[] = "settings.audio.volume";
-
 // A double pref storing the user-requested volume.
 const char kAudioVolumePercent[] = "settings.audio.volume_percent";
 
@@ -559,14 +555,17 @@ const char kTouchpadSensitivity[] = "settings.touchpad.sensitivity2";
 // A boolean pref set to true if time should be displayed in 24-hour clock.
 const char kUse24HourClock[] = "settings.clock.use_24hour_clock";
 
-// A boolean pref to disable gdata.
-const char kDisableGData[] = "gdata.disabled";
+// A boolean pref to disable Google Drive integration.
+// The pref prefix should remain as "gdata" for backward compatibility.
+const char kDisableDrive[] = "gdata.disabled";
 
-// A boolean pref to disable gdata over cellular connections.
-const char kDisableGDataOverCellular[] = "gdata.cellular.disabled";
+// A boolean pref to disable Drive over cellular connections.
+// The pref prefix should remain as "gdata" for backward compatibility.
+const char kDisableDriveOverCellular[] = "gdata.cellular.disabled";
 
-// A boolean pref to disable gdata hosted files.
-const char kDisableGDataHostedFiles[] = "gdata.hosted_files.disabled";
+// A boolean pref to disable hosted files on Drive.
+// The pref prefix should remain as "gdata" for backward compatibility.
+const char kDisableDriveHostedFiles[] = "gdata.hosted_files.disabled";
 
 // A string pref set to the current input method.
 const char kLanguageCurrentInputMethod[] =
@@ -769,6 +768,11 @@ const char kOAuth1Secret[] = "settings.account.oauth1_secret";
 // A boolean pref that enables the (private) pepper GetID() call.
 const char kEnableCrosDRM[] = "settings.privacy.drm_enabled";
 
+// A dictionary pref that specifies per-display overscan data.  Its key is the
+// display's ID and its value is a dictionary of canceling overscan pixels for
+// 'top', 'right', 'bottom', 'left'.
+const char kDisplayOverscans[] = "settings.display.overscans";
+
 // A 64bit integer pref that specifies the name of the primary display device.
 const char kPrimaryDisplayID[] = "settings.display.primary_id";
 
@@ -858,6 +862,10 @@ const char kExtensionToolbarSize[] = "extensions.toolbarsize";
 // extension + named command pair.
 const char kExtensionCommands[] = "extensions.commands";
 
+// Integer pref that tracks how often the bubble has been shown to the user.
+const char kExtensionsSideloadWipeoutBubbleShown[] =
+    "extensions.sideload_wipeout_bubble_shown";
+
 // Pref containing the directory for internal plugins as written to the plugins
 // list (below).
 const char kPluginsLastInternalDirectory[] = "plugins.last_internal_directory";
@@ -874,10 +882,6 @@ const char kPluginsDisabledPluginsExceptions[] =
 
 // List pref containing names of plugins that are enabled by policy.
 const char kPluginsEnabledPlugins[] = "plugins.plugins_enabled";
-
-// List pref containing names and versions of plugins disabled by policy.
-const char kPluginsDisabledPluginsByVersion[] =
-    "plugins.plugins_disabled_by_version";
 
 // When first shipped, the pdf plugin will be disabled by default.  When we
 // enable it by default, we'll want to do so only once.
@@ -1514,15 +1518,8 @@ const char kNtpCollapsedForeignSessions[] = "ntp.collapsed_foreign_sessions";
 // New Tab Page URLs that should not be shown as most visited thumbnails.
 const char kNtpMostVisitedURLsBlacklist[] = "ntp.most_visited_blacklist";
 
-// Data downloaded from promo resource pages (JSON, RSS) to be used to
-// dynamically deliver data for the new tab page.
-const char kNtpPromoResourceCache[] = "ntp.promo_resource_cache";
-
 // Last time of update of promo_resource_cache.
 const char kNtpPromoResourceCacheUpdate[] = "ntp.promo_resource_cache_update";
-
-// Serves promo resources for the NTP.
-const char kNtpPromoResourceServer[] = "ntp.web_resource_server";
 
 // Serves tips for the NTP.
 const char kNtpTipsResourceServer[] = "ntp.tips_resource_server";
@@ -1535,18 +1532,6 @@ const char kNtpShownBookmarksFolder[] = "ntp.shown_bookmarks_folder";
 
 // Which page should be visible on the new tab page v4
 const char kNtpShownPage[] = "ntp.shown_page";
-
-// TODO(achuith): Deprecated, will be removed (M23)
-// Dates between which the NTP should show a custom logo rather than the
-// standard one.
-const char kNtpCustomLogoStart[] = "ntp.alt_logo_start";
-const char kNtpCustomLogoEnd[] = "ntp.alt_logo_end";
-
-// The promo resource service version number.
-const char kNtpPromoVersion[] = "ntp.promo_version";
-
-// The last locale the promo was fetched for.
-const char kNtpPromoLocale[] = "ntp.promo_locale";
 
 // True if a desktop sync session was found for this user.
 const char kNtpPromoDesktopSessionFound[] = "ntp.promo_desktop_session_found";
@@ -1638,6 +1623,7 @@ const char kSyncExtensions[] = "sync.extensions";
 const char kSyncExtensionSettings[] = "sync.extension_settings";
 const char kSyncSearchEngines[] = "sync.search_engines";
 const char kSyncSessions[] = "sync.sessions";
+const char kSyncHistoryDeleteDirectives[] = "sync.history_delete_directives";
 
 // Boolean used by enterprise configuration management in order to lock down
 // sync.

@@ -15,13 +15,13 @@
 #include "base/command_line.h"
 #include "base/guid.h"
 #include "base/logging.h"
+#include "base/prefs/public/pref_service_base.h"
 #include "base/string16.h"
 #include "base/string_util.h"
 #include "base/supports_user_data.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/api/infobars/infobar_service.h"
-#include "chrome/browser/api/prefs/pref_service_base.h"
 #include "chrome/browser/api/sync/profile_sync_service_base.h"
 #include "chrome/browser/autofill/autocomplete_history_manager.h"
 #include "chrome/browser/autofill/autofill_cc_infobar_delegate.h"
@@ -39,7 +39,6 @@
 #include "chrome/browser/autofill/phone_number.h"
 #include "chrome/browser/autofill/phone_number_i18n.h"
 #include "chrome/browser/autofill/select_control_handler.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/autofill_messages.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -198,6 +197,7 @@ AutofillManager::AutofillManager(content::WebContents* web_contents,
       personal_data_(NULL),
       download_manager_(delegate->GetBrowserContext(), this),
       disable_download_manager_requests_(false),
+      autocomplete_history_manager_(web_contents),
       metric_logger_(new AutofillMetrics),
       has_logged_autofill_enabled_(false),
       has_logged_address_suggestions_count_(false),
@@ -213,10 +213,6 @@ AutofillManager::AutofillManager(content::WebContents* web_contents,
   RegisterWithSyncService();
   registrar_.Init(manager_delegate_->GetPrefs());
   registrar_.Add(prefs::kPasswordGenerationEnabled, this);
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
-  notification_registrar_.Add(this,
-      chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
-      content::Source<TabContents>(tab_contents));
 }
 
 AutofillManager::~AutofillManager() {
@@ -300,18 +296,10 @@ void AutofillManager::Observe(
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  if (type == chrome::NOTIFICATION_PREF_CHANGED) {
+  DCHECK_EQ(chrome::NOTIFICATION_PREF_CHANGED, type);
   std::string* pref = content::Details<std::string>(details).ptr();
-    DCHECK(prefs::kPasswordGenerationEnabled == *pref);
+  DCHECK(prefs::kPasswordGenerationEnabled == *pref);
   UpdatePasswordGenerationState(web_contents()->GetRenderViewHost(), false);
-  } else if (type == chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED) {
-    ProfileSyncServiceBase* service =
-        manager_delegate_->GetProfileSyncService();
-    if (service != NULL && service->HasObserver(this))
-      service->RemoveObserver(this);
-  } else {
-    NOTREACHED();
-  }
 }
 
 void AutofillManager::OnStateChanged() {
@@ -327,6 +315,14 @@ void AutofillManager::DidNavigateMainFrame(
     const content::LoadCommittedDetails& details,
     const content::FrameNavigateParams& params) {
   Reset();
+}
+
+void AutofillManager::SetExternalDelegate(AutofillExternalDelegate* delegate) {
+  // TODO(jrg): consider passing delegate into the ctor.  That won't
+  // work if the delegate has a pointer to the AutofillManager, but
+  // future directions may not need such a pointer.
+  external_delegate_ = delegate;
+  autocomplete_history_manager_.SetExternalDelegate(delegate);
 }
 
 bool AutofillManager::HasExternalDelegate() {
@@ -370,11 +366,16 @@ bool AutofillManager::OnMessageReceived(const IPC::Message& message) {
   return handled;
 }
 
+void AutofillManager::WebContentsDestroyed(content::WebContents* web_contents) {
+  ProfileSyncServiceBase* service = manager_delegate_->GetProfileSyncService();
+  if (service && service->HasObserver(this))
+    service->RemoveObserver(this);
+}
+
 bool AutofillManager::OnFormSubmitted(const FormData& form,
                                       const TimeTicks& timestamp) {
   // Let AutoComplete know as well.
-  AutocompleteHistoryManager::FromWebContents(web_contents())->
-      OnFormSubmitted(form);
+  autocomplete_history_manager_.OnFormSubmitted(form);
 
   if (!IsAutofillEnabled())
     return false;
@@ -576,9 +577,8 @@ void AutofillManager::OnQueryFormFieldAutofill(int query_id,
   // Add the results from AutoComplete.  They come back asynchronously, so we
   // hand off what we generated and they will send the results back to the
   // renderer.
-  AutocompleteHistoryManager::FromWebContents(web_contents())->
-      OnGetAutocompleteSuggestions(
-          query_id, field.name, field.value, values, labels, icons, unique_ids);
+  autocomplete_history_manager_.OnGetAutocompleteSuggestions(
+      query_id, field.name, field.value, values, labels, icons, unique_ids);
 }
 
 void AutofillManager::OnFillAutofillFormData(int query_id,
@@ -765,6 +765,11 @@ void AutofillManager::RemoveAutofillProfileOrCreditCard(int unique_id) {
     personal_data_->RemoveCreditCard(credit_card->guid());
 }
 
+void AutofillManager::RemoveAutocompleteEntry(const string16& name,
+                                              const string16& value) {
+  autocomplete_history_manager_.OnRemoveAutocompleteEntry(name, value);
+}
+
 void AutofillManager::OnAddPasswordFormMapping(
       const FormFieldData& form,
       const PasswordFormFillData& fill_data) {
@@ -910,6 +915,7 @@ AutofillManager::AutofillManager(content::WebContents* web_contents,
       personal_data_(personal_data),
       download_manager_(delegate->GetBrowserContext(), this),
       disable_download_manager_requests_(true),
+      autocomplete_history_manager_(web_contents),
       metric_logger_(new AutofillMetrics),
       has_logged_autofill_enabled_(false),
       has_logged_address_suggestions_count_(false),

@@ -90,7 +90,7 @@ void SnapSizer::SelectDefaultSizeAndDisableResize() {
 }
 
 gfx::Rect SnapSizer::GetTargetBoundsForSize(size_t size_index) const {
-  gfx::Rect work_area(ScreenAsh::GetUnmaximizedWorkAreaBoundsInParent(window_));
+  gfx::Rect work_area(ScreenAsh::GetDisplayWorkAreaBoundsInParent(window_));
   int y = work_area.y();
   // We don't align to the bottom of the grid as the launcher may not
   // necessarily align to the grid (happens when auto-hidden).
@@ -100,9 +100,10 @@ gfx::Rect SnapSizer::GetTargetBoundsForSize(size_t size_index) const {
     width = std::max(1024, work_area.width() / 2);
   } else {
     while (width >= work_area.width()) {
+      ++size_index;
       if (size_index >= arraysize(kSizes))
         break;
-      width = kSizes[++size_index];
+      width = kSizes[size_index];
     }
   }
 

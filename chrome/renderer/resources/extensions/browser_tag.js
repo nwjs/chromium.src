@@ -9,6 +9,24 @@
 
 var BROWSER_TAG_ATTRIBUTES = ['src', 'width', 'height'];
 
+var BROWSER_TAG_READONLY_ATTRIBUTES = ['contentWindow'];
+
+// All exposed api methods for <browser>, these are forwarded to the browser
+// plugin.
+var BROWSER_TAG_API_METHODS = [
+    'addEventListener',
+    'back',
+    'canGoBack',
+    'canGoForward',
+    'forward',
+    'getProcessId',
+    'go',
+    'reload',
+    'removeEventListener',
+    'stop',
+    'terminate'
+    ];
+
 window.addEventListener('DOMContentLoaded', function() {
   // Handle <browser> tags already in the document.
   var browserNodes = document.body.querySelectorAll('browser');
@@ -39,7 +57,14 @@ function BrowserTag(node) {
   this.objectNode_ = document.createElement('object');
   this.objectNode_.type = 'application/browser-plugin';
   BROWSER_TAG_ATTRIBUTES.forEach(this.copyAttribute_, this);
+
   shadowRoot.appendChild(this.objectNode_);
+
+  // this.objectNode_[apiMethod] are defined after the shadow object is appended
+  // to the shadow root.
+  BROWSER_TAG_API_METHODS.forEach(function(apiMethod) {
+    node[apiMethod] = this.objectNode_[apiMethod].bind(this.objectNode_);
+  }, this);
 
   // Map attribute modifications on the <browser> tag to changes on the
   // underlying <object> node.
@@ -51,10 +76,17 @@ function BrowserTag(node) {
       this.node_,
       {attributes: true, attributeFilter: BROWSER_TAG_ATTRIBUTES});
 
+  var objectNode = this.objectNode_;
   // Expose getters and setters for the attributes.
   BROWSER_TAG_ATTRIBUTES.forEach(function(attributeName) {
     Object.defineProperty(this.node_, attributeName, {
       get: function() {
+        if (attributeName == 'src') {
+          // Always read src attribute from the plugin <object> since: a) It can
+          // have different value when empty src is set. b) BrowserPlugin
+          // updates its src attribute on guest-initiated navigations.
+          return objectNode.src;
+        }
         var value = node.getAttribute(attributeName);
         var numericValue = parseInt(value, 10);
         return isNaN(numericValue) ? value : numericValue;
@@ -64,6 +96,19 @@ function BrowserTag(node) {
       },
       enumerable: true
     });
+  }, this);
+
+  // We cannot use {writable: true} property descriptor because we want dynamic
+  // getter value.
+  BROWSER_TAG_READONLY_ATTRIBUTES.forEach(function(attributeName) {
+    Object.defineProperty(this.node_, attributeName, {
+      get: function() {
+        // Read these attributes from the plugin <object>.
+        return objectNode[attributeName];
+      },
+      // No setter.
+      enumerable: true
+    })
   }, this);
 };
 

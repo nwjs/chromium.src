@@ -467,7 +467,8 @@ void Widget::CenterWindow(const gfx::Size& size) {
 
 void Widget::SetBoundsConstrained(const gfx::Rect& bounds) {
   gfx::Rect work_area =
-      gfx::Screen::GetDisplayNearestPoint(bounds.origin()).work_area();
+      gfx::Screen::GetScreenFor(GetNativeView())->GetDisplayNearestPoint(
+          bounds.origin()).work_area();
   if (work_area.IsEmpty()) {
     SetBounds(bounds);
   } else {
@@ -1039,12 +1040,15 @@ bool Widget::OnNativeWidgetPaintAccelerated(const gfx::Rect& dirty_region) {
   if (!compositor)
     return false;
 
+#if defined(OS_WIN) && defined(USE_AURA)
+  compositor->ScheduleDraw();
+#else
   // If the root view is animating, it is likely that it does not cover the same
   // set of pixels it did at the last frame, so we must clear when compositing
   // to avoid leaving ghosts.
   bool force_clear = false;
   if (GetRootView()->layer()) {
-    const ui::Transform& layer_transform = GetRootView()->layer()->transform();
+    const gfx::Transform& layer_transform = GetRootView()->layer()->transform();
     if (layer_transform != GetRootView()->GetTransform()) {
       // The layer has not caught up to the view (i.e., the layer is still
       // animating), and so a clear is required.
@@ -1065,6 +1069,7 @@ bool Widget::OnNativeWidgetPaintAccelerated(const gfx::Rect& dirty_region) {
   }
 
   compositor->Draw(force_clear);
+#endif
   return true;
 }
 

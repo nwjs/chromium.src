@@ -117,6 +117,11 @@
                   'chrome/browser/ui/webui/chromeos/login/|'\
                   'chrome/browser/resources/chromeos/login/',
     },
+    'chromeos_net': {
+      'filepath': 'chromeos/network/|'\
+                  'chrome/browser/chromeos/cros/|'\
+                  'chrome/browser/chromeos/net/',
+    },
     'chromeos_webui': {
       'filepath': 'chrome/browser/ui/webui/chromeos/|'\
                   'chrome/browser/resources/chromeos/',
@@ -338,6 +343,14 @@
                   '|content/common/.*speech'\
                   '|content/public/.*speech'
     },
+    'spellcheck': {
+      'filepath': 'chrome/browser/spellchecker/'\
+                   '|chrome/browser/tab_contents/spellchecker'\
+                   '|chrome/browser/tab_contents/spelling_menu'\
+                   '|chrome/common/spellcheck_'\
+                   '|chrome/renderer/spellchecker/'\
+                   '|webkit/tools/test_shell/mock_spellcheck'
+    },
     'sync': {
       'filepath': 'chrome/browser/sync/|sync/',
     },
@@ -488,6 +501,9 @@
     'chromedriver': ['kkania@chromium.org'],
     'chromeos' : ['oshima+watch@chromium.org',
                   'stevenjb+watch@chromium.org'],
+    'chromeos_net' : ['gauravsh+watch@chromium.org',
+                      'gspencer+watch@chromium.org',
+                      'stevenjb+watch@chromium.org'],
     'chromeos_webui': ['nkostylev+watch@chromium.org'],
     'clang_update': ['fischman+watch@chromium.org', 'ukai+watch@chromium.org',
                      'glotov+watch@chromium.org'],
@@ -503,7 +519,7 @@
     'download': ['rdsmith+dwatch@chromium.org'],
     'downloads_ui': ['asanka@chromium.org', 'rdsmith@chromium.org'],
     'extension': ['aa@chromium.org',
-                  'mihaip-chromium-reviews@chromium.org'],
+                  'chromium-apps-reviews@chromium.org'],
     'fileapi': ['kinuko+watch@chromium.org', 'tzik+watch@chromium.org'],
     'filebrowse': ['rginda+watch@chromium.org'],
     'ftp': ['phajdan.jr@chromium.org'],
@@ -550,7 +566,7 @@
                   'dominich+watch@chromium.org', 'mmenke@chromium.org',
                   'gavinp+prer@chromium.org'],
     'pyauto': ['anantha@chromium.org',
-               'nirnimesh@chromium.org', 'dyu@chromium.org',
+               'dyu@chromium.org',
                'dennisjeffrey@chromium.org'],
     'remoting': ['alexeypa+watch@chromium.org',
                  'dcaiafa+watch@chromium.org',
@@ -570,6 +586,8 @@
     'shell_window': ['jeremya+watch@chromium.org'],
     'site_instance': ['creis+watch@chromium.org', 'ajwong+watch@chromium.org'],
     'speech': ['satish@chromium.org'],
+    'spellcheck': ['groby+spellwatch@chromium.org',
+                   'rlp@chromium.org'],
     'sync': ['akalin@chromium.org',
              'haitaol@chromium.org',
              'rsimha@chromium.org',

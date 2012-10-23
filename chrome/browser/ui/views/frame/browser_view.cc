@@ -16,12 +16,11 @@
 #include "chrome/app/chrome_dll_resource.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
+#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/managed_mode.h"
 #include "chrome/browser/native_window_notification_source.h"
-#include "chrome/browser/ntp_background_util.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/avatar_menu_model.h"
@@ -39,15 +38,18 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_instant_controller.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window_state.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/ntp_background_util.h"
 #include "chrome/browser/ui/search/search.h"
 #include "chrome/browser/ui/search/search_delegate.h"
 #include "chrome/browser/ui/search/search_model.h"
+#include "chrome/browser/ui/search/search_ui.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -61,6 +63,7 @@
 #include "chrome/browser/ui/views/download/download_shelf_view.h"
 #include "chrome/browser/ui/views/frame/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/contents_container.h"
+#include "chrome/browser/ui/views/frame/instant_preview_controller_views.h"
 #include "chrome/browser/ui/views/fullscreen_exit_bubble_views.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_container.h"
@@ -133,7 +136,7 @@
 
 #if defined(USE_AURA)
 #include "chrome/browser/ui/views/accelerator_table.h"
-#include "chrome/browser/ui/views/search_view_controller.h"
+#include "chrome/browser/ui/views/search/search_view_controller.h"
 #include "chrome/browser/ui/webui/task_manager/task_manager_dialog.h"
 #include "ui/aura/window.h"
 #include "ui/gfx/screen.h"
@@ -238,9 +241,10 @@ void BookmarkExtensionBackground::Paint(gfx::Canvas* canvas,
     if (contents && contents->GetView())
       height = contents->GetView()->GetContainerSize().height();
     NtpBackgroundUtil::PaintBackgroundDetachedMode(
-        host_view_->GetThemeProvider(), canvas,
+        browser_->profile(), canvas,
         gfx::Rect(0, toolbar_overlap, host_view_->width(),
-                  host_view_->height() - toolbar_overlap), height);
+                  host_view_->height() - toolbar_overlap),
+        height);
 
     // As 'hidden' according to the animation is the full in-tab state,
     // we invert the value - when current_state is at '0', we expect the
@@ -263,13 +267,19 @@ void BookmarkExtensionBackground::Paint(gfx::Canvas* canvas,
     if (!toolbar_overlap)
       DetachableToolbarView::PaintHorizontalBorder(canvas, host_view_);
   } else {
+    Profile* profile = browser_view_->browser()->profile();
+    bool is_instant_extended_api_enabled =
+        chrome::search::IsInstantExtendedAPIEnabled(profile);
+    chrome::search::Mode::Type search_mode =
+        browser_view_->browser()->search_model()->mode().mode;
+    bool use_ntp_background_theme = false;
     DetachableToolbarView::PaintBackgroundAttachedMode(canvas, host_view_,
         browser_view_->OffsetPointForToolbarBackgroundImage(
-        gfx::Point(host_view_->GetMirroredX(), host_view_->y())),
-        browser_view_->GetToolbarBackgroundColor(
-            browser_view_->browser()->search_model()->mode().mode),
-        browser_view_->GetToolbarBackgroundImage(
-            browser_view_->browser()->search_model()->mode().mode));
+            gfx::Point(host_view_->GetMirroredX(), host_view_->y())),
+        chrome::search::GetToolbarBackgroundColor(profile, search_mode),
+        chrome::search::GetTopChromeBackgroundImage(tp,
+            is_instant_extended_api_enabled, search_mode,
+            InstantUI::ShouldShowWhiteNTP(profile), &use_ntp_background_theme));
     if (host_view_->height() >= toolbar_overlap)
       DetachableToolbarView::PaintHorizontalBorder(canvas, host_view_);
   }
@@ -339,7 +349,6 @@ BrowserView::BrowserView(Browser* browser)
       infobar_container_(NULL),
       contents_container_(NULL),
       devtools_container_(NULL),
-      preview_container_(NULL),
       contents_(NULL),
       contents_split_(NULL),
       devtools_dock_side_(DEVTOOLS_DOCK_SIDE_BOTTOM),
@@ -367,6 +376,8 @@ BrowserView::~BrowserView() {
 #if defined(USE_AURA)
   search_view_controller_.reset(NULL);
 #endif
+
+  preview_controller_.reset(NULL);
 
   browser_->tab_strip_model()->RemoveObserver(this);
   browser_->search_model()->RemoveObserver(this);
@@ -684,8 +695,7 @@ void BrowserView::SetDevToolsDockSide(DevToolsDockSide side) {
 
   if (devtools_container_->visible()) {
     HideDevToolsContainer();
-    devtools_dock_side_ = side;
-    ShowDevToolsContainer();
+    ShowDevToolsContainer(side);
   } else {
     devtools_dock_side_ = side;
   }
@@ -877,54 +887,6 @@ void BrowserView::ToolbarSizeChanged(bool is_animating) {
   if ((call_state == NORMAL) && !is_animating) {
     contents_container_->InvalidateLayout();
     contents_split_->Layout();
-  }
-}
-
-SkColor BrowserView::GetToolbarBackgroundColor(
-    chrome::search::Mode::Type mode) {
-  ui::ThemeProvider* theme_provider = GetThemeProvider();
-  DCHECK(theme_provider);
-
-  if (!chrome::search::IsInstantExtendedAPIEnabled(browser()->profile()))
-    return theme_provider->GetColor(ThemeService::COLOR_TOOLBAR);
-
-  switch (mode) {
-    case chrome::search::Mode::MODE_NTP_LOADING:
-    case chrome::search::Mode::MODE_NTP:
-      return theme_provider->GetColor(
-          ThemeService::COLOR_SEARCH_NTP_BACKGROUND);
-
-    case chrome::search::Mode::MODE_SEARCH_SUGGESTIONS:
-    case chrome::search::Mode::MODE_SEARCH_RESULTS:
-      return theme_provider->GetColor(
-          ThemeService::COLOR_SEARCH_SEARCH_BACKGROUND);
-
-    case chrome::search::Mode::MODE_DEFAULT:
-    default:
-      return theme_provider->GetColor(
-          ThemeService::COLOR_SEARCH_DEFAULT_BACKGROUND);
-  }
-}
-
-gfx::ImageSkia* BrowserView::GetToolbarBackgroundImage(
-      chrome::search::Mode::Type mode) {
-  ui::ThemeProvider* theme_provider = GetThemeProvider();
-  DCHECK(theme_provider);
-  if (!chrome::search::IsInstantExtendedAPIEnabled(browser()->profile()))
-    return theme_provider->GetImageSkiaNamed(IDR_THEME_TOOLBAR);
-
-  switch (mode) {
-    case chrome::search::Mode::MODE_NTP_LOADING:
-    case chrome::search::Mode::MODE_NTP:
-      return InstantUI::ShouldShowWhiteNTP(browser()->profile()) ?
-          theme_provider->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND_WHITE) :
-          theme_provider->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND);
-
-    case chrome::search::Mode::MODE_SEARCH_SUGGESTIONS:
-    case chrome::search::Mode::MODE_SEARCH_RESULTS:
-    case chrome::search::Mode::MODE_DEFAULT:
-    default:
-      return theme_provider->GetImageSkiaNamed(IDR_THEME_TOOLBAR_SEARCH);
   }
 }
 
@@ -1218,7 +1180,10 @@ int BrowserView::GetExtraRenderViewHeight() const {
 }
 
 void BrowserView::WebContentsFocused(WebContents* contents) {
-  contents_container_->OnWebContentsFocused(contents);
+  if (contents_container_->GetWebContents() == contents)
+    contents_container_->OnWebContentsFocused(contents);
+  else
+    devtools_container_->OnWebContentsFocused(contents);
 }
 
 void BrowserView::ShowPageInfo(content::WebContents* web_contents,
@@ -1363,36 +1328,12 @@ void BrowserView::Paste() {
   }
 }
 
-void BrowserView::ShowInstant(TabContents* preview,
-                              int height,
-                              InstantSizeUnits units) {
-  if (!preview_container_) {
-    preview_container_ = new views::WebView(browser_->profile());
-    preview_container_->set_id(VIEW_ID_TAB_CONTAINER);
-  }
-  contents_->SetPreview(preview_container_, preview->web_contents(),
-                        height, units);
-  preview_container_->SetWebContents(preview->web_contents());
-  RestackLocationBarContainer();
-}
-
-void BrowserView::HideInstant() {
-  if (!preview_container_)
-    return;
-
-  // The contents must be changed before SetPreview is invoked.
-  preview_container_->SetWebContents(NULL);
-  contents_->SetPreview(NULL, NULL, 100, INSTANT_SIZE_PERCENT);
-  delete preview_container_;
-  preview_container_ = NULL;
-}
-
 gfx::Rect BrowserView::GetInstantBounds() {
   return contents_->GetPreviewBounds();
 }
 
 bool BrowserView::IsInstantTabShowing() {
-  return preview_container_ != NULL;
+  return preview_controller_->preview_container() != NULL;
 }
 
 WindowOpenDisposition BrowserView::GetDispositionForPopupBounds(
@@ -1488,10 +1429,9 @@ void BrowserView::TabReplacedAt(TabStripModel* tab_strip_model,
     // delete what was the active.
     contents_->MakePreviewContentsActiveContents();
     views::WebView* old_container = contents_container_;
-    contents_container_ = preview_container_;
+    contents_container_ = preview_controller_->release_preview_container();
     old_container->SetWebContents(NULL);
     delete old_container;
-    preview_container_ = NULL;
   }
   // Update the UI for the new contents.
   ProcessTabSelected(new_contents);
@@ -1966,7 +1906,7 @@ void BrowserView::Init() {
   BrowserTabStripController* tabstrip_controller =
       new BrowserTabStripController(browser_.get(),
                                     browser_->tab_strip_model());
-  tabstrip_ = new TabStrip(tabstrip_controller);
+  tabstrip_ = new TabStrip(tabstrip_controller, browser_->profile());
   AddChildView(tabstrip_);
   tabstrip_controller->InitFromModel(tabstrip_);
 
@@ -1986,7 +1926,7 @@ void BrowserView::Init() {
   Profile* profile = browser_->profile();
   if (chrome::search::IsInstantExtendedAPIEnabled(profile)) {
     search_view_controller_.reset(new SearchViewController(profile, contents_,
-        &browser()->search_delegate()->toolbar_search_animator(), toolbar_));
+        &browser()->search_delegate()->toolbar_search_animator(), this));
     omnibox_popup_parent =
         search_view_controller_->omnibox_popup_parent();
   }
@@ -2000,6 +1940,9 @@ void BrowserView::Init() {
         toolbar_->location_bar_container());
   }
 #endif
+
+  preview_controller_.reset(
+      new InstantPreviewControllerViews(browser(), this, contents_));
 
   SkColor bg_color = GetWidget()->GetThemeProvider()->
       GetColor(ThemeService::COLOR_TOOLBAR);
@@ -2115,12 +2058,19 @@ bool BrowserView::MaybeShowInfoBar(TabContents* contents) {
 }
 
 void BrowserView::UpdateDevToolsForContents(TabContents* tab_contents) {
-  WebContents* devtools_contents = NULL;
-  if (tab_contents) {
-    TabContents* devtools_tab_contents =
-        DevToolsWindow::GetDevToolsContents(tab_contents->web_contents());
-    if (devtools_tab_contents)
-      devtools_contents = devtools_tab_contents->web_contents();
+  DevToolsWindow* devtools_window = tab_contents ?
+      DevToolsWindow::GetDockedInstanceForInspectedTab(
+          tab_contents->web_contents()) : NULL;
+  TabContents* devtools_tab_contents =
+      devtools_window ? devtools_window->tab_contents() : NULL;
+  WebContents* devtools_contents = devtools_tab_contents ?
+      devtools_tab_contents->web_contents() : NULL;
+
+  if (devtools_contents == devtools_container_->web_contents()) {
+    if (devtools_contents &&
+        devtools_window->dock_side() != devtools_dock_side_)
+      SetDevToolsDockSide(devtools_window->dock_side());
+    return;
   }
 
   bool should_show = devtools_contents && !devtools_container_->visible();
@@ -2130,12 +2080,13 @@ void BrowserView::UpdateDevToolsForContents(TabContents* tab_contents) {
   RestackLocationBarContainer();
 
   if (should_show)
-    ShowDevToolsContainer();
+    ShowDevToolsContainer(devtools_window->dock_side());
   else if (should_hide)
     HideDevToolsContainer();
 }
 
-void BrowserView::ShowDevToolsContainer() {
+void BrowserView::ShowDevToolsContainer(DevToolsDockSide dock_side) {
+  devtools_dock_side_ = dock_side;
   if (!devtools_focus_tracker_.get()) {
     // Install devtools focus tracker when dev tools window is shown for the
     // first time.
@@ -2512,11 +2463,13 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
   // reparent the |contents_container_|.
   if (change_tab_contents)
     contents_container_->SetWebContents(NULL);
+  InfoBarTabHelper* new_infobar_tab_helper =
+      InfoBarTabHelper::FromWebContents(new_contents->web_contents());
   // Hide infobars when showing Instant Extended suggestions.
   infobar_container_->ChangeTabContents(
       (chrome::search::IsInstantExtendedAPIEnabled(browser()->profile()) &&
           browser()->search_model()->mode().is_search_suggestions()) ?
-          NULL : new_contents->infobar_tab_helper());
+          NULL : new_infobar_tab_helper);
   if (bookmark_bar_view_.get()) {
     bookmark_bar_view_->SetBookmarkBarState(
         browser_->bookmark_bar_state(),
@@ -2531,10 +2484,13 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
     search_view_controller_->SetTabContents(new_contents);
 #endif
 
+  // Layout for DevTools _before_ setting the main WebContents to avoid
+  // toggling the size of the main WebContents.
+  UpdateDevToolsForContents(new_contents);
+
   if (change_tab_contents)
     contents_container_->SetWebContents(new_contents->web_contents());
 
-  UpdateDevToolsForContents(new_contents);
   if (!browser_->tab_strip_model()->closing_all() && GetWidget()->IsActive() &&
       GetWidget()->IsVisible()) {
     // We only restore focus if our window is visible, to avoid invoking blur
@@ -2568,7 +2524,8 @@ void BrowserView::ModeChanged(const chrome::search::Mode& old_mode,
   bool hide_infobars = new_mode.is_search_suggestions() ||
       (old_mode.is_search_suggestions() && new_mode.is_default());
   infobar_container_->ChangeTabContents(
-      hide_infobars ? NULL : GetActiveTabContents()->infobar_tab_helper());
+      hide_infobars
+          ? NULL : InfoBarTabHelper::FromWebContents(GetActiveWebContents()));
 }
 
 void BrowserView::CreateLauncherIcon() {
@@ -2645,11 +2602,13 @@ void BrowserView::RestackLocationBarContainer() {
 #if defined(USE_AURA)
   if (search_view_controller_.get())
     search_view_controller_->StackAtTop();
-  if (preview_container_) {
+  if (preview_controller_ && preview_controller_->preview_container() &&
+      preview_controller_->preview_container()->web_contents()) {
     // Keep the preview on top so that a doodle can be shown on the NTP in
     // InstantExtended mode.
     ui::Layer* native_view_layer =
-        preview_container_->web_contents()->GetNativeView()->layer();
+        preview_controller_->preview_container()->web_contents()->
+            GetNativeView()->layer();
     native_view_layer->parent()->StackAtTop(native_view_layer);
   }
 #endif

@@ -114,7 +114,8 @@ using content::UserMetricsAction;
 namespace options {
 
 BrowserOptionsHandler::BrowserOptionsHandler()
-    : template_url_service_(NULL),
+    : page_initialized_(false),
+      template_url_service_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_for_file_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_for_ui_(this)) {
   multiprofile_ = ProfileManager::IsMultipleProfilesEnabled();
@@ -378,22 +379,20 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
           l10n_util::GetStringUTF16(IDS_PRODUCT_NAME)));
 
 #if defined(OS_CHROMEOS)
-    values->SetString("username",
-        chromeos::UserManager::Get()->IsUserLoggedIn() ?
-            chromeos::UserManager::Get()->GetLoggedInUser().email() :
-            std::string());
+  const chromeos::User* user = chromeos::UserManager::Get()->GetLoggedInUser();
+  values->SetString("username", user ? user->email() : std::string());
 
-    values->SetString(
-        "factoryResetWarning",
-        l10n_util::GetStringFUTF16(
-            IDS_OPTIONS_FACTORY_RESET_WARNING,
-            l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
+  values->SetString(
+      "factoryResetWarning",
+      l10n_util::GetStringFUTF16(
+          IDS_OPTIONS_FACTORY_RESET_WARNING,
+          l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
 
-    values->SetString(
-        "factoryResetDescription",
-        l10n_util::GetStringFUTF16(
-            IDS_OPTIONS_FACTORY_RESET_DESCRIPTION,
-            l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
+  values->SetString(
+      "factoryResetDescription",
+      l10n_util::GetStringFUTF16(
+          IDS_OPTIONS_FACTORY_RESET_DESCRIPTION,
+          l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
 #endif
 
   // Pass along sync status early so it will be available during page init.
@@ -554,6 +553,10 @@ void BrowserOptionsHandler::OnStateChanged() {
   SendProfilesInfo();
 }
 
+void BrowserOptionsHandler::PageLoadStarted() {
+  page_initialized_ = false;
+}
+
 void BrowserOptionsHandler::InitializeHandler() {
   Profile* profile = Profile::FromWebUI(web_ui());
   PrefService* prefs = profile->GetPrefs();
@@ -606,12 +609,13 @@ void BrowserOptionsHandler::InitializeHandler() {
   default_font_size_.Init(prefs::kWebKitDefaultFontSize, prefs, this);
   default_zoom_level_.Init(prefs::kDefaultZoomLevel, prefs, this);
 #if !defined(OS_CHROMEOS)
-  proxy_prefs_.reset(
-      PrefSetObserver::CreateProxyPrefSetObserver(prefs, this));
+  proxy_prefs_.Init(prefs);
+  proxy_prefs_.Add(prefs::kProxy, this);
 #endif  // !defined(OS_CHROMEOS)
 }
 
 void BrowserOptionsHandler::InitializePage() {
+  page_initialized_ = true;
   OnTemplateURLServiceChanged();
   ObserveThemeChanged();
   OnStateChanged();
@@ -783,7 +787,7 @@ void BrowserOptionsHandler::OnTemplateURLServiceChanged() {
   const TemplateURL* default_url =
       template_url_service_->GetDefaultSearchProvider();
 
-  int default_index = 0;
+  int default_index = -1;
   ListValue search_engines;
   TemplateURLService::TemplateURLVector model_urls(
       template_url_service_->GetTemplateURLs());
@@ -846,6 +850,13 @@ void BrowserOptionsHandler::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
+  // Notifications are used to update the UI dynamically when settings change in
+  // the background. If the UI is currently being loaded, no dynamic updates are
+  // possible (as the DOM and JS are not fully loaded) or necessary (as
+  // InitializePage() will update the UI at the end of the load).
+  if (!page_initialized_)
+    return;
+
   if (type == chrome::NOTIFICATION_BROWSER_THEME_CHANGED) {
     ObserveThemeChanged();
 #if defined(OS_CHROMEOS)
@@ -859,7 +870,7 @@ void BrowserOptionsHandler::Observe(
     } else if (*pref_name == prefs::kDownloadExtensionsToOpen) {
       SetupAutoOpenFileTypes();
 #if !defined(OS_CHROMEOS)
-    } else if (proxy_prefs_->IsObserved(*pref_name)) {
+    } else if (proxy_prefs_.IsObserved(*pref_name)) {
       SetupProxySettingsSection();
 #endif  // !defined(OS_CHROMEOS)
     } else if ((*pref_name == prefs::kCloudPrintEmail) ||
@@ -1022,7 +1033,7 @@ void BrowserOptionsHandler::ThemesSetGTK(const ListValue* args) {
 
 #if defined(OS_CHROMEOS)
 void BrowserOptionsHandler::UpdateAccountPicture() {
-  std::string email = chromeos::UserManager::Get()->GetLoggedInUser().email();
+  std::string email = chromeos::UserManager::Get()->GetLoggedInUser()->email();
   if (!email.empty()) {
     web_ui()->CallJavascriptFunction("BrowserOptions.updateAccountPicture");
     base::StringValue email_value(email);
@@ -1391,8 +1402,8 @@ void BrowserOptionsHandler::SetupProxySettingsSection() {
   bool is_extension_controlled = (proxy_config &&
                                   proxy_config->IsExtensionControlled());
 
-  base::FundamentalValue disabled(proxy_prefs_->IsManaged() ||
-                            is_extension_controlled);
+  base::FundamentalValue disabled(proxy_prefs_.IsManaged() ||
+                                  is_extension_controlled);
 
   // Get the appropriate info string to describe the button.
   string16 label_str;

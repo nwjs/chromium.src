@@ -28,23 +28,22 @@
 #include "ui/gl/gpu_preference.h"
 
 class CommandBufferProxy;
-class CommandBufferProxyImpl;
-struct GPUCreateCommandBufferConfig;
 class GURL;
-class TransportTextureService;
 class MessageLoop;
+class TransportTextureService;
+struct GPUCreateCommandBufferConfig;
 
 namespace base {
 class MessageLoopProxy;
 }
 
-namespace content {
-struct GpuRenderingStats;
-}
-
 namespace IPC {
 class SyncMessageFilter;
 }
+
+namespace content {
+class CommandBufferProxyImpl;
+struct GpuRenderingStats;
 
 struct GpuListenerInfo {
   GpuListenerInfo();
@@ -56,6 +55,8 @@ struct GpuListenerInfo {
 
 class CONTENT_EXPORT GpuChannelHostFactory {
  public:
+  typedef base::Callback<void(const gfx::Size)> CreateImageCallback;
+
   virtual ~GpuChannelHostFactory() {}
 
   virtual bool IsMainThread() = 0;
@@ -66,8 +67,12 @@ class CONTENT_EXPORT GpuChannelHostFactory {
   virtual scoped_ptr<base::SharedMemory> AllocateSharedMemory(uint32 size) = 0;
   virtual int32 CreateViewCommandBuffer(
       int32 surface_id, const GPUCreateCommandBufferConfig& init_params) = 0;
-  virtual GpuChannelHost* EstablishGpuChannelSync(
-      content::CauseForGpuLaunch) = 0;
+  virtual GpuChannelHost* EstablishGpuChannelSync(CauseForGpuLaunch) = 0;
+  virtual void CreateImage(
+      gfx::PluginWindowHandle window,
+      int32 image_id,
+      const CreateImageCallback& callback) = 0;
+  virtual void DeleteImage(int32 image_id, int32 sync_point) = 0;
 };
 
 // Encapsulates an IPC channel between the client and one GPU process.
@@ -99,8 +104,8 @@ class GpuChannelHost : public IPC::Sender,
   void SetStateLost();
 
   // The GPU stats reported by the GPU process.
-  void set_gpu_info(const content::GPUInfo& gpu_info);
-  const content::GPUInfo& gpu_info() const;
+  void set_gpu_info(const GPUInfo& gpu_info);
+  const GPUInfo& gpu_info() const;
 
   void OnChannelError();
 
@@ -137,7 +142,7 @@ class GpuChannelHost : public IPC::Sender,
 
   // Collect rendering stats from GPU process.
   bool CollectRenderingStatsForSurface(
-      int surface_id, content::GpuRenderingStats* stats);
+      int surface_id, GpuRenderingStats* stats);
 
   // Add a route for the current message loop.
   void AddRoute(int route_id, base::WeakPtr<IPC::Listener> listener);
@@ -182,7 +187,7 @@ class GpuChannelHost : public IPC::Sender,
 
   State state_;
 
-  content::GPUInfo gpu_info_;
+  GPUInfo gpu_info_;
 
   scoped_ptr<IPC::SyncChannel> channel_;
   scoped_refptr<MessageFilter> channel_filter_;
@@ -200,5 +205,7 @@ class GpuChannelHost : public IPC::Sender,
 
   DISALLOW_COPY_AND_ASSIGN(GpuChannelHost);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_COMMON_GPU_CLIENT_GPU_CHANNEL_HOST_H_

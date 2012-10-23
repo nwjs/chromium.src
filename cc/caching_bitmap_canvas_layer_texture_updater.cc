@@ -6,22 +6,27 @@
 
 #include "caching_bitmap_canvas_layer_texture_updater.h"
 
-#include "LayerPainterChromium.h"
+#include "cc/layer_painter.h"
 #include "skia/ext/platform_canvas.h"
 
 namespace cc {
 
-// Use lower-case on name to stay consistent with base-class.
-PassRefPtr<CachingBitmapCanvasLayerTextureUpdater>
-CachingBitmapCanvasLayerTextureUpdater::create(
-    PassOwnPtr<LayerPainterChromium> painter) {
-  return adoptRef(new CachingBitmapCanvasLayerTextureUpdater(painter));
+scoped_refptr<CachingBitmapCanvasLayerTextureUpdater>
+CachingBitmapCanvasLayerTextureUpdater::Create(
+    scoped_ptr<LayerPainter> painter) {
+  return make_scoped_refptr(new CachingBitmapCanvasLayerTextureUpdater(
+      painter.Pass()));
 }
 
 CachingBitmapCanvasLayerTextureUpdater::CachingBitmapCanvasLayerTextureUpdater(
-    PassOwnPtr<LayerPainterChromium> painter)
-    : BitmapCanvasLayerTextureUpdater(painter),
+    scoped_ptr<LayerPainter> painter)
+    : BitmapCanvasLayerTextureUpdater(painter.Pass()),
       pixels_did_change_(false) {
+}
+
+CachingBitmapCanvasLayerTextureUpdater::
+  ~CachingBitmapCanvasLayerTextureUpdater()
+{
 }
 
 void CachingBitmapCanvasLayerTextureUpdater::prepareToUpdate(
@@ -30,7 +35,7 @@ void CachingBitmapCanvasLayerTextureUpdater::prepareToUpdate(
     float contents_width_scale,
     float contents_height_scale,
     IntRect& resulting_opaque_rect,
-    CCRenderingStats& stats) {
+    RenderingStats& stats) {
   BitmapCanvasLayerTextureUpdater::prepareToUpdate(content_rect,
                                                    tile_size,
                                                    contents_width_scale,
@@ -40,7 +45,7 @@ void CachingBitmapCanvasLayerTextureUpdater::prepareToUpdate(
 
   const SkBitmap& new_bitmap = m_canvas->getDevice()->accessBitmap(false);
   SkAutoLockPixels lock(new_bitmap);
-  ASSERT(new_bitmap.bytesPerPixel() > 0);
+  DCHECK(new_bitmap.bytesPerPixel() > 0);
   pixels_did_change_ = new_bitmap.config() != cached_bitmap_.config() ||
                        new_bitmap.height() != cached_bitmap_.height() ||
                        new_bitmap.width() != cached_bitmap_.width() ||

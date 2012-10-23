@@ -17,6 +17,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "content/common/content_export.h"
+#include "content/public/renderer/context_menu_client.h"
 #include "content/public/renderer/render_view_observer.h"
 #include "content/renderer/mouse_lock_dispatcher.h"
 #include "content/renderer/pepper/pepper_parent_context_provider.h"
@@ -29,7 +30,6 @@
 #include "webkit/plugins/ppapi/ppb_flash_menu_impl.h"
 
 class FilePath;
-class RenderViewImpl;
 class TransportDIB;
 
 namespace gfx {
@@ -44,6 +44,7 @@ struct ChannelHandle;
 namespace ppapi {
 class PepperFilePath;
 class PPB_X509Certificate_Fields;
+class PpapiPermissions;
 }
 
 namespace ui {
@@ -66,17 +67,18 @@ struct WebCompositionUnderline;
 
 namespace content {
 
-struct CustomContextMenuContext;
 class GamepadSharedMemoryReader;
 class PepperBrokerImpl;
 class PepperDeviceEnumerationEventHandler;
 class PepperPluginDelegateImpl;
+class RenderViewImpl;
 
 class PepperPluginDelegateImpl
     : public webkit::ppapi::PluginDelegate,
       public base::SupportsWeakPtr<PepperPluginDelegateImpl>,
       public PepperParentContextProvider,
-      public RenderViewObserver {
+      public RenderViewObserver,
+      public ContextMenuClient {
  public:
   explicit PepperPluginDelegateImpl(RenderViewImpl* render_view);
   virtual ~PepperPluginDelegateImpl();
@@ -96,6 +98,15 @@ class PepperPluginDelegateImpl
   CreatePepperPluginModule(
       const webkit::WebPluginInfo& webplugin_info,
       bool* pepper_plugin_was_registered);
+
+  // Sets up the renderer host and out-of-process proxy for an external plugin
+  // module. Returns the renderer host, or NULL if it couldn't be created.
+  RendererPpapiHost* CreateExternalPluginModule(
+      scoped_refptr<webkit::ppapi::PluginModule> module,
+      const FilePath& path,
+      ppapi::PpapiPermissions permissions,
+      const IPC::ChannelHandle& channel_handle,
+      int plugin_child_id);
 
   // Creates a browser plugin instance given the process handle, and channel
   // handle to access the guest renderer.
@@ -353,14 +364,6 @@ class PepperPluginDelegateImpl
       webkit::ppapi::PluginInstance* instance,
       webkit::ppapi::PPB_Flash_Menu_Impl* menu,
       const gfx::Point& position) OVERRIDE;
-  void OnContextMenuClosed(
-      const CustomContextMenuContext& custom_context);
-  void OnCustomContextMenuAction(
-      const CustomContextMenuContext& custom_context,
-      unsigned action);
-  void CompleteShowContextMenu(int request_id,
-                               bool did_select,
-                               unsigned action);
   virtual webkit::ppapi::FullscreenContainer*
       CreateFullscreenContainer(
           webkit::ppapi::PluginInstance* instance) OVERRIDE;
@@ -471,6 +474,19 @@ class PepperPluginDelegateImpl
   scoped_refptr<PepperBrokerImpl> CreateBroker(
       webkit::ppapi::PluginModule* plugin_module);
 
+  // Create a new HostDispatcher for proxying, hook it to the PluginModule,
+  // and perform other common initialization.
+  RendererPpapiHost* CreateOutOfProcessModule(
+      webkit::ppapi::PluginModule* module,
+      const FilePath& path,
+      ppapi::PpapiPermissions permissions,
+      const IPC::ChannelHandle& channel_handle,
+      int plugin_child_id);
+
+  // ContextMenuClient implementation.
+  virtual void OnMenuAction(int request_id, unsigned action) OVERRIDE;
+  virtual void OnMenuClosed(int request_id) OVERRIDE;
+
   // Implementation of PepperParentContextProvider.
   virtual WebGraphicsContext3DCommandBufferImpl*
       GetParentContextForPlatformContext3D() OVERRIDE;
@@ -504,8 +520,10 @@ class PepperPluginDelegateImpl
 
   IDMap<ppapi::PPB_HostResolver_Shared> host_resolvers_;
 
-  IDMap<scoped_refptr<webkit::ppapi::PPB_Flash_Menu_Impl>,
-        IDMapOwnPointer> pending_context_menus_;
+  // Maps context menu request IDs to the menu resource to receive the result.
+  typedef std::map<int, scoped_refptr<webkit::ppapi::PPB_Flash_Menu_Impl> >
+      PendingContextMenuMap;
+  PendingContextMenuMap pending_context_menus_;
 
   typedef IDMap<scoped_refptr<PepperBrokerImpl>, IDMapOwnPointer> BrokerMap;
   BrokerMap pending_connect_broker_;

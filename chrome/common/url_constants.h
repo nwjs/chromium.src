@@ -288,6 +288,11 @@ extern const char kBluetoothAddDeviceSubPage[];
 // Extensions sub pages.
 extern const char kExtensionConfigureCommandsSubPage[];
 
+// URLs used to indicate that an extension resource load request
+// was invalid.
+extern const char kExtensionInvalidRequestURL[];
+extern const char kExtensionResourceInvalidRequestURL[];
+
 extern const char kSyncGoogleDashboardURL[];
 
 // "Learn more" URL for the auto password generation.
@@ -380,6 +385,9 @@ extern const char kSyncCreateNewAccountURL[];
 
 // The URL for the "Learn more" link in the Chrome To Mobile bubble.
 extern const char kChromeToMobileLearnMoreURL[];
+
+// The URL for the help article explaining sideload wipeout in more details.
+extern const char kSideloadWipeoutHelpURL[];
 
 #if defined(OS_CHROMEOS)
 // The URL for the "Learn more" link for natural scrolling on ChromeOS.

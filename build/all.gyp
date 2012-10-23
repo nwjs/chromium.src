@@ -33,6 +33,7 @@
           'dependencies': [
             '../cc/cc_tests.gyp:*',
             '../chrome/chrome.gyp:*',
+            '../device/device.gyp:*',
             '../gpu/gpu.gyp:*',
             '../gpu/tools/tools.gyp:*',
             '../ipc/ipc.gyp:*',
@@ -95,6 +96,13 @@
             ['branding=="Chrome"', {
               'dependencies': [
                 '../chrome/chrome.gyp:linux_packages_<(channel)',
+              ],
+            }],
+            ['chromeos==0', {
+              'dependencies': [
+                '../third_party/cros_dbus_cplusplus/cros_dbus_cplusplus.gyp:*',
+                '../third_party/libmtp/libmtp.gyp:*',
+                '../third_party/mtpd/mtpd.gyp:*',
               ],
             }],
           ],
@@ -191,6 +199,7 @@
             '../cloud_print/cloud_print.gyp:cloud_print_unittests',
             '../content/content.gyp:content_browsertests',
             '../content/content.gyp:content_unittests',
+            '../device/device.gyp:device_unittests',
             '../gpu/gpu.gyp:gpu_unittests',
             '../gpu/gles2_conform_support/gles2_conform_support.gyp:gles2_conform_support',
             '../ipc/ipc.gyp:ipc_tests',
@@ -359,6 +368,7 @@
             '../cloud_print/cloud_print.gyp:cloud_print_unittests',
             '../content/content.gyp:content_browsertests',
             '../content/content.gyp:content_unittests',
+            '../device/device.gyp:device_unittests',
             '../ui/ui.gyp:ui_unittests',
             '../gpu/gpu.gyp:gpu_unittests',
             '../ipc/ipc.gyp:ipc_tests',
@@ -390,6 +400,7 @@
             '../cloud_print/cloud_print.gyp:cloud_print_unittests',
             '../content/content.gyp:content_browsertests',
             '../content/content.gyp:content_unittests',
+            '../device/device.gyp:device_unittests',
             '../ui/ui.gyp:ui_unittests',
             '../gpu/gpu.gyp:gpu_unittests',
             '../ipc/ipc.gyp:ipc_tests',
@@ -448,6 +459,7 @@
             '../chrome/chrome.gyp:safe_browsing_tests',
             '../chrome/chrome.gyp:unit_tests',
             '../content/content.gyp:content_unittests',
+            '../device/device.gyp:device_unittests',
             '../ui/ui.gyp:ui_unittests',
             '../jingle/jingle.gyp:jingle_unittests',
             '../sql/sql.gyp:sql_unittests',
@@ -490,6 +502,7 @@
             '../chrome_frame/chrome_frame.gyp:chrome_frame_unittests',
             '../chrome_frame/chrome_frame.gyp:npchrome_frame',
             '../courgette/courgette.gyp:courgette_unittests',
+            '../device/device.gyp:device_unittests',
             '../ui/ui.gyp:ui_unittests',
             '../gpu/gpu.gyp:gpu_unittests',
             '../ipc/ipc.gyp:ipc_tests',
@@ -549,6 +562,7 @@
             '../cloud_print/cloud_print.gyp:cloud_print_unittests',
             '../content/content.gyp:content_unittests',
             '../crypto/crypto.gyp:crypto_unittests',
+            '../device/device.gyp:device_unittests',
             '../ipc/ipc.gyp:ipc_tests',
             '../jingle/jingle.gyp:jingle_unittests',
             '../media/media.gyp:media_unittests',
@@ -602,6 +616,7 @@
                 '../cloud_print/cloud_print.gyp:cloud_print',
                 '../remoting/remoting.gyp:remoting_webapp',
                 '../third_party/adobe/flash/flash_player.gyp:flash_player',
+                '../third_party/widevine/cdm/widevine_cdm.gyp:widevinecdmplugin',
               ],
               'conditions': [
                 ['internal_pdf', {
@@ -633,6 +648,8 @@
             '../chrome/chrome.gyp:interactive_ui_tests',
             '../chrome/chrome.gyp:unit_tests',
             '../content/content.gyp:content_browsertests',
+            '../content/content.gyp:content_unittests',
+            '../device/device.gyp:device_unittests',
             '../ppapi/ppapi_internal.gyp:ppapi_unittests',
             '../remoting/remoting.gyp:remoting_unittests',
             '../ui/aura/aura.gyp:*',
@@ -653,6 +670,7 @@
                 },
               ],
               'dependencies': [
+                '../content/content.gyp:content_unittests',
                 '../chrome/chrome.gyp:crash_service',
                 '../chrome/chrome.gyp:crash_service_win64',
               ],
@@ -678,6 +696,7 @@
               'dependencies!': [
                 '../chrome/chrome.gyp:chrome',
                 '../chrome/chrome.gyp:unit_tests',
+                '../device/device.gyp:device_unittests',
                 '../ui/views/views.gyp:views_unittests',
               ],
             }],

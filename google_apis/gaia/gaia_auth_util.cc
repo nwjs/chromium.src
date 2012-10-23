@@ -9,6 +9,8 @@
 #include "base/logging.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
+#include "google_apis/gaia/gaia_urls.h"
+#include "googleurl/src/gurl.h"
 
 namespace gaia {
 
@@ -56,6 +58,13 @@ std::string ExtractDomainName(const std::string& email_address) {
   else
     NOTREACHED() << "Not a proper email address: " << email;
   return std::string();
+}
+
+bool IsGaiaSignonRealm(const GURL& url) {
+  if (!url.SchemeIsSecure())
+    return false;
+
+  return url == GURL(GaiaUrls::GetInstance()->gaia_origin_url());
 }
 
 }  // namespace gaia

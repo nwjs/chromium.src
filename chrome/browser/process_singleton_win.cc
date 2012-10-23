@@ -22,10 +22,12 @@
 #include "base/win/win_util.h"
 #include "base/win/windows_version.h"
 #include "base/win/wrapped_window_proc.h"
+#include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_paths_internal.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/install_util.h"
 #include "chrome/installer/util/shell_util.h"
@@ -171,9 +173,10 @@ bool ActivateMetroChrome() {
 // Following conditions apply:-
 // 1. Windows 8 or greater.
 // 2. Not in Windows 8 immersive mode.
-// 3. Process integrity level is not high.
-// 4. The profile data directory is the default directory .
-// 5. Last used mode was immersive/machine is a tablet.
+// 3. Chrome is default browser.
+// 4. Process integrity level is not high.
+// 5. The profile data directory is the default directory.
+// 6. Last used mode was immersive/machine is a tablet.
 // TODO(ananta)
 // Move this function to a common place as the Windows 8 delegate_execute
 // handler can possibly use this.
@@ -186,6 +189,9 @@ bool ShouldLaunchInWindows8ImmersiveMode(const FilePath& user_data_dir) {
     return false;
 
   if (base::win::IsProcessImmersive(base::GetCurrentProcessHandle()))
+    return false;
+
+  if (!ShellIntegration::IsDefaultBrowser())
     return false;
 
   base::IntegrityLevel integrity_level = base::INTEGRITY_UNKNOWN;
@@ -201,16 +207,29 @@ bool ShouldLaunchInWindows8ImmersiveMode(const FilePath& user_data_dir) {
   if (default_user_data_dir != user_data_dir)
     return false;
 
+  // TODO(gab): This is a temporary solution to avoid activating Metro Chrome
+  // when chrome.exe is invoked with one of the short-lived commands below. The
+  // long-term and correct solution is to only check/activate Chrome later;
+  // after handling of these short-lived commands has occured
+  // (http://crbug.com/155585).
+  // This is a 1:1 mapping of the switches that force an early exit of Chrome in
+  // ChromeBrowserMainParts::PreMainMessageLoopRunImpl().
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kUninstall) ||
+      CommandLine::ForCurrentProcess()->HasSwitch(switches::kHideIcons) ||
+      CommandLine::ForCurrentProcess()->HasSwitch(switches::kShowIcons) ||
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kMakeDefaultBrowser) ||
+      CommandLine::ForCurrentProcess()->HasSwitch(switches::kPackExtension)) {
+    return false;
+  }
+
   base::win::RegKey reg_key;
-  LONG key_result = reg_key.Create(HKEY_CURRENT_USER,
-                                   chrome::kMetroRegistryPath,
-                                   KEY_READ);
-  if (key_result == ERROR_SUCCESS) {
-    DWORD reg_value = 0;
-    reg_key.ReadValueDW(chrome::kLaunchModeValue,
-                        &reg_value);
-    if (reg_value == 1)
-      return true;
+  DWORD reg_value = 0;
+  if (reg_key.Create(HKEY_CURRENT_USER, chrome::kMetroRegistryPath,
+                     KEY_READ) == ERROR_SUCCESS &&
+      reg_key.ReadValueDW(chrome::kLaunchModeValue,
+                          &reg_value) == ERROR_SUCCESS) {
+    return reg_value == 1;
   }
   return base::win::IsMachineATablet();
 }
@@ -254,7 +273,6 @@ bool ProcessSingleton::EscapeVirtualization(const FilePath& user_data_dir) {
 ProcessSingleton::ProcessSingleton(const FilePath& user_data_dir)
     : window_(NULL), locked_(false), foreground_window_(NULL),
     is_virtualized_(false), lock_file_(INVALID_HANDLE_VALUE) {
-  FilePath default_user_data_dir;
   // For Windows 8 and above check if we need to relaunch into Windows 8
   // immersive mode.
   if (ShouldLaunchInWindows8ImmersiveMode(user_data_dir)) {

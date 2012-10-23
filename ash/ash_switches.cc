@@ -19,11 +19,11 @@ const char kAshConstrainPointerToRoot[] = "ash-constrain-pointer-to-root";
 // Enable keyboard shortcuts useful for debugging.
 const char kAshDebugShortcuts[] = "ash-debug-shortcuts";
 
-// Disables Workspace2.
-const char kAshDisableWorkspace2[] = "ash-disable-workspace2";
-
 // Disables boot animation v2, go back to v1.
 const char kAshDisableBootAnimation2[] = "ash-disable-boot-animation2";
+
+// Disables panel fitting (used for mirror mode).
+const char kAshDisablePanelFitting[] = "ash-disable-panel-fitting";
 
 // Enable advanced gestures (e.g. for window management).
 const char kAshEnableAdvancedGestures[] = "ash-enable-advanced-gestures";
@@ -33,6 +33,9 @@ const char kAshEnableOak[] = "ash-enable-oak";
 
 // Enables showing the tray bubble by dragging on the shelf.
 const char kAshEnableTrayDragging[] = "ash-enable-tray-dragging";
+
+// Enables creating a launcher per display.
+const char kAshLauncherPerDisplay[] = "ash-launcher-per-display";
 
 // Specifies the layout mode and offsets for the secondary display for
 // testing. The format is "<t|r|b|l>,<offset>" where t=TOP, r=RIGHT,

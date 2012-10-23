@@ -9,7 +9,12 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/automation/automation_util.h"
 #include "chrome/browser/tab_contents/render_view_context_menu.h"
+#include "chrome/browser/extensions/app_restore_service_factory.h"
+#include "chrome/browser/extensions/app_restore_service.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
+#include "chrome/browser/extensions/extension_prefs.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/extensions/platform_app_browsertest_util.h"
 #include "chrome/browser/extensions/platform_app_launcher.h"
@@ -19,9 +24,11 @@
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_intents_dispatcher.h"
+#include "content/public/test/test_utils.h"
 #include "googleurl/src/gurl.h"
 #include "webkit/glue/web_intent_data.h"
 
@@ -99,6 +106,36 @@ class LaunchReplyHandler {
   base::WeakPtrFactory<LaunchReplyHandler> weak_ptr_factory_;
 };
 
+// This class keeps track of tabs as they are added to the browser. It will be
+// "done" (i.e. won't block on Wait()) once |observations| tabs have been added.
+class TabsAddedNotificationObserver
+    : public content::WindowedNotificationObserver {
+ public:
+  explicit TabsAddedNotificationObserver(size_t observations)
+      : content::WindowedNotificationObserver(
+            chrome::NOTIFICATION_TAB_ADDED,
+            content::NotificationService::AllSources()),
+        observations_(observations) {
+  }
+
+  virtual void Observe(int type,
+                       const content::NotificationSource& source,
+                       const content::NotificationDetails& details) OVERRIDE {
+    observed_tabs_.push_back(
+        content::Details<WebContents>(details).ptr());
+    if (observed_tabs_.size() == observations_)
+      content::WindowedNotificationObserver::Observe(type, source, details);
+  }
+
+  const std::vector<content::WebContents*>& tabs() { return observed_tabs_; }
+
+ private:
+  size_t observations_;
+  std::vector<content::WebContents*> observed_tabs_;
+
+  DISALLOW_COPY_AND_ASSIGN(TabsAddedNotificationObserver);
+};
+
 const char kTestFilePath[] = "platform_apps/launch_files/test.txt";
 
 }  // namespace
@@ -110,6 +147,24 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, CreateAndCloseShellWindow) {
   const Extension* extension = LoadAndLaunchPlatformApp("minimal");
   ShellWindow* window = CreateShellWindow(extension);
   CloseShellWindow(window);
+}
+
+// Tests that platform apps can be launched in incognito mode without crashing.
+IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, LaunchAppIncognito) {
+  Browser* browser_incognito = ui_test_utils::OpenURLOffTheRecord(
+      browser()->profile(), GURL("about:blank"));
+
+  ExtensionTestMessageListener launched_listener("Launched", false);
+
+  const Extension* extension = LoadExtensionIncognito(
+      test_data_dir_.AppendASCII("platform_apps").AppendASCII("minimal"));
+  EXPECT_TRUE(extension);
+
+  application_launch::OpenApplication(application_launch::LaunchParams(
+          browser_incognito->profile(), extension, extension_misc::LAUNCH_NONE,
+          NEW_WINDOW));
+
+  ASSERT_TRUE(launched_listener.WaitUntilSatisfied());
 }
 
 // Tests that platform apps received the "launch" event when launched.
@@ -318,8 +373,17 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, AppWithContextMenuClicked) {
 }
 
 IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, DisallowNavigation) {
+  TabsAddedNotificationObserver observer(2);
+
   ASSERT_TRUE(StartTestServer());
   ASSERT_TRUE(RunPlatformAppTest("platform_apps/navigation")) << message_;
+
+  observer.Wait();
+  ASSERT_EQ(2U, observer.tabs().size());
+  EXPECT_EQ(std::string(chrome::kExtensionInvalidRequestURL),
+            observer.tabs()[0]->GetURL().spec());
+  EXPECT_EQ("http://chromium.org/",
+            observer.tabs()[1]->GetURL().spec());
 }
 
 IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, Iframes) {
@@ -417,7 +481,8 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, ExtensionWindowingApis) {
   // TODO(jeremya): as above, this requires more extension functions.
 }
 
-// TODO(benwells): fix these tests for ChromeOS.
+// ChromeOS does not support passing arguments on the command line, so the tests
+// that rely on this functionality are disabled.
 #if !defined(OS_CHROMEOS)
 // Tests that command line parameters get passed through to platform apps
 // via launchData correctly when launching with a file.
@@ -539,7 +604,9 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, MutationEventsDisabled) {
 
 // Test that windows created with an id will remember and restore their
 // geometry when opening new windows.
-IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, ShellWindowRestorePosition) {
+// Flaky, see http://crbug.com/155459.
+IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest,
+                       FLAKY_ShellWindowRestorePosition) {
   ExtensionTestMessageListener page2_listener("WaitForPage2", true);
   ExtensionTestMessageListener page3_listener("WaitForPage3", true);
   ExtensionTestMessageListener done_listener("Done1", false);
@@ -603,6 +670,37 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, ShellWindowRestorePosition) {
   // Wait for javascript to verify that the third window got the restored size
   // and explicitly specified coordinates.
   ASSERT_TRUE(done3_listener.WaitUntilSatisfied());
+}
+
+// Tests that a running app is recorded in the preferences as such.
+IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, RunningAppsAreRecorded) {
+  content::WindowedNotificationObserver extension_suspended(
+      chrome::NOTIFICATION_EXTENSION_HOST_DESTROYED,
+      content::NotificationService::AllSources());
+
+  const Extension* extension = LoadExtension(
+      test_data_dir_.AppendASCII("platform_apps/restart_test"));
+  ASSERT_TRUE(extension);
+  ExtensionService* extension_service =
+      ExtensionSystem::Get(browser()->profile())->extension_service();
+  ExtensionPrefs* extension_prefs = extension_service->extension_prefs();
+
+  // App is running.
+  ASSERT_TRUE(extension_prefs->IsExtensionRunning(extension->id()));
+
+  // Wait for the extension to get suspended.
+  extension_suspended.Wait();
+
+  // App isn't running because it got suspended.
+  ASSERT_FALSE(extension_prefs->IsExtensionRunning(extension->id()));
+
+  // Pretend that the app is supposed to be running.
+  extension_prefs->SetExtensionRunning(extension->id(), true);
+
+  ExtensionTestMessageListener restart_listener("onRestarted", false);
+  AppRestoreServiceFactory::GetForProfile(browser()->profile())->
+      HandleStartup(true);
+  restart_listener.WaitUntilSatisfied();
 }
 
 }  // namespace extensions

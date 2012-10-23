@@ -18,11 +18,15 @@ namespace ash {
 namespace internal {
 
 enum MagnetismEdge {
-  MAGNETISM_EDGE_TOP,
-  MAGNETISM_EDGE_LEFT,
-  MAGNETISM_EDGE_BOTTOM,
-  MAGNETISM_EDGE_RIGHT,
+  MAGNETISM_EDGE_TOP    = 1 << 0,
+  MAGNETISM_EDGE_LEFT   = 1 << 1,
+  MAGNETISM_EDGE_BOTTOM = 1 << 2,
+  MAGNETISM_EDGE_RIGHT  = 1 << 3,
 };
+
+const uint32 kAllMagnetismEdges =
+    MAGNETISM_EDGE_TOP | MAGNETISM_EDGE_LEFT | MAGNETISM_EDGE_BOTTOM |
+    MAGNETISM_EDGE_RIGHT;
 
 // MagnetismEdgeMatcher is used for matching a particular edge of a window. You
 // shouldn't need to use this directly, instead use MagnetismMatcher which takes
@@ -35,6 +39,7 @@ class MagnetismEdgeMatcher {
   ~MagnetismEdgeMatcher();
 
   MagnetismEdge edge() const { return edge_; }
+  const gfx::Rect& bounds() const { return bounds_; }
 
   // Returns true if the edge is completely obscured. If true ShouldAttach()
   // will return false.
@@ -124,6 +129,25 @@ class MagnetismEdgeMatcher {
   DISALLOW_COPY_AND_ASSIGN(MagnetismEdgeMatcher);
 };
 
+enum SecondaryMagnetismEdge {
+  SECONDARY_MAGNETISM_EDGE_LEADING,
+  SECONDARY_MAGNETISM_EDGE_TRAILING,
+  SECONDARY_MAGNETISM_EDGE_NONE,
+};
+
+// Used to identify a matched edge. |primary_edge| is relative to the source and
+// indicates the edge the two are to share. For example, if |primary_edge| is
+// MAGNETISM_EDGE_RIGHT then the right edge of the source should snap to to the
+// left edge of the target. |secondary_edge| indicates one of the edges along
+// the opposite axis should should also be aligned. For example, if
+// |primary_edge| is MAGNETISM_EDGE_RIGHT and |secondary_edge| is
+// SECONDARY_MAGNETISM_EDGE_LEADING then the source should snap to the left top
+// corner of the target.
+struct MatchedEdge {
+  MagnetismEdge primary_edge;
+  SecondaryMagnetismEdge secondary_edge;
+};
+
 // MagnetismMatcher is used to test if a window should snap to another window.
 // To use MagnetismMatcher do the following:
 // . Create it with the bounds of the window being dragged.
@@ -135,27 +159,27 @@ class ASH_EXPORT MagnetismMatcher {
  public:
   static const int kMagneticDistance;
 
-  explicit MagnetismMatcher(const gfx::Rect& bounds);
+  // |edges| is a bitmask of MagnetismEdges to match against.
+  MagnetismMatcher(const gfx::Rect& bounds, uint32 edges);
   ~MagnetismMatcher();
 
-  // Checks a single edge. |src_bounds| is the bounds of the window being
-  // dragged, |bounds| the bounds attempting to snap to and |edge| the edge to
-  // check.
-  static bool ShouldAttachOnEdge(const gfx::Rect& src_bounds,
-                                 const gfx::Rect& bounds,
-                                 MagnetismEdge edge);
-
   // Returns true if |bounds| is close enough to the initial bounds that the two
-  // should be attached. If true is returned |edge| is set to the edge the two
-  // should be attached to. |edge| is in terms of the initial bounds. For
-  // example, if this returns true and |edge| is set to MAGNETISM_EDGE_RIGHT
-  // then the right edge of the source should snap to the left edge of |bounds|.
-  bool ShouldAttach(const gfx::Rect& bounds, MagnetismEdge* edge);
+  // should be attached. If true is returned |edge| is set to indicates how the
+  // two should snap together. See description of MatchedEdge for details.
+  bool ShouldAttach(const gfx::Rect& bounds, MatchedEdge* edge);
 
   // Returns true if no other matches are possible.
   bool AreEdgesObscured() const;
 
  private:
+  // Sets |secondary_edge| based on whether the secondary edges should snap.
+  void AttachToSecondaryEdge(const gfx::Rect& bounds,
+                             MagnetismEdge edge,
+                             SecondaryMagnetismEdge* secondary_edge) const;
+
+  // The edges to match against.
+  const int32 edges_;
+
   ScopedVector<MagnetismEdgeMatcher> matchers_;
 
   DISALLOW_COPY_AND_ASSIGN(MagnetismMatcher);

@@ -12,10 +12,9 @@
 
 namespace aura {
 class RootWindow;
+namespace client {
+class StackingClient;
 }
-
-namespace aura {
-class RootWindow;
 }
 
 namespace views {
@@ -156,6 +155,9 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   virtual void OnLostActive() OVERRIDE;
 
  private:
+  // See class documentation for Widget in widget.h for a note about ownership.
+  Widget::InitParams::Ownership ownership_;
+
   // The NativeWidget owns the RootWindow. Required because the RootWindow owns
   // its RootWindowHost, so DesktopRootWindowHost can't own it.
   scoped_ptr<aura::RootWindow> root_window_;
@@ -173,6 +175,8 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   DesktopRootWindowHost* desktop_root_window_host_;
   aura::Window* window_;
   internal::NativeWidgetDelegate* native_widget_delegate_;
+
+  scoped_ptr<aura::client::StackingClient> stacking_client_;
 
   DISALLOW_COPY_AND_ASSIGN(DesktopNativeWidgetAura);
 };

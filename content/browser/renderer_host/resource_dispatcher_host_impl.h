@@ -35,7 +35,6 @@
 #include "net/url_request/url_request.h"
 #include "webkit/glue/resource_type.h"
 
-class DownloadFileManager;
 class ResourceHandler;
 class SaveFileManager;
 class WebContentsImpl;
@@ -80,7 +79,7 @@ class CONTENT_EXPORT ResourceDispatcherHostImpl
       int child_id,
       int route_id,
       bool prefer_cache,
-      const DownloadSaveInfo& save_info,
+      scoped_ptr<DownloadSaveInfo> save_info,
       const DownloadStartedCallback& started_callback) OVERRIDE;
   virtual void ClearLoginDelegateForRequest(net::URLRequest* request) OVERRIDE;
   virtual void BlockRequestsForRoute(int child_id, int route_id) OVERRIDE;
@@ -144,10 +143,6 @@ class CONTENT_EXPORT ResourceDispatcherHostImpl
   // request. Experimentally obtained.
   static const int kAvgBytesPerOutstandingRequest = 4400;
 
-  DownloadFileManager* download_file_manager() const {
-    return download_file_manager_;
-  }
-
   SaveFileManager* save_file_manager() const {
     return save_file_manager_;
   }
@@ -209,7 +204,7 @@ class CONTENT_EXPORT ResourceDispatcherHostImpl
   scoped_ptr<ResourceHandler> CreateResourceHandlerForDownload(
       net::URLRequest* request,
       bool is_content_initiated,
-      const DownloadSaveInfo& save_info,
+      scoped_ptr<DownloadSaveInfo> save_info,
       const DownloadResourceHandler::OnStartedCallback& started_cb);
 
   void ClearSSLClientAuthHandlerForRequest(net::URLRequest* request);
@@ -366,9 +361,6 @@ class CONTENT_EXPORT ResourceDispatcherHostImpl
   // is not empty.
   scoped_ptr<base::RepeatingTimer<ResourceDispatcherHostImpl> >
       update_load_states_timer_;
-
-  // We own the download file writing thread and manager
-  scoped_refptr<DownloadFileManager> download_file_manager_;
 
   // We own the save file manager.
   scoped_refptr<SaveFileManager> save_file_manager_;

@@ -4,12 +4,13 @@
 """Finds android browsers that can be controlled by chrome_remote_control."""
 
 import os
-import logging
+import logging as real_logging
 import re
 import subprocess
 
 from chrome_remote_control import adb_commands
 from chrome_remote_control import android_browser_backend
+from chrome_remote_control import android_platform
 from chrome_remote_control import browser
 from chrome_remote_control import possible_browser
 
@@ -49,12 +50,15 @@ class PossibleAndroidBrowser(possible_browser.PossibleBrowser):
   def __repr__(self):
     return 'PossibleAndroidBrowser(browser_type=%s)' % self.browser_type
 
-  def Create(self, extra_browser_args=None):
+  def Create(self):
     backend = android_browser_backend.AndroidBrowserBackend(
-        self._options, extra_browser_args, *self._args)
-    return browser.Browser(backend)
+        self._options, *self._args)
+    platform = android_platform.AndroidPlatform(
+        self._args[0].Adb(), self._args[1],
+        self._args[1] + self._args[4])
+    return browser.Browser(backend, platform)
 
-def FindAllAvailableBrowsers(options):
+def FindAllAvailableBrowsers(options, logging=real_logging):
   """Finds all the desktop browsers available on this machine."""
   if not adb_commands.IsAndroidSupported():
     return []
@@ -68,14 +72,14 @@ def FindAllAvailableBrowsers(options):
                               stdin=devnull)
       stdout, _ = proc.communicate()
       if re.search(re.escape('????????????\tno permissions'), stdout) != None:
-        logging.warning(
+        logging.warn(
             ('adb devices reported a permissions error. Consider '
             'restarting adb as root:'))
-        logging.warning('  adb kill-server')
-        logging.warning('  sudo `which adb` devices\n\n')
+        logging.warn('  adb kill-server')
+        logging.warn('  sudo `which adb` devices\n\n')
   except OSError:
     logging.info('No adb command found. ' +
-                 'Will not try searching for Android browsers.')
+             'Will not try searching for Android browsers.')
     return []
 
   device = None
@@ -136,11 +140,9 @@ def FindAllAvailableBrowsers(options):
   # but make it accessible to the device.
   if len(possible_browsers) and not adb_commands.HasForwarder(adb):
     logging.warn('chrome_remote_control detected an android device. However,')
-    logging.warn('Chrome\'s port-forwarder app is not installed on the device.')
+    logging.warn('Chrome\'s port-forwarder app is not available.')
     logging.warn('To build:')
-    logging.warn('  make -j16 out/$BUILDTYPE/forwarder')
-    logging.warn('And then install it:')
-    logging.warn('  %s', adb_commands.HowToInstallForwarder())
+    logging.warn('  make -j16 host_forwarder device_forwarder')
     logging.warn('')
     logging.warn('')
     return []

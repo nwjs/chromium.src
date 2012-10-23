@@ -8,10 +8,6 @@
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 
-#if defined(OS_WIN)
-#include "ui/base/win/scoped_ole_initializer.h"
-#endif
-
 class MessageLoopForUI;
 
 namespace ui {
@@ -21,6 +17,7 @@ class InputMethod;
 namespace aura {
 class FocusManager;
 class RootWindow;
+class TestScreen;
 namespace shared {
 class RootWindowCaptureClient;
 }
@@ -59,10 +56,7 @@ class AuraTestHelper {
   scoped_ptr<shared::RootWindowCaptureClient> root_window_capture_client_;
   scoped_ptr<ui::InputMethod> test_input_method_;
   scoped_ptr<FocusManager> focus_manager_;
-
-#if defined(OS_WIN)
-  ui::ScopedOleInitializer ole_initializer_;
-#endif
+  scoped_ptr<aura::TestScreen> test_screen_;
 
   DISALLOW_COPY_AND_ASSIGN(AuraTestHelper);
 };

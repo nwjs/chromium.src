@@ -21,7 +21,7 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/system/pointer_device_observer.h"
 #else
-#include "chrome/browser/prefs/pref_set_observer.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #endif  // defined(OS_CHROMEOS)
 
 class AutocompleteController;
@@ -48,6 +48,7 @@ class BrowserOptionsHandler
 
   // OptionsPageUIHandler implementation.
   virtual void GetLocalizedValues(DictionaryValue* values) OVERRIDE;
+  virtual void PageLoadStarted() OVERRIDE;
   virtual void InitializeHandler() OVERRIDE;
   virtual void InitializePage() OVERRIDE;
   virtual void RegisterMessages() OVERRIDE;
@@ -265,6 +266,8 @@ class BrowserOptionsHandler
 
   scoped_refptr<ShellIntegration::DefaultBrowserWorker> default_browser_worker_;
 
+  bool page_initialized_;
+
   StringPrefMember homepage_;
   BooleanPrefMember default_browser_policy_;
 
@@ -292,7 +295,7 @@ class BrowserOptionsHandler
   DoublePrefMember default_zoom_level_;
 
 #if !defined(OS_CHROMEOS)
-  scoped_ptr<PrefSetObserver> proxy_prefs_;
+  PrefChangeRegistrar proxy_prefs_;
 #endif  // !defined(OS_CHROMEOS)
 
   DISALLOW_COPY_AND_ASSIGN(BrowserOptionsHandler);

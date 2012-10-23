@@ -8,12 +8,25 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
+#include "grit/ui_resources.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebAutofillClient.h"
+#include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/image/image.h"
 #include "ui/gfx/rect.h"
+#include "ui/views/border.h"
 #include "ui/views/widget/widget.h"
 
+using WebKit::WebAutofillClient;
+
 namespace {
-const SkColor kPopupBackground = SkColorSetARGB(0xFF, 0x00, 0x00, 0x00);
+const SkColor kBorderColor = SkColorSetARGB(0xFF, 0xC7, 0xCA, 0xCE);
+const SkColor kHoveredBackgroundColor = SkColorSetARGB(0xFF, 0xCD, 0xCD, 0xCD);
+const SkColor kLabelTextColor = SkColorSetARGB(0xFF, 0x7F, 0x7F, 0x7F);
+const SkColor kPopupBackground = SkColorSetARGB(0xFF, 0xFF, 0xFF, 0xFF);
+const SkColor kValueTextColor = SkColorSetARGB(0xFF, 0x00, 0x00, 0x00);
+
 }  // namespace
 
 AutofillPopupViewViews::AutofillPopupViewViews(
@@ -29,12 +42,43 @@ AutofillPopupViewViews::~AutofillPopupViewViews() {
 }
 
 void AutofillPopupViewViews::OnPaint(gfx::Canvas* canvas) {
-  // TODO(csharp): Properly draw the popup.
   canvas->DrawColor(kPopupBackground);
+  OnPaintBorder(canvas);
+
+  for (size_t i = 0; i < autofill_values().size(); ++i) {
+    gfx::Rect line_rect = GetRectForRow(i, width());
+
+    if (autofill_unique_ids()[i] == WebAutofillClient::MenuItemIDSeparator)
+      canvas->DrawRect(line_rect, kLabelTextColor);
+    else
+      DrawAutofillEntry(canvas, i, line_rect);
+  }
 }
 
 bool AutofillPopupViewViews::HandleKeyPressEvent(ui::KeyEvent* event) {
-  return false;
+  switch (event->key_code()) {
+    case ui::VKEY_UP:
+      SelectPreviousLine();
+      return true;
+    case ui::VKEY_DOWN:
+      SelectNextLine();
+      return true;
+    case ui::VKEY_PRIOR:
+      SetSelectedLine(0);
+      return true;
+    case ui::VKEY_NEXT:
+      SetSelectedLine(autofill_values().size() - 1);
+      return true;
+    case ui::VKEY_ESCAPE:
+      Hide();
+      return true;
+    case ui::VKEY_DELETE:
+      return event->IsShiftDown() && RemoveSelectedLine();
+    case ui::VKEY_RETURN:
+      return AcceptSelectedLine();
+    default:
+      return false;
+  }
 }
 
 void AutofillPopupViewViews::ShowInternal() {
@@ -57,23 +101,94 @@ void AutofillPopupViewViews::ShowInternal() {
     widget->SetBounds(client_area);
   }
 
+  set_border(views::Border::CreateSolidBorder(kBorderThickness, kBorderColor));
+
   ResizePopup();
 
   web_contents_->GetRenderViewHost()->AddKeyboardListener(this);
 }
 
 void AutofillPopupViewViews::HideInternal() {
-  GetWidget()->Close();
+  if (GetWidget())
+    GetWidget()->Close();
   web_contents_->GetRenderViewHost()->RemoveKeyboardListener(this);
 }
 
 void AutofillPopupViewViews::InvalidateRow(size_t row) {
-  // TODO(csharp): invalidate this row.
+  SchedulePaintInRect(GetRectForRow(row, width()));
 }
 
 void AutofillPopupViewViews::ResizePopup() {
   gfx::Rect popup_bounds = element_bounds();
   popup_bounds.set_y(popup_bounds.y() + popup_bounds.height());
 
+  popup_bounds.set_width(GetPopupRequiredWidth());
+  popup_bounds.set_height(GetPopupRequiredHeight());
+
   SetBoundsRect(popup_bounds);
+}
+
+void AutofillPopupViewViews::DrawAutofillEntry(gfx::Canvas* canvas,
+                                               int index,
+                                               const gfx::Rect& entry_rect) {
+    // TODO(csharp): support RTL
+
+  if (selected_line() == index)
+    canvas->FillRect(entry_rect, kHoveredBackgroundColor);
+
+  canvas->DrawStringInt(
+      autofill_values()[index],
+      value_font(),
+      kValueTextColor,
+      kEndPadding,
+      entry_rect.y(),
+      canvas->GetStringWidth(autofill_values()[index], value_font()),
+      entry_rect.height(),
+      gfx::Canvas::TEXT_ALIGN_CENTER);
+
+  // Use this to figure out where all the other Autofill items should be placed.
+  int x_align_left = entry_rect.width() - kEndPadding;
+
+  // Draw the delete icon, if one is needed.
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  int row_height = GetRowHeightFromId(autofill_unique_ids()[index]);
+  if (CanDelete(autofill_unique_ids()[index])) {
+    x_align_left -= kDeleteIconWidth;
+
+    // TODO(csharp): Create a custom resource for the delete icon.
+    // http://www.crbug.com/131801
+    canvas->DrawImageInt(
+        *rb.GetImageSkiaNamed(IDR_CLOSE_BAR),
+        x_align_left,
+        entry_rect.y() + ((row_height - kDeleteIconHeight) / 2));
+
+    x_align_left -= kIconPadding;
+  }
+
+  // Draw the Autofill icon, if one exists
+  if (!autofill_icons()[index].empty()) {
+    int icon = GetIconResourceID(autofill_icons()[index]);
+    DCHECK_NE(-1, icon);
+    int icon_y = entry_rect.y() + ((row_height - kAutofillIconHeight) / 2);
+
+    x_align_left -= kAutofillIconWidth;
+
+    canvas->DrawImageInt(*rb.GetImageSkiaNamed(icon), x_align_left, icon_y);
+
+    x_align_left -= kIconPadding;
+  }
+
+  // Draw the label text.
+  x_align_left -= canvas->GetStringWidth(autofill_labels()[index],
+                                         label_font());
+
+  canvas->DrawStringInt(
+      autofill_labels()[index],
+      label_font(),
+      kLabelTextColor,
+      x_align_left + kEndPadding,
+      entry_rect.y(),
+      canvas->GetStringWidth(autofill_labels()[index], label_font()),
+      entry_rect.height(),
+      gfx::Canvas::TEXT_ALIGN_CENTER);
 }

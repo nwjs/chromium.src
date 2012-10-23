@@ -9,6 +9,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/message_loop_proxy.h"
+#include "media/base/audio_decoder_config.h"
 #include "media/base/decoder_buffer.h"
 #include "media/base/decryptor_client.h"
 #include "media/base/video_decoder_config.h"
@@ -77,20 +78,43 @@ ProxyDecryptor::ProxyDecryptor(
 ProxyDecryptor::~ProxyDecryptor() {
 }
 
+// TODO(xhwang): Support multiple decryptor notification request (e.g. from
+// video and audio decoders).
+void ProxyDecryptor::RequestDecryptorNotification(
+     const DecryptorNotificationCB& decryptor_notification_cb) {
+  base::AutoLock auto_lock(lock_);
+
+  // Cancels the previous decryptor request.
+  if (decryptor_notification_cb.is_null()) {
+    if (!decryptor_notification_cb_.is_null())
+      base::ResetAndReturn(&decryptor_notification_cb_).Run(NULL);
+    return;
+  }
+
+  // Normal decryptor request.
+  DCHECK(decryptor_notification_cb_.is_null());
+  if (decryptor_) {
+    decryptor_notification_cb.Run(decryptor_.get());
+    return;
+  }
+  decryptor_notification_cb_ = decryptor_notification_cb;
+}
+
 bool ProxyDecryptor::GenerateKeyRequest(const std::string& key_system,
                                         const uint8* init_data,
                                         int init_data_length) {
   // We do not support run-time switching of decryptors. GenerateKeyRequest()
   // only creates a new decryptor when |decryptor_| is not initialized.
   DVLOG(1) << "GenerateKeyRequest: key_system = " << key_system;
-  if (!decryptor_.get()) {
-    base::AutoLock auto_lock(lock_);
-    decryptor_ = CreateDecryptor(key_system);
-  }
 
-  if (!decryptor_.get()) {
-    client_->KeyError(key_system, "", media::Decryptor::kUnknownError, 0);
-    return false;
+  base::AutoLock auto_lock(lock_);
+
+  if (!decryptor_) {
+    decryptor_ = CreateDecryptor(key_system);
+    if (!decryptor_) {
+      client_->KeyError(key_system, "", media::Decryptor::kUnknownError, 0);
+      return false;
+    }
   }
 
   if (!decryptor_->GenerateKeyRequest(key_system,
@@ -98,6 +122,9 @@ bool ProxyDecryptor::GenerateKeyRequest(const std::string& key_system,
     decryptor_.reset();
     return false;
   }
+
+  if (!decryptor_notification_cb_.is_null())
+    base::ResetAndReturn(&decryptor_notification_cb_).Run(decryptor_.get());
 
   return true;
 }
@@ -126,9 +153,12 @@ void ProxyDecryptor::CancelKeyRequest(const std::string& key_system,
 }
 
 void ProxyDecryptor::Decrypt(
+    StreamType stream_type,
     const scoped_refptr<media::DecoderBuffer>& encrypted,
     const DecryptCB& decrypt_cb) {
+  DVLOG(2) << "Decrypt()";
   DCHECK(decryption_message_loop_->BelongsToCurrentThread());
+  DCHECK_EQ(stream_type, kVideo);  // Only support video decrypt-only for now.
 
   DCHECK(!is_canceling_decrypt_);
   DCHECK(!pending_buffer_to_decrypt_);
@@ -144,7 +174,7 @@ void ProxyDecryptor::Decrypt(
     decryptor = decryptor_.get();
   }
   if (!decryptor) {
-    DVLOG(1) << "ProxyDecryptor::Decrypt(): decryptor not initialized.";
+    DVLOG(1) << "Decrypt(): decryptor not initialized.";
 
     // TODO(xhwang): The same NeedKey may be fired here and multiple times in
     // OnBufferDecrypted(). While the spec says only one NeedKey should be
@@ -156,8 +186,10 @@ void ProxyDecryptor::Decrypt(
   DecryptPendingBuffer();
 }
 
-void ProxyDecryptor::CancelDecrypt() {
+void ProxyDecryptor::CancelDecrypt(StreamType stream_type) {
+  DVLOG(1) << "CancelDecrypt()";
   DCHECK(decryption_message_loop_->BelongsToCurrentThread());
+  DCHECK_EQ(stream_type, kVideo);  // Only support video decrypt-only for now.
 
   if (!pending_buffer_to_decrypt_) {
     DCHECK(pending_decrypt_cb_.is_null());
@@ -173,33 +205,41 @@ void ProxyDecryptor::CancelDecrypt() {
   }
 
   is_canceling_decrypt_ = true;
-  decryptor_->CancelDecrypt();
+  decryptor_->CancelDecrypt(stream_type);
+}
+
+void ProxyDecryptor::InitializeAudioDecoder(
+    scoped_ptr<media::AudioDecoderConfig> config,
+    const DecoderInitCB& init_cb,
+    const KeyAddedCB& key_added_cb) {
+  NOTREACHED() << "ProxyDecryptor does not support audio decoding";
 }
 
 void ProxyDecryptor::InitializeVideoDecoder(
-    const media::VideoDecoderConfig& config,
-    const DecoderInitCB& init_cb) {
-  // TODO(xhwang): Implement this!
-  NOTIMPLEMENTED();
-  init_cb.Run(false);
+    scoped_ptr<media::VideoDecoderConfig> config,
+    const DecoderInitCB& init_cb,
+    const KeyAddedCB& key_added_cb) {
+  NOTREACHED() << "ProxyDecryptor does not support video decoding";
+}
+
+void ProxyDecryptor::DecryptAndDecodeAudio(
+    const scoped_refptr<media::DecoderBuffer>& encrypted,
+    const AudioDecodeCB& audio_decode_cb) {
+  NOTREACHED() << "ProxyDecryptor does not support audio decoding";
 }
 
 void ProxyDecryptor::DecryptAndDecodeVideo(
     const scoped_refptr<media::DecoderBuffer>& encrypted,
     const VideoDecodeCB& video_decode_cb) {
-  // TODO(xhwang): Implement this!
-  NOTIMPLEMENTED();
-  video_decode_cb.Run(kError, NULL);
+  NOTREACHED() << "ProxyDecryptor does not support video decoding";
 }
 
-void ProxyDecryptor::CancelDecryptAndDecodeVideo() {
-  // TODO(xhwang): Implement this!
-  NOTIMPLEMENTED();
+void ProxyDecryptor::ResetDecoder(StreamType stream_type) {
+  NOTREACHED() << "ProxyDecryptor does not support audio/video decoding";
 }
 
-void ProxyDecryptor::StopVideoDecoder() {
-  // TODO(xhwang): Implement this!
-  NOTIMPLEMENTED();
+void ProxyDecryptor::DeinitializeDecoder(StreamType stream_type) {
+  NOTREACHED() << "ProxyDecryptor does not support audio/video decoding";
 }
 
 scoped_ptr<media::Decryptor> ProxyDecryptor::CreatePpapiDecryptor(
@@ -246,7 +286,7 @@ void ProxyDecryptor::OnNewKeyAdded() {
     return;
   }
 
-  DCHECK(decryptor_.get());
+  DCHECK(decryptor_);
 
   if (!pending_buffer_to_decrypt_)
     return;
@@ -260,12 +300,14 @@ void ProxyDecryptor::OnNewKeyAdded() {
 }
 
 void ProxyDecryptor::DecryptPendingBuffer() {
+  DVLOG(3) << "DecryptPendingBuffer()";
   DCHECK(decryption_message_loop_->BelongsToCurrentThread());
   DCHECK(pending_buffer_to_decrypt_);
   DCHECK(!is_waiting_for_decryptor_);
 
   is_waiting_for_decryptor_ = true;
   decryptor_->Decrypt(
+      kVideo,  // Only support video decrypt-only for now.
       pending_buffer_to_decrypt_,
       base::Bind(&ProxyDecryptor::OnBufferDecrypted, base::Unretained(this)));
 }
@@ -280,6 +322,7 @@ void ProxyDecryptor::OnBufferDecrypted(
     return;
   }
 
+  DVLOG(2) << "OnBufferDecrypted() - status: " << status;
   DCHECK(pending_buffer_to_decrypt_);
   DCHECK(!pending_decrypt_cb_.is_null());
   DCHECK(is_waiting_for_decryptor_);

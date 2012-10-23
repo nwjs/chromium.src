@@ -76,8 +76,8 @@ bool PpapiCommandBufferProxy::SignalSyncPoint(uint32 sync_point,
 }
 
 void PpapiCommandBufferProxy::SetMemoryAllocationChangedCallback(
-      const base::Callback<void(const GpuMemoryAllocationForRenderer&)>&
-          callback) {
+    const base::Callback<void(
+      const content::GpuMemoryAllocationForRenderer&)>& callback) {
   NOTIMPLEMENTED();
 }
 
@@ -125,6 +125,8 @@ gpu::CommandBuffer::State PpapiCommandBufferProxy::GetState() {
 }
 
 gpu::CommandBuffer::State PpapiCommandBufferProxy::GetLastState() {
+  // Note: The locking command buffer wrapper does not take a global lock before
+  // calling this function.
   return last_state_;
 }
 

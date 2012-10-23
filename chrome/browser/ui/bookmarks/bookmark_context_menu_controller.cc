@@ -5,8 +5,8 @@
 #include "chrome/browser/ui/bookmarks/bookmark_context_menu_controller.h"
 
 #include "base/compiler_specific.h"
+#include "base/prefs/public/pref_service_base.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/api/prefs/pref_service_base.h"
 #include "chrome/browser/bookmarks/bookmark_editor.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
@@ -175,14 +175,13 @@ void BookmarkContextMenuController::ExecuteCommand(int id) {
           bookmark_utils::GetParentForNewNodes(parent_, selection_, &index);
       GURL url;
       string16 title;
-      bookmark_utils::GetURLAndTitleToBookmark(
-          chrome::GetActiveWebContents(browser_), &url, &title);
-      BookmarkEditor::Show(
-          parent_window_,
-          profile_,
-          BookmarkEditor::EditDetails::AddNodeInFolder(
-              parent, index, url, title),
-          BookmarkEditor::SHOW_TREE);
+      chrome::GetURLAndTitleToBookmark(chrome::GetActiveWebContents(browser_),
+                                       &url, &title);
+      BookmarkEditor::Show(parent_window_,
+                           profile_,
+                           BookmarkEditor::EditDetails::AddNodeInFolder(
+                               parent, index, url, title),
+                           BookmarkEditor::SHOW_TREE);
       break;
     }
 

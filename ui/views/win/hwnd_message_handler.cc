@@ -176,8 +176,8 @@ bool GetMonitorAndRects(const RECT& rect,
   MONITORINFO monitor_info = { 0 };
   monitor_info.cbSize = sizeof(monitor_info);
   GetMonitorInfo(*monitor, &monitor_info);
-  *monitor_rect = monitor_info.rcMonitor;
-  *work_area = monitor_info.rcWork;
+  *monitor_rect = gfx::Rect(monitor_info.rcMonitor);
+  *work_area = gfx::Rect(monitor_info.rcWork);
   return true;
 }
 
@@ -2065,19 +2065,6 @@ void HWNDMessageHandler::OnWindowPosChanging(WINDOWPOS* window_pos) {
     // Prevent the window from being made visible if we've been asked to do so.
     // See comment in header as to why we might want this.
     window_pos->flags &= ~SWP_SHOWWINDOW;
-  }
-
-  // When WM_WINDOWPOSCHANGING message is handled by DefWindowProc, it will
-  // enforce (cx, cy) not to be smaller than (6, 6) for any non-popup window.
-  // We work around this by changing cy back to our intended value.
-  if (!GetParent(hwnd()) && !(window_pos->flags & SWP_NOSIZE) &&
-      window_pos->cy < 6) {
-    LONG old_cy = window_pos->cy;
-    DefWindowProc(hwnd(), WM_WINDOWPOSCHANGING, 0,
-        reinterpret_cast<LPARAM>(window_pos));
-    window_pos->cy = old_cy;
-    SetMsgHandled(TRUE);
-    return;
   }
 
   SetMsgHandled(FALSE);

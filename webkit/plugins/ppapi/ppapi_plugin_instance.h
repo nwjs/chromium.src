@@ -42,6 +42,7 @@
 #include "ppapi/c/private/ppp_instance_private.h"
 #include "ppapi/shared_impl/ppb_instance_shared.h"
 #include "ppapi/shared_impl/ppb_view_shared.h"
+#include "ppapi/thunk/ppb_flash_functions_api.h"
 #include "ppapi/thunk/ppb_gamepad_api.h"
 #include "ppapi/thunk/resource_creation_api.h"
 #include "ppapi/shared_impl/tracked_callback.h"
@@ -72,8 +73,10 @@ struct WebPrintParams;
 }
 
 namespace media {
+class AudioDecoderConfig;
 class DecoderBuffer;
 class DecryptorClient;
+class VideoDecoderConfig;
 }
 
 namespace ppapi {
@@ -261,10 +264,20 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   bool CancelKeyRequest(const std::string& session_id);
   bool Decrypt(const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
                const media::Decryptor::DecryptCB& decrypt_cb);
-  // TODO(xhwang): Update this when we need to support decrypt and decode.
-  bool DecryptAndDecodeFrame(
-      const scoped_refptr<media::DecoderBuffer>& encrypted_frame,
-      const media::Decryptor::DecryptCB& decrypt_cb);
+  bool InitializeAudioDecoder(
+      const media::AudioDecoderConfig& decoder_config,
+      const media::Decryptor::DecoderInitCB& decoder_init_cb);
+  bool InitializeVideoDecoder(
+      const media::VideoDecoderConfig& decoder_config,
+      const media::Decryptor::DecoderInitCB& decoder_init_cb);
+  // TODO(tomfinegan): Add callback args for DeinitializeDecoder() and
+  // ResetDecoder()
+  bool DeinitializeDecoder();
+  bool ResetDecoder();
+  // Note: This method can be used with an unencrypted frame.
+  bool DecryptAndDecode(
+      const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
+      const media::Decryptor::VideoDecodeCB& video_decode_cb);
 
   // There are 2 implementations of the fullscreen interface
   // PPB_FlashFullscreen is used by Pepper Flash.
@@ -387,6 +400,8 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   virtual PP_Bool GetScreenSize(PP_Instance instance, PP_Size* size)
       OVERRIDE;
   virtual ::ppapi::thunk::PPB_Flash_API* GetFlashAPI() OVERRIDE;
+  virtual ::ppapi::thunk::PPB_Flash_Functions_API* GetFlashFunctionsAPI(
+      PP_Instance instance) OVERRIDE;
   virtual ::ppapi::thunk::PPB_Gamepad_API* GetGamepadAPI(PP_Instance instance)
       OVERRIDE;
   virtual int32_t RequestInputEvents(PP_Instance instance,
@@ -434,7 +449,9 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
       PP_Instance instance,
       PP_URLComponents_Dev* components) OVERRIDE;
 
-  // TODO(tomfinegan): Move the next 7 methods to a delegate class.
+  // PPB_ContentDecryptor_Private
+  // TODO(tomfinegan): Move the PPB_ContentDecryptor_Private methods to a
+  // delegate class.
   virtual void NeedKey(PP_Instance instance,
                        PP_Var key_system,
                        PP_Var session_id,
@@ -455,11 +472,21 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   virtual void DeliverBlock(PP_Instance instance,
                             PP_Resource decrypted_block,
                             const PP_DecryptedBlockInfo* block_info) OVERRIDE;
+  virtual void DecoderInitializeDone(PP_Instance instance,
+                                     PP_DecryptorStreamType decoder_type,
+                                     uint32_t request_id,
+                                     PP_Bool success) OVERRIDE;
+  virtual void DecoderDeinitializeDone(PP_Instance instance,
+                                       PP_DecryptorStreamType decoder_type,
+                                       uint32_t request_id) OVERRIDE;
+  virtual void DecoderResetDone(PP_Instance instance,
+                                PP_DecryptorStreamType decoder_type,
+                                uint32_t request_id) OVERRIDE;
   virtual void DeliverFrame(PP_Instance instance,
                             PP_Resource decrypted_frame,
                             const PP_DecryptedFrameInfo* frame_info) OVERRIDE;
   virtual void DeliverSamples(PP_Instance instance,
-                              PP_Resource decrypted_samples,
+                              PP_Resource audio_frames,
                               const PP_DecryptedBlockInfo* block_info) OVERRIDE;
 
   // Reset this instance as proxied. Resets cached interfaces to point to the
@@ -469,6 +496,8 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   bool ResetAsProxied(scoped_refptr<PluginModule> module);
 
  private:
+  friend class PpapiUnittest;
+
   // Implements PPB_Gamepad_API. This is just to avoid having an excessive
   // number of interfaces implemented by PluginInstance.
   class GamepadImpl : public ::ppapi::thunk::PPB_Gamepad_API {
@@ -756,9 +785,26 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   scoped_refptr<PPB_URLLoader_Impl> document_loader_;
 
   media::DecryptorClient* decryptor_client_;
+
+  // Request ID for tracking pending content decryption callbacks.
+  // Note that zero indicates an invalid request ID.
+  // TODO(xhwang): Add completion callbacks for Reset/Stop and remove the use
+  // of request IDs.
   uint32_t next_decryption_request_id_;
+
+  // TODO(xhwang): Use two separate callbacks for video and audio instead using
+  // a map here.
   typedef std::map<uint32_t, media::Decryptor::DecryptCB> DecryptionCBMap;
   DecryptionCBMap pending_decryption_cbs_;
+
+  uint32_t pending_audio_decoder_init_request_id_;
+  media::Decryptor::DecoderInitCB pending_audio_decoder_init_cb_;
+
+  uint32_t pending_video_decoder_init_request_id_;
+  media::Decryptor::DecoderInitCB pending_video_decoder_init_cb_;
+
+  uint32_t pending_video_decode_request_id_;
+  media::Decryptor::VideoDecodeCB pending_video_decode_cb_;
 
   DISALLOW_COPY_AND_ASSIGN(PluginInstance);
 };

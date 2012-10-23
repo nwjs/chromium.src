@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_contents_view.h"
+#include "ui/base/ime/win/tsf_event_router.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/win/extra_sdk_defines.h"
 #include "ui/gfx/font.h"
@@ -42,6 +43,7 @@ class OmniboxViewWin
                                     ES_NOHIDESEL> >,
       public CRichEditCommands<OmniboxViewWin>,
       public ui::SimpleMenuModel::Delegate,
+      public ui::TsfEventRouter::Observer,
       public OmniboxView {
  public:
   struct State {
@@ -151,9 +153,9 @@ class OmniboxViewWin
     MSG_WM_CUT(OnCut)
     MESSAGE_HANDLER_EX(WM_GETOBJECT, OnGetObject)
     MESSAGE_HANDLER_EX(WM_IME_COMPOSITION, OnImeComposition)
+    MESSAGE_HANDLER_EX(WM_IME_ENDCOMPOSITION, OnImeEndComposition)
     MESSAGE_HANDLER_EX(WM_IME_NOTIFY, OnImeNotify)
-    MESSAGE_HANDLER_EX(WM_POINTERDOWN, OnPointerDown)
-    MESSAGE_HANDLER_EX(WM_POINTERUP, OnPointerUp)
+    MESSAGE_HANDLER_EX(WM_TOUCH, OnTouchEvent)
     MSG_WM_KEYDOWN(OnKeyDown)
     MSG_WM_KEYUP(OnKeyUp)
     MSG_WM_KILLFOCUS(OnKillFocus)
@@ -250,9 +252,9 @@ class OmniboxViewWin
   void OnCut();
   LRESULT OnGetObject(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnImeComposition(UINT message, WPARAM wparam, LPARAM lparam);
+  LRESULT OnImeEndComposition(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnImeNotify(UINT message, WPARAM wparam, LPARAM lparam);
-  LRESULT OnPointerDown(UINT message, WPARAM wparam, LPARAM lparam);
-  LRESULT OnPointerUp(UINT message, WPARAM wparam, LPARAM lparam);
+  LRESULT OnTouchEvent(UINT message, WPARAM wparam, LPARAM lparam);
   void OnKeyDown(TCHAR key, UINT repeat_count, UINT flags);
   void OnKeyUp(TCHAR key, UINT repeat_count, UINT flags);
   void OnKillFocus(HWND focus_wnd);
@@ -328,6 +330,10 @@ class OmniboxViewWin
   // Highlights the scheme in green or red depending on it security level.
   // If a host name is found, it makes it visually stronger.
   virtual void EmphasizeURLComponents() OVERRIDE;
+
+  // TsfEventRouter::Observer
+  virtual void OnTextUpdated() OVERRIDE;
+  virtual void OnCandidateWindowCountChanged(size_t window_count) OVERRIDE;
 
   // Erases the portion of the selection in the font's y-adjustment area.  For
   // some reason the edit draws the selection rect here even though it's not
@@ -510,6 +516,9 @@ class OmniboxViewWin
 
   // The native view host.
   views::NativeViewHost* native_view_host_;
+
+  // TSF related event router.
+  scoped_refptr<ui::TsfEventRouter> tsf_event_router_;
 
   DISALLOW_COPY_AND_ASSIGN(OmniboxViewWin);
 };

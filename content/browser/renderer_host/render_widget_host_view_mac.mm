@@ -834,7 +834,7 @@ void RenderWidgetHostViewMac::CopyFromCompositingSurface(
     const gfx::Rect& src_subrect,
     const gfx::Size& dst_size,
     const base::Callback<void(bool)>& callback,
-    skia::PlatformCanvas* output) {
+    skia::PlatformBitmap* output) {
   base::ScopedClosureRunner scoped_callback_runner(base::Bind(callback, false));
   if (!compositing_iosurface_.get() ||
       !compositing_iosurface_->HasIOSurface())
@@ -842,7 +842,7 @@ void RenderWidgetHostViewMac::CopyFromCompositingSurface(
 
   float scale = ScaleFactor(cocoa_view_);
   gfx::Size dst_pixel_size = gfx::ToFlooredSize(dst_size.Scale(scale));
-  if (!output->initialize(
+  if (!output->Allocate(
       dst_pixel_size.width(), dst_pixel_size.height(), true))
     return;
   scoped_callback_runner.Release();
@@ -857,7 +857,7 @@ void RenderWidgetHostViewMac::CopyFromCompositingSurface(
   compositing_iosurface_->CopyTo(
       src_pixel_gl_subrect,
       dst_pixel_size,
-      output->getTopDevice()->accessBitmap(true).getPixels(),
+      output->GetBitmap().getPixels(),
       callback);
 }
 
@@ -1229,8 +1229,8 @@ void RenderWidgetHostViewMac::AcceleratedSurfacePostSubBuffer(
   // TODO(jbates) http://crbug.com/105344 This will be removed when there are no
   // plugin windows.
   if (params.window == gfx::kNullPluginWindow) {
-    NOTIMPLEMENTED();
-    AckPendingSwapBuffers();
+    if (CompositorSwapBuffers(params.surface_handle, params.surface_size))
+      AckPendingSwapBuffers();
   } else {
     // Deprecated accelerated plugin code path.
     AcceleratedPluginView* view = ViewForPluginWindowHandle(params.window);
@@ -1316,10 +1316,6 @@ void RenderWidgetHostViewMac::DrawAcceleratedSurfaceInstance(
 
 void RenderWidgetHostViewMac::ForceTextureReload() {
   plugin_container_manager_.ForceTextureReload();
-}
-
-void RenderWidgetHostViewMac::ProcessTouchAck(
-    WebKit::WebInputEvent::Type type, bool processed) {
 }
 
 void RenderWidgetHostViewMac::SetHasHorizontalScrollbar(
@@ -2151,7 +2147,8 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
 }
 
 - (void)windowChangedScreen:(NSNotification*)notification {
-  renderWidgetHostView_->UpdateScreenInfo();
+  renderWidgetHostView_->UpdateScreenInfo(
+      renderWidgetHostView_->GetNativeView());
 }
 
 - (void)setFrameSize:(NSSize)newSize {

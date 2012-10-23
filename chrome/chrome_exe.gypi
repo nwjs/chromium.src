@@ -425,6 +425,10 @@
             # go inside the framework, so this dependency is in chrome_dll.gypi.
             '../third_party/adobe/flash/flash_player.gyp:flash_player',
             '../third_party/adobe/flash/flash_player.gyp:flapper_binaries',
+            # Copy CDM files to PRODUCT_DIR if applicable. Let the .gyp
+            # file decide what to do on a per-OS basis; on Mac, internal plugins
+            # go inside the framework, so this dependency is in chrome_dll.gypi.
+            '../third_party/widevine/cdm/widevine_cdm.gyp:widevinecdmplugin',
           ],
         }],
         ['OS=="mac" and asan==1', {
@@ -511,7 +515,7 @@
         ['OS=="win" and component=="shared_library"', {
           'defines': ['COMPILE_CONTENT_STATICALLY'],
         }],
-        ['OS=="win" and (MSVS_VERSION=="2010" or MSVS_VERSION=="2010e")', {
+        ['OS=="win"', {
           'dependencies': [
             '../win8/metro_driver/metro_driver.gyp:*',
             '../win8/delegate_execute/delegate_execute.gyp:*',

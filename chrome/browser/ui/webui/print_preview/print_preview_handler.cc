@@ -58,10 +58,10 @@
 #include "printing/print_settings.h"
 #include "unicode/ulocdata.h"
 
-#ifdef OS_CHROMEOS
+#if defined(OS_CHROMEOS)
 // TODO(kinaba): provide more non-intrusive way for handling local/remote
 // distinction and remove these ugly #ifdef's. http://crbug.com/140425
-#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
+#include "chrome/browser/chromeos/drive/drive_file_system_util.h"
 #endif
 
 #if !defined(OS_MACOSX)
@@ -105,6 +105,7 @@ enum PrintSettingsBuckets {
 
 enum UiBucketGroups {
   DESTINATION_SEARCH,
+  GCP_PROMO,
   UI_BUCKET_GROUP_BOUNDARY
 };
 
@@ -115,6 +116,13 @@ enum PrintDestinationBuckets {
   SIGNIN_PROMPT,
   SIGNIN_TRIGGERED,
   PRINT_DESTINATION_BUCKET_BOUNDARY
+};
+
+enum GcpPromoBuckets {
+  PROMO_SHOWN,
+  PROMO_CLOSED,
+  PROMO_CLICKED,
+  GCP_PROMO_BUCKET_BOUNDARY
 };
 
 void ReportUserActionHistogram(enum UserActionBuckets event) {
@@ -130,6 +138,11 @@ void ReportPrintSettingHistogram(enum PrintSettingsBuckets setting) {
 void ReportPrintDestinationHistogram(enum PrintDestinationBuckets event) {
   UMA_HISTOGRAM_ENUMERATION("PrintPreview.DestinationAction", event,
                             PRINT_DESTINATION_BUCKET_BOUNDARY);
+}
+
+void ReportGcpPromoHistogram(enum GcpPromoBuckets event) {
+  UMA_HISTOGRAM_ENUMERATION("PrintPreview.GcpPromo", event,
+                            GCP_PROMO_BUCKET_BOUNDARY);
 }
 
 // Name of a dictionary field holding cloud print related data;
@@ -225,9 +238,9 @@ void PrintToPdfCallback(Metafile* metafile, const FilePath& path) {
 
 #ifdef OS_CHROMEOS
 void PrintToPdfCallbackWithCheck(Metafile* metafile,
-                                 gdata::DriveFileError error,
+                                 drive::DriveFileError error,
                                  const FilePath& path) {
-  if (error != gdata::DRIVE_FILE_OK) {
+  if (error != drive::DRIVE_FILE_OK) {
     LOG(ERROR) << "Save to pdf failed to write: " << error;
   } else {
     metafile->SaveTo(path);
@@ -705,10 +718,18 @@ void PrintPreviewHandler::HandleReportUiEvent(const ListValue* args) {
   switch (ui_bucket_group) {
     case DESTINATION_SEARCH: {
       enum PrintDestinationBuckets event =
-            static_cast<enum PrintDestinationBuckets>(event_number);
+          static_cast<enum PrintDestinationBuckets>(event_number);
       if (event >= PRINT_DESTINATION_BUCKET_BOUNDARY)
         return;
       ReportPrintDestinationHistogram(event);
+      break;
+    }
+    case GCP_PROMO: {
+      enum GcpPromoBuckets event =
+          static_cast<enum GcpPromoBuckets>(event_number);
+      if (event >= GCP_PROMO_BUCKET_BOUNDARY)
+        return;
+      ReportGcpPromoHistogram(event);
       break;
     }
     default:
@@ -909,7 +930,7 @@ void PrintPreviewHandler::PostPrintToPdfTask(base::RefCountedBytes* data) {
   // PrintToPdfCallback takes ownership of |metafile|.
 #ifdef OS_CHROMEOS
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  gdata::util::PrepareWritableFileAndRun(
+  drive::util::PrepareWritableFileAndRun(
       Profile::FromBrowserContext(preview_web_contents()->GetBrowserContext()),
       *print_to_pdf_path_,
       base::Bind(&PrintToPdfCallbackWithCheck, metafile));

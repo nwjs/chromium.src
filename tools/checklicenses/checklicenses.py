@@ -190,6 +190,15 @@ PATH_SPECIFIC_WHITELISTED_LICENSES = {
     'third_party/cld/encodings/compact_lang_det': [  # http://crbug.com/98120
         'UNKNOWN',
     ],
+    # Not used. http://crbug.com/156020
+    # Using third_party/cros_dbus_cplusplus/cros_dbus_cplusplus.gyp instead.
+    'third_party/cros_dbus_cplusplus/source/autogen.sh': [
+        'UNKNOWN',
+    ],
+    # Included in the source tree but not built. http://crbug.com/156020
+    'third_party/cros_dbus_cplusplus/source/examples': [
+        'UNKNOWN',
+    ],
     'third_party/devscripts': [
         'GPL (v2 or later)',
     ],
@@ -201,6 +210,9 @@ PATH_SPECIFIC_WHITELISTED_LICENSES = {
         'GPL (v2)',
         'GPL (v2 or later)',
         'UNKNOWN',  # http://crbug.com/98123
+    ],
+    'third_party/findbugs/doc': [ # http://crbug.com/157206
+        'UNKNOWN',
     ],
     'third_party/gles2_book': [  # http://crbug.com/98130
         'UNKNOWN',
@@ -312,7 +324,13 @@ PATH_SPECIFIC_WHITELISTED_LICENSES = {
     'third_party/ocmock/OCMock': [  # http://crbug.com/98454
         'UNKNOWN',
     ],
+    'third_party/opus/src': [  # http://crbug.com/156738
+        'UNKNOWN',
+    ],
     'third_party/ply/__init__.py': [
+        'UNKNOWN',
+    ],
+    'third_party/pexpect': [ # http://crbug.com/156113
         'UNKNOWN',
     ],
     'third_party/protobuf': [  # http://crbug.com/98455

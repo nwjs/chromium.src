@@ -16,7 +16,6 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
 #include "base/process_info.h"
@@ -52,7 +51,6 @@
 #include "chrome/browser/download/download_started_animation.h"
 #include "chrome/browser/download/download_util.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
-#include "chrome/browser/extensions/default_apps_trial.h"
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/tab_helper.h"
@@ -135,6 +133,7 @@
 #include "chrome/browser/ui/tabs/dock_info.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/toolbar/toolbar_model_impl.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_ui.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
@@ -204,7 +203,7 @@
 #endif  // OS_WIN
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
+#include "chrome/browser/chromeos/drive/drive_file_system_util.h"
 #endif
 
 #if defined(USE_ASH)
@@ -364,7 +363,7 @@ Browser::Browser(const CreateParams& params)
     chrome::RegisterAppPrefs(app_name_, profile_);
   tab_strip_model_->AddObserver(this);
 
-  toolbar_model_.reset(new ToolbarModel(toolbar_model_delegate_.get()));
+  toolbar_model_.reset(new ToolbarModelImpl(toolbar_model_delegate_.get()));
   search_model_.reset(new chrome::search::SearchModel(NULL));
   search_delegate_.reset(
       new chrome::search::SearchDelegate(search_model_.get(),
@@ -850,11 +849,11 @@ bool Browser::RunUnloadEventsHelper(WebContents* contents) {
 
 // static
 void Browser::JSOutOfMemoryHelper(WebContents* web_contents) {
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
-  if (!tab_contents)
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(web_contents);
+  if (!infobar_helper)
     return;
 
-  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
   infobar_helper->AddInfoBar(new SimpleAlertInfoBarDelegate(
       infobar_helper,
       NULL,
@@ -901,7 +900,8 @@ void Browser::RegisterProtocolHandlerHelper(WebContents* web_contents,
 
   content::RecordAction(
       UserMetricsAction("RegisterProtocolHandler.InfoBar_Shown"));
-  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(web_contents);
 
   RegisterProtocolHandlerInfoBarDelegate* rph_delegate =
       new RegisterProtocolHandlerInfoBarDelegate(infobar_helper,
@@ -953,7 +953,8 @@ void Browser::RequestMediaAccessPermissionHelper(
                                                   request,
                                                   callback));
   if (!controller->DismissInfoBarAndTakeActionOnSettings()) {
-    InfoBarTabHelper* infobar_helper = tab->infobar_tab_helper();
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(web_contents);
     InfoBarDelegate* old_infobar = NULL;
     for (size_t i = 0; i < infobar_helper->GetInfoBarCount(); ++i) {
       old_infobar = infobar_helper->GetInfoBarDelegateAt(i)->
@@ -1559,8 +1560,8 @@ void Browser::RendererResponsive(WebContents* source) {
 }
 
 void Browser::WorkerCrashed(WebContents* source) {
-  TabContents* tab_contents = TabContents::FromWebContents(source);
-  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(source);
   infobar_helper->AddInfoBar(new SimpleAlertInfoBarDelegate(
       infobar_helper,
       NULL,
@@ -1802,7 +1803,7 @@ void Browser::FileSelectedWithExtraInfo(
   GURL file_url = net::FilePathToFileURL(path);
 
 #if defined(OS_CHROMEOS)
-  gdata::util::ModifyDriveFileResourceUrl(profile_, path, &file_url);
+  drive::util::ModifyDriveFileResourceUrl(profile_, path, &file_url);
 #endif
 
   if (file_url.is_empty())

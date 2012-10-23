@@ -35,6 +35,7 @@ class RenderWidgetHostViewAndroid;
 class ContentViewCoreImpl : public ContentViewCore,
                             public NotificationObserver {
  public:
+  static ContentViewCoreImpl* FromWebContents(WebContents* web_contents);
   ContentViewCoreImpl(JNIEnv* env,
                       jobject obj,
                       bool hardware_accelerated,
@@ -42,17 +43,22 @@ class ContentViewCoreImpl : public ContentViewCore,
                       ui::WindowAndroid* window_android);
 
   // ContentViewCore implementation.
-  virtual void Destroy(JNIEnv* env, jobject obj) OVERRIDE;
   virtual base::android::ScopedJavaLocalRef<jobject> GetJavaObject() OVERRIDE;
+  virtual base::android::ScopedJavaLocalRef<jobject> GetContainerViewDelegate()
+      OVERRIDE;
   virtual WebContents* GetWebContents() const OVERRIDE;
   virtual ui::WindowAndroid* GetWindowAndroid() OVERRIDE;
   virtual void LoadUrl(NavigationController::LoadURLParams& params) OVERRIDE;
   virtual void OnWebPreferencesUpdated() OVERRIDE;
   virtual jint GetCurrentRenderProcessId(JNIEnv* env, jobject obj) OVERRIDE;
+  virtual void ShowPastePopup(int x, int y) OVERRIDE;
+  virtual unsigned int GetScaledContentTexture(const gfx::Size& size) OVERRIDE;
 
   // --------------------------------------------------------------------------
   // Methods called from Java via JNI
   // --------------------------------------------------------------------------
+
+  void OnJavaContentViewCoreDestroyed(JNIEnv* env, jobject obj);
 
   // Notifies the ContentViewCore that items were selected in the currently
   // showing select popup.
@@ -67,7 +73,8 @@ class ContentViewCoreImpl : public ContentViewCore,
       jstring extra_headers,
       jbyteArray post_data,
       jstring base_url_for_data_url,
-      jstring virtual_url_for_data_url);
+      jstring virtual_url_for_data_url,
+      jboolean can_load_local_resources);
   void SetAllUserAgentOverridesInHistory(
       JNIEnv* env,
       jobject obj,
@@ -152,6 +159,7 @@ class ContentViewCoreImpl : public ContentViewCore,
   void SetBackgroundColor(JNIEnv* env, jobject obj, jint color);
   void OnShow(JNIEnv* env, jobject obj);
   void OnHide(JNIEnv* env, jobject obj);
+  void ClearSslPreferences(JNIEnv* env, jobject /* obj */);
   void SetUseDesktopUserAgent(JNIEnv* env,
                               jobject /* obj */,
                               jboolean state,
@@ -168,6 +176,9 @@ class ContentViewCoreImpl : public ContentViewCore,
   int GetNavigationHistory(JNIEnv* env, jobject obj, jobject context);
   void UpdateVSyncParameters(JNIEnv* env, jobject obj, jlong timebase_micros,
                              jlong interval_micros);
+  jboolean PopulateBitmapFromCompositor(JNIEnv* env,
+                                        jobject obj,
+                                        jobject jbitmap);
 
   // --------------------------------------------------------------------------
   // Public methods that call to Java via JNI
@@ -194,14 +205,11 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   bool HasFocus();
   void ConfirmTouchEvent(bool handled);
-  void DidSetNeedTouchEvents(bool need_touch_events);
+  void HasTouchEventHandlers(bool need_touch_events);
   void OnSelectionChanged(const std::string& text);
-  void OnSelectionBoundsChanged(int startx,
-                                int starty,
-                                base::i18n::TextDirection start_dir,
-                                int endx,
-                                int endy,
-                                base::i18n::TextDirection end_dir);
+  void OnSelectionBoundsChanged(
+      const gfx::Rect& start_rect, base::i18n::TextDirection start_dir,
+      const gfx::Rect& end_rect, base::i18n::TextDirection end_dir);
 
   void StartContentIntent(const GURL& content_url);
 
@@ -212,15 +220,14 @@ class ContentViewCoreImpl : public ContentViewCore,
   gfx::Rect GetBounds() const;
 
  private:
+  class ContentViewUserData;
+  friend class ContentViewUserData;
+  virtual ~ContentViewCoreImpl();
+
   // NotificationObserver implementation.
   virtual void Observe(int type,
                        const NotificationSource& source,
                        const NotificationDetails& details) OVERRIDE;
-
-  // --------------------------------------------------------------------------
-  // Private methods that call to Java via JNI
-  // --------------------------------------------------------------------------
-  virtual ~ContentViewCoreImpl();
 
   // --------------------------------------------------------------------------
   // Other private methods and data
@@ -228,7 +235,7 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   void InitJNI(JNIEnv* env, jobject obj);
 
-  void InitWebContents(content::WebContents* web_contents);
+  void InitWebContents();
 
   RenderWidgetHostViewAndroid* GetRenderWidgetHostViewAndroid();
 
@@ -237,6 +244,9 @@ class ContentViewCoreImpl : public ContentViewCore,
   float DpiScale() const;
   WebKit::WebGestureEvent MakeGestureEvent(WebKit::WebInputEvent::Type type,
                                            long time_ms, int x, int y) const;
+
+  void DeleteScaledSnapshotTexture();
+
   struct JavaObject;
   JavaObject* java_object_;
 

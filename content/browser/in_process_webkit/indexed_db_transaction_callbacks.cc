@@ -19,9 +19,11 @@ IndexedDBTransactionCallbacks::IndexedDBTransactionCallbacks(
 IndexedDBTransactionCallbacks::~IndexedDBTransactionCallbacks() {
 }
 
-void IndexedDBTransactionCallbacks::onAbort() {
+void IndexedDBTransactionCallbacks::onAbort(
+    const WebKit::WebIDBDatabaseError& error) {
   dispatcher_host_->Send(
-      new IndexedDBMsg_TransactionCallbacksAbort(thread_id_, transaction_id_));
+      new IndexedDBMsg_TransactionCallbacksAbort(
+          thread_id_, transaction_id_, error.code(), error.message()));
 }
 
 void IndexedDBTransactionCallbacks::onComplete() {

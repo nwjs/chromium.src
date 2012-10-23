@@ -72,7 +72,7 @@
 #endif
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/drive_protocol_handler.h"
+#include "chrome/browser/chromeos/drive/drive_protocol_handler.h"
 #include "chrome/browser/chromeos/gview_request_interceptor.h"
 #include "chrome/browser/chromeos/proxy_config_service_impl.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
@@ -640,7 +640,7 @@ void ProfileIOData::SetUpJobFactoryDefaults(
 #if defined(OS_CHROMEOS)
   if (!is_incognito()) {
     set_protocol = job_factory->SetProtocolHandler(
-        chrome::kDriveScheme, new gdata::DriveProtocolHandler());
+        chrome::kDriveScheme, new drive::DriveProtocolHandler());
     DCHECK(set_protocol);
   }
 #if !defined(GOOGLE_CHROME_BUILD)
@@ -652,8 +652,9 @@ void ProfileIOData::SetUpJobFactoryDefaults(
 #endif  // !defined(GOOGLE_CHROME_BUILD)
 #endif  // defined(OS_CHROMEOS)
 
-  job_factory->SetProtocolHandler(chrome::kAboutScheme,
-                                  new net::AboutProtocolHandler());
+  job_factory->SetProtocolHandler(
+      chrome::kAboutScheme,
+      new chrome_browser_net::AboutProtocolHandler());
 #if !defined(DISABLE_FTP_SUPPORT)
   DCHECK(ftp_transaction_factory);
   job_factory->SetProtocolHandler(

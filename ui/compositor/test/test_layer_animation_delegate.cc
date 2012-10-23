@@ -10,7 +10,8 @@ TestLayerAnimationDelegate::TestLayerAnimationDelegate()
     : opacity_(1.0f),
       visibility_(true),
       brightness_(0.0f),
-      grayscale_(0.0f) {
+      grayscale_(0.0f),
+      color_(SK_ColorBLACK) {
 }
 
 TestLayerAnimationDelegate::TestLayerAnimationDelegate(
@@ -18,7 +19,8 @@ TestLayerAnimationDelegate::TestLayerAnimationDelegate(
     : bounds_(other.GetBoundsForAnimation()),
       transform_(other.GetTransformForAnimation()),
       opacity_(other.GetOpacityForAnimation()),
-      visibility_(other.GetVisibilityForAnimation()) {
+      visibility_(other.GetVisibilityForAnimation()),
+      color_(SK_ColorBLACK) {
 }
 
 TestLayerAnimationDelegate::~TestLayerAnimationDelegate() {
@@ -30,7 +32,7 @@ void TestLayerAnimationDelegate::SetBoundsFromAnimation(
 }
 
 void TestLayerAnimationDelegate::SetTransformFromAnimation(
-    const Transform& transform) {
+    const gfx::Transform& transform) {
   transform_ = transform;
 }
 
@@ -50,6 +52,10 @@ void TestLayerAnimationDelegate::SetGrayscaleFromAnimation(float grayscale) {
   grayscale_ = grayscale;
 }
 
+void TestLayerAnimationDelegate::SetColorFromAnimation(SkColor color) {
+  color_ = color;
+}
+
 void TestLayerAnimationDelegate::ScheduleDrawForAnimation() {
 }
 
@@ -57,7 +63,8 @@ const gfx::Rect& TestLayerAnimationDelegate::GetBoundsForAnimation() const {
   return bounds_;
 }
 
-const Transform& TestLayerAnimationDelegate::GetTransformForAnimation() const {
+const gfx::Transform&
+TestLayerAnimationDelegate::GetTransformForAnimation() const {
   return transform_;
 }
 
@@ -75,6 +82,10 @@ float TestLayerAnimationDelegate::GetBrightnessForAnimation() const {
 
 float TestLayerAnimationDelegate::GetGrayscaleForAnimation() const {
   return grayscale_;
+}
+
+SkColor TestLayerAnimationDelegate::GetColorForAnimation() const {
+  return color_;
 }
 
 }  // namespace ui

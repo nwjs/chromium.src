@@ -332,6 +332,16 @@ const sync_pb::SessionSpecifics& BaseNode::GetSessionSpecifics() const {
   return GetEntitySpecifics().session();
 }
 
+const sync_pb::DeviceInfoSpecifics& BaseNode::GetDeviceInfoSpecifics() const {
+  DCHECK_EQ(GetModelType(), DEVICE_INFO);
+  return GetEntitySpecifics().device_info();
+}
+
+const sync_pb::ExperimentsSpecifics& BaseNode::GetExperimentsSpecifics() const {
+  DCHECK_EQ(GetModelType(), EXPERIMENTS);
+  return GetEntitySpecifics().experiments();
+}
+
 const sync_pb::EntitySpecifics& BaseNode::GetEntitySpecifics() const {
   return GetUnencryptedSpecifics(GetEntry());
 }

@@ -3,12 +3,13 @@
 // found in the LICENSE file.
 
 #include "sandbox/linux/seccomp-bpf/sandbox_bpf.h"
+#include "sandbox/linux/seccomp-bpf/syscall_iterator.h"
 #include "sandbox/linux/seccomp-bpf/verifier.h"
 
 
 namespace playground2 {
 
-bool Verifier::verifyBPF(const std::vector<struct sock_filter>& program,
+bool Verifier::VerifyBPF(const std::vector<struct sock_filter>& program,
                          const Sandbox::Evaluators& evaluators,
                          const char **err) {
   *err = NULL;
@@ -16,8 +17,9 @@ bool Verifier::verifyBPF(const std::vector<struct sock_filter>& program,
     *err = "Not implemented";
     return false;
   }
-  Sandbox::EvaluateSyscall evaluateSyscall = evaluators.begin()->first;
-  for (int nr = MIN_SYSCALL-1; nr <= static_cast<int>(MAX_SYSCALL)+1; ++nr) {
+  Sandbox::EvaluateSyscall evaluate_syscall = evaluators.begin()->first;
+  for (SyscallIterator iter(false); !iter.Done(); ) {
+    uint32_t sysnum = iter.Next();
     // We ideally want to iterate over the full system call range and values
     // just above and just below this range. This gives us the full result set
     // of the "evaluators".
@@ -25,22 +27,24 @@ bool Verifier::verifyBPF(const std::vector<struct sock_filter>& program,
     // indicates either i386 or x86-64; and a set bit 30 indicates x32. And
     // unless we pay attention to setting this bit correctly, an early check in
     // our BPF program will make us fail with a misleading error code.
+    struct arch_seccomp_data data = { static_cast<int>(sysnum),
+                                      static_cast<uint32_t>(SECCOMP_ARCH) };
 #if defined(__i386__) || defined(__x86_64__)
 #if defined(__x86_64__) && defined(__ILP32__)
-    int sysnum = nr |  0x40000000;
+    if (!(sysnum & 0x40000000u)) {
+      continue;
+    }
 #else
-    int sysnum = nr & ~0x40000000;
+    if (sysnum & 0x40000000u) {
+      continue;
+    }
 #endif
-#else
-    int sysnum = nr;
 #endif
-
-    struct arch_seccomp_data data = { sysnum, SECCOMP_ARCH };
-    ErrorCode code = evaluateSyscall(sysnum);
-    uint32_t computedRet = evaluateBPF(program, data, err);
+    ErrorCode code = evaluate_syscall(sysnum);
+    uint32_t computed_ret = EvaluateBPF(program, data, err);
     if (*err) {
       return false;
-    } else if (computedRet != code.err()) {
+    } else if (computed_ret != code.err()) {
       *err = "Exit code from BPF program doesn't match";
       return false;
     }
@@ -48,7 +52,7 @@ bool Verifier::verifyBPF(const std::vector<struct sock_filter>& program,
   return true;
 }
 
-uint32_t Verifier::evaluateBPF(const std::vector<struct sock_filter>& program,
+uint32_t Verifier::EvaluateBPF(const std::vector<struct sock_filter>& program,
                                const struct arch_seccomp_data& data,
                                const char **err) {
   *err = NULL;
@@ -64,13 +68,13 @@ uint32_t Verifier::evaluateBPF(const std::vector<struct sock_filter>& program,
     const struct sock_filter& insn = program[state.ip];
     switch (BPF_CLASS(insn.code)) {
     case BPF_LD:
-      ld(&state, insn, err);
+      Ld(&state, insn, err);
       break;
     case BPF_JMP:
-      jmp(&state, insn, err);
+      Jmp(&state, insn, err);
       break;
     case BPF_RET:
-      return ret(&state, insn, err);
+      return Ret(&state, insn, err);
     default:
       *err = "Unexpected instruction in BPF program";
       break;
@@ -79,7 +83,7 @@ uint32_t Verifier::evaluateBPF(const std::vector<struct sock_filter>& program,
   return 0;
 }
 
-void Verifier::ld(State *state, const struct sock_filter& insn,
+void Verifier::Ld(State *state, const struct sock_filter& insn,
                   const char **err) {
   if (BPF_SIZE(insn.code) != BPF_W ||
       BPF_MODE(insn.code) != BPF_ABS) {
@@ -95,11 +99,11 @@ void Verifier::ld(State *state, const struct sock_filter& insn,
     *err = "Invalid operand in BPF_LD instruction";
     return;
   }
-  state->accIsValid = true;
+  state->acc_is_valid = true;
   return;
 }
 
-void Verifier::jmp(State *state, const struct sock_filter& insn,
+void Verifier::Jmp(State *state, const struct sock_filter& insn,
                    const char **err) {
   if (BPF_OP(insn.code) == BPF_JA) {
     if (state->ip + insn.k + 1 >= state->program.size() ||
@@ -111,7 +115,7 @@ void Verifier::jmp(State *state, const struct sock_filter& insn,
     state->ip += insn.k;
   } else {
     if (BPF_SRC(insn.code) != BPF_K ||
-        !state->accIsValid ||
+        !state->acc_is_valid ||
         state->ip + insn.jt + 1 >= state->program.size() ||
         state->ip + insn.jf + 1 >= state->program.size()) {
       goto compilation_failure;
@@ -151,7 +155,7 @@ void Verifier::jmp(State *state, const struct sock_filter& insn,
   }
 }
 
-uint32_t Verifier::ret(State *, const struct sock_filter& insn,
+uint32_t Verifier::Ret(State *, const struct sock_filter& insn,
                        const char **err) {
   if (BPF_SRC(insn.code) != BPF_K) {
     *err = "Invalid BPF_RET instruction";

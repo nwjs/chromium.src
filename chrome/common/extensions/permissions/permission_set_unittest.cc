@@ -675,8 +675,8 @@ TEST(PermissionsTest, PermissionMessages) {
   // permissions.
   skip.insert(APIPermission::kCookie);
 
-  // The ime, proxy, and webRequest permissions are warned as part of host
-  // permission checks.
+  // These are warned as part of host permission checks.
+  skip.insert(APIPermission::kPageCapture);
   skip.insert(APIPermission::kProxy);
   skip.insert(APIPermission::kWebRequest);
   skip.insert(APIPermission::kWebRequestBlocking);
@@ -689,6 +689,7 @@ TEST(PermissionsTest, PermissionMessages) {
   // These permissions require explicit user action (configuration dialog)
   // so we don't prompt for them at install time.
   skip.insert(APIPermission::kMediaGalleries);
+  skip.insert(APIPermission::kMediaGalleriesRead);
 
   // If you've turned on the experimental command-line flag, we don't need
   // to warn you further.

@@ -5,6 +5,7 @@
 #ifndef CONTENT_RENDERER_BROWSER_PLUGIN_BROWSER_PLUGIN_BINDINGS_H__
 #define CONTENT_RENDERER_BROWSER_PLUGIN_BROWSER_PLUGIN_BINDINGS_H__
 
+#include "base/memory/scoped_vector.h"
 #include "base/memory/weak_ptr.h"
 #include "ppapi/shared_impl/resource.h"
 #include "third_party/npapi/bindings/npruntime.h"
@@ -16,6 +17,7 @@ class WebSerializedScriptValue;
 namespace content {
 
 class BrowserPlugin;
+class BrowserPluginMethodBinding;
 
 class BrowserPluginBindings {
  public:
@@ -36,10 +38,20 @@ class BrowserPluginBindings {
   NPObject* np_object() const { return np_object_; }
 
   BrowserPlugin* instance() const { return instance_; }
+
+  bool HasMethod(NPIdentifier name) const;
+
+  bool InvokeMethod(NPIdentifier name,
+                    const NPVariant* args,
+                    uint32 arg_count,
+                    NPVariant* result);
  private:
   BrowserPlugin* instance_;
   // The NPObject we use to expose postMessage to JavaScript.
   BrowserPluginNPObject* np_object_;
+
+  typedef ScopedVector<BrowserPluginMethodBinding> BindingList;
+  BindingList method_bindings_;
 
   // This is used to ensure pending tasks will not fire after this object is
   // destroyed.

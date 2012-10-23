@@ -1127,6 +1127,13 @@
    fun:_ZN2pp25CompletionCallbackFactoryI15TestingInstanceNS_22ThreadSafeThreadTraitsEE11Dispatcher0IMS1_FviEEclEPS1_i
    fun:_ZN2pp25CompletionCallbackFactoryI15TestingInstanceNS_22ThreadSafeThreadTraitsEE12CallbackDataINS3_11Dispatcher0IMS1_FviEEEE5ThunkEPvi
 }
+{
+  intentional_see_bug_156466
+  Memcheck:Leak
+  fun:_Znw*
+  fun:_ZN3ash5ShellC1EPNS_13ShellDelegateE
+  fun:_ZN3ash5Shell14CreateInstanceEPNS_13ShellDelegateE
+}
 
 #-----------------------------------------------------------------------
 # 3. Suppressions for real chromium bugs that are not yet fixed.
@@ -2529,11 +2536,11 @@
    bug_65940_d
    Memcheck:Leak
    fun:_Znw*
-   fun:_ZN11ChildThread4InitEv
-   fun:_ZN11ChildThreadC2ERKSs
-   fun:_ZN16RenderThreadImplC2ERKSs
-   fun:_ZN16RenderThreadImplC1ERKSs
-   fun:_ZN21WebRTCAudioDeviceTest5SetUpEv
+   fun:_ZN7content11ChildThread4InitEv
+   fun:_ZN7content11ChildThreadC2ERKSs
+   fun:_ZN7content16RenderThreadImplC2ERKSs
+   fun:_ZN7content16RenderThreadImplC1ERKSs
+   fun:_ZN7content21WebRTCAudioDeviceTest5SetUpEv
 }
 {
    bug_66853_a
@@ -3967,8 +3974,8 @@
    fun:chromium_jpeg_write_scanlines
    fun:_ZN3gfx9JPEGCodec6EncodeEPKhNS0_11ColorFormatEiiiiPSt6vectorIhSaIhEE
    fun:_ZN3gfx24JPEGEncodedDataFromImageERKNS_5ImageE?PSt6vectorIhSaIhEE
-   fun:_ZN7history8TopSites12EncodeBitmapEPN3gfx5ImageEP13scoped_refptrIN4base15RefCountedBytesEE
-   fun:_ZN7history8TopSites16SetPageThumbnailERK4GURLPN3gfx5ImageERK14ThumbnailScore
+   fun:_ZN7history8TopSites12EncodeBitmapE*N3gfx5ImageEP13scoped_refptrIN4base15RefCountedBytesEE
+   fun:_ZN7history8TopSites16SetPageThumbnailERK4GURL*N3gfx5ImageERK14ThumbnailScore
    fun:_ZN7history17ExpireHistoryTest14AddExampleDataEP?PN4base4TimeE
    fun:_ZN7history*ExpireHistoryTest_*
 }
@@ -5103,15 +5110,6 @@
    fun:_ZN2v88internalL21Builtin_HandleApiCallENS0_12_GLOBAL__N_116BuiltinArgumentsILNS0_21BuiltinExtraArgumentsE1EEEPNS0_7IsolateE
 }
 {
-   bug_123453
-   Memcheck:Unaddressable
-   fun:_ZN9GrTexture14asRenderTargetEv
-   fun:_ZN9GrContext12gaussianBlurEP9GrTextureP20GrAutoScratchTextureS3_RK6SkRectff
-   fun:_ZL14filter_textureP9GrContextP9GrTextureP13SkImageFilterRK6SkRect
-   fun:_ZN11SkGpuDevice10drawSpriteERK6SkDrawRK8SkBitmapiiRK7SkPaint
-   fun:_ZN8SkCanvas10drawSpriteERK8SkBitmapiiPK7SkPaint
-}
-{
    bug_124156
    Memcheck:Leak
    fun:_Znw*
@@ -6060,4 +6058,37 @@
    fun:_ZN7WebCore21RenderLayerCompositor15ensureRootLayerEv
    fun:_ZN7WebCore21RenderLayerCompositor21enableCompositingModeEb
    fun:_ZN7WebCore21RenderLayerCompositor13updateBackingEPNS_11RenderLayerENS0_24CompositingChangeRepaintE
+}
+{
+   bug_155404
+   Memcheck:Uninitialized
+   fun:_ZN2v88internalL21ProfilerSignalHandlerEiP7siginfoPv
+   obj:/lib/libpthread-2.11.1.so
+}
+{
+   bug_155530
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN33GeolocationInfoBarQueueController17ShowQueuedInfoBarEiiP16InfoBarTabHelper
+   ...
+   fun:_ZN77GeolocationInfoBarQueueControllerTests_OneObservationPerInfoBarCancelled_Test8TestBodyEv
+}
+{
+  bug_156705
+  Memcheck:Leak
+  fun:_Znw*
+  fun:_ZN33GeolocationInfoBarQueueController21CreateInfoBarDelegateEP16InfoBarTabHelperPS_iiiRK4GURLRKSs
+  fun:_ZN33GeolocationInfoBarQueueController17ShowQueuedInfoBarEiiP16InfoBarTabHelper
+}
+{
+  bug_156829
+  Memcheck:Leak
+  fun:_Znw*
+  fun:_ZN12media_stream23AudioInputDeviceManager23EnumerateOnDeviceThreadEv
+}
+{
+  bug_157141
+  Memcheck:Leak
+  ...
+  fun:_ZN35WebAuthFlowTest_UIClosedByUser_Test8TestBodyEv
 }

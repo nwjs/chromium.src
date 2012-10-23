@@ -143,8 +143,6 @@ bool AutofillAgent::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(AutofillMsg_FormDataFilled, OnFormDataFilled)
     IPC_MESSAGE_HANDLER(AutofillMsg_FieldTypePredictionsAvailable,
                         OnFieldTypePredictionsAvailable)
-    IPC_MESSAGE_HANDLER(AutofillMsg_SelectAutofillSuggestionAtIndex,
-                        OnSelectAutofillSuggestionAtIndex)
     IPC_MESSAGE_HANDLER(AutofillMsg_SetAutofillActionFill,
                         OnSetAutofillActionFill)
     IPC_MESSAGE_HANDLER(AutofillMsg_ClearForm,
@@ -253,6 +251,10 @@ void AutofillAgent::didAcceptAutofillSuggestion(const WebNode& node,
       break;
     case WebAutofillClient::MenuItemIDAutocompleteEntry:
     case WebAutofillClient::MenuItemIDPasswordEntry:
+#if defined(OS_ANDROID)
+      // Clear the current IME composition (the underline), if there is one.
+      node.document().frame()->unmarkText();
+#endif
       // User selected an Autocomplete or password entry, so we fill directly.
       SetNodeText(value, &element_);
       break;
@@ -260,6 +262,10 @@ void AutofillAgent::didAcceptAutofillSuggestion(const WebNode& node,
       AcceptDataListSuggestion(value);
       break;
     default:
+#if defined(OS_ANDROID)
+      // Clear the current IME composition (the underline), if there is one.
+      node.document().frame()->unmarkText();
+#endif
       // A positive item_id is a unique id for an autofill (vs. autocomplete)
       // suggestion.
       DCHECK_GT(item_id, 0);
@@ -532,12 +538,6 @@ void AutofillAgent::OnFieldTypePredictionsAvailable(
   for (size_t i = 0; i < forms.size(); ++i) {
     form_cache_.ShowPredictions(forms[i]);
   }
-}
-
-void AutofillAgent::OnSelectAutofillSuggestionAtIndex(int listIndex) {
-  NOTIMPLEMENTED();
-  // TODO(jrg): enable once changes land in WebKit
-  // render_view()->webview()->selectAutofillSuggestionAtIndex(listIndex);
 }
 
 void AutofillAgent::OnSetAutofillActionFill() {

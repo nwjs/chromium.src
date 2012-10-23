@@ -32,6 +32,7 @@
 #include "chrome/browser/ui/toolbar/wrench_menu_model.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/browser_actions_container.h"
+#include "chrome/browser/ui/views/extensions/disabled_extensions_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_container.h"
 #include "chrome/browser/ui/views/location_bar/page_action_image_view.h"
 #include "chrome/browser/ui/views/wrench_menu.h"
@@ -71,7 +72,7 @@
 
 #if defined(USE_AURA)
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/search_view_controller.h"
+#include "chrome/browser/ui/views/search/search_view_controller.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
 #endif
@@ -110,6 +111,9 @@ const int kSearchTopButtonSpacing = 3;
 const int kSearchTopLocationBarSpacing = 2;
 const int kSearchToolbarSpacing = 5;
 
+// How often to show the disabled extension (sideload wipeout) bubble.
+const int kShowSideloadWipeoutBubbleMax = 3;
+
 gfx::ImageSkia* kPopupBackgroundEdge = NULL;
 
 // The omnibox border has some additional shadow, so we use less vertical
@@ -120,10 +124,10 @@ int location_bar_vert_spacing() {
     switch (ui::GetDisplayLayout()) {
       case ui::LAYOUT_ASH:
       case ui::LAYOUT_DESKTOP:
-        value = 5;
+        value = ToolbarView::kVertSpacing;
         break;
       case ui::LAYOUT_TOUCH:
-        value = 6;
+        value = 10;
         break;
       default:
         NOTREACHED();
@@ -294,9 +298,8 @@ void ToolbarView::Init(views::View* location_bar_parent,
   app_menu_->set_id(VIEW_ID_APP_MENU);
 
   // Add any necessary badges to the menu item based on the system state.
-  if (ShouldShowUpgradeRecommended() || ShouldShowIncompatibilityWarning()) {
+  if (ShouldShowUpgradeRecommended() || ShouldShowIncompatibilityWarning())
     UpdateAppMenuState();
-  }
   LoadImages();
 
   // Always add children in order from left to right, for accessibility.
@@ -310,6 +313,10 @@ void ToolbarView::Init(views::View* location_bar_parent,
   location_bar_->Init(popup_parent_view);
   show_home_button_.Init(prefs::kShowHomeButton,
                          browser_->profile()->GetPrefs(), this);
+  sideload_wipeout_bubble_shown_.Init(
+      prefs::kExtensionsSideloadWipeoutBubbleShown,
+      browser_->profile()->GetPrefs(), NULL);
+
   browser_actions_->Init();
 
   // Accessibility specific tooltip text.
@@ -319,6 +326,11 @@ void ToolbarView::Init(views::View* location_bar_parent,
     forward_->SetTooltipText(
         l10n_util::GetStringUTF16(IDS_ACCNAME_TOOLTIP_FORWARD));
   }
+
+  int bubble_shown_count = sideload_wipeout_bubble_shown_.GetValue();
+  if (bubble_shown_count < kShowSideloadWipeoutBubbleMax &&
+      DisabledExtensionsView::MaybeShow(browser_, app_menu_))
+    sideload_wipeout_bubble_shown_.SetValue(++bubble_shown_count);
 }
 
 void ToolbarView::Update(WebContents* tab, bool should_restore_state) {
@@ -478,8 +490,8 @@ void ToolbarView::OnMenuButtonClicked(views::View* source,
   DCHECK_EQ(VIEW_ID_APP_MENU, source->id());
 
   wrench_menu_.reset(new WrenchMenu(browser_));
-  WrenchMenuModel model(this, browser_);
-  wrench_menu_->Init(&model);
+  wrench_menu_model_.reset(new WrenchMenuModel(this, browser_));
+  wrench_menu_->Init(wrench_menu_model_.get());
 
   FOR_EACH_OBSERVER(views::MenuListener, menu_listeners_, OnMenuOpened());
 
@@ -521,9 +533,9 @@ PageActionImageView* ToolbarView::CreatePageActionImageView(
 
 void ToolbarView::OnInputInProgress(bool in_progress) {
   // The edit should make sure we're only notified when something changes.
-  DCHECK(model_->input_in_progress() != in_progress);
+  DCHECK(model_->GetInputInProgress() != in_progress);
 
-  model_->set_input_in_progress(in_progress);
+  model_->SetInputInProgress(in_progress);
   location_bar_->Update(NULL);
 }
 
@@ -708,10 +720,15 @@ void ToolbarView::Layout() {
   int delta = !chrome::search::IsInstantExtendedAPIEnabled(
       browser_->profile()) ? 0 : kSearchTopButtonSpacing;
 
-  int child_y = std::min(kVertSpacing, height()) + delta;
   // We assume all child elements are the same height.
   int child_height =
-      std::min(back_->GetPreferredSize().height(), height() - child_y);
+      std::min(back_->GetPreferredSize().height(), height());
+
+  // Set child_y such that buttons appear vertically centered. To preseve
+  // the behaviour on non-touch UIs, round-up by taking
+  // ceil((height() - child_height) / 2) + delta
+  // which is equivalent to the below.
+  int child_y = (1 + ((height() - child_height - 1) / 2)) + delta;
 
   // If the window is maximized, we extend the back button to the left so that
   // clicking on the left-most pixel will activate the back button.
@@ -749,8 +766,11 @@ void ToolbarView::Layout() {
   int location_x = home_->x() + home_->width() + kStandardSpacing;
   int available_width = std::max(0, width() - kRightEdgeSpacing -
       app_menu_width - browser_actions_width - location_x);
-  int location_y = std::min(location_bar_vert_spacing() + top_delta,
-                            height());
+
+  int location_y =
+      top_delta + 1 + ((height() -
+          location_bar_container_->GetPreferredSize().height() - 1) / 2);
+
   int available_height = location_bar_->GetPreferredSize().height();
   const gfx::Rect location_bar_bounds(location_x, location_y,
                                       available_width, available_height);
@@ -818,7 +838,9 @@ void ToolbarView::OnPaint(gfx::Canvas* canvas) {
 
   TabContents* tab_contents = GetTabContents();
   if (tab_contents) {
-    int num_infobars = tab_contents->infobar_tab_helper()->GetInfoBarCount();
+    InfoBarTabHelper* infobar_tab_helper =
+        InfoBarTabHelper::FromWebContents(tab_contents->web_contents());
+    int num_infobars = infobar_tab_helper->GetInfoBarCount();
     const chrome::search::Mode& mode(browser_->search_model()->mode());
     if ((mode.is_ntp() || mode.is_search_results()) && num_infobars > 0) {
       canvas->FillRect(gfx::Rect(0, height() - 1, width(), 1),

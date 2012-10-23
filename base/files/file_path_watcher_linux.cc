@@ -207,7 +207,7 @@ void InotifyReaderCallback(InotifyReader* reader, int inotify_fd,
   }
 }
 
-static base::LazyInstance<InotifyReader> g_inotify_reader =
+static base::LazyInstance<InotifyReader>::Leaky g_inotify_reader =
     LAZY_INSTANCE_INITIALIZER;
 
 InotifyReader::InotifyReader()
@@ -422,7 +422,7 @@ void FilePathWatcherImpl::WillDestroyCurrentMessageLoop() {
 }
 
 bool FilePathWatcherImpl::UpdateWatches() {
-  // Ensure this runs on the message_loop_ exclusively in order to avoid
+  // Ensure this runs on the |message_loop_| exclusively in order to avoid
   // concurrency issues.
   DCHECK(message_loop()->BelongsToCurrentThread());
 

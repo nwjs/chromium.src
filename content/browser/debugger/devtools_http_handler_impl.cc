@@ -28,17 +28,23 @@
 #include "content/public/browser/devtools_manager.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/notification_service.h"
+#include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/url_constants.h"
 #include "googleurl/src/gurl.h"
 #include "grit/devtools_resources_map.h"
 #include "net/base/escape.h"
 #include "net/base/io_buffer.h"
 #include "net/base/ip_endpoint.h"
 #include "net/server/http_server_request_info.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDevToolsAgent.h"
 #include "ui/base/layout.h"
+#include "webkit/user_agent/user_agent.h"
+#include "webkit/user_agent/user_agent_util.h"
 
 namespace content {
 
@@ -89,12 +95,17 @@ class DevToolsClientHostImpl : public DevToolsClientHost {
       int connection_id)
       : message_loop_(message_loop),
         server_(server),
-        connection_id_(connection_id) {
+        connection_id_(connection_id),
+        is_closed_(false) {
   }
+
   ~DevToolsClientHostImpl() {}
 
   // DevToolsClientHost interface
   virtual void InspectedContentsClosing() {
+    if (is_closed_)
+      return;
+    is_closed_ = true;
     message_loop_->PostTask(
         FROM_HERE,
         base::Bind(&net::HttpServer::Close, server_, connection_id_));
@@ -117,6 +128,7 @@ class DevToolsClientHostImpl : public DevToolsClientHost {
   MessageLoop* message_loop_;
   net::HttpServer* server_;
   int connection_id_;
+  bool is_closed_;
 };
 
 }  // namespace
@@ -215,9 +227,62 @@ static std::string GetMimeType(const std::string& filename) {
   return "text/plain";
 }
 
+void DevToolsHttpHandlerImpl::Observe(int type,
+                                      const NotificationSource& source,
+                                      const NotificationDetails& details) {
+  RenderProcessHost* process = Source<RenderProcessHost>(source).ptr();
+  DevToolsManager* manager = DevToolsManager::GetInstance();
+  for (ConnectionToClientHostMap::iterator it =
+       connection_to_client_host_ui_.begin();
+       it != connection_to_client_host_ui_.end(); ++it) {
+    DevToolsAgentHost* agent = manager->GetDevToolsAgentHostFor(it->second);
+    if (!agent)
+      continue;
+    RenderViewHost* rvh = DevToolsAgentHostRegistry::GetRenderViewHost(agent);
+    if (rvh && rvh->GetProcess() == process)
+      it->second->InspectedContentsClosing();
+  }
+}
+
 void DevToolsHttpHandlerImpl::OnHttpRequest(
     int connection_id,
     const net::HttpServerRequestInfo& info) {
+  if (info.path.find("/json/version") == 0) {
+    // New page request.
+    BrowserThread::PostTask(
+        BrowserThread::UI,
+        FROM_HERE,
+        base::Bind(&DevToolsHttpHandlerImpl::OnVersionRequestUI,
+                   this,
+                   connection_id,
+                   info));
+    return;
+  }
+
+  if (info.path.find("/json/new") == 0) {
+    // New page request.
+    BrowserThread::PostTask(
+        BrowserThread::UI,
+        FROM_HERE,
+        base::Bind(&DevToolsHttpHandlerImpl::OnNewTargetRequestUI,
+                   this,
+                   connection_id,
+                   info));
+    return;
+  }
+
+  if (info.path.find("/json/close/") == 0) {
+    // Close page request.
+    BrowserThread::PostTask(
+        BrowserThread::UI,
+        FROM_HERE,
+        base::Bind(&DevToolsHttpHandlerImpl::OnCloseTargetRequestUI,
+                   this,
+                   connection_id,
+                   info));
+    return;
+  }
+
   if (info.path.find("/json") == 0) {
     // Pages discovery json request.
     BrowserThread::PostTask(
@@ -228,7 +293,9 @@ void DevToolsHttpHandlerImpl::OnHttpRequest(
                    connection_id,
                    info));
     return;
-  } else if (info.path.find("/thumb/") == 0) {
+  }
+
+  if (info.path.find("/thumb/") == 0) {
     // Thumbnail request.
     BrowserThread::PostTask(
         BrowserThread::UI,
@@ -352,31 +419,7 @@ DevToolsHttpHandlerImpl::PageList DevToolsHttpHandlerImpl::GeneratePageList() {
 
       RenderViewHost* host =
           RenderViewHost::From(const_cast<RenderWidgetHost*>(widget));
-      content::RenderViewHostDelegate* host_delegate = host->GetDelegate();
-
-      DevToolsAgentHost* agent =
-          DevToolsAgentHostRegistry::GetDevToolsAgentHost(host);
-      DevToolsClientHost* client_host = DevToolsManager::GetInstance()->
-          GetDevToolsClientHostFor(agent);
-      PageInfo page_info;
-      page_info.id = binding_->GetIdentifier(host);
-      page_info.attached = client_host != NULL;
-      page_info.url = host_delegate->GetURL().spec();
-
-      WebContents* web_contents = host_delegate->GetAsWebContents();
-      if (web_contents) {
-        page_info.title = UTF16ToUTF8(
-            net::EscapeForHTML(web_contents->GetTitle()));
-        page_info.last_selected_time = web_contents->GetLastSelectedTime();
-
-        NavigationController& controller = web_contents->GetController();
-        NavigationEntry* entry = controller.GetActiveEntry();
-        if (entry != NULL && entry->GetURL().is_valid()) {
-          page_info.thumbnail_url = "/thumb/" + entry->GetURL().spec();
-          page_info.favicon_url = entry->GetFavicon().url.spec();
-        }
-      }
-      page_list.push_back(page_info);
+      page_list.push_back(CreatePageInfo(host));
     }
   }
   std::sort(page_list.begin(), page_list.end(), SortPageListByTime);
@@ -394,45 +437,57 @@ std::string DevToolsHttpHandlerImpl::GetFrontendURLInternal(
       rvh_id.c_str());
 }
 
+void DevToolsHttpHandlerImpl::OnVersionRequestUI(
+    int connection_id,
+    const net::HttpServerRequestInfo& info) {
+  DictionaryValue version;
+  version.SetString("Protocol-Version",
+                    WebKit::WebDevToolsAgent::inspectorProtocolVersion());
+  version.SetString("WebKit-Version",
+                    webkit_glue::GetWebKitVersion());
+  version.SetString("User-Agent",
+                    webkit_glue::GetUserAgent(GURL(chrome::kAboutBlankURL)));
+  SendJson(connection_id, info, version);
+}
+
 void DevToolsHttpHandlerImpl::OnJsonRequestUI(
     int connection_id,
     const net::HttpServerRequestInfo& info) {
   PageList page_list = GeneratePageList();
   ListValue json_pages_list;
   std::string host = info.headers["Host"];
-  for (PageList::iterator i = page_list.begin();
-       i != page_list.end(); ++i) {
-    DictionaryValue* page_info = new DictionaryValue;
-    json_pages_list.Append(page_info);
-    page_info->SetString("title", i->title);
-    page_info->SetString("url", i->url);
-    page_info->SetString("thumbnailUrl", i->thumbnail_url);
-    page_info->SetString("faviconUrl", i->favicon_url);
-    if (!i->attached) {
-      page_info->SetString("webSocketDebuggerUrl",
-                           base::StringPrintf("ws://%s/devtools/page/%s",
-                                              host.c_str(),
-                                              i->id.c_str()));
-      std::string devtools_frontend_url = GetFrontendURLInternal(i->id.c_str(),
-                                                                 host);
-      page_info->SetString("devtoolsFrontendUrl", devtools_frontend_url);
-    }
+  for (PageList::iterator i = page_list.begin(); i != page_list.end(); ++i)
+    json_pages_list.Append(SerializePageInfo(*i, host));
+  SendJson(connection_id, info, json_pages_list);
+}
+
+void DevToolsHttpHandlerImpl::OnNewTargetRequestUI(
+    int connection_id,
+    const net::HttpServerRequestInfo& info) {
+  RenderViewHost* rvh = delegate_->CreateNewTarget();
+  if (!rvh) {
+    Send500(connection_id, "Could not create new page");
+    return;
   }
+  PageInfo page_info = CreatePageInfo(rvh);
+  std::string host = info.headers["Host"];
+  scoped_ptr<DictionaryValue> dictionary(SerializePageInfo(page_info, host));
+  SendJson(connection_id, info, *dictionary);
+}
 
-  std::string response;
-  base::JSONWriter::WriteWithOptions(&json_pages_list,
-                                     base::JSONWriter::OPTIONS_PRETTY_PRINT,
-                                     &response);
-
-  size_t jsonp_pos = info.path.find("?jsonp=");
-  if (jsonp_pos == std::string::npos) {
-    Send200(connection_id, response, "application/json; charset=UTF-8");
+void DevToolsHttpHandlerImpl::OnCloseTargetRequestUI(
+    int connection_id,
+    const net::HttpServerRequestInfo& info) {
+  std::string prefix = "/json/close/";
+  std::string page_id = info.path.substr(prefix.length());
+  RenderViewHost* rvh = binding_->ForIdentifier(page_id);
+  if (!rvh) {
+    Send500(connection_id, "No such target id: " + page_id);
     return;
   }
 
-  std::string jsonp = info.path.substr(jsonp_pos + 7);
-  response = StringPrintf("%s(%s);", jsonp.c_str(), response.c_str());
-  Send200(connection_id, response, "text/javascript; charset=UTF-8");
+  rvh->ClosePage();
+  Send200(connection_id, "Target is closing");
 }
 
 void DevToolsHttpHandlerImpl::OnThumbnailRequestUI(
@@ -530,6 +585,10 @@ DevToolsHttpHandlerImpl::DevToolsHttpHandlerImpl(
   default_binding_.reset(new DevToolsDefaultBindingHandler);
   binding_ = default_binding_.get();
 
+  registrar_.Add(this, NOTIFICATION_RENDERER_PROCESS_TERMINATED,
+                 content::NotificationService::AllBrowserContextsAndSources());
+  registrar_.Add(this, NOTIFICATION_RENDERER_PROCESS_CLOSED,
+                 content::NotificationService::AllBrowserContextsAndSources());
   AddRef();
 }
 
@@ -547,8 +606,8 @@ void DevToolsHttpHandlerImpl::TeardownAndRelease() {
 }
 
 void DevToolsHttpHandlerImpl::Send200(int connection_id,
-                                          const std::string& data,
-                                          const std::string& mime_type) {
+                                      const std::string& data,
+                                      const std::string& mime_type) {
   thread_->message_loop()->PostTask(
       FROM_HERE,
       base::Bind(&net::HttpServer::Send200,
@@ -556,6 +615,25 @@ void DevToolsHttpHandlerImpl::Send200(int connection_id,
                  connection_id,
                  data,
                  mime_type));
+}
+
+void DevToolsHttpHandlerImpl::SendJson(int connection_id,
+                                       const net::HttpServerRequestInfo& info,
+                                       const Value& value) {
+  std::string response;
+  base::JSONWriter::WriteWithOptions(&value,
+                                     base::JSONWriter::OPTIONS_PRETTY_PRINT,
+                                     &response);
+
+  size_t jsonp_pos = info.path.find("?jsonp=");
+  if (jsonp_pos == std::string::npos) {
+    Send200(connection_id, response, "application/json; charset=UTF-8");
+    return;
+  }
+
+  std::string jsonp = info.path.substr(jsonp_pos + 7);
+  response = StringPrintf("%s(%s);", jsonp.c_str(), response.c_str());
+  Send200(connection_id, response, "text/javascript; charset=UTF-8");
 }
 
 void DevToolsHttpHandlerImpl::Send404(int connection_id) {
@@ -579,6 +657,56 @@ void DevToolsHttpHandlerImpl::AcceptWebSocket(
       FROM_HERE,
       base::Bind(&net::HttpServer::AcceptWebSocket, server_.get(),
                  connection_id, request));
+}
+
+DevToolsHttpHandlerImpl::PageInfo
+DevToolsHttpHandlerImpl::CreatePageInfo(RenderViewHost* rvh)
+{
+  content::RenderViewHostDelegate* host_delegate = rvh->GetDelegate();
+  DevToolsAgentHost* agent =
+      DevToolsAgentHostRegistry::GetDevToolsAgentHost(rvh);
+  DevToolsClientHost* client_host = DevToolsManager::GetInstance()->
+      GetDevToolsClientHostFor(agent);
+  PageInfo page_info;
+  page_info.id = binding_->GetIdentifier(rvh);
+  page_info.attached = client_host != NULL;
+  page_info.url = host_delegate->GetURL().spec();
+
+  WebContents* web_contents = host_delegate->GetAsWebContents();
+  if (web_contents) {
+    page_info.title = UTF16ToUTF8(
+        net::EscapeForHTML(web_contents->GetTitle()));
+    page_info.last_selected_time = web_contents->GetLastSelectedTime();
+
+    NavigationController& controller = web_contents->GetController();
+    NavigationEntry* entry = controller.GetActiveEntry();
+    if (entry != NULL && entry->GetURL().is_valid()) {
+      page_info.thumbnail_url = "/thumb/" + entry->GetURL().spec();
+      page_info.favicon_url = entry->GetFavicon().url.spec();
+    }
+  }
+  return page_info;
+}
+
+DictionaryValue* DevToolsHttpHandlerImpl::SerializePageInfo(
+    const PageInfo& page_info,
+    const std::string& host) {
+  DictionaryValue* dictionary = new DictionaryValue;
+  dictionary->SetString("title", page_info.title);
+  dictionary->SetString("url", page_info.url);
+  dictionary->SetString("thumbnailUrl", page_info.thumbnail_url);
+  dictionary->SetString("faviconUrl", page_info.favicon_url);
+  if (!page_info.attached) {
+    dictionary->SetString("webSocketDebuggerUrl",
+                          base::StringPrintf("ws://%s/devtools/page/%s",
+                                             host.c_str(),
+                                             page_info.id.c_str()));
+    std::string devtools_frontend_url = GetFrontendURLInternal(
+        page_info.id.c_str(),
+        host);
+    dictionary->SetString("devtoolsFrontendUrl", devtools_frontend_url);
+  }
+  return dictionary;
 }
 
 }  // namespace content

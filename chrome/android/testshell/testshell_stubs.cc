@@ -4,7 +4,6 @@
 
 #include "base/logging.h"
 #include "chrome/browser/android/tab_android.h"
-#include "chrome/browser/autofill/autofill_external_delegate.h"
 #include "chrome/browser/api/infobars/confirm_infobar_delegate.h"
 
 // This file contains temporary stubs to allow the libtestshell target to
@@ -14,13 +13,6 @@
 
 // static
 TabAndroid* TabAndroid::FromWebContents(content::WebContents* web_contents) {
-  return NULL;
-}
-
-// static
-AutofillExternalDelegate* AutofillExternalDelegate::Create(
-    TabContents* tab_contents,
-    AutofillManager* manager) {
   return NULL;
 }
 

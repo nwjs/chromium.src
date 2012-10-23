@@ -25,6 +25,10 @@ namespace content {
 class WebContents;
 }
 
+namespace ui {
+class WindowAndroid;
+}
+
 namespace WebKit {
 class WebLayer;
 }
@@ -33,7 +37,8 @@ class TabBaseAndroidImpl : public TabAndroid {
  public:
   TabBaseAndroidImpl(JNIEnv* env,
                      jobject obj,
-                     content::WebContents* web_contents);
+                     content::WebContents* web_contents,
+                     ui::WindowAndroid* window_android);
   void Destroy(JNIEnv* env, jobject obj);
 
   WebKit::WebLayer* tab_layer() const { return tab_layer_.get(); }
@@ -59,6 +64,8 @@ class TabBaseAndroidImpl : public TabAndroid {
                                      int r_value,
                                      int g_value,
                                      int b_value) OVERRIDE;
+
+  virtual void RunExternalProtocolDialog(const GURL& url) OVERRIDE;
 
   // Register the Tab's native methods through JNI.
   static bool RegisterTabBaseAndroidImpl(JNIEnv* env);

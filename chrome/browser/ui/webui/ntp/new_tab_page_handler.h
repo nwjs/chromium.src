@@ -39,11 +39,17 @@ class NewTabPageHandler : public content::WebUIMessageHandler {
   // Callback for "notificationPromoViewed". No arguments.
   void HandleNotificationPromoViewed(const ListValue* args);
 
+  // Callback for "notificationPromoLinkClicked". No arguments.
+  void HandleNotificationPromoLinkClicked(const ListValue* args);
+
   // Callback for "bubblePromoClosed". No arguments.
   void HandleBubblePromoClosed(const ListValue* args);
 
   // Callback for "bubblePromoViewed". No arguments.
   void HandleBubblePromoViewed(const ListValue* args);
+
+  // Callback for "bubblePromoLinkClicked". No arguments.
+  void HandleBubblePromoLinkClicked(const ListValue* args);
 
   // Callback for "pageSelected".
   void HandlePageSelected(const ListValue* args);

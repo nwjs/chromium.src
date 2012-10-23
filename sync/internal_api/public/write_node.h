@@ -164,6 +164,14 @@ class WriteNode : public BaseNode {
   // Should only be called if GetModelType() == SESSIONS.
   void SetSessionSpecifics(const sync_pb::SessionSpecifics& specifics);
 
+  // Set the device info specifics.
+  // Should only be called if GetModelType() == DEVICE_INFO.
+  void SetDeviceInfoSpecifics(const sync_pb::DeviceInfoSpecifics& specifics);
+
+  // Set the experiments specifics.
+  // Should only be called if GetModelType() == EXPERIMENTS.
+  void SetExperimentsSpecifics(const sync_pb::ExperimentsSpecifics& specifics);
+
   // Implementation of BaseNode's abstract virtual accessors.
   virtual const syncable::Entry* GetEntry() const OVERRIDE;
 

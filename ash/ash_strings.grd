@@ -325,6 +325,15 @@ Press Ctrl+Alt+Z to cancel.
       <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_ADD_DEVICE" desc="The label used in the tray popup to add a bluetooth device.">
         Add device...
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_TURNED_OFF" desc="The label used in the tray popup to show bluetooth is turned off.">
+        Bluetooth is turned off.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_NO_DEVICE" desc="The label used in the tray popup to show bluetooth is turned off.">
+        No bluetooth devices available
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_DISCOVERING" desc="The label used in the tray popup to show bluetooth is discovering devices.">
+        Scanning for devices...
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_DISPLAY_MIRRORING" desc="The label used in the tray to show that the current status is mirroring.">
 	Mirroring to <ph name="DISPLAY_NAME">$1</ph>
       </message>
@@ -387,7 +396,7 @@ Press Search or Shift to cancel.
         Battery full
       </message>
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT" desc="The label in the tray dialog to show the remaining battery power as a percent.">
-        <ph name="percentage">$1<ex>56</ex></ph>% full
+        <ph name="percentage">$1<ex>56</ex></ph>% remaining
       </message>
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_ONLY" desc="The label in the tray bubble setting row to show the remaining battery power as a percent.">
         <ph name="percentage">$1<ex>56</ex></ph>%
@@ -430,12 +439,6 @@ Press Search or Shift to cancel.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_NO_NETWORKS" desc="The message to display in the network info bubble when it is otherwise empty.">
         No network information available
-      </message>
-      <message name="IDS_ASH_SECONDARY_MONITOR" desc="The message shown on the secondary monitors.">
-        This screen intentionally left blank
-      </message>
-      <message name="IDS_ASH_SECONDARY_MONITOR_SHORTCUT" desc="The shortcut text on the secondary monitors.">
-        Ctrl +
       </message>
       <message name="IDS_ASH_STATUS_TRAY_PREVIOUS_MENU" desc="The accessible text for header entries for detailed versions of status tray items.">
         Previous menu

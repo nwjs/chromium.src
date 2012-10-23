@@ -11,7 +11,6 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebSize.h"
 #include "ui/compositor/compositor_observer.h"
 #include "ui/compositor/compositor_setup.h"
 #include "ui/compositor/layer.h"
@@ -910,7 +909,7 @@ TEST_F(LayerWithRealCompositorTest, MAYBE_CompositorObservers) {
 
   // Setting the transform of a layer should alert the observers.
   observer.Reset();
-  Transform transform;
+  gfx::Transform transform;
   transform.ConcatTranslate(-200, -200);
   transform.ConcatRotate(90.0f);
   transform.ConcatTranslate(200, 200);

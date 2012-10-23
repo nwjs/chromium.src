@@ -12,12 +12,14 @@
 #include "ash/launcher/launcher_model.h"
 #include "ash/launcher/launcher_navigator.h"
 #include "ash/launcher/launcher_view.h"
+#include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/shelf_layout_manager.h"
 #include "ash/wm/window_properties.h"
 #include "grit/ash_resources.h"
+#include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -238,9 +240,21 @@ Launcher::Launcher(aura::Window* window_container,
 Launcher::~Launcher() {
 }
 
+// static
+Launcher* Launcher::ForPrimaryDisplay() {
+  return internal::RootWindowController::ForLauncher(
+      Shell::GetPrimaryRootWindow())->launcher();
+}
+
+// static
+Launcher* Launcher::ForWindow(aura::Window* window) {
+  return internal::RootWindowController::ForLauncher(window)->launcher();
+}
+
 void Launcher::SetFocusCycler(internal::FocusCycler* focus_cycler) {
   delegate_view_->set_focus_cycler(focus_cycler);
-  focus_cycler->AddWidget(widget_.get());
+  if (focus_cycler)
+    focus_cycler->AddWidget(widget_.get());
 }
 
 internal::FocusCycler* Launcher::GetFocusCycler() {
@@ -341,6 +355,10 @@ void Launcher::RemoveIconObserver(LauncherIconObserver* observer) {
 
 bool Launcher::IsShowingMenu() const {
   return launcher_view_->IsShowingMenu();
+}
+
+void Launcher::ShowContextMenu(const gfx::Point& location) {
+  launcher_view_->ShowContextMenu(location, false);
 }
 
 bool Launcher::IsShowingOverflowBubble() const {

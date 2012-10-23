@@ -4,8 +4,9 @@
 
 #include "base/bind.h"
 #include "chrome/browser/download/download_request_limiter.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
-#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
+#include "chrome/browser/infobars/infobar_tab_helper.h"
+#include "chrome/browser/ui/blocked_content/blocked_content_tab_helper.h"
+#include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
@@ -15,7 +16,7 @@
 using content::BrowserThread;
 using content::WebContents;
 
-class DownloadRequestLimiterTest : public TabContentsTestHarness {
+class DownloadRequestLimiterTest : public ChromeRenderViewHostTestHarness {
  public:
   DownloadRequestLimiterTest()
       : ui_thread_(BrowserThread::UI, &message_loop_),
@@ -25,7 +26,9 @@ class DownloadRequestLimiterTest : public TabContentsTestHarness {
   }
 
   virtual void SetUp() {
-    TabContentsTestHarness::SetUp();
+    ChromeRenderViewHostTestHarness::SetUp();
+    BlockedContentTabHelper::CreateForWebContents(web_contents());
+    InfoBarTabHelper::CreateForWebContents(web_contents());
 
     allow_download_ = true;
     ask_allow_count_ = cancel_count_ = continue_count_ = 0;
@@ -37,7 +40,7 @@ class DownloadRequestLimiterTest : public TabContentsTestHarness {
 
   virtual void TearDown() {
     UnsetDelegate();
-    TabContentsTestHarness::TearDown();
+    ChromeRenderViewHostTestHarness::TearDown();
   }
 
   virtual void UnsetDelegate() {
@@ -122,12 +125,12 @@ TEST_F(DownloadRequestLimiterTest,
        DownloadRequestLimiter_Allow) {
   // All tabs should initially start at ALLOW_ONE_DOWNLOAD.
   ASSERT_EQ(DownloadRequestLimiter::ALLOW_ONE_DOWNLOAD,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
 
   // Ask if the tab can do a download. This moves to PROMPT_BEFORE_DOWNLOAD.
   CanDownload();
   ASSERT_EQ(DownloadRequestLimiter::PROMPT_BEFORE_DOWNLOAD,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
   // We should have been told we can download.
   ASSERT_EQ(1, continue_count_);
   ASSERT_EQ(0, cancel_count_);
@@ -141,7 +144,7 @@ TEST_F(DownloadRequestLimiterTest,
   ASSERT_EQ(1, ask_allow_count_);
   ask_allow_count_ = 0;
   ASSERT_EQ(DownloadRequestLimiter::ALLOW_ALL_DOWNLOADS,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
   // We should have been told we can download.
   ASSERT_EQ(1, continue_count_);
   ASSERT_EQ(0, cancel_count_);
@@ -152,7 +155,7 @@ TEST_F(DownloadRequestLimiterTest,
   // The state is at allow_all, which means the delegate shouldn't be asked.
   ASSERT_EQ(0, ask_allow_count_);
   ASSERT_EQ(DownloadRequestLimiter::ALLOW_ALL_DOWNLOADS,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
   // We should have been told we can download.
   ASSERT_EQ(1, continue_count_);
   ASSERT_EQ(0, cancel_count_);
@@ -169,7 +172,7 @@ TEST_F(DownloadRequestLimiterTest,
   CanDownload();
   ask_allow_count_ = continue_count_ = cancel_count_ = 0;
   ASSERT_EQ(DownloadRequestLimiter::ALLOW_ALL_DOWNLOADS,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
 
   // Navigate to a new URL with the same host, which shouldn't reset the allow
   // all state.
@@ -180,18 +183,18 @@ TEST_F(DownloadRequestLimiterTest,
   ASSERT_EQ(0, ask_allow_count_);
   ask_allow_count_ = continue_count_ = cancel_count_ = 0;
   ASSERT_EQ(DownloadRequestLimiter::ALLOW_ALL_DOWNLOADS,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
 
   // Do a user gesture, because we're at allow all, this shouldn't change the
   // state.
   OnUserGesture();
   ASSERT_EQ(DownloadRequestLimiter::ALLOW_ALL_DOWNLOADS,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
 
   // Navigate to a completely different host, which should reset the state.
   NavigateAndCommit(GURL("http://fooey.com"));
   ASSERT_EQ(DownloadRequestLimiter::ALLOW_ONE_DOWNLOAD,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
 }
 
 TEST_F(DownloadRequestLimiterTest,
@@ -202,12 +205,12 @@ TEST_F(DownloadRequestLimiterTest,
   CanDownload();
   ask_allow_count_ = continue_count_ = cancel_count_ = 0;
   ASSERT_EQ(DownloadRequestLimiter::PROMPT_BEFORE_DOWNLOAD,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
 
   // Do a user gesture, which should reset back to allow one.
   OnUserGesture();
   ASSERT_EQ(DownloadRequestLimiter::ALLOW_ONE_DOWNLOAD,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
 
   // Ask twice, which triggers calling the delegate. Don't allow the download
   // so that we end up with not allowed.
@@ -215,12 +218,12 @@ TEST_F(DownloadRequestLimiterTest,
   CanDownload();
   CanDownload();
   ASSERT_EQ(DownloadRequestLimiter::DOWNLOADS_NOT_ALLOWED,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
 
   // A user gesture now should NOT change the state.
   OnUserGesture();
   ASSERT_EQ(DownloadRequestLimiter::DOWNLOADS_NOT_ALLOWED,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
   // And make sure we really can't download.
   ask_allow_count_ = continue_count_ = cancel_count_ = 0;
   CanDownload();
@@ -229,20 +232,15 @@ TEST_F(DownloadRequestLimiterTest,
   ASSERT_EQ(1, cancel_count_);
   // And the state shouldn't have changed.
   ASSERT_EQ(DownloadRequestLimiter::DOWNLOADS_NOT_ALLOWED,
-            download_request_limiter_->GetDownloadStatus(contents()));
+            download_request_limiter_->GetDownloadStatus(web_contents()));
 }
 
 TEST_F(DownloadRequestLimiterTest,
        DownloadRequestLimiter_RawWebContents) {
-  // By-pass TabContentsTestHarness and use
-  // RenderViewHostTestHarness::CreateTestWebContents() directly so that there
-  // will be no TabContents for web_contents.
   scoped_ptr<WebContents> web_contents(CreateTestWebContents());
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents.get());
-  ASSERT_TRUE(tab_contents == NULL);
   // DownloadRequestLimiter won't try to make an infobar if it doesn't have a
-  // TabContents, and we want to test that it will Cancel() instead of prompting
-  // when it doesn't have a TabContents, so unset the delegate.
+  // InfoBarTabHelper, and we want to test that it will Cancel() instead of
+  // prompting when it doesn't have a InfoBarTabHelper, so unset the delegate.
   UnsetDelegate();
   EXPECT_EQ(0, continue_count_);
   EXPECT_EQ(0, cancel_count_);

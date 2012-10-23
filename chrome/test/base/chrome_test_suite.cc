@@ -33,14 +33,17 @@
 
 #if defined(OS_ANDROID)
 #include "base/android/jni_android.h"
+#include "chrome/browser/android/chrome_jni_registrar.h"
 #include "net/android/net_jni_registrar.h"
 #endif
 
 #if defined(OS_MACOSX)
 #include "base/mac/bundle_locations.h"
-#include "base/mac/mac_util.h"
 #include "base/mac/scoped_nsautorelease_pool.h"
+#if !defined(OS_IOS)
+#include "base/mac/mac_util.h"
 #include "chrome/browser/chrome_browser_application_mac.h"
+#endif  // !defined(OS_IOS)
 #endif
 
 #if defined(OS_POSIX)
@@ -184,12 +187,15 @@ ChromeTestSuite::~ChromeTestSuite() {
 void ChromeTestSuite::Initialize() {
 #if defined(OS_MACOSX)
   base::mac::ScopedNSAutoreleasePool autorelease_pool;
+#if !defined(OS_IOS)
   chrome_browser_application_mac::RegisterBrowserCrApp();
+#endif  // !defined(OS_IOS)
 #endif
 
 #if defined(OS_ANDROID)
   // Register JNI bindings for android.
   net::android::RegisterJni(base::android::AttachCurrentThread());
+  chrome::android::RegisterJni(base::android::AttachCurrentThread());
 #endif
 
   chrome::RegisterPathProvider();
@@ -208,7 +214,7 @@ void ChromeTestSuite::Initialize() {
   // values for DIR_EXE and DIR_MODULE.
   content::ContentTestSuiteBase::Initialize();
 
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) && !defined(OS_IOS)
   // Look in the framework bundle for resources.
   FilePath path;
   PathService::Get(base::DIR_EXE, &path);
@@ -244,7 +250,7 @@ content::ContentClient* ChromeTestSuite::CreateClientForInitialization() {
 void ChromeTestSuite::Shutdown() {
   ResourceBundle::CleanupSharedInstance();
 
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) && !defined(OS_IOS)
   base::mac::SetOverrideFrameworkBundle(NULL);
 #endif
 

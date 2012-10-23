@@ -8,8 +8,8 @@
 #include "ash/system/tray/tray_bubble_view.h"
 #include "ash/system/user/login_status.h"
 #include "base/base_export.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/timer.h"
-#include "ui/views/widget/widget_observer.h"
 
 #include <vector>
 
@@ -20,8 +20,7 @@ class SystemTrayItem;
 
 namespace internal {
 
-class SystemTrayBubble : public TrayBubbleView::Host,
-                         public views::WidgetObserver {
+class SystemTrayBubble {
  public:
   enum BubbleType {
     BUBBLE_TYPE_DEFAULT,
@@ -39,22 +38,16 @@ class SystemTrayBubble : public TrayBubbleView::Host,
                   BubbleType bubble_type);
 
   // Creates |bubble_view_| and a child views for each member of |items_|.
-  // Also creates |bubble_widget_| and sets up animations.
+  // Also creates |bubble_wrapper_|. |init_params| may be modified.
   void InitView(views::View* anchor,
-                TrayBubbleView::InitParams init_params,
-                user::LoginStatus login_status);
-
-  // Overridden from TrayBubbleView::Host.
-  virtual void BubbleViewDestroyed() OVERRIDE;
-  virtual void OnMouseEnteredView() OVERRIDE;
-  virtual void OnMouseExitedView() OVERRIDE;
-  virtual void OnClickedOutsideView() OVERRIDE;
-  virtual string16 GetAccessibleName() OVERRIDE;
+                user::LoginStatus login_status,
+                message_center::TrayBubbleView::InitParams* init_params);
 
   BubbleType bubble_type() const { return bubble_type_; }
-  TrayBubbleView* bubble_view() const { return bubble_view_; }
+  message_center::TrayBubbleView* bubble_view() const { return bubble_view_; }
 
   void DestroyItemViews();
+  void BubbleViewDestroyed();
   void StartAutoCloseTimer(int seconds);
   void StopAutoCloseTimer();
   void RestartAutoCloseTimer();
@@ -65,12 +58,8 @@ class SystemTrayBubble : public TrayBubbleView::Host,
  private:
   void CreateItemViews(user::LoginStatus login_status);
 
-  // Overridden from views::WidgetObserver:
-  virtual void OnWidgetClosing(views::Widget* widget) OVERRIDE;
-
   ash::SystemTray* tray_;
-  TrayBubbleView* bubble_view_;
-  views::Widget* bubble_widget_;
+  message_center::TrayBubbleView* bubble_view_;
   std::vector<ash::SystemTrayItem*> items_;
   BubbleType bubble_type_;
 

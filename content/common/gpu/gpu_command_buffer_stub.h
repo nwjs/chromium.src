@@ -33,38 +33,43 @@
 #include "ui/surface/accelerated_surface_mac.h"
 #endif
 
-class GpuChannel;
-struct GpuMemoryAllocation;
-class GpuVideoDecodeAccelerator;
-class GpuWatchdog;
-
 namespace gpu {
 namespace gles2 {
+class ImageManager;
 class MailboxManager;
 }
 }
+
+namespace content {
+
+class GpuChannel;
+class GpuVideoDecodeAccelerator;
+class GpuWatchdog;
+struct GpuMemoryAllocation;
 
 // This Base class is used to expose methods of GpuCommandBufferStub used for
 // testability.
 class CONTENT_EXPORT GpuCommandBufferStubBase {
  public:
-  struct CONTENT_EXPORT SurfaceState {
-    int32 surface_id;
+  struct CONTENT_EXPORT MemoryManagerState {
+    // Offscreen commandbuffers will not have a surface.
+    bool has_surface;
     bool visible;
+    bool client_has_memory_allocation_changed_callback;
+    // The last used time is determined by the last time that visibility
+    // was changed.
     base::TimeTicks last_used_time;
 
-    SurfaceState(int32 surface_id,
-                 bool visible,
-                 base::TimeTicks last_used_time);
+    MemoryManagerState(
+       bool has_surface,
+       bool visible,
+       base::TimeTicks last_used_time);
   };
 
  public:
   virtual ~GpuCommandBufferStubBase() {}
 
-  // Will not have surface state if this is an offscreen commandbuffer.
-  virtual bool client_has_memory_allocation_changed_callback() const = 0;
-  virtual bool has_surface_state() const = 0;
-  virtual const SurfaceState& surface_state() const = 0;
+  virtual const MemoryManagerState& memory_manager_state() const = 0;
 
   virtual gfx::Size GetSurfaceSize() const = 0;
 
@@ -97,6 +102,7 @@ class GpuCommandBufferStub
       GpuCommandBufferStub* share_group,
       const gfx::GLSurfaceHandle& handle,
       gpu::gles2::MailboxManager* mailbox_manager,
+      gpu::gles2::ImageManager* image_manager,
       const gfx::Size& size,
       const gpu::gles2::DisallowedFeatures& disallowed_features,
       const std::string& allowed_extensions,
@@ -117,10 +123,8 @@ class GpuCommandBufferStub
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
   // GpuCommandBufferStubBase implementation:
-  virtual bool client_has_memory_allocation_changed_callback() const OVERRIDE;
-  virtual bool has_surface_state() const OVERRIDE;
-  virtual const GpuCommandBufferStubBase::SurfaceState& surface_state() const
-      OVERRIDE;
+  virtual const GpuCommandBufferStubBase::MemoryManagerState&
+      memory_manager_state() const OVERRIDE;
 
   // Returns surface size.
   virtual gfx::Size GetSurfaceSize() const OVERRIDE;
@@ -153,7 +157,7 @@ class GpuCommandBufferStub
 
   // Identifies the target surface.
   int32 surface_id() const {
-    return (surface_state_.get()) ? surface_state_->surface_id : 0;
+    return surface_id_;
   }
 
   // Identifies the various GpuCommandBufferStubs in the GPU process belonging
@@ -256,10 +260,10 @@ class GpuCommandBufferStub
   std::vector<int32> requested_attribs_;
   gfx::GpuPreference gpu_preference_;
   int32 route_id_;
+  int32 surface_id_;
   bool software_;
-  bool client_has_memory_allocation_changed_callback_;
   uint32 last_flush_count_;
-  scoped_ptr<GpuCommandBufferStubBase::SurfaceState> surface_state_;
+  scoped_ptr<MemoryManagerState> memory_manager_state_;
 
   scoped_ptr<gpu::CommandBufferService> command_buffer_;
   scoped_ptr<gpu::gles2::GLES2Decoder> decoder_;
@@ -295,5 +299,7 @@ class GpuCommandBufferStub
 
   DISALLOW_COPY_AND_ASSIGN(GpuCommandBufferStub);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_COMMON_GPU_GPU_COMMAND_BUFFER_STUB_H_

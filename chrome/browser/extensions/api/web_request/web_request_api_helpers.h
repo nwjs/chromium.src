@@ -75,6 +75,7 @@ struct FilterResponseCookie : ResponseCookie {
   ~FilterResponseCookie();
   scoped_ptr<int> age_lower_bound;
   scoped_ptr<int> age_upper_bound;
+  scoped_ptr<bool> session_cookie;
  private:
   DISALLOW_COPY_AND_ASSIGN(FilterResponseCookie);
 };
@@ -195,7 +196,7 @@ EventResponseDelta* CalculateOnHeadersReceivedDelta(
     const std::string& extension_id,
     const base::Time& extension_install_time,
     bool cancel,
-    net::HttpResponseHeaders* old_response_headers,
+    const net::HttpResponseHeaders* old_response_headers,
     ResponseHeaders* new_response_headers);
 // Destructively moves the auth credentials from |auth_credentials| to the
 // returned EventResponseDelta.

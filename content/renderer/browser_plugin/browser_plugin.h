@@ -8,6 +8,8 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPlugin.h"
 
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/process_util.h"
 #include "base/sequenced_task_runner_helpers.h"
 #if defined(OS_WIN)
 #include "base/shared_memory.h"
@@ -15,8 +17,10 @@
 #include "content/renderer/browser_plugin/browser_plugin_backing_store.h"
 #include "content/renderer/browser_plugin/browser_plugin_bindings.h"
 #include "content/renderer/render_view_impl.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragStatus.h"
 
 struct BrowserPluginHostMsg_ResizeGuest_Params;
+struct BrowserPluginMsg_LoadCommit_Params;
 struct BrowserPluginMsg_UpdateRect_Params;
 
 namespace content {
@@ -36,10 +40,16 @@ class CONTENT_EXPORT BrowserPlugin :
   // Set the src attribute value of the BrowserPlugin instance and reset
   // the guest_crashed_ flag.
   void SetSrcAttribute(const std::string& src);
+  // Get the guest's DOMWindow proxy.
+  NPObject* GetContentWindow() const;
   // Returns Chrome's process ID for the current guest.
   int process_id() const { return process_id_; }
   // The partition identifier string is stored as UTF-8.
   std::string GetPartitionAttribute() const;
+  // Query whether the guest can navigate back to the previous entry.
+  bool CanGoBack() const;
+  // Query whether the guest can navigation forward to the next entry.
+  bool CanGoForward() const;
   // This method can be successfully called only before the first navigation for
   // this instance of BrowserPlugin. If an error occurs, the |error_message| is
   // set appropriately to indicate the failure reason.
@@ -50,12 +60,14 @@ class CONTENT_EXPORT BrowserPlugin :
   // its damage buffer.
   void UpdateRect(int message_id,
                   const BrowserPluginMsg_UpdateRect_Params& params);
-  // Inform the BrowserPlugin that its guest has crashed.
-  void GuestCrashed();
-  // Informs the BrowserPlugin that the guest has navigated to a new URL.
-  void DidNavigate(const GURL& url, int process_id);
+  // Inform the BrowserPlugin that its guest process is gone.
+  void GuestGone(int process_id, base::TerminationStatus status);
+  // Inform the BrowserPlugin that the guest has navigated to a new URL.
+  void LoadCommit(const BrowserPluginMsg_LoadCommit_Params& params);
   // Inform the BrowserPlugin that the guest has started loading a new page.
   void LoadStart(const GURL& url, bool is_top_level);
+  // Inform the BrowserPlugin that the guest has finished loading a new page.
+  void LoadStop();
   // Inform the BrowserPlugin that the guest has aborted loading a new page.
   void LoadAbort(const GURL& url, bool is_top_level, const std::string& type);
   // Inform the BrowserPlugin that the guest has redirected a navigation.
@@ -65,6 +77,10 @@ class CONTENT_EXPORT BrowserPlugin :
   // Tells the BrowserPlugin to advance the focus to the next (or previous)
   // element.
   void AdvanceFocus(bool reverse);
+
+  // Inform the BrowserPlugin that the guest's contentWindow is ready,
+  // and provide it with a routing ID to grab it.
+  void GuestContentWindowReady(int content_window_routing_id);
 
   // Informs the BrowserPlugin that the guest has started/stopped accepting
   // touch events.
@@ -102,6 +118,7 @@ class CONTENT_EXPORT BrowserPlugin :
   virtual void destroy() OVERRIDE;
   virtual NPObject* scriptableObject() OVERRIDE;
   virtual bool supportsKeyboardFocus() const OVERRIDE;
+  virtual bool canProcessDrag() const OVERRIDE;
   virtual void paint(
       WebKit::WebCanvas* canvas,
       const WebKit::WebRect& rect) OVERRIDE;
@@ -116,6 +133,11 @@ class CONTENT_EXPORT BrowserPlugin :
   virtual bool handleInputEvent(
       const WebKit::WebInputEvent& event,
       WebKit::WebCursorInfo& cursor_info) OVERRIDE;
+  virtual bool handleDragStatusUpdate(WebKit::WebDragStatus drag_status,
+                                      const WebKit::WebDragData& drag_data,
+                                      WebKit::WebDragOperationsMask mask,
+                                      const WebKit::WebPoint& position,
+                                      const WebKit::WebPoint& screen) OVERRIDE;
   virtual void didReceiveResponse(
       const WebKit::WebURLResponse& response) OVERRIDE;
   virtual void didReceiveData(const char* data, int data_length) OVERRIDE;
@@ -128,7 +150,7 @@ class CONTENT_EXPORT BrowserPlugin :
       const WebKit::WebURL& url,
       void* notify_data,
       const WebKit::WebURLError& error) OVERRIDE;
- protected:
+ private:
   friend class base::DeleteHelper<BrowserPlugin>;
   // Only the manager is allowed to create a BrowserPlugin.
   friend class BrowserPluginManagerImpl;
@@ -165,16 +187,31 @@ class CONTENT_EXPORT BrowserPlugin :
   // with invalid transport dib otherwise.
   BrowserPluginHostMsg_ResizeGuest_Params* GetPendingResizeParams();
 
+  // Initializes the valid events.
+  void InitializeEvents();
+
   // Cleanup event listener state to free v8 resources when a BrowserPlugin
   // is destroyed.
   void RemoveEventListeners();
+
+  // Returns whether |event_name| is a valid event.
+  bool IsValidEvent(const std::string& event_name);
+
+  // Triggers the event-listeners for |event_name|.
+  void TriggerEvent(const std::string& event_name,
+                    v8::Local<v8::Object>* event);
+
   // Creates and maps transport dib. Overridden in tests.
   virtual TransportDIB* CreateTransportDIB(const size_t size);
   // Frees up the damage buffer. Overridden in tests.
   virtual void FreeDamageBuffer();
 
   int instance_id_;
-  RenderViewImpl* render_view_;
+  base::WeakPtr<RenderViewImpl> render_view_;
+  // We cache the |render_view_|'s routing ID because we need it on destruction.
+  // If the |render_view_| is destroyed before the BrowserPlugin is destroyed
+  // then we will attempt to access a NULL pointer.
+  int render_view_routing_id_;
   WebKit::WebPluginContainer* container_;
   scoped_ptr<BrowserPluginBindings> bindings_;
   scoped_ptr<BrowserPluginBackingStore> backing_store_;
@@ -191,6 +228,7 @@ class CONTENT_EXPORT BrowserPlugin :
   int process_id_;
   std::string storage_partition_id_;
   bool persist_storage_;
+  int content_window_routing_id_;
   // Tracks the visibility of the browser plugin regardless of the whole
   // embedder RenderView's visibility.
   bool visible_;
@@ -200,6 +238,18 @@ class CONTENT_EXPORT BrowserPlugin :
 #if defined(OS_WIN)
   base::SharedMemory shared_memory_;
 #endif
+  // Important: Do not add more history state here.
+  // We strongly discourage storing additional history state (such as page IDs)
+  // in the embedder process, at the risk of having incorrect information that
+  // can lead to broken back/forward logic in apps.
+  // It's also important that this state does not get modified by any logic in
+  // the embedder process. It should only be updated in response to navigation
+  // events in the guest.  No assumptions should be made about how the index
+  // will change after a navigation (e.g., for back, forward, or go), because
+  // the changes are not always obvious.  For example, there is a maximum
+  // number of entries and earlier ones will automatically be pruned.
+  int current_nav_entry_index_;
+  int nav_entry_count_;
   DISALLOW_COPY_AND_ASSIGN(BrowserPlugin);
 };
 

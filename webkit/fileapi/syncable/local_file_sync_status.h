@@ -10,14 +10,13 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/threading/thread.h"
+#include "base/threading/non_thread_safe.h"
 #include "webkit/fileapi/file_system_url.h"
 
 namespace fileapi {
 
 // Represents local file sync status.
-// This class is thread-safe and fields of this class are protected by a lock.
-// TODO(kinuko): Limit access to this class only on IO thread.
+// This class is supposed to run only on IO thread.
 //
 // This class manages two important synchronization flags: writing (counter)
 // and syncing (flag).  Writing counter keeps track of which URL is in
@@ -26,24 +25,24 @@ namespace fileapi {
 // An invariant of this class is: no FileSystem objects should be both
 // in syncing_ and writing_ status, i.e. trying to increment writing
 // while the target url is in syncing must fail and vice versa.
-class FILEAPI_EXPORT LocalFileSyncStatus {
+class WEBKIT_STORAGE_EXPORT LocalFileSyncStatus : public base::NonThreadSafe {
  public:
   LocalFileSyncStatus();
   ~LocalFileSyncStatus();
 
-  // Tries to increment writing counter for |url|.
-  // This fails if the target |url| is in syncing.
-  bool TryIncrementWriting(const FileSystemURL& url);
+  // Increment writing counter for |url|.
+  // This should not be called if the |url| is not writable.
+  void StartWriting(const FileSystemURL& url);
 
   // Decrement writing counter for |url|.
-  void DecrementWriting(const FileSystemURL& url);
+  void EndWriting(const FileSystemURL& url);
 
-  // Tries to mark syncing flag for |url| to enable writing.
-  // This fails if the target |url| is in writing.
-  bool TryDisableWriting(const FileSystemURL& url);
+  // Start syncing for |url| and disable writing.
+  // This should not be called if |url| is in writing.
+  void StartSyncing(const FileSystemURL& url);
 
-  // Clears the syncing flag for |url| to disable writing.
-  void EnableWriting(const FileSystemURL& url);
+  // Clears the syncing flag for |url| and enable writing.
+  void EndSyncing(const FileSystemURL& url);
 
   // Returns true if the |url| or its parent or child is in writing.
   bool IsWriting(const FileSystemURL& url) const;
@@ -55,11 +54,8 @@ class FILEAPI_EXPORT LocalFileSyncStatus {
   typedef std::map<FileSystemURL, int64, FileSystemURL::Comparator> URLCountMap;
   typedef std::set<FileSystemURL, FileSystemURL::Comparator> URLSet;
 
-  // These private methods must be called with the lock_ held.
   bool IsChildOrParentWriting(const FileSystemURL& url) const;
   bool IsChildOrParentSyncing(const FileSystemURL& url) const;
-
-  mutable base::Lock lock_;
 
   // If this count is non-zero positive there're ongoing write operations.
   URLCountMap writing_;

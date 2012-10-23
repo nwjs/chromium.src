@@ -50,6 +50,8 @@
 #include "chrome/browser/download/save_package_file_picker.h"
 #include "chrome/browser/extensions/browser_action_test_util.h"
 #include "chrome/browser/extensions/crx_installer.h"
+#include "chrome/browser/extensions/extension_action.h"
+#include "chrome/browser/extensions/extension_action_manager.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -122,7 +124,6 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/permissions/permission_set.h"
 #include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/extensions/url_pattern_set.h"
@@ -191,6 +192,7 @@ using content::RenderViewHost;
 using content::SSLStatus;
 using content::WebContents;
 using extensions::Extension;
+using extensions::ExtensionActionManager;
 using extensions::ExtensionList;
 
 namespace {
@@ -2129,8 +2131,7 @@ void TestingAutomationProvider::SetWindowDimensions(
 ListValue* TestingAutomationProvider::GetInfobarsInfo(WebContents* wc) {
   // Each infobar may have different properties depending on the type.
   ListValue* infobars = new ListValue;
-  InfoBarTabHelper* infobar_helper =
-      TabContents::FromWebContents(wc)->infobar_tab_helper();
+  InfoBarTabHelper* infobar_helper = InfoBarTabHelper::FromWebContents(wc);
   for (size_t i = 0; i < infobar_helper->GetInfoBarCount(); ++i) {
     DictionaryValue* infobar_item = new DictionaryValue;
     InfoBarDelegate* infobar = infobar_helper->GetInfoBarDelegateAt(i);
@@ -2206,12 +2207,13 @@ void TestingAutomationProvider::PerformActionOnInfobar(
     return;
   }
 
-  TabContents* tab_contents = chrome::GetTabContentsAt(browser, tab_index);
-  if (!tab_contents) {
+  WebContents* web_contents = chrome::GetWebContentsAt(browser, tab_index);
+  if (!web_contents) {
     reply.SendError(StringPrintf("No such tab at index %d", tab_index));
     return;
   }
-  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(web_contents);
 
   InfoBarDelegate* infobar = NULL;
   size_t infobar_index = static_cast<size_t>(infobar_index_int);
@@ -2988,7 +2990,7 @@ void TestingAutomationProvider::SetLocalStatePrefs(
     DictionaryValue* args,
     IPC::Message* reply_message) {
   std::string path;
-  Value* val;
+  Value* val = NULL;
   AutomationJSONReply reply(this, reply_message);
   if (args->GetString("path", &path) && args->Get("value", &val)) {
     PrefService* pref_service = g_browser_process->local_state();
@@ -3045,7 +3047,7 @@ void TestingAutomationProvider::SetPrefs(DictionaryValue* args,
     return;
   }
   std::string path;
-  Value* val;
+  Value* val = NULL;
   if (args->GetString("path", &path) && args->Get("value", &val)) {
     PrefService* pref_service = browser->profile()->GetPrefs();
     const PrefService::Preference* pref =
@@ -3673,8 +3675,9 @@ void TestingAutomationProvider::InstallExtension(
   bool with_ui;
   bool from_webstore = false;
   Browser* browser;
+  content::WebContents* tab;
   std::string error_msg;
-  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+  if (!GetBrowserAndTabFromJSONArgs(args, &browser, &tab, &error_msg)) {
     AutomationJSONReply(this, reply_message).SendError(error_msg);
     return;
   }
@@ -3706,7 +3709,7 @@ void TestingAutomationProvider::InstallExtension(
     // and install it. Otherwise load it as an unpacked extension.
     if (extension_path.MatchesExtension(FILE_PATH_LITERAL(".crx"))) {
       ExtensionInstallPrompt* client = (with_ui ?
-          chrome::CreateExtensionInstallPromptWithBrowser(browser) :
+          new ExtensionInstallPrompt(tab) :
           NULL);
       scoped_refptr<extensions::CrxInstaller> installer(
           extensions::CrxInstaller::Create(service, client));
@@ -3787,6 +3790,8 @@ void TestingAutomationProvider::GetExtensionsInfo(DictionaryValue* args,
   all.insert(all.end(),
              disabled_extensions->begin(),
              disabled_extensions->end());
+  ExtensionActionManager* extension_action_manager =
+      ExtensionActionManager::Get(browser->profile());
   for (ExtensionList::const_iterator it = all.begin();
        it != all.end(); ++it) {
     const Extension* extension = *it;
@@ -3817,8 +3822,9 @@ void TestingAutomationProvider::GetExtensionsInfo(DictionaryValue* args,
     extension_value->SetBoolean("is_enabled", service->IsExtensionEnabled(id));
     extension_value->SetBoolean("allowed_in_incognito",
                                 service->IsIncognitoEnabled(id));
-    extension_value->SetBoolean("has_page_action",
-                                extension->page_action() != NULL);
+    extension_value->SetBoolean(
+        "has_page_action",
+        extension_action_manager->GetPageAction(*extension) != NULL);
     extensions_values->Append(extension_value);
   }
   return_value->Set("extensions", extensions_values);
@@ -3942,7 +3948,9 @@ void TestingAutomationProvider::TriggerPageActionById(
     AutomationJSONReply(this, reply_message).SendError(error);
     return;
   }
-  ExtensionAction* page_action = extension->page_action();
+  ExtensionAction* page_action =
+      ExtensionActionManager::Get(browser->profile())->
+      GetPageAction(*extension);
   if (!page_action) {
     AutomationJSONReply(this, reply_message).SendError(
         "Extension doesn't have any page action.");
@@ -3995,7 +4003,8 @@ void TestingAutomationProvider::TriggerBrowserActionById(
     AutomationJSONReply(this, reply_message).SendError(error);
     return;
   }
-  ExtensionAction* action = extension->browser_action();
+  ExtensionAction* action = ExtensionActionManager::Get(browser->profile())->
+      GetBrowserAction(*extension);
   if (!action) {
     AutomationJSONReply(this, reply_message).SendError(
         "Extension doesn't have any browser action.");
@@ -6222,13 +6231,15 @@ void TestingAutomationProvider::IsPageActionVisible(
     reply.SendError(error);
     return;
   }
-  ExtensionAction* page_action = extension->page_action();
-  if (!page_action) {
-    reply.SendError("Extension doesn't have any page action");
-    return;
-  }
   if (!browser) {
     reply.SendError("Tab does not belong to an open browser");
+    return;
+  }
+  ExtensionAction* page_action =
+      ExtensionActionManager::Get(browser->profile())->
+      GetPageAction(*extension);
+  if (!page_action) {
+    reply.SendError("Extension doesn't have any page action");
     return;
   }
   EnsureTabSelected(browser, tab);

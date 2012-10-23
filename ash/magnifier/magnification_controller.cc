@@ -6,6 +6,8 @@
 
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
+#include "ash/system/tray/system_tray_delegate.h"
+#include "ui/aura/client/cursor_client.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/shared/compound_event_filter.h"
@@ -93,6 +95,19 @@ class MagnificationControllerImpl : virtual public MagnificationController,
 
   // Returns if the magnification scale is 1.0 or not (larger then 1.0).
   bool IsMagnified() const;
+
+  // Returns the default scale which depends on the login status.
+  float GetDefaultZoomScale() const {
+    user::LoginStatus login = Shell::GetInstance()->tray_delegate() ?
+        Shell::GetInstance()->tray_delegate()->GetUserLoginStatus() :
+        user::LOGGED_IN_NONE;
+
+    // On login screen, don't magnify the screen by default.
+    if (login == user::LOGGED_IN_NONE)
+      return kNonMagnifiedScale;
+
+    return kInitialMagnifiedScale;
+  }
 
   // Returns the rect of the magnification window.
   gfx::Rect GetWindowRectDIP(float scale) const;
@@ -195,7 +210,7 @@ bool MagnificationControllerImpl::RedrawDIP(const gfx::Point& position_in_dip,
   scale_ = scale;
 
   // Creates transform matrix.
-  ui::Transform transform;
+  gfx::Transform transform;
   // Flips the signs intentionally to convert them from the position of the
   // magnification window.
   transform.ConcatTranslate(-origin_.x(), -origin_.y());
@@ -309,7 +324,10 @@ void MagnificationControllerImpl::OnMouseMove(const gfx::Point& location) {
       int y_diff = origin_.y() - window_rect.y();
       // If the magnified region is moved, hides the mouse cursor and moves it.
       if (x_diff != 0 || y_diff != 0) {
-        root_window_->ShowCursor(false);
+        aura::client::CursorClient* cursor_client =
+            aura::client::GetCursorClient(root_window_);
+        if (cursor_client)
+          cursor_client->ShowCursor(false);
         mouse.set_x(mouse.x() - (origin_.x() - window_rect.x()));
         mouse.set_y(mouse.y() - (origin_.y() - window_rect.y()));
         root_window_->MoveCursorTo(mouse);
@@ -352,7 +370,10 @@ void MagnificationControllerImpl::ValidateScale(float* scale) {
 }
 
 void MagnificationControllerImpl::OnImplicitAnimationsCompleted() {
-  root_window_->ShowCursor(true);
+  aura::client::CursorClient* cursor_client =
+      aura::client::GetCursorClient(root_window_);
+  if (cursor_client)
+    cursor_client->ShowCursor(true);
   is_on_zooming_ = false;
 }
 
@@ -417,6 +438,8 @@ void MagnificationControllerImpl::SetEnabled(bool enabled) {
   if (enabled) {
     float scale =
         ash::Shell::GetInstance()->delegate()->GetSavedScreenMagnifierScale();
+    if (scale <= 0.0f)
+      scale = GetDefaultZoomScale();
     ValidateScale(&scale);
     RedrawKeepingMousePosition(scale, true);
     is_enabled_ = enabled;

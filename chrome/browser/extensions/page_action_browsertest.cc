@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/extensions/extension_action.h"
+#include "chrome/browser/extensions/extension_action_manager.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
@@ -10,10 +12,10 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_action.h"
 #include "chrome/test/base/ui_test_utils.h"
 
-using extensions::Extension;
+namespace extensions {
+namespace {
 
 const std::string kFeedPage = "files/feeds/feed.html";
 const std::string kNoFeedPage = "files/feeds/no_feed.html";
@@ -191,5 +193,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, TitleLocalizationPageAction) {
   int tab_id = ExtensionTabUtil::GetTabId(
       chrome::GetActiveWebContents(browser()));
   EXPECT_STREQ(WideToUTF8(L"Hreggvi\u00F0ur").c_str(),
-               extension->page_action()->GetTitle(tab_id).c_str());
+               ExtensionActionManager::Get(browser()->profile())->
+               GetPageAction(*extension)->
+               GetTitle(tab_id).c_str());
 }
+
+}  // namespace
+}  // namespace extensions

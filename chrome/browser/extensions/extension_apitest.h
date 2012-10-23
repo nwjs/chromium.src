@@ -15,10 +15,6 @@
 
 class FilePath;
 
-namespace content {
-class TestWebSocketServer;
-}
-
 namespace extensions {
 class Extension;
 }
@@ -184,17 +180,7 @@ class ExtensionApiTest : public ExtensionBrowserTest {
   scoped_ptr<DictionaryValue> test_config_;
 
   // Hold the test WebSocket server.
-  scoped_ptr<content::TestWebSocketServer> websocket_server_;
-};
-
-// PlatformAppApiTest sets up the command-line flags necessary for platform
-// apps (if any).
-class PlatformAppApiTest : public ExtensionApiTest {
- public:
-  PlatformAppApiTest();
-  virtual ~PlatformAppApiTest();
-
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE;
+  scoped_ptr<net::TestServer> websocket_server_;
 };
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_APITEST_H_

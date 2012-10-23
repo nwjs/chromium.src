@@ -9,9 +9,18 @@
 
 #include "base/logging.h"
 
-namespace webrtc {
+using webrtc::CreateSessionDescriptionObserver;
+using webrtc::IceCandidateInterface;
+using webrtc::LocalMediaStreamInterface;
+using webrtc::MediaConstraintsInterface;
+using webrtc::MediaStreamInterface;
+using webrtc::PeerConnectionInterface;
+using webrtc::SessionDescriptionInterface;
+using webrtc::SetSessionDescriptionObserver;
 
-class MockStreamCollection : public StreamCollectionInterface {
+namespace content {
+
+class MockStreamCollection : public webrtc::StreamCollectionInterface {
  public:
   virtual size_t count() OVERRIDE {
     return streams_.size();
@@ -67,17 +76,18 @@ MockPeerConnectionImpl::MockPeerConnectionImpl(
 
 MockPeerConnectionImpl::~MockPeerConnectionImpl() {}
 
-talk_base::scoped_refptr<StreamCollectionInterface>
+talk_base::scoped_refptr<webrtc::StreamCollectionInterface>
 MockPeerConnectionImpl::local_streams() {
   return local_streams_;
 }
 
-talk_base::scoped_refptr<StreamCollectionInterface>
+talk_base::scoped_refptr<webrtc::StreamCollectionInterface>
 MockPeerConnectionImpl::remote_streams() {
   return remote_streams_;
 }
 
-void MockPeerConnectionImpl::AddStream(LocalMediaStreamInterface* stream) {
+void MockPeerConnectionImpl::AddStream(
+    LocalMediaStreamInterface* stream) {
   DCHECK(stream_label_.empty());
   stream_label_ = stream->label();
   local_streams_->AddStream(stream);
@@ -90,6 +100,20 @@ bool MockPeerConnectionImpl::AddStream(
   stream_label_ = local_stream->label();
   local_streams_->AddStream(local_stream);
   return true;
+}
+
+bool MockPeerConnectionImpl::CanSendDtmf(
+    const webrtc::AudioTrackInterface* track) {
+  NOTIMPLEMENTED();
+  return false;
+}
+
+bool MockPeerConnectionImpl::SendDtmf(
+    const webrtc::AudioTrackInterface* send_track,
+    const std::string& tones, int duration,
+    const webrtc::AudioTrackInterface* play_track) {
+  NOTIMPLEMENTED();
+  return false;
 }
 
 void MockPeerConnectionImpl::RemoveStream(
@@ -206,4 +230,4 @@ PeerConnectionInterface::IceState MockPeerConnectionImpl::ice_state() {
   return ice_state_;
 }
 
-}  // namespace webrtc
+}  // namespace content

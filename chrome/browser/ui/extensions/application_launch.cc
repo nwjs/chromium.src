@@ -5,9 +5,7 @@
 #include "chrome/browser/ui/extensions/application_launch.h"
 
 #include "base/command_line.h"
-#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
-#include "chrome/browser/extensions/default_apps_trial.h"
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/platform_app_launcher.h"
@@ -30,6 +28,10 @@
 #include "content/public/browser/web_contents_view.h"
 #include "content/public/common/renderer_preferences.h"
 #include "ui/gfx/rect.h"
+
+#if defined(OS_WIN)
+#include "base/win/metro.h"
+#endif
 
 using content::WebContents;
 using extensions::Extension;
@@ -108,7 +110,18 @@ WebContents* OpenApplicationWindow(
   }
 #endif
 
-  Browser* browser = new Browser(params);
+  Browser* browser = NULL;
+#if defined(OS_WIN)
+  // In Chrome on Windows 8 in metro mode we don't allow multiple chrome
+  // windows to be created, as we don't have a good way to switch between
+  // them. We attempt to reuse an existing Browser window.
+  if (base::win::IsMetroProcess()) {
+    browser = browser::FindBrowserWithProfile(
+        profile, chrome::HOST_DESKTOP_TYPE_NATIVE);
+  }
+#endif
+  if (!browser)
+    browser = new Browser(params);
 
   if (app_browser)
     *app_browser = browser;
@@ -152,15 +165,6 @@ WebContents* OpenApplicationTab(Profile* profile,
       extension_service->extension_prefs()->GetLaunchType(
           extension->id(), ExtensionPrefs::LAUNCH_DEFAULT);
   UMA_HISTOGRAM_ENUMERATION("Extensions.AppTabLaunchType", launch_type, 100);
-
-  static bool default_apps_trial_exists =
-      base::FieldTrialList::TrialExists(kDefaultAppsTrialName);
-  if (default_apps_trial_exists) {
-    UMA_HISTOGRAM_ENUMERATION(
-        base::FieldTrial::MakeName("Extensions.AppTabLaunchType",
-                                   kDefaultAppsTrialName),
-        launch_type, 100);
-  }
 
   int add_type = TabStripModel::ADD_ACTIVE;
   if (launch_type == ExtensionPrefs::LAUNCH_PINNED)

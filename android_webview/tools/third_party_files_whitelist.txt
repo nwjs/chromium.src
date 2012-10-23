@@ -111,11 +111,9 @@ chrome_frame/cfinstall/examples/simple.html
 # on Android.
 chrome_frame/CFInstance.js
 # String 'copyright' used in resources.
-chrome_frame/chrome_frame_helper_version.rc
+chrome_frame/chrome_frame_version.rc.version
 # String 'copyright' used in resources.
-chrome_frame/chrome_launcher_version.rc
-# String 'copyright' used in resources.
-chrome_frame/chrome_tab_version.rc
+chrome_frame/npchrome_frame_version.rc.version
 # Copyright Mark Mentovai; MPL, GPL v2 or LGPL v2 license. Not used on Android.
 chrome/installer/mac/pkg-dmg
 # String 'copyright' used in resources.
@@ -213,7 +211,7 @@ remoting/branding_Chromium
 # String 'copyright' used in project file.
 remoting/host/installer/mac/uninstaller/remoting_uninstaller-Info.plist
 # String 'copyright' used in project file.
-remoting/host/me2me_preference_pane-Info.plist
+remoting/host/mac/me2me_preference_pane-Info.plist
 # String 'copyright' used in project file.
 remoting/host/remoting_me2me_host-Info.plist
 # String 'copyright' used in file.

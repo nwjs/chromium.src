@@ -12,7 +12,8 @@
 #include "chrome/browser/chromeos/contacts/contact.pb.h"
 #include "chrome/browser/chromeos/contacts/contact_database.h"
 #include "chrome/browser/chromeos/contacts/contact_store_observer.h"
-#include "chrome/browser/chromeos/gdata/gdata_contacts_service.h"
+#include "chrome/browser/chromeos/contacts/gdata_contacts_service.h"
+#include "chrome/browser/google_apis/auth_service.h"
 #include "chrome/browser/google_apis/gdata_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_thread.h"
@@ -65,7 +66,7 @@ void GoogleContactStore::TestAPI::SetDatabase(ContactDatabaseInterface* db) {
 }
 
 void GoogleContactStore::TestAPI::SetGDataService(
-    gdata::GDataContactsServiceInterface* service) {
+    GDataContactsServiceInterface* service) {
   store_->gdata_service_.reset(service);
 }
 
@@ -79,6 +80,15 @@ void GoogleContactStore::TestAPI::NotifyAboutNetworkStateChange(bool online) {
       net::NetworkChangeNotifier::CONNECTION_UNKNOWN :
       net::NetworkChangeNotifier::CONNECTION_NONE;
   store_->OnConnectionTypeChanged(type);
+}
+
+scoped_ptr<ContactPointers> GoogleContactStore::TestAPI::GetLoadedContacts() {
+  scoped_ptr<ContactPointers> contacts(new ContactPointers);
+  for (ContactMap::const_iterator it = store_->contacts_.begin();
+       it != store_->contacts_.end(); ++it) {
+    contacts->push_back(it->second);
+  }
+  return contacts.Pass();
 }
 
 GoogleContactStore::GoogleContactStore(Profile* profile)
@@ -106,7 +116,7 @@ void GoogleContactStore::Init() {
 
   // Create a GData service if one hasn't already been assigned for testing.
   if (!gdata_service_.get()) {
-    gdata_service_.reset(new gdata::GDataContactsService(profile_));
+    gdata_service_.reset(new GDataContactsService(profile_));
     gdata_service_->Initialize();
   }
 
@@ -131,8 +141,7 @@ void GoogleContactStore::AppendContacts(ContactPointers* contacts_out) {
 const Contact* GoogleContactStore::GetContactById(
     const std::string& contact_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  const Contact* contact = contacts_.Find(contact_id);
-  return (contact && !contact->deleted()) ? contact : NULL;
+  return contacts_.Find(contact_id);
 }
 
 void GoogleContactStore::AddObserver(ContactStoreObserver* observer) {
@@ -203,7 +212,7 @@ void GoogleContactStore::UpdateContacts() {
     VLOG(1) << "Downloading all contacts for " << profile_->GetProfileName();
   } else {
     VLOG(1) << "Downloading contacts updated since "
-            << gdata::util::FormatTimeAsString(min_update_time) << " for "
+            << google_apis::util::FormatTimeAsString(min_update_time) << " for "
             << profile_->GetProfileName();
   }
 
@@ -240,17 +249,26 @@ void GoogleContactStore::MergeContacts(
     bool is_full_update,
     scoped_ptr<ScopedVector<Contact> > updated_contacts) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  if (is_full_update)
-    contacts_.Clear();
-  size_t num_updated_contacts = updated_contacts->size();
-  contacts_.Merge(updated_contacts.Pass(), ContactMap::KEEP_DELETED_CONTACTS);
 
-  if (is_full_update || num_updated_contacts > 0)
-    last_contact_update_time_ = contacts_.GetMaxUpdateTime();
+  if (is_full_update) {
+    contacts_.Clear();
+    last_contact_update_time_ = base::Time();
+  }
+
+  // Find the maximum update time from |updated_contacts| since contacts whose
+  // |deleted| flags are set won't be saved to |contacts_|.
+  for (ScopedVector<Contact>::iterator it = updated_contacts->begin();
+       it != updated_contacts->end(); ++it) {
+    last_contact_update_time_ =
+        std::max(last_contact_update_time_,
+                 base::Time::FromInternalValue((*it)->update_time()));
+  }
   VLOG(1) << "Last contact update time is "
           << (last_contact_update_time_.is_null() ?
               std::string("null") :
-              gdata::util::FormatTimeAsString(last_contact_update_time_));
+              google_apis::util::FormatTimeAsString(last_contact_update_time_));
+
+  contacts_.Merge(updated_contacts.Pass(), ContactMap::DROP_DELETED_CONTACTS);
 }
 
 void GoogleContactStore::OnDownloadSuccess(
@@ -263,9 +281,16 @@ void GoogleContactStore::OnDownloadSuccess(
 
   // Copy the pointers so we can update just these contacts in the database.
   scoped_ptr<ContactPointers> contacts_to_save_to_db(new ContactPointers);
+  scoped_ptr<ContactDatabaseInterface::ContactIds>
+      contact_ids_to_delete_from_db(new ContactDatabaseInterface::ContactIds);
   if (db_) {
-    for (size_t i = 0; i < updated_contacts->size(); ++i)
-      contacts_to_save_to_db->push_back((*updated_contacts)[i]);
+    for (size_t i = 0; i < updated_contacts->size(); ++i) {
+      Contact* contact = (*updated_contacts)[i];
+      if (contact->deleted())
+        contact_ids_to_delete_from_db->push_back(contact->contact_id());
+      else
+        contacts_to_save_to_db->push_back(contact);
+    }
   }
   bool got_updates = !updated_contacts->empty();
 
@@ -283,12 +308,17 @@ void GoogleContactStore::OnDownloadSuccess(
     // contacts, we still want to write updated metadata containing
     // |update_start_time|.
     VLOG(1) << "Saving " << contacts_to_save_to_db->size() << " contact(s) to "
-            << "database as " << (is_full_update ? "full" : "incremental")
-            << " update";
+            << "database and deleting " << contact_ids_to_delete_from_db->size()
+            << " as " << (is_full_update ? "full" : "incremental") << " update";
+
     scoped_ptr<UpdateMetadata> metadata(new UpdateMetadata);
     metadata->set_last_update_start_time(update_start_time.ToInternalValue());
+    metadata->set_last_contact_update_time(
+        last_contact_update_time_.ToInternalValue());
+
     db_->SaveContacts(
         contacts_to_save_to_db.Pass(),
+        contact_ids_to_delete_from_db.Pass(),
         metadata.Pass(),
         is_full_update,
         base::Bind(&GoogleContactStore::OnDatabaseContactsSaved,
@@ -335,6 +365,9 @@ void GoogleContactStore::OnDatabaseContactsLoaded(
     MergeContacts(true, contacts.Pass());
     last_successful_update_start_time_ =
         base::Time::FromInternalValue(metadata->last_update_start_time());
+    last_contact_update_time_ = std::max(
+        last_contact_update_time_,
+        base::Time::FromInternalValue(metadata->last_contact_update_time()));
 
     if (!contacts_.empty()) {
       FOR_EACH_OBSERVER(ContactStoreObserver,
@@ -367,7 +400,7 @@ bool GoogleContactStoreFactory::CanCreateContactStoreForProfile(
     Profile* profile) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(profile);
-  return gdata::util::IsGDataAvailable(profile);
+  return google_apis::AuthService::CanAuthenticate(profile);
 }
 
 ContactStore* GoogleContactStoreFactory::CreateContactStore(Profile* profile) {

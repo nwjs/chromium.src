@@ -44,6 +44,20 @@ MockDecryptor::MockDecryptor() {}
 
 MockDecryptor::~MockDecryptor() {}
 
+void MockDecryptor::InitializeAudioDecoder(
+    scoped_ptr<AudioDecoderConfig> config,
+    const DecoderInitCB& init_cb,
+    const KeyAddedCB& key_added_cb) {
+  InitializeAudioDecoderMock(*config, init_cb, key_added_cb);
+}
+
+void MockDecryptor::InitializeVideoDecoder(
+    scoped_ptr<VideoDecoderConfig> config,
+    const DecoderInitCB& init_cb,
+    const KeyAddedCB& key_added_cb) {
+  InitializeVideoDecoderMock(*config, init_cb, key_added_cb);
+}
+
 MockDecryptorClient::MockDecryptorClient() {}
 
 MockDecryptorClient::~MockDecryptorClient() {}
@@ -78,7 +92,7 @@ scoped_ptr<FilterCollection> MockFilterCollection::Create() {
   scoped_ptr<FilterCollection> collection(new FilterCollection());
   collection->SetDemuxer(demuxer_);
   collection->GetVideoDecoders()->push_back(video_decoder_);
-  collection->AddAudioDecoder(audio_decoder_);
+  collection->GetAudioDecoders()->push_back(audio_decoder_);
   collection->AddVideoRenderer(video_renderer_);
   collection->AddAudioRenderer(audio_renderer_);
   return collection.Pass();

@@ -14,6 +14,7 @@
 #include "base/values.h"
 #include "chrome/browser/google_apis/gdata_test_util.h"
 #include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/gdata_wapi_parser.h"
 #include "chrome/common/chrome_paths.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -21,7 +22,7 @@ using base::Value;
 using base::DictionaryValue;
 using base::ListValue;
 
-namespace gdata {
+namespace google_apis {
 
 // TODO(nhiroki): Make it possible to run these tests on any platforms after
 // moving json files to out of 'chromeos' directory (http://crbug.com/149788).
@@ -161,13 +162,13 @@ TEST(DriveAPIParserTest, FileListParser) {
   EXPECT_TRUE(file1.labels().is_viewed());
 
   base::Time created_time;
-  ASSERT_TRUE(gdata::util::GetTimeFromString("2012-07-24T08:51:16.570Z",
-                                             &created_time));
+  ASSERT_TRUE(google_apis::util::GetTimeFromString("2012-07-24T08:51:16.570Z",
+                                                   &created_time));
   EXPECT_EQ(created_time, file1.created_date());
 
   base::Time modified_time;
-  ASSERT_TRUE(gdata::util::GetTimeFromString("2012-07-27T05:43:20.269Z",
-                                             &modified_time));
+  ASSERT_TRUE(google_apis::util::GetTimeFromString("2012-07-27T05:43:20.269Z",
+                                                   &modified_time));
   EXPECT_EQ(modified_time, file1.modified_by_me_date());
 
   ASSERT_EQ(1U, file1.parents().size());
@@ -245,22 +246,52 @@ TEST(DriveAPIParserTest, ChangeListParser) {
             changelist->next_link().spec());
   EXPECT_EQ(13664, changelist->largest_change_id());
 
-  ASSERT_EQ(3U, changelist->items().size());
+  ASSERT_EQ(4U, changelist->items().size());
+
   const ChangeResource& change1 = *changelist->items()[0];
   EXPECT_EQ(8421, change1.change_id());
   EXPECT_FALSE(change1.is_deleted());
+  EXPECT_EQ("1Pc8jzfU1ErbN_eucMMqdqzY3eBm0v8sxXm_1CtLxABC", change1.file_id());
   EXPECT_EQ(change1.file_id(), change1.file().file_id());
+
+  scoped_ptr<DocumentEntry> entry1(
+      DocumentEntry::CreateFromChangeResource(change1));
+  EXPECT_EQ(change1.file_id(), entry1->resource_id());
+  EXPECT_EQ(change1.is_deleted(), entry1->deleted());
 
   const ChangeResource& change2 = *changelist->items()[1];
   EXPECT_EQ(8424, change2.change_id());
   EXPECT_FALSE(change2.is_deleted());
+  EXPECT_EQ("0B4v7G8yEYAWHUmRrU2lMS2hLABC", change2.file_id());
   EXPECT_EQ(change2.file_id(), change2.file().file_id());
+
+  scoped_ptr<DocumentEntry> entry2(
+      DocumentEntry::CreateFromChangeResource(change2));
+  EXPECT_EQ(change2.file_id(), entry2->resource_id());
+  EXPECT_EQ(change2.is_deleted(), entry2->deleted());
 
   const ChangeResource& change3 = *changelist->items()[2];
   EXPECT_EQ(8429, change3.change_id());
   EXPECT_FALSE(change3.is_deleted());
+  EXPECT_EQ("0B4v7G8yEYAWHYW1OcExsUVZLABC", change3.file_id());
   EXPECT_EQ(change3.file_id(), change3.file().file_id());
+
+  scoped_ptr<DocumentEntry> entry3(
+      DocumentEntry::CreateFromChangeResource(change3));
+  EXPECT_EQ(change3.file_id(), entry3->resource_id());
+  EXPECT_EQ(change3.is_deleted(), entry3->deleted());
+
+  // Deleted entry.
+  const ChangeResource& change4 = *changelist->items()[3];
+  EXPECT_EQ(8430, change4.change_id());
+  EXPECT_EQ("ABCv7G8yEYAWHc3Y5X0hMSkJYXYZ", change4.file_id());
+  EXPECT_TRUE(change4.is_deleted());
+
+  scoped_ptr<DocumentEntry> entry4(
+      DocumentEntry::CreateFromChangeResource(change4));
+  EXPECT_EQ(change4.file_id(), entry4->resource_id());
+  EXPECT_EQ(change4.is_deleted(), entry4->deleted());
 }
 #endif  // OS_CHROMEOS
 
-}  // namespace gdata
+}  // namespace google_apis

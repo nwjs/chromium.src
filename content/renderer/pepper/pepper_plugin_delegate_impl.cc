@@ -144,7 +144,7 @@ class HostDispatcherWrapper
       return false;
     }
     dispatcher_->channel()->SetRestrictDispatchChannelGroup(
-        content::kRendererRestrictDispatchGroup_Pepper);
+        kRendererRestrictDispatchGroup_Pepper);
     return true;
   }
 
@@ -315,7 +315,7 @@ void CreateHostForInProcessModule(RenderViewImpl* render_view,
       PepperPluginRegistry::GetInstance()->GetInfoForPlugin(
           webplugin_info)->permissions);
   RendererPpapiHostImpl* host_impl =
-      content::RendererPpapiHostImpl::CreateOnModuleForInProcess(
+      RendererPpapiHostImpl::CreateOnModuleForInProcess(
           module, perms);
   render_view->PpapiPluginCreated(host_impl);
 }
@@ -335,6 +335,10 @@ PepperPluginDelegateImpl::PepperPluginDelegateImpl(RenderViewImpl* render_view)
 
 PepperPluginDelegateImpl::~PepperPluginDelegateImpl() {
   DCHECK(mouse_lock_instances_.empty());
+  for (PendingContextMenuMap::iterator it = pending_context_menus_.begin();
+       it != pending_context_menus_.end(); ++it) {
+    render_view()->CancelContextMenu(it->first);
+  }
 }
 
 scoped_refptr<webkit::ppapi::PluginModule>
@@ -383,42 +387,38 @@ PepperPluginDelegateImpl::CreatePepperPluginModule(
     return scoped_refptr<webkit::ppapi::PluginModule>();
   }
 
-  scoped_refptr<PepperHungPluginFilter> hung_filter(
-      new PepperHungPluginFilter(path, render_view_->routing_id(),
-                                 plugin_child_id));
-
-  // Create a new HostDispatcher for the proxying, and hook it to a new
-  // PluginModule. Note that AddLiveModule must be called before any early
-  // returns since the module's destructor will remove itself.
+  // AddLiveModule must be called before any early returns since the
+  // module's destructor will remove itself.
   module = new webkit::ppapi::PluginModule(
       info->name, path,
       PepperPluginRegistry::GetInstance(),
       permissions);
   PepperPluginRegistry::GetInstance()->AddLiveModule(path, module);
-  scoped_ptr<HostDispatcherWrapper> dispatcher(
-      new HostDispatcherWrapper(module, plugin_child_id, permissions));
-  if (!dispatcher->Init(
-          channel_handle,
-          webkit::ppapi::PluginModule::GetLocalGetInterfaceFunc(),
-          GetPreferences(),
-          permissions,
-          hung_filter.get()))
+
+  if (!CreateOutOfProcessModule(
+           module, path, permissions, channel_handle, plugin_child_id)) {
     return scoped_refptr<webkit::ppapi::PluginModule>();
-
-  RendererPpapiHostImpl* host_impl =
-      content::RendererPpapiHostImpl::CreateOnModuleForOutOfProcess(
-          module, dispatcher->dispatcher(), permissions);
-  render_view_->PpapiPluginCreated(host_impl);
-
-  module->InitAsProxied(dispatcher.release());
+  }
   return module;
+}
+
+RendererPpapiHost* PepperPluginDelegateImpl::CreateExternalPluginModule(
+    scoped_refptr<webkit::ppapi::PluginModule> module,
+    const FilePath& path,
+    ppapi::PpapiPermissions permissions,
+    const IPC::ChannelHandle& channel_handle,
+    int plugin_child_id) {
+  // We don't call PepperPluginRegistry::AddLiveModule, as this module is
+  // managed externally.
+  return CreateOutOfProcessModule(
+    module, path, permissions, channel_handle, plugin_child_id);
 }
 
 scoped_refptr<webkit::ppapi::PluginModule>
     PepperPluginDelegateImpl::CreateBrowserPluginModule(
         const IPC::ChannelHandle& channel_handle,
         int guest_process_id) {
-  content::old::BrowserPluginRegistry* registry =
+  old::BrowserPluginRegistry* registry =
       RenderThreadImpl::current()->browser_plugin_registry();
   scoped_refptr<webkit::ppapi::PluginModule> module =
       registry->GetModule(guest_process_id);
@@ -478,6 +478,60 @@ scoped_refptr<PepperBrokerImpl> PepperPluginDelegateImpl::CreateBroker(
   }
 
   return broker;
+}
+
+RendererPpapiHost* PepperPluginDelegateImpl::CreateOutOfProcessModule(
+    webkit::ppapi::PluginModule* module,
+    const FilePath& path,
+    ppapi::PpapiPermissions permissions,
+    const IPC::ChannelHandle& channel_handle,
+    int plugin_child_id) {
+  scoped_refptr<PepperHungPluginFilter> hung_filter(
+      new PepperHungPluginFilter(path,
+                                 render_view_->routing_id(),
+                                 plugin_child_id));
+  scoped_ptr<HostDispatcherWrapper> dispatcher(
+      new HostDispatcherWrapper(module, plugin_child_id, permissions));
+  if (!dispatcher->Init(
+          channel_handle,
+          webkit::ppapi::PluginModule::GetLocalGetInterfaceFunc(),
+          GetPreferences(),
+          permissions,
+          hung_filter.get()))
+    return NULL;
+
+  RendererPpapiHostImpl* host_impl =
+      RendererPpapiHostImpl::CreateOnModuleForOutOfProcess(
+          module, dispatcher->dispatcher(), permissions);
+  render_view_->PpapiPluginCreated(host_impl);
+
+  module->InitAsProxied(dispatcher.release());
+  return host_impl;
+}
+
+void PepperPluginDelegateImpl::OnMenuAction(int request_id, unsigned action) {
+  // Just save the action.
+  DCHECK(!has_saved_context_menu_action_);
+  has_saved_context_menu_action_ = true;
+  saved_context_menu_action_ = action;
+}
+
+void PepperPluginDelegateImpl::OnMenuClosed(int request_id) {
+  PendingContextMenuMap::iterator found =
+      pending_context_menus_.find(request_id);
+  if (found == pending_context_menus_.end()) {
+    NOTREACHED() << "OnContextMenuClosed() called twice for the same menu.";
+    return;
+  }
+
+  if (has_saved_context_menu_action_) {
+    found->second->CompleteShow(PP_OK, saved_context_menu_action_);
+    has_saved_context_menu_action_ = false;
+    saved_context_menu_action_ = 0;
+  } else {
+    found->second->CompleteShow(PP_ERROR_USERCANCEL, 0);
+  }
+  pending_context_menus_.erase(found);
 }
 
 void PepperPluginDelegateImpl::OnPpapiBrokerChannelCreated(
@@ -821,11 +875,11 @@ void PepperPluginDelegateImpl::SelectedFindResultChanged(int identifier,
 }
 
 uint32_t PepperPluginDelegateImpl::GetAudioHardwareOutputSampleRate() {
-  return static_cast<uint32_t>(audio_hardware::GetOutputSampleRate());
+  return static_cast<uint32_t>(AudioHardware::GetOutputSampleRate());
 }
 
 uint32_t PepperPluginDelegateImpl::GetAudioHardwareOutputBufferSize() {
-  return static_cast<uint32_t>(audio_hardware::GetOutputBufferSize());
+  return static_cast<uint32_t>(AudioHardware::GetOutputBufferSize());
 }
 
 webkit::ppapi::PluginDelegate::PlatformAudioOutput*
@@ -1373,14 +1427,10 @@ int32_t PepperPluginDelegateImpl::ShowContextMenu(
         static_cast<RenderWidgetFullscreenPepper*>(container)->routing_id();
   }
 
-  int request_id = pending_context_menus_.Add(
-      new scoped_refptr<webkit::ppapi::PPB_Flash_Menu_Impl>(menu));
-
   ContextMenuParams params;
   params.x = position.x();
   params.y = position.y();
   params.custom_context.is_pepper_menu = true;
-  params.custom_context.request_id = request_id;
   params.custom_context.render_widget_id = render_widget_id;
   params.custom_items = menu->menu_data();
 
@@ -1395,45 +1445,10 @@ int32_t PepperPluginDelegateImpl::ShowContextMenu(
     params.y += instance->view_data().rect.point.y;
   }
 
-  IPC::Message* msg = new ViewHostMsg_ContextMenu(render_view_->routing_id(),
-                                                  params);
-  if (!render_view_->Send(msg)) {
-    pending_context_menus_.Remove(request_id);
-    return PP_ERROR_FAILED;
-  }
-
+  int request_id = render_view_->ShowContextMenu(this, params);
+  pending_context_menus_[request_id] =
+      scoped_refptr<webkit::ppapi::PPB_Flash_Menu_Impl>(menu);
   return PP_OK_COMPLETIONPENDING;
-}
-
-void PepperPluginDelegateImpl::OnContextMenuClosed(
-    const CustomContextMenuContext& custom_context) {
-  int request_id = custom_context.request_id;
-  scoped_refptr<webkit::ppapi::PPB_Flash_Menu_Impl>* menu_ptr =
-      pending_context_menus_.Lookup(request_id);
-  if (!menu_ptr) {
-    NOTREACHED() << "CompleteShowContextMenu() called twice for the same menu.";
-    return;
-  }
-  scoped_refptr<webkit::ppapi::PPB_Flash_Menu_Impl> menu = *menu_ptr;
-  DCHECK(menu.get());
-  pending_context_menus_.Remove(request_id);
-
-  if (has_saved_context_menu_action_) {
-    menu->CompleteShow(PP_OK, saved_context_menu_action_);
-    has_saved_context_menu_action_ = false;
-    saved_context_menu_action_ = 0;
-  } else {
-    menu->CompleteShow(PP_ERROR_USERCANCEL, 0);
-  }
-}
-
-void PepperPluginDelegateImpl::OnCustomContextMenuAction(
-    const CustomContextMenuContext& custom_context,
-    unsigned action) {
-  // Just save the action.
-  DCHECK(!has_saved_context_menu_action_);
-  has_saved_context_menu_action_ = true;
-  saved_context_menu_action_ = action;
 }
 
 webkit::ppapi::FullscreenContainer*
@@ -1481,7 +1496,7 @@ void PepperPluginDelegateImpl::SetContentRestriction(int restrictions) {
 
 void PepperPluginDelegateImpl::SaveURLAs(const GURL& url) {
   WebFrame* frame = render_view_->webview()->mainFrame();
-  content::Referrer referrer(frame->document().url(),
+  Referrer referrer(frame->document().url(),
                              frame->document().referrerPolicy());
   render_view_->Send(new ViewHostMsg_SaveURLAs(
       render_view_->routing_id(), url, referrer));
@@ -1869,10 +1884,14 @@ void PepperPluginDelegateImpl::UnSetAndDeleteLockTargetAdapter(
 
 MouseLockDispatcher* PepperPluginDelegateImpl::GetMouseLockDispatcher(
     webkit::ppapi::PluginInstance* instance) {
-  if (instance->flash_fullscreen())
-    return instance->fullscreen_container()->GetMouseLockDispatcher();
-  else
+  if (instance->flash_fullscreen()) {
+    RenderWidgetFullscreenPepper* container =
+        static_cast<RenderWidgetFullscreenPepper*>(
+            instance->fullscreen_container());
+    return container->mouse_lock_dispatcher();
+  } else {
     return render_view_->mouse_lock_dispatcher();
+  }
 }
 
 webkit_glue::ClipboardClient*

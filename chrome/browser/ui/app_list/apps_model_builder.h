@@ -8,13 +8,13 @@
 #include <string>
 
 #include "base/gtest_prod_util.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/app_list/app_list_model.h"
 #include "ui/base/models/list_model_observer.h"
 
-class AppListController;
+class AppListControllerDelegate;
 class ExtensionAppItem;
 class Profile;
 
@@ -23,7 +23,7 @@ class AppsModelBuilder : public content::NotificationObserver,
  public:
   AppsModelBuilder(Profile* profile,
                    app_list::AppListModel::Apps* model,
-                   AppListController* controller);
+                   AppListControllerDelegate* controller);
   virtual ~AppsModelBuilder();
 
   // Populates the model.
@@ -63,7 +63,7 @@ class AppsModelBuilder : public content::NotificationObserver,
   virtual void ListItemsChanged(size_t start, size_t count) OVERRIDE;
 
   Profile* profile_;
-  AppListController* controller_;
+  AppListControllerDelegate* controller_;
 
   // Sub apps model of AppListModel that represents apps grid view.
   app_list::AppListModel::Apps* model_;

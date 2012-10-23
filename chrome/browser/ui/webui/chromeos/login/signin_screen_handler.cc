@@ -44,7 +44,7 @@
 
 #if defined(USE_AURA)
 #include "ash/shell.h"
-#include "ash/wm/power_button_controller.h"
+#include "ash/wm/session_state_controller.h"
 #endif
 
 using content::BrowserThread;
@@ -304,11 +304,8 @@ void SigninScreenHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback("shutdownSystem",
       base::Bind(&SigninScreenHandler::HandleShutdownSystem,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("userSelectedDelayed",
-      base::Bind(&SigninScreenHandler::HandleUserSelected,
-                 base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("userDeselected",
-      base::Bind(&SigninScreenHandler::HandleUserDeselected,
+  web_ui()->RegisterMessageCallback("loadWallpaper",
+      base::Bind(&SigninScreenHandler::HandleLoadWallpaper,
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback("removeUser",
       base::Bind(&SigninScreenHandler::HandleRemoveUser,
@@ -474,6 +471,12 @@ void SigninScreenHandler::ShowSigninScreenIfReady() {
     focus_stolen_ = false;
   }
 
+  // Note that LoadAuthExtension clears |email_|.
+  if (email_.empty())
+    delegate_->LoadSigninWallpaper();
+  else
+    delegate_->LoadWallpaper(email_);
+
   LoadAuthExtension(!gaia_silent_load_, false, false);
   ShowScreen(kGaiaSigninScreen, NULL);
 
@@ -626,18 +629,13 @@ void SigninScreenHandler::HandleOfflineLogin(const base::ListValue* args) {
 void SigninScreenHandler::HandleShutdownSystem(const base::ListValue* args) {
 #if defined(USE_AURA)
   // Display the shutdown animation before actually requesting shutdown.
-  ash::Shell::GetInstance()->power_button_controller()->RequestShutdown();
+  ash::Shell::GetInstance()->session_state_controller()->RequestShutdown();
 #else
   DBusThreadManager::Get()->GetPowerManagerClient()->RequestShutdown();
 #endif
 }
 
-void SigninScreenHandler::HandleUserDeselected(const base::ListValue* args) {
-  if (delegate_)
-    delegate_->OnUserDeselected();
-}
-
-void SigninScreenHandler::HandleUserSelected(const base::ListValue* args) {
+void SigninScreenHandler::HandleLoadWallpaper(const base::ListValue* args) {
   if (!delegate_)
     return;
 
@@ -647,7 +645,7 @@ void SigninScreenHandler::HandleUserSelected(const base::ListValue* args) {
     return;
   }
 
-  delegate_->OnUserSelected(email);
+  delegate_->LoadWallpaper(email);
 }
 
 void SigninScreenHandler::HandleRemoveUser(const base::ListValue* args) {
@@ -728,8 +726,7 @@ void SigninScreenHandler::SendUserList(bool animated) {
     std::string owner;
     chromeos::CrosSettings::Get()->GetString(chromeos::kDeviceOwner, &owner);
     bool is_owner = (email == owner);
-    bool signed_in = UserManager::Get()->IsUserLoggedIn() &&
-        email == UserManager::Get()->GetLoggedInUser().email();
+    bool signed_in = *it == UserManager::Get()->GetLoggedInUser();
 
     if (non_owner_count < max_non_owner_users || is_owner) {
       DictionaryValue* user_dict = new DictionaryValue();

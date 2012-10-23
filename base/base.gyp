@@ -557,10 +557,6 @@
       },
       'conditions': [
         ['OS == "android"', {
-          'sources!': [
-            # TODO(michaelbai): Removed the below once the fix upstreamed.
-            'debug/stack_trace_unittest.cc',
-          ],
           'dependencies': [
             'android/jni_generator/jni_generator.gyp:jni_generator_tests',
           ],
@@ -584,6 +580,26 @@
             # get a minimal target building.
             # Unittests that don't pass.
             ['exclude', '^message_loop_unittest\\.cc$'],
+          ],
+          'conditions': [
+            ['coverage != 0', {
+              'sources!': [
+                # These sources can't be built with coverage due to a toolchain
+                # bug: http://openradar.appspot.com/radar?id=1499403
+                'json/json_reader_unittest.cc',
+                'string_piece_unittest.cc',
+
+                # These tests crash when run with coverage turned on due to an
+                # issue with llvm_gcda_increment_indirect_counter:
+                # http://crbug.com/156058
+                'debug/trace_event_unittest.cc',
+                'debug/trace_event_unittest.h',
+                'logging_unittest.cc',
+                'string_util_unittest.cc',
+                'test/trace_event_analyzer_unittest.cc',
+                'utf_offset_string_conversions_unittest.cc',
+              ],
+            }],
           ],
           'actions': [
             {
@@ -963,6 +979,7 @@
             'android/java/src/org/chromium/base/PathService.java',
             'android/java/src/org/chromium/base/PathUtils.java',
             'android/java/src/org/chromium/base/SystemMessageHandler.java',
+            'android/java/src/org/chromium/base/SystemMonitor.java',
           ],
           'variables': {
             'jni_gen_dir': 'base',
@@ -1040,29 +1057,11 @@
             'base_unittests',
           ],
           'includes': [
+            '../build/isolate.gypi',
             'base_unittests.isolate',
           ],
-          'actions': [
-            {
-              'action_name': 'isolate',
-              'inputs': [
-                'base_unittests.isolate',
-                '<@(isolate_dependency_tracked)',
-              ],
-              'outputs': [
-                '<(PRODUCT_DIR)/base_unittests.isolated',
-              ],
-              'action': [
-                'python',
-                '../tools/swarm_client/isolate.py',
-                '<(test_isolation_mode)',
-                '--outdir', '<(test_isolation_outdir)',
-                '--variable', 'PRODUCT_DIR', '<(PRODUCT_DIR)',
-                '--variable', 'OS', '<(OS)',
-                '--result', '<@(_outputs)',
-                '--isolate', 'base_unittests.isolate',
-              ],
-            },
+          'sources': [
+            'base_unittests.isolate',
           ],
         },
       ],

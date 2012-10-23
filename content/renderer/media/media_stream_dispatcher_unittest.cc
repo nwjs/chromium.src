@@ -14,6 +14,7 @@
 #include "googleurl/src/gurl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+namespace content {
 namespace {
 
 const int kRouteId = 0;
@@ -25,21 +26,16 @@ const int kRequestId3 = 30;
 const int kRequestId4 = 40;
 static const char kLabel[] = "test";
 
-const content::MediaStreamDeviceType kAudioType =
-    content::MEDIA_DEVICE_AUDIO_CAPTURE;
-const content::MediaStreamDeviceType kVideoType =
-    content::MEDIA_DEVICE_VIDEO_CAPTURE;
-const content::MediaStreamDeviceType kNoAudioType =
-    content::MEDIA_NO_SERVICE;
+const MediaStreamDeviceType kAudioType = MEDIA_DEVICE_AUDIO_CAPTURE;
+const MediaStreamDeviceType kVideoType = MEDIA_DEVICE_VIDEO_CAPTURE;
+const MediaStreamDeviceType kNoAudioType = MEDIA_NO_SERVICE;
 
 class MockMediaStreamDispatcherEventHandler
     : public MediaStreamDispatcherEventHandler,
       public base::SupportsWeakPtr<MockMediaStreamDispatcherEventHandler> {
  public:
   MockMediaStreamDispatcherEventHandler()
-      : request_id_(-1),
-        audio_failed(false),
-        video_failed(false) {}
+      : request_id_(-1) {}
 
   virtual void OnStreamGenerated(
       int request_id,
@@ -52,16 +48,6 @@ class MockMediaStreamDispatcherEventHandler
 
   virtual void OnStreamGenerationFailed(int request_id) OVERRIDE {
     request_id_ = request_id;
-  }
-
-  virtual void OnAudioDeviceFailed(const std::string& label,
-                                   int index) OVERRIDE {
-    audio_failed = true;
-  }
-
-  virtual void OnVideoDeviceFailed(const std::string& label,
-                                   int index) OVERRIDE {
-    video_failed = true;
   }
 
   virtual void OnDevicesEnumerated(
@@ -88,8 +74,6 @@ class MockMediaStreamDispatcherEventHandler
 
   int request_id_;
   std::string label_;
-  bool audio_failed;
-  bool video_failed;
 
   DISALLOW_COPY_AND_ASSIGN(MockMediaStreamDispatcherEventHandler);
 };
@@ -101,7 +85,7 @@ TEST(MediaStreamDispatcherTest, BasicStream) {
   scoped_ptr<MediaStreamDispatcher> dispatcher(new MediaStreamDispatcher(NULL));
   scoped_ptr<MockMediaStreamDispatcherEventHandler>
       handler(new MockMediaStreamDispatcherEventHandler);
-  media_stream::StreamOptions components(true, true);
+  media_stream::StreamOptions components(kAudioType, kVideoType);
   GURL security_origin;
 
   int ipc_request_id1 = dispatcher->next_ipc_id_;
@@ -178,15 +162,17 @@ TEST(MediaStreamDispatcherTest, BasicStreamForDevice) {
   scoped_ptr<MockMediaStreamDispatcherEventHandler>
       handler(new MockMediaStreamDispatcherEventHandler);
   media_stream::StreamOptions components(kNoAudioType, kVideoType);
+  components.audio_device_id = kDeviceId;
+  components.video_device_id = kDeviceId;
   GURL security_origin;
 
   int ipc_request_id1 = dispatcher->next_ipc_id_;
-  dispatcher->GenerateStreamForDevice(kRequestId1, handler.get()->AsWeakPtr(),
-                                      components, kDeviceId, security_origin);
+  dispatcher->GenerateStream(kRequestId1, handler.get()->AsWeakPtr(),
+                             components, security_origin);
   int ipc_request_id2 = dispatcher->next_ipc_id_;
   EXPECT_NE(ipc_request_id1, ipc_request_id2);
-  dispatcher->GenerateStreamForDevice(kRequestId2, handler.get()->AsWeakPtr(),
-                                      components, kDeviceId, security_origin);
+  dispatcher->GenerateStream(kRequestId2, handler.get()->AsWeakPtr(),
+                             components, security_origin);
   EXPECT_EQ(dispatcher->requests_.size(), size_t(2));
 
   // No audio requested.
@@ -333,7 +319,7 @@ TEST(MediaStreamDispatcherTest, TestFailure) {
   scoped_ptr<MediaStreamDispatcher> dispatcher(new MediaStreamDispatcher(NULL));
   scoped_ptr<MockMediaStreamDispatcherEventHandler>
       handler(new MockMediaStreamDispatcherEventHandler);
-  media_stream::StreamOptions components(true, true);
+  media_stream::StreamOptions components(kAudioType, kVideoType);
   GURL security_origin;
 
   // Test failure when creating a stream.
@@ -375,19 +361,6 @@ TEST(MediaStreamDispatcherTest, TestFailure) {
   EXPECT_EQ(handler->label_, stream_label1);
   EXPECT_EQ(dispatcher->video_session_id(stream_label1, 0), kVideoSessionId);
 
-  // Test failure of the video device.
-  dispatcher->OnMessageReceived(
-      MediaStreamHostMsg_VideoDeviceFailed(kRouteId, stream_label1, 0));
-  EXPECT_EQ(handler->video_failed, true);
-  EXPECT_EQ(handler->audio_failed, false);
-  // Make sure the audio device still exist but not the video device.
-  EXPECT_EQ(dispatcher->audio_session_id(stream_label1, 0), kAudioSessionId);
-
-  // Test failure of the audio device.
-  dispatcher->OnMessageReceived(
-      MediaStreamHostMsg_AudioDeviceFailed(kRouteId, stream_label1, 0));
-  EXPECT_EQ(handler->audio_failed, true);
-
   // Stop stream1.
   dispatcher->StopStream(stream_label1);
   EXPECT_EQ(dispatcher->label_stream_map_.size(), size_t(0));
@@ -398,7 +371,7 @@ TEST(MediaStreamDispatcherTest, CancelGenerateStream) {
   scoped_ptr<MediaStreamDispatcher> dispatcher(new MediaStreamDispatcher(NULL));
   scoped_ptr<MockMediaStreamDispatcherEventHandler>
       handler(new MockMediaStreamDispatcherEventHandler);
-  media_stream::StreamOptions components(true, true);
+  media_stream::StreamOptions components(kAudioType, kVideoType);
   int ipc_request_id1 = dispatcher->next_ipc_id_;
 
   dispatcher->GenerateStream(kRequestId1, handler.get()->AsWeakPtr(),
@@ -433,3 +406,5 @@ TEST(MediaStreamDispatcherTest, CancelGenerateStream) {
   EXPECT_EQ(handler->label_, stream_label1);
   EXPECT_EQ(0u, dispatcher->requests_.size());
 }
+
+}  // namespace content

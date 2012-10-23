@@ -13,8 +13,8 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "base/timer.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_impl_io_data.h"
 #include "content/public/browser/notification_observer.h"
@@ -93,6 +93,8 @@ class ProfileImpl : public Profile,
       GetExtensionSpecialStoragePolicy() OVERRIDE;
   virtual GAIAInfoUpdateService* GetGAIAInfoUpdateService() OVERRIDE;
   virtual policy::UserCloudPolicyManager* GetUserCloudPolicyManager() OVERRIDE;
+  virtual policy::ManagedModePolicyProvider*
+      GetManagedModePolicyProvider() OVERRIDE;
   virtual policy::PolicyService* GetPolicyService() OVERRIDE;
   virtual PrefService* GetPrefs() OVERRIDE;
   virtual PrefService* GetOffTheRecordPrefs() OVERRIDE;
@@ -190,12 +192,14 @@ class ProfileImpl : public Profile,
   //  that the declaration occurs AFTER things it depends on as destruction
   //  happens in reverse order of declaration.
 
+#if defined(ENABLE_CONFIGURATION_POLICY)
   // |prefs_| depends on |policy_service_|, which depends on
-  // |user_cloud_policy_manager_|.
-  // TODO(bauerb, mnissler): Once |prefs_| is a ProfileKeyedService,
-  // |policy_service_| and |user_cloud_policy_manager_| should become
-  // ProfiledKeyedServices as well.
+  // |user_cloud_policy_manager_| and |managed_mode_policy_provider_|.
+  // TODO(bauerb, mnissler): Once |prefs_| is a ProfileKeyedService, these
+  // should become ProfileKeyedServices as well.
   scoped_ptr<policy::UserCloudPolicyManager> cloud_policy_manager_;
+  scoped_ptr<policy::ManagedModePolicyProvider> managed_mode_policy_provider_;
+#endif
   scoped_ptr<policy::PolicyService> policy_service_;
 
   // Keep |prefs_| on top for destruction order because |extension_prefs_|,

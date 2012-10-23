@@ -196,12 +196,12 @@ class AudioRendererHostTest : public testing::Test {
 
     media::AudioParameters::Format format;
     if (mock_stream_)
-      format = media::AudioParameters::AUDIO_MOCK;
+      format = media::AudioParameters::AUDIO_FAKE;
     else
       format = media::AudioParameters::AUDIO_PCM_LINEAR;
 
     media::AudioParameters params(
-        format, CHANNEL_LAYOUT_STEREO,
+        format, media::CHANNEL_LAYOUT_STEREO,
         media::AudioParameters::kAudioCDSampleRate, 16,
         media::AudioParameters::kAudioCDSampleRate / 10);
 

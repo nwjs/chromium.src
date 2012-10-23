@@ -98,7 +98,7 @@ struct CONTENT_EXPORT DownloadCreateInfo {
   std::string referrer_charset;
 
   // The download file save info.
-  content::DownloadSaveInfo save_info;
+  scoped_ptr<content::DownloadSaveInfo> save_info;
 
   // The remote IP address where the download was fetched from.  Copied from
   // UrlRequest::GetSocketAddress().
@@ -107,16 +107,12 @@ struct CONTENT_EXPORT DownloadCreateInfo {
   // The handle to the URLRequest sourcing this download.
   DownloadRequestHandle request_handle;
 
-  // Default directory to use for this download. The final target path may not
-  // be determined until much later. In the meantime, this directory (if
-  // non-empty) should be used to store teh download file.
-  // TODO(asanka,rdsmith): Get rid of this when we start creating the
-  //                       DownloadFile on the UI thread.
-  FilePath default_download_directory;
-
   // The request's |BoundNetLog|, for "source_dependency" linking with the
   // download item's.
   const net::BoundNetLog request_bound_net_log;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(DownloadCreateInfo);
 };
 
 #endif  // CONTENT_BROWSER_DOWNLOAD_DOWNLOAD_CREATE_INFO_H_

@@ -16,11 +16,47 @@ namespace {
 class CommonSwitches {
  public:
   CommonSwitches()
-      : script_bubble(CommandLine::ForCurrentProcess(),
-                      switches::kScriptBubbleEnabled,
-                      FeatureSwitch::DEFAULT_DISABLED) {
+      : action_box(
+            switches::kActionBox,
+            FeatureSwitch::DEFAULT_ENABLED),
+        easy_off_store_install(
+            switches::kEasyOffStoreExtensionInstall,
+            FeatureSwitch::DEFAULT_DISABLED),
+        extensions_in_action_box(
+            switches::kExtensionsInActionBox,
+            FeatureSwitch::DEFAULT_DISABLED),
+        script_badges(
+            switches::kScriptBadges,
+            FeatureSwitch::DEFAULT_DISABLED),
+        script_bubble(
+            switches::kScriptBubble,
+            FeatureSwitch::DEFAULT_DISABLED),
+        sideload_wipeout(
+            switches::kSideloadWipeout,
+            FeatureSwitch::DEFAULT_DISABLED),
+        prompt_for_external_extensions(
+            switches::kPromptForExternalExtensions,
+            FeatureSwitch::DEFAULT_ENABLED)
+  {
+// Disabling easy off-store installation is not yet implemented for Aura. Not
+// sure what the Aura equivalent for this UI is.
+#if defined(USE_AURA)
+    easy_off_store_install.SetOverrideValue(FeatureSwitch::OVERRIDE_ENABLED);
+#endif
+
+    if (!action_box.IsEnabled()){
+      extensions_in_action_box.SetOverrideValue(
+          FeatureSwitch::OVERRIDE_DISABLED);
+    }
   }
+
+  FeatureSwitch action_box;
+  FeatureSwitch easy_off_store_install;
+  FeatureSwitch extensions_in_action_box;
+  FeatureSwitch script_badges;
   FeatureSwitch script_bubble;
+  FeatureSwitch sideload_wipeout;
+  FeatureSwitch prompt_for_external_extensions;
 };
 
 base::LazyInstance<CommonSwitches> g_common_switches =
@@ -29,50 +65,98 @@ base::LazyInstance<CommonSwitches> g_common_switches =
 }  // namespace
 
 
-FeatureSwitch* FeatureSwitch::GetScriptBubble() {
+FeatureSwitch* FeatureSwitch::action_box() {
+  return &g_common_switches.Get().action_box;
+}
+FeatureSwitch* FeatureSwitch::easy_off_store_install() {
+  return &g_common_switches.Get().easy_off_store_install;
+}
+FeatureSwitch* FeatureSwitch::extensions_in_action_box() {
+  return &g_common_switches.Get().extensions_in_action_box;
+}
+FeatureSwitch* FeatureSwitch::script_badges() {
+  return &g_common_switches.Get().script_badges;
+}
+FeatureSwitch* FeatureSwitch::script_bubble() {
   return &g_common_switches.Get().script_bubble;
 }
+FeatureSwitch* FeatureSwitch::sideload_wipeout() {
+  return &g_common_switches.Get().sideload_wipeout;
+}
+FeatureSwitch* FeatureSwitch::prompt_for_external_extensions() {
+  return &g_common_switches.Get().prompt_for_external_extensions;
+}
+
 
 FeatureSwitch::ScopedOverride::ScopedOverride(FeatureSwitch* feature,
                                               bool override_value)
-    : feature_(feature) {
+    : feature_(feature),
+      previous_value_(feature->GetOverrideValue()) {
   feature_->SetOverrideValue(
       override_value ? OVERRIDE_ENABLED : OVERRIDE_DISABLED);
 }
 
 FeatureSwitch::ScopedOverride::~ScopedOverride() {
-  feature_->SetOverrideValue(OVERRIDE_NONE);
+  feature_->SetOverrideValue(previous_value_);
+}
+
+FeatureSwitch::FeatureSwitch(const char* switch_name,
+                             DefaultValue default_value) {
+  Init(CommandLine::ForCurrentProcess(), switch_name, default_value);
 }
 
 FeatureSwitch::FeatureSwitch(const CommandLine* command_line,
                              const char* switch_name,
-                             DefaultValue default_value)
-    : command_line_(command_line),
-      switch_name_(switch_name),
-      default_value_(default_value == DEFAULT_ENABLED),
-      override_value_(OVERRIDE_NONE) {
+                             DefaultValue default_value) {
+  Init(command_line, switch_name, default_value);
+}
+
+void FeatureSwitch::Init(const CommandLine* command_line,
+                         const char* switch_name,
+                         DefaultValue default_value) {
+  command_line_ = command_line;
+  switch_name_ = switch_name;
+  default_value_ = default_value == DEFAULT_ENABLED;
+  override_value_ = OVERRIDE_NONE;
 }
 
 bool FeatureSwitch::IsEnabled() const {
   if (override_value_ != OVERRIDE_NONE)
     return override_value_ == OVERRIDE_ENABLED;
 
-  // TODO(aa): Consider supporting other values.
   std::string temp = command_line_->GetSwitchValueASCII(switch_name_);
   std::string switch_value;
   TrimWhitespaceASCII(temp, TRIM_ALL, &switch_value);
+
   if (switch_value == "1")
     return true;
+
   if (switch_value == "0")
     return false;
+
+  if (!default_value_ && command_line_->HasSwitch(GetLegacyEnableFlag()))
+    return true;
+
+  if (default_value_ && command_line_->HasSwitch(GetLegacyDisableFlag()))
+    return false;
+
   return default_value_;
 }
 
-void FeatureSwitch::SetOverrideValue(OverrideValue override_value) {
-  if (override_value_ != OVERRIDE_NONE)
-    CHECK_EQ(OVERRIDE_NONE, override_value);
+std::string FeatureSwitch::GetLegacyEnableFlag() const {
+  return std::string("enable-") + switch_name_;
+}
 
+std::string FeatureSwitch::GetLegacyDisableFlag() const {
+  return std::string("disable-") + switch_name_;
+}
+
+void FeatureSwitch::SetOverrideValue(OverrideValue override_value) {
   override_value_ = override_value;
+}
+
+FeatureSwitch::OverrideValue FeatureSwitch::GetOverrideValue() const {
+  return override_value_;
 }
 
 }  // namespace extensions

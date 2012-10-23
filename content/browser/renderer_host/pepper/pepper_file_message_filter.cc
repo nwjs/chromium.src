@@ -8,7 +8,6 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/metrics/field_trial.h"
 #include "base/platform_file.h"
 #include "base/process_util.h"
 #include "base/threading/sequenced_worker_pool.h"
@@ -62,47 +61,11 @@ IPC::PlatformFileForTransit PlatformFileToPlatformFileForTransit(
   return file;
 }
 
-// Run a field trial comparing the effect of the FILE thread versus
-// blocking worker pool on hung-plugin reports.
-// TODO(shess): Remove once the workpool is proven superior.
-// http://crbug.com/153383
-const char* const kIOFieldTrialName = "FlapperIOThread";
-const char* const kPoolGroupName = "PoolThread";
-const char* const kFileGroupName = "FileThread";
-
-bool g_use_file_thread = true;
-
-void ActivateThreadFieldTrial() {
-  static bool activated = false;
-  if (activated)
-    return;
-
-  activated = true;
-
-  // The field trial will expire on Jan 1st, 2014.
-  scoped_refptr<base::FieldTrial> trial(
-      base::FieldTrialList::FactoryGetFieldTrial(
-          kIOFieldTrialName, 1000, kPoolGroupName, 2014, 1, 1, NULL));
-
-  // 50% goes into the FILE thread group.
-  trial->AppendGroup(kFileGroupName, 500);
-
-  g_use_file_thread = (trial->group_name() == kFileGroupName);
-}
-
 }  // namespace
 
 PepperFileMessageFilter::PepperFileMessageFilter(int child_id)
         : child_id_(child_id),
           channel_(NULL) {
-  ActivateThreadFieldTrial();
-}
-
-void PepperFileMessageFilter::OverrideThreadForMessage(
-    const IPC::Message& message,
-    BrowserThread::ID* thread) {
-  if (IPC_MESSAGE_CLASS(message) == PepperFileMsgStart && g_use_file_thread)
-    *thread = BrowserThread::FILE;
 }
 
 base::TaskRunner* PepperFileMessageFilter::OverrideTaskRunnerForMessage(
@@ -115,11 +78,8 @@ base::TaskRunner* PepperFileMessageFilter::OverrideTaskRunnerForMessage(
   // the plugin has multiple threads, it cannot make assumptions about
   // ordering of IPC message sends, so it cannot make assumptions
   // about ordering of operations caused by those IPC messages.
-  if (IPC_MESSAGE_CLASS(message) == PepperFileMsgStart) {
-    // Should never get here if using the FILE thread.
-    DCHECK(!g_use_file_thread);
+  if (IPC_MESSAGE_CLASS(message) == PepperFileMsgStart)
     return BrowserThread::GetBlockingPool();
-  }
   return NULL;
 }
 

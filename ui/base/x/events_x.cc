@@ -197,9 +197,9 @@ class CMTEventData {
     return touchpads_[xievent->sourceid];
   }
 
-  float GetNaturalScrollFactor(int deviceid) {
+  float GetNaturalScrollFactor(int sourceid) {
     // Natural scroll is touchpad-only.
-    if (!touchpads_[deviceid])
+    if (!touchpads_[sourceid])
       return -1.0f;
 
     return natural_scroll_enabled_ ? 1.0f : -1.0f;
@@ -216,12 +216,12 @@ class CMTEventData {
     if (y_offset)
       *y_offset = 0;
 
-    const int deviceid = xiev->deviceid;
-    if (!cmt_devices_[deviceid])
+    const int sourceid = xiev->sourceid;
+    if (!cmt_devices_[sourceid])
       return false;
 
-    const float natural_scroll_factor = GetNaturalScrollFactor(deviceid);
-    const Valuators v = device_to_valuators_[deviceid];
+    const float natural_scroll_factor = GetNaturalScrollFactor(sourceid);
+    const Valuators v = device_to_valuators_[sourceid];
     const bool has_x_offset = XIMaskIsSet(xiev->valuators.mask, v.scroll_x);
     const bool has_y_offset = XIMaskIsSet(xiev->valuators.mask, v.scroll_y);
     const bool is_scroll = has_x_offset || has_y_offset;
@@ -252,12 +252,12 @@ class CMTEventData {
     *vy = 0;
     *is_cancel = false;
 
-    const int deviceid = xiev->deviceid;
-    if (!cmt_devices_[deviceid])
+    const int sourceid = xiev->sourceid;
+    if (!cmt_devices_[sourceid])
       return false;
 
-    const float natural_scroll_factor = GetNaturalScrollFactor(deviceid);
-    const Valuators v = device_to_valuators_[deviceid];
+    const float natural_scroll_factor = GetNaturalScrollFactor(sourceid);
+    const Valuators v = device_to_valuators_[sourceid];
     if ((!XIMaskIsSet(xiev->valuators.mask, v.fling_vx) &&
             !XIMaskIsSet(xiev->valuators.mask, v.fling_vx_dbl)) ||
         (!XIMaskIsSet(xiev->valuators.mask, v.fling_vy) &&
@@ -297,10 +297,10 @@ class CMTEventData {
     *end_time = 0;
 
     XIDeviceEvent* xiev = static_cast<XIDeviceEvent*>(xev.xcookie.data);
-    if (!cmt_devices_[xiev->deviceid])
+    if (!cmt_devices_[xiev->sourceid])
       return false;
 
-    Valuators v = device_to_valuators_[xiev->deviceid];
+    Valuators v = device_to_valuators_[xiev->sourceid];
     if ((!XIMaskIsSet(xiev->valuators.mask, v.start_time) &&
             !XIMaskIsSet(xiev->valuators.mask, v.start_time_dbl)) ||
         (!XIMaskIsSet(xiev->valuators.mask, v.end_time) &&
@@ -599,7 +599,8 @@ gfx::Point CalibrateTouchCoordinates(
   // Temporarily disabling the calibration for X.
   bool calibration_x = CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kEnableTouchCalibrationX);
-  gfx::Rect bounds = gfx::Screen::GetPrimaryDisplay().bounds_in_pixel();
+  gfx::Rect bounds =
+      gfx::Screen::GetNativeScreen()->GetPrimaryDisplay().bounds_in_pixel();
   const int kLeftBorder = 40;
   const int kRightBorder = 40;
   const int kBottomBorder = 30;
@@ -803,9 +804,13 @@ base::TimeDelta EventTimeFromNative(const base::NativeEvent& native_event) {
       break;
     case GenericEvent: {
       double start, end;
+      float touch_timestamp;
       if (GetGestureTimes(native_event, &start, &end)) {
         // If the driver supports gesture times, use them.
         return base::TimeDelta::FromMicroseconds(end * 1000000);
+      } else if (ValuatorTracker::GetInstance()->ExtractValuator(*native_event,
+                 ValuatorTracker::VAL_TOUCH_RAW_TIMESTAMP, &touch_timestamp)) {
+        return base::TimeDelta::FromMicroseconds(touch_timestamp * 1000000);
       } else {
         XIDeviceEvent* xide =
             static_cast<XIDeviceEvent*>(native_event->xcookie.data);

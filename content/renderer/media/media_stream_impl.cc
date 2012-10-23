@@ -21,6 +21,7 @@
 #include "content/renderer/media/video_capture_impl_manager.h"
 #include "content/renderer/media/webrtc_uma_histograms.h"
 #include "media/base/message_loop_factory.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebMediaConstraints.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaStreamRegistry.h"
@@ -30,10 +31,47 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebMediaStreamSource.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebVector.h"
 
+namespace content {
 namespace {
+
 const int kVideoCaptureWidth = 640;
 const int kVideoCaptureHeight = 480;
 const int kVideoCaptureFramePerSecond = 30;
+
+std::string GetMandatoryStreamConstraint(
+    const WebKit::WebMediaConstraints& constraints, const std::string& key) {
+  if (constraints.isNull())
+    return std::string();
+
+  WebKit::WebString value;
+  constraints.getMandatoryConstraintValue(UTF8ToUTF16(key), value);
+  return UTF16ToUTF8(value);
+}
+
+void UpdateOptionsIfTabMediaRequest(
+    const WebKit::WebUserMediaRequest& user_media_request,
+    media_stream::StreamOptions* options) {
+  if (options->audio_type != MEDIA_NO_SERVICE &&
+      GetMandatoryStreamConstraint(user_media_request.audioConstraints(),
+                                   media_stream::kMediaStreamSource) ==
+          media_stream::kMediaStreamSourceTab) {
+    options->audio_type = MEDIA_TAB_AUDIO_CAPTURE;
+    options->audio_device_id = GetMandatoryStreamConstraint(
+        user_media_request.audioConstraints(),
+        media_stream::kMediaStreamSourceId);
+  }
+
+  if (options->video_type != MEDIA_NO_SERVICE &&
+      GetMandatoryStreamConstraint(user_media_request.videoConstraints(),
+                                   media_stream::kMediaStreamSource) ==
+          media_stream::kMediaStreamSourceTab) {
+    options->video_type = MEDIA_TAB_VIDEO_CAPTURE;
+    options->video_device_id = GetMandatoryStreamConstraint(
+        user_media_request.videoConstraints(),
+        media_stream::kMediaStreamSourceId);
+  }
+}
+
 }  // namespace
 
 static int g_next_request_id  = 0;
@@ -59,11 +97,11 @@ static void CreateWebKitSourceVector(
 }
 
 MediaStreamImpl::MediaStreamImpl(
-    content::RenderView* render_view,
+    RenderView* render_view,
     MediaStreamDispatcher* media_stream_dispatcher,
     VideoCaptureImplManager* vc_manager,
     MediaStreamDependencyFactory* dependency_factory)
-    : content::RenderViewObserver(render_view),
+    : RenderViewObserver(render_view),
       dependency_factory_(dependency_factory),
       media_stream_dispatcher_(media_stream_dispatcher),
       vc_manager_(vc_manager) {
@@ -89,8 +127,7 @@ void MediaStreamImpl::requestUserMedia(
   UpdateWebRTCMethodCount(WEBKIT_GET_USER_MEDIA);
   DCHECK(CalledOnValidThread());
   int request_id = g_next_request_id++;
-  bool audio = false;
-  bool video = false;
+  media_stream::StreamOptions options(MEDIA_NO_SERVICE, MEDIA_NO_SERVICE);
   WebKit::WebFrame* frame = NULL;
   GURL security_origin;
 
@@ -98,22 +135,29 @@ void MediaStreamImpl::requestUserMedia(
   // if it isNull.
   if (user_media_request.isNull()) {
     // We are in a test.
-    audio = audio_sources.size() > 0;
-    video = video_sources.size() > 0;
+    if (audio_sources.size() > 0)
+      options.audio_type = MEDIA_DEVICE_AUDIO_CAPTURE;
+    if (video_sources.size() > 0)
+      options.video_type = MEDIA_DEVICE_VIDEO_CAPTURE;
   } else {
-    audio = user_media_request.audio();
-    video = user_media_request.video();
+    if (user_media_request.audio())
+      options.audio_type = MEDIA_DEVICE_AUDIO_CAPTURE;
+    if (user_media_request.video())
+      options.video_type = MEDIA_DEVICE_VIDEO_CAPTURE;
+
     security_origin = GURL(user_media_request.securityOrigin().toString());
     // Get the WebFrame that requested a MediaStream.
     // The frame is needed to tell the MediaStreamDispatcher when a stream goes
     // out of scope.
     frame = user_media_request.ownerDocument().frame();
     DCHECK(frame);
+
+    UpdateOptionsIfTabMediaRequest(user_media_request, &options);
   }
 
   DVLOG(1) << "MediaStreamImpl::generateStream(" << request_id << ", [ "
-           << (audio ? "audio" : "")
-           << (user_media_request.video() ? " video" : "") << "], "
+           << "audio=" << (options.audio_type)
+           << ", video=" << (options.video_type) << " ], "
            << security_origin.spec() << ")";
 
   user_media_requests_[request_id] =
@@ -122,7 +166,7 @@ void MediaStreamImpl::requestUserMedia(
   media_stream_dispatcher_->GenerateStream(
       request_id,
       AsWeakPtr(),
-      media_stream::StreamOptions(audio, video),
+      options,
       security_origin);
 }
 
@@ -146,8 +190,13 @@ WebKit::WebMediaStreamDescriptor MediaStreamImpl::GetMediaStream(
 }
 
 bool MediaStreamImpl::IsMediaStream(const GURL& url) {
-  DCHECK(CalledOnValidThread());
-  WebKit::WebMediaStreamDescriptor descriptor(GetMediaStream(url));
+  return CheckMediaStream(url);
+}
+
+// static
+bool MediaStreamImpl::CheckMediaStream(const GURL& url) {
+  WebKit::WebMediaStreamDescriptor descriptor(
+      WebKit::WebMediaStreamRegistry::lookupMediaStreamDescriptor(url));
 
   if (descriptor.isNull() || !descriptor.extraData())
     return false;  // This is not a valid stream.
@@ -280,24 +329,6 @@ void MediaStreamImpl::OnStreamGenerationFailed(int request_id) {
   user_media_request.requestFailed();
 }
 
-void MediaStreamImpl::OnVideoDeviceFailed(const std::string& label,
-                                          int index) {
-  DCHECK(CalledOnValidThread());
-  DVLOG(1) << "MediaStreamImpl::OnVideoDeviceFailed("
-           << label << ", " << index << ")";
-  // TODO(grunell): Implement. Currently not supported in WebKit.
-  NOTIMPLEMENTED();
-}
-
-void MediaStreamImpl::OnAudioDeviceFailed(const std::string& label,
-                                          int index) {
-  DCHECK(CalledOnValidThread());
-  DVLOG(1) << "MediaStreamImpl::OnAudioDeviceFailed("
-           << label << ", " << index << ")";
-  // TODO(grunell): Implement. Currently not supported in WebKit.
-  NOTIMPLEMENTED();
-}
-
 void MediaStreamImpl::OnDevicesEnumerated(
     int request_id,
     const media_stream::StreamDeviceInfoArray& device_array) {
@@ -374,7 +405,7 @@ MediaStreamImpl::CreateLocalVideoFrameProvider(
   DVLOG(1) << "MediaStreamImpl::CreateLocalVideoFrameProvider video_session_id:"
            << video_session_id;
 
-  return new content::LocalVideoCapture(
+  return new LocalVideoCapture(
       video_session_id,
       vc_manager_.get(),
       capability,
@@ -393,7 +424,7 @@ MediaStreamImpl::CreateRemoteVideoFrameProvider(
   DVLOG(1) << "MediaStreamImpl::CreateRemoteVideoFrameProvider label:"
            << stream->label();
 
-  return new content::RTCVideoRenderer(
+  return new RTCVideoRenderer(
       stream->video_tracks()->at(0),
       error_cb,
       repaint_cb);
@@ -463,3 +494,5 @@ void MediaStreamExtraData::OnLocalStreamStop() {
   if (!stream_stop_callback_.is_null())
     stream_stop_callback_.Run(local_stream_->label());
 }
+
+}  // namespace content

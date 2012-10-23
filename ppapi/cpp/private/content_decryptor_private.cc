@@ -105,20 +105,76 @@ void Decrypt(PP_Instance instance,
       *encrypted_block_info);
 }
 
-void DecryptAndDecodeFrame(
+void InitializeAudioDecoder(
     PP_Instance instance,
-    PP_Resource encrypted_resource,
-    const PP_EncryptedVideoFrameInfo* encrypted_video_frame_info) {
+    const PP_AudioDecoderConfig* decoder_config,
+    PP_Resource extra_data_resource) {
   void* object =
       Instance::GetPerInstanceObject(instance, kPPPContentDecryptorInterface);
   if (!object)
     return;
 
-  pp::Buffer_Dev encrypted_frame(pp::PassRef(), encrypted_resource);
+  pp::Buffer_Dev extra_data_buffer(pp::PASS_REF, extra_data_resource);
 
-  static_cast<ContentDecryptor_Private*>(object)->DecryptAndDecodeFrame(
-      encrypted_frame,
-      *encrypted_video_frame_info);
+  static_cast<ContentDecryptor_Private*>(object)->InitializeAudioDecoder(
+      *decoder_config,
+      extra_data_buffer);
+}
+
+void InitializeVideoDecoder(
+    PP_Instance instance,
+    const PP_VideoDecoderConfig* decoder_config,
+    PP_Resource extra_data_resource) {
+  void* object =
+      Instance::GetPerInstanceObject(instance, kPPPContentDecryptorInterface);
+  if (!object)
+    return;
+
+  pp::Buffer_Dev extra_data_buffer(pp::PASS_REF, extra_data_resource);
+
+  static_cast<ContentDecryptor_Private*>(object)->InitializeVideoDecoder(
+      *decoder_config,
+      extra_data_buffer);
+}
+
+void DeinitializeDecoder(PP_Instance instance,
+                         PP_DecryptorStreamType decoder_type,
+                         uint32_t request_id) {
+  void* object =
+      Instance::GetPerInstanceObject(instance, kPPPContentDecryptorInterface);
+  if (!object)
+    return;
+  static_cast<ContentDecryptor_Private*>(object)->DeinitializeDecoder(
+      decoder_type,
+      request_id);
+}
+
+void ResetDecoder(PP_Instance instance,
+                  PP_DecryptorStreamType decoder_type,
+                  uint32_t request_id) {
+  void* object =
+      Instance::GetPerInstanceObject(instance, kPPPContentDecryptorInterface);
+  if (!object)
+    return;
+  static_cast<ContentDecryptor_Private*>(object)->ResetDecoder(decoder_type,
+                                                               request_id);
+}
+
+void DecryptAndDecode(PP_Instance instance,
+                      PP_DecryptorStreamType decoder_type,
+                      PP_Resource encrypted_resource,
+                      const PP_EncryptedBlockInfo* encrypted_block_info) {
+  void* object =
+      Instance::GetPerInstanceObject(instance, kPPPContentDecryptorInterface);
+  if (!object)
+    return;
+
+  pp::Buffer_Dev encrypted_buffer(pp::PassRef(), encrypted_resource);
+
+  static_cast<ContentDecryptor_Private*>(object)->DecryptAndDecode(
+      decoder_type,
+      encrypted_buffer,
+      *encrypted_block_info);
 }
 
 const PPP_ContentDecryptor_Private ppp_content_decryptor = {
@@ -126,7 +182,11 @@ const PPP_ContentDecryptor_Private ppp_content_decryptor = {
   &AddKey,
   &CancelKeyRequest,
   &Decrypt,
-  &DecryptAndDecodeFrame
+  &InitializeAudioDecoder,
+  &InitializeVideoDecoder,
+  &DeinitializeDecoder,
+  &ResetDecoder,
+  &DecryptAndDecode
 };
 
 template <> const char* interface_name<PPB_ContentDecryptor_Private>() {
@@ -220,6 +280,41 @@ void ContentDecryptor_Private::DeliverBlock(
   }
 }
 
+void ContentDecryptor_Private::DecoderInitializeDone(
+    PP_DecryptorStreamType decoder_type,
+    uint32_t request_id,
+    bool success) {
+  if (has_interface<PPB_ContentDecryptor_Private>()) {
+    get_interface<PPB_ContentDecryptor_Private>()->DecoderInitializeDone(
+        associated_instance_.pp_instance(),
+        decoder_type,
+        request_id,
+        PP_FromBool(success));
+  }
+}
+
+void ContentDecryptor_Private::DecoderDeinitializeDone(
+    PP_DecryptorStreamType decoder_type,
+    uint32_t request_id) {
+  if (has_interface<PPB_ContentDecryptor_Private>()) {
+    get_interface<PPB_ContentDecryptor_Private>()->DecoderDeinitializeDone(
+        associated_instance_.pp_instance(),
+        decoder_type,
+        request_id);
+  }
+}
+
+void ContentDecryptor_Private::DecoderResetDone(
+    PP_DecryptorStreamType decoder_type,
+    uint32_t request_id) {
+  if (has_interface<PPB_ContentDecryptor_Private>()) {
+    get_interface<PPB_ContentDecryptor_Private>()->DecoderResetDone(
+        associated_instance_.pp_instance(),
+        decoder_type,
+        request_id);
+  }
+}
+
 void ContentDecryptor_Private::DeliverFrame(
     pp::Buffer_Dev decrypted_frame,
     const PP_DecryptedFrameInfo& decrypted_frame_info) {
@@ -232,12 +327,12 @@ void ContentDecryptor_Private::DeliverFrame(
 }
 
 void ContentDecryptor_Private::DeliverSamples(
-    pp::Buffer_Dev decrypted_samples,
+    pp::Buffer_Dev audio_frames,
     const PP_DecryptedBlockInfo& decrypted_block_info) {
   if (has_interface<PPB_ContentDecryptor_Private>()) {
     get_interface<PPB_ContentDecryptor_Private>()->DeliverSamples(
         associated_instance_.pp_instance(),
-        decrypted_samples.pp_resource(),
+        audio_frames.pp_resource(),
         &decrypted_block_info);
   }
 }

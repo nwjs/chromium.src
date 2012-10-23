@@ -28,6 +28,7 @@ It2MeHostUserInterface::It2MeHostUserInterface(
     scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner)
     : HostUserInterface(network_task_runner, ui_task_runner),
       ALLOW_THIS_IN_INITIALIZER_LIST(timer_weak_factory_(this)) {
+  DCHECK(ui_task_runner->BelongsToCurrentThread());
 }
 
 It2MeHostUserInterface::~It2MeHostUserInterface() {
@@ -36,25 +37,11 @@ It2MeHostUserInterface::~It2MeHostUserInterface() {
   ShowContinueWindow(false);
 }
 
-void It2MeHostUserInterface::Start(ChromotingHost* host,
-                                   const base::Closure& disconnect_callback) {
-  DCHECK(network_task_runner()->BelongsToCurrentThread());
+void It2MeHostUserInterface::Init() {
+  DCHECK(ui_task_runner()->BelongsToCurrentThread());
 
-  HostUserInterface::Start(host, disconnect_callback);
+  HostUserInterface::Init();
   continue_window_ = ContinueWindow::Create();
-}
-
-void It2MeHostUserInterface::OnClientAuthenticated(const std::string& jid) {
-  if (!get_authenticated_jid().empty()) {
-    // If we already authenticated another client then one of the
-    // connections may be an attacker, so both are suspect and we have
-    // to reject the second connection and shutdown the host.
-    get_host()->RejectAuthenticatingClient();
-    network_task_runner()->PostTask(FROM_HERE, base::Bind(
-        &ChromotingHost::Shutdown, get_host(), base::Closure()));
-  } else {
-    HostUserInterface::OnClientAuthenticated(jid);
-  }
 }
 
 void It2MeHostUserInterface::ProcessOnClientAuthenticated(
@@ -71,18 +58,6 @@ void It2MeHostUserInterface::ProcessOnClientDisconnected() {
   HostUserInterface::ProcessOnClientDisconnected();
   ShowContinueWindow(false);
   StartContinueWindowTimer(false);
-}
-
-void It2MeHostUserInterface::StartForTest(
-    ChromotingHost* host,
-    const base::Closure& disconnect_callback,
-    scoped_ptr<DisconnectWindow> disconnect_window,
-    scoped_ptr<ContinueWindow> continue_window,
-    scoped_ptr<LocalInputMonitor> local_input_monitor) {
-  HostUserInterface::StartForTest(host, disconnect_callback,
-                                  disconnect_window.Pass(),
-                                  local_input_monitor.Pass());
-  continue_window_ = continue_window.Pass();
 }
 
 void It2MeHostUserInterface::ContinueSession(bool continue_session) {

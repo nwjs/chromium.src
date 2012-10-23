@@ -67,10 +67,12 @@ class TaskManagerBrowserTest : public ExtensionBrowserTest {
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
     ExtensionBrowserTest::SetUpCommandLine(command_line);
 
-    // Do not prelaunch the GPU process for these tests because it will show
-    // up in task manager but whether it appears before or after the new tab
-    // renderer process is not well defined.
+    // Do not prelaunch the GPU process and disable accelerated compositing
+    // for these tests as the GPU process will show up in task manager but
+    // whether it appears before or after the new tab renderer process is not
+    // well defined.
     command_line->AppendSwitch(switches::kDisableGpuProcessPrelaunch);
+    command_line->AppendSwitch(switches::kDisableAcceleratedCompositing);
   }
 };
 
@@ -471,8 +473,8 @@ IN_PROC_BROWSER_TEST_F(TaskManagerBrowserTest,
   // Reload the extension using the "crashed extension" infobar while the task
   // manager is still visible. Make sure we don't crash and the extension
   // gets reloaded and noticed in the task manager.
-  InfoBarTabHelper* infobar_helper =
-      chrome::GetActiveTabContents(browser())->infobar_tab_helper();
+  InfoBarTabHelper* infobar_helper = InfoBarTabHelper::FromWebContents(
+      chrome::GetActiveWebContents(browser()));
   ASSERT_EQ(1U, infobar_helper->GetInfoBarCount());
   ConfirmInfoBarDelegate* delegate = infobar_helper->
       GetInfoBarDelegateAt(0)->AsConfirmInfoBarDelegate();

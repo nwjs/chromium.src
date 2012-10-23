@@ -35,9 +35,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/skia/include/core/SkShader.h"
 #include "ui/base/ui_base_switches.h"
-#include "ui/gfx/point.h"
 #include "ui/gfx/rect_conversions.h"
-#include "ui/gfx/size.h"
 #include "ui/gfx/size_conversions.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gl/gl_switches.h"
@@ -72,7 +70,8 @@ using WebKit::WebTextDirection;
 using WebKit::WebTouchEvent;
 using WebKit::WebVector;
 using WebKit::WebWidget;
-using content::RenderThread;
+
+namespace content {
 
 static const float kStandardDPI = 160;
 
@@ -265,7 +264,7 @@ bool RenderWidget::Send(IPC::Message* message) {
   // Don't send any messages after the browser has told us to close, and filter
   // most outgoing messages while swapped out.
   if ((is_swapped_out_ &&
-       !content::SwappedOutMessages::CanSendWhileSwappedOut(message)) ||
+       !SwappedOutMessages::CanSendWhileSwappedOut(message)) ||
       closing_) {
     delete message;
     return false;
@@ -1868,8 +1867,7 @@ void RenderWidget::GetRenderingStats(WebKit::WebRenderingStats& stats) const {
   stats.totalPaintTimeInSeconds += software_stats_.totalPaintTimeInSeconds;
 }
 
-bool RenderWidget::GetGpuRenderingStats(
-    content::GpuRenderingStats* stats) const {
+bool RenderWidget::GetGpuRenderingStats(GpuRenderingStats* stats) const {
   GpuChannelHost* gpu_channel = RenderThreadImpl::current()->GetGpuChannel();
   if (!gpu_channel)
     return false;
@@ -1879,14 +1877,20 @@ bool RenderWidget::GetGpuRenderingStats(
 
 void RenderWidget::BeginSmoothScroll(
     bool down,
-    bool scroll_far,
     const SmoothScrollCompletionCallback& callback,
+    int pixels_to_scroll,
     int mouse_event_x,
     int mouse_event_y) {
   DCHECK(!callback.is_null());
   int id = next_smooth_scroll_gesture_id_++;
-  Send(new ViewHostMsg_BeginSmoothScroll(routing_id_, id, down, scroll_far,
-                                         mouse_event_x, mouse_event_y));
+
+  ViewHostMsg_BeginSmoothScroll_Params params;
+  params.scroll_down = down;
+  params.pixels_to_scroll = pixels_to_scroll;
+  params.mouse_event_x = mouse_event_x;
+  params.mouse_event_y = mouse_event_y;
+
+  Send(new ViewHostMsg_BeginSmoothScroll(routing_id_, id, params));
   pending_smooth_scroll_gestures_.insert(std::make_pair(id, callback));
 }
 
@@ -1897,3 +1901,5 @@ bool RenderWidget::WillHandleMouseEvent(const WebKit::WebMouseEvent& event) {
 bool RenderWidget::WebWidgetHandlesCompositorScheduling() const {
   return false;
 }
+
+}  // namespace content

@@ -85,8 +85,8 @@ class NullInvalidationStateTracker
   NullInvalidationStateTracker() {}
   virtual ~NullInvalidationStateTracker() {}
 
-  virtual InvalidationVersionMap GetAllMaxVersions() const OVERRIDE {
-    return InvalidationVersionMap();
+  virtual InvalidationStateMap GetAllInvalidationStates() const OVERRIDE {
+    return InvalidationStateMap();
   }
 
   virtual void SetMaxVersion(
@@ -118,10 +118,7 @@ class MyTestURLRequestContext : public TestURLRequestContext {
  public:
   MyTestURLRequestContext() : TestURLRequestContext(true) {
     context_storage_.set_host_resolver(
-        net::CreateSystemHostResolver(
-            net::HostResolver::kDefaultParallelism,
-            net::HostResolver::kDefaultRetryAttempts,
-            NULL));
+        net::HostResolver::CreateDefaultResolver(NULL));
     context_storage_.set_transport_security_state(
         new net::TransportSecurityState());
     Init();

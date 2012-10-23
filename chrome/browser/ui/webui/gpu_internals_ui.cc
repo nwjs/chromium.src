@@ -6,6 +6,9 @@
 
 #include <string>
 
+#if defined(OS_CHROMEOS)
+#include "ash/ash_switches.h"
+#endif
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
@@ -14,6 +17,7 @@
 #include "base/stringprintf.h"
 #include "base/sys_info.h"
 #include "base/values.h"
+#include "cc/switches.h"
 #include "chrome/browser/crash_upload_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
@@ -235,7 +239,7 @@ Value* GetFeatureStatus() {
           "css_animation",
           flags & (content::GPU_FEATURE_TYPE_ACCELERATED_COMPOSITING |
                    content::GPU_FEATURE_TYPE_3D_CSS),
-          command_line.HasSwitch(switches::kDisableThreadedAnimation) ||
+          command_line.HasSwitch(cc::switches::kDisableThreadedAnimation) ||
           command_line.HasSwitch(switches::kDisableAcceleratedCompositing) ||
           command_line.HasSwitch(switches::kDisableAcceleratedLayers),
           "Accelerated CSS animation has been disabled at the command line.",
@@ -300,6 +304,18 @@ Value* GetFeatureStatus() {
           "Accelerated video presentation has been disabled, either via"
           " about:flags or command line.",
           true
+      },
+      {
+          "panel_fitting",
+          flags & content::GPU_FEATURE_TYPE_PANEL_FITTING,
+#if defined(OS_CHROMEOS)
+          command_line.HasSwitch(ash::switches::kAshDisablePanelFitting),
+#else
+          true,
+#endif
+          "Panel fitting is unavailable, either disabled at the command"
+          " line or not supported by the current system.",
+          false
       }
   };
   const size_t kNumFeatures = sizeof(kGpuFeatureInfo) / sizeof(GpuFeatureInfo);

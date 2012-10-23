@@ -270,7 +270,7 @@ void WebMediaPlayerMS::setSize(const WebSize& size) {
 void WebMediaPlayerMS::paint(WebCanvas* canvas,
                              const WebRect& rect,
                              uint8_t alpha) {
-  DVLOG(1) << "WebMediaPlayerMS::paint";
+  DVLOG(3) << "WebMediaPlayerMS::paint";
   DCHECK(thread_checker_.CalledOnValidThread());
 
   video_renderer_.Paint(current_frame_, canvas, rect, alpha);
@@ -343,15 +343,22 @@ void WebMediaPlayerMS::putCurrentFrame(
 
 void WebMediaPlayerMS::OnFrameAvailable(
     const scoped_refptr<media::VideoFrame>& frame) {
-  DVLOG(1) << "WebMediaPlayerMS::OnFrameAvailable";
+  DVLOG(3) << "WebMediaPlayerMS::OnFrameAvailable";
   DCHECK(thread_checker_.CalledOnValidThread());
   ++total_frame_count_;
   if (!got_first_frame_) {
     got_first_frame_ = true;
     start_time_ = frame->GetTimestamp();
   }
+  bool size_changed = !current_frame_ ||
+      current_frame_->natural_size() != frame->natural_size();
+
   current_frame_ = frame;
   current_frame_->SetTimestamp(frame->GetTimestamp() - start_time_);
+
+  if (size_changed)
+    GetClient()->sizeChanged();
+
   if (pending_repaint_) {
     // TODO(wjia): Figure out how to calculate dropped frame count for
     // both S/W and H/W compositing.

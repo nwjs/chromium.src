@@ -7,22 +7,22 @@
 #include "base/bind.h"
 #include "base/json/json_writer.h"
 #include "base/message_loop.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "base/stl_util.h"
 #include "base/values.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
+#include "chrome/browser/chromeos/drive/drive_file_system_interface.h"
+#include "chrome/browser/chromeos/drive/drive_file_system_util.h"
+#include "chrome/browser/chromeos/drive/drive_system_service.h"
 #include "chrome/browser/chromeos/extensions/file_browser_notifications.h"
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
-#include "chrome/browser/chromeos/gdata/drive_file_system_interface.h"
-#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
-#include "chrome/browser/chromeos/gdata/drive_service_interface.h"
-#include "chrome/browser/chromeos/gdata/drive_system_service.h"
 #include "chrome/browser/chromeos/login/base_login_display_host.h"
 #include "chrome/browser/chromeos/login/screen_locker.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/extensions/event_names.h"
 #include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/google_apis/drive_service_interface.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
@@ -37,8 +37,8 @@
 using chromeos::disks::DiskMountManager;
 using chromeos::disks::DiskMountManagerEventType;
 using content::BrowserThread;
-using gdata::DriveSystemService;
-using gdata::DriveSystemServiceFactory;
+using drive::DriveSystemService;
+using drive::DriveSystemServiceFactory;
 
 namespace {
   const char kDiskAddedEventType[] = "added";
@@ -141,7 +141,7 @@ void FileBrowserEventRouter::ObserveFileSystemEvents() {
   DriveSystemService* system_service =
       DriveSystemServiceFactory::GetForProfile(profile_);
   if (!system_service) {
-    NOTREACHED();
+    // |system_service| is NULL if incognito window / guest login.
     return;
   }
   system_service->drive_service()->AddObserver(this);
@@ -153,9 +153,10 @@ void FileBrowserEventRouter::ObserveFileSystemEvents() {
      network_library->AddNetworkManagerObserver(this);
 
   pref_change_registrar_->Init(profile_->GetPrefs());
-  pref_change_registrar_->Add(prefs::kDisableGDataOverCellular, this);
-  pref_change_registrar_->Add(prefs::kDisableGDataHostedFiles, this);
-  pref_change_registrar_->Add(prefs::kDisableGData, this);
+  pref_change_registrar_->Add(prefs::kDisableDriveOverCellular, this);
+  pref_change_registrar_->Add(prefs::kDisableDriveHostedFiles, this);
+  pref_change_registrar_->Add(prefs::kDisableDrive, this);
+  pref_change_registrar_->Add(prefs::kUse24HourClock, this);
   pref_change_registrar_->Add(prefs::kExternalStorageDisabled, this);
 }
 
@@ -172,8 +173,8 @@ bool FileBrowserEventRouter::AddFileWatch(
   // Tweak watch path for remote sources - we need to drop leading /special
   // directory from there in order to be able to pair these events with
   // their change notifications.
-  if (gdata::util::GetSpecialRemoteRootPath().IsParent(watch_path)) {
-    watch_path = gdata::util::ExtractDrivePath(watch_path);
+  if (drive::util::GetSpecialRemoteRootPath().IsParent(watch_path)) {
+    watch_path = drive::util::ExtractDrivePath(watch_path);
     is_remote_watch = true;
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
@@ -208,8 +209,8 @@ void FileBrowserEventRouter::RemoveFileWatch(
   // Tweak watch path for remote sources - we need to drop leading /special
   // directory from there in order to be able to pair these events with
   // their change notifications.
-  if (gdata::util::GetSpecialRemoteRootPath().IsParent(watch_path)) {
-    watch_path = gdata::util::ExtractDrivePath(watch_path);
+  if (drive::util::GetSpecialRemoteRootPath().IsParent(watch_path)) {
+    watch_path = drive::util::ExtractDrivePath(watch_path);
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(&FileBrowserEventRouter::HandleRemoteUpdateRequestOnUIThread,
@@ -242,19 +243,20 @@ void FileBrowserEventRouter::MountDrive(
 
 void FileBrowserEventRouter::OnAuthenticated(
     const base::Closure& callback,
-    gdata::GDataErrorCode error,
+    google_apis::GDataErrorCode error,
     const std::string& token) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   chromeos::MountError error_code;
   // For the file manager to work offline, GDATA_NO_CONNECTION is allowed.
-  if (error == gdata::HTTP_SUCCESS || error == gdata::GDATA_NO_CONNECTION)
+  if (error == google_apis::HTTP_SUCCESS ||
+      error == google_apis::GDATA_NO_CONNECTION)
     error_code = chromeos::MOUNT_ERROR_NONE;
   else
     error_code = chromeos::MOUNT_ERROR_NOT_AUTHENTICATED;
 
   // Pass back the gdata mount point path as source path.
-  const std::string& gdata_path = gdata::util::GetDriveMountPointPathAsString();
+  const std::string& gdata_path = drive::util::GetDriveMountPointPathAsString();
   DiskMountManager::MountPointInfo mount_info(
       gdata_path,
       gdata_path,
@@ -271,19 +273,21 @@ void FileBrowserEventRouter::OnAuthenticated(
 void FileBrowserEventRouter::HandleRemoteUpdateRequestOnUIThread(bool start) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  gdata::DriveFileSystemInterface* file_system = GetRemoteFileSystem();
-  DCHECK(file_system);
+  drive::DriveFileSystemInterface* file_system = GetRemoteFileSystem();
+  // |file_system| is NULL if Drive is disabled.
+  if (!file_system)
+    return;
 
   if (start) {
     file_system->CheckForUpdates();
     if (num_remote_update_requests_ == 0)
-      file_system->StartUpdates();
+      file_system->StartPolling();
     ++num_remote_update_requests_;
   } else {
     DCHECK_LE(1, num_remote_update_requests_);
     --num_remote_update_requests_;
     if (num_remote_update_requests_ == 0)
-      file_system->StopUpdates();
+      file_system->StopPolling();
   }
 }
 
@@ -357,11 +361,11 @@ void FileBrowserEventRouter::MountCompleted(
       FilePath source_path(mount_info.source_path);
       DriveSystemService* system_service =
           DriveSystemServiceFactory::GetForProfile(profile_);
-      gdata::DriveCache* cache =
+      drive::DriveCache* cache =
           system_service ? system_service->cache() : NULL;
       if (cache) {
         cache->SetMountedStateOnUIThread(
-            source_path, false, gdata::ChangeCacheStateCallback());
+            source_path, false, drive::ChangeCacheStateCallback());
       }
     }
   }
@@ -399,21 +403,23 @@ void FileBrowserEventRouter::Observe(
            it != mounts.end(); ++it) {
         LOG(INFO) << "Unmounting " << it->second.mount_path
                   << " because of policy.";
-        manager->UnmountPath(it->second.mount_path);
+        manager->UnmountPath(it->second.mount_path,
+                             chromeos::UNMOUNT_OPTIONS_NONE);
       }
       return;
-    } else if (*pref_name == prefs::kDisableGDataOverCellular ||
-        *pref_name == prefs::kDisableGDataHostedFiles ||
-        *pref_name == prefs::kDisableGData) {
+    } else if (*pref_name == prefs::kDisableDriveOverCellular ||
+        *pref_name == prefs::kDisableDriveHostedFiles ||
+        *pref_name == prefs::kDisableDrive ||
+        *pref_name == prefs::kUse24HourClock) {
       profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
-          extensions::event_names::kOnFileBrowserGDataPreferencesChanged,
+          extensions::event_names::kOnFileBrowserPreferencesChanged,
           scoped_ptr<ListValue>(new ListValue()), NULL, GURL());
     }
   }
 }
 
 void FileBrowserEventRouter::OnProgressUpdate(
-    const gdata::OperationProgressStatusList& list) {
+    const google_apis::OperationProgressStatusList& list) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   scoped_ptr<ListValue> event_list(
@@ -460,7 +466,7 @@ void FileBrowserEventRouter::OnFileSystemBeingUnmounted() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // Raise a MountCompleted event to notify the File Manager.
-  const std::string& gdata_path = gdata::util::GetDriveMountPointPathAsString();
+  const std::string& gdata_path = drive::util::GetDriveMountPointPathAsString();
   DiskMountManager::MountPointInfo mount_info(
       gdata_path,
       gdata_path,
@@ -470,11 +476,15 @@ void FileBrowserEventRouter::OnFileSystemBeingUnmounted() {
                  mount_info);
 }
 
-void FileBrowserEventRouter::OnAuthenticationFailed() {
+void FileBrowserEventRouter::OnAuthenticationFailed(
+    google_apis::GDataErrorCode error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+  if (error == google_apis::GDATA_NO_CONNECTION)
+    return;
+
   // Raise a MountCompleted event to notify the File Manager.
-  const std::string& gdata_path = gdata::util::GetDriveMountPointPathAsString();
+  const std::string& gdata_path = drive::util::GetDriveMountPointPathAsString();
   DiskMountManager::MountPointInfo mount_info(
       gdata_path,
       gdata_path,
@@ -571,7 +581,8 @@ void FileBrowserEventRouter::DispatchMountCompletedEvent(
 
   // If there were no error or some special conditions occured, add mountPath
   // to the event.
-  if (error_code == chromeos::MOUNT_ERROR_NONE ||
+  if (event == DiskMountManager::UNMOUNTING ||
+      error_code == chromeos::MOUNT_ERROR_NONE ||
       mount_info.mount_condition) {
     // Convert mount point path to relative path with the external file system
     // exposed within File API.
@@ -642,7 +653,10 @@ void FileBrowserEventRouter::OnDiskRemoved(
   VLOG(1) << "Disk removed: " << disk->device_path();
 
   if (!disk->mount_path().empty()) {
-    DiskMountManager::GetInstance()->UnmountPath(disk->mount_path());
+    notifications_->ShowNotification(
+        FileBrowserNotifications::DEVICE_HARD_UNPLUG, disk->device_path());
+    DiskMountManager::GetInstance()->UnmountPath(
+        disk->mount_path(), chromeos::UNMOUNT_OPTIONS_LAZY);
   }
   DispatchDiskEvent(disk, false);
 }
@@ -818,7 +832,7 @@ FileBrowserEventRouter::FileWatcherExtensions::GetVirtualPath() const {
   return virtual_path_;
 }
 
-gdata::DriveFileSystemInterface*
+drive::DriveFileSystemInterface*
 FileBrowserEventRouter::GetRemoteFileSystem() const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DriveSystemService* system_service =

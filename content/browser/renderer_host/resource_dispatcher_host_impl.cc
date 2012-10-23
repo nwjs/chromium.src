@@ -25,7 +25,6 @@
 #include "content/browser/cert_store_impl.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/cross_site_request_manager.h"
-#include "content/browser/download/download_file_manager.h"
 #include "content/browser/download/download_resource_handler.h"
 #include "content/browser/download/save_file_manager.h"
 #include "content/browser/download/save_file_resource_handler.h"
@@ -351,8 +350,7 @@ ResourceDispatcherHost* ResourceDispatcherHost::Get() {
 }
 
 ResourceDispatcherHostImpl::ResourceDispatcherHostImpl()
-    : download_file_manager_(new DownloadFileManager(NULL)),
-      save_file_manager_(new SaveFileManager()),
+    : save_file_manager_(new SaveFileManager()),
       request_id_(-1),
       is_shutdown_(false),
       max_outstanding_requests_cost_per_process_(
@@ -499,7 +497,7 @@ net::Error ResourceDispatcherHostImpl::BeginDownload(
     int child_id,
     int route_id,
     bool prefer_cache,
-    const DownloadSaveInfo& save_info,
+    scoped_ptr<DownloadSaveInfo> save_info,
     const DownloadStartedCallback& started_callback) {
   if (is_shutdown_)
     return CallbackAndReturn(started_callback, net::ERR_INSUFFICIENT_RESOURCES);
@@ -552,7 +550,7 @@ net::Error ResourceDispatcherHostImpl::BeginDownload(
   // |started_callback|.
   scoped_ptr<ResourceHandler> handler(
       CreateResourceHandlerForDownload(request.get(), is_content_initiated,
-                                       save_info, started_callback));
+                                       save_info.Pass(), started_callback));
 
   BeginRequestInternal(request.Pass(), handler.Pass());
 
@@ -581,10 +579,10 @@ scoped_ptr<ResourceHandler>
 ResourceDispatcherHostImpl::CreateResourceHandlerForDownload(
     net::URLRequest* request,
     bool is_content_initiated,
-    const DownloadSaveInfo& save_info,
+    scoped_ptr<DownloadSaveInfo> save_info,
     const DownloadResourceHandler::OnStartedCallback& started_cb) {
   scoped_ptr<ResourceHandler> handler(
-      new DownloadResourceHandler(request, started_cb, save_info));
+      new DownloadResourceHandler(request, started_cb, save_info.Pass()));
   if (delegate_) {
     const ResourceRequestInfo* request_info(
         ResourceRequestInfo::ForRequest(request));

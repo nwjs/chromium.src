@@ -11,10 +11,11 @@
 #include "remoting/codec/audio_encoder_speex.h"
 #include "remoting/codec/audio_encoder_verbatim.h"
 #include "remoting/codec/video_encoder.h"
-#include "remoting/codec/video_encoder_row_based.h"
+#include "remoting/codec/video_encoder_verbatim.h"
 #include "remoting/codec/video_encoder_vp8.h"
 #include "remoting/host/audio_scheduler.h"
 #include "remoting/host/desktop_environment.h"
+#include "remoting/host/desktop_environment_factory.h"
 #include "remoting/host/event_executor.h"
 #include "remoting/host/screen_recorder.h"
 #include "remoting/host/video_frame_capturer.h"
@@ -31,11 +32,12 @@ ClientSession::ClientSession(
     scoped_refptr<base::SingleThreadTaskRunner> encode_task_runner,
     scoped_refptr<base::SingleThreadTaskRunner> network_task_runner,
     scoped_ptr<protocol::ConnectionToClient> connection,
-    scoped_ptr<DesktopEnvironment> desktop_environment,
+    DesktopEnvironmentFactory* desktop_environment_factory,
     const base::TimeDelta& max_duration)
     : event_handler_(event_handler),
       connection_(connection.Pass()),
-      desktop_environment_(desktop_environment.Pass()),
+      desktop_environment_(desktop_environment_factory->Create(
+          ALLOW_THIS_IN_INITIALIZER_LIST(this))),
       client_jid_(connection_->session()->jid()),
       host_clipboard_stub_(desktop_environment_->event_executor()),
       host_input_stub_(desktop_environment_->event_executor()),
@@ -84,6 +86,16 @@ void ClientSession::ControlVideo(const protocol::VideoControl& video_control) {
   if (video_control.has_enable()) {
     VLOG(1) << "Received VideoControl (enable="
             << video_control.enable() << ")";
+  }
+}
+
+void ClientSession::ControlAudio(const protocol::AudioControl& audio_control) {
+  if (audio_control.has_enable()) {
+    VLOG(1) << "Received AudioControl (enable="
+            << audio_control.enable() << ")";
+    if (audio_scheduler_.get()) {
+      audio_scheduler_->SetEnabled(audio_control.enable());
+    }
   }
 }
 
@@ -201,7 +213,6 @@ void ClientSession::Stop(const base::Closure& done_task) {
 
   done_task_ = done_task;
   if (audio_scheduler_.get()) {
-    audio_scheduler_->OnClientDisconnected();
     audio_scheduler_->Stop(base::Bind(&ClientSession::OnRecorderStopped, this));
     audio_scheduler_ = NULL;
   }
@@ -273,9 +284,7 @@ VideoEncoder* ClientSession::CreateVideoEncoder(
   const protocol::ChannelConfig& video_config = config.video_config();
 
   if (video_config.codec == protocol::ChannelConfig::CODEC_VERBATIM) {
-    return VideoEncoderRowBased::CreateVerbatimEncoder();
-  } else if (video_config.codec == protocol::ChannelConfig::CODEC_ZIP) {
-    return VideoEncoderRowBased::CreateZlibEncoder();
+    return new remoting::VideoEncoderVerbatim();
   } else if (video_config.codec == protocol::ChannelConfig::CODEC_VP8) {
     return new remoting::VideoEncoderVp8();
   }

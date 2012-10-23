@@ -115,14 +115,13 @@ void BookmarkContextMenuControllerViews::ExecuteCommand(int id) {
           bookmark_utils::GetParentForNewNodes(parent_, selection_, &index);
       GURL url;
       string16 title;
-      bookmark_utils::GetURLAndTitleToBookmark(
-          chrome::GetActiveWebContents(browser_), &url, &title);
-      BookmarkEditor::Show(
-          parent_widget_->GetNativeWindow(),
-          profile_,
-          BookmarkEditor::EditDetails::AddNodeInFolder(
-              parent, index, url, title),
-          BookmarkEditor::SHOW_TREE);
+      chrome::GetURLAndTitleToBookmark(chrome::GetActiveWebContents(browser_),
+                                       &url, &title);
+      BookmarkEditor::Show(parent_widget_->GetNativeWindow(),
+                           profile_,
+                           BookmarkEditor::EditDetails::AddNodeInFolder(
+                               parent, index, url, title),
+                           BookmarkEditor::SHOW_TREE);
       break;
     }
 
@@ -185,7 +184,7 @@ void BookmarkContextMenuControllerViews::ExecuteCommand(int id) {
 }
 
 bool BookmarkContextMenuControllerViews::IsItemChecked(int id) const {
-  DCHECK(id == IDC_BOOKMARK_BAR_ALWAYS_SHOW);
+  DCHECK_EQ(IDC_BOOKMARK_BAR_ALWAYS_SHOW, id);
   return profile_->GetPrefs()->GetBoolean(prefs::kShowBookmarkBar);
 }
 

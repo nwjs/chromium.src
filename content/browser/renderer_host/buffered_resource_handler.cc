@@ -132,6 +132,12 @@ bool BufferedResourceHandler::OnResponseStarted(
       // treat the response as "text/plain".  This is the most secure option.
       response_->head.mime_type.assign("text/plain");
     }
+
+    // Treat feed types as text/plain.
+    if (response_->head.mime_type == "application/rss+xml" ||
+        response_->head.mime_type == "application/atom+xml") {
+      response_->head.mime_type.assign("text/plain");
+    }
   }
 
   state_ = STATE_PROCESSING;
@@ -213,6 +219,10 @@ void BufferedResourceHandler::Cancel() {
 
 void BufferedResourceHandler::CancelAndIgnore() {
   controller()->CancelAndIgnore();
+}
+
+void BufferedResourceHandler::CancelWithError(int error_code) {
+  controller()->CancelWithError(error_code);
 }
 
 bool BufferedResourceHandler::ProcessResponse(bool* defer) {
@@ -329,7 +339,7 @@ bool BufferedResourceHandler::SelectNextHandler(bool* defer) {
       host_->CreateResourceHandlerForDownload(
           request_,
           true,  // is_content_initiated
-          DownloadSaveInfo(),
+          scoped_ptr<DownloadSaveInfo>(new DownloadSaveInfo()),
           DownloadResourceHandler::OnStartedCallback()));
   return UseAlternateNextHandler(handler.Pass());
 }

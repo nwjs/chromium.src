@@ -22,20 +22,12 @@ class Rect;
 // (note that it may return NULL).
 class InstantControllerDelegate {
  public:
-  // Show the preview with the given |height|.
-  virtual void ShowInstant(int height, InstantSizeUnits units) = 0;
-
-  // Hide any preview currently being shown.
-  virtual void HideInstant() = 0;
-
   // Commit the |preview| by merging it into the active tab or adding it as a
   // new tab, based on |in_new_tab|. Delegate takes ownership of |preview|.
   virtual void CommitInstant(TabContents* preview, bool in_new_tab) = 0;
 
-  // Autocomplete the Instant suggested |text| into the omnibox, using the
-  // specified |behavior| (see instant_types.h for details).
-  virtual void SetSuggestedText(const string16& text,
-                                InstantCompleteBehavior behavior) = 0;
+  // Autocomplete the Instant |suggestion| into the omnibox.
+  virtual void SetInstantSuggestion(const InstantSuggestion& suggestion) = 0;
 
   // Return the bounds that the preview is placed at, in screen coordinates.
   virtual gfx::Rect GetInstantBounds() = 0;

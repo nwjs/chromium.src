@@ -40,6 +40,7 @@
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/user_script_master.h"
 #include "chrome/browser/geolocation/chrome_geolocation_permission_context.h"
+#include "chrome/browser/geolocation/chrome_geolocation_permission_context_factory.h"
 #include "chrome/browser/history/shortcuts_backend.h"
 #include "chrome/browser/history/top_sites.h"
 #include "chrome/browser/metrics/metrics_service.h"
@@ -50,8 +51,6 @@
 #include "chrome/browser/net/ssl_config_service_manager.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/plugins/plugin_prefs.h"
-#include "chrome/browser/policy/policy_service.h"
-#include "chrome/browser/policy/user_cloud_policy_manager.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
@@ -93,6 +92,8 @@
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
 #include "chrome/browser/policy/browser_policy_connector.h"
+#include "chrome/browser/policy/managed_mode_policy_provider.h"
+#include "chrome/browser/policy/user_cloud_policy_manager.h"
 #else
 #include "chrome/browser/policy/policy_service_stub.h"
 #endif  // defined(ENABLE_CONFIGURATION_POLICY)
@@ -312,14 +313,19 @@ ProfileImpl::ProfileImpl(const FilePath& path,
   // a ProfileKeyedService (policy must be initialized before PrefService
   // because PrefService depends on policy loading to get overridden pref
   // values).
-  cloud_policy_manager_ =
-      g_browser_process->browser_policy_connector()->CreateCloudPolicyManager(
-          this);
-  policy_service_ =
-      g_browser_process->browser_policy_connector()->CreatePolicyService(this);
+  policy::BrowserPolicyConnector* connector =
+      g_browser_process->browser_policy_connector();
+  cloud_policy_manager_ = connector->CreateCloudPolicyManager(this);
+  if (cloud_policy_manager_)
+    cloud_policy_manager_->Init();
+  managed_mode_policy_provider_.reset(
+      policy::ManagedModePolicyProvider::Create(this));
+  managed_mode_policy_provider_->Init();
+  policy_service_ = connector->CreatePolicyService(this);
 #else
   policy_service_.reset(new policy::PolicyServiceStub());
 #endif
+
   if (create_mode == CREATE_MODE_ASYNCHRONOUS) {
     prefs_.reset(PrefService::CreatePrefService(
         GetPrefFilePath(),
@@ -545,6 +551,13 @@ ProfileImpl::~ProfileImpl() {
   if (host_content_settings_map_)
     host_content_settings_map_->ShutdownOnUIThread();
 
+#if defined(ENABLE_CONFIGURATION_POLICY)
+  if (cloud_policy_manager_)
+    cloud_policy_manager_->Shutdown();
+  if (managed_mode_policy_provider_)
+    managed_mode_policy_provider_->Shutdown();
+#endif
+
   // This causes the Preferences file to be written to disk.
   if (prefs_loaded)
     SetExitType(EXIT_NORMAL);
@@ -701,7 +714,19 @@ Profile::ExitType ProfileImpl::GetLastSessionExitType() {
 }
 
 policy::UserCloudPolicyManager* ProfileImpl::GetUserCloudPolicyManager() {
+#if defined(ENABLE_CONFIGURATION_POLICY)
   return cloud_policy_manager_.get();
+#else
+  return NULL;
+#endif
+}
+
+policy::ManagedModePolicyProvider* ProfileImpl::GetManagedModePolicyProvider() {
+#if defined(ENABLE_CONFIGURATION_POLICY)
+  return managed_mode_policy_provider_.get();
+#else
+  return NULL;
+#endif
 }
 
 policy::PolicyService* ProfileImpl::GetPolicyService() {
@@ -827,7 +852,7 @@ content::GeolocationPermissionContext*
     ProfileImpl::GetGeolocationPermissionContext() {
   if (!geolocation_permission_context_.get()) {
     geolocation_permission_context_ =
-        new ChromeGeolocationPermissionContext(this);
+        ChromeGeolocationPermissionContextFactory::Create(this);
   }
   return geolocation_permission_context_.get();
 }

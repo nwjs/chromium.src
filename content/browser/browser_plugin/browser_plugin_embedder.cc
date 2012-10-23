@@ -94,7 +94,7 @@ void BrowserPluginEmbedder::CreateGuest(RenderViewHost* render_view_host,
       instance_id);
 
   guest = guest_web_contents->GetBrowserPluginGuest();
-  guest->set_embedder_render_process_host(render_view_host->GetProcess());
+  guest->set_embedder_web_contents(web_contents());
 
   RendererPreferences* guest_renderer_prefs =
       guest_web_contents->GetMutableRendererPrefs();
@@ -107,8 +107,19 @@ void BrowserPluginEmbedder::CreateGuest(RenderViewHost* render_view_host,
   *guest_renderer_prefs = *web_contents()->GetMutableRendererPrefs();
 
   guest_renderer_prefs->throttle_input_events = false;
+  // Navigation is disabled in Chrome Apps. We want to make sure guest-initiated
+  // navigations still continue to function inside the app.
+  guest_renderer_prefs->browser_handles_all_top_level_requests = false;
   AddGuest(instance_id, guest_web_contents);
   guest_web_contents->SetDelegate(guest);
+
+  // Create a swapped out RenderView for the guest in the embedder render
+  // process, so that the embedder can access the guest's window object.
+  int guest_routing_id =
+      static_cast<WebContentsImpl*>(guest->GetWebContents())->
+            CreateSwappedOutRenderView(web_contents()->GetSiteInstance());
+  render_view_host->Send(new BrowserPluginMsg_GuestContentWindowReady(
+      instance_id, guest_routing_id));
 }
 
 void BrowserPluginEmbedder::NavigateGuest(
@@ -122,15 +133,16 @@ void BrowserPluginEmbedder::NavigateGuest(
   WebContentsImpl* guest_web_contents =
       static_cast<WebContentsImpl*>(guest->GetWebContents());
 
-  // We ignore loading empty urls in web_contents.
+  // We do not load empty urls in web_contents.
   // If a guest sets empty src attribute after it has navigated to some
-  // non-empty page, the action is considered no-op.
-  // TODO(lazyboy): The js shim for browser-plugin might need to reflect empty
-  // src ignoring in the shadow DOM element: http://crbug.com/149001.
+  // non-empty page, the action is considered no-op. This empty src navigation
+  // should never be sent to BrowserPluginEmbedder (browser process).
+  DCHECK(!src.empty());
   if (!src.empty()) {
+    // TODO(creis): Check the validity of the URL: http://crbug.com/139397.
     guest_web_contents->GetController().LoadURL(url,
                                                 Referrer(),
-                                                PAGE_TRANSITION_AUTO_SUBFRAME,
+                                                PAGE_TRANSITION_AUTO_TOPLEVEL,
                                                 std::string());
   }
 
@@ -242,7 +254,6 @@ void BrowserPluginEmbedder::DestroyGuestByInstanceID(int instance_id) {
 
 void BrowserPluginEmbedder::RenderViewDeleted(
     RenderViewHost* render_view_host) {
-  DestroyGuests();
 }
 
 void BrowserPluginEmbedder::RenderViewGone(base::TerminationStatus status) {
@@ -270,6 +281,17 @@ void BrowserPluginEmbedder::SetGuestVisibility(int instance_id,
   BrowserPluginGuest* guest = GetGuestByInstanceID(instance_id);
   if (guest)
     guest->SetVisibility(visible_, guest_visible);
+}
+
+void BrowserPluginEmbedder::DragStatusUpdate(
+    int instance_id,
+    WebKit::WebDragStatus drag_status,
+    const WebDropData& drop_data,
+    WebKit::WebDragOperationsMask drag_mask,
+    const gfx::Point& location) {
+  BrowserPluginGuest* guest = GetGuestByInstanceID(instance_id);
+  if (guest)
+    guest->DragStatusUpdate(drag_status, drop_data, drag_mask, location);
 }
 
 void BrowserPluginEmbedder::Go(int instance_id, int relative_index) {

@@ -77,10 +77,7 @@ void TestShellRequestContext::Init(
       net::ProxyService::CreateSystemProxyConfigService(
           base::ThreadTaskRunnerHandle::Get(), NULL));
 #endif
-  storage_.set_host_resolver(
-      net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism,
-                                    net::HostResolver::kDefaultRetryAttempts,
-                                    NULL));
+  storage_.set_host_resolver(net::HostResolver::CreateDefaultResolver(NULL));
   storage_.set_cert_verifier(net::CertVerifier::CreateDefault());
   storage_.set_proxy_service(net::ProxyService::CreateUsingSystemProxyResolver(
       proxy_config_service.release(), 0, NULL));
@@ -125,6 +122,7 @@ void TestShellRequestContext::Init(
       "blob",
       new webkit_blob::BlobProtocolHandler(
           blob_storage_controller_.get(),
+          file_system_context_,
           SimpleResourceLoaderBridge::GetIoThread()));
   job_factory->SetProtocolHandler(
       "filesystem",

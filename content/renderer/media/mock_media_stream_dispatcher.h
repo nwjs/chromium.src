@@ -10,6 +10,8 @@
 #include "content/renderer/media/media_stream_dispatcher.h"
 #include "googleurl/src/gurl.h"
 
+namespace content {
+
 // This class is a mock implementation of MediaStreamDispatcher.
 class MockMediaStreamDispatcher : public MediaStreamDispatcher {
  public:
@@ -19,13 +21,7 @@ class MockMediaStreamDispatcher : public MediaStreamDispatcher {
   virtual void GenerateStream(
       int request_id,
       const base::WeakPtr<MediaStreamDispatcherEventHandler>&,
-      media_stream::StreamOptions components,
-      const GURL&) OVERRIDE;
-  virtual void GenerateStreamForDevice(
-      int request_id,
-      const base::WeakPtr<MediaStreamDispatcherEventHandler>&,
-      media_stream::StreamOptions components,
-      const std::string& device_id,
+      const media_stream::StreamOptions& components,
       const GURL&) OVERRIDE;
   virtual void StopStream(const std::string& label) OVERRIDE;
   virtual bool IsStream(const std::string& label) OVERRIDE;
@@ -53,5 +49,7 @@ class MockMediaStreamDispatcher : public MediaStreamDispatcher {
 
   DISALLOW_COPY_AND_ASSIGN(MockMediaStreamDispatcher);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_MEDIA_MOCK_MEDIA_STREAM_DISPATCHER_H_

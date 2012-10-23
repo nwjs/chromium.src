@@ -10,6 +10,10 @@
 
 #include "content/public/browser/navigation_controller.h"
 
+namespace gfx {
+class Size;
+}
+
 namespace ui {
 class WindowAndroid;
 }
@@ -22,17 +26,20 @@ class WebContents;
 // public interface used by native code outside of the content module.
 class ContentViewCore {
  public:
-  static ContentViewCore* Create(
-      JNIEnv* env, jobject obj, WebContents* web_contents);
+  // Returns the existing ContentViewCore for |web_contents|, or NULL.
+  static ContentViewCore* FromWebContents(WebContents* web_contents);
   static ContentViewCore* GetNativeContentViewCore(JNIEnv* env, jobject obj);
 
-  virtual void Destroy(JNIEnv* env, jobject obj) = 0;
   virtual WebContents* GetWebContents() const = 0;
   virtual base::android::ScopedJavaLocalRef<jobject> GetJavaObject() = 0;
+  virtual base::android::ScopedJavaLocalRef<jobject> GetContainerViewDelegate()
+      = 0;
   virtual ui::WindowAndroid* GetWindowAndroid() = 0;
   virtual void LoadUrl(NavigationController::LoadURLParams& params) = 0;
   virtual void OnWebPreferencesUpdated() = 0;
   virtual jint GetCurrentRenderProcessId(JNIEnv* env, jobject obj) = 0;
+  virtual void ShowPastePopup(int x, int y) = 0;
+  virtual unsigned int GetScaledContentTexture(const gfx::Size& size) = 0;
 
  protected:
   virtual ~ContentViewCore() {};

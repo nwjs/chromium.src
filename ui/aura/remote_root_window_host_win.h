@@ -22,8 +22,10 @@ class AURA_EXPORT RemoteRootWindowHostWin : public RootWindowHost {
   static RemoteRootWindowHostWin* Instance();
   static RemoteRootWindowHostWin* Create(const gfx::Rect& bounds);
 
-  void OnMouseMoved(int x, int y, int extra);
-  void OnMouseClick(int x, int y, int extra);
+  void OnMouseMoved(int32 x, int32 y, int32 extra);
+  void OnMouseClick(int32 x, int32 y, int32 extra);
+  void OnKeyDown(uint32 vkey, uint32 repeat_count, uint32 scan_code);
+  void OnKeyUp(uint32 vkey, uint32 repeat_count, uint32 scan_code);
 
  private:
   RemoteRootWindowHostWin(const gfx::Rect& bounds);
@@ -42,7 +44,6 @@ class AURA_EXPORT RemoteRootWindowHostWin : public RootWindowHost {
   virtual void SetCapture() OVERRIDE;
   virtual void ReleaseCapture() OVERRIDE;
   virtual void SetCursor(gfx::NativeCursor cursor) OVERRIDE;
-  virtual void ShowCursor(bool show) OVERRIDE;
   virtual bool QueryMouseLocation(gfx::Point* location_return) OVERRIDE;
   virtual bool ConfineCursorToRootWindow() OVERRIDE;
   virtual void UnConfineCursor() OVERRIDE;
@@ -64,4 +65,3 @@ class AURA_EXPORT RemoteRootWindowHostWin : public RootWindowHost {
 }  // namespace aura
 
 #endif  // UI_AURA_REMOTE_ROOT_WINDOW_HOST_WIN_H_
-

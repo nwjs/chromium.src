@@ -88,7 +88,7 @@ bool HandleCycleWindowMRU(WindowCycleController::Direction direction,
 }
 
 void HandleCycleWindowLinear(CycleDirection direction) {
-  Shell::GetInstance()->launcher()->CycleWindowLinear(direction);
+  Launcher::ForPrimaryDisplay()->CycleWindowLinear(direction);
 }
 
 #if defined(OS_CHROMEOS)
@@ -125,7 +125,7 @@ void HandleCycleDisplayMode() {
 }
 
 void HandleSwapPrimaryDisplay() {
-  if (gfx::Screen::GetNumDisplays() > 1) {
+  if (Shell::GetScreen()->GetNumDisplays() > 1) {
     Shell::GetInstance()->display_controller()->SetPrimaryDisplay(
         ScreenAsh::GetSecondaryDisplay());
   }
@@ -359,12 +359,12 @@ void AcceleratorController::Init() {
     actions_allowed_at_lock_screen_.insert(
         kActionsAllowedAtLoginOrLockScreen[i]);
   }
-  for (size_t i = 0; i < kActionsAllowedAtLockScreenLength; ++i) {
+  for (size_t i = 0; i < kActionsAllowedAtLockScreenLength; ++i)
     actions_allowed_at_lock_screen_.insert(kActionsAllowedAtLockScreen[i]);
-  }
-  for (size_t i = 0; i < kReservedActionsLength; ++i) {
+  for (size_t i = 0; i < kActionsAllowedAtModalWindowLength; ++i)
+    actions_allowed_at_modal_window_.insert(kActionsAllowedAtModalWindow[i]);
+  for (size_t i = 0; i < kReservedActionsLength; ++i)
     reserved_actions_.insert(kReservedActions[i]);
-  }
 
   RegisterAccelerators(kAcceleratorData, kAcceleratorDataLength);
 
@@ -421,17 +421,24 @@ bool AcceleratorController::PerformAction(int action,
 #if defined(OS_CHROMEOS)
   at_login_screen = shell->delegate() && !shell->delegate()->IsSessionStarted();
 #endif
-  bool at_lock_screen = shell->IsScreenLocked();
-
   if (at_login_screen &&
       actions_allowed_at_login_screen_.find(action) ==
       actions_allowed_at_login_screen_.end()) {
     return false;
   }
-  if (at_lock_screen &&
+  if (shell->IsScreenLocked() &&
       actions_allowed_at_lock_screen_.find(action) ==
       actions_allowed_at_lock_screen_.end()) {
     return false;
+  }
+  if (shell->IsModalWindowOpen() &&
+      actions_allowed_at_modal_window_.find(action) ==
+      actions_allowed_at_modal_window_.end()) {
+    // Note: we return true. This indicates the shortcut is handled
+    // and will not be passed to the modal window. This is important
+    // for things like Alt+Tab that would cause an undesired effect
+    // in the modal window by cycling through its window elements.
+    return true;
   }
   const ui::KeyboardCode key_code = accelerator.key_code();
 
@@ -556,9 +563,11 @@ bool AcceleratorController::PerformAction(int action,
         // We totally ignore this accelerator.
         return false;
       }
-      if (shell->caps_lock_delegate()->IsCapsLockEnabled())
+      if (shell->caps_lock_delegate()->IsCapsLockEnabled()) {
         shell->caps_lock_delegate()->SetCapsLockEnabled(false);
-      return true;
+        return true;
+      }
+      return false;
     case TOGGLE_CAPS_LOCK:
       shell->caps_lock_delegate()->ToggleCapsLock();
       return true;
@@ -593,8 +602,8 @@ bool AcceleratorController::PerformAction(int action,
           HandleVolumeUp(accelerator);
       break;
     case FOCUS_LAUNCHER:
-      if (shell->launcher())
-        return shell->focus_cycler()->FocusWidget(shell->launcher()->widget());
+      return shell->focus_cycler()->FocusWidget(
+          Launcher::ForPrimaryDisplay()->widget());
       break;
     case FOCUS_NEXT_PANE:
       return HandleRotatePaneFocus(Shell::FORWARD);
@@ -842,10 +851,9 @@ bool AcceleratorController::AcceleratorPressed(
 }
 
 void AcceleratorController::SwitchToWindow(int window) {
-  const LauncherItems& items =
-      Shell::GetInstance()->launcher()->model()->items();
-  int item_count =
-      Shell::GetInstance()->launcher()->model()->item_count();
+  Launcher* launcher = Launcher::ForPrimaryDisplay();
+  const LauncherItems& items = launcher->model()->items();
+  int item_count = launcher->model()->item_count();
   int indexes_left = window >= 0 ? window : item_count;
   int found_index = -1;
 
@@ -866,7 +874,7 @@ void AcceleratorController::SwitchToWindow(int window) {
       (items[found_index].status == ash::STATUS_RUNNING ||
        items[found_index].status == ash::STATUS_CLOSED)) {
     // Then set this one as active.
-    Shell::GetInstance()->launcher()->ActivateLauncherItem(found_index);
+    launcher->ActivateLauncherItem(found_index);
   }
 }
 

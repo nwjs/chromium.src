@@ -20,7 +20,9 @@ IPC_ENUM_TRAITS(media_stream::MediaStreamType)
 
 IPC_STRUCT_TRAITS_BEGIN(media_stream::StreamOptions)
   IPC_STRUCT_TRAITS_MEMBER(audio_type)
+  IPC_STRUCT_TRAITS_MEMBER(audio_device_id)
   IPC_STRUCT_TRAITS_MEMBER(video_type)
+  IPC_STRUCT_TRAITS_MEMBER(video_device_id)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(media_stream::StreamDeviceInfo)
@@ -43,16 +45,6 @@ IPC_MESSAGE_ROUTED4(MediaStreamMsg_StreamGenerated,
 // The browser has failed to generate a stream.
 IPC_MESSAGE_ROUTED1(MediaStreamMsg_StreamGenerationFailed,
                     int /* request id */)
-
-// Report of a failure of a video device.
-IPC_MESSAGE_ROUTED2(MediaStreamHostMsg_VideoDeviceFailed,
-                    std::string /* label */,
-                    int /* index */)
-
-// Report of a failure of an audio device.
-IPC_MESSAGE_ROUTED2(MediaStreamHostMsg_AudioDeviceFailed,
-                    std::string /* label */,
-                    int /* index */)
 
 // The browser has enumerated devices successfully.
 IPC_MESSAGE_ROUTED3(MediaStreamMsg_DevicesEnumerated,
@@ -83,14 +75,6 @@ IPC_MESSAGE_CONTROL4(MediaStreamHostMsg_GenerateStream,
                      int /* render view id */,
                      int /* request id */,
                      media_stream::StreamOptions /* components */,
-                     GURL /* security origin */)
-
-// Request a new media stream for a specific device.
-IPC_MESSAGE_CONTROL5(MediaStreamHostMsg_GenerateStreamForDevice,
-                     int /* render view id */,
-                     int /* request id */,
-                     media_stream::StreamOptions /* components */,
-                     std::string /* device_id */,
                      GURL /* security origin */)
 
 // Request to cancel the request for a new media stream.

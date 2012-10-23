@@ -7,7 +7,6 @@
 #include "ash/desktop_background/desktop_background_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
-#include "ash/wm/workspace_controller.h"  // temporary until w2 is the default.
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
@@ -56,25 +55,6 @@
 #include "ui/views/widget/widget.h"
 
 namespace {
-
-// Whether sign in transitions are enabled.
-const bool kEnableBackgroundAnimation = false;
-const bool kEnableBrowserWindowsOpacityAnimation = true;
-const bool kEnableBrowserWindowsTransformAnimation = true;
-
-// Sign in transition timings.
-static const int kBackgroundTransitionPauseMs = 100;
-static const int kBackgroundTransitionDurationMs = 400;
-static const int kBrowserTransitionPauseMs = 750;
-static const int kBrowserTransitionDurationMs = 350;
-
-// Parameters for background transform transition.
-const float kBackgroundScale = 1.05f;
-const int kBackgroundTranslate = -50;
-
-// Parameters for browser transform transition.
-const float kBrowserScale = 1.05f;
-const int kBrowserTranslate = -50;
 
 // The delay of triggering initialization of the device policy subsystem
 // after the login screen is initialized. This makes sure that device policy
@@ -178,8 +158,10 @@ void BaseLoginDisplayHost::BeforeSessionStart() {
 
 void BaseLoginDisplayHost::OnSessionStart() {
   DVLOG(1) << "Session starting";
-  ash::Shell::GetInstance()->
-      desktop_background_controller()->MoveDesktopToUnlockedContainer();
+  if (chromeos::UserManager::Get()->IsCurrentUserNew()) {
+    ash::Shell::GetInstance()->
+        desktop_background_controller()->MoveDesktopToUnlockedContainer();
+  }
   if (wizard_controller_.get())
     wizard_controller_->OnSessionStart();
   // Display host is deleted once animation is completed
@@ -205,9 +187,6 @@ void BaseLoginDisplayHost::StartWizard(
   // is done before new controller creation.
   wizard_controller_.reset();
   wizard_controller_.reset(CreateWizardController());
-
-  ash::Shell::GetInstance()->
-      desktop_background_controller()->MoveDesktopToLockedContainer();
 
   oobe_progress_bar_visible_ = !WizardController::IsDeviceRegistered();
   SetOobeProgressBarVisible(oobe_progress_bar_visible_);
@@ -299,6 +278,12 @@ void BaseLoginDisplayHost::Observe(
     registrar_.Remove(this,
                       chrome::NOTIFICATION_BROWSER_OPENED,
                       content::NotificationService::AllSources());
+  } else if (type == chrome::NOTIFICATION_LOGIN_USER_CHANGED &&
+             chromeos::UserManager::Get()->IsCurrentUserNew()) {
+    // For new user, move desktop to locker container so that windows created
+    // during the user image picker step are below it.
+    ash::Shell::GetInstance()->
+        desktop_background_controller()->MoveDesktopToLockedContainer();
   }
 }
 
@@ -323,105 +308,9 @@ void BaseLoginDisplayHost::StartAnimation() {
     return;
   }
 
-  // If we've been explicitly told not to do login animations, we will skip most
-  // of them. In particular, we'll avoid animating the background or animating
-  // the browser's transform.
-  const CommandLine* command_line = CommandLine::ForCurrentProcess();
-  bool disable_animations = command_line->HasSwitch(
-      switches::kDisableLoginAnimations);
-
-  const bool do_background_animation =
-      !ash::internal::WorkspaceController::IsWorkspace2Enabled() &&
-      kEnableBackgroundAnimation && !disable_animations;
-
-  const bool do_browser_transform_animation =
-      kEnableBrowserWindowsTransformAnimation && !disable_animations;
-
-  const bool do_browser_opacity_animation =
-      kEnableBrowserWindowsOpacityAnimation;
-
-  // Background animation.
-  if (do_background_animation) {
-    ui::Layer* background_layer =
-        ash::Shell::GetContainer(
-            ash::Shell::GetPrimaryRootWindow(),
-            ash::internal::kShellWindowId_DesktopBackgroundContainer)->
-                layer();
-
-    ui::Transform background_transform;
-    background_transform.SetScale(kBackgroundScale, kBackgroundScale);
-    background_transform.SetTranslateX(kBackgroundTranslate);
-    background_transform.SetTranslateY(kBackgroundTranslate);
-    background_layer->SetTransform(background_transform);
-
-    // Pause
-    ui::LayerAnimationElement::AnimatableProperties background_pause_properties;
-    background_pause_properties.insert(ui::LayerAnimationElement::TRANSFORM);
-    background_layer->GetAnimator()->StartAnimation(
-        new ui::LayerAnimationSequence(
-            ui::LayerAnimationElement::CreatePauseElement(
-                background_pause_properties,
-                base::TimeDelta::FromMilliseconds(
-                    kBackgroundTransitionPauseMs))));
-
-    ui::ScopedLayerAnimationSettings settings(background_layer->GetAnimator());
-    settings.SetPreemptionStrategy(ui::LayerAnimator::ENQUEUE_NEW_ANIMATION);
-    settings.SetTransitionDuration(
-        base::TimeDelta::FromMilliseconds(kBackgroundTransitionDurationMs));
-    settings.SetTweenType(ui::Tween::EASE_OUT);
-    background_layer->SetTransform(ui::Transform());
-  }
-
-  // Browser windows layer opacity and transform animation.
-  if (ash::internal::WorkspaceController::IsWorkspace2Enabled()) {
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableLoginAnimations))
     ash::Shell::GetInstance()->DoInitialWorkspaceAnimation();
-  } else if (do_browser_transform_animation || do_browser_opacity_animation) {
-    ui::Layer* default_container_layer =
-        ash::Shell::GetContainer(
-            ash::Shell::GetPrimaryRootWindow(),
-            ash::internal::kShellWindowId_DefaultContainer)->layer();
-
-    ui::LayerAnimationElement::AnimatableProperties browser_pause_properties;
-
-    // Set the initial opacity and transform.
-    if (do_browser_transform_animation) {
-      ui::Transform browser_transform;
-      browser_transform.SetScale(kBrowserScale, kBrowserScale);
-      browser_transform.SetTranslateX(kBrowserTranslate);
-      browser_transform.SetTranslateY(kBrowserTranslate);
-      default_container_layer->SetTransform(browser_transform);
-      browser_pause_properties.insert(ui::LayerAnimationElement::TRANSFORM);
-    }
-
-    if (do_browser_opacity_animation) {
-      default_container_layer->SetOpacity(0);
-      browser_pause_properties.insert(ui::LayerAnimationElement::OPACITY);
-    }
-
-    // Pause.
-    default_container_layer->GetAnimator()->ScheduleAnimation(
-        new ui::LayerAnimationSequence(
-            ui::LayerAnimationElement::CreatePauseElement(
-                browser_pause_properties,
-                base::TimeDelta::FromMilliseconds(kBrowserTransitionPauseMs))));
-
-    ui::ScopedLayerAnimationSettings settings(
-        default_container_layer->GetAnimator());
-
-    settings.SetPreemptionStrategy(ui::LayerAnimator::ENQUEUE_NEW_ANIMATION);
-    settings.SetTransitionDuration(
-        base::TimeDelta::FromMilliseconds(kBrowserTransitionDurationMs));
-
-    if (do_browser_opacity_animation) {
-      // Should interpolate linearly.
-      default_container_layer->SetOpacity(1);
-    }
-
-    if (do_browser_transform_animation) {
-      settings.SetTweenType(ui::Tween::EASE_OUT);
-      default_container_layer->SetTransform(ui::Transform());
-    }
-  }
 }
 
 void BaseLoginDisplayHost::OnOwnershipStatusCheckDone(

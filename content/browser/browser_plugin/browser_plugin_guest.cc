@@ -14,6 +14,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/browser_plugin_messages.h"
 #include "content/common/view_messages.h"
+#include "content/port/browser/render_view_host_delegate_view.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
@@ -23,7 +24,9 @@
 #include "content/public/common/result_codes.h"
 #include "content/browser/browser_plugin/browser_plugin_host_factory.h"
 #include "net/base/net_errors.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCursorInfo.h"
 #include "ui/surface/transport_dib.h"
+#include "webkit/glue/webdropdata.h"
 #include "webkit/glue/resource_type.h"
 
 namespace content {
@@ -39,7 +42,7 @@ BrowserPluginGuest::BrowserPluginGuest(int instance_id,
                                        WebContentsImpl* web_contents,
                                        RenderViewHost* render_view_host)
     : WebContentsObserver(web_contents),
-      embedder_render_process_host_(NULL),
+      embedder_web_contents_(NULL),
       instance_id_(instance_id),
 #if defined(OS_WIN)
       damage_buffer_size_(0),
@@ -131,6 +134,11 @@ void BrowserPluginGuest::RendererUnresponsive(WebContents* source) {
   RecordAction(UserMetricsAction("BrowserPlugin.Guest.Hung"));
 }
 
+void BrowserPluginGuest::RunFileChooser(WebContents* web_contents,
+                                        const FileChooserParams& params) {
+  embedder_web_contents_->GetDelegate()->RunFileChooser(web_contents, params);
+}
+
 void BrowserPluginGuest::SetIsAcceptingTouchEvents(bool accept) {
   SendMessageToEmbedder(
       new BrowserPluginMsg_ShouldAcceptTouchEvents(instance_id(), accept));
@@ -142,6 +150,40 @@ void BrowserPluginGuest::SetVisibility(bool embedder_visible, bool visible) {
     web_contents()->WasShown();
   else
     web_contents()->WasHidden();
+}
+
+void BrowserPluginGuest::DragStatusUpdate(WebKit::WebDragStatus drag_status,
+                                          const WebDropData& drop_data,
+                                          WebKit::WebDragOperationsMask mask,
+                                          const gfx::Point& location) {
+  RenderViewHost* host = web_contents()->GetRenderViewHost();
+  switch (drag_status) {
+    case WebKit::WebDragStatusEnter:
+      host->DragTargetDragEnter(drop_data, location, location, mask, 0);
+      break;
+    case WebKit::WebDragStatusOver:
+      host->DragTargetDragOver(location, location, mask, 0);
+      break;
+    case WebKit::WebDragStatusLeave:
+      host->DragTargetDragLeave();
+      break;
+    case WebKit::WebDragStatusDrop:
+      host->DragTargetDrop(location, location, 0);
+      break;
+    case WebKit::WebDragStatusUnknown:
+      NOTREACHED();
+  }
+}
+
+void BrowserPluginGuest::UpdateDragCursor(WebKit::WebDragOperation operation) {
+  RenderViewHostImpl* embedder_render_view_host =
+      static_cast<RenderViewHostImpl*>(
+          embedder_web_contents_->GetRenderViewHost());
+  CHECK(embedder_render_view_host);
+  RenderViewHostDelegateView* view =
+      embedder_render_view_host->GetDelegate()->GetDelegateView();
+  if (view)
+    view->UpdateDragCursor(operation);
 }
 
 WebContents* BrowserPluginGuest::GetWebContents() {
@@ -338,6 +380,7 @@ void BrowserPluginGuest::SetCursor(const WebCursor& cursor) {
 
 void BrowserPluginGuest::DidStartProvisionalLoadForFrame(
     int64 frame_id,
+    int64 parent_frame_id,
     bool is_main_frame,
     const GURL& validated_url,
     bool is_error_page,
@@ -383,14 +426,21 @@ void BrowserPluginGuest::DidCommitProvisionalLoadForFrame(
     PageTransition transition_type,
     RenderViewHost* render_view_host) {
   // Inform its embedder of the updated URL.
-  if (is_main_frame) {
-    SendMessageToEmbedder(
-        new BrowserPluginMsg_DidNavigate(
-            instance_id(),
-            url,
-            render_view_host->GetProcess()->GetID()));
-    RecordAction(UserMetricsAction("BrowserPlugin.Guest.DidNavigate"));
-  }
+  BrowserPluginMsg_LoadCommit_Params params;
+  params.url = url;
+  params.is_top_level = is_main_frame;
+  params.process_id = render_view_host->GetProcess()->GetID();
+  params.current_entry_index =
+      web_contents()->GetController().GetCurrentEntryIndex();
+  params.entry_count =
+      web_contents()->GetController().GetEntryCount();
+  SendMessageToEmbedder(
+      new BrowserPluginMsg_LoadCommit(instance_id(), params));
+  RecordAction(UserMetricsAction("BrowserPlugin.Guest.DidNavigate"));
+}
+
+void BrowserPluginGuest::DidStopLoading(RenderViewHost* render_view_host) {
+  SendMessageToEmbedder(new BrowserPluginMsg_LoadStop(instance_id()));
 }
 
 void BrowserPluginGuest::RenderViewGone(base::TerminationStatus status) {
@@ -401,7 +451,10 @@ void BrowserPluginGuest::RenderViewGone(base::TerminationStatus status) {
                                                             cursor_);
     SendMessageToEmbedder(reply_message);
   }
-  SendMessageToEmbedder(new BrowserPluginMsg_GuestCrashed(instance_id()));
+  int process_id = web_contents()->GetRenderProcessHost()->GetID();
+  SendMessageToEmbedder(new BrowserPluginMsg_GuestGone(instance_id(),
+                                                       process_id,
+                                                       status));
   IDMap<RenderViewHost>::const_iterator iter(&pending_updates_);
   while (!iter.IsAtEnd()) {
     pending_updates_.Remove(iter.GetCurrentKey());
@@ -424,8 +477,7 @@ void BrowserPluginGuest::RenderViewGone(base::TerminationStatus status) {
 }
 
 void BrowserPluginGuest::SendMessageToEmbedder(IPC::Message* msg) {
-  DCHECK(embedder_render_process_host());
-  embedder_render_process_host()->Send(msg);
+  embedder_web_contents_->GetRenderProcessHost()->Send(msg);
 }
 
 }  // namespace content

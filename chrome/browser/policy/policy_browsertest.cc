@@ -19,7 +19,6 @@
 #include "base/test/test_file_util.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "base/version.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/autocomplete/autocomplete_controller.h"
 #include "chrome/browser/browser_process.h"
@@ -50,6 +49,7 @@
 #include "chrome/browser/ui/omnibox/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/search/search.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -170,12 +170,11 @@ void CheckURLIsBlocked(Browser* browser, const GURL& url) {
   EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       contents->GetRenderViewHost(),
       std::wstring(),
-      ASCIIToWide(
-          "var hasError = false;"
-          "var error = document.getElementById('errorDetails');"
-          "if (error)"
-          "  hasError = error.textContent.indexOf('Error 138') == 0;"
-          "domAutomationController.send(hasError);"),
+      L"var hasError = false;"
+      L"var error = document.getElementById('errorDetails');"
+      L"if (error)"
+      L"  hasError = error.textContent.indexOf('Error 138') == 0;"
+      L"domAutomationController.send(hasError);",
       &result));
   EXPECT_TRUE(result);
 }
@@ -234,9 +233,9 @@ bool IsWebGLEnabled(content::WebContents* contents) {
 
 bool IsJavascriptEnabled(content::WebContents* contents) {
   content::RenderViewHost* rvh = contents->GetRenderViewHost();
-  base::Value* value = rvh->ExecuteJavascriptAndGetValue(
+  scoped_ptr<base::Value> value(rvh->ExecuteJavascriptAndGetValue(
       string16(),
-      ASCIIToUTF16("123"));
+      ASCIIToUTF16("123")));
   int result = 0;
   if (!value->GetAsInteger(&result))
     EXPECT_EQ(base::Value::TYPE_NULL, value->GetType());
@@ -587,6 +586,9 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DefaultSearchProvider) {
   // policy. Also checks that default search can be completely disabled.
   const string16 kKeyword(ASCIIToUTF16("testsearch"));
   const std::string kSearchURL("http://search.example/search?q={searchTerms}");
+  const std::string kAlternateURL0(
+      "http://search.example/search#q={searchTerms}");
+  const std::string kAlternateURL1("http://search.example/#q={searchTerms}");
 
   TemplateURLService* service = TemplateURLServiceFactory::GetForProfile(
       browser()->profile());
@@ -595,6 +597,10 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DefaultSearchProvider) {
   ASSERT_TRUE(default_search);
   EXPECT_NE(kKeyword, default_search->keyword());
   EXPECT_NE(kSearchURL, default_search->url());
+  EXPECT_FALSE(
+    default_search->alternate_urls().size() == 2 &&
+    default_search->alternate_urls()[0] == kAlternateURL0 &&
+    default_search->alternate_urls()[1] == kAlternateURL1);
 
   // Override the default search provider using policies.
   PolicyMap policies;
@@ -604,11 +610,19 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DefaultSearchProvider) {
                POLICY_SCOPE_USER, base::Value::CreateStringValue(kKeyword));
   policies.Set(key::kDefaultSearchProviderSearchURL, POLICY_LEVEL_MANDATORY,
                POLICY_SCOPE_USER, base::Value::CreateStringValue(kSearchURL));
+  base::ListValue* alternate_urls = new base::ListValue();
+  alternate_urls->AppendString(kAlternateURL0);
+  alternate_urls->AppendString(kAlternateURL1);
+  policies.Set(key::kDefaultSearchProviderAlternateURLs, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, alternate_urls);
   provider_.UpdateChromePolicy(policies);
   default_search = service->GetDefaultSearchProvider();
   ASSERT_TRUE(default_search);
   EXPECT_EQ(kKeyword, default_search->keyword());
   EXPECT_EQ(kSearchURL, default_search->url());
+  EXPECT_EQ(2U, default_search->alternate_urls().size());
+  EXPECT_EQ(kAlternateURL0, default_search->alternate_urls()[0]);
+  EXPECT_EQ(kAlternateURL1, default_search->alternate_urls()[1]);
 
   // Verify that searching from the omnibox uses kSearchURL.
   chrome::FocusLocationBar(browser());
@@ -637,13 +651,18 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, ReplaceSearchTerms) {
   CommandLine::ForCurrentProcess()->AppendSwitch(
       switches::kEnableInstantExtendedAPI);
 
+  // Adding the kEnableInstantExtendedAPI is not enough since
+  // IsInstantExtendedAPIEnabled does not return true on CHANNEL_DEV.
+  if (!chrome::search::IsInstantExtendedAPIEnabled(browser()->profile()))
+    return;
+
   // Verifies that a default search is made using the provider configured via
   // policy. Also checks that default search can be completely disabled.
   const string16 kKeyword(ASCIIToUTF16("testsearch"));
-  const std::string kSearchURL("http://search.example/search?q={searchTerms}");
+  const std::string kSearchURL("https://search.example/search?q={searchTerms}");
   const std::string kAlternateURL0(
-      "http://search.example/search#q={searchTerms}");
-  const std::string kAlternateURL1("http://search.example/#q={searchTerms}");
+      "https://search.example/search#q={searchTerms}");
+  const std::string kAlternateURL1("https://search.example/#q={searchTerms}");
 
   TemplateURLService* service = TemplateURLServiceFactory::GetForProfile(
       browser()->profile());
@@ -652,8 +671,10 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, ReplaceSearchTerms) {
   ASSERT_TRUE(default_search);
   EXPECT_NE(kKeyword, default_search->keyword());
   EXPECT_NE(kSearchURL, default_search->url());
-  EXPECT_NE(kAlternateURL0, default_search->alternate_urls()[0]);
-  EXPECT_NE(kAlternateURL1, default_search->alternate_urls()[1]);
+  EXPECT_FALSE(
+    default_search->alternate_urls().size() == 2 &&
+    default_search->alternate_urls()[0] == kAlternateURL0 &&
+    default_search->alternate_urls()[1] == kAlternateURL1);
 
   // Override the default search provider using policies.
   PolicyMap policies;
@@ -673,6 +694,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, ReplaceSearchTerms) {
   ASSERT_TRUE(default_search);
   EXPECT_EQ(kKeyword, default_search->keyword());
   EXPECT_EQ(kSearchURL, default_search->url());
+  EXPECT_EQ(2U, default_search->alternate_urls().size());
   EXPECT_EQ(kAlternateURL0, default_search->alternate_urls()[0]);
   EXPECT_EQ(kAlternateURL1, default_search->alternate_urls()[1]);
 
@@ -681,7 +703,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, ReplaceSearchTerms) {
   chrome::FocusLocationBar(browser());
   LocationBar* location_bar = browser()->window()->GetLocationBar();
   ui_test_utils::SendToOmniboxAndSubmit(location_bar,
-      "http://search.example/#q=foobar");
+      "https://search.example/#q=foobar");
   OmniboxEditModel* model = location_bar->GetLocationEntry()->model();
   EXPECT_TRUE(model->CurrentMatch().destination_url.is_valid());
   EXPECT_EQ(ASCIIToUTF16("foobar"), model->CurrentMatch().contents);
@@ -690,7 +712,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, ReplaceSearchTerms) {
   // second URL pattern.
   chrome::FocusLocationBar(browser());
   ui_test_utils::SendToOmniboxAndSubmit(location_bar,
-      "http://search.example/search#q=banana");
+      "https://search.example/search#q=banana");
   model = location_bar->GetLocationEntry()->model();
   EXPECT_TRUE(model->CurrentMatch().destination_url.is_valid());
   EXPECT_EQ(ASCIIToUTF16("banana"), model->CurrentMatch().contents);
@@ -699,7 +721,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, ReplaceSearchTerms) {
   // standard search URL pattern.
   chrome::FocusLocationBar(browser());
   ui_test_utils::SendToOmniboxAndSubmit(location_bar,
-      "http://search.example/search?q=tractor+parts");
+      "https://search.example/search?q=tractor+parts");
   model = location_bar->GetLocationEntry()->model();
   EXPECT_TRUE(model->CurrentMatch().destination_url.is_valid());
   EXPECT_EQ(ASCIIToUTF16("tractor parts"), model->CurrentMatch().contents);
@@ -707,7 +729,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, ReplaceSearchTerms) {
   // Verify that searching from the omnibox prioritizes hash over query.
   chrome::FocusLocationBar(browser());
   ui_test_utils::SendToOmniboxAndSubmit(location_bar,
-      "http://search.example/search?q=tractor+parts#q=foobar");
+      "https://search.example/search?q=tractor+parts#q=foobar");
   model = location_bar->GetLocationEntry()->model();
   EXPECT_TRUE(model->CurrentMatch().destination_url.is_valid());
   EXPECT_EQ(ASCIIToUTF16("foobar"), model->CurrentMatch().contents);
@@ -785,16 +807,6 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPlugins) {
   // The user shouldn't be able to enable it.
   EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
   EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
-
-  // Now remove the policy.
-  policies.Erase(key::kDisabledPlugins);
-  provider_.UpdateChromePolicy(policies);
-  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
-  // The user should be able to disable/enable it again.
-  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, false));
-  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
-  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, true));
-  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
 }
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPluginsExceptions) {
@@ -836,14 +848,6 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPluginsExceptions) {
   EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
   EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, true));
   EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
-
-  // Now remove the exception for flash.
-  policies.Erase(key::kDisabledPluginsExceptions);
-  provider_.UpdateChromePolicy(policies);
-  // It should be disabled and the user shouldn't be able to enable it again.
-  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
-  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
-  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
 }
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, EnabledPlugins) {
@@ -875,82 +879,6 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, EnabledPlugins) {
                POLICY_SCOPE_USER, plugin_list.DeepCopy());
   provider_.UpdateChromePolicy(policies);
   EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
-
-  // Now remove the plugin from the whitelist.
-  policies.Erase(key::kEnabledPlugins);
-  provider_.UpdateChromePolicy(policies);
-  // The blacklisting should take effect.
-  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
-  // The user can't enable the plugin.
-  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
-
-  // Remove it from the blacklist.
-  policies.Erase(key::kDisabledPlugins);
-  provider_.UpdateChromePolicy(policies);
-
-  // It should revert to the user's preferences automatically.
-  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
-  // The user can enable it.
-  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, true));
-  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
-}
-
-IN_PROC_BROWSER_TEST_F(PolicyTest, DisabledPluginsByVersion) {
-  std::vector<webkit::WebPluginInfo> plugins;
-  GetPluginList(&plugins);
-  const webkit::WebPluginInfo* flash = GetFlashPlugin(plugins);
-  if (!flash)
-    return;
-  PluginPrefs* plugin_prefs = PluginPrefs::GetForProfile(browser()->profile());
-  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
-
-  Version flash_version;
-  webkit::npapi::CreateVersionFromString(flash->version, &flash_version);
-  base::ListValue plugin_version_list;
-  plugin_version_list.Append(
-      base::Value::CreateStringValue("*Flash*:" + flash_version.GetString()));
-  PolicyMap policies;
-  policies.Set(key::kDisabledPluginsByVersion, POLICY_LEVEL_MANDATORY,
-               POLICY_SCOPE_USER, plugin_version_list.DeepCopy());
-  provider_.UpdateChromePolicy(policies);
-  // The version blacklisting should take effect.
-  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
-  // The user can't enable the plugin.
-  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
-
-  // Set an EnablePlugin policy for flash.
-  base::ListValue enabled_plugins;
-  enabled_plugins.Append(base::Value::CreateStringValue("*Flash*"));
-  policies.Set(key::kEnabledPlugins, POLICY_LEVEL_MANDATORY,
-               POLICY_SCOPE_USER, enabled_plugins.DeepCopy());
-  provider_.UpdateChromePolicy(policies);
-  // Disabling by version is still holding, the plugin is disabled and
-  // the user can't enable it.
-  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
-  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
-
-  // Set a DisabledPluginsException policy.
-  base::ListValue disabled_exception_plugins;
-  disabled_exception_plugins.Append(base::Value::CreateStringValue("*Flash*"));
-  policies.Set(key::kDisabledPluginsExceptions, POLICY_LEVEL_MANDATORY,
-               POLICY_SCOPE_USER, disabled_exception_plugins.DeepCopy());
-  provider_.UpdateChromePolicy(policies);
-  // Disabling by version is still holding, the plugin is disabled and
-  // the user can't enable it.
-  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
-  EXPECT_FALSE(SetPluginEnabled(plugin_prefs, flash, true));
-
-  // Now, remove all policies.
-  policies.Erase(key::kDisabledPluginsByVersion);
-  policies.Erase(key::kEnabledPlugins);
-  policies.Erase(key::kDisabledPluginsExceptions);
-  provider_.UpdateChromePolicy(policies);
-
-  // It should revert to the user's preferences automatically.
-  EXPECT_TRUE(plugin_prefs->IsPluginEnabled(*flash));
-  // The user can disable it.
-  EXPECT_TRUE(SetPluginEnabled(plugin_prefs, flash, false));
-  EXPECT_FALSE(plugin_prefs->IsPluginEnabled(*flash));
 }
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, AlwaysAuthorizePlugins) {
@@ -973,9 +901,8 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, AlwaysAuthorizePlugins) {
 
   content::WebContents* contents = chrome::GetActiveWebContents(browser());
   ASSERT_TRUE(contents);
-  TabContents* tab_contents = TabContents::FromWebContents(contents);
-  ASSERT_TRUE(tab_contents);
-  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(contents);
   ASSERT_TRUE(infobar_helper);
   EXPECT_EQ(0u, infobar_helper->GetInfoBarCount());
 
@@ -984,7 +911,8 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, AlwaysAuthorizePlugins) {
   ui_test_utils::NavigateToURL(browser(), url);
   // This should have triggered the dangerous plugin infobar.
   ASSERT_EQ(1u, infobar_helper->GetInfoBarCount());
-  InfoBarDelegate* infobar_delegate = infobar_helper->GetInfoBarDelegateAt(0);
+  InfoBarDelegate* infobar_delegate =
+      infobar_helper->GetInfoBarDelegateAt(0);
   EXPECT_TRUE(infobar_delegate->AsConfirmInfoBarDelegate());
   // And the plugin isn't running.
   EXPECT_EQ(0, CountPlugins());
@@ -1007,7 +935,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DeveloperToolsDisabled) {
   // Open devtools.
   EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_DEV_TOOLS));
   content::WebContents* contents = chrome::GetActiveWebContents(browser());
-  EXPECT_TRUE(DevToolsWindow::GetDevToolsContents(contents));
+  EXPECT_TRUE(DevToolsWindow::GetDockedInstanceForInspectedTab(contents));
 
   // Disable devtools via policy.
   PolicyMap policies;
@@ -1015,10 +943,10 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DeveloperToolsDisabled) {
                POLICY_SCOPE_USER, base::Value::CreateBooleanValue(true));
   provider_.UpdateChromePolicy(policies);
   // The existing devtools window should have closed.
-  EXPECT_FALSE(DevToolsWindow::GetDevToolsContents(contents));
+  EXPECT_FALSE(DevToolsWindow::GetDockedInstanceForInspectedTab(contents));
   // And it's not possible to open it again.
   EXPECT_FALSE(chrome::ExecuteCommand(browser(), IDC_DEV_TOOLS));
-  EXPECT_FALSE(DevToolsWindow::GetDevToolsContents(contents));
+  EXPECT_FALSE(DevToolsWindow::GetDockedInstanceForInspectedTab(contents));
 }
 
 // This policy isn't available on Chrome OS.
@@ -1270,9 +1198,8 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, TranslateEnabled) {
   // Get the |infobar_helper|, and verify that there are no infobars on startup.
   content::WebContents* contents = chrome::GetActiveWebContents(browser());
   ASSERT_TRUE(contents);
-  TabContents* tab_contents = TabContents::FromWebContents(contents);
-  ASSERT_TRUE(tab_contents);
-  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(contents);
   ASSERT_TRUE(infobar_helper);
   EXPECT_EQ(0u, infobar_helper->GetInfoBarCount());
 
@@ -1295,7 +1222,8 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, TranslateEnabled) {
   language_observer1.Wait();
   // Verify that the translate infobar showed up.
   ASSERT_EQ(1u, infobar_helper->GetInfoBarCount());
-  InfoBarDelegate* infobar_delegate = infobar_helper->GetInfoBarDelegateAt(0);
+  InfoBarDelegate* infobar_delegate =
+      infobar_helper->GetInfoBarDelegateAt(0);
   TranslateInfoBarDelegate* delegate =
       infobar_delegate->AsTranslateInfoBarDelegate();
   ASSERT_TRUE(delegate);
@@ -1303,7 +1231,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, TranslateEnabled) {
   EXPECT_EQ("fr", delegate->original_language_code());
 
   // Now force disable translate.
-  ui_test_utils::CloseAllInfoBars(tab_contents);
+  infobar_helper->RemoveInfoBar(infobar_delegate);
   EXPECT_EQ(0u, infobar_helper->GetInfoBarCount());
   policies.Set(key::kTranslateEnabled, POLICY_LEVEL_MANDATORY,
                POLICY_SCOPE_USER, base::Value::CreateBooleanValue(false));
@@ -1369,7 +1297,13 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, URLBlacklist) {
   CheckCanOpenURL(browser(), kBBB_PATH);
 }
 
-IN_PROC_BROWSER_TEST_F(PolicyTest, DisableScreenshotsFeedback) {
+// Flaky on Linux. http://crbug.com/155459
+#if defined(OS_LINUX)
+#define MAYBE_DisableScreenshotsFeedback DISABLED_DisableScreenshotsFeedback
+#else
+#define MAYBE_DisableScreenshotsFeedback DisableScreenshotsFeedback
+#endif
+IN_PROC_BROWSER_TEST_F(PolicyTest, MAYBE_DisableScreenshotsFeedback) {
   // Make sure current screenshot can be taken and displayed on feedback page.
   TestScreenshotFeedback(true);
 
@@ -1582,5 +1516,67 @@ INSTANTIATE_TEST_CASE_P(
                     &RestoreOnStartupPolicyTest::ListOfURLs,
                     &RestoreOnStartupPolicyTest::NTP,
                     &RestoreOnStartupPolicyTest::Last));
+
+// Similar to PolicyTest but sets a couple of policies before the browser is
+// started.
+class PolicyStatisticsCollectorTest : public PolicyTest {
+ public:
+  PolicyStatisticsCollectorTest() {}
+  virtual ~PolicyStatisticsCollectorTest() {}
+
+  virtual void SetUpInProcessBrowserTestFixture() OVERRIDE {
+    PolicyTest::SetUpInProcessBrowserTestFixture();
+    PolicyMap policies;
+    policies.Set(
+        key::kShowHomeButton, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateBooleanValue(true));
+    policies.Set(
+        key::kBookmarkBarEnabled, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateBooleanValue(false));
+    policies.Set(
+        key::kHomepageLocation, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+        base::Value::CreateStringValue("http://chromium.org"));
+    provider_.UpdateChromePolicy(policies);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(PolicyStatisticsCollectorTest, Startup) {
+  // Verifies that policy usage histograms are collected at startup.
+
+  // BrowserPolicyConnector::Init() has already been called. Make sure the
+  // CompleteInitialization() task has executed as well.
+  content::RunAllPendingInMessageLoop();
+
+  GURL kAboutHistograms = GURL(std::string(chrome::kAboutScheme) +
+                               std::string(content::kStandardSchemeSeparator) +
+                               std::string(chrome::kChromeUIHistogramHost));
+  ui_test_utils::NavigateToURL(browser(), kAboutHistograms);
+  content::WebContents* contents = chrome::GetActiveWebContents(browser());
+  std::string text;
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
+      contents->GetRenderViewHost(),
+      std::wstring(),
+      L"var nodes = document.querySelectorAll('body > pre');"
+      L"var result = '';"
+      L"for (var i = 0; i < nodes.length; ++i) {"
+      L"  var text = nodes[i].innerHTML;"
+      L"  if (text.indexOf('Histogram: Enterprise.Policies') === 0) {"
+      L"    result = text;"
+      L"    break;"
+      L"  }"
+      L"}"
+      L"domAutomationController.send(result);",
+      &text));
+  ASSERT_FALSE(text.empty());
+  const std::string kExpectedLabel =
+      "Histogram: Enterprise.Policies recorded 3 samples";
+  EXPECT_EQ(kExpectedLabel, text.substr(0, kExpectedLabel.size()));
+  // HomepageLocation has policy ID 1.
+  EXPECT_NE(std::string::npos, text.find("<br>1   ---"));
+  // ShowHomeButton has policy ID 35.
+  EXPECT_NE(std::string::npos, text.find("<br>35  ---"));
+  // BookmarkBarEnabled has policy ID 82.
+  EXPECT_NE(std::string::npos, text.find("<br>82  ---"));
+}
 
 }  // namespace policy

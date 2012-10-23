@@ -109,6 +109,10 @@ def AddInstrumentationOptions(option_parser):
                            help='Serial number of device we should use.')
   option_parser.add_option('--python_test_root',
                            help='Root of the python-driven tests.')
+  option_parser.add_option('--flakiness-dashboard-server',
+                           dest='flakiness_dashboard_server',
+                           help=('Address of the server that is hosting the '
+                                 'Chrome for Android flakiness dashboard.'))
 
 def ValidateInstrumentationOptions(option_parser, options, args):
   """Validate options/arguments and populate options with defaults."""
@@ -126,15 +130,14 @@ def ValidateInstrumentationOptions(option_parser, options, args):
   elif options.python_only:
     options.run_java_tests = False
 
-  # In case of SDK Build, the jars and apks have a -debug suffix.
   options.test_apk_path = os.path.join(_SDK_OUT_DIR,
                                        options.build_type,
                                        constants.SDK_BUILD_APKS_DIR,
-                                       '%s-debug.apk' % options.test_apk)
+                                       '%s.apk' % options.test_apk)
   options.test_apk_jar_path = os.path.join(_SDK_OUT_DIR,
                                            options.build_type,
                                            constants.SDK_BUILD_TEST_JAVALIB_DIR,
-                                           '%s-debug.jar' % options.test_apk)
+                                           '%s.jar' % options.test_apk)
   if options.annotation_str:
     options.annotation = options.annotation_str.split()
   elif options.test_filter:

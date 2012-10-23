@@ -28,6 +28,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/api/commands/command_service.h"
 #include "chrome/browser/extensions/api/commands/command_service_factory.h"
+#include "chrome/browser/extensions/extension_action.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/location_bar_controller.h"
@@ -72,10 +73,9 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/extensions/extension_resource.h"
-#include "chrome/common/extensions/extension_switch_utils.h"
+#include "chrome/common/extensions/feature_switch.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
@@ -163,7 +163,7 @@ const GdkColor kTopColorGray = GDK_COLOR_RGB(0xe5, 0xe5, 0xe5);
 const GdkColor kBottomColorGray = GDK_COLOR_RGB(0xd0, 0xd0, 0xd0);
 
 inline int InnerPadding() {
-  return extensions::switch_utils::AreScriptBadgesEnabled() ?
+  return extensions::FeatureSwitch::script_badges()->IsEnabled() ?
       kScriptBadgeInnerPadding : kInnerPadding;
 }
 
@@ -306,7 +306,7 @@ void ContentSettingImageViewGtk::OnClick(
       sender, this,
       ContentSettingBubbleModel::CreateContentSettingBubbleModel(
           parent_->browser()->content_setting_bubble_model_delegate(),
-          tab_contents,
+          tab_contents->web_contents(),
           profile,
           content_setting_image_model_->get_content_settings_type()),
       profile, tab_contents->web_contents());
@@ -548,7 +548,7 @@ void LocationBarViewGtk::Init(bool popup_window_mode) {
   // doesn't work, someone is probably calling show_all on our parent box.
   gtk_box_pack_end(GTK_BOX(entry_box_), tab_to_search_hint_, FALSE, FALSE, 0);
 
-  if (extensions::switch_utils::IsActionBoxEnabled()) {
+  if (extensions::FeatureSwitch::action_box()->IsEnabled()) {
     // TODO(mpcomplete): should we hide this if ShouldOnlyShowLocation()==true?
     action_box_button_.reset(new ActionBoxButtonGtk(browser_));
 
@@ -860,9 +860,9 @@ void LocationBarViewGtk::OnInputInProgress(bool in_progress) {
   // This is identical to the Windows code, except that we don't proxy the call
   // back through the Toolbar, and just access the model here.
   // The edit should make sure we're only notified when something changes.
-  DCHECK(toolbar_model_->input_in_progress() != in_progress);
+  DCHECK(toolbar_model_->GetInputInProgress() != in_progress);
 
-  toolbar_model_->set_input_in_progress(in_progress);
+  toolbar_model_->SetInputInProgress(in_progress);
   Update(NULL);
 }
 
@@ -910,9 +910,9 @@ void LocationBarViewGtk::ShowFirstRunBubble() {
                  weak_ptr_factory_.GetWeakPtr()));
 }
 
-void LocationBarViewGtk::SetSuggestedText(const string16& text,
-                                          InstantCompleteBehavior behavior) {
-  location_entry_->model()->SetSuggestedText(text, behavior);
+void LocationBarViewGtk::SetInstantSuggestion(
+    const InstantSuggestion& suggestion) {
+  location_entry_->model()->SetInstantSuggestion(suggestion);
 }
 
 string16 LocationBarViewGtk::GetInputString() const {
@@ -948,7 +948,7 @@ void LocationBarViewGtk::UpdateContentSettingsIcons() {
            content_setting_views_.begin());
        i != content_setting_views_.end(); ++i) {
     (*i)->Update(
-        toolbar_model_->input_in_progress() ? NULL : GetTabContents());
+        toolbar_model_->GetInputInProgress() ? NULL : GetTabContents());
     any_visible = (*i)->IsVisible() || any_visible;
   }
 
@@ -991,7 +991,7 @@ void LocationBarViewGtk::UpdatePageActions() {
 
     for (size_t i = 0; i < page_action_views_.size(); i++) {
       page_action_views_[i]->UpdateVisibility(
-          toolbar_model_->input_in_progress() ? NULL : contents, url);
+          toolbar_model_->GetInputInProgress() ? NULL : contents, url);
     }
     gtk_widget_queue_draw(hbox_.get());
   }
@@ -1536,7 +1536,7 @@ gboolean LocationBarViewGtk::OnStarButtonPress(GtkWidget* widget,
 }
 
 void LocationBarViewGtk::ShowZoomBubble() {
-  if (!zoom_.get() || toolbar_model_->input_in_progress())
+  if (!zoom_.get() || toolbar_model_->GetInputInProgress())
     return;
 
   ZoomBubbleGtk::Show(zoom_.get(), GetTabContents(), true);
@@ -1584,7 +1584,7 @@ void LocationBarViewGtk::UpdateZoomIcon() {
   ZoomController* zoom_controller =
       ZoomController::FromWebContents(tab_contents->web_contents());
   if (!zoom_controller || zoom_controller->IsAtDefaultZoom() ||
-      toolbar_model_->input_in_progress()) {
+      toolbar_model_->GetInputInProgress()) {
     gtk_widget_hide(zoom_.get());
     ZoomBubbleGtk::Close();
     return;
@@ -1607,10 +1607,10 @@ void LocationBarViewGtk::UpdateStarIcon() {
   // Indicate the star icon is not correctly sized. It will be marked as sized
   // when the next size-allocate signal is received by the star widget.
   star_sized_ = false;
-  bool star_enabled = !toolbar_model_->input_in_progress() &&
+  bool star_enabled = !toolbar_model_->GetInputInProgress() &&
                       edit_bookmarks_enabled_.GetValue();
   command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, star_enabled);
-  if (extensions::switch_utils::IsActionBoxEnabled() && !starred_) {
+  if (extensions::FeatureSwitch::action_box()->IsEnabled() && !starred_) {
     star_enabled = false;
   }
   if (star_enabled) {
@@ -1627,7 +1627,8 @@ void LocationBarViewGtk::UpdateChromeToMobileState() {
   ChromeToMobileService* service =
       ChromeToMobileServiceFactory::GetForProfile(browser()->profile());
   command_updater_->UpdateCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE,
-      !toolbar_model_->input_in_progress() && service && service->HasMobiles());
+      !toolbar_model_->GetInputInProgress() &&
+      service && service->HasMobiles());
 }
 
 bool LocationBarViewGtk::ShouldOnlyShowLocation() {

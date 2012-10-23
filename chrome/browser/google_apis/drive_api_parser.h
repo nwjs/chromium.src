@@ -30,7 +30,7 @@ class RepeatedMessageConverter;
 }  // namespace base
 
 // TODO(kochi): Rename to namespace drive. http://crbug.com/136371
-namespace gdata {
+namespace google_apis {
 
 // About resource represents the account information about the current user.
 // https://developers.google.com/drive/v2/reference/about
@@ -48,7 +48,7 @@ class AboutResource {
 
   // Returns the largest change ID number.
   int64 largest_change_id() const { return largest_change_id_; }
-  // Returns total number of quta bytes.
+  // Returns total number of quota bytes.
   int64 quota_bytes_total() const { return quota_bytes_total_; }
   // Returns the number of quota bytes used.
   int64 quota_bytes_used() const { return quota_bytes_used_; }
@@ -593,6 +593,6 @@ class ChangeList {
   DISALLOW_COPY_AND_ASSIGN(ChangeList);
 };
 
-}  // namespace gdata
+}  // namespace google_apis
 
 #endif  // CHROME_BROWSER_GOOGLE_APIS_DRIVE_API_PARSER_H_

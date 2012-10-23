@@ -55,7 +55,7 @@ class PrerenderTabHelper::PixelStats {
       return;
     }
 
-    skia::PlatformCanvas* temp_canvas = new skia::PlatformCanvas;
+    skia::PlatformBitmap* temp_bitmap = new skia::PlatformBitmap;
     web_contents->GetRenderViewHost()->CopyFromBackingStore(
         gfx::Rect(),
         gfx::Size(),
@@ -63,19 +63,18 @@ class PrerenderTabHelper::PixelStats {
                    weak_factory_.GetWeakPtr(),
                    bitmap_type,
                    web_contents,
-                   base::Owned(temp_canvas)),
-        temp_canvas);
+                   base::Owned(temp_bitmap)),
+        temp_bitmap);
   }
 
  private:
   void HandleBitmapResult(BitmapType bitmap_type,
                           WebContents* web_contents,
-                          skia::PlatformCanvas* temp_canvas,
+                          skia::PlatformBitmap* temp_bitmap,
                           bool succeeded) {
     scoped_ptr<SkBitmap> bitmap;
     if (succeeded) {
-      const SkBitmap& canvas_bitmap =
-          skia::GetTopDevice(*temp_canvas)->accessBitmap(false);
+        const SkBitmap& canvas_bitmap = temp_bitmap->GetBitmap();
       bitmap.reset(new SkBitmap());
       canvas_bitmap.copyTo(bitmap.get(), SkBitmap::kARGB_8888_Config);
     }
@@ -90,8 +89,8 @@ class PrerenderTabHelper::PixelStats {
       PrerenderManager* prerender_manager =
           tab_helper_->MaybeGetPrerenderManager();
       if (prerender_manager) {
-        prerender_manager->histograms()->RecordFractionPixelsFinalAtSwapin(
-            CompareBitmaps(bitmap_.get(), bitmap.get()));
+        prerender_manager->RecordFractionPixelsFinalAtSwapin(
+            web_contents, CompareBitmaps(bitmap_.get(), bitmap.get()));
       }
       bitmap_.reset();
       bitmap_web_contents_ = NULL;
@@ -145,7 +144,7 @@ void PrerenderTabHelper::ProvisionalChangeToMainFrameUrl(
   PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
   if (!prerender_manager)
     return;
-  if (prerender_manager->IsWebContentsPrerendering(web_contents()))
+  if (prerender_manager->IsWebContentsPrerendering(web_contents(), NULL))
     return;
   prerender_manager->MarkWebContentsAsNotPrerendered(web_contents());
 }
@@ -162,7 +161,7 @@ void PrerenderTabHelper::DidCommitProvisionalLoadForFrame(
   PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
   if (!prerender_manager)
     return;
-  if (prerender_manager->IsWebContentsPrerendering(web_contents()))
+  if (prerender_manager->IsWebContentsPrerendering(web_contents(), NULL))
     return;
   prerender_manager->RecordNavigation(validated_url);
 }
@@ -201,6 +200,7 @@ void PrerenderTabHelper::DidStopLoading(
 
 void PrerenderTabHelper::DidStartProvisionalLoadForFrame(
       int64 frame_id,
+      int64 parent_frame_id,
       bool is_main_frame,
       const GURL& validated_url,
       bool is_error_page,
@@ -221,14 +221,14 @@ bool PrerenderTabHelper::IsPrerendering() {
   PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
   if (!prerender_manager)
     return false;
-  return prerender_manager->IsWebContentsPrerendering(web_contents());
+  return prerender_manager->IsWebContentsPrerendering(web_contents(), NULL);
 }
 
 bool PrerenderTabHelper::IsPrerendered() {
   PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
   if (!prerender_manager)
     return false;
-  return prerender_manager->IsWebContentsPrerendered(web_contents());
+  return prerender_manager->IsWebContentsPrerendered(web_contents(), NULL);
 }
 
 void PrerenderTabHelper::PrerenderSwappedIn() {
@@ -240,7 +240,7 @@ void PrerenderTabHelper::PrerenderSwappedIn() {
                                                   web_contents(), url_);
     PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
     if (prerender_manager)
-      prerender_manager->histograms()->RecordFractionPixelsFinalAtSwapin(1.0);
+      prerender_manager->RecordFractionPixelsFinalAtSwapin(web_contents(), 1.0);
   } else {
     // If we have not finished loading yet, record the actual load start, and
     // rebase the start time to now.

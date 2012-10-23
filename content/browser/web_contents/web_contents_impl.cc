@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "base/command_line.h"
-#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/stats_counters.h"
 #include "base/string16.h"
@@ -16,6 +15,7 @@
 #include "base/sys_info.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
+#include "cc/switches.h"
 #include "content/browser/browser_plugin/browser_plugin_embedder.h"
 #include "content/browser/browser_plugin/browser_plugin_guest.h"
 #include "content/browser/browser_plugin/old/old_browser_plugin_host.h"
@@ -268,6 +268,8 @@ void MakeNavigateParams(const NavigationEntryImpl& entry,
   } else {
     params->url = entry.GetURL();
   }
+
+  params->can_load_local_resources = entry.GetCanLoadLocalResources();
 
   if (delegate)
     delegate->AddNavigationHeaders(params->url, &params->extra_headers);
@@ -666,7 +668,8 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
     prefs.max_untiled_layer_height =
         GetSwitchValueAsInt(command_line, switches::kMaxUntiledLayerHeight, 1);
 
-  if (gfx::Screen::IsDIPEnabled()) {
+  // TODO(scottmg): Probably Native is wrong: http://crbug.com/133312
+  if (gfx::Screen::GetNativeScreen()->IsDIPEnabled()) {
     // Only apply when using DIP coordinate system as this setting interferes
     // with fixed layout mode.
     prefs.apply_default_device_scale_factor_in_compositor = true;
@@ -681,14 +684,16 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
   prefs.number_of_cpu_cores = base::SysInfo::NumberOfProcessors();
 
   prefs.apply_page_scale_factor_in_compositor =
-      command_line.HasSwitch(switches::kEnablePinchInCompositor);
+      command_line.HasSwitch(cc::switches::kEnablePinchInCompositor);
 
   content::GetContentClient()->browser()->OverrideWebkitPrefs(rvh, url, &prefs);
 
   // Disable compositing in guests until we have compositing path implemented
   // for guests.
-  if (rvh->GetProcess()->IsGuest())
+  if (rvh->GetProcess()->IsGuest()) {
     prefs.force_compositing_mode = false;
+    prefs.accelerated_compositing_enabled = false;
+  }
 
   return prefs;
 }
@@ -2005,6 +2010,7 @@ void WebContentsImpl::OnWebIntentDispatch(
 void WebContentsImpl::DidStartProvisionalLoadForFrame(
     content::RenderViewHost* render_view_host,
     int64 frame_id,
+    int64 parent_frame_id,
     bool is_main_frame,
     const GURL& opener_url,
     const GURL& url) {
@@ -2024,8 +2030,9 @@ void WebContentsImpl::DidStartProvisionalLoadForFrame(
 
   // Notify observers about the start of the provisional load.
   FOR_EACH_OBSERVER(WebContentsObserver, observers_,
-                    DidStartProvisionalLoadForFrame(frame_id, is_main_frame,
-                    validated_url, is_error_page, render_view_host));
+                    DidStartProvisionalLoadForFrame(frame_id, parent_frame_id,
+                    is_main_frame, validated_url, is_error_page,
+                    render_view_host));
 
   if (is_main_frame) {
     // Notify observers about the provisional change in the main frame URL.
@@ -2351,20 +2358,6 @@ void WebContentsImpl::OnPepperPluginHung(int plugin_child_id,
                                          const FilePath& path,
                                          bool is_hung) {
   UMA_HISTOGRAM_COUNTS("Pepper.PluginHung", 1);
-
-  // Determine how often hangs happen when using worker pool versus
-  // FILE thread.  kFieldTrialName needs to match the value in
-  // pepper_file_message_filter.cc, but plumbing that through would be
-  // disruptive for temporary code.
-  // TODO(shess): Remove once the workpool is proven superior.
-  // http://crbug.com/153383
-  static const char* const kFieldTrialName = "FlapperIOThread";
-  static const bool hung_trial_exists =
-      base::FieldTrialList::TrialExists(kFieldTrialName);
-  if (hung_trial_exists) {
-    UMA_HISTOGRAM_COUNTS(base::FieldTrial::MakeName("Pepper.PluginHung",
-                                                    kFieldTrialName), 1);
-  }
 
   FOR_EACH_OBSERVER(WebContentsObserver, observers_,
                     PluginHungStatusChanged(plugin_child_id, path, is_hung));
@@ -3020,8 +3013,14 @@ void WebContentsImpl::RouteMessageEvent(
     RenderViewHost* rvh,
     const ViewMsg_PostMessage_Params& params) {
   // Only deliver the message to the active RenderViewHost if the request
-  // came from a RenderViewHost in the same BrowsingInstance.
-  if (!rvh->GetSiteInstance()->IsRelatedSiteInstance(GetSiteInstance()))
+  // came from a RenderViewHost in the same BrowsingInstance or if this
+  // WebContents is dedicated to a browser plugin guest.
+  // Note: This check means that an embedder could theoretically receive a
+  // postMessage from anyone (not just its own guests). However, this is
+  // probably not a risk for apps since other pages won't have references
+  // to App windows.
+  if (!rvh->GetSiteInstance()->IsRelatedSiteInstance(GetSiteInstance()) &&
+      !GetBrowserPluginGuest() && !GetBrowserPluginEmbedder())
     return;
 
   ViewMsg_PostMessage_Params new_params(params);
@@ -3046,8 +3045,16 @@ void WebContentsImpl::RouteMessageEvent(
     }
 
     if (source_contents) {
-      new_params.source_routing_id =
-          source_contents->CreateOpenerRenderViews(GetSiteInstance());
+      if (GetBrowserPluginGuest()) {
+        // We create a swapped out RenderView for the embedder in the guest's
+        // render process but we intentionally do not expose the embedder's
+        // opener chain to it.
+        new_params.source_routing_id =
+            source_contents->CreateSwappedOutRenderView(GetSiteInstance());
+      } else {
+        new_params.source_routing_id =
+            source_contents->CreateOpenerRenderViews(GetSiteInstance());
+      }
     } else {
       // We couldn't find it, so don't pass a source frame.
       new_params.source_routing_id = MSG_ROUTING_NONE;
@@ -3148,6 +3155,11 @@ WebPreferences WebContentsImpl::GetWebkitPrefs() {
   GURL url = controller_.GetActiveEntry()
       ? controller_.GetActiveEntry()->GetURL() : GURL::EmptyGURL();
   return GetWebkitPrefs(GetRenderViewHost(), url);
+}
+
+int WebContentsImpl::CreateSwappedOutRenderView(
+    content::SiteInstance* instance) {
+  return render_manager_.CreateRenderView(instance, MSG_ROUTING_NONE, true);
 }
 
 void WebContentsImpl::OnUserGesture() {
@@ -3383,10 +3395,11 @@ void WebContentsImpl::SaveURL(const GURL& url,
     if (entry)
       post_id = entry->GetPostID();
   }
-  content::DownloadSaveInfo save_info;
-  save_info.prompt_for_save_location = true;
+  scoped_ptr<content::DownloadSaveInfo> save_info(
+      new content::DownloadSaveInfo());
+  save_info->prompt_for_save_location = true;
   scoped_ptr<DownloadUrlParameters> params(
-      DownloadUrlParameters::FromWebContents(this, url, save_info));
+      DownloadUrlParameters::FromWebContents(this, url, save_info.Pass()));
   params->set_referrer(referrer);
   params->set_post_id(post_id);
   params->set_prefer_cache(true);

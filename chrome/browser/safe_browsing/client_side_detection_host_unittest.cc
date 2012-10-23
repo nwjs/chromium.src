@@ -10,11 +10,10 @@
 #include "chrome/browser/safe_browsing/client_side_detection_host.h"
 #include "chrome/browser/safe_browsing/client_side_detection_service.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
-#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/safe_browsing/csd.pb.h"
 #include "chrome/common/safe_browsing/safebrowsing_messages.h"
+#include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/mock_render_process_host.h"
@@ -154,7 +153,7 @@ void QuitUIMessageLoopFromIO() {
 }
 }  // namespace
 
-class ClientSideDetectionHostTest : public TabContentsTestHarness {
+class ClientSideDetectionHostTest : public ChromeRenderViewHostTestHarness {
  public:
   virtual void SetUp() {
     // Set custom profile object so that we can mock calls to IsOffTheRecord.
@@ -173,13 +172,13 @@ class ClientSideDetectionHostTest : public TabContentsTestHarness {
     io_thread_.reset(new content::TestBrowserThread(BrowserThread::IO));
     ASSERT_TRUE(io_thread_->Start());
 
-    TabContentsTestHarness::SetUp();
+    ChromeRenderViewHostTestHarness::SetUp();
 
     // Inject service classes.
     csd_service_.reset(new StrictMock<MockClientSideDetectionService>());
     sb_service_ = new StrictMock<MockSafeBrowsingService>();
     csd_host_.reset(safe_browsing::ClientSideDetectionHost::Create(
-        tab_contents()->web_contents()));
+        web_contents()));
     csd_host_->set_client_side_detection_service(csd_service_.get());
     csd_host_->set_safe_browsing_service(sb_service_.get());
     // We need to create this here since we don't call
@@ -199,7 +198,7 @@ class ClientSideDetectionHostTest : public TabContentsTestHarness {
                               csd_host_.release());
     sb_service_ = NULL;
     message_loop_.RunAllPending();
-    TabContentsTestHarness::TearDown();
+    ChromeRenderViewHostTestHarness::TearDown();
 
     // Let the tasks on the IO thread run to avoid memory leaks.
     base::WaitableEvent done(false, false);
@@ -280,13 +279,14 @@ class ClientSideDetectionHostTest : public TabContentsTestHarness {
   void SetUnsafeResourceToCurrent() {
     SafeBrowsingService::UnsafeResource resource;
     resource.url = GURL("http://www.malware.com/");
-    resource.original_url = contents()->GetURL();
+    resource.original_url = web_contents()->GetURL();
     resource.is_subresource = true;
     resource.threat_type = SafeBrowsingService::URL_MALWARE;
     resource.callback = base::Bind(&EmptyUrlCheckCallback);
-    resource.render_process_host_id = contents()->GetRenderProcessHost()->
+    resource.render_process_host_id = web_contents()->GetRenderProcessHost()->
         GetID();
-    resource.render_view_id = contents()->GetRenderViewHost()->GetRoutingID();
+    resource.render_view_id =
+        web_contents()->GetRenderViewHost()->GetRoutingID();
     csd_host_->OnSafeBrowsingHit(resource);
     resource.callback.Reset();
     ASSERT_TRUE(csd_host_->DidShowSBInterstitial());
@@ -320,7 +320,7 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneInvalidVerdict) {
   // Case 0: renderer sends an invalid verdict string that we're unable to
   // parse.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
-      contents(),
+      web_contents(),
       csd_service_.get());
   SetFeatureExtractor(mock_extractor);  // The host class takes ownership.
   EXPECT_CALL(*mock_extractor, ExtractFeatures(_, _, _)).Times(0);
@@ -332,7 +332,7 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneNotPhishing) {
   // Case 1: client thinks the page is phishing.  The server does not agree.
   // No interstitial is shown.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
-      contents(),
+      web_contents(),
       csd_service_.get());
   SetFeatureExtractor(mock_extractor);  // The host class takes ownership.
 
@@ -364,7 +364,7 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneDisabled) {
   // Case 2: client thinks the page is phishing and so does the server but
   // showing the interstitial is disabled => no interstitial is shown.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
-      contents(),
+      web_contents(),
       csd_service_.get());
   SetFeatureExtractor(mock_extractor);  // The host class takes ownership.
 
@@ -396,7 +396,7 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneShowInterstitial) {
   // Case 3: client thinks the page is phishing and so does the server.
   // We show an interstitial.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
-      contents(),
+      web_contents(),
       csd_service_.get());
   SetFeatureExtractor(mock_extractor);  // The host class takes ownership.
 
@@ -430,9 +430,9 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneShowInterstitial) {
   EXPECT_FALSE(resource.is_subresource);
   EXPECT_EQ(SafeBrowsingService::CLIENT_SIDE_PHISHING_URL,
             resource.threat_type);
-  EXPECT_EQ(contents()->GetRenderProcessHost()->GetID(),
+  EXPECT_EQ(web_contents()->GetRenderProcessHost()->GetID(),
             resource.render_process_host_id);
-  EXPECT_EQ(contents()->GetRenderViewHost()->GetRoutingID(),
+  EXPECT_EQ(web_contents()->GetRenderViewHost()->GetRoutingID(),
             resource.render_view_id);
 
   // Make sure the client object will be deleted.
@@ -454,7 +454,7 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneMultiplePings) {
   // server responds for both requests with a phishing verdict.  Only
   // a single interstitial is shown for the second URL.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
-      contents(),
+      web_contents(),
       csd_service_.get());
   SetFeatureExtractor(mock_extractor);  // The host class takes ownership.
 
@@ -479,7 +479,7 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneMultiplePings) {
   // Set this back to a normal browser feature extractor since we're using
   // NavigateAndCommit() and it's easier to use the real thing than setting up
   // mock expectations.
-  SetFeatureExtractor(new BrowserFeatureExtractor(contents(),
+  SetFeatureExtractor(new BrowserFeatureExtractor(web_contents(),
                                                   csd_service_.get()));
   GURL other_phishing_url("http://other_phishing_url.com/bla");
   ExpectPreClassificationChecks(other_phishing_url, &kFalse, &kFalse, &kFalse,
@@ -522,9 +522,9 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneMultiplePings) {
   EXPECT_FALSE(resource.is_subresource);
   EXPECT_EQ(SafeBrowsingService::CLIENT_SIDE_PHISHING_URL,
             resource.threat_type);
-  EXPECT_EQ(contents()->GetRenderProcessHost()->GetID(),
+  EXPECT_EQ(web_contents()->GetRenderProcessHost()->GetID(),
             resource.render_process_host_id);
-  EXPECT_EQ(contents()->GetRenderViewHost()->GetRoutingID(),
+  EXPECT_EQ(web_contents()->GetRenderViewHost()->GetRoutingID(),
             resource.render_view_id);
 
   // Make sure the client object will be deleted.
@@ -543,7 +543,7 @@ TEST_F(ClientSideDetectionHostTest,
        OnPhishingDetectionDoneVerdictNotPhishing) {
   // Case 6: renderer sends a verdict string that isn't phishing.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
-      contents(),
+      web_contents(),
       csd_service_.get());
   SetFeatureExtractor(mock_extractor);  // The host class takes ownership.
 

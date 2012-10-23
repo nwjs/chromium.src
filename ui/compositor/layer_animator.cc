@@ -73,7 +73,7 @@ LayerAnimator* LayerAnimator::CreateImplicitAnimator() {
   return new LayerAnimator(kDefaultTransitionDuration);
 }
 
-void LayerAnimator::SetTransform(const Transform& transform) {
+void LayerAnimator::SetTransform(const gfx::Transform& transform) {
   base::TimeDelta duration = GetTransitionDuration();
   scoped_ptr<LayerAnimationElement> element(
       LayerAnimationElement::CreateTransformElement(transform, duration));
@@ -81,7 +81,7 @@ void LayerAnimator::SetTransform(const Transform& transform) {
   StartAnimation(new LayerAnimationSequence(element.release()));
 }
 
-Transform LayerAnimator::GetTargetTransform() const {
+gfx::Transform LayerAnimator::GetTargetTransform() const {
   LayerAnimationElement::TargetValue target(delegate());
   GetTargetValue(&target);
   return target.transform;
@@ -156,6 +156,20 @@ float LayerAnimator::GetTargetGrayscale() const {
   LayerAnimationElement::TargetValue target(delegate());
   GetTargetValue(&target);
   return target.grayscale;
+}
+
+void LayerAnimator::SetColor(SkColor color) {
+  base::TimeDelta duration = GetTransitionDuration();
+  scoped_ptr<LayerAnimationElement> element(
+      LayerAnimationElement::CreateColorElement(color, duration));
+  element->set_tween_type(tween_type_);
+  StartAnimation(new LayerAnimationSequence(element.release()));
+}
+
+SkColor LayerAnimator::GetTargetColor() const {
+  LayerAnimationElement::TargetValue target(delegate());
+  GetTargetValue(&target);
+  return target.color;
 }
 
 void LayerAnimator::SetDelegate(LayerAnimationDelegate* delegate) {

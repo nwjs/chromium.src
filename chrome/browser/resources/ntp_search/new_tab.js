@@ -235,7 +235,7 @@ cr.define('ntp', function() {
      *
      * @param {TilePage} page The page element.
      * @param {string} title The title of the tile page.
-     * @param {TilePage} opt_refNode Optional reference node to insert in front
+     * @param {TilePage=} opt_refNode Optional reference node to insert in front
      *     of.
      * When opt_refNode is falsey, |page| will just be appended to the end of
      * the page list.
@@ -365,14 +365,6 @@ cr.define('ntp', function() {
       // Get a list of page names
       var pageNames = data.appPageNames;
 
-      function stringListIsEmpty(list) {
-        for (var i = 0; i < list.length; i++) {
-          if (list[i])
-            return false;
-        }
-        return true;
-      }
-
       // Sort by launch ordinal
       apps.sort(function(a, b) {
         return a.app_launch_ordinal > b.app_launch_ordinal ? 1 :
@@ -483,33 +475,19 @@ cr.define('ntp', function() {
     },
 
     /**
-     * Invoked whenever the pages in apps-page-list have changed so that
-     * the Slider knows about the new elements.
+     * Invoked whenever the pages in page-list have changed so that the
+     * CardSlider knows about the new elements.
      */
     updateSliderCards: function() {
       var pageNo = Math.max(0, Math.min(this.cardSlider.currentCard,
                                         this.tilePages.length - 1));
       this.cardSlider.setCards(Array.prototype.slice.call(this.tilePages),
                                pageNo);
-      switch (this.shownPage) {
-        case loadTimeData.getInteger('apps_page_id'):
-          this.cardSlider.selectCardByValue(
-              this.appsPages[Math.min(this.shownPageIndex,
-                                      this.appsPages.length - 1)]);
-          break;
-        case loadTimeData.getInteger('most_visited_page_id'):
-          if (this.mostVisitedPage)
-            this.cardSlider.selectCardByValue(this.mostVisitedPage);
-          break;
-        case loadTimeData.getInteger('recently_closed_page_id'):
-          if (this.recentlyClosedPage)
-            this.cardSlider.selectCardByValue(this.recentlyClosedPage);
-          break;
-        case loadTimeData.getInteger('other_devices_page_id'):
-          if (this.otherDevicesPage)
-            this.cardSlider.selectCardByValue(this.otherDevicesPage);
-          break;
-      }
+
+      assert(this.mostVisitedPage, 'Most Visited Page not found');
+      // NTP pages are not sticky anymore, so we should always select the Most
+      // Visited page when loading the card slider.
+      this.cardSlider.selectCardByValue(this.mostVisitedPage);
     },
 
     /**
@@ -705,8 +683,8 @@ cr.define('ntp', function() {
       // Tell the slider about the pages.
       newTabView.updateSliderCards();
       // Restore the visibility only after calling updateSliderCards to avoid
-      // flickering, otherwise we'll see for a small fraction of a second the
-      // Page List partially rendered.
+      // flickering, otherwise for a small fraction of a second the Page List is
+      // partially rendered.
       newTabView.cardSlider.frame_.style.visibility = 'visible';
       if (loadTimeData.valueExists('serverpromo')) {
         var promo = loadTimeData.getString('serverpromo');
@@ -738,7 +716,7 @@ cr.define('ntp', function() {
 
   /**
    * Queued callbacks which lie in wait for all sections to be ready.
-   * @type {array}
+   * @type {!Array}
    */
   var readyCallbacks = [];
 
@@ -785,6 +763,14 @@ cr.define('ntp', function() {
   }
 
   /**
+   * Sets the backgroundPositionY of html element; this overrides the css
+   * style of html element in new_tab_theme.css.
+   */
+  function setBackgroundPositionY(yPosition) {
+    document.documentElement.style.backgroundPositionY = yPosition;
+  }
+
+  /**
    * Attributes the attribution image at the bottom left.
    */
   function updateAttribution() {
@@ -812,7 +798,7 @@ cr.define('ntp', function() {
    *     records describing the links in the notification. Each record should
    *     have a 'text' attribute (the display string) and an 'action' attribute
    *     (a function to run when the link is activated).
-   * @param {Function} opt_closeHandler The callback invoked if the user
+   * @param {Function=} opt_closeHandler The callback invoked if the user
    *     manually dismisses the notification.
    */
   function showNotification(message, links, opt_closeHandler, opt_timeout) {
@@ -882,9 +868,20 @@ cr.define('ntp', function() {
     cr.dispatchSimpleEvent(document, 'sectionready', true, true);
   }
 
-  function setMostVisitedPages(dataList, hasBlacklistedUrls) {
-    newTabView.mostVisitedPage.setDataList(dataList);
-    cr.dispatchSimpleEvent(document, 'sectionready', true, true);
+  function setMostVisitedPages(data, hasBlacklistedUrls) {
+    var page = newTabView.mostVisitedPage;
+    var state = page.getTileRepositioningState();
+    if (state) {
+      if (state.isRemoving)
+        page.animateTileRemoval(state.index, data);
+      else
+        page.animateTileRestoration(state.index, data);
+
+      page.resetTileRepositioningState();
+    } else {
+      page.setDataList(data);
+      cr.dispatchSimpleEvent(document, 'sectionready', true, true);
+    }
   }
 
   function setForeignSessions(dataList, isTabSyncEnabled) {
@@ -977,6 +974,7 @@ cr.define('ntp', function() {
     ntp5: true,
     NtpFollowAction: NtpFollowAction,
     setAppToBeHighlighted: setAppToBeHighlighted,
+    setBackgroundPositionY: setBackgroundPositionY,
     setBookmarkBarAttached: setBookmarkBarAttached,
     setForeignSessions: setForeignSessions,
     setMostVisitedPages: setMostVisitedPages,

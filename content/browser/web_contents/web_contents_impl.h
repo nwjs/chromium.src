@@ -103,6 +103,12 @@ class CONTENT_EXPORT WebContentsImpl
   static webkit_glue::WebPreferences GetWebkitPrefs(
       content::RenderViewHost* rvh, const GURL& url);
 
+  // Creates a swapped out RenderView. This is used by the browser plugin to
+  // create a swapped out RenderView in the embedder render process for the
+  // guest, to expose the guest's window object to the embedder.
+  // This returns the routing ID of the newly created swapped out RenderView.
+  int CreateSwappedOutRenderView(content::SiteInstance* instance);
+
   // Complex initialization here. Specifically needed to avoid having
   // members call back into our virtual functions in the constructor.
   virtual void Init(content::BrowserContext* browser_context,
@@ -302,6 +308,7 @@ class CONTENT_EXPORT WebContentsImpl
   virtual void DidStartProvisionalLoadForFrame(
       content::RenderViewHost* render_view_host,
       int64 frame_id,
+      int64 parent_frame_id,
       bool main_frame,
       const GURL& opener_url,
       const GURL& url) OVERRIDE;

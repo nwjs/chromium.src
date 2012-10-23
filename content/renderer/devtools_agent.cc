@@ -23,6 +23,10 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 
+#if defined(USE_TCMALLOC)
+#include "third_party/tcmalloc/chromium/src/gperftools/heap-profiler.h"
+#endif
+
 using WebKit::WebConsoleMessage;
 using WebKit::WebDevToolsAgent;
 using WebKit::WebDevToolsAgentClient;
@@ -32,6 +36,8 @@ using WebKit::WebString;
 using WebKit::WebCString;
 using WebKit::WebVector;
 using WebKit::WebView;
+
+namespace content {
 
 namespace {
 
@@ -60,8 +66,7 @@ base::LazyInstance<IdToAgentMap>::Leaky
 } //  namespace
 
 DevToolsAgent::DevToolsAgent(RenderViewImpl* render_view)
-    : content::RenderViewObserver(render_view),
-      is_attached_(false) {
+    : RenderViewObserver(render_view), is_attached_(false) {
   g_agent_for_routing_id.Get()[routing_id()] = this;
 
   render_view->webview()->setDevToolsAgentClient(this);
@@ -124,6 +129,20 @@ void DevToolsAgent::clearBrowserCookies() {
   Send(new DevToolsHostMsg_ClearBrowserCookies(routing_id()));
 }
 
+#if defined(USE_TCMALLOC) && !defined(OS_WIN)
+static void AllocationVisitor(void* data, const void* ptr) {
+    typedef WebKit::WebDevToolsAgentClient::AllocatedObjectVisitor Visitor;
+    Visitor* visitor = reinterpret_cast<Visitor*>(data);
+    visitor->visitObject(ptr);
+}
+#endif
+
+void DevToolsAgent::visitAllocatedObjects(AllocatedObjectVisitor* visitor) {
+#if defined(USE_TCMALLOC) && !defined(OS_WIN)
+  IterateAllocatedObjects(&AllocationVisitor, visitor);
+#endif
+}
+
 // static
 DevToolsAgent* DevToolsAgent::FromHostId(int host_id) {
   IdToAgentMap::iterator it = g_agent_for_routing_id.Get().find(host_id);
@@ -171,7 +190,7 @@ void DevToolsAgent::OnInspectElement(int x, int y) {
   }
 }
 
-void DevToolsAgent::OnAddMessageToConsole(content::ConsoleMessageLevel level,
+void DevToolsAgent::OnAddMessageToConsole(ConsoleMessageLevel level,
                                           const std::string& message) {
   WebView* web_view = render_view()->GetWebView();
   if (!web_view)
@@ -183,16 +202,16 @@ void DevToolsAgent::OnAddMessageToConsole(content::ConsoleMessageLevel level,
 
   WebConsoleMessage::Level target_level = WebConsoleMessage::LevelLog;
   switch (level) {
-    case content::CONSOLE_MESSAGE_LEVEL_TIP:
+    case CONSOLE_MESSAGE_LEVEL_TIP:
       target_level = WebConsoleMessage::LevelTip;
       break;
-    case content::CONSOLE_MESSAGE_LEVEL_LOG:
+    case CONSOLE_MESSAGE_LEVEL_LOG:
       target_level = WebConsoleMessage::LevelLog;
       break;
-    case content::CONSOLE_MESSAGE_LEVEL_WARNING:
+    case CONSOLE_MESSAGE_LEVEL_WARNING:
       target_level = WebConsoleMessage::LevelWarning;
       break;
-    case content::CONSOLE_MESSAGE_LEVEL_ERROR:
+    case CONSOLE_MESSAGE_LEVEL_ERROR:
       target_level = WebConsoleMessage::LevelError;
       break;
   }
@@ -222,3 +241,5 @@ WebDevToolsAgent* DevToolsAgent::GetWebAgent() {
 bool DevToolsAgent::IsAttached() {
   return is_attached_;
 }
+
+}  // namespace content

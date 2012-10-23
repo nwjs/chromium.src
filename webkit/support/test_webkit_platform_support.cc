@@ -267,7 +267,8 @@ WebKit::WebData TestWebKitPlatformSupport::loadResource(const char* name) {
 WebKit::WebString TestWebKitPlatformSupport::queryLocalizedString(
     WebKit::WebLocalizedString::Name name) {
   // Returns messages same as WebKit's in DRT.
-  // We use different strings for form validation messages.
+  // We use different strings for form validation messages and page popup UI
+  // strings.
   switch (name) {
     case WebKit::WebLocalizedString::ValidationValueMissing:
     case WebKit::WebLocalizedString::ValidationValueMissingForCheckbox:
@@ -291,6 +292,18 @@ WebKit::WebString TestWebKitPlatformSupport::queryLocalizedString(
       return ASCIIToUTF16("range overflow");
     case WebKit::WebLocalizedString::ValidationStepMismatch:
       return ASCIIToUTF16("step mismatch");
+    case WebKit::WebLocalizedString::OtherDateLabel:
+      return ASCIIToUTF16("<<OtherDateLabel>>");
+    case WebKit::WebLocalizedString::OtherMonthLabel:
+      return ASCIIToUTF16("<<OtherMonthLabel>>");
+    case WebKit::WebLocalizedString::OtherTimeLabel:
+      return ASCIIToUTF16("<<OtherTimeLabel>>");
+    case WebKit::WebLocalizedString::OtherWeekLabel:
+      return ASCIIToUTF16("<<OtherWeekLabel>>");
+    case WebKit::WebLocalizedString::CalendarClear:
+      return ASCIIToUTF16("<<CalendarClear>>");
+    case WebKit::WebLocalizedString::CalendarToday:
+      return ASCIIToUTF16("<<CalendarToday>>");
     default:
       return WebKitPlatformSupportImpl::queryLocalizedString(name);
   }
@@ -502,7 +515,8 @@ TestWebKitPlatformSupport::createRTCPeerConnectionHandler(
 }
 
 bool TestWebKitPlatformSupport::canHyphenate(const WebKit::WebString& locale) {
-  return locale.isEmpty() || locale.equals("en_US");
+  return locale.isEmpty()  || locale.equals("en") || locale.equals("en_US")  ||
+      locale.equals("en_GB");
 }
 
 size_t TestWebKitPlatformSupport::computeLastHyphenLocation(
@@ -510,7 +524,8 @@ size_t TestWebKitPlatformSupport::computeLastHyphenLocation(
     size_t length,
     size_t before_index,
     const WebKit::WebString& locale) {
-  DCHECK(locale.isEmpty() || locale.equals("en_US"));
+  DCHECK(locale.isEmpty()  || locale.equals("en") || locale.equals("en_US")  ||
+         locale.equals("en_GB"));
   if (!hyphen_dictionary_) {
     // Initialize the hyphen library with a sample dictionary. To avoid test
     // flakiness, this code synchronously loads the dictionary.
@@ -535,7 +550,7 @@ size_t TestWebKitPlatformSupport::computeLastHyphenLocation(
   string16 word_utf16(characters, length);
   if (!IsStringASCII(word_utf16))
     return 0;
-  std::string word = UTF16ToASCII(word_utf16);
+  std::string word = StringToLowerASCII(UTF16ToASCII(word_utf16));
   scoped_array<char> hyphens(new char[word.length() + 5]);
   char** rep = NULL;
   int* pos = NULL;

@@ -35,22 +35,24 @@ namespace {
 // Default placeholder text color.
 const SkColor kDefaultPlaceholderTextColor = SK_ColorLTGRAY;
 
-#if defined(OS_WIN) && !defined(USE_AURA)
-bool UseNativeTextfieldViews() {
-  CommandLine* command_line = CommandLine::ForCurrentProcess();
-  return command_line->HasSwitch(switches::kEnableViewsTextfield);
-}
-#endif
-
 }  // namespace
 
 namespace views {
 
+/////////////////////////////////////////////////////////////////////////////
+// Textfield
+
 // static
 const char Textfield::kViewClassName[] = "views/Textfield";
 
-/////////////////////////////////////////////////////////////////////////////
-// Textfield
+// static
+bool Textfield::IsViewsTextfieldEnabled() {
+#if defined(OS_WIN) && !defined(USE_AURA)
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableViewsTextfield);
+#endif
+  return true;
+}
 
 Textfield::Textfield()
     : native_wrapper_(NULL),
@@ -158,6 +160,11 @@ void Textfield::AppendText(const string16& text) {
   text_ += text;
   if (native_wrapper_)
     native_wrapper_->AppendText(text);
+}
+
+base::i18n::TextDirection Textfield::GetTextDirection() const {
+  return native_wrapper_ ? native_wrapper_->GetTextDirection() :
+      base::i18n::UNKNOWN_DIRECTION;
 }
 
 void Textfield::SelectAll(bool reversed) {
@@ -475,7 +482,7 @@ void Textfield::ViewHierarchyChanged(bool is_add, View* parent, View* child) {
     // initialization for the wrapper.
     //
     // Remove the include for native_textfield_win.h above when you fix this.
-    if (!UseNativeTextfieldViews())
+    if (!IsViewsTextfieldEnabled())
       static_cast<NativeTextfieldWin*>(native_wrapper_)->AttachHack();
 #endif
   }
@@ -492,7 +499,7 @@ std::string Textfield::GetClassName() const {
 NativeTextfieldWrapper* NativeTextfieldWrapper::CreateWrapper(
     Textfield* field) {
 #if defined(OS_WIN) && !defined(USE_AURA)
-  if (!UseNativeTextfieldViews())
+  if (!Textfield::IsViewsTextfieldEnabled())
     return new NativeTextfieldWin(field);
 #endif
   return new NativeTextfieldViews(field);

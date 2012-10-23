@@ -39,6 +39,7 @@
 #include "grit/google_chrome_strings.h"
 #include "grit/theme_resources.h"
 #include "ui/base/gtk/gtk_hig_constants.h"
+#include "ui/base/gtk/gtk_signal_registrar.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/text/text_elider.h"
@@ -192,6 +193,7 @@ void WaitingDialog::Init() {
   // Animate throbber
   throbber->Start();
 }
+
 // static
 WebIntentPicker* WebIntentPicker::Create(content::WebContents* web_contents,
                                          WebIntentPickerDelegate* delegate,
@@ -211,6 +213,7 @@ WebIntentPickerGtk::WebIntentPickerGtk(TabContents* tab_contents,
       button_vbox_(NULL),
       cws_label_(NULL),
       extensions_vbox_(NULL),
+      service_hbox_(NULL),
       window_(NULL) {
   DCHECK(delegate_ != NULL);
 
@@ -225,7 +228,10 @@ WebIntentPickerGtk::WebIntentPickerGtk(TabContents* tab_contents,
                        content::Source<ThemeService>(theme_service));
   theme_service->InitThemesFor(this);
 
-  window_ = new ConstrainedWindowGtk(tab_contents, this);
+  window_ = new ConstrainedWindowGtk(tab_contents->web_contents(), this);
+
+  if (model_->IsInlineDisposition())
+    OnInlineDisposition(string16(), model_->inline_disposition_url());
 }
 
 WebIntentPickerGtk::~WebIntentPickerGtk() {
@@ -284,22 +290,18 @@ void WebIntentPickerGtk::OnExtensionIconChanged(
   UpdateSuggestedExtensions();
 }
 
-void WebIntentPickerGtk::OnInlineDisposition(const string16& title,
+void WebIntentPickerGtk::OnInlineDisposition(const string16&,
                                              const GURL& url) {
-  content::WebContents* web_contents = content::WebContents::Create(
-      tab_contents_->profile(),
-      tab_util::GetSiteInstanceForNewTab(tab_contents_->profile(), url),
-      MSG_ROUTING_NONE, NULL);
+  DCHECK(delegate_);
+  content::WebContents* web_contents =
+      delegate_->CreateWebContentsForInlineDisposition(
+          tab_contents_->profile(), url);
   inline_disposition_tab_contents_.reset(
       TabContents::Factory::CreateTabContents(web_contents));
   Browser* browser = browser::FindBrowserWithWebContents(
       tab_contents_->web_contents());
   inline_disposition_delegate_.reset(
       new WebIntentInlineDispositionDelegate(this, web_contents, browser));
-
-  // Must call this immediately after WebContents creation to avoid race
-  // with load.
-  delegate_->OnInlineDispositionWebContentsCreated(web_contents);
 
   tab_contents_container_.reset(new TabContentsContainerGtk(NULL));
   tab_contents_container_->SetTab(inline_disposition_tab_contents_.get());
@@ -309,29 +311,37 @@ void WebIntentPickerGtk::OnInlineDisposition(const string16& title,
       std::string());
 
   // Replace the picker contents with the inline disposition.
-  gtk_util::RemoveAllChildren(contents_);
+  ClearContents();
+  gtk_widget_set_size_request(contents_, -1, -1);
+  window_->BackgroundColorChanged();
 
-  GtkWidget* vbox = gtk_vbox_new(FALSE, ui::kContentAreaSpacing);
+  GtkWidget* vbox = gtk_vbox_new(FALSE, 0);
   GtkThemeService* theme_service = GetThemeService(tab_contents_);
 
-  GtkWidget* service_hbox = gtk_hbox_new(FALSE, ui::kControlSpacing);
+  service_hbox_ = gtk_hbox_new(FALSE, ui::kControlSpacing);
   // TODO(gbillock): Eventually get the service icon button here.
 
   // Intent action label.
-  GtkWidget* action_label = theme_service->BuildLabel(
-      UTF16ToUTF8(title), ui::kGdkBlack);
+  const WebIntentPickerModel::InstalledService* service =
+      model_->GetInstalledServiceWithURL(url);
+  GtkWidget* action_label = gtk_label_new(UTF16ToUTF8(service->title).c_str());
   gtk_util::ForceFontSizePixels(action_label, kMainContentPixelSize);
+  // Hardcode color; don't allow theming.
+  gtk_util::SetLabelColor(action_label, &ui::kGdkBlack);
 
   GtkWidget* label_alignment = gtk_alignment_new(0, 0.5f, 0, 0);
   gtk_container_add(GTK_CONTAINER(label_alignment), action_label);
   GtkWidget* indent_label = gtk_util::IndentWidget(label_alignment);
 
-  gtk_box_pack_start(GTK_BOX(service_hbox), indent_label, FALSE, TRUE, 0);
+  gtk_box_pack_start(GTK_BOX(service_hbox_), indent_label, FALSE, TRUE, 0);
+  g_signal_connect(service_hbox_, "destroy", G_CALLBACK(gtk_widget_destroyed),
+                   &service_hbox_);
 
   // Add link for "choose another service" if other suggestions are available
   // or if more than one (the current) service is installed.
-  if (model_->GetInstalledServiceCount() > 1 ||
-       model_->GetSuggestedExtensionCount()) {
+  if (model_->show_use_another_service() &&
+      (model_->GetInstalledServiceCount() > 1 ||
+       model_->GetSuggestedExtensionCount())) {
     GtkWidget* use_alternate_link = theme_service->BuildChromeLinkButton(
         l10n_util::GetStringUTF8(
             IDS_INTENT_PICKER_USE_ALTERNATE_SERVICE).c_str());
@@ -345,15 +355,12 @@ void WebIntentPickerGtk::OnInlineDisposition(const string16& title,
                      G_CALLBACK(OnChooseAnotherServiceClickThunk), this);
     GtkWidget* link_alignment = gtk_alignment_new(0, 0.5f, 0, 0);
     gtk_container_add(GTK_CONTAINER(link_alignment), use_alternate_link);
-    gtk_box_pack_start(GTK_BOX(service_hbox), link_alignment, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(service_hbox_), link_alignment, TRUE, TRUE, 0);
   }
-  AddCloseButton(service_hbox);
+  AddCloseButton(service_hbox_);
 
   // The header box
-  gtk_box_pack_start(GTK_BOX(vbox), service_hbox, TRUE, TRUE, 0);
-
-  // The separator between the icon/title/close and the inline renderer.
-  gtk_box_pack_start(GTK_BOX(vbox), gtk_hseparator_new(), FALSE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), service_hbox_);
 
   // hbox for the web contents, so we can have spacing on the borders.
   GtkWidget* alignment = gtk_alignment_new(0.0, 0.0, 1.0, 1.0);
@@ -362,18 +369,38 @@ void WebIntentPickerGtk::OnInlineDisposition(const string16& title,
       ui::kContentAreaBorder, ui::kContentAreaBorder);
   gtk_container_add(GTK_CONTAINER(alignment),
                     tab_contents_container_->widget());
-  gtk_box_pack_end(GTK_BOX(vbox), alignment, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), alignment);
   gtk_container_add(GTK_CONTAINER(contents_), vbox);
 
   gfx::Size size = GetMinInlineDispositionSize();
   gtk_widget_set_size_request(tab_contents_container_->widget(),
                               size.width(), size.height());
   gtk_widget_show_all(contents_);
+
+  inline_disposition_delegate_->SetRenderViewSizeLimits();
+  host_signals_.reset(new ui::GtkSignalRegistrar());
+  host_signals_->Connect(
+      tab_contents_->web_contents()->GetRenderViewHost()->GetView()->
+          GetNativeView(),
+      "size-allocate",
+      G_CALLBACK(OnHostContentsSizeAllocateThunk), this);
 }
 
 void WebIntentPickerGtk::OnInlineDispositionAutoResize(const gfx::Size& size) {
   gtk_widget_set_size_request(tab_contents_container_->widget(),
                               size.width(), size.height());
+}
+
+gfx::Size WebIntentPickerGtk::GetMaxInlineDispositionSize() {
+  gfx::Rect tab_bounds(tab_contents_->web_contents()->GetRenderViewHost()->
+      GetView()->GetNativeView()->allocation);
+  GtkRequisition req = {};
+  if (service_hbox_)
+    gtk_widget_size_request(service_hbox_, &req);
+
+  tab_bounds.Inset(2 * ui::kContentAreaBorder,
+                   2 * ui::kContentAreaBorder + req.height);
+  return tab_bounds.size();
 }
 
 void WebIntentPickerGtk::OnPendingAsyncCompleted() {
@@ -388,8 +415,7 @@ void WebIntentPickerGtk::OnPendingAsyncCompleted() {
   // inform the user about it.
 
   // Replace the picker contents with dialog box.
-  gtk_util::RemoveAllChildren(contents_);
-
+  ClearContents();
   GtkWidget* sub_contents = CreateSubContents(contents_);
 
   AddCloseButton(contents_);
@@ -419,6 +445,10 @@ void WebIntentPickerGtk::OnPendingAsyncCompleted() {
   gtk_widget_show_all(contents_);
 }
 
+void WebIntentPickerGtk::InvalidateDelegate() {
+  delegate_ = NULL;
+}
+
 GtkWidget* WebIntentPickerGtk::GetWidgetRoot() {
   return contents_;
 }
@@ -430,7 +460,17 @@ GtkWidget* WebIntentPickerGtk::GetFocusWidget() {
 void WebIntentPickerGtk::DeleteDelegate() {
   // The delegate is deleted when the contents widget is destroyed. See
   // OnDestroy.
-  delegate_->OnClosing();
+  if (delegate_)
+    delegate_->OnClosing();
+}
+
+bool WebIntentPickerGtk::GetBackgroundColor(GdkColor* color) {
+  if (tab_contents_container_.get()) {
+    *color = ui::kGdkWhite;
+    return true;
+  }
+
+  return false;
 }
 
 bool WebIntentPickerGtk::ShouldHaveBorderPadding() const {
@@ -461,10 +501,12 @@ void WebIntentPickerGtk::OnDestroy(GtkWidget* button) {
 }
 
 void WebIntentPickerGtk::OnCloseButtonClick(GtkWidget* button) {
+  DCHECK(delegate_);
   delegate_->OnUserCancelledPickerDialog();
 }
 
 void WebIntentPickerGtk::OnExtensionLinkClick(GtkWidget* link) {
+  DCHECK(delegate_);
   size_t index = GetExtensionWidgetRow(link);
   const WebIntentPickerModel::SuggestedExtension& extension =
       model_->GetSuggestedExtensionAt(index);
@@ -473,6 +515,7 @@ void WebIntentPickerGtk::OnExtensionLinkClick(GtkWidget* link) {
 }
 
 void WebIntentPickerGtk::OnExtensionInstallButtonClick(GtkWidget* button) {
+  DCHECK(delegate_);
   size_t index = GetExtensionWidgetRow(button);
   const WebIntentPickerModel::SuggestedExtension& extension =
       model_->GetSuggestedExtensionAt(index);
@@ -503,18 +546,26 @@ void WebIntentPickerGtk::OnExtensionInstallButtonClick(GtkWidget* button) {
 }
 
 void WebIntentPickerGtk::OnMoreSuggestionsLinkClick(GtkWidget* link) {
-  // TODO(binji): This should link to a CWS search, based on the current
-  // action/type pair.
+  DCHECK(delegate_);
   delegate_->OnSuggestionsLinkClicked(
       event_utils::DispositionForCurrentButtonPressEvent());
 }
 
 void WebIntentPickerGtk::OnChooseAnotherServiceClick(GtkWidget* link) {
+  DCHECK(delegate_);
   delegate_->OnChooseAnotherService();
   ResetContents();
 }
 
+void WebIntentPickerGtk::OnHostContentsSizeAllocate(GtkWidget* widget,
+                                                    GdkRectangle* rectangle) {
+  if (!inline_disposition_delegate_.get())
+    return;
+  inline_disposition_delegate_->SetRenderViewSizeLimits();
+}
+
 void WebIntentPickerGtk::OnServiceButtonClick(GtkWidget* button) {
+  DCHECK(delegate_);
   GList* button_list = gtk_container_get_children(GTK_CONTAINER(button_vbox_));
   gint index = g_list_index(button_list, button);
   DCHECK(index != -1);
@@ -524,7 +575,8 @@ void WebIntentPickerGtk::OnServiceButtonClick(GtkWidget* button) {
       model_->GetInstalledServiceAt(index);
 
   delegate_->OnServiceChosen(installed_service.url,
-                             installed_service.disposition);
+                             installed_service.disposition,
+                             WebIntentPickerDelegate::kEnableDefaults);
 }
 
 void WebIntentPickerGtk::InitContents() {
@@ -539,7 +591,7 @@ void WebIntentPickerGtk::InitContents() {
   gtk_widget_set_size_request(contents_, kWindowMinWidth, -1);
 
   if (model_ && model_->IsWaitingForSuggestions()) {
-    gtk_util::RemoveAllChildren(contents_);
+    ClearContents();
     AddCloseButton(contents_);
     waiting_dialog_.reset(new WaitingDialog(theme_service));
     gtk_box_pack_start(GTK_BOX(contents_), waiting_dialog_->widget(),
@@ -552,7 +604,7 @@ void WebIntentPickerGtk::InitContents() {
 void WebIntentPickerGtk::InitMainContents() {
   GtkThemeService* theme_service = GetThemeService(tab_contents_);
 
-  gtk_util::RemoveAllChildren(contents_);
+  ClearContents();
 
   AddCloseButton(contents_);
   GtkWidget* sub_contents = CreateSubContents(contents_);
@@ -623,14 +675,23 @@ void WebIntentPickerGtk::InitMainContents() {
   gtk_widget_show_all(contents_);
 }
 
-void WebIntentPickerGtk::ResetContents() {
+void WebIntentPickerGtk::ClearContents() {
   // Wipe out all currently displayed widgets.
   gtk_util::RemoveAllChildren(contents_);
+  header_label_ = NULL;
+  button_vbox_ = NULL;
+  cws_label_ = NULL;
+  extensions_vbox_ = NULL;
+}
+
+void WebIntentPickerGtk::ResetContents() {
+  ClearContents();
 
   // Reset potential inline disposition data.
   inline_disposition_delegate_.reset(NULL);
   tab_contents_container_.reset(NULL);
   inline_disposition_tab_contents_.reset(NULL);
+  window_->BackgroundColorChanged();
 
   // Re-initialize picker widgets and data.
   InitMainContents();

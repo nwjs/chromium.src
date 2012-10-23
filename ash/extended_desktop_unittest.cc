@@ -172,14 +172,7 @@ TEST_F(ExtendedDesktopTest, SystemModal) {
 
 TEST_F(ExtendedDesktopTest, TestCursor) {
   UpdateDisplay("1000x600,600x400");
-  Shell::GetInstance()->cursor_manager()->ShowCursor(false);
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
-  EXPECT_FALSE(root_windows[0]->cursor_shown());
-  EXPECT_FALSE(root_windows[1]->cursor_shown());
-  Shell::GetInstance()->cursor_manager()->ShowCursor(true);
-  EXPECT_TRUE(root_windows[0]->cursor_shown());
-  EXPECT_TRUE(root_windows[1]->cursor_shown());
-
   EXPECT_EQ(ui::kCursorPointer, root_windows[0]->last_cursor().native_type());
   EXPECT_EQ(ui::kCursorPointer, root_windows[1]->last_cursor().native_type());
   Shell::GetInstance()->cursor_manager()->SetCursor(ui::kCursorCopy);
@@ -194,15 +187,15 @@ TEST_F(ExtendedDesktopTest, TestCursorLocation) {
   aura::Window::TestApi root_window1_test_api(root_windows[1]);
 
   root_windows[0]->MoveCursorTo(gfx::Point(10, 10));
-  EXPECT_EQ("10,10", gfx::Screen::GetCursorScreenPoint().ToString());
+  EXPECT_EQ("10,10", Shell::GetScreen()->GetCursorScreenPoint().ToString());
   EXPECT_TRUE(root_window0_test_api.ContainsMouse());
   EXPECT_FALSE(root_window1_test_api.ContainsMouse());
   root_windows[1]->MoveCursorTo(gfx::Point(10, 20));
-  EXPECT_EQ("1010,20", gfx::Screen::GetCursorScreenPoint().ToString());
+  EXPECT_EQ("1010,20", Shell::GetScreen()->GetCursorScreenPoint().ToString());
   EXPECT_FALSE(root_window0_test_api.ContainsMouse());
   EXPECT_TRUE(root_window1_test_api.ContainsMouse());
   root_windows[0]->MoveCursorTo(gfx::Point(20, 10));
-  EXPECT_EQ("20,10", gfx::Screen::GetCursorScreenPoint().ToString());
+  EXPECT_EQ("20,10", Shell::GetScreen()->GetCursorScreenPoint().ToString());
   EXPECT_TRUE(root_window0_test_api.ContainsMouse());
   EXPECT_FALSE(root_window1_test_api.ContainsMouse());
 }
@@ -412,10 +405,10 @@ TEST_F(ExtendedDesktopTest, MoveWindowToDisplay) {
   UpdateDisplay("1000x1000,1000x1000");
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
 
-  gfx::Display display0 =
-      gfx::Screen::GetDisplayMatching(root_windows[0]->GetBoundsInScreen());
-  gfx::Display display1 =
-      gfx::Screen::GetDisplayMatching(root_windows[1]->GetBoundsInScreen());
+  gfx::Display display0 = Shell::GetScreen()->GetDisplayMatching(
+      root_windows[0]->GetBoundsInScreen());
+  gfx::Display display1 = Shell::GetScreen()->GetDisplayMatching(
+      root_windows[1]->GetBoundsInScreen());
   EXPECT_NE(display0.id(), display1.id());
 
   views::Widget* d1 = CreateTestWidget(gfx::Rect(10, 10, 1000, 100));
@@ -609,7 +602,7 @@ TEST_F(ExtendedDesktopTest, KeyEventsOnLockScreen) {
 
   // Create normal windows on both displays.
   views::Widget* widget1 = CreateTestWidget(
-      gfx::Screen::GetPrimaryDisplay().bounds());
+      Shell::GetScreen()->GetPrimaryDisplay().bounds());
   widget1->Show();
   EXPECT_EQ(root_windows[0], widget1->GetNativeView()->GetRootWindow());
   views::Widget* widget2 = CreateTestWidget(
@@ -619,7 +612,7 @@ TEST_F(ExtendedDesktopTest, KeyEventsOnLockScreen) {
 
   // Create a LockScreen window.
   views::Widget* lock_widget = CreateTestWidget(
-      gfx::Screen::GetPrimaryDisplay().bounds());
+      Shell::GetScreen()->GetPrimaryDisplay().bounds());
   views::Textfield* textfield = new views::Textfield;
   lock_widget->SetContentsView(textfield);
 

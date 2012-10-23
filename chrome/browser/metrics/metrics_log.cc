@@ -127,6 +127,8 @@ OmniboxEventProto::Suggestion::ResultType AsOmniboxEventResultType(
       return OmniboxEventProto::Suggestion::EXTENSION_APP;
     case AutocompleteMatch::CONTACT:
       return OmniboxEventProto::Suggestion::CONTACT;
+    case AutocompleteMatch::BOOKMARK_TITLE:
+      return OmniboxEventProto::Suggestion::BOOKMARK_TITLE;
     default:
       NOTREACHED();
       return OmniboxEventProto::Suggestion::UNKNOWN_RESULT_TYPE;
@@ -223,9 +225,9 @@ void WriteProfilerData(const ProcessDataSnapshot& profiler_data,
                                  &ignored, &birth_thread_name_hash);
     MetricsLogBase::CreateHashes(it->death_thread_name,
                                  &ignored, &exec_thread_name_hash);
-    MetricsLogBase::CreateHashes(it->birth.location.function_name,
-                                 &ignored, &source_file_name_hash);
     MetricsLogBase::CreateHashes(it->birth.location.file_name,
+                                 &ignored, &source_file_name_hash);
+    MetricsLogBase::CreateHashes(it->birth.location.function_name,
                                  &ignored, &source_function_name_hash);
 
     const tracked_objects::DeathDataSnapshot& death_data = it->death_data;
@@ -348,15 +350,17 @@ PrefService* MetricsLog::GetPrefService() {
 }
 
 gfx::Size MetricsLog::GetScreenSize() const {
-  return gfx::Screen::GetPrimaryDisplay().GetSizeInPixel();
+  return gfx::Screen::GetNativeScreen()->GetPrimaryDisplay().GetSizeInPixel();
 }
 
 float MetricsLog::GetScreenDeviceScaleFactor() const {
-  return gfx::Screen::GetPrimaryDisplay().device_scale_factor();
+  return gfx::Screen::GetNativeScreen()->
+      GetPrimaryDisplay().device_scale_factor();
 }
 
 int MetricsLog::GetScreenCount() const {
-  return gfx::Screen::GetNumDisplays();
+  // TODO(scottmg): NativeScreen maybe wrong. http://crbug.com/133312
+  return gfx::Screen::GetNativeScreen()->GetNumDisplays();
 }
 
 void MetricsLog::GetFieldTrialIds(
@@ -668,7 +672,7 @@ void MetricsLog::RecordEnvironment(
     // Write the XML version.
     // We'll write the protobuf version in RecordEnvironmentProto().
     OPEN_ELEMENT_FOR_SCOPE("cpu");
-    WriteAttribute("arch", base::SysInfo::CPUArchitecture());
+    WriteAttribute("arch", base::SysInfo::OperatingSystemArchitecture());
   }
 
   {
@@ -763,7 +767,7 @@ void MetricsLog::RecordEnvironmentProto(
       content::GetContentClient()->browser()->GetApplicationLocale());
 
   SystemProfileProto::Hardware* hardware = system_profile->mutable_hardware();
-  hardware->set_cpu_architecture(base::SysInfo::CPUArchitecture());
+  hardware->set_cpu_architecture(base::SysInfo::OperatingSystemArchitecture());
   hardware->set_system_ram_mb(base::SysInfo::AmountOfPhysicalMemoryMB());
 #if defined(OS_WIN)
   hardware->set_dll_base(reinterpret_cast<uint64>(&__ImageBase));
@@ -864,7 +868,7 @@ void MetricsLog::WriteProfileMetrics(const std::string& profileidhash,
        i != profile_metrics.end_keys(); ++i) {
     const Value* value;
     if (profile_metrics.GetWithoutPathExpansion(*i, &value)) {
-      DCHECK(*i != "id");
+      DCHECK_NE(*i, "id");
       switch (value->GetType()) {
         case Value::TYPE_STRING: {
           std::string string_value;

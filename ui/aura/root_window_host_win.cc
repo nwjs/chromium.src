@@ -82,12 +82,12 @@ void RootWindowHostWin::ToggleFullScreen() {
     MONITORINFO mi;
     mi.cbSize = sizeof(mi);
     GetMonitorInfo(MonitorFromWindow(hwnd(), MONITOR_DEFAULTTONEAREST), &mi);
-    target_rect = mi.rcMonitor;
+    target_rect = gfx::Rect(mi.rcMonitor);
   } else {
     fullscreen_ = false;
     SetWindowLong(hwnd(), GWL_STYLE, saved_window_style_);
     SetWindowLong(hwnd(), GWL_EXSTYLE, saved_window_ex_style_);
-    target_rect = saved_window_rect_;
+    target_rect = gfx::Rect(saved_window_rect_);
   }
   SetWindowPos(hwnd(),
                NULL,
@@ -158,10 +158,6 @@ void RootWindowHostWin::ReleaseCapture() {
     has_capture_ = false;
     ::ReleaseCapture();
   }
-}
-
-void RootWindowHostWin::ShowCursor(bool show) {
-  // NOTIMPLEMENTED();
 }
 
 bool RootWindowHostWin::QueryMouseLocation(gfx::Point* location_return) {

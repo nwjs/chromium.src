@@ -75,6 +75,7 @@
 #include "chrome/browser/view_type_utils.h"
 #include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_constants.h"
+#include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_process_policy.h"
@@ -908,7 +909,6 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kDisableScriptedPrintThrottling,
       switches::kDumpHistogramsOnExit,
       switches::kEnableBenchmarking,
-      switches::kEnableBrowserPluginForAllViewTypes,
       switches::kEnableBundledPpapiFlash,
       switches::kEnableCrxlessWebApps,
       switches::kEnableExperimentalExtensionApis,
@@ -1197,7 +1197,8 @@ void ChromeContentBrowserClient::AllowCertificateError(
   prerender::PrerenderManager* prerender_manager =
       prerender::PrerenderManagerFactory::GetForProfile(
           Profile::FromBrowserContext(tab->GetBrowserContext()));
-  if (prerender_manager && prerender_manager->IsWebContentsPrerendering(tab)) {
+  if (prerender_manager && prerender_manager->IsWebContentsPrerendering(tab,
+                                                                        NULL)) {
     if (prerender_manager->prerender_tracker()->TryCancel(
             render_process_id, render_view_id,
             prerender::FINAL_STATUS_SSL_ERROR)) {
@@ -1546,6 +1547,12 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
       prefs->GetBoolean(prefs::kWebKitAllowDisplayingInsecureContent);
   web_prefs->allow_running_insecure_content =
       prefs->GetBoolean(prefs::kWebKitAllowRunningInsecureContent);
+#if defined(OS_ANDROID)
+  web_prefs->font_scale_factor =
+      static_cast<float>(prefs->GetDouble(prefs::kWebKitFontScaleFactor));
+  web_prefs->force_enable_zoom =
+      prefs->GetBoolean(prefs::kWebKitForceEnableZoom);
+#endif
   web_prefs->password_echo_enabled = browser_defaults::kPasswordEchoEnabled;
 
   // The user stylesheet watcher may not exist in a testing profile.
@@ -1744,6 +1751,12 @@ bool ChromeContentBrowserClient::AllowPepperSocketAPI(
 bool ChromeContentBrowserClient::AllowPepperPrivateFileAPI() {
   return CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kPpapiFlashInProcess);
+}
+
+FilePath ChromeContentBrowserClient::GetHyphenDictionaryDirectory() {
+  FilePath directory;
+  PathService::Get(chrome::DIR_APP_DICTIONARIES, &directory);
+  return directory.Append(FILE_PATH_LITERAL("Hyphen"));
 }
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)

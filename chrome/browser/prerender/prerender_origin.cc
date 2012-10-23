@@ -12,17 +12,21 @@ namespace prerender {
 namespace {
 
 const char* kOriginNames[] = {
-  "Link Rel Prerender",
+  "[Deprecated] Link Rel Prerender (original)",
   "[Deprecated] Omnibox (original)",
   "GWS Prerender",
   "[Deprecated] Omnibox (conservative)",
   "[Deprecated] Omnibox (exact)",
   "Omnibox",
-  "Max"
+  "None",
+  "Link Rel Prerender (same domain)",
+  "Link Rel Prerender (cross domain)",
+  "Max",
 };
 COMPILE_ASSERT(arraysize(kOriginNames) == ORIGIN_MAX + 1,
                PrerenderOrigin_name_count_mismatch);
-}
+
+}  // namespace
 
 const char* NameFromOrigin(Origin origin) {
   DCHECK(static_cast<int>(origin) >= 0 &&

@@ -158,7 +158,7 @@ enum NotificationType {
   // that would navigate as soon as the NTP is done loading.
   // When this notification happen, it guarantees the page is not going to do
   // any further navigation.
-  // The source is the TabContents containing the NTP.
+  // The source is the WebContents containing the NTP.
   NOTIFICATION_NEW_TAB_READY,
 #endif
 
@@ -193,17 +193,9 @@ enum NotificationType {
   // Source<NavigationController> with a pointer to the controller for the
   // closed tab.  No details are expected.
   //
-  // See also NOTIFICATION_TAB_CONTENTS_DESTROYED, which is sent when the
-  // TabContents is destroyed, and content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
-  // which is sent when the WebContents containing the NavigationController is
-  // destroyed.
+  // See also content::NOTIFICATION_WEB_CONTENTS_DESTROYED, which is sent when
+  // the WebContents containing the NavigationController is destroyed.
   NOTIFICATION_TAB_CLOSING,
-
-  // Sent when a TabContents is being destroyed.  At this point it's safe to
-  // call TabContents member functions, which is not true of the similar
-  // content::NOTIFICATION_WEB_CONTENTS_DESTROYED that fires later during
-  // teardown.  The source is a Source<TabContents>.  There are no details.
-  NOTIFICATION_TAB_CONTENTS_DESTROYED,
 
   // Stuff inside the tabs ---------------------------------------------------
 
@@ -462,7 +454,7 @@ enum NotificationType {
   NOTIFICATION_PRINT_JOB_EVENT,
 
   // Sent when a PrintJob has been released.
-  // Source is the TabContents that holds the print job.
+  // Source is the WebContents that holds the print job.
   NOTIFICATION_PRINT_JOB_RELEASED,
 
   // Shutdown ----------------------------------------------------------------
@@ -1129,19 +1121,17 @@ enum NotificationType {
   // Sent each time the InstantController is updated.
   NOTIFICATION_INSTANT_CONTROLLER_UPDATED,
 
-  // Sent each time the InstantController shows the InstantLoader.
-  NOTIFICATION_INSTANT_CONTROLLER_SHOWN,
-
-  // Sent each time the InstantController hides the InstantLoader.
-  NOTIFICATION_INSTANT_CONTROLLER_HIDDEN,
-
-  // Sent when an Instant preview is committed. The Source is the TabContents
+  // Sent when an Instant preview is committed. The Source is the WebContents
   // containing the committed preview.
   NOTIFICATION_INSTANT_COMMITTED,
 
   // Sent when the Instant loader determines whether the page supports the
   // Instant API or not.
   NOTIFICATION_INSTANT_SUPPORT_DETERMINED,
+
+  // Sent when the Browser Instant controller resets, this may result from
+  // a preference change.
+  NOTIFICATION_BROWSER_INSTANT_RESET,
 
   // Sent when the CaptivePortalService checks if we're behind a captive portal.
   // The Source is the Profile the CaptivePortalService belongs to, and the
@@ -1276,6 +1266,13 @@ enum NotificationType {
   // The source is the SearchViewController whose animation is finished.
   // No details.
   NOTIFICATION_SEARCH_VIEW_CONTROLLER_ANIMATION_FINISHED,
+
+  // NTP for Instant Extended API.
+  // Sent when vertical offset of NTP background theme image in content view
+  // needs to be changed via |background_position| in new_tab_theme.css.
+  // The source is the Profile for the content view.
+  // Details is a the y-pos of |background_position| of new_tab_theme.css.
+  NOTIFICATION_NTP_BACKGROUND_THEME_Y_POS_CHANGED,
 
   // Note:-
   // Currently only Content and Chrome define and use notifications.

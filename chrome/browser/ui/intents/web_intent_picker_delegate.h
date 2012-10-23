@@ -13,22 +13,30 @@ namespace content {
 class WebContents;
 }
 
+class Profile;
+
 // A class used to notify the delegate when the user has chosen a web intent
 // service.
 class WebIntentPickerDelegate {
  public:
+  enum DefaultsUsage {
+    kEnableDefaults = 0,
+    kSuppressDefaults = 1,
+  };
+
   // Base destructor.
   virtual ~WebIntentPickerDelegate() {}
 
   // Called when the user has chosen a service.
   virtual void OnServiceChosen(
       const GURL& url,
-      webkit_glue::WebIntentServiceData::Disposition disposition) = 0;
+      webkit_glue::WebIntentServiceData::Disposition disposition,
+      DefaultsUsage suppress_defaults) = 0;
 
-  // Called when the picker has created WebContents to use for inline
-  // disposition.
-  virtual void OnInlineDispositionWebContentsCreated(
-      content::WebContents* web_contents) = 0;
+  // Called to create the WebContents into which the inline disposition will be
+  // placed.
+  virtual content::WebContents* CreateWebContentsForInlineDisposition(
+      Profile* profile, const GURL& url) = 0;
 
   // Called when the user has chosen to install a suggested extension.
   virtual void OnExtensionInstallRequested(const std::string& id) = 0;

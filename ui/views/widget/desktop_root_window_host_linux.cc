@@ -28,6 +28,7 @@
 #include "ui/views/widget/desktop_native_widget_aura.h"
 #include "ui/views/widget/desktop_screen_position_client.h"
 #include "ui/views/widget/x11_desktop_handler.h"
+#include "ui/views/widget/x11_desktop_window_move_client.h"
 #include "ui/views/widget/x11_window_event_filter.h"
 
 namespace views {
@@ -122,6 +123,9 @@ void DesktopRootWindowHostLinux::InitX11Window(
                     PointerMotionMask;
   XSelectInput(xdisplay_, xwindow_, event_mask);
   XFlush(xdisplay_);
+
+  if (base::MessagePumpForUI::HasXInput2())
+    ui::TouchFactory::GetInstance()->SetupXI2ForXWindow(xwindow_);
 
   invisible_cursor_ = ui::CreateInvisibleCursor();
 
@@ -220,6 +224,11 @@ aura::RootWindow* DesktopRootWindowHostLinux::InitRootWindow(
   x11_window_event_filter_->SetUseHostWindowBorders(false);
   root_window_event_filter_->AddFilter(x11_window_event_filter_.get());
 
+  x11_window_move_client_.reset(new X11DesktopWindowMoveClient);
+  root_window_event_filter_->AddFilter(x11_window_move_client_.get());
+  aura::client::SetWindowMoveClient(root_window_,
+                                    x11_window_move_client_.get());
+
   return root_window_;
 }
 
@@ -297,6 +306,7 @@ void DesktopRootWindowHostLinux::Close() {
 void DesktopRootWindowHostLinux::CloseNow() {
   // Remove the event listeners we've installed. We need to remove these
   // because otherwise we get assert during ~RootWindow().
+  root_window_event_filter_->RemoveFilter(x11_window_move_client_.get());
   root_window_event_filter_->RemoveFilter(x11_window_event_filter_.get());
   root_window_event_filter_->RemoveFilter(input_method_filter_.get());
 
@@ -485,20 +495,29 @@ void DesktopRootWindowHostLinux::SetWindowTitle(const string16& title) {
 }
 
 void DesktopRootWindowHostLinux::ClearNativeFocus() {
-  // TODO(erg):
-  NOTIMPLEMENTED();
+  // This method is weird and misnamed. Instead of clearing the native focus,
+  // it sets the focus to our |content_window_|, which will trigger a cascade
+  // of focus changes into views.
+  if (content_window_ && content_window_->GetFocusManager() &&
+      content_window_->Contains(
+          content_window_->GetFocusManager()->GetFocusedWindow())) {
+    content_window_->GetFocusManager()->SetFocusedWindow(content_window_, NULL);
+  }
 }
 
 Widget::MoveLoopResult DesktopRootWindowHostLinux::RunMoveLoop(
     const gfx::Point& drag_offset) {
-  // TODO(erg):
-  NOTIMPLEMENTED();
+  SetCapture();
+
+  if (x11_window_move_client_->RunMoveLoop(content_window_, drag_offset) ==
+      aura::client::MOVE_SUCCESSFUL)
+    return Widget::MOVE_LOOP_SUCCESSFUL;
+
   return Widget::MOVE_LOOP_CANCELED;
 }
 
 void DesktopRootWindowHostLinux::EndMoveLoop() {
-  // TODO(erg):
-  NOTIMPLEMENTED();
+  x11_window_move_client_->EndMoveLoop();
 }
 
 void DesktopRootWindowHostLinux::SetVisibilityChangedAnimationsEnabled(
@@ -564,6 +583,15 @@ void DesktopRootWindowHostLinux::InitModalType(ui::ModalType modal_type) {
 void DesktopRootWindowHostLinux::FlashFrame(bool flash_frame) {
   // TODO(erg):
   NOTIMPLEMENTED();
+}
+
+void DesktopRootWindowHostLinux::OnNativeWidgetFocus() {
+  native_widget_delegate_->AsWidget()->GetInputMethod()->OnFocus();
+}
+
+void DesktopRootWindowHostLinux::OnNativeWidgetBlur() {
+  if (xwindow_)
+    native_widget_delegate_->AsWidget()->GetInputMethod()->OnBlur();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -664,13 +692,6 @@ void DesktopRootWindowHostLinux::SetCursor(gfx::NativeCursor cursor) {
     SetCursorInternal(cursor);
 }
 
-void DesktopRootWindowHostLinux::ShowCursor(bool show) {
-  if (show == cursor_shown_)
-    return;
-  cursor_shown_ = show;
-  SetCursorInternal(show ? current_cursor_ : invisible_cursor_);
-}
-
 bool DesktopRootWindowHostLinux::QueryMouseLocation(
     gfx::Point* location_return) {
   ::Window root_return, child_return;
@@ -764,6 +785,13 @@ void DesktopRootWindowHostLinux::PrepareForShutdown() {
 ////////////////////////////////////////////////////////////////////////////////
 // DesktopRootWindowHostLinux, aura::CursorClient implementation:
 
+void DesktopRootWindowHostLinux::ShowCursor(bool show) {
+  if (show == cursor_shown_)
+    return;
+  cursor_shown_ = show;
+  SetCursorInternal(show ? current_cursor_ : invisible_cursor_);
+}
+
 bool DesktopRootWindowHostLinux::IsCursorVisible() const {
   return cursor_shown_;
 }
@@ -774,6 +802,16 @@ void DesktopRootWindowHostLinux::SetDeviceScaleFactor(
   cursor_loader_.set_device_scale_factor(device_scale_factor);
 }
 
+void DesktopRootWindowHostLinux::LockCursor() {
+  // TODO(mazda): Implement this.
+  NOTIMPLEMENTED();
+}
+
+void DesktopRootWindowHostLinux::UnlockCursor() {
+  // TODO(mazda): Implement this.
+  NOTIMPLEMENTED();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // DesktopRootWindowHostLinux, views::internal::InputMethodDelegate:
 
@@ -781,8 +819,6 @@ void DesktopRootWindowHostLinux::DispatchKeyEventPostIME(
     const ui::KeyEvent& key) {
   FocusManager* focus_manager =
       native_widget_delegate_->AsWidget()->GetFocusManager();
-  if (focus_manager)
-    focus_manager->MaybeResetMenuKeyState(key);
   if (native_widget_delegate_->OnKeyEvent(key) || !focus_manager)
     return;
   focus_manager->OnKeyEvent(key);
@@ -881,9 +917,9 @@ bool DesktopRootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
           if (type == ui::ET_MOUSE_MOVED || type == ui::ET_MOUSE_DRAGGED) {
             // If this is a motion event, we want to coalesce all pending motion
             // events that are at the top of the queue.
-            // num_coalesced = CoalescePendingMotionEvents(xev, &last_event);
-            // if (num_coalesced > 0)
-            //   xev = &last_event;
+            num_coalesced = ui::CoalescePendingMotionEvents(xev, &last_event);
+            if (num_coalesced > 0)
+              xev = &last_event;
           } else if (type == ui::ET_MOUSE_PRESSED) {
             XIDeviceEvent* xievent =
                 static_cast<XIDeviceEvent*>(xev->xcookie.data);

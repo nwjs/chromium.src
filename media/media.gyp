@@ -177,6 +177,8 @@
         'base/buffers.h',
         'base/byte_queue.cc',
         'base/byte_queue.h',
+        'base/channel_mixer.cc',
+        'base/channel_mixer.h',
         'base/clock.cc',
         'base/clock.h',
         'base/data_buffer.cc',
@@ -252,6 +254,8 @@
         'filters/audio_renderer_impl.h',
         'filters/chunk_demuxer.cc',
         'filters/chunk_demuxer.h',
+        'filters/decrypting_audio_decoder.cc',
+        'filters/decrypting_audio_decoder.h',
         'filters/decrypting_video_decoder.cc',
         'filters/decrypting_video_decoder.h',
         'filters/dummy_demuxer.cc',
@@ -599,6 +603,7 @@
         'audio/audio_parameters_unittest.cc',
         'audio/audio_util_unittest.cc',
         'audio/cross_process_notification_unittest.cc',
+        'audio/fake_audio_output_stream_unittest.cc',
         'audio/ios/audio_manager_ios_unittest.cc',
         'audio/linux/alsa_output_unittest.cc',
         'audio/mac/audio_low_latency_input_mac_unittest.cc',
@@ -616,6 +621,7 @@
         'base/bit_reader_unittest.cc',
         'base/bind_to_loop_unittest.cc',
         'base/buffers_unittest.cc',
+        'base/channel_mixer_unittest.cc',
         'base/clock_unittest.cc',
         'base/data_buffer_unittest.cc',
         'base/decoder_buffer_unittest.cc',
@@ -639,6 +645,7 @@
         'filters/audio_renderer_algorithm_unittest.cc',
         'filters/audio_renderer_impl_unittest.cc',
         'filters/chunk_demuxer_unittest.cc',
+        'filters/decrypting_audio_decoder_unittest.cc',
         'filters/decrypting_video_decoder_unittest.cc',
         'filters/ffmpeg_audio_decoder_unittest.cc',
         'filters/ffmpeg_decoder_unittest.h',
@@ -1036,7 +1043,7 @@
         },
       ],
     }],
-    ['OS == "win" or toolkit_uses_gtk == 1', {
+    ['(OS == "win" or toolkit_uses_gtk == 1) and use_aura != 1', {
       'targets': [
         {
           'target_name': 'shader_bench',

@@ -27,9 +27,9 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/profiles/profile.h"
@@ -64,6 +64,7 @@
 #include "chrome/browser/ui/gtk/gtk_window_util.h"
 #include "chrome/browser/ui/gtk/infobars/infobar_container_gtk.h"
 #include "chrome/browser/ui/gtk/infobars/infobar_gtk.h"
+#include "chrome/browser/ui/gtk/instant_preview_controller_gtk.h"
 #include "chrome/browser/ui/gtk/location_bar_view_gtk.h"
 #include "chrome/browser/ui/gtk/nine_box.h"
 #include "chrome/browser/ui/gtk/one_click_signin_bubble_gtk.h"
@@ -240,7 +241,7 @@ BrowserWindowGtk::BrowserWindowGtk(Browser* browser)
        contents_hsplit_(NULL),
        contents_vsplit_(NULL),
        frame_cursor_(NULL),
-       is_active_(!ui::ActiveWindowWatcherX::WMSupportsActivation()),
+       is_active_(false),
        show_state_after_show_(ui::SHOW_STATE_DEFAULT),
        suppress_window_raise_(false),
        accel_group_(NULL),
@@ -553,7 +554,7 @@ void BrowserWindowGtk::DrawCustomFrame(cairo_t* cr,
   if (theme_provider->HasCustomImage(IDR_THEME_FRAME_OVERLAY) &&
       !browser()->profile()->IsOffTheRecord()) {
     gfx::CairoCachedSurface* theme_overlay = theme_provider->GetImageNamed(
-        IsActive() ? IDR_THEME_FRAME_OVERLAY
+        DrawFrameAsActive() ? IDR_THEME_FRAME_OVERLAY
         : IDR_THEME_FRAME_OVERLAY_INACTIVE).ToCairo();
     theme_overlay->SetSource(cr, widget, 0, GetVerticalOffset());
     cairo_paint(cr);
@@ -568,7 +569,7 @@ int BrowserWindowGtk::GetVerticalOffset() {
 int BrowserWindowGtk::GetThemeFrameResource() {
   bool incognito = browser()->profile()->IsOffTheRecord();
   int image_name;
-  if (IsActive()) {
+  if (DrawFrameAsActive()) {
     image_name = incognito ? IDR_THEME_FRAME_INCOGNITO : IDR_THEME_FRAME;
   } else {
     image_name = incognito ? IDR_THEME_FRAME_INCOGNITO_INACTIVE :
@@ -690,7 +691,11 @@ void BrowserWindowGtk::Deactivate() {
 }
 
 bool BrowserWindowGtk::IsActive() const {
-  return is_active_;
+  if (ui::ActiveWindowWatcherX::WMSupportsActivation())
+    return is_active_;
+
+  // This still works even though we don't get the activation notification.
+  return gtk_window_is_active(window_);
 }
 
 void BrowserWindowGtk::FlashFrame(bool flash) {
@@ -738,8 +743,7 @@ void BrowserWindowGtk::SetDevToolsDockSide(DevToolsDockSide side) {
 
   if (devtools_container_->tab()) {
     HideDevToolsContainer();
-    devtools_dock_side_ = side;
-    ShowDevToolsContainer();
+    ShowDevToolsContainer(side);
   } else {
     devtools_dock_side_ = side;
   }
@@ -1133,20 +1137,6 @@ void BrowserWindowGtk::Paste() {
       window_, chrome::GetActiveWebContents(browser_.get()));
 }
 
-void BrowserWindowGtk::ShowInstant(TabContents* preview,
-                                   int height,
-                                   InstantSizeUnits units) {
-  // TODO(jered): Support height < 100%.
-  DCHECK(height == 100 && units == INSTANT_SIZE_PERCENT);
-  contents_container_->SetPreview(preview);
-  MaybeShowBookmarkBar(false);
-}
-
-void BrowserWindowGtk::HideInstant() {
-  contents_container_->SetPreview(NULL);
-  MaybeShowBookmarkBar(false);
-}
-
 gfx::Rect BrowserWindowGtk::GetInstantBounds() {
   return ui::GetWidgetScreenBounds(contents_container_->widget());
 }
@@ -1249,7 +1239,9 @@ void BrowserWindowGtk::ActiveTabChanged(TabContents* old_contents,
   // Update various elements that are interested in knowing the current
   // WebContents.
   UpdateDevToolsForContents(new_contents->web_contents());
-  infobar_container_->ChangeTabContents(new_contents->infobar_tab_helper());
+  InfoBarTabHelper* new_infobar_tab_helper =
+      InfoBarTabHelper::FromWebContents(new_contents->web_contents());
+  infobar_container_->ChangeTabContents(new_infobar_tab_helper);
   contents_container_->SetTab(new_contents);
 
   // TODO(estade): after we manage browser activation, add a check to make sure
@@ -1323,35 +1315,20 @@ extensions::ActiveTabPermissionGranter*
       active_tab_permission_granter();
 }
 
-void BrowserWindowGtk::MaybeShowBookmarkBar(bool animate) {
-  TRACE_EVENT0("ui::gtk", "BrowserWindowGtk::MaybeShowBookmarkBar");
-  if (!IsBookmarkBarSupported())
-    return;
-
-  TabContents* tab = GetDisplayedTab();
-
-  if (tab)
-    bookmark_bar_->SetPageNavigator(browser_.get());
-
-  BookmarkBar::State state = browser_->bookmark_bar_state();
-  if (contents_container_->HasPreview() && state == BookmarkBar::DETACHED)
-    state = BookmarkBar::HIDDEN;
-
-  toolbar_->UpdateForBookmarkBarVisibility(state == BookmarkBar::DETACHED);
-  PlaceBookmarkBar(state == BookmarkBar::DETACHED);
-  bookmark_bar_->SetBookmarkBarState(
-      state,
-      animate ? BookmarkBar::ANIMATE_STATE_CHANGE :
-                BookmarkBar::DONT_ANIMATE_STATE_CHANGE);
-}
-
 void BrowserWindowGtk::UpdateDevToolsForContents(WebContents* contents) {
   TRACE_EVENT0("ui::gtk", "BrowserWindowGtk::UpdateDevToolsForContents");
   TabContents* old_devtools = devtools_container_->tab();
-  TabContents* devtools_contents = contents ?
-      DevToolsWindow::GetDevToolsContents(contents) : NULL;
-  if (old_devtools == devtools_contents)
+  DevToolsWindow* devtools_window = contents ?
+      DevToolsWindow::GetDockedInstanceForInspectedTab(contents) : NULL;
+  TabContents* devtools_contents =
+      devtools_window ? devtools_window->tab_contents() : NULL;
+
+  if (old_devtools == devtools_contents) {
+    if (devtools_contents &&
+        devtools_window->dock_side() != devtools_dock_side_)
+      SetDevToolsDockSide(devtools_window->dock_side());
     return;
+  }
 
   if (old_devtools)
     devtools_container_->DetachTab(old_devtools);
@@ -1369,13 +1346,14 @@ void BrowserWindowGtk::UpdateDevToolsForContents(WebContents* contents) {
   bool should_hide = old_devtools != NULL && devtools_contents == NULL;
 
   if (should_show)
-    ShowDevToolsContainer();
+    ShowDevToolsContainer(devtools_window->dock_side());
   else if (should_hide)
     HideDevToolsContainer();
 }
 
-void BrowserWindowGtk::ShowDevToolsContainer() {
-  bool dock_to_right = devtools_dock_side_ == DEVTOOLS_DOCK_SIDE_RIGHT;
+void BrowserWindowGtk::ShowDevToolsContainer(DevToolsDockSide dock_side) {
+  devtools_dock_side_ = dock_side;
+  bool dock_to_right = dock_side == DEVTOOLS_DOCK_SIDE_RIGHT;
 
   GtkAllocation contents_rect;
   gtk_widget_get_allocation(contents_vsplit_, &contents_rect);
@@ -1819,6 +1797,11 @@ void BrowserWindowGtk::InitWidgets() {
   gtk_box_pack_end(GTK_BOX(window_vbox_), render_area_event_box_,
                    TRUE, TRUE, 0);
 
+  instant_preview_controller_.reset(
+      new InstantPreviewControllerGtk(browser_.get(),
+                                      this,
+                                      contents_container_.get()));
+
   if (IsBookmarkBarSupported()) {
     bookmark_bar_.reset(new BookmarkBarGtk(this,
                                            browser_.get(),
@@ -1869,7 +1852,7 @@ void BrowserWindowGtk::SetBackgroundColor() {
   int frame_color_id;
   if (UsingCustomPopupFrame()) {
     frame_color_id = ThemeService::COLOR_TOOLBAR;
-  } else if (IsActive()) {
+  } else if (DrawFrameAsActive()) {
     frame_color_id = browser()->profile()->IsOffTheRecord()
        ? ThemeService::COLOR_FRAME_INCOGNITO
        : ThemeService::COLOR_FRAME;
@@ -2012,8 +1995,8 @@ void BrowserWindowGtk::SaveWindowPosition() {
   window_preferences->SetInteger("bottom", restored_bounds_.bottom());
   window_preferences->SetBoolean("maximized", IsMaximized());
 
-  gfx::Rect work_area(
-      gfx::Screen::GetDisplayMatching(restored_bounds_).work_area());
+  gfx::Rect work_area(gfx::Screen::GetNativeScreen()->GetDisplayMatching(
+      restored_bounds_).work_area());
   window_preferences->SetInteger("work_area_left", work_area.x());
   window_preferences->SetInteger("work_area_top", work_area.y());
   window_preferences->SetInteger("work_area_right", work_area.right());
@@ -2049,6 +2032,28 @@ int BrowserWindowGtk::GetXPositionOfLocationIcon(GtkWidget* relative_to) {
   }
 
   return x;
+}
+
+void BrowserWindowGtk::MaybeShowBookmarkBar(bool animate) {
+  TRACE_EVENT0("ui::gtk", "BrowserWindowGtk::MaybeShowBookmarkBar");
+  if (!IsBookmarkBarSupported())
+    return;
+
+  TabContents* tab = GetDisplayedTab();
+
+  if (tab)
+    bookmark_bar_->SetPageNavigator(browser_.get());
+
+  BookmarkBar::State state = browser_->bookmark_bar_state();
+  if (contents_container_->HasPreview() && state == BookmarkBar::DETACHED)
+    state = BookmarkBar::HIDDEN;
+
+  toolbar_->UpdateForBookmarkBarVisibility(state == BookmarkBar::DETACHED);
+  PlaceBookmarkBar(state == BookmarkBar::DETACHED);
+  bookmark_bar_->SetBookmarkBarState(
+      state,
+      animate ? BookmarkBar::ANIMATE_STATE_CHANGE :
+                BookmarkBar::DONT_ANIMATE_STATE_CHANGE);
 }
 
 void BrowserWindowGtk::OnLocationIconSizeAllocate(GtkWidget* sender,
@@ -2397,6 +2402,16 @@ void BrowserWindowGtk::PlaceBookmarkBar(bool is_floating) {
     gtk_box_pack_end(GTK_BOX(target_parent), bookmark_bar_->widget(),
                      FALSE, FALSE, 0);
   }
+}
+
+bool BrowserWindowGtk::DrawFrameAsActive() const {
+  if (ui::ActiveWindowWatcherX::WMSupportsActivation())
+    return is_active_;
+
+  // Since we don't get notifications when the active state of the frame
+  // changes, we can't consistently repaint the frame at the right time. Instead
+  // we always draw the frame as active.
+  return true;
 }
 
 // static

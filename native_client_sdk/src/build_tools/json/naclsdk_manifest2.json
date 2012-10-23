@@ -61,15 +61,11 @@
       "repath": "vs_addin",
       "archives": [
         {
-          "url": "https://commondatastorage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/sdk/1419/vs_addin.tgz",
-          "checksum": {
-            "sha1": "95542982245c7ae42d267930079f48247c2ea916"
-          },
-          "host_os": "win",
-          "size": 902700
+          "url": "https://commondatastorage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/sdk/${revision}/vs_addin.tgz",
+          "host_os": "win"
         }
       ],
-      "revision": 1419
+      "revision": 1454
     },
     {
       "name": "pepper_16",

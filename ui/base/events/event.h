@@ -17,8 +17,11 @@
 #include "ui/base/ui_export.h"
 #include "ui/gfx/point.h"
 
-namespace ui {
+namespace gfx {
 class Transform;
+}
+
+namespace ui {
 class EventTarget;
 
 class UI_EXPORT Event {
@@ -156,7 +159,7 @@ class UI_EXPORT Event {
   bool HasNativeEvent() const;
 
  protected:
-  Event(EventType type, int flags);
+  Event(EventType type, base::TimeDelta time_stamp, int flags);
   Event(const base::NativeEvent& native_event, EventType type, int flags);
   Event(const Event& copy);
   void set_type(EventType type) { type_ = type; }
@@ -220,7 +223,7 @@ class UI_EXPORT LocatedEvent : public Event {
 
   // Applies |root_transform| to the event.
   // This is applied to both |location_| and |root_location_|.
-  virtual void UpdateForRootTransform(const Transform& root_transform);
+  virtual void UpdateForRootTransform(const gfx::Transform& root_transform);
 
   template <class T> void ConvertLocationToTarget(T* source, T* target) {
     if (target && target != source)
@@ -249,6 +252,7 @@ class UI_EXPORT LocatedEvent : public Event {
   LocatedEvent(EventType type,
                const gfx::Point& location,
                const gfx::Point& root_location,
+               base::TimeDelta time_stamp,
                int flags);
 
   gfx::Point location_;
@@ -407,6 +411,16 @@ class UI_EXPORT TouchEvent : public LocatedEvent {
              int touch_id,
              base::TimeDelta time_stamp);
 
+  TouchEvent(EventType type,
+             const gfx::Point& location,
+             int flags,
+             int touch_id,
+             base::TimeDelta timestamp,
+             float radius_x,
+             float radius_y,
+             float angle,
+             float force);
+
   virtual ~TouchEvent();
 
   int touch_id() const { return touch_id_; }
@@ -426,7 +440,8 @@ class UI_EXPORT TouchEvent : public LocatedEvent {
   void set_radius_y(const float r) { radius_y_ = r; }
 
   // Overridden from LocatedEvent.
-  virtual void UpdateForRootTransform(const Transform& root_transform) OVERRIDE;
+  virtual void UpdateForRootTransform(
+      const gfx::Transform& root_transform) OVERRIDE;
 
  protected:
   void set_radius(float radius_x, float radius_y) {
@@ -458,22 +473,6 @@ class UI_EXPORT TouchEvent : public LocatedEvent {
   float force_;
 
   DISALLOW_COPY_AND_ASSIGN(TouchEvent);
-};
-
-class UI_EXPORT TestTouchEvent : public TouchEvent {
- public:
-  // Create a new touch event.
-  TestTouchEvent(EventType type,
-                 int x,
-                 int y,
-                 int flags,
-                 int touch_id,
-                 float radius_x,
-                 float radius_y,
-                 float angle,
-                 float force);
- private:
-  DISALLOW_COPY_AND_ASSIGN(TestTouchEvent);
 };
 
 class UI_EXPORT KeyEvent : public Event {
@@ -554,11 +553,7 @@ class UI_EXPORT DropTargetEvent : public LocatedEvent {
   DropTargetEvent(const OSExchangeData& data,
                   const gfx::Point& location,
                   const gfx::Point& root_location,
-                  int source_operations)
-      : LocatedEvent(ET_DROP_TARGET_EVENT, location, root_location, 0),
-        data_(data),
-        source_operations_(source_operations) {
-  }
+                  int source_operations);
 
   const OSExchangeData& data() const { return data_; }
   int source_operations() const { return source_operations_; }

@@ -58,8 +58,11 @@
         'host_plugin_prefix': 'lib',
       }],
       ['os_posix == 1 and OS != "mac" and target_arch == "arm"', {
-        # linux 64 bit
         'host_plugin_extension': 'arm.so',
+        'host_plugin_prefix': 'lib',
+      }],
+      ['os_posix == 1 and OS != "mac" and target_arch == "mipsel"', {
+        'host_plugin_extension': 'mipsel.so',
         'host_plugin_prefix': 'lib',
       }],
       ['OS=="win"', {
@@ -207,6 +210,10 @@
     ],
   },
 
+  'includes': [
+    '../chrome/js_unittest_vars.gypi',
+  ],
+
   'target_defaults': {
     'defines': [
     ],
@@ -266,6 +273,16 @@
             }],  # 'linux_dump_symbols==1'
           ],  # end of 'conditions'
         },  # end of target 'linux_symbols'
+        {
+          'target_name': 'remoting_start_host',
+          'type': 'executable',
+          'dependencies': [
+            'remoting_host_setup_base',
+          ],
+          'sources': [
+            'host/setup/start_host.cc',
+          ],
+        },  # end of target 'remoting_start_host'
       ],  # end of 'targets'
     }],  # 'OS=="linux"'
 
@@ -418,12 +435,12 @@
             'host/constants_mac.cc',
             'host/constants_mac.h',
             'host/host_config.cc',
-            'host/me2me_preference_pane.h',
-            'host/me2me_preference_pane.mm',
-            'host/me2me_preference_pane_confirm_pin.h',
-            'host/me2me_preference_pane_confirm_pin.mm',
-            'host/me2me_preference_pane_disable.h',
-            'host/me2me_preference_pane_disable.mm',
+            'host/mac/me2me_preference_pane.h',
+            'host/mac/me2me_preference_pane.mm',
+            'host/mac/me2me_preference_pane_confirm_pin.h',
+            'host/mac/me2me_preference_pane_confirm_pin.mm',
+            'host/mac/me2me_preference_pane_disable.h',
+            'host/mac/me2me_preference_pane_disable.mm',
           ],
           'link_settings': {
             'libraries': [
@@ -446,19 +463,19 @@
           'xcode_settings': {
             'ARCHS': ['i386', 'x86_64'],
             'GCC_ENABLE_OBJC_GC': 'supported',
-            'INFOPLIST_FILE': 'host/me2me_preference_pane-Info.plist',
+            'INFOPLIST_FILE': 'host/mac/me2me_preference_pane-Info.plist',
             'INFOPLIST_PREPROCESS': 'YES',
             'INFOPLIST_PREPROCESSOR_DEFINITIONS': 'VERSION_FULL="<(version_full)" VERSION_SHORT="<(version_short)" BUNDLE_NAME="<(bundle_name)" BUNDLE_ID="<(bundle_id)" COPYRIGHT_INFO="<(copyright_info)" PREF_PANE_ICON_LABEL="<(pref_pane_icon_label)"',
           },
           'mac_bundle_resources': [
-            'host/me2me_preference_pane.xib',
-            'host/me2me_preference_pane_confirm_pin.xib',
-            'host/me2me_preference_pane_disable.xib',
-            'host/me2me_preference_pane-Info.plist',
+            'host/mac/me2me_preference_pane.xib',
+            'host/mac/me2me_preference_pane_confirm_pin.xib',
+            'host/mac/me2me_preference_pane_disable.xib',
+            'host/mac/me2me_preference_pane-Info.plist',
             'resources/chromoting128.png',
           ],
           'mac_bundle_resources!': [
-            'host/me2me_preference_pane-Info.plist',
+            'host/mac/me2me_preference_pane-Info.plist',
           ],
           'conditions': [
             ['mac_breakpad==1', {
@@ -480,6 +497,7 @@
           'variables': { 'enable_wexit_time_destructors': 1, },
           'dependencies': [
             '../base/base.gyp:base',
+            'remoting_host_logging',
           ],
           'sources': [
             'tools/breakpad_tester_win.cc',
@@ -527,6 +545,41 @@
           ],
         },  # end of target 'remoting_elevated_controller'
         {
+          'target_name': 'remoting_configurer',
+          'type': 'executable',
+          'dependencies': [
+            '../base/base.gyp:base',
+            '../crypto/crypto.gyp:crypto',
+            'remoting_host',
+            'remoting_host_setup_base',
+          ],
+          'sources': [
+            'host/branding.cc',
+            'host/setup/win/host_configurer.cc',
+            'host/setup/win/host_configurer.rc',
+            'host/setup/win/host_configurer_window.cc',
+            'host/setup/win/host_configurer_window.h',
+            'host/setup/win/host_configurer_resource.h',
+            'host/setup/win/load_string_from_resource.cc',
+            'host/setup/win/load_string_from_resource.h',
+            'host/setup/win/start_host_window.cc',
+            'host/setup/win/start_host_window.h',
+          ],
+          'msvs_settings': {
+            'VCLinkerTool': {
+              'AdditionalOptions': [
+                "\"/manifestdependency:type='win32' "
+                    "name='Microsoft.Windows.Common-Controls' "
+                    "version='6.0.0.0' "
+                    "processorArchitecture='*' "
+                    "publicKeyToken='6595b64144ccf1df' language='*'\"",
+              ],
+              # 2 == /SUBSYSTEM:WINDOWS
+              'SubSystem': '2',
+            },
+          },
+        },  # end of target 'remoting_configurer'
+        {
           'target_name': 'remoting_controller',
           'type': 'executable',
           'variables': { 'enable_wexit_time_destructors': 1, },
@@ -544,13 +597,12 @@
             '../base/base.gyp:base',
             'remoting_breakpad',
             'remoting_elevated_controller',
+            'remoting_host_logging',
             'remoting_protocol',
             'remoting_version_resources',
           ],
           'sources': [
             '<(SHARED_INTERMEDIATE_DIR)/remoting/remoting_controller_version.rc',
-            'host/branding.cc',
-            'host/branding.h',
             'host/pin_hash.cc',
             'host/pin_hash.h',
             'host/usage_stats_consent.h',
@@ -592,15 +644,15 @@
             '../base/base.gyp:base_static',
             '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
             '../ipc/ipc.gyp:ipc',
+            '../net/net.gyp:net',
             'remoting_base',
             'remoting_breakpad',
+            'remoting_host_logging',
             'remoting_version_resources',
           ],
           'sources': [
             '<(SHARED_INTERMEDIATE_DIR)/remoting/remoting_daemon_version.rc',
             'base/scoped_sc_handle_win.h',
-            'host/branding.cc',
-            'host/branding.h',
             'host/chromoting_messages.cc',
             'host/chromoting_messages.h',
             'host/config_file_watcher.cc',
@@ -608,7 +660,13 @@
             'host/daemon_process.cc',
             'host/daemon_process.h',
             'host/daemon_process_win.cc',
+            'host/desktop_session.cc',
+            'host/desktop_session.h',
+            'host/desktop_session_win.cc',
+            'host/desktop_session_win.h',
             'host/host_exit_codes.h',
+            'host/ipc_consts.cc',
+            'host/ipc_consts.h',
             'host/usage_stats_consent.h',
             'host/usage_stats_consent_win.cc',
             'host/win/host_service.cc',
@@ -619,12 +677,16 @@
             'host/win/launch_process_with_token.h',
             'host/win/omaha.cc',
             'host/win/omaha.h',
+            'host/win/unprivileged_process_delegate.cc',
+            'host/win/unprivileged_process_delegate.h',
             'host/win/worker_process_launcher.cc',
             'host/win/worker_process_launcher.h',
             'host/win/wts_console_monitor.h',
             'host/win/wts_console_observer.h',
-            'host/win/wts_session_process_launcher.cc',
-            'host/win/wts_session_process_launcher.h',
+            'host/win/wts_console_session_process_driver.cc',
+            'host/win/wts_console_session_process_driver.h',
+            'host/win/wts_session_process_delegate.cc',
+            'host/win/wts_session_process_delegate.h',
             'host/worker_process_ipc_delegate.h',
           ],
           'msvs_settings': {
@@ -860,13 +922,12 @@
             'remoting_base',
             'remoting_breakpad',
             'remoting_host',
+            'remoting_host_logging',
             'remoting_version_resources',
             '../base/base.gyp:base',
             '../ipc/ipc.gyp:ipc',
           ],
           'sources': [
-            'host/branding.cc',
-            'host/branding.h',
             'host/desktop_process.cc',
             'host/desktop_process.h',
             'host/host_ui.rc',
@@ -1034,8 +1095,6 @@
         'remoting_host',
       ],
       'sources': [
-        'host/setup/auth_code_getter_win.cc',
-        'host/setup/auth_code_getter_win.h',
         'host/setup/daemon_controller.h',
         'host/setup/daemon_controller_linux.cc',
         'host/setup/daemon_controller_mac.cc',
@@ -1046,6 +1105,10 @@
         'host/setup/host_starter.h',
         'host/setup/oauth_helper.cc',
         'host/setup/oauth_helper.h',
+        'host/setup/pin_validator.cc',
+        'host/setup/pin_validator.h',
+        'host/setup/win/auth_code_getter.cc',
+        'host/setup/win/auth_code_getter.h',
       ],
       'conditions': [
         ['OS=="win"', {
@@ -1055,7 +1118,7 @@
           ],
         }],
       ],
-    },  # end of target 'remoting_breakpad'
+    },  # end of target 'remoting_host_setup_base'
 
     {
       'target_name': 'remoting_host_plugin',
@@ -1066,16 +1129,15 @@
       'dependencies': [
         'remoting_base',
         'remoting_host',
-        'remoting_host_setup_base',
         'remoting_host_event_logger',
+        'remoting_host_logging',
+        'remoting_host_setup_base',
         'remoting_jingle_glue',
         '../net/net.gyp:net',
         '../third_party/npapi/npapi.gyp:npapi',
       ],
       'sources': [
         'base/dispatch_win.h',
-        'host/branding.cc',
-        'host/branding.h',
         'host/host_ui_resource.h',
         'host/plugin/host_log_handler.cc',
         'host/plugin/host_log_handler.h',
@@ -1223,6 +1285,86 @@
     }, # end of target 'remoting_webapp'
 
     {
+      'target_name': 'remoting_resources',
+      'type': 'none',
+      'variables': {
+        'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)',
+        'base_strings_grd_file': 'resources/string_resources.grd',
+        'base_resource_ids_file': 'resources/resource_ids',
+      },
+      'conditions': [
+        [ 'branding=="Chrome"', {
+          'variables': {
+            'strings_grd_file': '<(base_strings_grd_file)',
+            'resource_ids_file': '<(base_resource_ids_file)',
+          },
+        }, {  # else branding!="Chrome"
+          # For non-official builds change branding in string resources
+          # to "Chromoting".
+          'variables': {
+            'strings_grd_file':
+                '<(grit_out_dir)/remoting/resources/string_resources.grd',
+            'resource_ids_file':
+                '<(grit_out_dir)/remoting/resources/resource_ids',
+          },
+          'copies': [
+            {
+              'destination': '<(grit_out_dir)/remoting/resources',
+              'files': [ '<(base_resource_ids_file)', ]
+            },
+          ],
+          'actions': [
+            {
+              'action_name': 'update_branding',
+              'inputs': [
+                '<(base_strings_grd_file)',
+              ],
+              'outputs': [
+                '<(strings_grd_file)',
+              ],
+              'action': ['python', 'tools/remove_official_branding.py',
+                         '<(base_strings_grd_file)', '<(strings_grd_file)' ],
+            },
+          ],
+        }],
+      ],
+      'actions': [
+        {
+          'action_name': 'string_resources',
+          'variables': {
+            'grit_grd_file': '<(strings_grd_file)',
+            'base_grit_grd_file': '<(base_strings_grd_file)',
+          },
+          'includes': [ 'grit_action.gypi' ],
+        },
+        {
+          'action_name': 'common_resources',
+          'variables': {
+            'grit_grd_file': 'resources/common_resources.grd',
+            'base_grit_grd_file': 'resources/common_resources.grd',
+          },
+          'includes': [ 'grit_action.gypi' ],
+        },
+      ],
+      'copies': [
+        # Copy results to the product directory.
+        {
+          'destination': '<(PRODUCT_DIR)/remoting_locales',
+          'files': [
+            '<(grit_out_dir)/remoting/resources/en-US.pak',
+          ]
+        },
+        {
+          'destination': '<(PRODUCT_DIR)',
+          'files': [
+            '<(grit_out_dir)/remoting/resources/chrome_remote_desktop.pak',
+          ]
+        },
+      ],
+      'includes': [ '../build/grit_target.gypi' ],
+    },  # end of target 'remoting_resources'
+
+    {
       'target_name': 'remoting_base',
       'type': 'static_library',
       'variables': { 'enable_wexit_time_destructors': 1, },
@@ -1235,9 +1377,9 @@
         '../third_party/libvpx/libvpx.gyp:libvpx',
         '../third_party/protobuf/protobuf.gyp:protobuf_lite',
         '../third_party/speex/speex.gyp:libspeex',
-        '../third_party/zlib/zlib.gyp:zlib',
         '../media/media.gyp:yuv_convert',
         'remoting_jingle_glue',
+        'remoting_resources',
         'proto/chromotocol.gyp:chromotocol_proto_lib',
       ],
       'export_dependent_settings': [
@@ -1261,22 +1403,14 @@
         'base/capture_data.h',
         'base/compound_buffer.cc',
         'base/compound_buffer.h',
-        'base/compressor.h',
-        'base/compressor_verbatim.cc',
-        'base/compressor_verbatim.h',
-        'base/compressor_zlib.cc',
-        'base/compressor_zlib.h',
         'base/constants.cc',
         'base/constants.h',
-        'base/decompressor.h',
-        'base/decompressor_verbatim.cc',
-        'base/decompressor_verbatim.h',
-        'base/decompressor_zlib.cc',
-        'base/decompressor_zlib.h',
         'base/plugin_thread_task_runner.cc',
         'base/plugin_thread_task_runner.h',
         'base/rate_counter.cc',
         'base/rate_counter.h',
+        'base/resources.cc',
+        'base/resources.h',
         'base/running_average.cc',
         'base/running_average.h',
         'base/stoppable.cc',
@@ -1295,15 +1429,15 @@
         'codec/audio_encoder_verbatim.cc',
         'codec/audio_encoder_verbatim.h',
         'codec/video_decoder.h',
+        'codec/video_decoder_verbatim.cc',
+        'codec/video_decoder_verbatim.h',
         'codec/video_decoder_vp8.cc',
         'codec/video_decoder_vp8.h',
-        'codec/video_decoder_row_based.cc',
-        'codec/video_decoder_row_based.h',
         'codec/video_encoder.h',
+        'codec/video_encoder_verbatim.cc',
+        'codec/video_encoder_verbatim.h',
         'codec/video_encoder_vp8.cc',
         'codec/video_encoder_vp8.h',
-        'codec/video_encoder_row_based.cc',
-        'codec/video_encoder_row_based.h',
       ],
     },  # end of target 'remoting_base'
 
@@ -1317,6 +1451,7 @@
         'remoting_protocol',
         'differ_block',
         '../crypto/crypto.gyp:crypto',
+        '../ipc/ipc.gyp:ipc',
       ],
       'defines': [
         'VERSION=<(version_full)',
@@ -1337,6 +1472,8 @@
         'host/chromoting_host.h',
         'host/chromoting_host_context.cc',
         'host/chromoting_host_context.h',
+        'host/chromoting_messages.cc',
+        'host/chromoting_messages.h',
         'host/client_session.cc',
         'host/client_session.h',
         'host/clipboard.h',
@@ -1392,6 +1529,8 @@
         'host/host_user_interface.h',
         'host/in_memory_host_config.cc',
         'host/in_memory_host_config.h',
+        'host/ipc_consts.cc',
+        'host/ipc_consts.h',
         'host/it2me_host_user_interface.cc',
         'host/it2me_host_user_interface.h',
         'host/json_host_config.cc',
@@ -1515,14 +1654,24 @@
             ],
           },
         }],
-        ['OS=="win"', {
-          'sources': [
-            'host/chromoting_messages.cc',
-            'host/chromoting_messages.h',
-          ],
-        }],
       ],
     },  # end of target 'remoting_host'
+
+    {
+      'target_name': 'remoting_host_logging',
+      'type': 'static_library',
+      'variables': { 'enable_wexit_time_destructors': 1, },
+      'dependencies': [
+        '../base/base.gyp:base',
+      ],
+      'sources': [
+        'host/branding.cc',
+        'host/branding.h',
+        'host/logging.h',
+        'host/logging_posix.cc',
+        'host/logging_win.cc',
+      ],
+    },  # end of target 'remoting_host_logging'
 
     {
       'target_name': 'remoting_client',
@@ -1565,6 +1714,7 @@
       'dependencies': [
         'remoting_base',
         'remoting_host',
+        'remoting_host_logging',
         'remoting_jingle_glue',
         '../base/base.gyp:base',
         '../base/base.gyp:base_i18n',
@@ -1585,11 +1735,11 @@
         'remoting_breakpad',
         'remoting_host',
         'remoting_host_event_logger',
+        'remoting_host_logging',
         'remoting_jingle_glue',
         '../base/base.gyp:base',
         '../base/base.gyp:base_i18n',
         '../google_apis/google_apis.gyp:google_apis',
-        '../ipc/ipc.gyp:ipc',
         '../media/media.gyp:media',
         '../net/net.gyp:net',
       ],
@@ -1597,8 +1747,6 @@
         'VERSION=<(version_full)',
       ],
       'sources': [
-        'host/branding.cc',
-        'host/branding.h',
         'host/config_file_watcher.cc',
         'host/config_file_watcher.h',
         'host/curtain_mode.h',
@@ -1646,7 +1794,12 @@
           'sources': [
             '<(SHARED_INTERMEDIATE_DIR)/remoting/host/remoting_host_messages.rc',
             '<(SHARED_INTERMEDIATE_DIR)/remoting/remoting_host_me2me_version.rc',
+            'host/desktop_session_connector.h',
             'host/host_ui.rc',
+            'host/ipc_desktop_environment_factory.cc',
+            'host/ipc_desktop_environment_factory.h',
+            'host/ipc_desktop_environment.cc',
+            'host/ipc_desktop_environment.h',
           ],
           'link_settings': {
             'libraries': [
@@ -1875,6 +2028,7 @@
       'type': 'executable',
       'dependencies': [
         'remoting_base',
+        'remoting_resources',
         'remoting_breakpad',
         'remoting_client',
         'remoting_client_plugin',
@@ -1899,13 +2053,13 @@
         '../testing/gmock/include',
       ],
       'sources': [
+        '../chrome/test/base/run_all_remoting_unittests.cc',
         'base/auth_token_util_unittest.cc',
         'base/auto_thread_unittest.cc',
         'base/auto_thread_task_runner_unittest.cc',
         'base/breakpad_win_unittest.cc',
         'base/compound_buffer_unittest.cc',
-        'base/compressor_zlib_unittest.cc',
-        'base/decompressor_zlib_unittest.cc',
+        'base/resources_unittest.cc',
         'base/util_unittest.cc',
         'client/audio_player_unittest.cc',
         'client/key_event_mapper_unittest.cc',
@@ -1913,13 +2067,21 @@
         'codec/codec_test.cc',
         'codec/codec_test.h',
         'codec/video_decoder_vp8_unittest.cc',
-        'codec/video_encode_decode_unittest.cc',
-        'codec/video_encoder_row_based_unittest.cc',
+        'codec/video_encoder_verbatim_unittest.cc',
         'codec/video_encoder_vp8_unittest.cc',
         'host/audio_capturer_win_unittest.cc',
+        'host/branding.cc',
+        'host/branding.h',
         'host/chromoting_host_context_unittest.cc',
         'host/chromoting_host_unittest.cc',
         'host/client_session_unittest.cc',
+        'host/config_file_watcher.cc',
+        'host/config_file_watcher.h',
+        'host/daemon_process.cc',
+        'host/daemon_process.h',
+        'host/daemon_process_unittest.cc',
+        'host/desktop_session.cc',
+        'host/desktop_session.h',
         'host/differ_block_unittest.cc',
         'host/differ_unittest.cc',
         'host/heartbeat_sender_unittest.cc',
@@ -1927,6 +2089,7 @@
         'host/host_mock_objects.cc',
         'host/host_mock_objects.h',
         'host/json_host_config_unittest.cc',
+        'host/linux/x_server_clipboard_unittest.cc',
         'host/log_to_server_unittest.cc',
         'host/pin_hash_unittest.cc',
         'host/policy_hack/fake_policy_watcher.cc',
@@ -1940,10 +2103,16 @@
         'host/screen_recorder_unittest.cc',
         'host/server_log_entry_unittest.cc',
         'host/setup/oauth_helper_unittest.cc',
+        'host/setup/pin_validator_unittest.cc',
         'host/test_key_pair.h',
         'host/video_frame_capturer_helper_unittest.cc',
         'host/video_frame_capturer_mac_unittest.cc',
         'host/video_frame_capturer_unittest.cc',
+        'host/win/launch_process_with_token.cc',
+        'host/win/launch_process_with_token.h',
+        'host/win/worker_process_launcher.cc',
+        'host/win/worker_process_launcher.h',
+        'host/win/worker_process_launcher_unittest.cc',
         'jingle_glue/chromium_socket_factory_unittest.cc',
         'jingle_glue/fake_signal_strategy.cc',
         'jingle_glue/fake_signal_strategy.h',
@@ -1977,7 +2146,6 @@
         'protocol/ppapi_module_stub.cc',
         'protocol/ssl_hmac_channel_authenticator_unittest.cc',
         'protocol/v2_authenticator_unittest.cc',
-        'run_all_unittests.cc',
       ],
       'conditions': [
         [ 'OS=="win"', {
@@ -1989,6 +2157,34 @@
               '-lrpcrt4.lib',
             ],
           },
+        }, {  # else OS != "win"
+          # Javascript unittests are disabled on Windows because they add a
+	  # dependency on 'common_constants' which (only on Windows) requires
+	  # additional dependencies:
+          #   '../content/content.gyp:content_common',
+          #   'installer_util',
+	  # These targets are defined in .gypi files that would need to be
+	  # included here:
+          #   '../chrome/chrome_common.gypi',
+          #   '../chrome/chrome_installer.gypi',
+          #   '../chrome/chrome_installer_util.gypi',
+	  # But we can't do that because ninja will complain about multiple
+	  # target definitions.
+	  # TODO(garykac): Move installer_util into a proper .gyp file so that
+	  # it can be included in multiple .gyp files.
+          'includes': [
+            '../chrome/js_unittest_rules.gypi',
+          ],
+          'dependencies': [
+            '../chrome/common_constants.gyp:common_constants',
+            '../v8/tools/gyp/v8.gyp:v8',
+          ],
+          'sources': [
+            '../chrome/test/base/v8_unit_test.cc',
+            '../chrome/test/base/v8_unit_test.h',
+            'webapp/format_iq.gtestjs',
+            'webapp/format_iq.js',
+          ],
         }],
         ['chromeos != 0', {
           'dependencies!': [
@@ -2015,7 +2211,7 @@
               },
             ],
           ],
-        }],
+        }],  # end of 'toolkit_uses_gtk == 1'
       ],  # end of 'conditions'
     },  # end of target 'remoting_unittests'
   ],  # end of targets

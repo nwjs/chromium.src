@@ -69,7 +69,7 @@ TabStripModel::TabStripModel(TabStripModelDelegate* delegate, Profile* profile)
       closing_all_(false),
       order_controller_(NULL) {
   DCHECK(delegate_);
-  registrar_.Add(this, chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
+  registrar_.Add(this, content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
                  content::NotificationService::AllBrowserContextsAndSources());
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED,
                  content::Source<Profile>(profile_));
@@ -356,9 +356,22 @@ TabContents* TabStripModel::GetActiveTabContents() const {
   return GetTabContentsAt(active_index());
 }
 
+content::WebContents* TabStripModel::GetActiveWebContents() const {
+  TabContents* tab_contents = GetActiveTabContents();
+  if (!tab_contents)
+    return NULL;
+  return tab_contents->web_contents();
+}
+
 TabContents* TabStripModel::GetTabContentsAt(int index) const {
   if (ContainsIndex(index))
     return GetContentsAt(index);
+  return NULL;
+}
+
+content::WebContents* TabStripModel::GetWebContentsAt(int index) const {
+  if (ContainsIndex(index))
+    return GetContentsAt(index)->web_contents();
   return NULL;
 }
 
@@ -985,12 +998,12 @@ void TabStripModel::Observe(int type,
                             const content::NotificationSource& source,
                             const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED: {
+    case content::NOTIFICATION_WEB_CONTENTS_DESTROYED: {
       // Sometimes, on qemu, it seems like a WebContents object can be destroyed
       // while we still have a reference to it. We need to break this reference
       // here so we don't crash later.
-      int index = GetIndexOfTabContents(
-          content::Source<TabContents>(source).ptr());
+      int index = GetIndexOfWebContents(
+          content::Source<WebContents>(source).ptr());
       if (index != TabStripModel::kNoTab) {
         // Note that we only detach the contents here, not close it - it's
         // already been closed. We just want to undo our bookkeeping.

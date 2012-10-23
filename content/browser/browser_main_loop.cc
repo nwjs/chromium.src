@@ -16,7 +16,6 @@
 #include "base/string_number_conversions.h"
 #include "base/threading/thread_restrictions.h"
 #include "content/browser/browser_thread_impl.h"
-#include "content/browser/download/download_file_manager.h"
 #include "content/browser/download/save_file_manager.h"
 #include "content/browser/gamepad/gamepad_service.h"
 #include "content/browser/gpu/browser_gpu_channel_host_factory.h"
@@ -67,7 +66,7 @@
 
 #if defined(OS_LINUX)
 #include "content/browser/device_monitor_linux.h"
-#elif defined(OS_MACOSX)
+#elif defined(OS_MACOSX) && !defined(OS_IOS)
 #include "content/browser/device_monitor_mac.h"
 #endif
 
@@ -236,7 +235,9 @@ BrowserMainLoop::BrowserMainLoop(const content::MainFunctionParams& parameters)
 
 BrowserMainLoop::~BrowserMainLoop() {
   DCHECK_EQ(this, g_current_browser_main_loop);
+#if !defined(OS_IOS)
   ui::Clipboard::DestroyClipboardForCurrentThread();
+#endif  // !defined(OS_IOS)
   g_current_browser_main_loop = NULL;
 }
 
@@ -571,10 +572,8 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
 #if !defined(OS_IOS)
         // Clean up state that lives on or uses the file_thread_ before
         // it goes away.
-        if (resource_dispatcher_host_.get()) {
-          resource_dispatcher_host_.get()->download_file_manager()->Shutdown();
+        if (resource_dispatcher_host_.get())
           resource_dispatcher_host_.get()->save_file_manager()->Shutdown();
-        }
 #endif  // !defined(OS_IOS)
         break;
       case BrowserThread::PROCESS_LAUNCHER:
@@ -614,9 +613,11 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
   // more head start for those operations to finish.
   BrowserThreadImpl::ShutdownThreadPool();
 
+#if !defined(OS_IOS)
   // Must happen after the I/O thread is shutdown since this class lives on the
   // I/O thread and isn't threadsafe.
   GamepadService::GetInstance()->Terminate();
+#endif  // !defined(OS_IOS)
 
   if (parts_.get())
     parts_->PostDestroyThreads();
@@ -661,6 +662,7 @@ void BrowserMainLoop::BrowserThreadsStarted() {
   speech_recognition_manager_.reset(new speech::SpeechRecognitionManagerImpl());
 #endif
 
+#if !defined(OS_IOS)
   // Alert the clipboard class to which threads are allowed to access the
   // clipboard:
   std::vector<base::PlatformThreadId> allowed_clipboard_threads;
@@ -672,6 +674,7 @@ void BrowserMainLoop::BrowserThreadsStarted() {
   allowed_clipboard_threads.push_back(io_thread_->thread_id());
 #endif
   ui::Clipboard::SetAllowedThreads(allowed_clipboard_threads);
+#endif  // !defined(OS_IOS)
 }
 
 void BrowserMainLoop::InitializeToolkit() {

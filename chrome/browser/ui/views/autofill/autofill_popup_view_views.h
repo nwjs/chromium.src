@@ -40,6 +40,11 @@ class AutofillPopupViewViews : public views::WidgetDelegateView,
   virtual void InvalidateRow(size_t row) OVERRIDE;
   virtual void ResizePopup() OVERRIDE;
 
+  // Draw the given autofill entry in |entry_rect|.
+  void DrawAutofillEntry(gfx::Canvas* canvas,
+                         int index,
+                         const gfx::Rect& entry_rect);
+
   AutofillExternalDelegateViews* external_delegate_;  // Weak reference.
   content::WebContents* web_contents_;  // Weak reference.
 

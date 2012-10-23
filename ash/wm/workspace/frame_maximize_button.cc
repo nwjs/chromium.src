@@ -236,7 +236,7 @@ void FrameMaximizeButton::OnMouseExited(const ui::MouseEvent& event) {
   // within the bubble.
   if (!is_snap_enabled_ && maximizer_.get()) {
     if (maximizer_->GetBubbleWindow()) {
-      gfx::Point screen_location = gfx::Screen::GetCursorScreenPoint();
+      gfx::Point screen_location = Shell::GetScreen()->GetCursorScreenPoint();
       if (!maximizer_->GetBubbleWindow()->GetBoundsInScreen().Contains(
               screen_location)) {
         maximizer_.reset();
@@ -477,7 +477,10 @@ gfx::Rect FrameMaximizeButton::ScreenBoundsForType(
           window->parent(),
           ScreenAsh::GetMaximizedWindowBoundsInParent(window));
     case SNAP_MINIMIZE: {
-      Launcher* launcher = Shell::GetInstance()->launcher();
+      Launcher* launcher = Launcher::ForWindow(window);
+      // Launcher is created lazily and can be NULL.
+      if (!launcher)
+        return gfx::Rect();
       gfx::Rect item_rect(launcher->GetScreenBoundsOfItemIconForWindow(
           window));
       if (!item_rect.IsEmpty()) {
@@ -561,7 +564,7 @@ MaximizeBubbleFrameState
     return FRAME_STATE_FULL;
   // For Left/right maximize we need to check the dimensions.
   gfx::Rect bounds = frame_->GetWidget()->GetWindowBoundsInScreen();
-  gfx::Rect screen = gfx::Screen::GetDisplayMatching(bounds).work_area();
+  gfx::Rect screen = Shell::GetScreen()->GetDisplayMatching(bounds).work_area();
   if (bounds.width() < (screen.width() * kMinSnapSizePercent) / 100)
     return FRAME_STATE_NONE;
   // We might still have a horizontally filled window at this point which we

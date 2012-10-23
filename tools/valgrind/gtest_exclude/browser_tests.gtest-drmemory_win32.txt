@@ -1,0 +1,98 @@
+# TODO(zhaoqin): File bugs for those failing browser tests.
+
+# Dr.Memory i#1052: http://code.google.com/p/drmemory/issues/detail?id=1052
+#
+# The list is too long for gtest_filter, so we exclude the whole
+# test case if any of its tests failed.
+
+# Timeout (400000 ms) Tests
+NaClBrowserTestGLibc.*
+OutOfProcessPPAPITest.*
+PPAPINaClGLibcTest.*
+PPAPINaClNewlibTest.*
+PPAPITest.*
+ReferrerPolicyTest.*
+# DrM-i#1052-c#1
+BrowserCloseTest.*
+ClickToPlayPluginTest.*
+DownloadTest.*
+ErrorPageTest.*
+LoginPromptBrowserTest.*
+NaClBrowserTestNewlib.*
+PrerenderBrowserTest.*
+RepostFormWarningTest.*
+TaskManagerBrowserTest.*
+# DrM-i#1052-c#2
+AppApiTest.*
+CaptivePortalBrowserTest.*
+DownloadExtensionTest.*
+IsolatedAppTest.*
+ProxyBrowserTest.*
+RedirectTest.*
+SafeBrowsingBlockingPageTest.*
+SafeBrowsingBlockingPageV2Test.*
+SSLUITest.*
+SSLUITestIgnoreCertErrors.*
+# DrM-i#1052-c#3
+CookiesViewWebUITest.*
+ContentSettingsExceptionAreaWebUITest.*
+GpuFeatureTest.*
+NTP4WebUITest.*
+NTP4LoggedInWebUITest.*
+NetInternalsTest.*
+OptionsWebUITest.*
+SearchEngineManagerWebUITest.*
+BrowserNavigatorTest.*
+WebIntentPickerControllerBrowserTest.*
+WebUIBidiCheckerBrowserTestLTR.*
+TabRestoreTest.*
+# DrM-i#1052-c#4
+LanguagesOptionsWebUITest.*
+ContentOptionsWebUITest.*
+PasswordManagerWebUITest.*
+WebUIBidiCheckerBrowserTestRTL.*
+BookmarksTest.*
+PrintPreviewTest.*
+MostVisitedWebUITest.*
+NewTabUIBrowserTest.*
+AutofillOptionsWebUITest.*
+# DrM-i#1052-c#5
+FontSettingsWebUITest.*
+DevToolsSanityTest.*
+DevToolsExtensionTest.*
+DevToolsExperimentalExtensionTest.*
+PolicyTest.*
+BrowserTest.*
+ChromeContentBrowserClientBrowserTest.*
+ThreadedCompositorTest.*
+WorkerDevToolsSanityTest.*
+PolicyPrefsSettingsBannerTestInstance*
+# DrM-i#1052-c#6
+PreferencesBrowserTest.*
+OptionsBrowserTest.*
+PolicyPrefsTestInstance*
+# DrM-i#1052-c#7
+BetterSessionRestoreTest.*
+ExtensionWebRequestApiTest.*
+PageCyclerCachedBrowserTest.*
+PolicyPrefsBannerTest.*
+# DrM-i#1052-c#8
+BrowserOptionsWebUITest.*
+ExtensionURLRewriteBrowserTest.*
+# DrM-i#1052-c#14
+WebGLMultisamplingTest.*
+ExtensionBrowserTest.*
+ExtensionResourceRequestPolicyTest.*
+BrowserTagTest.*
+
+# Failed tests:
+# DrM-i#1052-c#9
+ExecuteScriptApiTest.*
+# DrM-i#1052-c#10
+PopupBlockerBrowserTest.*
+PreservedWindowPlacementIsMigrated.*
+BlockedAppApiTest.*
+# DrM-i#1052-c#11
+ExtensionApiTest.*
+# DrM-i#1052-c#13
+InProcessBrowserTest.*

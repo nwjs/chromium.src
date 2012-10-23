@@ -307,9 +307,6 @@ class WebContents;
 // Shows or hides the docked web inspector depending on |contents|'s state.
 - (void)updateDevToolsForContents:(content::WebContents*)contents;
 
-// Specifies whether devtools should dock to right.
-- (void)setDevToolsDockToRight:(bool)dock_to_right;
-
 // Gets the current theme provider.
 - (ui::ThemeProvider*)themeProvider;
 
@@ -324,8 +321,6 @@ class WebContents;
 - (NSPoint)bookmarkBubblePoint;
 
 // Shows or hides the Instant preview contents.
-- (void)showInstant:(content::WebContents*)previewContents;
-- (void)hideInstant;
 - (void)commitInstant;
 - (BOOL)isInstantTabShowing;
 

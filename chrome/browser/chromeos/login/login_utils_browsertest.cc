@@ -247,10 +247,10 @@ class LoginUtilsTest : public testing::Test,
     }
 
     // These trigger some tasks that have to run while BrowserThread::UI
-    // exists.
+    // exists. Delete all the profiles before deleting the connector.
+    browser_process_->SetProfileManager(NULL);
     connector_ = NULL;
     browser_process_->SetBrowserPolicyConnector(NULL);
-    browser_process_->SetProfileManager(NULL);
     RunAllPending();
   }
 
@@ -422,7 +422,7 @@ TEST_F(LoginUtilsTest, NormalLoginDoesntBlock) {
 
   EXPECT_TRUE(prepared_profile_);
   ASSERT_TRUE(user_manager->IsUserLoggedIn());
-  EXPECT_EQ(kUsername, user_manager->GetLoggedInUser().email());
+  EXPECT_EQ(kUsername, user_manager->GetLoggedInUser()->email());
 }
 
 TEST_F(LoginUtilsTest, EnterpriseLoginDoesntBlockForNormalUser) {
@@ -444,7 +444,7 @@ TEST_F(LoginUtilsTest, EnterpriseLoginDoesntBlockForNormalUser) {
 
   EXPECT_TRUE(prepared_profile_);
   ASSERT_TRUE(user_manager->IsUserLoggedIn());
-  EXPECT_EQ(kUsernameOtherDomain, user_manager->GetLoggedInUser().email());
+  EXPECT_EQ(kUsernameOtherDomain, user_manager->GetLoggedInUser()->email());
 }
 
 TEST_F(LoginUtilsTest, OAuth1TokenFetchFailureUnblocksRefreshPolicies) {
@@ -466,7 +466,7 @@ TEST_F(LoginUtilsTest, OAuth1TokenFetchFailureUnblocksRefreshPolicies) {
   profile_creation_observer.Wait();
   EXPECT_TRUE(prepared_profile_);
   ASSERT_TRUE(user_manager->IsUserLoggedIn());
-  EXPECT_EQ(kUsername, user_manager->GetLoggedInUser().email());
+  EXPECT_EQ(kUsername, user_manager->GetLoggedInUser()->email());
 
   // 2. Get the pending oauth1 access token fetcher.
   net::TestURLFetcher* fetcher =

@@ -87,20 +87,24 @@ const SkColor kControlBarSeparatorLineColor = SkColorSetRGB(180, 180, 180);
 
 }  // namespace
 
+// static
+int BalloonView::GetHorizontalMargin() {
+  return kLeftMargin + kRightMargin + kLeftShadowWidth + kRightShadowWidth;
+}
+
 BalloonViewImpl::BalloonViewImpl(BalloonCollection* collection)
     : balloon_(NULL),
       collection_(collection),
       frame_container_(NULL),
       html_container_(NULL),
       html_contents_(NULL),
-      method_factory_(this),
       close_button_(NULL),
       animation_(NULL),
       options_menu_model_(NULL),
       options_menu_button_(NULL),
-      enable_web_ui_(false) {
-  // This object is not to be deleted by the views hierarchy,
-  // as it is owned by the balloon.
+      enable_web_ui_(false),
+      closed_by_user_(false) {
+  // We're owned by Balloon and don't want to be deleted by our parent View.
   set_owned_by_client();
 
   views::BubbleBorder* bubble_border =
@@ -122,12 +126,9 @@ void BalloonViewImpl::Close(bool by_user) {
   html_container_->Close();
   frame_container_->GetRootView()->RemoveAllChildViews(true);
   frame_container_->Close();
-  // Post the tast at the end to sure this this WidgetDelegate
-  // instance is avaiable when Widget::CloseNow gets called.
-  MessageLoop::current()->PostTask(FROM_HERE,
-                                   base::Bind(&BalloonViewImpl::DelayedClose,
-                                              method_factory_.GetWeakPtr(),
-                                              by_user));
+  closed_by_user_ = by_user;
+  // |frame_container_->::Close()| is async. When processed it'll call back to
+  // DeleteDelegate() and we'll cleanup.
 }
 
 gfx::Size BalloonViewImpl::GetSize() const {
@@ -169,15 +170,14 @@ void BalloonViewImpl::OnWorkAreaChanged() {
   collection_->DisplayChanged();
 }
 
-void BalloonViewImpl::ButtonPressed(views::Button* sender,
-                                    const ui::Event&) {
-  // The only button currently is the close button.
-  DCHECK(sender == close_button_);
-  Close(true);
+void BalloonViewImpl::DeleteDelegate() {
+  balloon_->OnClose(closed_by_user_);
 }
 
-void BalloonViewImpl::DelayedClose(bool by_user) {
-  balloon_->OnClose(by_user);
+void BalloonViewImpl::ButtonPressed(views::Button* sender, const ui::Event&) {
+  // The only button currently is the close button.
+  DCHECK_EQ(close_button_, sender);
+  Close(true);
 }
 
 gfx::Size BalloonViewImpl::GetPreferredSize() {
@@ -207,9 +207,7 @@ void BalloonViewImpl::RepositionToBalloon() {
   DCHECK(balloon_);
 
   if (!kAnimateEnabled) {
-    frame_container_->SetBounds(
-        gfx::Rect(balloon_->GetPosition().x(), balloon_->GetPosition().y(),
-                  GetTotalWidth(), GetTotalHeight()));
+    frame_container_->SetBounds(GetBoundsForFrameContainer());
     gfx::Rect contents_rect = GetContentsRectangle();
     html_container_->SetBounds(contents_rect);
     html_contents_->SetPreferredSize(contents_rect.size());
@@ -220,9 +218,7 @@ void BalloonViewImpl::RepositionToBalloon() {
     return;
   }
 
-  anim_frame_end_ = gfx::Rect(
-      balloon_->GetPosition().x(), balloon_->GetPosition().y(),
-      GetTotalWidth(), GetTotalHeight());
+  anim_frame_end_ = GetBoundsForFrameContainer();
   anim_frame_start_ = frame_container_->GetClientAreaBoundsInScreen();
   animation_.reset(new ui::SlideAnimation(this));
   animation_->Show();
@@ -238,21 +234,11 @@ void BalloonViewImpl::Update() {
 }
 
 void BalloonViewImpl::AnimationProgressed(const ui::Animation* animation) {
-  DCHECK(animation == animation_.get());
+  DCHECK_EQ(animation_.get(), animation);
 
   // Linear interpolation from start to end position.
-  double e = animation->GetCurrentValue();
-  double s = (1.0 - e);
-
-  gfx::Rect frame_position(
-    static_cast<int>(s * anim_frame_start_.x() +
-                     e * anim_frame_end_.x()),
-    static_cast<int>(s * anim_frame_start_.y() +
-                     e * anim_frame_end_.y()),
-    static_cast<int>(s * anim_frame_start_.width() +
-                     e * anim_frame_end_.width()),
-    static_cast<int>(s * anim_frame_start_.height() +
-                     e * anim_frame_end_.height()));
+  gfx::Rect frame_position(animation_->CurrentValueBetween(
+                               anim_frame_start_, anim_frame_end_));
   frame_container_->SetBounds(frame_position);
 
   gfx::Path path;
@@ -336,7 +322,6 @@ void BalloonViewImpl::Show(Balloon* balloon) {
   //
   // We don't let the OS manage the RTL layout of these widgets, because
   // this code is already taking care of correctly reversing the layout.
-  gfx::Rect contents_rect = GetContentsRectangle();
 #if defined(OS_CHROMEOS) && defined(USE_AURA)
   html_contents_.reset(new chromeos::BalloonViewHost(balloon));
 #else
@@ -348,18 +333,21 @@ void BalloonViewImpl::Show(Balloon* balloon) {
 
   html_container_ = new views::Widget;
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
-  params.bounds = contents_rect;
   html_container_->Init(params);
   html_container_->SetContentsView(html_contents_->view());
 
-  gfx::Rect balloon_rect(x(), y(), GetTotalWidth(), GetTotalHeight());
   frame_container_ = new views::Widget;
   params.delegate = this;
   params.transparent = true;
-  params.bounds = balloon_rect;
+  params.bounds = GetBoundsForFrameContainer();
   frame_container_->Init(params);
   frame_container_->SetContentsView(this);
   frame_container_->StackAboveWidget(html_container_);
+
+  // GetContentsRectangle() is calculated relative to |frame_container_|. Make
+  // sure |frame_container_| has bounds before we ask for
+  // GetContentsRectangle().
+  html_container_->SetBounds(GetContentsRectangle());
 
   // SetAlwaysOnTop should be called after StackAboveWidget because otherwise
   // the top-most flag will be removed.
@@ -461,6 +449,11 @@ void BalloonViewImpl::GetFrameMask(const gfx::Rect& rect,
 gfx::Point BalloonViewImpl::GetContentsOffset() const {
   return gfx::Point(kLeftShadowWidth + kLeftMargin,
                     kTopShadowWidth + kTopMargin);
+}
+
+gfx::Rect BalloonViewImpl::GetBoundsForFrameContainer() const {
+  return gfx::Rect(balloon_->GetPosition().x(), balloon_->GetPosition().y(),
+                   GetTotalWidth(), GetTotalHeight());
 }
 
 int BalloonViewImpl::GetShelfHeight() const {

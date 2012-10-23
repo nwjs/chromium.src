@@ -1,0 +1,110 @@
+// Copyright 2010 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "config.h"
+
+#include "cc/content_layer.h"
+
+#include "base/metrics/histogram.h"
+#include "base/time.h"
+#include "cc/bitmap_canvas_layer_texture_updater.h"
+#include "cc/bitmap_skpicture_canvas_layer_texture_updater.h"
+#include "cc/content_layer_client.h"
+#include "cc/frame_buffer_skpicture_canvas_layer_texture_updater.h"
+#include "cc/layer_painter.h"
+#include "cc/layer_tree_host.h"
+#include "cc/settings.h"
+
+namespace cc {
+
+ContentLayerPainter::ContentLayerPainter(ContentLayerClient* client)
+    : m_client(client)
+{
+}
+
+scoped_ptr<ContentLayerPainter> ContentLayerPainter::create(ContentLayerClient* client)
+{
+    return make_scoped_ptr(new ContentLayerPainter(client));
+}
+
+void ContentLayerPainter::paint(SkCanvas* canvas, const IntRect& contentRect, FloatRect& opaque)
+{
+    base::TimeTicks paintStart = base::TimeTicks::HighResNow();
+    m_client->paintContents(canvas, contentRect, opaque);
+    base::TimeTicks paintEnd = base::TimeTicks::HighResNow();
+    double pixelsPerSec = (contentRect.width() * contentRect.height()) / (paintEnd - paintStart).InSecondsF();
+    HISTOGRAM_CUSTOM_COUNTS("Renderer4.AccelContentPaintDurationMS", (paintEnd - paintStart).InMilliseconds(), 0, 120, 30);
+    HISTOGRAM_CUSTOM_COUNTS("Renderer4.AccelContentPaintMegapixPerSecond", pixelsPerSec / 1000000, 10, 210, 30);
+}
+
+scoped_refptr<ContentLayer> ContentLayer::create(ContentLayerClient* client)
+{
+    return make_scoped_refptr(new ContentLayer(client));
+}
+
+ContentLayer::ContentLayer(ContentLayerClient* client)
+    : TiledLayer()
+    , m_client(client)
+{
+}
+
+ContentLayer::~ContentLayer()
+{
+}
+
+bool ContentLayer::drawsContent() const
+{
+    return TiledLayer::drawsContent() && m_client;
+}
+
+void ContentLayer::setTexturePriorities(const PriorityCalculator& priorityCalc)
+{
+    // Update the tile data before creating all the layer's tiles.
+    updateTileSizeAndTilingOption();
+
+    TiledLayer::setTexturePriorities(priorityCalc);
+}
+
+void ContentLayer::update(TextureUpdateQueue& queue, const OcclusionTracker* occlusion, RenderingStats& stats)
+{
+    createTextureUpdaterIfNeeded();
+    TiledLayer::update(queue, occlusion, stats);
+    m_needsDisplay = false;
+}
+
+bool ContentLayer::needMoreUpdates()
+{
+    return needsIdlePaint();
+}
+
+LayerTextureUpdater* ContentLayer::textureUpdater() const
+{
+    return m_textureUpdater.get();
+}
+
+void ContentLayer::createTextureUpdaterIfNeeded()
+{
+    if (m_textureUpdater)
+        return;
+    scoped_ptr<LayerPainter> painter = ContentLayerPainter::create(m_client).PassAs<LayerPainter>();
+    if (layerTreeHost()->settings().acceleratePainting)
+        m_textureUpdater = FrameBufferSkPictureCanvasLayerTextureUpdater::create(painter.Pass());
+    else if (Settings::perTilePaintingEnabled())
+        m_textureUpdater = BitmapSkPictureCanvasLayerTextureUpdater::create(painter.Pass());
+    else
+        m_textureUpdater = BitmapCanvasLayerTextureUpdater::create(painter.Pass());
+    m_textureUpdater->setOpaque(contentsOpaque());
+
+    GLenum textureFormat = layerTreeHost()->rendererCapabilities().bestTextureFormat;
+    setTextureFormat(textureFormat);
+}
+
+void ContentLayer::setContentsOpaque(bool opaque)
+{
+    Layer::setContentsOpaque(opaque);
+    if (m_textureUpdater)
+        m_textureUpdater->setOpaque(opaque);
+}
+
+}

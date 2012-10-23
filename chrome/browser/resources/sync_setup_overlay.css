@@ -98,11 +98,6 @@
   min-width: 87px;
 }
 
-#sync-setup-overlay * .throbber {
-  margin: 4px 10px;
-  visibility: hidden;
-}
-
 #email-readonly {
   font-size: 15px;
   height: 29px;
@@ -110,7 +105,8 @@
   margin: 0;
 }
 
-#passphrase-encryption-message {
+#passphrase-encryption-message,
+#encryption-section-message {
   color: gray;
   margin-bottom: 5px;
 }

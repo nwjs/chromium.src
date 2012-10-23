@@ -70,6 +70,8 @@ class PPB_Instance_Proxy : public InterfaceProxy,
   virtual PP_Bool GetScreenSize(PP_Instance instance,
                                 PP_Size* size) OVERRIDE;
   virtual thunk::PPB_Flash_API* GetFlashAPI() OVERRIDE;
+  virtual thunk::PPB_Flash_Functions_API* GetFlashFunctionsAPI(
+      PP_Instance instance) OVERRIDE;
   virtual thunk::PPB_Gamepad_API* GetGamepadAPI(PP_Instance instance) OVERRIDE;
   virtual int32_t RequestInputEvents(PP_Instance instance,
                                      uint32_t event_classes) OVERRIDE;
@@ -102,7 +104,8 @@ class PPB_Instance_Proxy : public InterfaceProxy,
                                      const char* text,
                                      uint32_t caret,
                                      uint32_t anchor) OVERRIDE;
-
+  virtual PP_Var GetDocumentURL(PP_Instance instance,
+                                PP_URLComponents_Dev* components) OVERRIDE;
 #if !defined(OS_NACL)
   virtual PP_Var ResolveRelativeToDocument(
       PP_Instance instance,
@@ -111,8 +114,6 @@ class PPB_Instance_Proxy : public InterfaceProxy,
   virtual PP_Bool DocumentCanRequest(PP_Instance instance, PP_Var url) OVERRIDE;
   virtual PP_Bool DocumentCanAccessDocument(PP_Instance instance,
                                             PP_Instance target) OVERRIDE;
-  virtual PP_Var GetDocumentURL(PP_Instance instance,
-                                PP_URLComponents_Dev* components) OVERRIDE;
   virtual PP_Var GetPluginInstanceURL(
       PP_Instance instance,
       PP_URLComponents_Dev* components) OVERRIDE;
@@ -136,11 +137,21 @@ class PPB_Instance_Proxy : public InterfaceProxy,
   virtual void DeliverBlock(PP_Instance instance,
                             PP_Resource decrypted_block,
                             const PP_DecryptedBlockInfo* block_info) OVERRIDE;
+  virtual void DecoderInitializeDone(PP_Instance instance,
+                                     PP_DecryptorStreamType decoder_type,
+                                     uint32_t request_id,
+                                     PP_Bool success) OVERRIDE;
+  virtual void DecoderDeinitializeDone(PP_Instance instance,
+                                       PP_DecryptorStreamType decoder_type,
+                                       uint32_t request_id) OVERRIDE;
+  virtual void DecoderResetDone(PP_Instance instance,
+                                PP_DecryptorStreamType decoder_type,
+                                uint32_t request_id) OVERRIDE;
   virtual void DeliverFrame(PP_Instance instance,
                             PP_Resource decrypted_frame,
                             const PP_DecryptedFrameInfo* frame_info) OVERRIDE;
   virtual void DeliverSamples(PP_Instance instance,
-                              PP_Resource decrypted_samples,
+                              PP_Resource audio_frames,
                               const PP_DecryptedBlockInfo* block_info) OVERRIDE;
 #endif  // !defined(OS_NACL)
 
@@ -197,6 +208,9 @@ class PPB_Instance_Proxy : public InterfaceProxy,
       const std::string& text,
       uint32_t caret,
       uint32_t anchor);
+  void OnHostMsgGetDocumentURL(PP_Instance instance,
+                               PP_URLComponents_Dev* components,
+                               SerializedVarReturnValue result);
 
 #if !defined(OS_NACL)
   void OnHostMsgResolveRelativeToDocument(PP_Instance instance,
@@ -208,8 +222,6 @@ class PPB_Instance_Proxy : public InterfaceProxy,
   void OnHostMsgDocumentCanAccessDocument(PP_Instance active,
                                           PP_Instance target,
                                           PP_Bool* result);
-  void OnHostMsgGetDocumentURL(PP_Instance instance,
-                               SerializedVarReturnValue result);
   void OnHostMsgGetPluginInstanceURL(PP_Instance instance,
                                      SerializedVarReturnValue result);
   virtual void OnHostMsgNeedKey(PP_Instance instance,
@@ -229,6 +241,18 @@ class PPB_Instance_Proxy : public InterfaceProxy,
                                  SerializedVarReceiveInput session_id,
                                  int32_t media_error,
                                  int32_t system_code);
+  virtual void OnHostMsgDecoderInitializeDone(
+      PP_Instance instance,
+      PP_DecryptorStreamType decoder_type,
+      uint32_t request_id,
+      PP_Bool success);
+  virtual void OnHostMsgDecoderDeinitializeDone(
+      PP_Instance instance,
+      PP_DecryptorStreamType decoder_type,
+      uint32_t request_id);
+  virtual void OnHostMsgDecoderResetDone(PP_Instance instance,
+                                         PP_DecryptorStreamType decoder_type,
+                                         uint32_t request_id);
   virtual void OnHostMsgDeliverBlock(PP_Instance instance,
                                      PP_Resource decrypted_block,
                                      const std::string& serialized_block_info);
@@ -237,7 +261,7 @@ class PPB_Instance_Proxy : public InterfaceProxy,
                                      const std::string& serialized_block_info);
   virtual void OnHostMsgDeliverSamples(
       PP_Instance instance,
-      PP_Resource decrypted_samples,
+      PP_Resource audio_frames,
       const std::string& serialized_block_info);
 #endif  // !defined(OS_NACL)
 

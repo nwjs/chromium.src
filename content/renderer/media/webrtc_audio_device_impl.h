@@ -16,7 +16,7 @@
 #include "content/common/content_export.h"
 #include "media/audio/audio_input_device.h"
 #include "media/base/audio_renderer_sink.h"
-#include "third_party/webrtc/modules/audio_device/main/interface/audio_device.h"
+#include "third_party/webrtc/modules/audio_device/include/audio_device.h"
 
 // A WebRtcAudioDeviceImpl instance implements the abstract interface
 // webrtc::AudioDeviceModule which makes it possible for a user (e.g. webrtc::
@@ -201,6 +201,9 @@
 //    (WebRTC client a media layer). This approach ensures that we can avoid
 //    transferring maximum levels between the renderer and the browser.
 //
+
+namespace content {
+
 class CONTENT_EXPORT WebRtcAudioDeviceImpl
     : NON_EXPORTED_BASE(public webrtc::AudioDeviceModule),
       NON_EXPORTED_BASE(public media::AudioRendererSink::RenderCallback),
@@ -447,5 +450,7 @@ class CONTENT_EXPORT WebRtcAudioDeviceImpl
 
   DISALLOW_COPY_AND_ASSIGN(WebRtcAudioDeviceImpl);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_MEDIA_WEBRTC_AUDIO_DEVICE_IMPL_H_

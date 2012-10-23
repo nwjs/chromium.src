@@ -2,11 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "ash/root_window_controller.h"
+
 #include "ash/display/display_controller.h"
 #include "ash/display/multi_display_manager.h"
 #include "ash/shell.h"
+#include "ash/shell_delegate.h"
 #include "ash/shell_window_ids.h"
+#include "ash/system/tray/system_tray_delegate.h"
 #include "ash/test/ash_test_base.h"
+#include "ash/wm/system_modal_container_layout_manager.h"
 #include "ash/wm/window_util.h"
 #include "ui/aura/env.h"
 #include "ui/aura/focus_manager.h"
@@ -92,8 +97,9 @@ typedef test::AshTestBase RootWindowControllerTest;
 TEST_F(RootWindowControllerTest, MoveWindows_Basic) {
   UpdateDisplay("600x600,500x500");
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
-  ash::Shell::GetInstance()->SetShelfAutoHideBehavior(
-      ash::SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
+  internal::RootWindowController* controller =
+      Shell::GetPrimaryRootWindowController();
+  controller->SetShelfAutoHideBehavior(ash::SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
 
   views::Widget* normal = CreateTestWidget(gfx::Rect(650, 10, 100, 100));
   EXPECT_EQ(root_windows[1], normal->GetNativeView()->GetRootWindow());
@@ -208,6 +214,26 @@ TEST_F(RootWindowControllerTest, MoveWindows_Modal) {
   EXPECT_TRUE(wm::IsActiveWindow(modal->GetNativeView()));
   generator_1st.ClickLeftButton();
   EXPECT_TRUE(wm::IsActiveWindow(modal->GetNativeView()));
+}
+
+TEST_F(RootWindowControllerTest, ModalContainer) {
+  UpdateDisplay("600x600");
+  Shell* shell = Shell::GetInstance();
+  internal::RootWindowController* controller =
+      shell->GetPrimaryRootWindowController();
+  EXPECT_EQ(user::LOGGED_IN_USER,
+            shell->tray_delegate()->GetUserLoginStatus());
+  EXPECT_EQ(Shell::GetContainer(controller->root_window(),
+      internal::kShellWindowId_SystemModalContainer)->layout_manager(),
+          controller->GetSystemModalLayoutManager(NULL));
+
+  shell->delegate()->LockScreen();
+  EXPECT_EQ(user::LOGGED_IN_LOCKED,
+            shell->tray_delegate()->GetUserLoginStatus());
+  EXPECT_EQ(Shell::GetContainer(controller->root_window(),
+      internal::kShellWindowId_LockSystemModalContainer)->layout_manager(),
+          controller->GetSystemModalLayoutManager(NULL));
+  shell->delegate()->UnlockScreen();
 }
 
 }  // namespace test

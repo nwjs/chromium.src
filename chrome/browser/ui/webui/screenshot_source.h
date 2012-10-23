@@ -14,7 +14,7 @@
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
+#include "chrome/browser/chromeos/drive/drive_resource_metadata.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
 #endif
@@ -92,10 +92,10 @@ class ScreenshotSource : public ChromeURLDataManager::DataSource {
   // The callback for Drive's getting file method.
   void GetSavedScreenshotCallback(const std::string& screenshot_path,
                                   int request_id,
-                                  gdata::DriveFileError error,
+                                  drive::DriveFileError error,
                                   const FilePath& file,
                                   const std::string& unused_mime_type,
-                                  gdata::DriveFileType file_type);
+                                  drive::DriveFileType file_type);
 
 #endif
   // Sends the screenshot data to the requestor while caching it locally to the

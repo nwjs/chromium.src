@@ -31,6 +31,13 @@ namespace {
 // Default value for the volume pref, as a percent in the range [0.0, 100.0].
 const double kDefaultVolumePercent = 75.0;
 
+// Default value for unmuting, as a percent in the range [0.0, 100.0].
+// Used when sound is unmuted, but volume was less than kMuteThresholdPercent.
+const double kDefaultUnmuteVolumePercent = 4.0;
+
+// Volume value which should be considered as muted in range [0.0, 100.0].
+const double kMuteThresholdPercent = 1.0;
+
 // Values used for muted preference.
 const int kPrefMuteOff = 0;
 const int kPrefMuteOn = 1;
@@ -89,15 +96,6 @@ void AudioHandler::RegisterPrefs(PrefService* local_state) {
   local_state->RegisterBooleanPref(prefs::kAudioCaptureAllowed,
                                    true,
                                    PrefService::UNSYNCABLE_PREF);
-
-  // Register the old decibel-based pref so we can clear it.
-  // TODO(derat): Remove this after R20: http://crbug.com/112039
-  if (!local_state->FindPreference(prefs::kAudioVolumeDb))
-    local_state->RegisterDoublePref(prefs::kAudioVolumeDb,
-                                    0,
-                                    PrefService::UNSYNCABLE_PREF);
-  local_state->ClearPref(prefs::kAudioVolumeDb);
-  local_state->UnregisterPreference(prefs::kAudioVolumeDb);
 }
 
 double AudioHandler::GetVolumePercent() {
@@ -106,8 +104,16 @@ double AudioHandler::GetVolumePercent() {
 
 void AudioHandler::SetVolumePercent(double volume_percent) {
   volume_percent = min(max(volume_percent, 0.0), 100.0);
+  if (volume_percent <= kMuteThresholdPercent)
+    volume_percent = 0.0;
   if (IsMuted() && volume_percent > 0.0)
     SetMuted(false);
+  if (!IsMuted() && volume_percent == 0.0)
+    SetMuted(true);
+  SetVolumePercentInternal(volume_percent);
+}
+
+void AudioHandler::SetVolumePercentInternal(double volume_percent) {
   mixer_->SetVolumePercent(volume_percent);
   local_state_->SetDouble(prefs::kAudioVolumePercent, volume_percent);
   FOR_EACH_OBSERVER(VolumeObserver, volume_observers_, OnVolumeChanged());
@@ -126,6 +132,14 @@ void AudioHandler::SetMuted(bool mute) {
     mixer_->SetMuted(mute);
     local_state_->SetInteger(prefs::kAudioMute,
                              mute ? kPrefMuteOn : kPrefMuteOff);
+
+    if (!mute) {
+      if (GetVolumePercent() <= kMuteThresholdPercent) {
+        // Avoid the situation when sound has been unmuted, but the volume
+        // is set to a very low value, so user still can't hear any sound.
+        SetVolumePercentInternal(kDefaultUnmuteVolumePercent);
+      }
+    }
     FOR_EACH_OBSERVER(VolumeObserver, volume_observers_, OnMuteToggled());
   }
 }
@@ -166,7 +180,7 @@ AudioHandler::AudioHandler(AudioMixer* mixer)
       local_state_(g_browser_process->local_state()) {
   InitializePrefObservers();
   ApplyAudioPolicy();
-  mixer_->SetVolumePercent(local_state_->GetDouble(prefs::kAudioVolumePercent));
+  SetVolumePercent(local_state_->GetDouble(prefs::kAudioVolumePercent));
   mixer_->Init();
 }
 

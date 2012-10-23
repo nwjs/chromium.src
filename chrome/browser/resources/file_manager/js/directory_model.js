@@ -76,6 +76,8 @@ DirectoryModel.prototype.__proto__ = cr.EventTarget.prototype;
 DirectoryModel.prototype.start = function() {
   var volumesChangeHandler = this.onMountChanged_.bind(this);
   this.volumeManager_.addEventListener('change', volumesChangeHandler);
+  this.volumeManager_.addEventListener('gdata-status-changed',
+      this.onGDataStatusChanged_.bind(this));
   this.updateRoots_();
 };
 
@@ -770,7 +772,9 @@ DirectoryModel.prototype.changeDirectoryEntrySilent_ = function(dirEntry,
  */
 DirectoryModel.prototype.changeDirectoryEntry_ = function(initial, dirEntry,
                                                           opt_callback) {
-  if (dirEntry == DirectoryModel.fakeGDataEntry_)
+  if (dirEntry == DirectoryModel.fakeGDataEntry_ &&
+      this.volumeManager_.getGDataStatus() ==
+          VolumeManager.GDataStatus.UNMOUNTED)
     this.volumeManager_.mountGData(function() {}, function() {});
 
   this.clearSearch_();
@@ -1081,15 +1085,16 @@ DirectoryModel.prototype.updateRootsListSelection_ = function() {
 };
 
 /**
- * @return {true} True if GDATA mounted.
+ * @return {boolean} True if GDATA is fully mounted.
  * @private
  */
 DirectoryModel.prototype.isGDataMounted_ = function() {
-  return this.volumeManager_.isMounted(RootDirectory.GDATA);
+  return this.volumeManager_.getGDataStatus() ==
+      VolumeManager.GDataStatus.MOUNTED;
 };
 
 /**
- * Handler for the VolumeManager's event.
+ * Handler for the VolumeManager's 'change' event.
  * @private
  */
 DirectoryModel.prototype.onMountChanged_ = function() {
@@ -1101,9 +1106,15 @@ DirectoryModel.prototype.onMountChanged_ = function() {
       !this.volumeManager_.isMounted(this.getCurrentRootPath())) {
     this.changeDirectory(this.getDefaultDirectory());
   }
+};
 
-  if (rootType != RootType.GDATA)
-    return;
+/**
+ * Handler for the VolumeManager's 'gdata-status-changed' event.
+ * @private
+ */
+DirectoryModel.prototype.onGDataStatusChanged_ = function() {
+  if (this.getCurrentRootType() != RootType.GDATA)
+     return;
 
   var mounted = this.isGDataMounted_();
   if (this.getCurrentDirEntry() == DirectoryModel.fakeGDataEntry_) {
@@ -1176,25 +1187,18 @@ DirectoryModel.prototype.search = function(query,
                                            onClearSearch) {
   query = query.trimLeft();
 
+  this.clearSearch_();
+
   var newDirContents;
   if (!query) {
     if (this.isSearching()) {
       newDirContents = new DirectoryContentsBasic(
           this.currentFileListContext_,
-          this.currentDirContents_.getDirectoryEntry());
+          this.currentDirContents_.getLastNonSearchDirectoryEntry());
       this.clearAndScan_(newDirContents);
-      this.clearSearch_();
     }
     return;
   }
-
-  // If we already have event listener for an old search, we have to remove it.
-  if (this.onSearchCompleted_)
-    this.removeEventListener('scan-completed', this.onSearchCompleted_);
-
-  // Current search will be cancelled.
-  if (this.onClearSearch_)
-    this.onClearSearch_();
 
   this.onSearchCompleted_ = onSearchRescan;
   this.onClearSearch_ = onClearSearch;
@@ -1203,8 +1207,13 @@ DirectoryModel.prototype.search = function(query,
 
   // If we are offline, let's fallback to file name search inside dir.
   if (this.getCurrentRootType() === RootType.GDATA && !this.isOffline()) {
+    // GData search is performed over the whole drive, so pass drive root as
+    // |directoryEntry|.
     newDirContents = new DirectoryContentsGDataSearch(
-        this.currentFileListContext_, this.getCurrentDirEntry(), query);
+        this.currentFileListContext_,
+        this.getSelectedRootDirEntry_(),
+        this.currentDirContents_.getLastNonSearchDirectoryEntry(),
+        query);
   } else {
     newDirContents = new DirectoryContentsLocalSearch(
         this.currentFileListContext_, this.getCurrentDirEntry(), query);

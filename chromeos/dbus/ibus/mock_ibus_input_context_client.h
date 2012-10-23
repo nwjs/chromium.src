@@ -12,6 +12,12 @@
 namespace chromeos {
 class MockIBusInputContextClient : public IBusInputContextClient {
  public:
+  typedef base::Callback<void (uint32 keyval,
+                               uint32 keycode,
+                               uint32 state,
+                               const ProcessKeyEventCallback& callback,
+                               const ErrorCallback& error_callback)>
+      ProcessKeyEventHandler;
   MockIBusInputContextClient();
   virtual ~MockIBusInputContextClient();
 
@@ -47,6 +53,8 @@ class MockIBusInputContextClient : public IBusInputContextClient {
   virtual void SetSurroundingText(const std::string& text,
                                   uint32 cursor_pos,
                                   uint32 anchor_pos) OVERRIDE;
+  virtual void PropertyActivate(const std::string& key,
+                                ibus::IBusPropertyState state) OVERRIDE;
 
   // Call count of Initialize().
   int initialize_call_count() const { return initialize_call_count_; }
@@ -80,6 +88,11 @@ class MockIBusInputContextClient : public IBusInputContextClient {
     return process_key_event_call_count_;
   }
 
+  void set_process_key_event_handler(
+      const ProcessKeyEventHandler& handler) {
+    process_key_event_handler_ = handler;
+  }
+
  private:
   int initialize_call_count_;
   bool is_initialized_;
@@ -90,6 +103,7 @@ class MockIBusInputContextClient : public IBusInputContextClient {
   int reset_call_count_;
   int set_cursor_location_call_count_;
   int process_key_event_call_count_;
+  ProcessKeyEventHandler process_key_event_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(MockIBusInputContextClient);
 };

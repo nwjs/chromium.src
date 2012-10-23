@@ -50,6 +50,8 @@
         'internal_api/public/base/node_ordinal.cc',
         'internal_api/public/base/node_ordinal.h',
         'internal_api/public/base/ordinal.h',
+        'internal_api/public/base/progress_marker_map.cc',
+        'internal_api/public/base/progress_marker_map.h',
         'internal_api/public/engine/model_safe_worker.cc',
         'internal_api/public/engine/model_safe_worker.h',
         'internal_api/public/engine/passive_model_worker.cc',
@@ -135,8 +137,6 @@
         'engine/traffic_recorder.h',
         'engine/update_applicator.cc',
         'engine/update_applicator.h',
-        'engine/verify_updates_command.cc',
-        'engine/verify_updates_command.h',
         'js/js_arg_list.cc',
         'js/js_arg_list.h',
         'js/js_backend.h',
@@ -614,7 +614,6 @@
           'engine/syncer_unittest.cc',
           'engine/throttled_data_type_tracker_unittest.cc',
           'engine/traffic_recorder_unittest.cc',
-          'engine/verify_updates_command_unittest.cc',
           'js/js_arg_list_unittest.cc',
           'js/js_event_details_unittest.cc',
           'js/sync_js_controller_unittest.cc',
@@ -637,6 +636,15 @@
           'util/nigori_unittest.cc',
           'util/protobuf_unittest.cc',
           'internal_api/public/util/weak_handle_unittest.cc',
+        ],
+        'conditions': [
+          ['OS == "ios" and coverage != 0', {
+            # These sources can't be built with coverage due to a toolchain
+            # bug: http://openradar.appspot.com/radar?id=1499403
+            'sources!': [
+              'engine/syncer_unittest.cc',
+            ],
+          }],
         ],
       },
     },

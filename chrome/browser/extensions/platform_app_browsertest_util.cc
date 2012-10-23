@@ -23,8 +23,12 @@ namespace utils = extension_function_test_utils;
 namespace extensions {
 
 void PlatformAppBrowserTest::SetUpCommandLine(CommandLine* command_line) {
+  // Skips ExtensionApiTest::SetUpCommandLine.
   ExtensionBrowserTest::SetUpCommandLine(command_line);
-  command_line->AppendSwitch(switches::kEnableExperimentalExtensionApis);
+
+  // Make event pages get suspended quicker.
+  command_line->AppendSwitchASCII(switches::kEventPageIdleTime, "1");
+  command_line->AppendSwitchASCII(switches::kEventPageUnloadingTime, "1");
 }
 
 const Extension* PlatformAppBrowserTest::LoadAndLaunchPlatformApp(

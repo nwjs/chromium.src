@@ -4,224 +4,346 @@
 
 #include "remoting/host/win/worker_process_launcher.h"
 
-#include <windows.h>
-#include <sddl.h>
-#include <limits>
-
-#include "base/base_switches.h"
-#include "base/bind.h"
-#include "base/bind_helpers.h"
 #include "base/logging.h"
 #include "base/single_thread_task_runner.h"
-#include "base/process_util.h"
-#include "base/rand_util.h"
-#include "base/stringprintf.h"
 #include "base/time.h"
-#include "base/utf_string_conversions.h"
-#include "base/win/scoped_handle.h"
-#include "ipc/ipc_channel_proxy.h"
+#include "base/timer.h"
+#include "base/win/object_watcher.h"
+#include "base/win/windows_version.h"
+#include "ipc/ipc_listener.h"
 #include "ipc/ipc_message.h"
+#include "net/base/backoff_entry.h"
 #include "remoting/host/worker_process_ipc_delegate.h"
 
+using base::TimeDelta;
 using base::win::ScopedHandle;
 
-namespace {
+const net::BackoffEntry::Policy kDefaultBackoffPolicy = {
+  // Number of initial errors (in sequence) to ignore before applying
+  // exponential back-off rules.
+  0,
 
-// Match the pipe name prefix used by Chrome IPC channels so that the client
-// could use Chrome IPC APIs instead of connecting manually.
-const char kChromePipeNamePrefix[] = "\\\\.\\pipe\\chrome.";
+  // Initial delay for exponential back-off in ms.
+  1000,
 
-} // namespace
+  // Factor by which the waiting time will be multiplied.
+  2,
+
+  // Fuzzing percentage. ex: 10% will spread requests randomly
+  // between 90%-100% of the calculated time.
+  0,
+
+  // Maximum amount of time we are willing to delay our request in ms.
+  60000,
+
+  // Time to keep an entry from being discarded even when it
+  // has no significant state, -1 to never discard.
+  -1,
+
+  // Don't use initial delay unless the last request was an error.
+  false,
+};
+
 
 namespace remoting {
+
+// Launches a worker process that is controlled via an IPC channel. All
+// interaction with the spawned process is through the IPC::Listener and Send()
+// method. In case of error the channel is closed and the worker process is
+// terminated.
+class WorkerProcessLauncher::Core
+    : public base::RefCountedThreadSafe<WorkerProcessLauncher::Core>,
+      public base::win::ObjectWatcher::Delegate,
+      public IPC::Listener {
+ public:
+  // Creates the launcher that will use |launcher_delegate| to manage the worker
+  // process and |worker_delegate| to handle IPCs. The caller must ensure that
+  // |worker_delegate| remains valid until Stoppable::Stop() method has been
+  // called.
+  //
+  // The caller should call all the methods on this class on
+  // the |caller_task_runner| thread. Methods of both delegate interfaces are
+  // called on the |caller_task_runner| thread as well.
+  Core(scoped_refptr<base::SingleThreadTaskRunner> caller_task_runner,
+       scoped_ptr<WorkerProcessLauncher::Delegate> launcher_delegate,
+       WorkerProcessIpcDelegate* worker_delegate);
+
+  // Launches the worker process.
+  void Start();
+
+  // Stops the worker process asynchronously. The caller can drop the reference
+  // to |this| as soon as Stop() returns.
+  void Stop();
+
+  // Sends an IPC message to the worker process. The message will be silently
+  // dropped if Send() is called before Start() or after stutdown has been
+  // initiated.
+  void Send(IPC::Message* message);
+
+  // base::win::ObjectWatcher::Delegate implementation.
+  virtual void OnObjectSignaled(HANDLE object) OVERRIDE;
+
+  // IPC::Listener implementation.
+  virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
+  virtual void OnChannelConnected(int32 peer_pid) OVERRIDE;
+  virtual void OnChannelError() OVERRIDE;
+
+ private:
+  friend class base::RefCountedThreadSafe<Core>;
+  virtual ~Core();
+
+  // Attempts to launch the worker process. Schedules next launch attempt if
+  // creation of the process fails.
+  void LaunchWorker();
+
+  // Records a successful launch attempt.
+  void RecordSuccessfulLaunch();
+
+  // Stops the worker process asynchronously and schedules next launch attempt
+  // unless Stop() has been called already.
+  void StopWorker();
+
+  // All public methods are called on the |caller_task_runner| thread.
+  scoped_refptr<base::SingleThreadTaskRunner> caller_task_runner_;
+
+  // Implements specifics of launching a worker process.
+  scoped_ptr<WorkerProcessLauncher::Delegate> launcher_delegate_;
+
+  // Handles IPC messages sent by the worker process.
+  WorkerProcessIpcDelegate* worker_delegate_;
+
+  // Pointer to GetNamedPipeClientProcessId() API if it is available.
+  typedef BOOL (WINAPI * GetNamedPipeClientProcessIdFn)(HANDLE, DWORD*);
+  GetNamedPipeClientProcessIdFn get_named_pipe_client_pid_;
+
+  // True if IPC messages should be passed to |worker_delegate_|.
+  bool ipc_enabled_;
+
+  // The timer used to delay termination of the process in the case of an IPC
+  // error.
+  scoped_ptr<base::OneShotTimer<Core> > ipc_error_timer_;
+
+  // Launch backoff state.
+  net::BackoffEntry launch_backoff_;
+
+  // Timer used to delay recording a successfull launch.
+  scoped_ptr<base::OneShotTimer<Core> > launch_success_timer_;
+
+  // Timer used to schedule the next attempt to launch the process.
+  scoped_ptr<base::OneShotTimer<Core> > launch_timer_;
+
+  // Used to determine when the launched process terminates.
+  base::win::ObjectWatcher process_watcher_;
+
+  // A waiting handle that becomes signalled once the launched process has
+  // been terminated.
+  ScopedHandle process_exit_event_;
+
+  // True when Stop() has been called.
+  bool stopping_;
+
+  DISALLOW_COPY_AND_ASSIGN(Core);
+};
 
 WorkerProcessLauncher::Delegate::~Delegate() {
 }
 
-WorkerProcessLauncher::WorkerProcessLauncher(
-    Delegate* launcher_delegate,
-    WorkerProcessIpcDelegate* worker_delegate,
-    const base::Closure& stopped_callback,
-    scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
-    scoped_refptr<base::SingleThreadTaskRunner> ipc_task_runner)
-    : Stoppable(main_task_runner, stopped_callback),
-      launcher_delegate_(launcher_delegate),
+WorkerProcessLauncher::Core::Core(
+    scoped_refptr<base::SingleThreadTaskRunner> caller_task_runner,
+    scoped_ptr<WorkerProcessLauncher::Delegate> launcher_delegate,
+    WorkerProcessIpcDelegate* worker_delegate)
+    : caller_task_runner_(caller_task_runner),
+      launcher_delegate_(launcher_delegate.Pass()),
       worker_delegate_(worker_delegate),
-      main_task_runner_(main_task_runner),
-      ipc_task_runner_(ipc_task_runner) {
+      get_named_pipe_client_pid_(NULL),
+      ipc_enabled_(false),
+      launch_backoff_(&kDefaultBackoffPolicy),
+      stopping_(false) {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+
+  // base::OneShotTimer must be destroyed on the same thread it was created on.
+  ipc_error_timer_.reset(new base::OneShotTimer<Core>());
+  launch_success_timer_.reset(new base::OneShotTimer<Core>());
+  launch_timer_.reset(new base::OneShotTimer<Core>());
 }
 
-WorkerProcessLauncher::~WorkerProcessLauncher() {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
+void WorkerProcessLauncher::Core::Start() {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+  DCHECK(!stopping_);
+
+  LaunchWorker();
 }
 
-void WorkerProcessLauncher::Start(const std::string& pipe_sddl) {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
-  DCHECK(ipc_channel_.get() == NULL);
-  DCHECK(!pipe_.IsValid());
-  DCHECK(!process_exit_event_.IsValid());
-  DCHECK(process_watcher_.GetWatchedObject() == NULL);
+void WorkerProcessLauncher::Core::Stop() {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
 
-  std::string channel_name = GenerateRandomChannelId();
-  if (CreatePipeForIpcChannel(channel_name, pipe_sddl, &pipe_)) {
-    // Wrap the pipe into an IPC channel.
-    ipc_channel_.reset(new IPC::ChannelProxy(
-        IPC::ChannelHandle(pipe_),
-        IPC::Channel::MODE_SERVER,
-        this,
-        ipc_task_runner_));
-
-    // Launch the process and attach an object watcher to the returned process
-    // handle so that we get notified if the process terminates.
-    if (launcher_delegate_->DoLaunchProcess(channel_name,
-                                            &process_exit_event_)) {
-      if (process_watcher_.StartWatching(process_exit_event_, this)) {
-        return;
-      }
-
-      launcher_delegate_->DoKillProcess(CONTROL_C_EXIT);
-    }
+  if (!stopping_) {
+    stopping_ = true;
+    worker_delegate_ = NULL;
+    StopWorker();
   }
-
-  Stop();
 }
 
-void WorkerProcessLauncher::Send(IPC::Message* message) {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
+void WorkerProcessLauncher::Core::Send(IPC::Message* message) {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
 
-  if (ipc_channel_.get()) {
-    ipc_channel_->Send(message);
+  if (ipc_enabled_) {
+    launcher_delegate_->Send(message);
   } else {
     delete message;
   }
 }
 
-void WorkerProcessLauncher::OnObjectSignaled(HANDLE object) {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
+void WorkerProcessLauncher::Core::OnObjectSignaled(HANDLE object) {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
   DCHECK(process_watcher_.GetWatchedObject() == NULL);
 
-  Stop();
+  StopWorker();
 }
 
-bool WorkerProcessLauncher::OnMessageReceived(const IPC::Message& message) {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
-  DCHECK(ipc_channel_.get() != NULL);
-  DCHECK(pipe_.IsValid());
-  DCHECK(process_exit_event_.IsValid());
+bool WorkerProcessLauncher::Core::OnMessageReceived(
+    const IPC::Message& message) {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+
+  if (!ipc_enabled_)
+    return false;
 
   return worker_delegate_->OnMessageReceived(message);
 }
 
-void WorkerProcessLauncher::OnChannelConnected(int32 peer_pid) {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
-  DCHECK(ipc_channel_.get() != NULL);
-  DCHECK(pipe_.IsValid());
-  DCHECK(process_exit_event_.IsValid());
+void WorkerProcessLauncher::Core::OnChannelConnected(int32 peer_pid) {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
 
-  // |peer_pid| is send by the client and cannot be trusted.
-  // GetNamedPipeClientProcessId() is not available on XP. The pipe's security
-  // descriptor is the only protection we currently have against malicious
-  // clients.
-  //
-  // If we'd like to be able to launch low-privileged workers and let them
-  // connect back, the pipe handle should be passed to the worker instead of
-  // the pipe name.
-  worker_delegate_->OnChannelConnected();
+  if (!ipc_enabled_)
+    return;
+
+  // Verify |peer_pid| because it is controlled by the client and cannot be
+  // trusted.
+  DWORD actual_pid = launcher_delegate_->GetProcessId();
+  if (peer_pid != static_cast<int32>(actual_pid)) {
+    LOG(ERROR) << "The actual client PID " << actual_pid
+               << " does not match the one reported by the client: "
+               << peer_pid;
+    StopWorker();
+    return;
+  }
+
+  worker_delegate_->OnChannelConnected(peer_pid);
 }
 
-void WorkerProcessLauncher::OnChannelError() {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
-  DCHECK(ipc_channel_.get() != NULL);
-  DCHECK(pipe_.IsValid());
-  DCHECK(process_exit_event_.IsValid());
+void WorkerProcessLauncher::Core::OnChannelError() {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
 
   // Schedule a delayed termination of the worker process. Usually, the pipe is
   // disconnected when the worker process is about to exit. Waiting a little bit
   // here allows the worker to exit completely and so, notify
-  // |process_watcher_|. As the result DoKillProcess() will not be called and
+  // |process_watcher_|. As the result KillProcess() will not be called and
   // the original exit code reported by the worker process will be retrieved.
-  ipc_error_timer_.Start(FROM_HERE, base::TimeDelta::FromSeconds(5),
-                         this, &WorkerProcessLauncher::Stop);
+  ipc_error_timer_->Start(FROM_HERE, base::TimeDelta::FromSeconds(5),
+                          this, &Core::StopWorker);
 }
 
-void WorkerProcessLauncher::DoStop() {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
+WorkerProcessLauncher::Core::~Core() {
+  DCHECK(stopping_);
+}
 
-  ipc_channel_.reset();
-  pipe_.Close();
+void WorkerProcessLauncher::Core::LaunchWorker() {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+  DCHECK(!ipc_enabled_);
+  DCHECK(!launch_success_timer_->IsRunning());
+  DCHECK(!launch_timer_->IsRunning());
+  DCHECK(!process_exit_event_.IsValid());
+  DCHECK(process_watcher_.GetWatchedObject() == NULL);
+
+  // Launch the process and attach an object watcher to the returned process
+  // handle so that we get notified if the process terminates.
+  if (launcher_delegate_->LaunchProcess(this, &process_exit_event_)) {
+    if (process_watcher_.StartWatching(process_exit_event_, this)) {
+      ipc_enabled_ = true;
+      // Record a successful launch once the process has been running for at
+      // least two seconds.
+      launch_success_timer_->Start(FROM_HERE, base::TimeDelta::FromSeconds(2),
+                                   this, &Core::RecordSuccessfulLaunch);
+      return;
+    }
+
+    launcher_delegate_->KillProcess(CONTROL_C_EXIT);
+  }
+
+  launch_backoff_.InformOfRequest(false);
+  StopWorker();
+}
+
+void WorkerProcessLauncher::Core::RecordSuccessfulLaunch() {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+
+  launch_backoff_.InformOfRequest(true);
+}
+
+void WorkerProcessLauncher::Core::StopWorker() {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+
+  // Keep the object alive in case one of delegates decides to delete |this|.
+  scoped_refptr<Core> self = this;
+
+  // Record a launch failure if the process exited too soon.
+  if (launch_success_timer_->IsRunning()) {
+    launch_success_timer_->Stop();
+    launch_backoff_.InformOfRequest(false);
+  }
+
+  // Ignore any remaining IPC messages.
+  ipc_enabled_ = false;
 
   // Kill the process if it has been started already.
   if (process_watcher_.GetWatchedObject() != NULL) {
-    launcher_delegate_->DoKillProcess(CONTROL_C_EXIT);
+    launcher_delegate_->KillProcess(CONTROL_C_EXIT);
+
+    // Wait until the process is actually stopped if the caller keeps
+    // a reference to |this|. Otherwise terminate everything right now - there
+    // won't be a second chance.
+    if (!stopping_)
+      return;
+
+    process_watcher_.StopWatching();
+  }
+
+  ipc_error_timer_->Stop();
+  process_exit_event_.Close();
+
+  // Do not relaunch the worker process if the caller has asked us to stop.
+  if (stopping_) {
+    ipc_error_timer_.reset();
+    launch_timer_.reset();
     return;
   }
 
-  ipc_error_timer_.Stop();
-
-  DCHECK(ipc_channel_.get() == NULL);
-  DCHECK(!pipe_.IsValid());
-  DCHECK(process_watcher_.GetWatchedObject() == NULL);
-
-  process_exit_event_.Close();
-  CompleteStopping();
+  if (launcher_delegate_->IsPermanentError(launch_backoff_.failure_count())) {
+    if (!stopping_)
+      worker_delegate_->OnPermanentError();
+  } else {
+    // Schedule the next attempt to launch the worker process.
+    launch_timer_->Start(FROM_HERE, launch_backoff_.GetTimeUntilRelease(),
+                         this, &Core::LaunchWorker);
+  }
 }
 
-// Creates the server end of the Chromoting IPC channel.
-bool WorkerProcessLauncher::CreatePipeForIpcChannel(
-    const std::string& channel_name,
-    const std::string& pipe_sddl,
-    ScopedHandle* pipe_out) {
-  // Create security descriptor for the channel.
-  SECURITY_ATTRIBUTES security_attributes;
-  security_attributes.nLength = sizeof(security_attributes);
-  security_attributes.bInheritHandle = FALSE;
-
-  ULONG security_descriptor_length = 0;
-  if (!ConvertStringSecurityDescriptorToSecurityDescriptor(
-          UTF8ToUTF16(pipe_sddl).c_str(),
-          SDDL_REVISION_1,
-          reinterpret_cast<PSECURITY_DESCRIPTOR*>(
-              &security_attributes.lpSecurityDescriptor),
-          &security_descriptor_length)) {
-    LOG_GETLASTERROR(ERROR) <<
-        "Failed to create a security descriptor for the Chromoting IPC channel";
-    return false;
-  }
-
-  // Convert the channel name to the pipe name.
-  std::string pipe_name(kChromePipeNamePrefix);
-  pipe_name.append(channel_name);
-
-  // Create the server end of the pipe. This code should match the code in
-  // IPC::Channel with exception of passing a non-default security descriptor.
-  base::win::ScopedHandle pipe;
-  pipe.Set(CreateNamedPipe(
-      UTF8ToUTF16(pipe_name).c_str(),
-      PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
-      PIPE_TYPE_BYTE | PIPE_READMODE_BYTE,
-      1,
-      IPC::Channel::kReadBufferSize,
-      IPC::Channel::kReadBufferSize,
-      5000,
-      &security_attributes));
-  if (!pipe.IsValid()) {
-    LOG_GETLASTERROR(ERROR) <<
-        "Failed to create the server end of the Chromoting IPC channel";
-    LocalFree(security_attributes.lpSecurityDescriptor);
-    return false;
-  }
-
-  LocalFree(security_attributes.lpSecurityDescriptor);
-
-  *pipe_out = pipe.Pass();
-  return true;
+WorkerProcessLauncher::WorkerProcessLauncher(
+    scoped_refptr<base::SingleThreadTaskRunner> caller_task_runner,
+    scoped_ptr<Delegate> launcher_delegate,
+    WorkerProcessIpcDelegate* worker_delegate) {
+  core_ = new Core(caller_task_runner, launcher_delegate.Pass(),
+                   worker_delegate);
+  core_->Start();
 }
 
-// N.B. Copied from src/content/common/child_process_host_impl.cc
-std::string WorkerProcessLauncher::GenerateRandomChannelId() {
-  return base::StringPrintf("%d.%p.%d",
-                            base::GetCurrentProcId(), this,
-                            base::RandInt(0, std::numeric_limits<int>::max()));
+WorkerProcessLauncher::~WorkerProcessLauncher() {
+  core_->Stop();
+  core_ = NULL;
+}
+
+void WorkerProcessLauncher::Send(IPC::Message* message) {
+  core_->Send(message);
 }
 
 } // namespace remoting

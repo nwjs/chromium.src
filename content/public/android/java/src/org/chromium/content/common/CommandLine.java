@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Java mirror of Chrome command-line utilities (e.g. class CommandLine from base/command_line.h).
  * Command line program adb_command_line can be used to set the Chrome command line:
- * adb shell "echo chrome --my-param > /data/local/tmp/chrome-command-line"
+ * adb shell "echo chrome --my-param > /data/local/chrome-command-line"
  */
 public abstract class CommandLine {
     // Block onCreate() of Chrome until a Java debugger is attached.
@@ -47,8 +47,15 @@ public abstract class CommandLine {
     // Whether Chromium should use a mobile user agent.
     public static final String USE_MOBILE_UA = "use-mobile-user-agent";
 
+    // tablet specific UI components.
+    // Native switch - chrome_switches::kTabletUI
+    public static final String TABLET_UI = "tablet-ui";
+
     // Change the url of the JavaScript that gets injected when accessibility mode is enabled.
     public static final String ACCESSIBILITY_JAVASCRIPT_URL = "accessibility-js-url";
+
+    // Sets the ISO country code that will be used for phone number detection.
+    public static final String NETWORK_COUNTRY_ISO = "network-country-iso";
 
     // Public abstract interface, implemented in derived classes.
     // All these methods reflect their native-side counterparts.
@@ -122,8 +129,9 @@ public abstract class CommandLine {
 
     // Equivalent to CommandLine::ForCurrentProcess in C++.
     public static CommandLine getInstance() {
-        assert sCommandLine.get() != null;
-        return sCommandLine.get();
+        CommandLine commandLine = sCommandLine.get();
+        assert commandLine != null;
+        return commandLine;
     }
 
     /**
@@ -132,8 +140,7 @@ public abstract class CommandLine {
      * @param args command line flags in 'argv' format: args[0] is the program name.
      */
     public static void init(String[] args) {
-        assert sCommandLine.get() == null;
-        sCommandLine.compareAndSet(null, new JavaCommandLine(args));
+        setInstance(new JavaCommandLine(args));
     }
 
     /**
@@ -159,10 +166,7 @@ public abstract class CommandLine {
      * command line initialization to be re-run including the call to onJniLoaded.
      */
     public static void reset() {
-        if (sCommandLine.get() != null && sCommandLine.get().isNativeImplementation()) {
-            nativeReset();
-        }
-        sCommandLine.set(null);
+        setInstance(null);
     }
 
     /**
@@ -224,6 +228,13 @@ public abstract class CommandLine {
             return ((JavaCommandLine) commandLine).getCommandLineArguments();
         }
         return null;
+    }
+
+    private static void setInstance(CommandLine commandLine) {
+        CommandLine oldCommandLine = sCommandLine.getAndSet(commandLine);
+        if (oldCommandLine != null && oldCommandLine.isNativeImplementation()) {
+            nativeReset();
+        }
     }
 
     /**

@@ -12,9 +12,9 @@
 #include "chrome/browser/content_settings/cookie_settings.h"
 #include "chrome/browser/extensions/api/alarms/alarm_manager.h"
 #include "chrome/browser/extensions/api/declarative/rules_registry_service.h"
+#include "chrome/browser/extensions/api/messaging/message_service.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/event_router.h"
-#include "chrome/browser/extensions/extension_action_manager.h"
 #include "chrome/browser/extensions/extension_devtools_manager.h"
 #include "chrome/browser/extensions/extension_error_reporter.h"
 #include "chrome/browser/extensions/extension_info_map.h"
@@ -26,7 +26,6 @@
 #include "chrome/browser/extensions/extension_system_factory.h"
 #include "chrome/browser/extensions/lazy_background_task_queue.h"
 #include "chrome/browser/extensions/management_policy.h"
-#include "chrome/browser/extensions/api/messaging/message_service.h"
 #include "chrome/browser/extensions/navigation_observer.h"
 #include "chrome/browser/extensions/shell_window_geometry_cache.h"
 #include "chrome/browser/extensions/state_store.h"
@@ -93,7 +92,6 @@ void ExtensionSystemImpl::Shared::InitPrefs() {
 
   shell_window_geometry_cache_.reset(new ShellWindowGeometryCache(
     profile_, state_store_.get()));
-
 }
 
 void ExtensionSystemImpl::Shared::RegisterManagementPolicyProviders() {
@@ -109,7 +107,6 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   extension_event_router_.reset(new EventRouter(profile_,
                                                 extension_prefs_.get()));
   navigation_observer_.reset(new NavigationObserver(profile_));
-  extension_action_manager_.reset(new ExtensionActionManager(profile_));
 
   ExtensionErrorReporter::Init(true);  // allow noisy errors.
 
@@ -199,8 +196,6 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
 }
 
 void ExtensionSystemImpl::Shared::Shutdown() {
-  if (extension_action_manager_.get())
-    extension_action_manager_->Shutdown();
   if (extension_service_.get())
     extension_service_->Shutdown();
 }

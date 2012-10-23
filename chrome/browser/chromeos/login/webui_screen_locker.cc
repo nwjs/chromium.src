@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/login/webui_screen_locker.h"
 
+#include "ash/shell.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram.h"
 #include "base/utf_string_conversions.h"
@@ -45,7 +46,7 @@ WebUIScreenLocker::WebUIScreenLocker(ScreenLocker* screen_locker)
 }
 
 void WebUIScreenLocker::LockScreen(bool unlock_on_input) {
-  gfx::Rect bounds(gfx::Screen::GetPrimaryDisplay().bounds());
+  gfx::Rect bounds(ash::Shell::GetScreen()->GetPrimaryDisplay().bounds());
 
   lock_time_ = base::TimeTicks::Now();
   LockWindow* lock_window = LockWindow::Create();
@@ -59,7 +60,7 @@ void WebUIScreenLocker::LockScreen(bool unlock_on_input) {
   lock_window->Grab();
 
   // User list consisting of a single logged-in user.
-  UserList users(1, &chromeos::UserManager::Get()->GetLoggedInUser());
+  UserList users(1, chromeos::UserManager::Get()->GetLoggedInUser());
   login_display_.reset(new WebUILoginDisplay(this));
   login_display_->set_background_bounds(bounds);
   login_display_->set_parent_window(GetNativeWindow());
@@ -134,6 +135,8 @@ void WebUIScreenLocker::Observe(
       break;
     }
     case chrome::NOTIFICATION_LOCK_WEBUI_READY: {
+      VLOG(1) << "WebUI ready; lock window is "
+              << (lock_ready_ ? "too" : "not");
       webui_ready_ = true;
       if (lock_ready_)
         ScreenLockReady();
@@ -202,6 +205,7 @@ void WebUIScreenLocker::OnStartDeviceReset() {
 // LockWindow::Observer implementation:
 
 void WebUIScreenLocker::OnLockWindowReady() {
+  VLOG(1) << "Lock window ready; WebUI is " << (webui_ready_ ? "too" : "not");
   lock_ready_ = true;
   if (webui_ready_)
     ScreenLockReady();

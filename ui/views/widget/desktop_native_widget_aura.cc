@@ -5,6 +5,7 @@
 #include "ui/views/widget/desktop_native_widget_aura.h"
 
 #include "base/bind.h"
+#include "ui/aura/client/stacking_client.h"
 #include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/root_window_host.h"
@@ -16,15 +17,44 @@
 #include "ui/views/widget/desktop_root_window_host.h"
 #include "ui/views/widget/native_widget_aura_window_observer.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_aura_utils.h"
 
 namespace views {
+
+namespace {
+
+class DesktopNativeWidgetAuraStackingClient :
+    public aura::client::StackingClient {
+ public:
+  explicit DesktopNativeWidgetAuraStackingClient(aura::RootWindow* root_window)
+      : root_window_(root_window) {
+    aura::client::SetStackingClient(root_window_, this);
+  }
+  virtual ~DesktopNativeWidgetAuraStackingClient() {
+    aura::client::SetStackingClient(root_window_, NULL);
+  }
+
+  // Overridden from client::StackingClient:
+  virtual aura::Window* GetDefaultParent(aura::Window* window,
+                                         const gfx::Rect& bounds) OVERRIDE {
+    return root_window_;
+  }
+
+ private:
+  aura::RootWindow* root_window_;
+
+  DISALLOW_COPY_AND_ASSIGN(DesktopNativeWidgetAuraStackingClient);
+};
+
+}  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // DesktopNativeWidgetAura, public:
 
 DesktopNativeWidgetAura::DesktopNativeWidgetAura(
     internal::NativeWidgetDelegate* delegate)
-    : ALLOW_THIS_IN_INITIALIZER_LIST(close_widget_factory_(this)),
+    : ownership_(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET),
+      ALLOW_THIS_IN_INITIALIZER_LIST(close_widget_factory_(this)),
       can_activate_(true),
       desktop_root_window_host_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(window_(new aura::Window(this))),
@@ -32,6 +62,10 @@ DesktopNativeWidgetAura::DesktopNativeWidgetAura(
 }
 
 DesktopNativeWidgetAura::~DesktopNativeWidgetAura() {
+  if (ownership_ == Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET)
+    delete native_widget_delegate_;
+  else
+    CloseNow();
 }
 
 void DesktopNativeWidgetAura::OnHostClosed() {
@@ -45,7 +79,10 @@ void DesktopNativeWidgetAura::OnHostClosed() {
 
 void DesktopNativeWidgetAura::InitNativeWidget(
     const Widget::InitParams& params) {
+  ownership_ = params.ownership;
+
   window_->set_user_data(this);
+  window_->SetType(GetAuraWindowTypeForWidgetType(params.type));
   window_->SetTransparent(true);
   window_->Init(params.layer_type);
   window_->Show();
@@ -56,6 +93,8 @@ void DesktopNativeWidgetAura::InitNativeWidget(
                                     this, params.bounds);
   root_window_.reset(
       desktop_root_window_host_->Init(window_, params));
+  stacking_client_.reset(
+      new DesktopNativeWidgetAuraStackingClient(root_window_.get()));
 
   aura::client::SetActivationDelegate(window_, this);
 }
@@ -374,10 +413,12 @@ void DesktopNativeWidgetAura::OnBoundsChanged(const gfx::Rect& old_bounds,
 }
 
 void DesktopNativeWidgetAura::OnFocus(aura::Window* old_focused_window) {
+  desktop_root_window_host_->OnNativeWidgetFocus();
   native_widget_delegate_->OnNativeFocus(old_focused_window);
 }
 
 void DesktopNativeWidgetAura::OnBlur() {
+  desktop_root_window_host_->OnNativeWidgetBlur();
   native_widget_delegate_->OnNativeBlur(
       window_->GetFocusManager()->GetFocusedWindow());
 }
@@ -420,6 +461,8 @@ void DesktopNativeWidgetAura::OnWindowDestroying() {
 void DesktopNativeWidgetAura::OnWindowDestroyed() {
   window_ = NULL;
   native_widget_delegate_->OnNativeWidgetDestroyed();
+  // TODO(beng): I think we should only do this if widget owns native widget.
+  //             Verify and if untrue remove this comment.
   delete this;
 }
 
@@ -445,8 +488,19 @@ scoped_refptr<ui::Texture> DesktopNativeWidgetAura::CopyTexture() {
 // DesktopNativeWidgetAura, ui::EventHandler implementation:
 
 ui::EventResult DesktopNativeWidgetAura::OnKeyEvent(ui::KeyEvent* event) {
-  return native_widget_delegate_->OnKeyEvent(*event) ? ui::ER_HANDLED :
-      ui::ER_UNHANDLED;
+  if (event->is_char()) {
+    // If a ui::InputMethod object is attached to the root window, character
+    // events are handled inside the object and are not passed to this function.
+    // If such object is not attached, character events might be sent (e.g. on
+    // Windows). In this case, we just skip these.
+    return ui::ER_UNHANDLED;
+  }
+  // Renderer may send a key event back to us if the key event wasn't handled,
+  // and the window may be invisible by that time.
+  if (!window_->IsVisible())
+    return ui::ER_UNHANDLED;
+  GetWidget()->GetInputMethod()->DispatchKeyEvent(*event);
+  return ui::ER_HANDLED;
 }
 
 ui::EventResult DesktopNativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {

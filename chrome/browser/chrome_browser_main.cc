@@ -17,6 +17,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
+#include "base/prefs/json_pref_store.h"
 #include "base/process_info.h"
 #include "base/process_util.h"
 #include "base/run_loop.h"
@@ -89,7 +90,6 @@
 #include "chrome/common/chrome_result_codes.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/env_vars.h"
-#include "chrome/common/json_pref_store.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/metrics/variations/variations_util.h"
@@ -119,6 +119,10 @@
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/resource/resource_handle.h"
+
+#if defined(OS_ANDROID)
+#include "base/android/build_info.h"
+#endif
 
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
 #include "chrome/browser/first_run/upgrade_util_linux.h"
@@ -535,6 +539,13 @@ void ChromeBrowserMainParts::SetupMetricsAndFieldTrials() {
     MetricsLog::set_version_extension("-F");
 #elif defined(ARCH_CPU_64_BITS)
   MetricsLog::set_version_extension("-64");
+#elif defined(OS_ANDROID)
+  // Set version extension to identify Android releases.
+  // Example: 16.0.912.61-K88
+  std::string version_extension = "-K";
+  version_extension.append(
+      base::android::BuildInfo::GetInstance()->package_version_code());
+  MetricsLog::set_version_extension(version_extension);
 #endif  // defined(OS_WIN)
 
   // Initialize FieldTrialList to support FieldTrials that use one-time
@@ -638,11 +649,11 @@ DLLEXPORT void __cdecl RelaunchChromeBrowserWithNewCommandLineIfNeeded() {
 
 void ChromeBrowserMainParts::PreEarlyInitialization() {
   // Single-process is an unsupported and not fully tested mode, so
-  // don't enable it for official Chrome builds (by not setting the client, the
-#if defined(GOOGLE_CHROME_BUILD)
+  // don't enable it for official Chrome builds (except on Android).
+#if defined(GOOGLE_CHROME_BUILD) && !defined(OS_ANDROID)
   if (content::RenderProcessHost::run_renderer_in_process())
     content::RenderProcessHost::set_run_renderer_in_process(false);
-#endif  // GOOGLE_CHROME_BUILD
+#endif
 
   for (size_t i = 0; i < chrome_extra_parts_.size(); ++i)
     chrome_extra_parts_[i]->PreEarlyInitialization();
@@ -1230,9 +1241,8 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   }
 
   PrefService* pref_service = profile_->GetPrefs();
-  bool is_google_homepage = pref_service &&
-      google_util::IsGoogleHomePageUrl(
-          pref_service->GetString(prefs::kHomePage));
+  bool is_google_homepage = google_util::IsGoogleHomePageUrl(
+      pref_service->GetString(prefs::kHomePage));
 
   bool is_google_in_startpages = false;
   SessionStartupPref session_startup_prefs =
@@ -1244,7 +1254,9 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
                                             IsGoogleUrl) > 0;
   }
 
-  RLZTracker::InitRlzDelayed(is_first_run_, master_prefs_->ping_delay,
+  int ping_delay = is_first_run_ ? master_prefs_->ping_delay :
+      pref_service->GetInteger(first_run::GetPingDelayPrefName().c_str());
+  RLZTracker::InitRlzDelayed(is_first_run_, ping_delay,
                              is_google_default_search, is_google_homepage,
                              is_google_in_startpages);
 

@@ -28,7 +28,6 @@ using base::android::ConvertUTF8ToJavaString;
 using base::android::ConvertJavaStringToUTF8;
 using base::android::CheckException;
 using base::android::ClearException;
-using base::android::GetMethodID;
 using base::android::ScopedJavaGlobalRef;
 
 namespace net {
@@ -324,6 +323,7 @@ ProxyConfigServiceAndroid::ProxyConfigServiceAndroid(
     GetPropertyCallback get_property_callback)
     : delegate_(new Delegate(
         network_task_runner, jni_task_runner, get_property_callback)) {
+  delegate_->SetupJNI();
   delegate_->FetchInitialConfig();
 }
 

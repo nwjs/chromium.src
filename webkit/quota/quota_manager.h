@@ -23,7 +23,6 @@
 #include "webkit/quota/quota_client.h"
 #include "webkit/quota/quota_database.h"
 #include "webkit/quota/quota_task.h"
-#include "webkit/quota/quota_types.h"
 #include "webkit/quota/special_storage_policy.h"
 
 class FilePath;
@@ -207,6 +206,8 @@ class QuotaManager : public QuotaTaskObserver,
   static const int kEvictionIntervalInMilliSeconds;
 
   // This is kept non-const so that test code can change the value.
+  // TODO(kinuko): Make this a real const value and add a proper way to set
+  // the quota for syncable storage. (http://crbug.com/155488)
   static int64 kSyncableStorageDefaultHostQuota;
 
  protected:

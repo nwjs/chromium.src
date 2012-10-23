@@ -17,19 +17,16 @@
 #include "base/stringprintf.h"
 #include "base/time.h"
 #include "base/tracked_objects.h"
+#include "chrome/browser/google_apis/auth_service.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
 
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/user_manager.h"
-#endif  // OS_CHROMEOS
-
 using content::BrowserThread;
 
-namespace gdata {
+namespace google_apis {
 namespace util {
 
 namespace {
@@ -63,115 +60,11 @@ bool ParseTimezone(const base::StringPiece& timezone,
   return true;
 }
 
-// Map to collect profiles with Drive disabled.
-std::map<Profile*, bool>* g_drive_disabled_map = NULL;
-
 }  // namespace
-
-bool IsGDataAvailable(Profile* profile) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-#if defined(OS_CHROMEOS)
-  if (!chromeos::UserManager::Get()->IsUserLoggedIn() ||
-      chromeos::UserManager::Get()->IsLoggedInAsGuest() ||
-      chromeos::UserManager::Get()->IsLoggedInAsDemoUser())
-    return false;
-
-  // Do not allow GData for incognito windows / guest mode.
-  if (profile->IsOffTheRecord())
-    return false;
-
-  // Disable gdata if preference is set.  This can happen with commandline flag
-  // --disable-gdata or enterprise policy, or probably with user settings too
-  // in the future.
-  if (profile->GetPrefs()->GetBoolean(prefs::kDisableGData))
-    return false;
-
-  if (g_drive_disabled_map && g_drive_disabled_map->count(profile) > 0)
-    return false;
-
-  return true;
-#else
-  // TODO(nhiroki): Check if GData is available or not in a platform
-  // independent way (http://crbug.com/147529).
-  return false;
-#endif  // OS_CHROMEOS
-}
-
-void DisableDrive(Profile* profile) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  // We don't change kDisableGData preference here. If we do, we'll end up
-  // disabling Drive on other devices, as kDisableGData is a syncable
-  // preference. Hence the map is used here.
-  if (!g_drive_disabled_map)
-    g_drive_disabled_map = new std::map<Profile*, bool>;
-
-  g_drive_disabled_map->insert(std::make_pair(profile, true));
-}
 
 bool IsDriveV2ApiEnabled() {
   // TODO(kochi): Re-enable this. crbug.com/152230
   return false;
-}
-
-base::PlatformFileError DriveFileErrorToPlatformError(
-    gdata::DriveFileError error) {
-  switch (error) {
-    case gdata::DRIVE_FILE_OK:
-      return base::PLATFORM_FILE_OK;
-
-    case gdata::DRIVE_FILE_ERROR_FAILED:
-      return base::PLATFORM_FILE_ERROR_FAILED;
-
-    case gdata::DRIVE_FILE_ERROR_IN_USE:
-      return base::PLATFORM_FILE_ERROR_IN_USE;
-
-    case gdata::DRIVE_FILE_ERROR_EXISTS:
-      return base::PLATFORM_FILE_ERROR_EXISTS;
-
-    case gdata::DRIVE_FILE_ERROR_NOT_FOUND:
-      return base::PLATFORM_FILE_ERROR_NOT_FOUND;
-
-    case gdata::DRIVE_FILE_ERROR_ACCESS_DENIED:
-      return base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
-
-    case gdata::DRIVE_FILE_ERROR_TOO_MANY_OPENED:
-      return base::PLATFORM_FILE_ERROR_TOO_MANY_OPENED;
-
-    case gdata::DRIVE_FILE_ERROR_NO_MEMORY:
-      return base::PLATFORM_FILE_ERROR_NO_MEMORY;
-
-    case gdata::DRIVE_FILE_ERROR_NO_SPACE:
-      return base::PLATFORM_FILE_ERROR_NO_SPACE;
-
-    case gdata::DRIVE_FILE_ERROR_NOT_A_DIRECTORY:
-      return base::PLATFORM_FILE_ERROR_NOT_A_DIRECTORY;
-
-    case gdata::DRIVE_FILE_ERROR_INVALID_OPERATION:
-      return base::PLATFORM_FILE_ERROR_INVALID_OPERATION;
-
-    case gdata::DRIVE_FILE_ERROR_SECURITY:
-      return base::PLATFORM_FILE_ERROR_SECURITY;
-
-    case gdata::DRIVE_FILE_ERROR_ABORT:
-      return base::PLATFORM_FILE_ERROR_ABORT;
-
-    case gdata::DRIVE_FILE_ERROR_NOT_A_FILE:
-      return base::PLATFORM_FILE_ERROR_NOT_A_FILE;
-
-    case gdata::DRIVE_FILE_ERROR_NOT_EMPTY:
-      return base::PLATFORM_FILE_ERROR_NOT_EMPTY;
-
-    case gdata::DRIVE_FILE_ERROR_INVALID_URL:
-      return base::PLATFORM_FILE_ERROR_INVALID_URL;
-
-    case gdata::DRIVE_FILE_ERROR_NO_CONNECTION:
-      return base::PLATFORM_FILE_ERROR_FAILED;
-  }
-
-  NOTREACHED();
-  return base::PLATFORM_FILE_ERROR_FAILED;
 }
 
 bool GetTimeFromString(const base::StringPiece& raw_value,
@@ -317,4 +210,4 @@ void PostBlockingPoolSequencedTaskAndReply(
 }
 
 }  // namespace util
-}  // namespace gdata
+}  // namespace google_apis

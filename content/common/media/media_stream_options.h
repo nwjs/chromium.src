@@ -8,27 +8,39 @@
 #include <string>
 #include <vector>
 
+#include "base/callback.h"
 #include "content/common/content_export.h"
 #include "content/public/common/media_stream_request.h"
 
 namespace media_stream {
 
+// MediaStreamConstraint keys for constraints that are passed to getUserMedia.
+CONTENT_EXPORT extern const char kMediaStreamSource[];
+CONTENT_EXPORT extern const char kMediaStreamSourceId[];
+CONTENT_EXPORT extern const char kMediaStreamSourceTab[];
+
 typedef content::MediaStreamDeviceType MediaStreamType;
+
+// Callback to deliver the result of a media request. |label| is the string
+// to identify the request,
+typedef base::Callback< void(const std::string&,
+                             const content::MediaStreamDevices&) >
+    MediaRequestResponseCallback;
 
 // StreamOptions is a Chromium representation of WebKit's
 // WebUserMediaRequest Options. It describes the components
 // in a request for a new media stream.
 struct CONTENT_EXPORT StreamOptions {
   StreamOptions();
-  // TODO(miu): Remove the 2-bools ctor in later clean-up CL.
-  StreamOptions(bool user_audio, bool user_video);
   StreamOptions(MediaStreamType audio_type, MediaStreamType video_type);
 
   // If not NO_SERVICE, the stream shall contain an audio input stream.
   MediaStreamType audio_type;
+  std::string audio_device_id;
 
   // If not NO_SERVICE, the stream shall contain a video input stream.
   MediaStreamType video_type;
+  std::string video_device_id;
 };
 
 // StreamDeviceInfo describes information about a device.
