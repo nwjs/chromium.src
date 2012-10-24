@@ -411,6 +411,8 @@ void RegisterChromeOnMachine(const InstallerState& installer_state,
   } else {
     ShellUtil::RegisterChromeBrowser(dist, chrome_exe, string16(), false);
   }
+
+  SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
 }
 
 InstallStatus InstallOrUpdateProduct(
