@@ -47,6 +47,8 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_F4, ui::EF_CONTROL_DOWN, CYCLE_DISPLAY_MODE },
   { true, ui::VKEY_F4, ui::EF_NONE, TOGGLE_MAXIMIZED },
   { true, ui::VKEY_L, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, LOCK_SCREEN },
+  // F13 (which is also for locking screen) is handled directly in power
+  // manager.
   { true, ui::VKEY_POWER, ui::EF_NONE, POWER_PRESSED },
   { false, ui::VKEY_POWER, ui::EF_NONE, POWER_RELEASED },
 #if !defined(NDEBUG)
@@ -106,6 +108,7 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_OEM_2,
     ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN,
     SHOW_KEYBOARD_OVERLAY },
+  { true, ui::VKEY_F14, ui::EF_NONE, SHOW_KEYBOARD_OVERLAY_BY_F14_KEY },
   { true, ui::VKEY_F1, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, SHOW_OAK },
   { true, ui::VKEY_ESCAPE, ui::EF_SHIFT_DOWN, SHOW_TASK_MANAGER },
   { true, ui::VKEY_1, ui::EF_ALT_DOWN, SELECT_WIN_0 },
@@ -168,6 +171,7 @@ const AcceleratorAction kReservedActions[] = {
   CYCLE_FORWARD_MRU,  // Alt+Tab
 
 #if defined(OS_CHROMEOS)
+  SHOW_KEYBOARD_OVERLAY_BY_F14_KEY,  // F14
   POWER_PRESSED,
   POWER_RELEASED,
 #endif
