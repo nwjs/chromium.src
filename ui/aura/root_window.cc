@@ -525,7 +525,8 @@ void RootWindow::OnDeviceScaleFactorChanged(
     float device_scale_factor) {
   const bool cursor_is_in_bounds =
       GetBoundsInScreen().Contains(Env::GetInstance()->last_mouse_location());
-  if (cursor_is_in_bounds && cursor_shown_)
+  bool cursor_shown = cursor_shown_;
+  if (cursor_is_in_bounds && cursor_shown)
     ShowCursor(false);
   host_->OnDeviceScaleFactorChanged(device_scale_factor);
   Window::OnDeviceScaleFactorChanged(device_scale_factor);
@@ -536,7 +537,7 @@ void RootWindow::OnDeviceScaleFactorChanged(
     if (cursor_client)
       cursor_client->SetDeviceScaleFactor(device_scale_factor);
   }
-  if (cursor_is_in_bounds && cursor_shown_)
+  if (cursor_is_in_bounds && cursor_shown)
     ShowCursor(true);
 }
 
