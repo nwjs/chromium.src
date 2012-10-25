@@ -635,6 +635,13 @@ class ExtensionService
   // Specialization of syncer::SyncableService::AsWeakPtr.
   base::WeakPtr<ExtensionService> AsWeakPtr() { return base::AsWeakPtr(this); }
 
+  bool browser_terminating() const { return browser_terminating_; }
+
+  // For testing.
+  void set_browser_terminating_for_test(bool value) {
+    browser_terminating_ = value;
+  }
+
  private:
   // Contains Extension data that can change during the life of the process,
   // but does not persist across restarts.
@@ -865,6 +872,11 @@ class ExtensionService
   // OnAllExternalProvidersReady() to determine if an update check is needed to
   // install pending extensions.
   bool update_once_all_providers_are_ready_;
+
+  // Set when the browser is terminating. Prevents us from installing or
+  // updating additional extensions and allows in-progress installations to
+  // decide to abort.
+  bool browser_terminating_;
 
   NaClModuleInfoList nacl_module_list_;
 
