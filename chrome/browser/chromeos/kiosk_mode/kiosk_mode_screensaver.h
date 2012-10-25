@@ -9,6 +9,8 @@
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/memory/weak_ptr.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
 
 namespace extensions {
 class Extension;
@@ -16,13 +18,19 @@ class Extension;
 
 namespace chromeos {
 
-class KioskModeScreensaver : public ash::UserActivityObserver {
+class KioskModeScreensaver : public ash::UserActivityObserver,
+                             public content::NotificationObserver {
  public:
   KioskModeScreensaver();
   virtual ~KioskModeScreensaver();
 
  private:
   friend class KioskModeScreensaverTest;
+
+  // NotificationObserver overrides:
+  virtual void Observe(int type,
+                       const content::NotificationSource& source,
+                       const content::NotificationDetails& details) OVERRIDE;
 
   // UserActivityObserver::Observer overrides:
   virtual void OnUserActivity() OVERRIDE;
@@ -40,6 +48,7 @@ class KioskModeScreensaver : public ash::UserActivityObserver {
   void SetupScreensaver(scoped_refptr<extensions::Extension> extension,
                         const FilePath& extension_base_path);
 
+  content::NotificationRegistrar registrar_;
   base::WeakPtrFactory<KioskModeScreensaver> weak_ptr_factory_;
 
   FilePath extension_base_path_;
