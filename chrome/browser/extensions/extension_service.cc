@@ -352,7 +352,7 @@ ExtensionService::ExtensionService(Profile* profile,
 
   // TODO(jamescook): Remove ifdef after M23 backport, crbug.com/155994
 #if defined(OS_CHROMEOS)
-  registrar_.Add(this, chrome::NOTIFICATION_APP_TERMINATING,
+  registrar_.Add(this, content::NOTIFICATION_APP_TERMINATING,
                  content::NotificationService::AllBrowserContextsAndSources());
 #endif
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_PROCESS_TERMINATED,
@@ -2421,7 +2421,7 @@ void ExtensionService::Observe(int type,
                                const content::NotificationDetails& details) {
   switch (type) {
 #if defined(OS_CHROMEOS)
-    case chrome::NOTIFICATION_APP_TERMINATING:
+    case content::NOTIFICATION_APP_TERMINATING:
       // Shutdown has started. Don't start any more extension installs.
       // (We cannot use ExtensionService::Shutdown() for this because it
       // happens too late in browser teardown.)
