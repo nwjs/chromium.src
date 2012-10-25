@@ -62,6 +62,9 @@ class UI_EXPORT SimpleMenuModel : public MenuModel {
     // Notifies the delegate that the menu has closed.
     virtual void MenuClosed(SimpleMenuModel* source);
 
+    // Get whether this item has an icon.
+    virtual bool HasIcon(int command_id);
+
    protected:
     virtual ~Delegate() {}
   };
