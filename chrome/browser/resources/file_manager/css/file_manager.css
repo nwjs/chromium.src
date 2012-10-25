@@ -311,7 +311,7 @@ div.root-eject {
   cursor: pointer;
   height: 20px;
   margin-right: 6px;
-  opacity: 0;
+  opacity: 0.7;
   width: 20px;
 }
 
@@ -1620,4 +1620,9 @@ button:focus {
 #default-action-dialog {
   min-width: 300px;
   width: auto;
+}
+
+.gdrive-welcome-wrapper {
+  /* gdrive_welcome.css will override it once loaded. */
+  display: none;
 }

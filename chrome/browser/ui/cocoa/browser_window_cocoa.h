@@ -7,7 +7,7 @@
 
 #include "base/memory/scoped_nsobject.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/extensions/extension_keybinding_registry.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -56,7 +56,6 @@ class BrowserWindowCocoa :
   virtual void BookmarkBarStateChanged(
       BookmarkBar::AnimateChangeType change_type) OVERRIDE;
   virtual void UpdateDevTools() OVERRIDE;
-  virtual void SetDevToolsDockSide(DevToolsDockSide side) OVERRIDE;
   virtual void UpdateLoadingAnimations(bool should_animate) OVERRIDE;
   virtual void SetStarredState(bool is_starred) OVERRIDE;
   virtual void ZoomChangedForActiveTab(bool can_show_bubble) OVERRIDE;
@@ -136,10 +135,6 @@ class BrowserWindowCocoa :
       FullscreenExitBubbleType bubble_type) OVERRIDE;
   virtual void ExitPresentationMode() OVERRIDE;
   virtual bool InPresentationMode() OVERRIDE;
-  virtual void ShowInstant(TabContents* preview,
-                           int height,
-                           InstantSizeUnits units) OVERRIDE;
-  virtual void HideInstant() OVERRIDE;
   virtual gfx::Rect GetInstantBounds() OVERRIDE;
   virtual bool IsInstantTabShowing() OVERRIDE;
   virtual WindowOpenDisposition GetDispositionForPopupBounds(

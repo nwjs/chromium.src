@@ -34,6 +34,9 @@ const size_t kSeparatorHeight = 1;
 // The amount of minimum padding between the Autofill value and label in pixels.
 const size_t kLabelPadding = 15;
 
+// The maximum amount of characters to display from either the label or value.
+const size_t kMaxTextLength = 15;
+
 struct DataResource {
   const char* name;
   int id;
@@ -64,7 +67,8 @@ AutofillPopupView::AutofillPopupView(
     content::WebContents* web_contents,
     AutofillExternalDelegate* external_delegate)
     : external_delegate_(external_delegate),
-      selected_line_(kNoSelection) {
+      selected_line_(kNoSelection),
+      delete_icon_selected_(false) {
   if (!web_contents)
     return;
 
@@ -97,7 +101,36 @@ void AutofillPopupView::Show(const std::vector<string16>& autofill_values,
   autofill_icons_ = autofill_icons;
   autofill_unique_ids_ = autofill_unique_ids;
 
+  // TODO(csharp): Fix crbug.com/156163 and use better logic when clipping.
+  for (size_t i = 0; i < autofill_values_.size(); ++i) {
+    if (autofill_values_[i].length() > 15)
+      autofill_values_[i].erase(15);
+    if (autofill_labels[i].length() > 15)
+      autofill_labels_[i].erase(15);
+  }
+
   ShowInternal();
+}
+
+void AutofillPopupView::SetSelectedPosition(int x, int y) {
+  int line = LineFromY(y);
+
+  SetSelectedLine(line);
+
+  bool delete_icon_selected = DeleteIconIsSelected(x, y);
+  if (delete_icon_selected != delete_icon_selected_) {
+    delete_icon_selected_ = delete_icon_selected;
+    InvalidateRow(selected_line());
+  }
+}
+
+void AutofillPopupView::AcceptSelectedPosition(int x, int y) {
+  DCHECK_EQ(selected_line(), LineFromY(y));
+
+  if (DeleteIconIsSelected(x, y))
+    RemoveSelectedLine();
+  else
+    AcceptSelectedLine();
 }
 
 void AutofillPopupView::SetSelectedLine(int selected_line) {
@@ -125,6 +158,12 @@ void AutofillPopupView::ClearSelectedLine() {
 void AutofillPopupView::SelectNextLine() {
   int new_selected_line = selected_line_ + 1;
 
+  // Skip over any lines that can't be selected.
+  while (static_cast<size_t>(new_selected_line) < autofill_values_.size() &&
+         !CanAccept(autofill_unique_ids()[new_selected_line])) {
+    ++new_selected_line;
+  }
+
   if (new_selected_line == static_cast<int>(autofill_values_.size()))
     new_selected_line = 0;
 
@@ -133,6 +172,12 @@ void AutofillPopupView::SelectNextLine() {
 
 void AutofillPopupView::SelectPreviousLine() {
   int new_selected_line = selected_line_ - 1;
+
+  // Skip over any lines that can't be selected.
+  while (new_selected_line > kNoSelection &&
+         !CanAccept(autofill_unique_ids()[new_selected_line])) {
+    --new_selected_line;
+  }
 
   if (new_selected_line <= kNoSelection)
     new_selected_line = autofill_values_.size() - 1;

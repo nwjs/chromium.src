@@ -34,102 +34,36 @@ int64 GetOriginUsageOnWebKitThread(
   return context->GetOriginDiskUsage(origin);
 }
 
+void GetAllOriginsOnWebKitThread(
+    IndexedDBContextImpl* context,
+    std::set<GURL>* origins_to_return) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::WEBKIT_DEPRECATED));
+  std::vector<GURL> all_origins = context->GetAllOrigins();
+  origins_to_return->insert(all_origins.begin(), all_origins.end());
+}
+
+void DidGetOrigins(
+    const IndexedDBQuotaClient::GetOriginsCallback& callback,
+    const std::set<GURL>* origins,
+    quota::StorageType storage_type) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  callback.Run(*origins, storage_type);
+}
+
+void GetOriginsForHostOnWebKitThread(
+    IndexedDBContextImpl* context,
+    const std::string& host,
+    std::set<GURL>* origins_to_return) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::WEBKIT_DEPRECATED));
+  std::vector<GURL> all_origins = context->GetAllOrigins();
+  for (std::vector<GURL>::const_iterator iter = all_origins.begin();
+       iter != all_origins.end(); ++iter) {
+    if (host == net::GetHostOrSpecFromURL(*iter))
+      origins_to_return->insert(*iter);
+  }
+}
+
 }  // namespace
-
-// Helper tasks ---------------------------------------------------------------
-
-class IndexedDBQuotaClient::HelperTask : public quota::QuotaThreadTask {
- protected:
-  HelperTask(
-      IndexedDBQuotaClient* client,
-      base::MessageLoopProxy* webkit_thread_message_loop)
-      : QuotaThreadTask(client, webkit_thread_message_loop),
-        client_(client), indexed_db_context_(client->indexed_db_context_) {
-  }
-
-  IndexedDBQuotaClient* client_;
-  scoped_refptr<IndexedDBContextImpl> indexed_db_context_;
-
- protected:
-  virtual ~HelperTask() {}
-};
-
-class IndexedDBQuotaClient::GetOriginsTaskBase : public HelperTask {
- protected:
-  GetOriginsTaskBase(
-      IndexedDBQuotaClient* client,
-      base::MessageLoopProxy* webkit_thread_message_loop)
-      : HelperTask(client, webkit_thread_message_loop) {
-  }
-
-  virtual bool ShouldAddOrigin(const GURL& origin) = 0;
-
-  virtual void RunOnTargetThread() OVERRIDE {
-    std::vector<GURL> origins =  indexed_db_context_->GetAllOrigins();
-    for (std::vector<GURL>::const_iterator iter = origins.begin();
-         iter != origins.end(); ++iter) {
-      if (ShouldAddOrigin(*iter))
-        origins_.insert(*iter);
-    }
-  }
-
-  std::set<GURL> origins_;
-
- protected:
-  virtual ~GetOriginsTaskBase() {}
-};
-
-class IndexedDBQuotaClient::GetAllOriginsTask : public GetOriginsTaskBase {
- public:
-  GetAllOriginsTask(
-      IndexedDBQuotaClient* client,
-      base::MessageLoopProxy* webkit_thread_message_loop,
-      quota::StorageType type)
-      : GetOriginsTaskBase(client, webkit_thread_message_loop),
-        type_(type) {
-  }
-
- protected:
-  virtual ~GetAllOriginsTask() {}
-
-  virtual bool ShouldAddOrigin(const GURL& origin) OVERRIDE {
-    return true;
-  }
-
-  virtual void Completed() OVERRIDE {
-    client_->DidGetAllOrigins(origins_, type_);
-  }
-
- private:
-  quota::StorageType type_;
-};
-
-class IndexedDBQuotaClient::GetOriginsForHostTask : public GetOriginsTaskBase {
- public:
-  GetOriginsForHostTask(
-      IndexedDBQuotaClient* client,
-      base::MessageLoopProxy* webkit_thread_message_loop,
-      const std::string& host,
-      quota::StorageType type)
-      : GetOriginsTaskBase(client, webkit_thread_message_loop),
-        host_(host),
-        type_(type) {
-  }
-
- private:
-  virtual ~GetOriginsForHostTask() {}
-
-  virtual bool ShouldAddOrigin(const GURL& origin) OVERRIDE {
-    return host_ == net::GetHostOrSpecFromURL(origin);
-  }
-
-  virtual void Completed() OVERRIDE {
-    client_->DidGetOriginsForHost(host_, origins_, type_);
-  }
-
-  std::string host_;
-  quota::StorageType type_;
-};
 
 // IndexedDBQuotaClient --------------------------------------------------------
 
@@ -185,11 +119,16 @@ void IndexedDBQuotaClient::GetOriginsForType(
     return;
   }
 
-  if (origins_for_type_callbacks_.Add(callback)) {
-    scoped_refptr<GetAllOriginsTask> task(
-        new GetAllOriginsTask(this, webkit_thread_message_loop_, type));
-    task->Start();
-  }
+  std::set<GURL>* origins_to_return = new std::set<GURL>();
+  webkit_thread_message_loop_->PostTaskAndReply(
+      FROM_HERE,
+      base::Bind(&GetAllOriginsOnWebKitThread,
+                 indexed_db_context_,
+                 base::Unretained(origins_to_return)),
+      base::Bind(&DidGetOrigins,
+                 callback,
+                 base::Owned(origins_to_return),
+                 type));
 }
 
 void IndexedDBQuotaClient::GetOriginsForHost(
@@ -205,12 +144,17 @@ void IndexedDBQuotaClient::GetOriginsForHost(
     return;
   }
 
-  if (origins_for_host_callbacks_.Add(host, callback)) {
-    scoped_refptr<GetOriginsForHostTask> task(
-        new GetOriginsForHostTask(
-            this, webkit_thread_message_loop_, host, type));
-    task->Start();
-  }
+  std::set<GURL>* origins_to_return = new std::set<GURL>();
+  webkit_thread_message_loop_->PostTaskAndReply(
+      FROM_HERE,
+      base::Bind(&GetOriginsForHostOnWebKitThread,
+                 indexed_db_context_,
+                 host,
+                 base::Unretained(origins_to_return)),
+      base::Bind(&DidGetOrigins,
+                 callback,
+                 base::Owned(origins_to_return),
+                 type));
 }
 
 void IndexedDBQuotaClient::DeleteOriginData(
@@ -229,17 +173,4 @@ void IndexedDBQuotaClient::DeleteOriginData(
                  indexed_db_context_,
                  origin),
       callback);
-}
-
-void IndexedDBQuotaClient::DidGetAllOrigins(const std::set<GURL>& origins,
-                                            quota::StorageType type) {
-  DCHECK(origins_for_type_callbacks_.HasCallbacks());
-  origins_for_type_callbacks_.Run(origins, type);
-}
-
-void IndexedDBQuotaClient::DidGetOriginsForHost(
-    const std::string& host, const std::set<GURL>& origins,
-    quota::StorageType type) {
-  DCHECK(origins_for_host_callbacks_.HasCallbacks(host));
-  origins_for_host_callbacks_.Run(host, origins, type);
 }

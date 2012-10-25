@@ -21,10 +21,6 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBKeyRange.h"
 
 using base::ThreadLocalPointer;
-using content::IndexedDBKey;
-using content::IndexedDBKeyPath;
-using content::IndexedDBKeyRange;
-using content::SerializedScriptValue;
 using WebKit::WebDOMStringList;
 using WebKit::WebExceptionCode;
 using WebKit::WebFrame;
@@ -37,6 +33,7 @@ using WebKit::WebIDBTransaction;
 using WebKit::WebIDBTransactionCallbacks;
 using webkit_glue::WorkerTaskRunner;
 
+namespace content {
 static base::LazyInstance<ThreadLocalPointer<IndexedDBDispatcher> >::Leaky
     g_idb_dispatcher_tls = LAZY_INSTANCE_INITIALIZER;
 
@@ -101,6 +98,10 @@ void IndexedDBDispatcher::OnMessageReceived(const IPC::Message& msg) {
                         OnSuccessSerializedScriptValue)
     IPC_MESSAGE_HANDLER(IndexedDBMsg_CallbacksSuccessSerializedScriptValueWithKey,
                         OnSuccessSerializedScriptValueWithKey)
+    IPC_MESSAGE_HANDLER(IndexedDBMsg_CallbacksSuccessInteger,
+                        OnSuccessInteger)
+    IPC_MESSAGE_HANDLER(IndexedDBMsg_CallbacksSuccessUndefined,
+                        OnSuccessUndefined)
     IPC_MESSAGE_HANDLER(IndexedDBMsg_CallbacksError, OnError)
     IPC_MESSAGE_HANDLER(IndexedDBMsg_CallbacksBlocked, OnBlocked)
     IPC_MESSAGE_HANDLER(IndexedDBMsg_CallbacksIntBlocked, OnIntBlocked)
@@ -415,7 +416,7 @@ void IndexedDBDispatcher::RequestIDBObjectStorePut(
   for (size_t i = 0; i < index_keys.size(); ++i) {
       params.index_keys[i].resize(index_keys[i].size());
       for (size_t j = 0; j < index_keys[i].size(); ++j) {
-          params.index_keys[i][j] = content::IndexedDBKey(index_keys[i][j]);
+          params.index_keys[i][j] = IndexedDBKey(index_keys[i][j]);
       }
   }
   Send(new IndexedDBHostMsg_ObjectStorePut(params));
@@ -586,6 +587,26 @@ void IndexedDBDispatcher::OnSuccessSerializedScriptValueWithKey(
   pending_callbacks_.Remove(response_id);
 }
 
+void IndexedDBDispatcher::OnSuccessInteger(
+    int32 thread_id, int32 response_id, int64 value) {
+  DCHECK_EQ(thread_id, CurrentWorkerId());
+  WebIDBCallbacks* callbacks = pending_callbacks_.Lookup(response_id);
+  if (!callbacks)
+    return;
+  callbacks->onSuccess(value);
+  pending_callbacks_.Remove(response_id);
+}
+
+void IndexedDBDispatcher::OnSuccessUndefined(
+    int32 thread_id, int32 response_id) {
+  DCHECK_EQ(thread_id, CurrentWorkerId());
+  WebIDBCallbacks* callbacks = pending_callbacks_.Lookup(response_id);
+  if (!callbacks)
+    return;
+  callbacks->onSuccess();
+  pending_callbacks_.Remove(response_id);
+}
+
 void IndexedDBDispatcher::OnSuccessOpenCursor(
     const IndexedDBMsg_CallbacksSuccessIDBCursor_Params& p) {
   DCHECK_EQ(p.thread_id, CurrentWorkerId());
@@ -687,13 +708,14 @@ void IndexedDBDispatcher::OnError(int32 thread_id, int32 response_id, int code,
   pending_callbacks_.Remove(response_id);
 }
 
-void IndexedDBDispatcher::OnAbort(int32 thread_id, int32 transaction_id) {
+void IndexedDBDispatcher::OnAbort(int32 thread_id, int32 transaction_id,
+                                  int code, const string16& message) {
   DCHECK_EQ(thread_id, CurrentWorkerId());
   WebIDBTransactionCallbacks* callbacks =
       pending_transaction_callbacks_.Lookup(transaction_id);
   if (!callbacks)
     return;
-  callbacks->onAbort();
+  callbacks->onAbort(WebIDBDatabaseError(code, message));
   pending_transaction_callbacks_.Remove(transaction_id);
 }
 
@@ -752,3 +774,5 @@ void IndexedDBDispatcher::ResetCursorPrefetchCaches(int32 exception_cursor_id) {
     i->second->ResetPrefetchCache();
   }
 }
+
+}  // namespace content

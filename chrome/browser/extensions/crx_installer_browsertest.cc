@@ -12,10 +12,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_file_util.h"
-#include "chrome/common/extensions/extension_switch_utils.h"
+#include "chrome/common/extensions/feature_switch.h"
 #include "chrome/common/extensions/permissions/permission_set.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/test/download_test_observer.h"
@@ -32,10 +33,8 @@ namespace {
 
 class MockInstallPrompt : public ExtensionInstallPrompt {
  public:
-  explicit MockInstallPrompt(gfx::NativeWindow parent,
-                             content::PageNavigator* navigator,
-                             Profile* profile) :
-      ExtensionInstallPrompt(parent, navigator, profile),
+  explicit MockInstallPrompt(content::WebContents* web_contents) :
+      ExtensionInstallPrompt(web_contents),
       confirmation_requested_(false),
       extension_(NULL) {}
 
@@ -47,7 +46,8 @@ class MockInstallPrompt : public ExtensionInstallPrompt {
 
   // Overriding some of the ExtensionInstallUI API.
   void ConfirmInstall(Delegate* delegate,
-                      const Extension* extension) {
+                      const Extension* extension,
+                      const ShowDialogCallback& show_dialog_callback) {
     confirmation_requested_ = true;
     delegate->InstallUIProceed();
   }
@@ -68,9 +68,8 @@ class MockInstallPrompt : public ExtensionInstallPrompt {
 };
 
 MockInstallPrompt* CreateMockInstallPromptForBrowser(Browser* browser) {
-  gfx::NativeWindow parent =
-      browser->window() ? browser->window()->GetNativeWindow() : NULL;
-  return new MockInstallPrompt(parent, browser, browser->profile());
+  return new MockInstallPrompt(
+      browser->tab_strip_model()->GetActiveWebContents());
 }
 
 }  // namespace
@@ -188,7 +187,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest, PlatformAppCrx) {
 #endif
 IN_PROC_BROWSER_TEST_F(
     ExtensionCrxInstallerTest, MAYBE_PackAndInstallExtension) {
-  if (!switch_utils::IsEasyOffStoreInstallEnabled())
+  if (!FeatureSwitch::easy_off_store_install()->IsEnabled())
     return;
 
   const int kNumDownloadsExpected = 1;

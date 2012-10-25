@@ -7,7 +7,6 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/views/extensions/extension_keybinding_registry_views.h"
 #include "chrome/common/extensions/draggable_region.h"
 #include "chrome/common/extensions/extension.h"
@@ -194,19 +193,21 @@ int ShellWindowFrameView::NonClientHitTest(const gfx::Point& point) {
   bool can_ever_resize = frame_->widget_delegate() ?
       frame_->widget_delegate()->CanResize() :
       false;
-  // Don't allow overlapping resize handles when the window is maximized or
-  // fullscreen, as it can't be resized in those states.
-  int resize_border =
-      frame_->IsMaximized() || frame_->IsFullscreen() ? 0 :
-      kResizeInsideBoundsSize;
-  int frame_component = GetHTComponentForFrame(point,
-                                               resize_border,
-                                               resize_border,
-                                               kResizeAreaCornerSize,
-                                               kResizeAreaCornerSize,
-                                               can_ever_resize);
-  if (frame_component != HTNOWHERE)
-    return frame_component;
+  if (can_ever_resize) {
+    // Don't allow overlapping resize handles when the window is maximized or
+    // fullscreen, as it can't be resized in those states.
+    int resize_border =
+        frame_->IsMaximized() || frame_->IsFullscreen() ? 0 :
+        kResizeInsideBoundsSize;
+    int frame_component = GetHTComponentForFrame(point,
+                                                 resize_border,
+                                                 resize_border,
+                                                 kResizeAreaCornerSize,
+                                                 kResizeAreaCornerSize,
+                                                 can_ever_resize);
+    if (frame_component != HTNOWHERE)
+      return frame_component;
+  }
 
   // Check for possible draggable region in the client area for the frameless
   // window.
@@ -593,10 +594,10 @@ gfx::ImageSkia ShellWindowViews::GetWindowAppIcon() {
 }
 
 gfx::ImageSkia ShellWindowViews::GetWindowIcon() {
-  TabContents* contents = shell_window_->tab_contents();
-  if (contents) {
+  content::WebContents* web_contents = shell_window_->web_contents();
+  if (web_contents) {
     FaviconTabHelper* favicon_tab_helper =
-        FaviconTabHelper::FromWebContents(contents->web_contents());
+        FaviconTabHelper::FromWebContents(web_contents);
     gfx::Image app_icon = favicon_tab_helper->GetFavicon();
     if (!app_icon.IsEmpty())
       return *app_icon.ToImageSkia();
@@ -628,52 +629,7 @@ void ShellWindowViews::UpdateDraggableRegions(
   if (!frameless_)
     return;
 
-  SkRegion* draggable_region = new SkRegion;
-
-  // By default, the whole window is non-draggable. We need to explicitly
-  // include those draggable regions.
-  for (std::vector<extensions::DraggableRegion>::const_iterator iter =
-           regions.begin();
-       iter != regions.end(); ++iter) {
-    const extensions::DraggableRegion& region = *iter;
-    draggable_region->op(
-        region.bounds.x(),
-        region.bounds.y(),
-        region.bounds.right(),
-        region.bounds.bottom(),
-        region.draggable ? SkRegion::kUnion_Op : SkRegion::kDifference_Op);
-  }
-
-  draggable_region_.reset(draggable_region);
-  OnViewWasResized();
-}
-
-void ShellWindowViews::UpdateLegacyDraggableRegions(
-    const std::vector<extensions::DraggableRegion>& regions) {
-  // Draggable region is not supported for non-frameless window.
-  if (!frameless_)
-    return;
-
-  SkRegion* draggable_region = new SkRegion;
-
-  // By default, the whole window is draggable.
-  gfx::Rect bounds = GetBounds();
-  draggable_region->op(0, 0, bounds.right(), bounds.bottom(),
-                       SkRegion::kUnion_Op);
-
-  // Exclude those desinated as non-draggable.
-  for (std::vector<extensions::DraggableRegion>::const_iterator iter =
-           regions.begin();
-       iter != regions.end(); ++iter) {
-    const extensions::DraggableRegion& region = *iter;
-    draggable_region->op(region.bounds.x(),
-                         region.bounds.y(),
-                         region.bounds.right(),
-                         region.bounds.bottom(),
-                         SkRegion::kDifference_Op);
-  }
-
-  draggable_region_.reset(draggable_region);
+  draggable_region_.reset(ShellWindow::RawDraggableRegionsToSkRegion(regions));
   OnViewWasResized();
 }
 

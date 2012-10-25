@@ -10,8 +10,8 @@
 #include "chrome/browser/extensions/shell_window_geometry_cache.h"
 #include "chrome/browser/extensions/shell_window_registry.h"
 #include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/file_select_helper.h"
-#include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/intents/web_intents_util.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile.h"
@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/extensions/native_shell_window.h"
 #include "chrome/browser/ui/intents/web_intent_picker_controller.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -42,6 +43,7 @@
 #include "content/public/browser/web_intents_dispatcher.h"
 #include "content/public/common/media_stream_request.h"
 #include "content/public/common/renderer_preferences.h"
+#include "third_party/skia/include/core/SkRegion.h"
 
 using content::BrowserThread;
 using content::ConsoleMessageLevel;
@@ -68,7 +70,8 @@ void SuspendRenderViewHost(RenderViewHost* rvh) {
 ShellWindow::CreateParams::CreateParams()
   : frame(ShellWindow::CreateParams::FRAME_CHROME),
     bounds(-1, -1, kDefaultWidth, kDefaultHeight),
-    restore_position(true), restore_size(true) {
+    restore_position(true), restore_size(true),
+    creator_process_id(0) {
 }
 
 ShellWindow::CreateParams::~CreateParams() {
@@ -96,13 +99,16 @@ ShellWindow::ShellWindow(Profile* profile,
 
 void ShellWindow::Init(const GURL& url,
                        const ShellWindow::CreateParams& params) {
-  web_contents_ = WebContents::Create(
+  web_contents_.reset(WebContents::Create(
       profile(), SiteInstance::CreateForURL(profile(), url), MSG_ROUTING_NONE,
-      NULL);
-  contents_.reset(TabContents::Factory::CreateTabContents(web_contents_));
-  content::WebContentsObserver::Observe(web_contents_);
+      NULL));
+  ConstrainedWindowTabHelper::CreateForWebContents(web_contents_.get());
+  FaviconTabHelper::CreateForWebContents(web_contents_.get());
+  WebIntentPickerController::CreateForWebContents(web_contents_.get());
+
+  content::WebContentsObserver::Observe(web_contents_.get());
   web_contents_->SetDelegate(this);
-  chrome::SetViewType(web_contents_, chrome::VIEW_TYPE_APP_SHELL);
+  chrome::SetViewType(web_contents_.get(), chrome::VIEW_TYPE_APP_SHELL);
   web_contents_->GetMutableRendererPrefs()->
       browser_handles_all_top_level_requests = true;
   web_contents_->GetRenderViewHost()->SyncRendererPrefs();
@@ -131,10 +137,19 @@ void ShellWindow::Init(const GURL& url,
     }
   }
 
-
-  // Block the created RVH from loading anything until the background page
-  // has had a chance to do any initialization it wants.
-  SuspendRenderViewHost(web_contents_->GetRenderViewHost());
+  // If the new view is in the same process as the creator, block the created
+  // RVH from loading anything until the background page has had a chance to do
+  // any initialization it wants. If it's a different process, the new RVH
+  // shouldn't communicate with the background page anyway (e.g. sandboxed).
+  if (web_contents_->GetRenderViewHost()->GetProcess()->GetID() ==
+      params.creator_process_id) {
+    SuspendRenderViewHost(web_contents_->GetRenderViewHost());
+  } else {
+    VLOG(1) << "ShellWindow created in new process ("
+            << web_contents_->GetRenderViewHost()->GetProcess()->GetID()
+            << ") != creator (" << params.creator_process_id
+            << "). Routing disabled.";
+  }
 
   // TODO(jeremya): there's a bug where navigating a web contents to an
   // extension URL causes it to create a new RVH and discard the old (perfectly
@@ -158,11 +173,6 @@ void ShellWindow::Init(const GURL& url,
   // apps are no longer tied to the browser process).
   registrar_.Add(this, chrome::NOTIFICATION_APP_TERMINATING,
                  content::NotificationService::AllSources());
-
-  // Automatically dismiss all infobars.
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents_);
-  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
-  infobar_helper->set_infobars_enabled(false);
 
   // Prevent the browser process from shutting down while this window is open.
   browser::StartKeepAlive();
@@ -214,19 +224,10 @@ WebContents* ShellWindow::OpenURLFromTab(WebContents* source,
                                          const content::OpenURLParams& params) {
   DCHECK(source == web_contents_);
 
-  if (params.url.host() == extension_->id()) {
-    AddMessageToDevToolsConsole(
-        content::CONSOLE_MESSAGE_LEVEL_ERROR,
-        base::StringPrintf(
-            "Can't navigate to \"%s\"; apps do not support navigation.",
-            params.url.spec().c_str()));
-    return NULL;
-  }
-
   // Don't allow the current tab to be navigated. It would be nice to map all
   // anchor tags (even those without target="_blank") to new tabs, but right
-  // now we can't distinguish between those and <meta> refreshes, which we
-  // don't want to allow.
+  // now we can't distinguish between those and <meta> refreshes or window.href
+  // navigations, which we don't want to allow.
   // TOOD(mihaip): Can we check for user gestures instead?
   WindowOpenDisposition disposition = params.disposition;
   if (disposition == CURRENT_TAB) {
@@ -246,13 +247,24 @@ WebContents* ShellWindow::OpenURLFromTab(WebContents* source,
 
   // Force all links to open in a new tab, even if they were trying to open a
   // window.
-  content::OpenURLParams new_tab_params = params;
+  chrome::NavigateParams new_tab_params(
+      static_cast<Browser*>(NULL), params.url, params.transition);
   new_tab_params.disposition =
       disposition == NEW_BACKGROUND_TAB ? disposition : NEW_FOREGROUND_TAB;
-  Browser* browser = browser::FindOrCreateTabbedBrowser(profile_);
-  WebContents* new_tab = browser->OpenURL(new_tab_params);
-  browser->window()->Show();
-  return new_tab;
+  new_tab_params.initiating_profile = profile_;
+  chrome::Navigate(&new_tab_params);
+
+  WebContents* new_contents = new_tab_params.target_contents ?
+      new_tab_params.target_contents->web_contents() : NULL;
+  if (!new_contents) {
+    AddMessageToDevToolsConsole(
+        content::CONSOLE_MESSAGE_LEVEL_ERROR,
+        base::StringPrintf(
+            "Can't navigate to \"%s\"; apps do not support navigation.",
+            params.url.spec().c_str()));
+  }
+
+  return new_contents;
 }
 
 void ShellWindow::AddNewContents(WebContents* source,
@@ -282,6 +294,8 @@ void ShellWindow::HandleKeyboardEvent(
 
 void ShellWindow::OnNativeClose() {
   extensions::ShellWindowRegistry::Get(profile_)->RemoveShellWindow(this);
+  content::RenderViewHost* rvh = web_contents_->GetRenderViewHost();
+  rvh->Send(new ExtensionMsg_AppWindowClosed(rvh->GetRoutingID()));
   delete this;
 }
 
@@ -314,24 +328,7 @@ bool ShellWindow::OnMessageReceived(const IPC::Message& message) {
 
 void ShellWindow::UpdateDraggableRegions(
     const std::vector<extensions::DraggableRegion>& regions) {
-  // Decide if we want to treat it as old syntax by checking labels.
-  // TODO(jianli): to be removed after WebKit patch that changes the draggable
-  // region syntax is landed.
-  bool new_syntax = true;
-  for (std::vector<extensions::DraggableRegion>::const_iterator iter =
-           regions.begin();
-       iter != regions.end(); ++iter) {
-    const extensions::DraggableRegion& region = *iter;
-    if (!region.label.empty() || !region.clip.IsEmpty()) {
-      new_syntax = false;
-      break;
-    }
-  }
-
-  if (new_syntax)
-    native_window_->UpdateDraggableRegions(regions);
-  else
-    native_window_->UpdateLegacyDraggableRegions(regions);
+  native_window_->UpdateDraggableRegions(regions);
 }
 
 void ShellWindow::OnImageLoaded(const gfx::Image& image,
@@ -371,7 +368,7 @@ void ShellWindow::WebIntentDispatch(
     return;
 
   WebIntentPickerController* web_intent_picker_controller =
-      WebIntentPickerController::FromWebContents(contents_->web_contents());
+      WebIntentPickerController::FromWebContents(web_contents_.get());
   web_intent_picker_controller->SetIntentsDispatcher(intents_dispatcher);
   web_intent_picker_controller->ShowDialog(
       intents_dispatcher->GetIntent().action,
@@ -384,18 +381,18 @@ void ShellWindow::RunFileChooser(WebContents* tab,
 }
 
 bool ShellWindow::IsPopupOrPanel(const WebContents* source) const {
-  DCHECK(source == web_contents_);
+  DCHECK(source == web_contents_.get());
   return true;
 }
 
 void ShellWindow::MoveContents(WebContents* source, const gfx::Rect& pos) {
-  DCHECK(source == web_contents_);
+  DCHECK(source == web_contents_.get());
   native_window_->SetBounds(pos);
 }
 
 void ShellWindow::NavigationStateChanged(
     const content::WebContents* source, unsigned changed_flags) {
-  DCHECK(source == web_contents_);
+  DCHECK(source == web_contents_.get());
   if (changed_flags & content::INVALIDATE_TYPE_TITLE)
     native_window_->UpdateWindowTitle();
   else if (changed_flags & content::INVALIDATE_TYPE_TAB)
@@ -404,13 +401,13 @@ void ShellWindow::NavigationStateChanged(
 
 void ShellWindow::ToggleFullscreenModeForTab(content::WebContents* source,
                                              bool enter_fullscreen) {
-  DCHECK(source == web_contents_);
+  DCHECK(source == web_contents_.get());
   native_window_->SetFullscreen(enter_fullscreen);
 }
 
 bool ShellWindow::IsFullscreenForTabOrPending(
     const content::WebContents* source) const {
-  DCHECK(source == web_contents_);
+  DCHECK(source == web_contents_.get());
   return native_window_->IsFullscreenOrPending();
 }
 
@@ -478,4 +475,22 @@ void ShellWindow::SaveWindowPosition()
 
   gfx::Rect bounds = native_window_->GetBounds();
   cache->SaveGeometry(extension()->id(), window_key_, bounds);
+}
+
+// static
+SkRegion* ShellWindow::RawDraggableRegionsToSkRegion(
+      const std::vector<extensions::DraggableRegion>& regions) {
+  SkRegion* sk_region = new SkRegion;
+  for (std::vector<extensions::DraggableRegion>::const_iterator iter =
+           regions.begin();
+       iter != regions.end(); ++iter) {
+    const extensions::DraggableRegion& region = *iter;
+    sk_region->op(
+        region.bounds.x(),
+        region.bounds.y(),
+        region.bounds.right(),
+        region.bounds.bottom(),
+        region.draggable ? SkRegion::kUnion_Op : SkRegion::kDifference_Op);
+  }
+  return sk_region;
 }

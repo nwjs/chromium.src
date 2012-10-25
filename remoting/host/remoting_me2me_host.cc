@@ -12,10 +12,10 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "base/scoped_native_library.h"
+#include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/stringize_macros.h"
 #include "base/synchronization/waitable_event.h"
@@ -41,6 +41,7 @@
 #include "remoting/host/curtaining_host_observer.h"
 #include "remoting/host/desktop_environment_factory.h"
 #include "remoting/host/desktop_resizer.h"
+#include "remoting/host/desktop_session_connector.h"
 #include "remoting/host/dns_blackhole_checker.h"
 #include "remoting/host/event_executor.h"
 #include "remoting/host/heartbeat_sender.h"
@@ -48,7 +49,10 @@
 #include "remoting/host/host_event_logger.h"
 #include "remoting/host/host_exit_codes.h"
 #include "remoting/host/host_user_interface.h"
+#include "remoting/host/ipc_consts.h"
+#include "remoting/host/ipc_desktop_environment_factory.h"
 #include "remoting/host/json_host_config.h"
+#include "remoting/host/logging.h"
 #include "remoting/host/log_to_server.h"
 #include "remoting/host/network_settings.h"
 #include "remoting/host/policy_hack/policy_watcher.h"
@@ -62,6 +66,7 @@
 
 #if defined(OS_POSIX)
 #include <signal.h>
+#include "base/file_descriptor_posix.h"
 #include "remoting/host/posix/signal_handler.h"
 #endif  // defined(OS_POSIX)
 
@@ -77,6 +82,7 @@
 // N.B. OS_WIN is defined by including src/base headers.
 #if defined(OS_WIN)
 #include <commctrl.h>
+#include "base/win/scoped_handle.h"
 #include "remoting/host/win/session_desktop_environment_factory.h"
 #endif  // defined(OS_WIN)
 
@@ -88,9 +94,6 @@ namespace {
 
 // This is used for tagging system event logs.
 const char kApplicationName[] = "chromoting";
-
-// The command line switch specifying the name of the daemon IPC endpoint.
-const char kDaemonIpcSwitchName[] = "daemon-pipe";
 
 // The command line switch used to get version of the daemon.
 const char kVersionSwitchName[] = "version";
@@ -112,64 +115,83 @@ void QuitMessageLoop(MessageLoop* message_loop) {
 namespace remoting {
 
 class HostProcess
-    : public HeartbeatSender::Listener,
-      public IPC::Listener,
-      public ConfigFileWatcher::Delegate {
+    : public ConfigFileWatcher::Delegate,
+      public HeartbeatSender::Listener,
+      public IPC::Listener {
  public:
   explicit HostProcess(scoped_ptr<ChromotingHostContext> context)
       : context_(context.Pass()),
-        config_(FilePath()),
-#ifdef OFFICIAL_BUILD
-        oauth_use_official_client_id_(true),
-#else
-        oauth_use_official_client_id_(false),
-#endif
         allow_nat_traversal_(true),
         restarting_(false),
         shutting_down_(false),
-#if defined(OS_WIN)
-        desktop_environment_factory_(new SessionDesktopEnvironmentFactory(
-            context_->input_task_runner(), context_->ui_task_runner())),
-#else  // !defined(OS_WIN)
-        desktop_environment_factory_(new DesktopEnvironmentFactory(
-            context_->input_task_runner(), context_->ui_task_runner())),
-#endif  // !defined(OS_WIN)
         desktop_resizer_(DesktopResizer::Create()),
+#if defined(REMOTING_MULTI_PROCESS)
+        desktop_session_connector_(NULL),
+#endif  // defined(REMOTING_MULTI_PROCESS)
         exit_code_(kSuccessExitCode) {
     network_change_notifier_.reset(net::NetworkChangeNotifier::Create());
     curtain_ = CurtainMode::Create(
         base::Bind(&HostProcess::OnDisconnectRequested,
                    base::Unretained(this)),
-        base::Bind(&HostProcess::OnDisconnectRequested,
+        base::Bind(&HostProcess::RejectAuthenticatingClient,
                    base::Unretained(this)));
 }
+
+#if defined(REMOTING_MULTI_PROCESS)
+
+  bool InitWithCommandLine(const CommandLine* cmd_line) {
+    // Parse the handle value and convert it to a handle/file descriptor.
+    std::string channel_name =
+        cmd_line->GetSwitchValueASCII(kDaemonPipeSwitchName);
+
+    int pipe_handle = 0;
+    if (channel_name.empty() ||
+        !base::StringToInt(channel_name, &pipe_handle)) {
+      LOG(ERROR) << "Invalid '" << kDaemonPipeSwitchName
+                 << "' value: " << channel_name;
+      return false;
+    }
+
+#if defined(OS_WIN)
+    base::win::ScopedHandle pipe(reinterpret_cast<HANDLE>(pipe_handle));
+    IPC::ChannelHandle channel_handle(pipe);
+#elif defined(OS_POSIX)
+    base::FileDescriptor pipe(pipe_handle, true);
+    IPC::ChannelHandle channel_handle(channel_name, pipe);
+#endif  // defined(OS_POSIX)
+
+    // Connect to the daemon process.
+    daemon_channel_.reset(new IPC::ChannelProxy(
+        channel_handle,
+        IPC::Channel::MODE_CLIENT,
+        this,
+        context_->network_task_runner()));
+
+    return true;
+  }
+
+#else  // !defined(REMOTING_MULTI_PROCESS)
 
   bool InitWithCommandLine(const CommandLine* cmd_line) {
     // Connect to the daemon process.
     std::string channel_name =
-        cmd_line->GetSwitchValueASCII(kDaemonIpcSwitchName);
-
-#if defined(REMOTING_MULTI_PROCESS)
-    if (channel_name.empty())
-      return false;
-#endif  // defined(REMOTING_MULTI_PROCESS)
-
+        cmd_line->GetSwitchValueASCII(kDaemonPipeSwitchName);
     if (!channel_name.empty()) {
       daemon_channel_.reset(new IPC::ChannelProxy(
           channel_name, IPC::Channel::MODE_CLIENT, this,
           context_->network_task_runner()));
     }
 
-#if !defined(REMOTING_MULTI_PROCESS)
     FilePath default_config_dir = remoting::GetConfigDir();
     host_config_path_ = default_config_dir.Append(kDefaultHostConfigFile);
     if (cmd_line->HasSwitch(kHostConfigSwitchName)) {
       host_config_path_ = cmd_line->GetSwitchValuePath(kHostConfigSwitchName);
     }
-#endif  // !defined(REMOTING_MULTI_PROCESS)
 
     return true;
   }
+
+#endif  // !defined(REMOTING_MULTI_PROCESS)
 
 #if defined(OS_POSIX)
   void SigTermHandler(int signal_number) {
@@ -181,53 +203,43 @@ class HostProcess
 #endif
 
   virtual void OnConfigUpdated(const std::string& serialized_config) OVERRIDE {
-    DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
-
-    LOG(INFO) << "Processing new host configuration.";
-
-    if (!config_.SetSerializedData(serialized_config)) {
-      LOG(ERROR) << "Invalid configuration.";
-      OnConfigWatcherError();
+    if (!context_->network_task_runner()->BelongsToCurrentThread()) {
+      context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
+          &HostProcess::OnConfigUpdated, base::Unretained(this),
+          serialized_config));
       return;
     }
 
-    if (!ApplyConfig()) {
+    // Filter out duplicates.
+    if (serialized_config_ == serialized_config)
+      return;
+
+    LOG(INFO) << "Processing new host configuration.";
+
+    serialized_config_ = serialized_config;
+    scoped_ptr<JsonHostConfig> config(new JsonHostConfig(FilePath()));
+    if (!config->SetSerializedData(serialized_config)) {
+      LOG(ERROR) << "Invalid configuration.";
+      Shutdown(kInvalidHostConfigurationExitCode);
+      return;
+    }
+
+    if (!ApplyConfig(config.Pass())) {
       LOG(ERROR) << "Failed to apply the configuration.";
-      OnConfigWatcherError();
+      Shutdown(kInvalidHostConfigurationExitCode);
       return;
     }
 
     // Start watching the policy (and eventually start the host) if this is
-    // the first configuration update. Otherwise, post a task to create new
-    // authenticator factory in case PIN has changed.
-    if (policy_watcher_.get() == NULL) {
-      bool want_user_interface = true;
-#if defined(OS_LINUX)
-      want_user_interface = false;
-#elif defined(OS_MACOSX)
-      // Don't try to display any UI on top of the system's login screen as this
-      // is rejected by the Window Server on OS X 10.7.4, and prevents the
-      // capturer from working (http://crbug.com/140984).
-
-      // TODO(lambroslambrou): Use a better technique of detecting whether we're
-      // running in the LoginWindow context, and refactor this into a separate
-      // function to be used here and in CurtainMode::ActivateCurtain().
-      want_user_interface = getuid() != 0;
-#endif  // OS_MACOSX
-
-      if (want_user_interface) {
-        host_user_interface_.reset(
-            new HostUserInterface(context_->network_task_runner(),
-                                  context_->ui_task_runner()));
-      }
-
-      StartWatchingPolicy();
+    // the first configuration update. Otherwise, create new authenticator
+    // factory in case PIN has changed.
+    if (!policy_watcher_) {
+      policy_watcher_.reset(
+          policy_hack::PolicyWatcher::Create(context_->file_task_runner()));
+      policy_watcher_->StartWatching(
+          base::Bind(&HostProcess::OnPolicyUpdate, base::Unretained(this)));
     } else {
-      // PostTask to create new authenticator factory in case PIN has changed.
-      context_->network_task_runner()->PostTask(
-          FROM_HERE,
-          base::Bind(&HostProcess::CreateAuthenticatorFactory,
-                     base::Unretained(this)));
+      CreateAuthenticatorFactory();
     }
   }
 
@@ -261,10 +273,13 @@ class HostProcess
   void CreateAuthenticatorFactory() {
     DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
+    if (!host_ || shutting_down_)
+      return;
+
     std::string local_certificate = key_pair_.GenerateCertificate();
     if (local_certificate.empty()) {
       LOG(ERROR) << "Failed to generate host certificate.";
-      Shutdown(kHostInitializationFailed);
+      Shutdown(kInitializationFailed);
       return;
     }
 
@@ -281,9 +296,12 @@ class HostProcess
 #if defined(REMOTING_MULTI_PROCESS)
     bool handled = true;
     IPC_BEGIN_MESSAGE_MAP(HostProcess, message)
-        IPC_MESSAGE_HANDLER(ChromotingDaemonNetworkMsg_Configuration,
-                            OnConfigUpdated)
-        IPC_MESSAGE_UNHANDLED(handled = false)
+      IPC_MESSAGE_HANDLER(ChromotingDaemonNetworkMsg_Configuration,
+                          OnConfigUpdated)
+      IPC_MESSAGE_FORWARD(ChromotingDaemonNetworkMsg_TerminalDisconnected,
+                          desktop_session_connector_,
+                          DesktopSessionConnector::OnTerminalDisconnected)
+      IPC_MESSAGE_UNHANDLED(handled = false)
     IPC_END_MESSAGE_MAP()
     return handled;
 #else  // !defined(REMOTING_MULTI_PROCESS)
@@ -299,10 +317,58 @@ class HostProcess
       return;
     }
 
+    // Create a desktop environment factory appropriate to the build type &
+    // platform.
+#if defined(OS_WIN)
+
+#if defined(REMOTING_MULTI_PROCESS)
+    IpcDesktopEnvironmentFactory* desktop_environment_factory =
+        new IpcDesktopEnvironmentFactory(
+            daemon_channel_.get(),
+            context_->input_task_runner(),
+            context_->network_task_runner(),
+            context_->ui_task_runner());
+    desktop_session_connector_ = desktop_environment_factory;
+#else // !defined(REMOTING_MULTI_PROCESS)
+    DesktopEnvironmentFactory* desktop_environment_factory =
+        new SessionDesktopEnvironmentFactory(
+            context_->input_task_runner(), context_->ui_task_runner());
+#endif  // !defined(REMOTING_MULTI_PROCESS)
+
+#else  // !defined(OS_WIN)
+    DesktopEnvironmentFactory* desktop_environment_factory =
+        new DesktopEnvironmentFactory(
+            context_->input_task_runner(), context_->ui_task_runner());
+#endif  // !defined(OS_WIN)
+
+    desktop_environment_factory_.reset(desktop_environment_factory);
+
     context_->network_task_runner()->PostTask(
         FROM_HERE,
         base::Bind(&HostProcess::ListenForShutdownSignal,
                    base::Unretained(this)));
+
+    // The host UI should be created on the UI thread.
+    bool want_user_interface = true;
+#if defined(OS_LINUX)
+    want_user_interface = false;
+#elif defined(OS_MACOSX)
+    // Don't try to display any UI on top of the system's login screen as this
+    // is rejected by the Window Server on OS X 10.7.4, and prevents the
+    // capturer from working (http://crbug.com/140984).
+
+    // TODO(lambroslambrou): Use a better technique of detecting whether we're
+    // running in the LoginWindow context, and refactor this into a separate
+    // function to be used here and in CurtainMode::ActivateCurtain().
+    want_user_interface = getuid() != 0;
+#endif  // OS_MACOSX
+
+    if (want_user_interface) {
+      host_user_interface_.reset(
+          new HostUserInterface(context_->network_task_runner(),
+                                context_->ui_task_runner()));
+      host_user_interface_->Init();
+    }
 
     StartWatchingConfigChanges();
   }
@@ -319,13 +385,6 @@ class HostProcess
     desktop_environment_factory_.reset();
     host_user_interface_.reset();
 
-    if (policy_watcher_.get()) {
-      base::WaitableEvent done_event(true, false);
-      policy_watcher_->StopWatching(&done_event);
-      done_event.Wait();
-      policy_watcher_.reset();
-    }
-
     context_.reset();
   }
 
@@ -335,28 +394,21 @@ class HostProcess
     Shutdown(kInvalidHostIdExitCode);
   }
 
-  void StartWatchingPolicy() {
-    policy_watcher_.reset(
-        policy_hack::PolicyWatcher::Create(context_->file_task_runner()));
-    policy_watcher_->StartWatching(
-        base::Bind(&HostProcess::OnPolicyUpdate, base::Unretained(this)));
-  }
-
   // Applies the host config, returning true if successful.
-  bool ApplyConfig() {
-    DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
+  bool ApplyConfig(scoped_ptr<JsonHostConfig> config) {
+    DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
-    if (!config_.GetString(kHostIdConfigPath, &host_id_)) {
+    if (!config->GetString(kHostIdConfigPath, &host_id_)) {
       LOG(ERROR) << "host_id is not defined in the config.";
       return false;
     }
 
-    if (!key_pair_.Load(config_)) {
+    if (!key_pair_.Load(*config)) {
       return false;
     }
 
     std::string host_secret_hash_string;
-    if (!config_.GetString(kHostSecretHashConfigPath,
+    if (!config->GetString(kHostSecretHashConfigPath,
                            &host_secret_hash_string)) {
       host_secret_hash_string = "plain:";
     }
@@ -367,25 +419,18 @@ class HostProcess
     }
 
     // Use an XMPP connection to the Talk network for session signalling.
-    if (!config_.GetString(kXmppLoginConfigPath, &xmpp_login_) ||
-        !(config_.GetString(kXmppAuthTokenConfigPath, &xmpp_auth_token_) ||
-          config_.GetString(kOAuthRefreshTokenConfigPath,
+    if (!config->GetString(kXmppLoginConfigPath, &xmpp_login_) ||
+        !(config->GetString(kXmppAuthTokenConfigPath, &xmpp_auth_token_) ||
+          config->GetString(kOAuthRefreshTokenConfigPath,
                             &oauth_refresh_token_))) {
       LOG(ERROR) << "XMPP credentials are not defined in the config.";
       return false;
     }
 
-    // It is okay to not have this value and we will use the default value
-    // depending on whether this is an official build or not.
-    // If the client-Id type to use is not specified we default based on
-    // the build type.
-    config_.GetBoolean(kOAuthUseOfficialClientIdConfigPath,
-                       &oauth_use_official_client_id_);
-
     if (!oauth_refresh_token_.empty()) {
       xmpp_auth_token_ = "";  // This will be set to the access token later.
       xmpp_auth_service_ = "oauth2";
-    } else if (!config_.GetString(kXmppAuthServiceConfigPath,
+    } else if (!config->GetString(kXmppAuthServiceConfigPath,
                                   &xmpp_auth_service_)) {
       // For the me2me host, we default to ClientLogin token for chromiumsync
       // because earlier versions of the host had no HTTP stack with which to
@@ -520,20 +565,9 @@ class HostProcess
 
     if (!oauth_refresh_token_.empty()) {
       OAuthClientInfo client_info = {
-        kUnofficialOAuth2ClientId,
-        kUnofficialOAuth2ClientSecret
+          google_apis::GetOAuth2ClientID(google_apis::CLIENT_REMOTING),
+          google_apis::GetOAuth2ClientSecret(google_apis::CLIENT_REMOTING)
       };
-
-#ifdef OFFICIAL_BUILD
-      if (oauth_use_official_client_id_) {
-        OAuthClientInfo official_client_info = {
-            google_apis::GetOAuth2ClientID(google_apis::CLIENT_REMOTING),
-            google_apis::GetOAuth2ClientSecret(google_apis::CLIENT_REMOTING)
-        };
-
-        client_info = official_client_info;
-      }
-#endif  // OFFICIAL_BUILD
 
       scoped_ptr<SignalingConnector::OAuthCredentials> oauth_credentials(
           new SignalingConnector::OAuthCredentials(
@@ -574,8 +608,10 @@ class HostProcess
     resizing_host_observer_.reset(
         new ResizingHostObserver(desktop_resizer_.get(), host_));
 
-    curtaining_host_observer_.reset(new CurtainingHostObserver(
-          curtain_.get(), host_));
+    // Curtain mode is currently broken on Mac (the only supported platform),
+    // so it's disabled until we've had time to fully investigate.
+    //    curtaining_host_observer_.reset(new CurtainingHostObserver(
+    //          curtain_.get(), host_));
 
     if (host_user_interface_.get()) {
       host_user_interface_->Start(
@@ -590,6 +626,12 @@ class HostProcess
 
   void OnAuthFailed() {
     Shutdown(kInvalidOauthCredentialsExitCode);
+  }
+
+  void RejectAuthenticatingClient() {
+    DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
+    DCHECK(host_);
+    host_->RejectAuthenticatingClient();
   }
 
   // Invoked when the user uses the Disconnect windows to terminate
@@ -652,6 +694,13 @@ class HostProcess
     host_ = NULL;
     ResetHost();
 
+    if (policy_watcher_.get()) {
+      base::WaitableEvent done_event(true, false);
+      policy_watcher_->StopWatching(&done_event);
+      done_event.Wait();
+      policy_watcher_.reset();
+    }
+
     // Complete the rest of shutdown on the main thread.
     context_->ui_task_runner()->PostTask(
         FROM_HERE,
@@ -675,19 +724,18 @@ class HostProcess
   scoped_ptr<IPC::ChannelProxy> daemon_channel_;
   scoped_ptr<net::NetworkChangeNotifier> network_change_notifier_;
 
-  JsonHostConfig config_;
   FilePath host_config_path_;
   scoped_ptr<ConfigFileWatcher> config_watcher_;
 
+  // Accessed on the network thread.
   std::string host_id_;
-  HostKeyPair key_pair_;
   protocol::SharedSecretHash host_secret_hash_;
+  HostKeyPair key_pair_;
+  std::string oauth_refresh_token_;
+  std::string serialized_config_;
   std::string xmpp_login_;
   std::string xmpp_auth_token_;
   std::string xmpp_auth_service_;
-
-  std::string oauth_refresh_token_;
-  bool oauth_use_official_client_id_;
 
   scoped_ptr<policy_hack::PolicyWatcher> policy_watcher_;
   bool allow_nat_traversal_;
@@ -712,6 +760,10 @@ class HostProcess
 
   scoped_refptr<ChromotingHost> host_;
 
+#if defined(REMOTING_MULTI_PROCESS)
+  DesktopSessionConnector* desktop_session_connector_;
+#endif  // defined(REMOTING_MULTI_PROCESS)
+
   int exit_code_;
 };
 
@@ -734,19 +786,7 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  // Initialize logging with an appropriate log-file location, and default to
-  // log to that on Windows, or to standard error output otherwise.
-  FilePath debug_log = remoting::GetConfigDir().
-      Append(FILE_PATH_LITERAL("debug.log"));
-  InitLogging(debug_log.value().c_str(),
-#if defined(OS_WIN)
-              logging::LOG_ONLY_TO_FILE,
-#else
-              logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-#endif
-              logging::DONT_LOCK_LOG_FILE,
-              logging::APPEND_TO_OLD_LOG_FILE,
-              logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+  remoting::InitHostLogging();
 
 #if defined(TOOLKIT_GTK)
   // Required for any calls into GTK functions, such as the Disconnect and
@@ -777,7 +817,7 @@ int main(int argc, char** argv) {
 #endif  // defined(OS_LINUX)
 
   if (!context->Start())
-    return remoting::kHostInitializationFailed;
+    return remoting::kInitializationFailed;
 
   // Create the host process instance and enter the main message loop.
   remoting::HostProcess me2me_host(context.Pass());

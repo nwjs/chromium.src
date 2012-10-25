@@ -11,8 +11,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "content/public/browser/web_contents_observer.h"
 
-class AutofillExternalDelegate;
-class BasePanelBrowserTest;
 class Browser;
 class BrowserCommandsTabContentsCreator;
 class BrowserLauncherItemControllerContentsCreator;
@@ -21,24 +19,17 @@ class ChromeWebContentsHandler;
 class ConstrainedWebDialogDelegateBase;
 class ExtensionTabUtil;
 class ExternalTabContainerWin;
-class GeolocationPermissionContextTests;
-class InfoBarControllerContentsCreator;
-class InfoBarTabHelper;
 class InstantLoader;
 class OffscreenTabContentsCreator;
 class PanelHost;
 class Profile;
-class ShellWindow;
 class TabContentsTestHarness;
 class TabStripModel;
 class TabStripModelContentsCreator;
-class TranslationInfoBarTestContentsCreator;
 class WebDialogGtk;
 class WebDialogWindowControllerTabContentsCreator;
-class WebIntentInlineDispositionBrowserTest;
 class WebIntentPickerCocoa;
 class WebIntentPickerGtk;
-class WebUITestContentsCreator;
 
 namespace chromeos {
 class SimpleWebViewDialog;
@@ -76,7 +67,6 @@ class TabContents : public content::WebContentsObserver {
     // more code to construct instances. Explicitly befriend those who currently
     // do so.
 
-    friend class BasePanelBrowserTest;
     friend class Browser;
     friend class BrowserCommandsTabContentsCreator;
     friend class BrowserLauncherItemControllerContentsCreator;
@@ -88,25 +78,19 @@ class TabContents : public content::WebContentsObserver {
     friend class extensions::WebAuthFlow;
     friend class ExtensionTabUtil;
     friend class ExternalTabContainerWin;
-    friend class GeolocationPermissionContextTests;
-    friend class InfoBarControllerContentsCreator;
     friend class InstantLoader;
     friend class OffscreenTabContentsCreator;
     friend class PanelHost;
     friend class prerender::PrerenderContents;
-    friend class ShellWindow;
     // See crbug.com/153587
     friend class TabAndroid;
     friend class TabContentsTestHarness;
     friend class TabStripModel;
     friend class TabStripModelContentsCreator;
-    friend class TranslationInfoBarTestContentsCreator;
     friend class WebDialogGtk;
     friend class WebDialogWindowControllerTabContentsCreator;
-    friend class WebIntentInlineDispositionBrowserTest;
     friend class WebIntentPickerCocoa;
     friend class WebIntentPickerGtk;
-    friend class WebUITestContentsCreator;
     FRIEND_TEST_ALL_PREFIXES(SessionRestoreTest, SessionStorageAfterTabReplace);
 
     static TabContents* CreateTabContents(content::WebContents* contents);
@@ -134,10 +118,6 @@ class TabContents : public content::WebContentsObserver {
   // True if this TabContents is being torn down.
   bool in_destructor() const { return in_destructor_; }
 
-  // Tab Helpers ---------------------------------------------------------------
-
-  InfoBarTabHelper* infobar_tab_helper() { return infobar_tab_helper_.get(); }
-
   // Overrides -----------------------------------------------------------------
 
   // content::WebContentsObserver overrides:
@@ -153,13 +133,6 @@ class TabContents : public content::WebContentsObserver {
   // Create a TabContents with the same state as this one. The returned
   // heap-allocated pointer is owned by the caller.
   TabContents* Clone();
-
-  // Tab Helpers ---------------------------------------------------------------
-  // (These provide API for callers and have a getter function listed in the
-  // "Tab Helpers" section in the member functions area, above.)
-
-  scoped_ptr<AutofillExternalDelegate> autofill_external_delegate_;
-  scoped_ptr<InfoBarTabHelper> infobar_tab_helper_;
 
   // WebContents (MUST BE LAST) ------------------------------------------------
 

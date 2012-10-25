@@ -27,6 +27,7 @@ class BrowserActionsContainer;
 class Browser;
 class LocationBarContainer;
 class WrenchMenu;
+class WrenchMenuModel;
 
 namespace chrome {
 namespace search {
@@ -237,11 +238,15 @@ class ToolbarView : public views::AccessiblePaneView,
   // Controls whether or not a home button should be shown on the toolbar.
   BooleanPrefMember show_home_button_;
 
+  // A pref that counts how often the bubble has been shown.
+  IntegerPrefMember sideload_wipeout_bubble_shown_;
+
   // The display mode used when laying out the toolbar.
   DisplayMode display_mode_;
 
   // Wrench menu.
   scoped_ptr<WrenchMenu> wrench_menu_;
+  scoped_ptr<WrenchMenuModel> wrench_menu_model_;
 
   // A list of listeners to call when the menu opens.
   ObserverList<views::MenuListener> menu_listeners_;

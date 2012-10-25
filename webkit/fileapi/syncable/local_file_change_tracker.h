@@ -16,9 +16,9 @@
 #include "base/memory/scoped_ptr.h"
 #include "webkit/fileapi/file_observers.h"
 #include "webkit/fileapi/file_system_url.h"
-#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/syncable/file_change.h"
 #include "webkit/fileapi/syncable/sync_status_code.h"
+#include "webkit/storage/webkit_storage_export.h"
 
 namespace base {
 class SequencedTaskRunner;
@@ -26,10 +26,12 @@ class SequencedTaskRunner;
 
 namespace fileapi {
 
+class FileSystemContext;
+
 // Tracks local file changes for cloud-backed file systems.
 // All methods must be called on the file_task_runner given to the constructor.
 // Owned by FileSystemContext.
-class FILEAPI_EXPORT LocalFileChangeTracker
+class WEBKIT_STORAGE_EXPORT LocalFileChangeTracker
     : public FileUpdateObserver,
       public FileChangeObserver {
  public:
@@ -68,24 +70,24 @@ class FILEAPI_EXPORT LocalFileChangeTracker
   // This removes |url| from the internal change map.
   void FinalizeSyncForURL(const FileSystemURL& url);
 
-  // Called by FileSyncService at the startup time to collect last
-  // dirty changes left after the last shutdown (if any).
-  SyncStatusCode CollectLastDirtyChanges(FileChangeMap* changes);
+  // Called by FileSyncService at the startup time to restore last dirty changes
+  // left after the last shutdown (if any).
+  SyncStatusCode Initialize(FileSystemContext* file_system_context);
 
  protected:
   // Database related methods. These methods are virtual for testing.
   virtual SyncStatusCode MarkDirtyOnDatabase(const FileSystemURL& url);
   virtual SyncStatusCode ClearDirtyOnDatabase(const FileSystemURL& url);
 
+  bool initialized_;
+
  private:
   class TrackerDB;
   friend class LocalFileChangeTrackerTest;
 
+  SyncStatusCode CollectLastDirtyChanges(
+      FileSystemContext* file_system_context);
   void RecordChange(const FileSystemURL& url, const FileChange& change);
-
-  std::string SerializeExternalFileSystemURL(const FileSystemURL& url);
-  bool DeserializeExternalFileSystemURL(
-      const std::string& serialized_url, FileSystemURL* url);
 
   scoped_refptr<base::SequencedTaskRunner> file_task_runner_;
 

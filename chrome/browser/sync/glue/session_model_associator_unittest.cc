@@ -129,7 +129,7 @@ TEST_F(SyncSessionModelAssociatorTest,
 TEST_F(SyncSessionModelAssociatorTest, PopulateSessionHeader) {
   sync_pb::SessionHeader header_s;
   header_s.set_client_name("Client 1");
-  header_s.set_device_type(sync_pb::SessionHeader_DeviceType_TYPE_WIN);
+  header_s.set_device_type(sync_pb::SyncEnums_DeviceType_TYPE_WIN);
 
   SyncedSession session;
   base::Time time = base::Time::Now();
@@ -608,9 +608,12 @@ TEST_F(SyncSessionModelAssociatorTest, SetSessionTabFromDelegate) {
             session_tab.navigations[1].virtual_url());
   EXPECT_EQ(entry3->GetVirtualURL(),
             session_tab.navigations[2].virtual_url());
-  EXPECT_EQ(kTime1, session_tab.navigations[0].timestamp());
-  EXPECT_EQ(kTime2, session_tab.navigations[1].timestamp());
-  EXPECT_EQ(kTime3, session_tab.navigations[2].timestamp());
+  EXPECT_EQ(kTime1,
+            SessionTypesTestHelper::GetTimestamp(session_tab.navigations[0]));
+  EXPECT_EQ(kTime2,
+            SessionTypesTestHelper::GetTimestamp(session_tab.navigations[1]));
+  EXPECT_EQ(kTime3,
+            SessionTypesTestHelper::GetTimestamp(session_tab.navigations[2]));
   EXPECT_TRUE(session_tab.session_storage_persistent_id.empty());
 }
 

@@ -11,17 +11,20 @@
 #include "chrome/browser/ui/find_bar/find_notification_details.h"
 #include "chrome/browser/ui/find_bar/find_tab_helper.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "content/public/browser/android/download_controller_android.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/file_chooser_params.h"
 #include "jni/ChromeWebContentsDelegateAndroid_jni.h"
+#include "net/http/http_request_headers.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/rect_f.h"
 
 using base::android::AttachCurrentThread;
 using base::android::GetClass;
+using base::android::MethodID;
 using base::android::ScopedJavaLocalRef;
 using content::FileChooserParams;
 using content::WebContents;
@@ -140,8 +143,8 @@ void ChromeWebContentsDelegateAndroid::OnFindResultAvailable(
   ScopedJavaLocalRef<jclass> rect_clazz =
       GetClass(env, "android/graphics/Rect");
 
-  jmethodID rect_constructor =
-      GetMethodID(env, rect_clazz, "<init>", "(IIII)V");
+  jmethodID rect_constructor = MethodID::Get<MethodID::TYPE_INSTANCE>(
+      env, rect_clazz.obj(), "<init>", "(IIII)V");
 
   ScopedJavaLocalRef<jobject> selection_rect = CreateAndroidRect(
       env, rect_clazz, rect_constructor, find_result->selection_rect());
@@ -150,8 +153,8 @@ void ChromeWebContentsDelegateAndroid::OnFindResultAvailable(
   ScopedJavaLocalRef<jclass> details_clazz =
       GetClass(env, "org/chromium/chrome/browser/FindNotificationDetails");
 
-  jmethodID details_constructor = GetMethodID(env, details_clazz, "<init>",
-                                              "(ILandroid/graphics/Rect;IZ)V");
+  jmethodID details_constructor = MethodID::Get<MethodID::TYPE_INSTANCE>(
+      env, details_clazz.obj(), "<init>", "(ILandroid/graphics/Rect;IZ)V");
 
   ScopedJavaLocalRef<jobject> details_object(
       env,
@@ -189,8 +192,8 @@ void ChromeWebContentsDelegateAndroid::FindMatchRectsReply(
   ScopedJavaLocalRef<jclass> rect_clazz =
       GetClass(env, "android/graphics/RectF");
 
-  jmethodID rect_constructor =
-      GetMethodID(env, rect_clazz, "<init>", "(FFFF)V");
+  jmethodID rect_constructor = MethodID::Get<MethodID::TYPE_INSTANCE>(
+      env, rect_clazz.obj(), "<init>", "(FFFF)V");
 
   ScopedJavaLocalRef<jobjectArray> jrects(env, env->NewObjectArray(
       match_rects.rects().size(), rect_clazz.obj(), NULL));
@@ -211,7 +214,8 @@ void ChromeWebContentsDelegateAndroid::FindMatchRectsReply(
   ScopedJavaLocalRef<jclass> details_clazz =
       GetClass(env, "org/chromium/chrome/browser/FindMatchRectsDetails");
 
-  jmethodID details_constructor = GetMethodID(env, details_clazz, "<init>",
+  jmethodID details_constructor = MethodID::Get<MethodID::TYPE_INSTANCE>(
+      env, details_clazz.obj(), "<init>",
       "(I[Landroid/graphics/RectF;Landroid/graphics/RectF;)V");
 
   ScopedJavaLocalRef<jobject> details_object(
@@ -232,6 +236,25 @@ void ChromeWebContentsDelegateAndroid::FindMatchRectsReply(
 content::JavaScriptDialogCreator*
 ChromeWebContentsDelegateAndroid::GetJavaScriptDialogCreator() {
   return GetJavaScriptDialogCreatorInstance();
+}
+
+bool ChromeWebContentsDelegateAndroid::CanDownload(
+    content::RenderViewHost* source,
+    int request_id,
+    const std::string& request_method) {
+  if (request_method == net::HttpRequestHeaders::kGetMethod) {
+    content::DownloadControllerAndroid::Get()->CreateGETDownload(
+        source, request_id);
+    return false;
+  }
+  return true;
+}
+
+void ChromeWebContentsDelegateAndroid::OnStartDownload(
+    WebContents* source,
+    content::DownloadItem* download) {
+  content::DownloadControllerAndroid::Get()->OnPostDownloadStarted(
+      source, download);
 }
 
 }  // namespace android

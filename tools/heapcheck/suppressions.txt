@@ -247,6 +247,31 @@
    fun:WebKit::WebLayerTreeViewImpl::composite
    fun:ui::Compositor::Draw
 }
+# There is not CloseTestNSSDB due to NSS bug 588269.
+# When NSS 3.14 is the minimum version required, this should be removed.
+# http://crbug.com/156433 .
+{
+   bug_156433_a
+   Heapcheck:Leak
+   fun:sqlite3MemMalloc
+   fun:crypto::::NSSInitSingleton::OpenUserDB
+   fun:crypto::::NSSInitSingleton::OpenTestNSSDB
+   fun:*ScopedTestNSSDB
+}
+{
+   bug_156433_b
+   Heapcheck:Leak
+   fun:PORT_Alloc_Util
+   fun:crypto::::NSSInitSingleton::OpenUserDB
+   fun:crypto::::NSSInitSingleton::OpenTestNSSDB
+   fun:*ScopedTestNSSDB
+}
+{
+   bug_156829
+   Heapcheck:Leak
+   ...
+   fun:media_stream::AudioInputDeviceManager::EnumerateOnDeviceThread
+}
 
 
 #-----------------------------------------------------------------------
@@ -1542,8 +1567,6 @@
    fun:v8::internal::V8::Initialize
    fun:v8::internal::Snapshot::Initialize
    fun:v8::InitializeHelper
-   fun:v8::V8::Initialize
-   fun:WebKit::initialize
 }
 {
    bug_153791
@@ -1553,4 +1576,16 @@
    fun:PluginPrefs::EnablePlugin
    fun:PluginPrefsTest::EnablePluginSynchronously
    fun:PluginPrefsTest_UnifiedPepperFlashState_Test::TestBody
+}
+{
+   bug_151976_a
+   Heapcheck:Leak
+   ...
+   fun:TestURLRequestContext::Init
+   fun:TestURLRequestContext::TestURLRequestContext
+   fun:TestURLRequestContextGetter::GetURLRequestContext
+   fun:predictors::TestResourcePrefetcherDelegate::GetURLRequestContext
+   fun:predictors::ResourcePrefetcher::SendRequest
+   fun:predictors::ResourcePrefetcher::TryToLaunchPrefetchRequests
+   fun:predictors::ResourcePrefetcher::Start
 }

@@ -11,8 +11,8 @@
 #include "base/callback_forward.h"
 #include "base/file_path.h"
 #include "base/platform_file.h"
-#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/file_system_types.h"
+#include "webkit/storage/webkit_storage_export.h"
 
 namespace webkit_blob {
 class FileStreamReader;
@@ -30,7 +30,7 @@ class RemoteFileSystemProxyInterface;
 
 // An interface to provide mount-point-specific path-related utilities
 // and specialized FileSystemFileUtil instance.
-class FILEAPI_EXPORT FileSystemMountPointProvider {
+class WEBKIT_STORAGE_EXPORT FileSystemMountPointProvider {
  public:
   // Callback for ValidateFileSystemRoot.
   typedef base::Callback<void(base::PlatformFileError error)>
@@ -87,13 +87,18 @@ class FILEAPI_EXPORT FileSystemMountPointProvider {
       base::PlatformFileError* error_code) const = 0;
 
   // Creates a new file stream reader for a given filesystem URL |url| with an
-  // offset |offset|.
+  // offset |offset|. |expected_modification_time| specifies the expected last
+  // modification if the value is non-null, the reader will check the underlying
+  // file's actual modification time to see if the file has been modified, and
+  // if it does any succeeding read operations should fail with
+  // ERR_UPLOAD_FILE_CHANGED error.
   // The returned object must be owned and managed by the caller.
   // This method itself does *not* check if the given path exists and is a
   // regular file.
   virtual webkit_blob::FileStreamReader* CreateFileStreamReader(
     const FileSystemURL& url,
     int64 offset,
+    const base::Time& expected_modification_time,
     FileSystemContext* context) const = 0;
 
   // Creates a new file stream writer for a given filesystem URL |url| with an

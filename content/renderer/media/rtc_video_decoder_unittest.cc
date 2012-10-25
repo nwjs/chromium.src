@@ -36,6 +36,7 @@ using media::PipelineStatistics;
 using media::PIPELINE_OK;
 using media::StatisticsCB;
 
+namespace content {
 namespace {
 
 class NullVideoFrame : public cricket::VideoFrame {
@@ -151,6 +152,10 @@ class MockVideoTrack : public webrtc::VideoTrackInterface {
   virtual void UnregisterObserver(
       webrtc::ObserverInterface* observer) OVERRIDE {
     NOTIMPLEMENTED();
+  }
+  virtual webrtc::VideoSourceInterface* GetSource() const OVERRIDE {
+    NOTIMPLEMENTED();
+    return NULL;
   }
   MOCK_METHOD1(AddRenderer, void(webrtc::VideoRendererInterface* renderer));
   MOCK_METHOD1(RemoveRenderer, void(webrtc::VideoRendererInterface* renderer));
@@ -323,3 +328,5 @@ TEST_F(RTCVideoDecoderTest, ReadAndShutdown) {
   decoder_->Read(read_cb_);
   message_loop_.RunAllPending();
 }
+
+}  // namespace content

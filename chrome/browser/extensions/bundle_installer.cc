@@ -13,11 +13,11 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/crx_installer.h"
-#include "chrome/browser/extensions/extension_install_dialog.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
@@ -274,7 +274,10 @@ void BundleInstaller::ShowPrompt() {
       // thread hopping.
       browser = browser::FindLastActiveWithProfile(profile_);
     }
-    install_ui_.reset(chrome::CreateExtensionInstallPromptWithBrowser(browser));
+    content::WebContents* web_contents = NULL;
+    if (browser)
+      web_contents = browser->tab_strip_model()->GetActiveWebContents();
+    install_ui_.reset(new ExtensionInstallPrompt(web_contents));
     install_ui_->ConfirmBundleInstall(this, permissions);
   }
 }

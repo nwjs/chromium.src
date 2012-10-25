@@ -23,24 +23,11 @@ namespace tracked_objects {
 class Location;
 }  // tracked_objects
 
-namespace gdata {
+namespace google_apis {
 namespace util {
-
-// Returns true if gdata is currently active with the specified profile.
-// Must be called on UI thread.
-// TODO(satorux): Rework this function: crbug.com/153962
-bool IsGDataAvailable(Profile* profile);
-
-// Disables Drive for the specified profile. Used to disable Drive when
-// needed (ex. initialization of the Drive cache failed).
-// Must be called on UI thread.
-void DisableDrive(Profile* profile);
 
 // Returns true if Drive v2 API is enabled via commandline switch.
 bool IsDriveV2ApiEnabled();
-
-// Returns a PlatformFileError that corresponds to the DriveFileError provided.
-base::PlatformFileError DriveFileErrorToPlatformError(DriveFileError error);
 
 // Parses an RFC 3339 date/time into a base::Time, returning true on success.
 // The time string must be in the format "yyyy-mm-ddThh:mm:ss.dddTZ" (TZ is
@@ -68,6 +55,6 @@ void PostBlockingPoolSequencedTaskAndReply(
     const base::Closure& reply_task);
 
 }  // namespace util
-}  // namespace gdata
+}  // namespace google_apis
 
 #endif  // CHROME_BROWSER_GOOGLE_APIS_GDATA_UTIL_H_

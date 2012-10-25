@@ -12,8 +12,6 @@
 #include "third_party/WebKit/Source/Platform/chromium/public/Platform.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorSupport.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebFloatPoint.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebRect.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebSize.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorOutputSurface.h"
 #include "ui/compositor/compositor_observer.h"
 #include "ui/compositor/compositor_switches.h"
@@ -126,8 +124,7 @@ WebKit::WebGraphicsContext3D* DefaultContextFactory::CreateContextCommon(
 }
 
 Texture::Texture(bool flipped, const gfx::Size& size, float device_scale_factor)
-    : texture_id_(0),
-      flipped_(flipped),
+    : flipped_(flipped),
       size_(size),
       device_scale_factor_(device_scale_factor) {
 }

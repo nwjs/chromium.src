@@ -21,7 +21,7 @@
 #if defined(OS_WIN)
 #include "base/win/metro.h"
 #include "ui/base/win/scoped_ole_initializer.h"
-#include "ui/base/win/tsf_bridge.h"
+#include "ui/base/ime/win/tsf_bridge.h"
 #endif
 
 #if defined(OS_ANDROID)
@@ -29,6 +29,8 @@
 #endif
 
 bool g_exited_main_message_loop = false;
+
+using content::ChildProcess;
 
 namespace {
 

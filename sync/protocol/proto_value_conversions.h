@@ -21,11 +21,19 @@ class AutofillSpecifics;
 class BookmarkSpecifics;
 class ClientToServerMessage;
 class ClientToServerResponse;
+class DeviceInfoSpecifics;
 class DeviceInformation;
 class EncryptedData;
 class EntitySpecifics;
+class EverythingDirective;
+class ExperimentsSpecifics;
+class ExtensionSettingSpecifics;
 class ExtensionSettingSpecifics;
 class ExtensionSpecifics;
+class ExtensionSpecifics;
+class GlobalIdDirective;
+class HistoryDeleteDirectiveSpecifics;
+class KeystoreEncryptionFlagsSpecifics;
 class NigoriSpecifics;
 class PasswordSpecifics;
 class PasswordSpecificsData;
@@ -37,6 +45,7 @@ class SessionTab;
 class SessionWindow;
 class TabNavigation;
 class ThemeSpecifics;
+class TimeRangeDirective;
 class TypedUrlSpecifics;
 }  // namespace sync_pb
 
@@ -86,6 +95,19 @@ base::DictionaryValue* PasswordSpecificsDataToValue(
 base::DictionaryValue* DeviceInformationToValue(
     const sync_pb::DeviceInformation& device_information);
 
+// Sub-protocol of HistoryDeleteDirectiveSpecifics.
+
+base::DictionaryValue* GlobalIdDirectiveToValue(
+    const sync_pb::GlobalIdDirective& global_id_directive);
+
+base::DictionaryValue* TimeRangeDirectiveToValue(
+    const sync_pb::TimeRangeDirective& time_range_directive);
+
+// Sub-protocol of Experiments.
+
+base::DictionaryValue* KeystoreEncryptionToValue(
+    const sync_pb::KeystoreEncryptionFlagsSpecifics& proto);
+
 // Main *SpecificsToValue functions.
 
 base::DictionaryValue* AppNotificationToValue(
@@ -106,11 +128,21 @@ base::DictionaryValue* AutofillProfileSpecificsToValue(
 base::DictionaryValue* BookmarkSpecificsToValue(
     const sync_pb::BookmarkSpecifics& bookmark_specifics);
 
+base::DictionaryValue* DeviceInfoSpecificsToValue(
+    const sync_pb::DeviceInfoSpecifics& device_info_specifics);
+
+base::DictionaryValue* ExperimentsSpecificsToValue(
+    const sync_pb::ExperimentsSpecifics& proto);
+
 base::DictionaryValue* ExtensionSettingSpecificsToValue(
     const sync_pb::ExtensionSettingSpecifics& extension_setting_specifics);
 
 base::DictionaryValue* ExtensionSpecificsToValue(
     const sync_pb::ExtensionSpecifics& extension_specifics);
+
+base::DictionaryValue* HistoryDeleteDirectiveSpecificsToValue(
+    const sync_pb::HistoryDeleteDirectiveSpecifics&
+        history_delete_directive_specifics);
 
 base::DictionaryValue* NigoriSpecificsToValue(
     const sync_pb::NigoriSpecifics& nigori_specifics);

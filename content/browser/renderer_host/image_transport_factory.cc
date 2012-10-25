@@ -34,6 +34,9 @@
 
 using content::BrowserGpuChannelHostFactory;
 using content::GLHelper;
+using content::GpuChannelHostFactory;
+using content::WebGraphicsContext3DCommandBufferImpl;
+using content::WebGraphicsContext3DSwapBuffersClient;
 
 namespace {
 
@@ -102,11 +105,16 @@ class ImageTransportClientTexture : public ui::Texture {
       float device_scale_factor,
       uint64 surface_id)
           : ui::Texture(true, size, device_scale_factor),
-            host_context_(host_context) {
-    set_texture_id(surface_id);
+            host_context_(host_context),
+            texture_id_(surface_id) {
   }
 
-  virtual WebKit::WebGraphicsContext3D* HostContext3D() {
+  // ui::Texture overrides:
+  virtual unsigned int PrepareTexture() OVERRIDE {
+    return texture_id_;
+  }
+
+  virtual WebKit::WebGraphicsContext3D* HostContext3D() OVERRIDE {
     return host_context_;
   }
 
@@ -118,6 +126,7 @@ class ImageTransportClientTexture : public ui::Texture {
   // before the |host_context_| via
   // |ImageTransportFactoryObserver::OnLostContext()| handlers.
   WebKit::WebGraphicsContext3D* host_context_;
+  unsigned texture_id_;
 
   DISALLOW_COPY_AND_ASSIGN(ImageTransportClientTexture);
 };
@@ -129,12 +138,16 @@ class OwnedTexture : public ui::Texture, ImageTransportFactoryObserver {
                float device_scale_factor,
                unsigned int texture_id)
       : ui::Texture(true, size, device_scale_factor),
-        host_context_(host_context) {
+        host_context_(host_context),
+        texture_id_(texture_id) {
     ImageTransportFactory::GetInstance()->AddObserver(this);
-    set_texture_id(texture_id);
   }
 
   // ui::Texture overrides:
+  virtual unsigned int PrepareTexture() OVERRIDE {
+    return texture_id_;
+  }
+
   virtual WebKit::WebGraphicsContext3D* HostContext3D() OVERRIDE {
     return host_context_;
   }
@@ -152,9 +165,9 @@ class OwnedTexture : public ui::Texture, ImageTransportFactoryObserver {
 
  private:
   void DeleteTexture() {
-    if (texture_id()) {
-      host_context_->deleteTexture(texture_id());
-      set_texture_id(0);
+    if (texture_id_) {
+      host_context_->deleteTexture(texture_id_);
+      texture_id_ = 0;
     }
   }
 
@@ -162,6 +175,7 @@ class OwnedTexture : public ui::Texture, ImageTransportFactoryObserver {
   // before the |host_context_| via
   // |ImageTransportFactoryObserver::OnLostContext()| handlers.
   WebKit::WebGraphicsContext3D* host_context_;
+  unsigned texture_id_;
 
   DISALLOW_COPY_AND_ASSIGN(OwnedTexture);
 };
@@ -400,6 +414,7 @@ class GpuProcessTransportFactory :
     attrs.depth = false;
     attrs.stencil = false;
     attrs.antialias = false;
+    attrs.noAutomaticFlushes = true;
     GpuChannelHostFactory* factory = BrowserGpuChannelHostFactory::instance();
     GURL url("chrome://gpu/GpuProcessTransportFactory::CreateContextCommon");
     scoped_ptr<WebGraphicsContext3DCommandBufferImpl> context(

@@ -1,5 +1,7 @@
 include_rules = [
   "+ash",
+  "+base/prefs",
+  "+cc",
   "+crypto",
   "+gpu",
   "+jni",

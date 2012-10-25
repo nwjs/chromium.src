@@ -469,7 +469,7 @@ void DisplayController::OnDisplayRemoved(const gfx::Display& display) {
   DCHECK(controller);
   controller->MoveWindowsTo(GetPrimaryRootWindow());
   // Delete most of root window related objects, but don't delete
-  // root window itself yet because the stak may be using it.
+  // root window itself yet because the stack may be using it.
   controller->Shutdown();
   MessageLoop::current()->DeleteSoon(FROM_HERE, controller);
 }
@@ -491,10 +491,10 @@ aura::RootWindow* DisplayController::AddRootWindowForDisplay(
 }
 
 void DisplayController::UpdateDisplayBoundsForLayout() {
-  if (gfx::Screen::GetNumDisplays() <= 1)
+  if (Shell::GetScreen()->GetNumDisplays() <= 1)
     return;
 
-  DCHECK_EQ(2, gfx::Screen::GetNumDisplays());
+  DCHECK_EQ(2, Shell::GetScreen()->GetNumDisplays());
   const gfx::Rect& primary_bounds = GetPrimaryDisplay().bounds();
 
   gfx::Display* secondary_display = GetSecondaryDisplay();

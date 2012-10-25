@@ -10,6 +10,7 @@
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/memory/ref_counted.h"
+#include "webkit/dom_storage/dom_storage_export.h"
 
 class GURL;
 
@@ -21,7 +22,7 @@ class SessionStorageDatabase;
 
 // Container for the set of per-origin Areas.
 // See class comments for DomStorageContext for a larger overview.
-class DomStorageNamespace
+class DOM_STORAGE_EXPORT DomStorageNamespace
     : public base::RefCountedThreadSafe<DomStorageNamespace> {
  public:
   // Constructor for a LocalStorage namespace with id of 0
@@ -56,7 +57,8 @@ class DomStorageNamespace
   DomStorageNamespace* Clone(int64 clone_namespace_id,
                              const std::string& clone_persistent_namespace_id);
 
-  void DeleteOrigin(const GURL& origin);
+  void DeleteLocalStorageOrigin(const GURL& origin);
+  void DeleteSessionStorageOrigin(const GURL& origin);
   void PurgeMemory();
   void Shutdown();
 

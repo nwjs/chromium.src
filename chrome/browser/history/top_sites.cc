@@ -75,7 +75,7 @@ static const int kTopSitesImageQuality = 100;
 const TopSites::PrepopulatedPage kPrepopulatedPages[] = {
 #if defined(OS_CHROMEOS)
   { IDS_CHROMEOS_WELCOME_URL, IDS_NEW_TAB_CHROME_WELCOME_PAGE_TITLE,
-    IDR_PRODUCT_LOGO_16, IDR_NEWTAB_CHROMEOS_WELCOME_PAGE_THUMBNAIL,
+    IDR_PRODUCT_LOGO_16, IDR_NEWTAB_CHROME_WELCOME_PAGE_THUMBNAIL,
     SkColorSetRGB(0, 147, 60) },
 #elif defined(OS_ANDROID)
     { IDS_MOBILE_WELCOME_URL, IDS_NEW_TAB_CHROME_WELCOME_PAGE_TITLE,
@@ -231,7 +231,7 @@ void TopSites::Init(const FilePath& db_name) {
 }
 
 bool TopSites::SetPageThumbnail(const GURL& url,
-                                gfx::Image* thumbnail,
+                                const gfx::Image& thumbnail,
                                 const ThumbnailScore& score) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
@@ -603,13 +603,13 @@ bool TopSites::SetPageThumbnailEncoded(const GURL& url,
 }
 
 // static
-bool TopSites::EncodeBitmap(gfx::Image* bitmap,
+bool TopSites::EncodeBitmap(const gfx::Image& bitmap,
                             scoped_refptr<base::RefCountedBytes>* bytes) {
-  if (!bitmap)
+  if (bitmap.IsEmpty())
     return false;
   *bytes = new base::RefCountedBytes();
   std::vector<unsigned char> data;
-  if (!gfx::JPEGEncodedDataFromImage(*bitmap, kTopSitesImageQuality, &data))
+  if (!gfx::JPEGEncodedDataFromImage(bitmap, kTopSitesImageQuality, &data))
     return false;
 
   // As we're going to cache this data, make sure the vector is only as big as

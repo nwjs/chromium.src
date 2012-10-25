@@ -33,8 +33,7 @@ using content::BrowserThread;
 SpellingMenuObserver::SpellingMenuObserver(RenderViewContextMenuProxy* proxy)
     : proxy_(proxy),
       loading_frame_(0),
-      succeeded_(false),
-      integrate_spelling_service_(false) {
+      succeeded_(false) {
 }
 
 SpellingMenuObserver::~SpellingMenuObserver() {
@@ -60,8 +59,9 @@ void SpellingMenuObserver::InitMenu(const content::ContextMenuParams& params) {
 
   // Append a placeholder item for the suggestion from the Spelling serivce and
   // send a request to the service if we can retrieve suggestions from it.
-  if (SpellingServiceClient::IsAvailable(profile,
-                                         SpellingServiceClient::SUGGEST)) {
+  bool useSuggestions = SpellingServiceClient::IsAvailable(
+      profile,SpellingServiceClient::SUGGEST);
+  if (useSuggestions) {
     // Retrieve the misspelled word to be sent to the Spelling service.
     string16 text = params.misspelled_word;
     if (!text.empty()) {
@@ -109,13 +109,15 @@ void SpellingMenuObserver::InitMenu(const content::ContextMenuParams& params) {
 
   // If word is misspelled, give option for "Add to dictionary" and a check item
   // "Ask Google for suggestions".
-  integrate_spelling_service_ =
-      profile->GetPrefs()->GetBoolean(prefs::kSpellCheckUseSpellingService);
+  integrate_spelling_service_.Init(prefs::kSpellCheckUseSpellingService,
+                                   profile->GetPrefs(), NULL);
   if (!params.misspelled_word.empty()) {
     if (params.dictionary_suggestions.empty()) {
       proxy_->AddMenuItem(IDC_CONTENT_CONTEXT_NO_SPELLING_SUGGESTIONS,
           l10n_util::GetStringUTF16(
               IDS_CONTENT_CONTEXT_NO_SPELLING_SUGGESTIONS));
+      if (useSuggestions)
+        proxy_->AddSeparator();
     }
     misspelled_word_ = params.misspelled_word;
     proxy_->AddMenuItem(IDC_SPELLCHECK_ADD_TO_DICTIONARY,
@@ -150,7 +152,7 @@ bool SpellingMenuObserver::IsCommandIdChecked(int command_id) {
   DCHECK(IsCommandIdSupported(command_id));
 
   if (command_id == IDC_CONTENT_CONTEXT_SPELLING_TOGGLE)
-    return integrate_spelling_service_;
+    return integrate_spelling_service_.GetValue();
   return false;
 }
 
@@ -172,7 +174,7 @@ bool SpellingMenuObserver::IsCommandIdEnabled(int command_id) {
       return succeeded_;
 
     case IDC_CONTENT_CONTEXT_SPELLING_TOGGLE:
-      return true;
+      return integrate_spelling_service_.IsUserModifiable();
 
     default:
       return false;
@@ -222,12 +224,14 @@ void SpellingMenuObserver::ExecuteCommand(int command_id) {
 #endif
   }
 
-  if (command_id == IDC_CONTENT_CONTEXT_SPELLING_TOGGLE) {
+  // The spelling service can be toggled by the user only if it is not managed.
+  if (command_id == IDC_CONTENT_CONTEXT_SPELLING_TOGGLE &&
+      integrate_spelling_service_.IsUserModifiable()) {
     // When a user enables the "Ask Google for spelling suggestions" item, we
     // show a bubble to confirm it. On the other hand, when a user disables this
     // item, we directly update/ the profile and stop integrating the spelling
     // service immediately.
-    if (!integrate_spelling_service_) {
+    if (!integrate_spelling_service_.GetValue()) {
       content::RenderViewHost* rvh = proxy_->GetRenderViewHost();
       gfx::Rect rect = rvh->GetView()->GetViewBounds();
       chrome::ShowConfirmBubble(rvh->GetView()->GetNativeView(),

@@ -7,6 +7,8 @@ package org.chromium.android_webview;
 import android.graphics.Bitmap;
 import android.net.http.SslCertificate;
 import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
@@ -18,6 +20,7 @@ import org.chromium.base.JNINamespace;
 import org.chromium.base.ThreadUtils;
 import org.chromium.chrome.browser.component.navigation_interception.InterceptNavigationDelegate;
 import org.chromium.content.browser.ContentViewCore;
+import org.chromium.content.browser.LoadUrlParams;
 import org.chromium.content.browser.NavigationHistory;
 import org.chromium.content.common.CleanupReference;
 import org.chromium.net.X509Util;
@@ -45,13 +48,15 @@ public class AwContents {
 
     private static final String WEB_ARCHIVE_EXTENSION = ".mht";
 
+
     private int mNativeAwContents;
     private ContentViewCore mContentViewCore;
     private AwContentsClient mContentsClient;
     private AwContentsIoThreadClient mIoThreadClient;
-    private InterceptNavigationDelegate mInterceptNavigationDelegate;
+    private InterceptNavigationDelegateImpl mInterceptNavigationDelegate;
     // This can be accessed on any thread after construction. See AwContentsIoThreadClient.
     private final AwSettings mSettings;
+    private final IoThreadClientHandler mIoThreadClientHandler;
 
     private static final class DestroyRunnable implements Runnable {
         private int mNativeAwContents;
@@ -66,11 +71,48 @@ public class AwContents {
 
     private CleanupReference mCleanupReference;
 
+    private class IoThreadClientHandler extends Handler {
+        public static final int MSG_SHOULD_INTERCEPT_REQUEST = 1;
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch(msg.what) {
+                case MSG_SHOULD_INTERCEPT_REQUEST:
+                    final String url = (String)msg.obj;
+                    AwContents.this.mContentsClient.onLoadResource(url);
+                    break;
+                default:
+                    throw new IllegalStateException(
+                            "IoThreadClientHandler: unhandled message " + msg.what);
+            }
+        }
+    }
+
     private class IoThreadClientImpl implements AwContentsIoThreadClient {
         // Called on the IO thread.
         @Override
-        public InterceptedRequestData shouldInterceptRequest(String url) {
-            return AwContents.this.mContentsClient.shouldInterceptRequest(url);
+        public InterceptedRequestData shouldInterceptRequest(final String url) {
+            InterceptedRequestData interceptedRequestData =
+                AwContents.this.mContentsClient.shouldInterceptRequest(url);
+            if (interceptedRequestData == null) {
+                mIoThreadClientHandler.sendMessage(
+                        mIoThreadClientHandler.obtainMessage(
+                            IoThreadClientHandler.MSG_SHOULD_INTERCEPT_REQUEST,
+                            url));
+            }
+            return interceptedRequestData;
+        }
+
+        // Called on the IO thread.
+        @Override
+        public boolean shouldBlockContentUrls() {
+            return !AwContents.this.mSettings.getAllowContentAccess();
+        }
+
+        // Called on the IO thread.
+        @Override
+        public boolean shouldBlockFileUrls() {
+            return !AwContents.this.mSettings.getAllowFileAccess();
         }
 
         // Called on the IO thread.
@@ -81,8 +123,22 @@ public class AwContents {
     }
 
     private class InterceptNavigationDelegateImpl implements InterceptNavigationDelegate {
+        private String mLastLoadUrlAddress;
+
+        public void onUrlLoadRequested(String url) {
+            mLastLoadUrlAddress = url;
+        }
+
         @Override
         public boolean shouldIgnoreNavigation(String url, boolean isUserGestrue) {
+            // If the embedder requested the load of a certain URL then querying whether to
+            // override it is pointless.
+            if (mLastLoadUrlAddress != null && mLastLoadUrlAddress.equals(url)) {
+                // Support the case where the user clicks on a link that takes them back to the
+                // same page.
+                mLastLoadUrlAddress = null;
+                return false;
+            }
             return AwContents.this.mContentsClient.shouldIgnoreNavigation(url);
         }
     }
@@ -105,6 +161,7 @@ public class AwContents {
         mContentViewCore = contentViewCore;
         mContentsClient = contentsClient;
         mCleanupReference = new CleanupReference(this, new DestroyRunnable(mNativeAwContents));
+        mIoThreadClientHandler = new IoThreadClientHandler();
 
         mContentViewCore.initialize(containerView, internalAccessAdapter,
                 nativeGetWebContents(mNativeAwContents), nativeWindow,
@@ -131,7 +188,7 @@ public class AwContents {
         nativeSetIoThreadClient(mNativeAwContents, mIoThreadClient);
     }
 
-    public void setInterceptNavigationDelegate(InterceptNavigationDelegate delegate) {
+    private void setInterceptNavigationDelegate(InterceptNavigationDelegateImpl delegate) {
         mInterceptNavigationDelegate = delegate;
         nativeSetInterceptNavigationDelegate(mNativeAwContents, delegate);
     }
@@ -171,6 +228,30 @@ public class AwContents {
     public Bitmap getFavicon() {
         // To be implemented.
         return null;
+    }
+
+    /**
+     * Load url without fixing up the url string. Consumers of ContentView are responsible for
+     * ensuring the URL passed in is properly formatted (i.e. the scheme has been added if left
+     * off during user input).
+     *
+     * @param pararms Parameters for this load.
+     */
+    public void loadUrl(LoadUrlParams params) {
+        if (params.getLoadUrlType() == LoadUrlParams.LOAD_TYPE_DATA &&
+            !params.isBaseUrlDataScheme()) {
+            // This allows data URLs with a non-data base URL access to file:///android_asset/ and
+            // file:///android_res/ URLs. If AwSettings.getAllowFileAccess permits, it will also
+            // allow access to file:// URLs (subject to OS level permission checks).
+            params.setCanLoadLocalResources(true);
+        }
+        mContentViewCore.loadUrl(params);
+
+        if (mInterceptNavigationDelegate != null) {
+            // getUrl returns a sanitized address in the same format that will be used for
+            // callbacks, so it's safe to use string comparison as an equality check later on.
+            mInterceptNavigationDelegate.onUrlLoadRequested(mContentViewCore.getUrl());
+        }
     }
 
     //--------------------------------------------------------------------------------------------

@@ -89,13 +89,11 @@ bool WebIntentInlineDispositionDelegate::OnMessageReceived(
   IPC_END_MESSAGE_MAP()
   return handled;
 }
+
 void WebIntentInlineDispositionDelegate::RenderViewCreated(
     content::RenderViewHost* render_view_host) {
-  DCHECK(render_view_host);
-  render_view_host->EnableAutoResize(
-      picker_->GetMinInlineDispositionSize(),
-      picker_->GetMaxInlineDispositionSize());
   render_view_host_ = render_view_host;
+  SetRenderViewSizeLimits();
 }
 
 void WebIntentInlineDispositionDelegate::DocumentAvailableInMainFrame() {
@@ -129,4 +127,10 @@ void WebIntentInlineDispositionDelegate::HandleKeyboardEvent(
       content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) {
   picker_->OnInlineDispositionHandleKeyboardEvent(event);
+}
+
+void WebIntentInlineDispositionDelegate::SetRenderViewSizeLimits() {
+  render_view_host_->EnableAutoResize(
+      picker_->GetMinInlineDispositionSize(),
+      picker_->GetMaxInlineDispositionSize());
 }

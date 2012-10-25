@@ -8,7 +8,7 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "net/base/completion_callback.h"
-#include "webkit/blob/blob_export.h"
+#include "webkit/storage/webkit_storage_export.h"
 
 namespace net {
 class IOBuffer;
@@ -17,7 +17,7 @@ class IOBuffer;
 namespace webkit_blob {
 
 // A generic interface for reading a file-like object.
-class BLOB_EXPORT FileStreamReader {
+class WEBKIT_STORAGE_EXPORT FileStreamReader {
  public:
   // It is valid to delete the reader at any time.  If the stream is deleted
   // while it has a pending read, its callback will not be called.
@@ -38,6 +38,14 @@ class BLOB_EXPORT FileStreamReader {
   // |callback| will not be called.
   virtual int Read(net::IOBuffer* buf, int buf_len,
                    const net::CompletionCallback& callback) = 0;
+
+  // Returns the length of the file if it could successfully retrieve the
+  // file info *and* its last modification time equals to
+  // expected_modification_time_ (rv >= 0 cases).
+  // Otherwise, a negative error code is returned (rv < 0 cases).
+  // If the stream is deleted while it has an in-flight GetLength operation
+  // |callback| will not be called.
+  virtual int GetLength(const net::Int64CompletionCallback& callback) = 0;
 };
 
 }  // namespace webkit_blob

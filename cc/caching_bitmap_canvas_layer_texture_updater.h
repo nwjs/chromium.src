@@ -6,29 +6,29 @@
 #define CACHING_BITMAP_CANVAS_LAYER_TEXTURE_UPDATER_H_
 
 #include "base/compiler_specific.h"
-#include "BitmapCanvasLayerTextureUpdater.h"
+#include "cc/bitmap_canvas_layer_texture_updater.h"
 
 namespace cc {
 
 class CachingBitmapCanvasLayerTextureUpdater
     : public BitmapCanvasLayerTextureUpdater {
  public:
-  // Use lower-case on name to stay consistent with base-class.
-  static PassRefPtr<CachingBitmapCanvasLayerTextureUpdater> create(
-      PassOwnPtr<LayerPainterChromium>);
+  static scoped_refptr<CachingBitmapCanvasLayerTextureUpdater> Create(
+      scoped_ptr<LayerPainter>);
 
   virtual void prepareToUpdate(const IntRect& content_rect,
                                const IntSize& tile_size,
                                float contents_width_scale,
                                float contents_height_scale,
                                IntRect& resulting_opaque_rect,
-                               CCRenderingStats&) OVERRIDE;
+                               RenderingStats&) OVERRIDE;
 
   bool pixelsDidChange() const;
 
  private:
   explicit CachingBitmapCanvasLayerTextureUpdater(
-      PassOwnPtr<LayerPainterChromium> painter);
+      scoped_ptr<LayerPainter> painter);
+  virtual ~CachingBitmapCanvasLayerTextureUpdater();
 
   bool pixels_did_change_;
   SkBitmap cached_bitmap_;

@@ -42,6 +42,16 @@ class ProxyDecryptor : public media::Decryptor {
     decryptor_ = decryptor.Pass();
   }
 
+  // Callback to notify that the decryptor has been created.
+  typedef base::Callback<void(Decryptor*)> DecryptorNotificationCB;
+
+  // Requests the ProxyDecryptor to notify the decryptor creation through the
+  // |decryptor_notification_cb| provided.
+  // If |decryptor_notification_cb| is null, the ProxyDecryptor should cancel
+  // the existing request and fire it with NULL immediately.
+  void RequestDecryptorNotification(
+      const DecryptorNotificationCB& decryptor_notification_cb);
+
   // media::Decryptor implementation.
   virtual bool GenerateKeyRequest(const std::string& key_system,
                                   const uint8* init_data,
@@ -54,16 +64,26 @@ class ProxyDecryptor : public media::Decryptor {
                       const std::string& session_id) OVERRIDE;
   virtual void CancelKeyRequest(const std::string& key_system,
                                 const std::string& session_id) OVERRIDE;
-  virtual void Decrypt(const scoped_refptr<media::DecoderBuffer>& encrypted,
+  virtual void Decrypt(StreamType stream_type,
+                       const scoped_refptr<media::DecoderBuffer>& encrypted,
                        const DecryptCB& decrypt_cb) OVERRIDE;
-  virtual void CancelDecrypt() OVERRIDE;
-  virtual void InitializeVideoDecoder(const media::VideoDecoderConfig& config,
-                                      const DecoderInitCB& init_cb) OVERRIDE;
+  virtual void CancelDecrypt(StreamType stream_type) OVERRIDE;
+  virtual void InitializeAudioDecoder(
+      scoped_ptr<media::AudioDecoderConfig> config,
+      const DecoderInitCB& init_cb,
+      const KeyAddedCB& key_added_cb) OVERRIDE;
+  virtual void InitializeVideoDecoder(
+      scoped_ptr<media::VideoDecoderConfig> config,
+      const DecoderInitCB& init_cb,
+      const KeyAddedCB& key_added_cb) OVERRIDE;
+  virtual void DecryptAndDecodeAudio(
+      const scoped_refptr<media::DecoderBuffer>& encrypted,
+      const AudioDecodeCB& audio_decode_cb) OVERRIDE;
   virtual void DecryptAndDecodeVideo(
       const scoped_refptr<media::DecoderBuffer>& encrypted,
       const VideoDecodeCB& video_decode_cb) OVERRIDE;
-  virtual void CancelDecryptAndDecodeVideo() OVERRIDE;
-  virtual void StopVideoDecoder() OVERRIDE;
+  virtual void ResetDecoder(StreamType stream_type) OVERRIDE;
+  virtual void DeinitializeDecoder(StreamType stream_type) OVERRIDE;
 
  private:
   // Helper functions to create decryptors to handle the given |key_system|.
@@ -95,6 +115,8 @@ class ProxyDecryptor : public media::Decryptor {
   // Protects the |decryptor_|. Note that |decryptor_| itself should be thread
   // safe as per the Decryptor interface.
   base::Lock lock_;
+
+  DecryptorNotificationCB decryptor_notification_cb_;
 
   // The real decryptor that does decryption for the ProxyDecryptor.
   // This pointer is protected by the |lock_|.

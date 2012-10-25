@@ -5,9 +5,13 @@
 #ifndef ASH_SYSTEM_TRAY_TRAY_BUBBLE_VIEW_H_
 #define ASH_SYSTEM_TRAY_TRAY_BUBBLE_VIEW_H_
 
-#include "ash/wm/shelf_types.h"
-#include "ui/aura/event_filter.h"
+#include "ash/ash_export.h"
 #include "ui/views/bubble/bubble_delegate.h"
+
+// Specialized bubble view for bubbles associated with a tray icon (e.g. the
+// Ash status area). Mostly this handles custom anchor location and arrow and
+// border rendering. This also has its own delegate for handling mouse events
+// and other implementation specific details.
 
 namespace ui {
 class LocatedEvent;
@@ -18,83 +22,91 @@ class View;
 class Widget;
 }
 
-namespace ash {
-namespace internal {
+// TODO(stevenjb): Move this out of message_center namespace once in views.
+namespace message_center {
 
+namespace internal {
 class TrayBubbleBorder;
 class TrayBubbleBackground;
+}
 
-// Specialized bubble view for status area tray bubbles.
-// Mostly this handles custom anchor location and arrow and border rendering.
-class TrayBubbleView : public views::BubbleDelegateView {
+class ASH_EXPORT TrayBubbleView : public views::BubbleDelegateView {
  public:
   enum AnchorType {
     ANCHOR_TYPE_TRAY,
     ANCHOR_TYPE_BUBBLE
   };
 
-  class Host : public aura::EventFilter {
+  enum AnchorAlignment {
+    ANCHOR_ALIGNMENT_BOTTOM,
+    ANCHOR_ALIGNMENT_LEFT,
+    ANCHOR_ALIGNMENT_RIGHT
+  };
+
+  class ASH_EXPORT Delegate {
    public:
-    Host();
-    virtual ~Host();
+    typedef TrayBubbleView::AnchorType AnchorType;
+    typedef TrayBubbleView::AnchorAlignment AnchorAlignment;
 
-    // Set widget_ and tray_view_, set up animations, and show the bubble.
-    // Must occur after bubble_view->CreateBubble() is called.
-    void InitializeAndShowBubble(views::Widget* widget,
-                                 TrayBubbleView* bubble_view,
-                                 views::View* tray_view);
+    Delegate() {}
+    virtual ~Delegate() {}
 
+    // Called when the view is destroyed. Any pointers to the view should be
+    // cleared when this gets called.
     virtual void BubbleViewDestroyed() = 0;
+
+    // Called when the mouse enters/exits the view.
     virtual void OnMouseEnteredView() = 0;
     virtual void OnMouseExitedView() = 0;
-    virtual void OnClickedOutsideView() = 0;
-    virtual string16 GetAccessibleName() = 0;
 
-    // Overridden from aura::EventFilter.
-    virtual bool PreHandleKeyEvent(aura::Window* target,
-                                   ui::KeyEvent* event) OVERRIDE;
-    virtual bool PreHandleMouseEvent(aura::Window* target,
-                                     ui::MouseEvent* event) OVERRIDE;
-    virtual ui::TouchStatus PreHandleTouchEvent(
-        aura::Window* target,
-        ui::TouchEvent* event) OVERRIDE;
-    virtual ui::EventResult PreHandleGestureEvent(
-        aura::Window* target,
-        ui::GestureEvent* event) OVERRIDE;
+    // Called from GetAccessibleState(); should return the appropriate
+    // accessible name for the bubble.
+    virtual string16 GetAccessibleNameForBubble() = 0;
+
+    // Passes responsibility for BubbleDelegateView::GetAnchorRect to the
+    // delegate.
+    virtual gfx::Rect GetAnchorRect(views::Widget* anchor_widget,
+                                    AnchorType anchor_type,
+                                    AnchorAlignment anchor_alignment) = 0;
+
+    // Called when a bubble wants to hide/destroy itself (e.g. last visible
+    // child view was closed).
+    virtual void HideBubble(const TrayBubbleView* bubble_view) = 0;
 
    private:
-    void ProcessLocatedEvent(aura::Window* target,
-                             const ui::LocatedEvent& event);
-
-    views::Widget* widget_;
-    TrayBubbleView* bubble_view_;
-    views::View* tray_view_;
-
-    DISALLOW_COPY_AND_ASSIGN(Host);
+    DISALLOW_COPY_AND_ASSIGN(Delegate);
   };
 
   struct InitParams {
     static const int kArrowDefaultOffset;
 
     InitParams(AnchorType anchor_type,
-               ShelfAlignment shelf_alignment);
+               AnchorAlignment anchor_alignment,
+               int bubble_width);
     AnchorType anchor_type;
-    ShelfAlignment shelf_alignment;
+    AnchorAlignment anchor_alignment;
     int bubble_width;
     int max_height;
     bool can_activate;
     bool close_on_deactivate;
     SkColor top_color;
     SkColor arrow_color;
+    views::BubbleBorder::ArrowLocation arrow_location;
     int arrow_offset;
     views::BubbleBorder::Shadow shadow;
   };
 
-  static TrayBubbleView* Create(views::View* anchor,
-                                Host* host,
-                                const InitParams& init_params);
+  // Constructs and returns a TrayBubbleView. init_params may be modified.
+  static TrayBubbleView* Create(aura::Window* parent_window,
+                                views::View* anchor,
+                                Delegate* delegate,
+                                InitParams* init_params);
 
   virtual ~TrayBubbleView();
+
+  // Sets up animations, and show the bubble. Must occur after CreateBubble()
+  // is called.
+  void InitializeAndShowBubble();
 
   // Called whenever the bubble size or location may have changed.
   void UpdateBubble();
@@ -102,13 +114,16 @@ class TrayBubbleView : public views::BubbleDelegateView {
   // Sets the maximum bubble height and resizes the bubble.
   void SetMaxHeight(int height);
 
-  // Called when the host is destroyed.
-  void reset_host() { host_ = NULL; }
+  // Returns the border insets. Called by TrayEventFilter.
+  void GetBorderInsets(gfx::Insets* insets) const;
+
+  // Called when the delegate is destroyed.
+  void reset_delegate() { delegate_ = NULL; }
+
+  Delegate* delegate() { return delegate_; }
 
   void set_gesture_dragging(bool dragging) { is_gesture_dragging_ = dragging; }
   bool is_gesture_dragging() const { return is_gesture_dragging_; }
-
-  TrayBubbleBorder* bubble_border() { return bubble_border_; }
 
   // Overridden from views::WidgetDelegate.
   virtual bool CanActivate() const OVERRIDE;
@@ -127,10 +142,10 @@ class TrayBubbleView : public views::BubbleDelegateView {
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
 
  protected:
-  TrayBubbleView(const InitParams& init_params,
-                 views::BubbleBorder::ArrowLocation arrow_location,
+  TrayBubbleView(aura::Window* parent_window,
                  views::View* anchor,
-                 Host* host);
+                 Delegate* delegate,
+                 const InitParams& init_params);
 
   // Overridden from views::BubbleDelegateView.
   virtual void Init() OVERRIDE;
@@ -143,15 +158,14 @@ class TrayBubbleView : public views::BubbleDelegateView {
 
  private:
   InitParams params_;
-  Host* host_;
-  TrayBubbleBorder* bubble_border_;
-  TrayBubbleBackground* bubble_background_;
+  Delegate* delegate_;
+  internal::TrayBubbleBorder* bubble_border_;
+  internal::TrayBubbleBackground* bubble_background_;
   bool is_gesture_dragging_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayBubbleView);
 };
 
-}  // namespace internal
-}  // namespace ash
+}  // namespace message_center
 
 #endif  // ASH_SYSTEM_TRAY_TRAY_BUBBLE_VIEW_H_

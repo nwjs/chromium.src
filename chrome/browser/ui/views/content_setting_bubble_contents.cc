@@ -46,7 +46,7 @@ using content::WebContents;
 
 class ContentSettingBubbleContents::Favicon : public views::ImageView {
  public:
-  Favicon(const SkBitmap& image,
+  Favicon(const gfx::Image& image,
           ContentSettingBubbleContents* parent,
           views::Link* link);
   virtual ~Favicon();
@@ -62,12 +62,12 @@ class ContentSettingBubbleContents::Favicon : public views::ImageView {
 };
 
 ContentSettingBubbleContents::Favicon::Favicon(
-    const SkBitmap& image,
+    const gfx::Image& image,
     ContentSettingBubbleContents* parent,
     views::Link* link)
     : parent_(parent),
       link_(link) {
-  SetImage(image);
+  SetImage(image.AsImageSkia());
 }
 
 ContentSettingBubbleContents::Favicon::~Favicon() {
@@ -187,7 +187,7 @@ void ContentSettingBubbleContents::Init() {
       link->set_listener(this);
       link->SetElideBehavior(views::Label::ELIDE_IN_MIDDLE);
       popup_links_[link] = i - bubble_content.popup_items.begin();
-      layout->AddView(new Favicon(i->bitmap, this, link));
+      layout->AddView(new Favicon(i->image, this, link));
       layout->AddView(link);
       bubble_content_empty = false;
     }
@@ -322,7 +322,7 @@ void ContentSettingBubbleContents::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  DCHECK(type == content::NOTIFICATION_WEB_CONTENTS_DESTROYED);
+  DCHECK_EQ(content::NOTIFICATION_WEB_CONTENTS_DESTROYED, type);
   DCHECK(source == content::Source<WebContents>(web_contents_));
   web_contents_ = NULL;
 }

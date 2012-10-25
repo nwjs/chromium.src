@@ -22,34 +22,34 @@
 TabModalConfirmDialog* TabModalConfirmDialog::Create(
     TabModalConfirmDialogDelegate* delegate,
     TabContents* tab_contents) {
-  return new TabModalConfirmDialogViews(delegate, tab_contents);
+  return new TabModalConfirmDialogViews(
+      delegate,
+      tab_contents,
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableFramelessConstrainedDialogs));
 }
 
 namespace {
-const int kChromeStyleUniformInset = 0;
-const int kChromeStyleInterRowVerticalSpacing = 20;
 
-const int kChromeStyleButtonVEdgeMargin = 0;
-const int kChromeStyleButtonHEdgeMargin = 0;
-const int kChromeStyleDialogButtonLabelSpacing = 24;
+const int kChromeStyleInterRowVerticalSpacing = 17;
 
 views::MessageBoxView::InitParams CreateMessageBoxViewInitParams(
-    const string16& message)
-{
+    const string16& message,
+    bool enable_chrome_style) {
   views::MessageBoxView::InitParams params(message);
 
-  CommandLine* command_line = CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kEnableFramelessConstrainedDialogs)) {
-    params.top_inset = kChromeStyleUniformInset;
-    params.bottom_inset = kChromeStyleUniformInset;
-    params.left_inset = kChromeStyleUniformInset;
-    params.right_inset = kChromeStyleUniformInset;
+  if (enable_chrome_style) {
+    params.top_inset = 0;
+    params.bottom_inset = 0;
+    params.left_inset = 0;
+    params.right_inset = 0;
 
     params.inter_row_vertical_spacing = kChromeStyleInterRowVerticalSpacing;
   }
 
   return params;
 }
+
 }  // namespace
 
 //////////////////////////////////////////////////////////////////////////////
@@ -57,12 +57,16 @@ views::MessageBoxView::InitParams CreateMessageBoxViewInitParams(
 
 TabModalConfirmDialogViews::TabModalConfirmDialogViews(
     TabModalConfirmDialogDelegate* delegate,
-    TabContents* tab_contents)
+    TabContents* tab_contents,
+    bool enable_chrome_style)
     : delegate_(delegate),
       message_box_view_(new views::MessageBoxView(
-          CreateMessageBoxViewInitParams(delegate->GetMessage()))) {
-  delegate_->set_window(new ConstrainedWindowViews(tab_contents->web_contents(),
-                        this));
+          CreateMessageBoxViewInitParams(delegate->GetMessage(),
+                                         enable_chrome_style))),
+      enable_chrome_style_(enable_chrome_style) {
+  delegate_->set_window(new ConstrainedWindowViews(
+      tab_contents->web_contents(), this, enable_chrome_style,
+      ConstrainedWindowViews::DEFAULT_INSETS));
 }
 
 TabModalConfirmDialogViews::~TabModalConfirmDialogViews() {
@@ -92,6 +96,10 @@ string16 TabModalConfirmDialogViews::GetDialogButtonLabel(
   return string16();
 }
 
+bool TabModalConfirmDialogViews::UseChromeStyle() const {
+  return enable_chrome_style_;
+}
+
 bool TabModalConfirmDialogViews::Cancel() {
   delegate_->Cancel();
   return true;
@@ -100,23 +108,6 @@ bool TabModalConfirmDialogViews::Cancel() {
 bool TabModalConfirmDialogViews::Accept() {
   delegate_->Accept();
   return true;
-}
-
-views::ClientView* TabModalConfirmDialogViews::CreateClientView(
-    views::Widget* widget) {
-  CommandLine* command_line = CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kEnableFramelessConstrainedDialogs)) {
-    views::DialogClientView::StyleParams params;
-    params.button_vedge_margin = kChromeStyleButtonVEdgeMargin;
-    params.button_hedge_margin = kChromeStyleButtonHEdgeMargin;
-    params.button_label_spacing = kChromeStyleDialogButtonLabelSpacing;
-    params.text_button_factory =
-        &views::DialogClientView::CreateChromeStyleDialogButton;
-
-    return new views::DialogClientView(widget, GetContentsView(), params);
-  }
-
-  return DialogDelegate::CreateClientView(widget);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

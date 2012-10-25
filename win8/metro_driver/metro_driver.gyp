@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 {
   'conditions': [
-    ['OS=="win" and (MSVS_VERSION=="2010" or MSVS_VERSION=="2010e")', {
+    ['OS=="win"', {
       'variables': {
         'chromium_code': 1,
       },
@@ -11,11 +11,6 @@
         '../../build/win_precompile.gypi',
       ],
       'target_defaults': {
-        'defines': [
-          # This define is required to pull in the new Win8 interfaces from
-          # system headers like ShObjIdl.h
-          'NTDDI_VERSION=0x06020000',
-        ],
         'msvs_settings': {
             'VCLinkerTool': {
                 'AdditionalDependencies': [

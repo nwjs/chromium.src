@@ -61,7 +61,6 @@
 #define IPC_MESSAGE_START ViewMsgStart
 
 IPC_ENUM_TRAITS(AccessibilityMode)
-IPC_ENUM_TRAITS(ChannelLayout)
 IPC_ENUM_TRAITS(CSSColors::CSSColorName)
 IPC_ENUM_TRAITS(NavigationGesture)
 IPC_ENUM_TRAITS(ViewMsg_Navigate_Type::Value)
@@ -78,6 +77,7 @@ IPC_ENUM_TRAITS(content::PageZoom)
 IPC_ENUM_TRAITS(content::RendererPreferencesHintingEnum)
 IPC_ENUM_TRAITS(content::RendererPreferencesSubpixelRenderingEnum)
 IPC_ENUM_TRAITS(content::StopFindAction)
+IPC_ENUM_TRAITS(media::ChannelLayout)
 IPC_ENUM_TRAITS(media::MediaLogEvent::Type)
 IPC_ENUM_TRAITS(ui::TextInputType)
 
@@ -764,6 +764,10 @@ IPC_STRUCT_BEGIN(ViewMsg_Navigate_Params)
   // If is_post is true, holds the post_data information from browser. Empty
   // otherwise.
   IPC_STRUCT_MEMBER(std::vector<unsigned char>, browser_initiated_post_data)
+
+  // Whether or not this url should be allowed to access local file://
+  // resources.
+  IPC_STRUCT_MEMBER(bool, can_load_local_resources)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewMsg_New_Params)
@@ -860,7 +864,7 @@ IPC_SYNC_MESSAGE_CONTROL0_1(ViewHostMsg_GetHardwareSampleRate,
 
 // Asks the browser for the default channel layout.
 IPC_SYNC_MESSAGE_CONTROL0_1(ViewHostMsg_GetHardwareInputChannelLayout,
-                            ChannelLayout /* channel layout */)
+                            media::ChannelLayout /* channel layout */)
 
 // Asks the browser for CPU usage of the renderer process in percents.
 IPC_SYNC_MESSAGE_CONTROL0_1(ViewHostMsg_GetCPUUsage,
@@ -890,6 +894,9 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SetRendererPrefs,
 // This passes a set of webkit preferences down to the renderer.
 IPC_MESSAGE_ROUTED1(ViewMsg_UpdateWebPreferences,
                     webkit_glue::WebPreferences)
+
+// Informs the renderer that the timezone has changed.
+IPC_MESSAGE_ROUTED0(ViewMsg_TimezoneChange)
 
 // Tells the render view to close.
 IPC_MESSAGE_ROUTED0(ViewMsg_Close)
@@ -1428,6 +1435,9 @@ IPC_MESSAGE_ROUTED2(ViewMsg_SelectPopupMenuItems,
 // ViewMsg_ScrollFocusedEditableNodeIntoView was called.
 IPC_MESSAGE_ROUTED0(ViewMsg_UndoScrollFocusedEditableNodeIntoView)
 
+// Message sent when the renderer changed the background color for the view.
+IPC_MESSAGE_ROUTED1(ViewHostMsg_DidChangeBodyBackgroundColor,
+                    uint32  /* bg_color */)
 #elif defined(OS_MACOSX)
 // Let the RenderView know its window has changed visibility.
 IPC_MESSAGE_ROUTED1(ViewMsg_SetWindowVisibility,
@@ -1452,6 +1462,11 @@ IPC_MESSAGE_ROUTED2(ViewMsg_PluginImeCompositionCompleted,
 IPC_MESSAGE_ROUTED1(ViewMsg_SelectPopupMenuItem,
                     int /* selected index, -1 means no selection */)
 #endif
+
+// An acknowledge to ViewHostMsg_MultipleTargetsTouched to notify the renderer
+// process to release the magnified image.
+IPC_MESSAGE_ROUTED1(ViewMsg_ReleaseDisambiguationPopupDIB,
+                    TransportDIB::Handle /* DIB handle */)
 
 // -----------------------------------------------------------------------------
 // Messages sent from the renderer to the browser.
@@ -1694,8 +1709,9 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_DidRunInsecureContent,
                     GURL         /* target URL */)
 
 // Sent when the renderer starts a provisional load for a frame.
-IPC_MESSAGE_ROUTED4(ViewHostMsg_DidStartProvisionalLoadForFrame,
+IPC_MESSAGE_ROUTED5(ViewHostMsg_DidStartProvisionalLoadForFrame,
                     int64 /* frame_id */,
+                    int64 /* parent_frame_id */,
                     bool /* true if it is the main frame */,
                     GURL /* opener url if present, else empty */,
                     GURL /* url */)
@@ -1742,12 +1758,16 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_HandleInputEvent_ACK,
                     WebKit::WebInputEvent::Type,
                     bool /* processed */)
 
-IPC_MESSAGE_ROUTED5(ViewHostMsg_BeginSmoothScroll,
+IPC_STRUCT_BEGIN(ViewHostMsg_BeginSmoothScroll_Params)
+  IPC_STRUCT_MEMBER(bool, scroll_down)
+  IPC_STRUCT_MEMBER(int, pixels_to_scroll)
+  IPC_STRUCT_MEMBER(int, mouse_event_x)
+  IPC_STRUCT_MEMBER(int, mouse_event_y)
+IPC_STRUCT_END()
+
+IPC_MESSAGE_ROUTED2(ViewHostMsg_BeginSmoothScroll,
                     int /* gesture_id */,
-                    bool /* scroll_down */,
-                    bool /* scroll_far */,
-                    int /* mouse_event_x */,
-                    int /* mouse_event_y */)
+                    ViewHostMsg_BeginSmoothScroll_Params /* params */)
 
 IPC_MESSAGE_ROUTED0(ViewHostMsg_Focus)
 IPC_MESSAGE_ROUTED0(ViewHostMsg_Blur)
@@ -2416,3 +2436,10 @@ IPC_MESSAGE_ROUTED3(ViewHostMsg_FindMatchRects_Reply,
 IPC_MESSAGE_ROUTED1(ViewHostMsg_StartContentIntent,
                     GURL /* content_url */)
 #endif
+
+// Notifies that multiple touch targets may have been pressed, and to show
+// the disambiguation popup.
+IPC_MESSAGE_ROUTED3(ViewHostMsg_ShowDisambiguationPopup,
+                    gfx::Rect, /* Border of touched targets */
+                    gfx::Size, /* Size of zoomed image */
+                    TransportDIB::Id /* DIB of zoomed image */)

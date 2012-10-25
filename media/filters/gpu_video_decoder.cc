@@ -151,8 +151,9 @@ void GpuVideoDecoder::Initialize(const scoped_refptr<DemuxerStream>& stream,
   }
 
   // Only non-Windows, Ivy Bridge+ platforms can support more than 1920x1080.
+  // We test against 1088 to account for 16x16 macroblocks.
   if (config.coded_size().width() > 1920 ||
-      config.coded_size().height() > 1080) {
+      config.coded_size().height() > 1088) {
     base::CPU cpu;
     bool hw_large_video_support =
         cpu.vendor_name() == "GenuineIntel" && cpu.model() >= 58;
@@ -193,6 +194,15 @@ void GpuVideoDecoder::SetVDA(VideoDecodeAccelerator* vda) {
   weak_vda_ = vda->AsWeakPtr();
 }
 
+void GpuVideoDecoder::DestroyTextures() {
+  for (std::map<int32, PictureBuffer>::iterator it =
+          picture_buffers_in_decoder_.begin();
+          it != picture_buffers_in_decoder_.end(); ++it) {
+    factories_->DeleteTexture(it->second.texture_id());
+  }
+  picture_buffers_in_decoder_.clear();
+}
+
 void GpuVideoDecoder::DestroyVDA() {
   DCHECK(gvd_loop_proxy_->BelongsToCurrentThread());
   VideoDecodeAccelerator* vda ALLOW_UNUSED = vda_.release();
@@ -204,6 +214,11 @@ void GpuVideoDecoder::DestroyVDA() {
       FROM_HERE,
       base::Bind(&VideoDecodeAccelerator::Destroy, weak_vda_),
       base::Bind(&GpuVideoDecoder::Release, this));
+
+// TODO(posciak): enable for all.
+#ifdef OS_CHROMEOS
+  DestroyTextures();
+#endif
 }
 
 void GpuVideoDecoder::Read(const ReadCB& read_cb) {
@@ -527,6 +542,11 @@ GpuVideoDecoder::~GpuVideoDecoder() {
     it->second.shm_buffer->shm->Close();
   }
   bitstream_buffers_in_decoder_.clear();
+
+// TODO(posciak): enable for all.
+#ifdef OS_CHROMEOS
+  DestroyTextures();
+#endif
 }
 
 void GpuVideoDecoder::EnsureDemuxOrDecode() {

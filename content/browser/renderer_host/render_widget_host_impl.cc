@@ -28,6 +28,7 @@
 #include "content/browser/renderer_host/render_widget_helper.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/tap_suppression_controller.h"
+#include "content/browser/renderer_host/touch_event_queue.h"
 #include "content/common/accessibility_messages.h"
 #include "content/common/gpu/gpu_messages.h"
 #include "content/common/view_messages.h"
@@ -149,6 +150,7 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(RenderWidgetHostDelegate* delegate,
       has_touch_handler_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
       tick_active_smooth_scroll_gestures_task_posted_(false),
+      touch_event_queue_(new TouchEventQueue(this)),
       gesture_event_filter_(new GestureEventFilter(this)) {
   CHECK(delegate_);
   if (routing_id_ == MSG_ROUTING_NONE) {
@@ -314,6 +316,8 @@ bool RenderWidgetHostImpl::OnMessageReceived(const IPC::Message &msg) {
                         OnMsgDidActivateAcceleratedCompositing)
     IPC_MESSAGE_HANDLER(ViewHostMsg_LockMouse, OnMsgLockMouse)
     IPC_MESSAGE_HANDLER(ViewHostMsg_UnlockMouse, OnMsgUnlockMouse)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_ShowDisambiguationPopup,
+                        OnMsgShowDisambiguationPopup)
 #if defined(OS_POSIX) || defined(USE_AURA)
     IPC_MESSAGE_HANDLER(ViewHostMsg_GetWindowRect, OnMsgGetWindowRect)
     IPC_MESSAGE_HANDLER(ViewHostMsg_GetRootWindowRect, OnMsgGetRootWindowRect)
@@ -511,7 +515,7 @@ void RenderWidgetHostImpl::CopyFromBackingStore(
     const gfx::Rect& src_subrect,
     const gfx::Size& accelerated_dst_size,
     const base::Callback<void(bool)>& callback,
-    skia::PlatformCanvas* output) {
+    skia::PlatformBitmap* output) {
   if (view_ && is_accelerated_compositing_active_) {
     TRACE_EVENT0("browser",
         "RenderWidgetHostImpl::CopyFromBackingStore::FromCompositingSurface");
@@ -940,6 +944,15 @@ void RenderWidgetHostImpl::ForwardGestureEvent(
   ForwardInputEvent(gesture_event, sizeof(WebGestureEvent), false);
 }
 
+void RenderWidgetHostImpl::ForwardTouchEventImmediately(
+    const WebKit::WebTouchEvent& touch_event) {
+  TRACE_EVENT0("renderer_host", "RenderWidgetHostImpl::ForwardTouchEvent");
+  if (ignore_input_events_ || process_->IgnoreInputEvents())
+    return;
+
+  ForwardInputEvent(touch_event, sizeof(WebKit::WebTouchEvent), false);
+}
+
 void RenderWidgetHostImpl::ForwardGestureEventImmediately(
     const WebKit::WebGestureEvent& gesture_event) {
   if (ignore_input_events_ || process_->IgnoreInputEvents())
@@ -1047,12 +1060,7 @@ void RenderWidgetHostImpl::ForwardInputEvent(const WebInputEvent& input_event,
 
 void RenderWidgetHostImpl::ForwardTouchEvent(
     const WebKit::WebTouchEvent& touch_event) {
-  TRACE_EVENT0("renderer_host", "RenderWidgetHostImpl::ForwardTouchEvent");
-  if (ignore_input_events_ || process_->IgnoreInputEvents())
-    return;
-
-  // TODO(sad): Do touch-event coalescing when appropriate.
-  ForwardInputEvent(touch_event, sizeof(WebKit::WebTouchEvent), false);
+  touch_event_queue_->QueueEvent(touch_event);
 }
 
 #if defined(TOOLKIT_GTK)
@@ -1101,6 +1109,13 @@ void RenderWidgetHostImpl::NotifyScreenInfoChanged() {
 }
 
 void RenderWidgetHostImpl::SetDeviceScaleFactor(float scale) {
+#if defined(USE_AURA)
+  // Send secreen info as well because JavaScript API |window.open|
+  // uses screen info to determine the scale factor (crbug.com/155201).
+  // TODO(oshima|thakis): Consolidate SetDeviceScaleFactor and
+  // ScreenInfoChanged. crbug.com/155213.
+  NotifyScreenInfoChanged();
+#endif
   Send(new ViewMsg_SetDeviceScaleFactor(GetRoutingID(), scale));
 }
 
@@ -1125,6 +1140,8 @@ void RenderWidgetHostImpl::RendererExited(base::TerminationStatus status,
   // Must reset these to ensure that SelectRange works with a new renderer.
   select_range_pending_ = false;
   next_selection_range_.reset();
+
+  touch_event_queue_->Reset();
 
   // Must reset these to ensure that gesture events work with a new renderer.
   gesture_event_filter_->Reset();
@@ -1590,7 +1607,7 @@ void RenderWidgetHostImpl::OnMsgInputEventAck(WebInputEvent::Type event_type,
   } else if (type == WebInputEvent::MouseWheel) {
     ProcessWheelAck(processed);
   } else if (WebInputEvent::isTouchEventType(type)) {
-    ProcessTouchAck(event_type, processed);
+    ProcessTouchAck(processed);
   } else if (WebInputEvent::isGestureEventType(type)) {
     ProcessGestureAck(processed, type);
   }
@@ -1615,15 +1632,14 @@ void RenderWidgetHostImpl::OnMsgInputEventAck(WebInputEvent::Type event_type,
 }
 
 void RenderWidgetHostImpl::OnMsgBeginSmoothScroll(
-    int gesture_id, bool scroll_down, bool scroll_far, int mouse_event_x,
-    int mouse_event_y) {
+    int gesture_id, const ViewHostMsg_BeginSmoothScroll_Params &params) {
   if (!view_)
     return;
   active_smooth_scroll_gestures_.insert(
       std::make_pair(gesture_id,
                      view_->CreateSmoothScrollGesture(
-                         scroll_down, scroll_far, mouse_event_x,
-                         mouse_event_y)));
+                         params.scroll_down, params.pixels_to_scroll,
+                         params.mouse_event_x, params.mouse_event_y)));
 
   // If an input ack is pending, then hold off ticking the gesture
   // until we get an input ack.
@@ -1728,10 +1744,8 @@ void RenderWidgetHostImpl::ProcessGestureAck(bool processed, int type) {
   gesture_event_filter_->ProcessGestureAck(processed, type);
 }
 
-void RenderWidgetHostImpl::ProcessTouchAck(
-    WebInputEvent::Type type, bool processed) {
-  if (view_)
-    view_->ProcessTouchAck(type, processed);
+void RenderWidgetHostImpl::ProcessTouchAck(bool processed) {
+  touch_event_queue_->ProcessTouchAck(processed);
 }
 
 void RenderWidgetHostImpl::OnMsgFocus() {
@@ -1747,7 +1761,15 @@ void RenderWidgetHostImpl::OnMsgBlur() {
 }
 
 void RenderWidgetHostImpl::OnMsgHasTouchEventHandlers(bool has_handlers) {
+  if (has_touch_handler_ == has_handlers)
+    return;
   has_touch_handler_ = has_handlers;
+  if (!has_touch_handler_)
+    touch_event_queue_->FlushQueue();
+#if defined(OS_ANDROID)
+  if (view_)
+    view_->HasTouchEventHandlers(has_touch_handler_);
+#endif
 }
 
 void RenderWidgetHostImpl::OnMsgSetCursor(const WebCursor& cursor) {
@@ -1808,6 +1830,19 @@ void RenderWidgetHostImpl::OnMsgLockMouse(bool user_gesture,
 
 void RenderWidgetHostImpl::OnMsgUnlockMouse() {
   RejectMouseLockOrUnlockIfNecessary();
+}
+
+void RenderWidgetHostImpl::OnMsgShowDisambiguationPopup(
+    const gfx::Rect& rect,
+    const gfx::Size& size,
+    const TransportDIB::Id& id) {
+  TransportDIB* dib = process_->GetTransportDIB(id);
+
+  // TODO(trchen): implement the platform-specific disambiguation popup
+  NOTIMPLEMENTED();
+
+  Send(new ViewMsg_ReleaseDisambiguationPopupDIB(GetRoutingID(),
+                                                 dib->handle()));
 }
 
 #if defined(OS_POSIX) || defined(USE_AURA)
@@ -1939,6 +1974,14 @@ void RenderWidgetHostImpl::ActivateDeferredPluginHandles() {
 
 const gfx::Point& RenderWidgetHostImpl::GetLastScrollOffset() const {
   return last_scroll_offset_;
+}
+
+bool RenderWidgetHostImpl::ShouldForwardTouchEvent() const {
+  // Always send a touch event if the renderer has a touch-event handler. It is
+  // possible that a renderer stops listening to touch-events while there are
+  // still events in the touch-queue. In such cases, the new events should still
+  // get into the queue.
+  return has_touch_handler_ || !touch_event_queue_->empty();
 }
 
 void RenderWidgetHostImpl::StartUserGesture() {

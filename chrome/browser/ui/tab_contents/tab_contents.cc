@@ -6,7 +6,6 @@
 
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
-#include "chrome/browser/autofill/autocomplete_history_manager.h"
 #include "chrome/browser/autofill/autofill_external_delegate.h"
 #include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/automation/automation_tab_helper.h"
@@ -113,19 +112,15 @@ TabContents::TabContents(WebContents* contents)
   SessionTabHelper::CreateForWebContents(contents);
 
   AlternateErrorPageTabObserver::CreateForWebContents(contents);
-  AutocompleteHistoryManager::CreateForWebContents(contents);
   TabAutofillManagerDelegate::CreateForWebContents(contents);
   AutofillManager::CreateForWebContentsAndDelegate(
-      contents,
-      TabAutofillManagerDelegate::FromWebContents(contents));
+      contents, TabAutofillManagerDelegate::FromWebContents(contents));
   if (CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kExternalAutofillPopup)) {
-    autofill_external_delegate_.reset(AutofillExternalDelegate::Create(
-        this, AutofillManager::FromWebContents(contents)));
+    AutofillExternalDelegate::CreateForWebContentsAndManager(
+        contents, AutofillManager::FromWebContents(contents));
     AutofillManager::FromWebContents(contents)->SetExternalDelegate(
-        autofill_external_delegate_.get());
-    AutocompleteHistoryManager::FromWebContents(contents)->SetExternalDelegate(
-        autofill_external_delegate_.get());
+        AutofillExternalDelegate::FromWebContents(contents));
   }
   BlockedContentTabHelper::CreateForWebContents(contents);
   BookmarkTabHelper::CreateForWebContents(contents);
@@ -139,7 +134,7 @@ TabContents::TabContents(WebContents* contents)
   FindTabHelper::CreateForWebContents(contents);
   HistoryTabHelper::CreateForWebContents(contents);
   HungPluginTabHelper::CreateForWebContents(contents);
-  infobar_tab_helper_.reset(new InfoBarTabHelper(contents));
+  InfoBarTabHelper::CreateForWebContents(contents);
   MetroPinTabHelper::CreateForWebContents(contents);
   NavigationMetricsRecorder::CreateForWebContents(contents);
   PasswordManagerDelegateImpl::CreateForWebContents(contents);
@@ -194,15 +189,6 @@ TabContents::TabContents(WebContents* contents)
 
 TabContents::~TabContents() {
   in_destructor_ = true;
-
-  content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
-      content::Source<TabContents>(this),
-      content::NotificationService::NoDetails());
-
-  // Need to tear down infobars before the WebContents goes away.
-  // TODO(avi): Can we get this handled by the tab helper itself?
-  infobar_tab_helper_.reset();
 }
 
 TabContents* TabContents::Clone() {

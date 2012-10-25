@@ -22,6 +22,7 @@
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/insets.h"
+#include "ui/gfx/shadow_value.h"
 #include "ui/views/background.h"
 
 namespace views {
@@ -272,19 +273,13 @@ void Label::PaintText(gfx::Canvas* canvas,
                       const string16& text,
                       const gfx::Rect& text_bounds,
                       int flags) {
-  if (has_shadow_) {
-    canvas->DrawStringInt(
-        text, font_,
-        enabled() ? enabled_shadow_color_ : disabled_shadow_color_,
-        text_bounds.x() + shadow_offset_.x(),
-        text_bounds.y() + shadow_offset_.y(),
-        text_bounds.width(), text_bounds.height(),
-        flags);
-  }
-  canvas->DrawStringInt(text, font_,
+  gfx::ShadowValues shadows;
+  if (has_shadow_)
+    shadows.push_back(gfx::ShadowValue(shadow_offset_, 0,
+        enabled() ? enabled_shadow_color_ : disabled_shadow_color_));
+  canvas->DrawStringWithShadows(text, font_,
       enabled() ? actual_enabled_color_ : actual_disabled_color_,
-      text_bounds.x(), text_bounds.y(), text_bounds.width(),
-      text_bounds.height(), flags);
+      text_bounds, flags, shadows);
 
   if (HasFocus() || paint_as_focused_) {
     gfx::Rect focus_bounds = text_bounds;
@@ -485,6 +480,7 @@ void Label::CalculateDrawStringParams(string16* paint_text,
                                       int* flags) const {
   DCHECK(paint_text && text_bounds && flags);
 
+  // TODO(msw): Use ElideRectangleText to support eliding multi-line text.
   if (is_email_) {
     *paint_text = ui::ElideEmail(text_, font_, GetAvailableRect().width());
   } else if (elide_behavior_ == ELIDE_IN_MIDDLE) {

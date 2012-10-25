@@ -1,0 +1,30 @@
+// Copyright 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "config.h"
+
+#include "CCCheckerboardDrawQuad.h"
+
+#include "base/logging.h"
+
+namespace cc {
+
+scoped_ptr<CheckerboardDrawQuad> CheckerboardDrawQuad::create(const SharedQuadState* sharedQuadState, const gfx::Rect& quadRect, SkColor color)
+{
+    return make_scoped_ptr(new CheckerboardDrawQuad(sharedQuadState, quadRect, color));
+}
+
+CheckerboardDrawQuad::CheckerboardDrawQuad(const SharedQuadState* sharedQuadState, const gfx::Rect& quadRect, SkColor color)
+    : DrawQuad(sharedQuadState, DrawQuad::Checkerboard, quadRect)
+    , m_color(color)
+{
+}
+
+const CheckerboardDrawQuad* CheckerboardDrawQuad::materialCast(const DrawQuad* quad)
+{
+    DCHECK(quad->material() == DrawQuad::Checkerboard);
+    return static_cast<const CheckerboardDrawQuad*>(quad);
+}
+
+}  // namespace cc

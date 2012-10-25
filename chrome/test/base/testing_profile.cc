@@ -11,6 +11,7 @@
 #include "base/file_util.h"
 #include "base/message_loop_proxy.h"
 #include "base/path_service.h"
+#include "base/prefs/testing_pref_store.h"
 #include "base/run_loop.h"
 #include "base/string_number_conversions.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/geolocation/chrome_geolocation_permission_context.h"
+#include "chrome/browser/geolocation/chrome_geolocation_permission_context_factory.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_backend.h"
 #include "chrome/browser/history/history_service_factory.h"
@@ -37,7 +39,6 @@
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
 #include "chrome/browser/policy/user_cloud_policy_manager.h"
 #include "chrome/browser/prefs/browser_prefs.h"
-#include "chrome/browser/prefs/testing_pref_store.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
 #include "chrome/browser/protector/protector_service_factory.h"
@@ -300,6 +301,11 @@ TestingProfile::~TestingProfile() {
 
   DestroyTopSites();
 
+#if defined(ENABLE_CONFIGURATION_POLICY)
+  if (user_cloud_policy_manager_)
+    user_cloud_policy_manager_->Shutdown();
+#endif
+
   if (pref_proxy_config_tracker_.get())
     pref_proxy_config_tracker_->DetachFromPrefService();
 }
@@ -553,6 +559,11 @@ policy::UserCloudPolicyManager* TestingProfile::GetUserCloudPolicyManager() {
   return user_cloud_policy_manager_.get();
 }
 
+policy::ManagedModePolicyProvider*
+TestingProfile::GetManagedModePolicyProvider() {
+  return NULL;
+}
+
 policy::PolicyService* TestingProfile::GetPolicyService() {
   if (!policy_service_.get()) {
 #if defined(ENABLE_CONFIGURATION_POLICY)
@@ -705,7 +716,7 @@ content::GeolocationPermissionContext*
 TestingProfile::GetGeolocationPermissionContext() {
   if (!geolocation_permission_context_.get()) {
     geolocation_permission_context_ =
-        new ChromeGeolocationPermissionContext(this);
+        ChromeGeolocationPermissionContextFactory::Create(this);
   }
   return geolocation_permission_context_.get();
 }

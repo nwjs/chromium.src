@@ -6,10 +6,10 @@
 
 #include <vector>
 
+#include "base/prefs/public/pref_service_base.h"
 #include "base/string16.h"
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/api/prefs/pref_service_base.h"
 #include "chrome/browser/autofill/autofill_external_delegate.h"
 #include "chrome/browser/autofill/credit_card.h"
 #include "chrome/common/autofill_messages.h"
@@ -22,8 +22,6 @@
 using base::StringPiece16;
 using content::BrowserContext;
 using content::WebContents;
-
-DEFINE_WEB_CONTENTS_USER_DATA_KEY(AutocompleteHistoryManager)
 
 namespace {
 

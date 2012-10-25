@@ -200,7 +200,7 @@ class LongPressAffordanceHandler::LongPressAffordanceView
                       GetPreferredSize().height() / 2);
     canvas->Save();
 
-    ui::Transform scale;
+    gfx::Transform scale;
     scale.SetScale(current_scale_, current_scale_);
     // We want to scale from the center.
     canvas->Translate(gfx::Point(center.x(), center.y()));
@@ -261,7 +261,8 @@ void LongPressAffordanceHandler::ProcessEvent(aura::Window* target,
       tap_down_location_ = event->root_location();
       tap_down_touch_id_ = touch_id;
       current_animation_type_ = GROW_ANIMATION;
-      tap_down_display_id_ = gfx::Screen::GetDisplayNearestWindow(target).id();
+      tap_down_display_id_ =
+          Shell::GetScreen()->GetDisplayNearestWindow(target).id();
       timer_.Start(FROM_HERE,
                    base::TimeDelta::FromMilliseconds(timer_start_time_ms),
                    this,

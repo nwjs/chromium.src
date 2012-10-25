@@ -15,13 +15,13 @@ namespace content {
 // WebContents. For example:
 //
 // --- in foo_tab_helper.h ---
-// class FooTabHelper : public WebContentsUserData<FooTabHelper> {
+// class FooTabHelper : public content::WebContentsUserData<FooTabHelper> {
 //  public:
 //   virtual ~FooTabHelper();
 //   // ... more public stuff here ...
 //  private:
-//   explicit FooTabHelper(WebContents* contents);
-//   friend class WebContentsUserData<FooTabHelper>;
+//   explicit FooTabHelper(content::WebContents* contents);
+//   friend class content::WebContentsUserData<FooTabHelper>;
 //   // ... more private stuff here ...
 // }
 // --- in foo_tab_helper.cc ---
@@ -35,7 +35,7 @@ class WebContentsUserData : public base::SupportsUserData::Data {
   static void CreateForWebContents(WebContents* contents) {
     DCHECK(contents);
     if (!FromWebContents(contents))
-      contents->SetUserData(&kLocatorKey, new T(contents));
+      contents->SetUserData(UserDataKey(), new T(contents));
   }
 
   // Retrieves the instance of type T that was attached to the specified
@@ -43,13 +43,19 @@ class WebContentsUserData : public base::SupportsUserData::Data {
   // of the type was attached, returns NULL.
   static T* FromWebContents(WebContents* contents) {
     DCHECK(contents);
-    return static_cast<T*>(contents->GetUserData(&kLocatorKey));
+    return static_cast<T*>(contents->GetUserData(UserDataKey()));
   }
   static const T* FromWebContents(const WebContents* contents) {
     DCHECK(contents);
-    return static_cast<const T*>(contents->GetUserData(&kLocatorKey));
+    return static_cast<const T*>(contents->GetUserData(UserDataKey()));
   }
 
+ protected:
+  static inline void* UserDataKey() {
+    return &kLocatorKey;
+  }
+
+ private:
   // The user data key.
   static int kLocatorKey;
 };

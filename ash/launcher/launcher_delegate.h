@@ -9,6 +9,10 @@
 #include "ash/launcher/launcher_types.h"
 #include "base/string16.h"
 
+namespace aura {
+class RootWindow;
+}
+
 namespace ui {
 class MenuModel;
 }
@@ -21,13 +25,10 @@ class ASH_EXPORT LauncherDelegate {
   // Launcher owns the delegate.
   virtual ~LauncherDelegate() {}
 
-  // Invoked when the user clicks on button in the launcher to create a new
-  // tab.
-  virtual void CreateNewTab() = 0;
-
-  // Invoked when the user clicks on button in the launcher to create a new
-  // window.
-  virtual void CreateNewWindow() = 0;
+  // Invoked when the user clicks on button in the launcher to open last used
+  // window (or create a new one if there is no last used window).
+  // |event_flags| is the flags of the click event.
+  virtual void OnBrowserShortcutClicked(int event_flags) = 0;
 
   // Invoked when the user clicks on a window entry in the launcher.
   // |event_flags| is the flags of the click event.
@@ -40,14 +41,11 @@ class ASH_EXPORT LauncherDelegate {
   // Returns the title to display for the specified launcher item.
   virtual string16 GetTitle(const LauncherItem& item) = 0;
 
-  // Returns the context menumodel for the specified item. Return NULL if there
-  // should be no context menu. The caller takes ownership of the returned
-  // model.
-  virtual ui::MenuModel* CreateContextMenu(const LauncherItem& item) = 0;
-
-  // Returns the context menumodel for the launcher. Return NULL if there should
-  // be no context menu. The caller takes ownership of the returned model.
-  virtual ui::MenuModel* CreateContextMenuForLauncher() = 0;
+  // Returns the context menumodel for the specified item on
+  // |root_window|.  Return NULL if there should be no context
+  // menu. The caller takes ownership of the returned model.
+  virtual ui::MenuModel* CreateContextMenu(const LauncherItem& item,
+                                           aura::RootWindow* root_window) = 0;
 
   // Returns the id of the item associated with the specified window, or 0 if
   // there isn't one.

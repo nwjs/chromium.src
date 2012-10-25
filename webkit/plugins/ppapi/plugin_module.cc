@@ -301,7 +301,7 @@ const void* InternalGetInterface(const char* name) {
     return ::ppapi::thunk::GetPPB_BufferTrusted_0_1_Thunk();
   if (strcmp(name, PPB_CORE_INTERFACE_1_0) == 0)
     return &core_interface;
-  if (strcmp(name, PPB_GPU_BLACKLIST_INTERFACE) == 0)
+  if (strcmp(name, PPB_GPUBLACKLIST_PRIVATE_INTERFACE) == 0)
     return PPB_GpuBlacklist_Private_Impl::GetInterface();
   if (strcmp(name, PPB_GRAPHICS_3D_TRUSTED_INTERFACE_1_0) == 0)
     return ::ppapi::thunk::GetPPB_Graphics3DTrusted_1_0_Thunk();
@@ -511,21 +511,16 @@ scoped_refptr<PluginModule> PluginModule::CreateModuleForNaClInstance() {
   return nacl_module;
 }
 
-void PluginModule::InitAsProxiedNaCl(
-    scoped_ptr<PluginDelegate::OutOfProcessProxy> out_of_process_proxy,
-    PP_Instance instance) {
-  InitAsProxied(out_of_process_proxy.release());
+void PluginModule::InitAsProxiedNaCl(PluginInstance* plugin_instance) {
+  DCHECK(out_of_process_proxy_.get());
   // InitAsProxied (for the trusted/out-of-process case) initializes only the
   // module, and one or more instances are added later. In this case, the
   // PluginInstance was already created as in-process, so we missed the proxy
   // AddInstance step and must do it now.
-  out_of_process_proxy_->AddInstance(instance);
+  out_of_process_proxy_->AddInstance(plugin_instance->pp_instance());
   // In NaCl, we need to tell the instance to reset itself as proxied. This will
   // clear cached interface pointers and send DidCreate (etc) to the plugin
   // side of the proxy.
-  PluginInstance* plugin_instance = host_globals->GetInstance(instance);
-  if (!plugin_instance)
-    return;
   plugin_instance->ResetAsProxied(this);
 }
 

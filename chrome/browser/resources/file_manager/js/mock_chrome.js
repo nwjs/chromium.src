@@ -378,24 +378,24 @@ chrome.fileBrowserPrivate = {
     setTimeout(callback, 0, response);
   },
 
-  gdataPreferences_: {
+  preferences_: {
     driveEnabled: true,
     cellularDisabled: true,
     hostedFilesDisabled: false
   },
 
-  onGDataPreferencesChanged: new MockEventSource(),
+  onPreferencesChanged: new MockEventSource(),
 
-  getGDataPreferences: function(callback) {
+  getPreferences: function(callback) {
     setTimeout(callback, 0, cloneShallow(
         chrome.fileBrowserPrivate.gdataPreferences_));
   },
 
-  setGDataPreferences: function(preferences) {
+  setPreferences: function(preferences) {
     for (var prop in preferences) {
-      chrome.fileBrowserPrivate.gdataPreferences_[prop] = preferences[prop];
+      chrome.fileBrowserPrivate.preferences_[prop] = preferences[prop];
     }
-    chrome.fileBrowserPrivate.onGDataPreferencesChanged.notify();
+    chrome.fileBrowserPrivate.onPreferencesChanged.notify();
   },
 
   networkConnectionState_: {
@@ -542,8 +542,6 @@ chrome.fileBrowserPrivate = {
       GALLERY_MOSAIC: 'Mosaic view',
       GALLERY_SLIDE: 'Slide view',
       GALLERY_SLIDESHOW: 'Slideshow',
-      GALLERY_SLIDESHOW_PAUSED:
-          'Paused. Press "Esc" to exit, any other key to resume.',
       GALLERY_DELETE: 'Delete',
 
       GALLERY_OK_LABEL: 'OK',

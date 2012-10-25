@@ -9,11 +9,11 @@
 #include <vector>
 
 #include "base/basictypes.h"
-#include "webkit/fileapi/fileapi_export.h"
+#include "webkit/storage/webkit_storage_export.h"
 
 namespace fileapi {
 
-class FILEAPI_EXPORT FileChange {
+class WEBKIT_STORAGE_EXPORT FileChange {
  public:
   enum ChangeType {
     FILE_CHANGE_ADD_OR_UPDATE,
@@ -23,6 +23,7 @@ class FILEAPI_EXPORT FileChange {
   enum FileType {
     FILE_TYPE_DIRECTORY,
     FILE_TYPE_FILE,
+    FILE_TYPE_UNDETERMINED,
   };
 
   FileChange(ChangeType change, FileType file_type);
@@ -47,7 +48,7 @@ class FILEAPI_EXPORT FileChange {
   FileType file_type_;
 };
 
-class FILEAPI_EXPORT FileChangeList {
+class WEBKIT_STORAGE_EXPORT FileChangeList {
  public:
   FileChangeList();
   ~FileChangeList();

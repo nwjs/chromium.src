@@ -10,6 +10,7 @@ import sys
 
 from chrome_remote_control import browser
 from chrome_remote_control import desktop_browser_backend
+from chrome_remote_control import platform
 from chrome_remote_control import possible_browser
 
 ALL_BROWSER_TYPES = ','.join([
@@ -32,11 +33,10 @@ class PossibleDesktopBrowser(possible_browser.PossibleBrowser):
   def __repr__(self):
     return 'PossibleDesktopBrowser(browser_type=%s)' % self.browser_type
 
-  def Create(self, extra_browser_args=None):
+  def Create(self):
     backend = desktop_browser_backend.DesktopBrowserBackend(
-        self._options, self._local_executable, self._is_content_shell,
-        extra_browser_args)
-    return browser.Browser(backend)
+        self._options, self._local_executable, self._is_content_shell)
+    return browser.Browser(backend, platform.Platform())
 
 def FindAllAvailableBrowsers(options):
   """Finds all the desktop browsers available on this machine."""
@@ -71,17 +71,19 @@ def FindAllAvailableBrowsers(options):
   else:
     raise Exception('Platform not recognized')
 
-  if sys.platform.startswith('win'):
-    build_dir = 'build'
-  else:
-    build_dir = 'out'
+  build_dirs = ['build',
+                'out',
+                'sconsbuild',
+                'xcodebuild']
 
   # Add local builds
   def AddIfFound(browser_type, type_dir, app_name, content_shell):
-    app = os.path.join(chrome_root, build_dir, type_dir, app_name)
-    if os.path.exists(app):
-      browsers.append(PossibleDesktopBrowser(browser_type, options,
-                                             app, content_shell))
+    for build_dir in build_dirs:
+      app = os.path.join(chrome_root, build_dir, type_dir, app_name)
+      if os.path.exists(app):
+        browsers.append(PossibleDesktopBrowser(browser_type, options,
+                                               app, content_shell))
+        break
   AddIfFound('debug', 'Debug', chromium_app_name, False)
   AddIfFound('content-shell-debug', 'Debug', content_shell_app_name, True)
   AddIfFound('release', 'Release', chromium_app_name, False)
@@ -131,8 +133,9 @@ def FindAllAvailableBrowsers(options):
                                              win_system, False))
 
   if len(browsers) and not has_display:
-    logging.warning('Found (%s), but you have a DISPLAY environment set.' %
-                    ','.join([b.browser_type for b in browsers]))
+    logging.warning(
+      'Found (%s), but you do not have a DISPLAY environment set.' %
+      ','.join([b.browser_type for b in browsers]))
     return []
 
   return browsers

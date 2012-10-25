@@ -166,8 +166,10 @@ class MockAudioRenderer : public AudioRenderer {
   MockAudioRenderer();
 
   // AudioRenderer implementation.
-  MOCK_METHOD7(Initialize, void(const scoped_refptr<AudioDecoder>& decoder,
+  MOCK_METHOD9(Initialize, void(const scoped_refptr<DemuxerStream>& stream,
+                                const AudioDecoderList& decoders,
                                 const PipelineStatusCB& init_cb,
+                                const StatisticsCB& statistics_cb,
                                 const base::Closure& underflow_cb,
                                 const TimeCB& time_cb,
                                 const base::Closure& ended_cb,
@@ -205,16 +207,36 @@ class MockDecryptor : public Decryptor {
                             const std::string& session_id));
   MOCK_METHOD2(CancelKeyRequest, void(const std::string& key_system,
                                       const std::string& session_id));
-  MOCK_METHOD2(Decrypt, void(const scoped_refptr<DecoderBuffer>& encrypted,
+  MOCK_METHOD3(Decrypt, void(StreamType stream_type,
+                             const scoped_refptr<DecoderBuffer>& encrypted,
                              const DecryptCB& decrypt_cb));
-  MOCK_METHOD0(CancelDecrypt, void());
-  MOCK_METHOD2(InitializeVideoDecoder, void(const VideoDecoderConfig& config,
-                                            const DecoderInitCB& init_cb));
+  MOCK_METHOD1(CancelDecrypt, void(StreamType stream_type));
+  // TODO(xhwang): The following two methods are workarounds of the issue that
+  // move-only parameters are not supported in mocked methods. Remove when the
+  // issue is fixed: http://code.google.com/p/googletest/issues/detail?id=395
+  MOCK_METHOD3(InitializeAudioDecoderMock,
+               void(const AudioDecoderConfig& config,
+                    const DecoderInitCB& init_cb,
+                    const KeyAddedCB& key_added_cb));
+  MOCK_METHOD3(InitializeVideoDecoderMock,
+               void(const VideoDecoderConfig& config,
+                    const DecoderInitCB& init_cb,
+                    const KeyAddedCB& key_added_cb));
+  MOCK_METHOD2(DecryptAndDecodeAudio,
+               void(const scoped_refptr<media::DecoderBuffer>& encrypted,
+                    const AudioDecodeCB& audio_decode_cb));
   MOCK_METHOD2(DecryptAndDecodeVideo,
                void(const scoped_refptr<media::DecoderBuffer>& encrypted,
                     const VideoDecodeCB& video_decode_cb));
-  MOCK_METHOD0(CancelDecryptAndDecodeVideo, void());
-  MOCK_METHOD0(StopVideoDecoder, void());
+  MOCK_METHOD1(ResetDecoder, void(StreamType stream_type));
+  MOCK_METHOD1(DeinitializeDecoder, void(StreamType stream_type));
+
+  virtual void InitializeAudioDecoder(scoped_ptr<AudioDecoderConfig> config,
+                                      const DecoderInitCB& init_cb,
+                                      const KeyAddedCB& key_added_cb) OVERRIDE;
+  virtual void InitializeVideoDecoder(scoped_ptr<VideoDecoderConfig> config,
+                                      const DecoderInitCB& init_cb,
+                                      const KeyAddedCB& key_added_cb) OVERRIDE;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockDecryptor);

@@ -12,12 +12,13 @@
 #include "media/filters/gpu_video_decoder.h"
 #include "ui/gfx/size.h"
 
-class ContentGLContext;
-class GpuChannelHost;
-class WebGraphicsContext3DCommandBufferImpl;
 namespace base {
 class WaitableEvent;
 }
+
+namespace content {
+class GpuChannelHost;
+class WebGraphicsContext3DCommandBufferImpl;
 
 // Glue code to expose functionality needed by media::GpuVideoDecoder to
 // RenderViewImpl.  This class is entirely an implementation detail of
@@ -89,5 +90,7 @@ class CONTENT_EXPORT RendererGpuVideoDecoderFactories
   base::WeakPtr<WebGraphicsContext3DCommandBufferImpl> context_;
   DISALLOW_IMPLICIT_CONSTRUCTORS(RendererGpuVideoDecoderFactories);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_MEDIA_RENDERER_GPU_VIDEO_DECODER_FACTORIES_H_

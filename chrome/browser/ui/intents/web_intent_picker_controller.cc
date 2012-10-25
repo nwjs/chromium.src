@@ -16,8 +16,6 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/platform_app_launcher.h"
 #include "chrome/browser/extensions/webstore_installer.h"
-#include "chrome/browser/favicon/favicon_service.h"
-#include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/intents/cws_intents_registry_factory.h"
 #include "chrome/browser/intents/default_web_intent_service.h"
 #include "chrome/browser/intents/intent_service_host.h"
@@ -33,17 +31,15 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
+#include "chrome/browser/ui/intents/web_intent_icon_loader.h"
 #include "chrome/browser/ui/intents/web_intent_picker.h"
 #include "chrome/browser/ui/intents/web_intent_picker_model.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/webdata/web_data_service.h"
-#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_manager.h"
-#include "content/public/browser/navigation_controller.h"
-#include "content/public/browser/notification_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_intents_dispatcher.h"
@@ -67,13 +63,6 @@ const int kMaxHiddenSetupTimeMs = 200;
 
 // Minimum amount of time to show waiting dialog, if it is shown.
 const int kMinThrobberDisplayTimeMs = 800;
-
-
-// Gets the favicon service for the specified profile.
-FaviconService* GetFaviconService(Profile* profile) {
-  return FaviconServiceFactory::GetForProfile(profile,
-                                              Profile::EXPLICIT_ACCESS);
-}
 
 // Gets the web intents registry for the specified profile.
 WebIntentsRegistry* GetWebIntentsRegistry(Profile* profile) {
@@ -116,7 +105,6 @@ void URLFetcherTrampoline::OnURLFetchComplete(
   delete source;
   delete this;
 }
-
 class SourceWindowObserver : content::WebContentsObserver {
  public:
   SourceWindowObserver(content::WebContents* web_contents,
@@ -135,6 +123,13 @@ class SourceWindowObserver : content::WebContentsObserver {
  private:
   base::WeakPtr<WebIntentPickerController> controller_;
 };
+
+// Deletes |service|, presumably called from a dispatcher callback.
+void DeleteIntentService(
+    web_intents::IntentServiceHost* service,
+    webkit_glue::WebIntentReplyType type) {
+  delete service;
+}
 
 }  // namespace
 
@@ -182,22 +177,23 @@ WebIntentPickerController::WebIntentPickerController(
       window_disposition_source_(NULL),
       source_intents_dispatcher_(NULL),
       intents_dispatcher_(NULL),
+      location_bar_button_indicated_(true),
       service_tab_(NULL),
+      icon_loader_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(timer_factory_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(dispatcher_factory_(this)) {
-  content::NavigationController* controller = &web_contents->GetController();
-  registrar_.Add(this, content::NOTIFICATION_LOAD_START,
-                 content::Source<content::NavigationController>(controller));
-  registrar_.Add(this, chrome::NOTIFICATION_TAB_CLOSING,
-                 content::Source<content::NavigationController>(controller));
   native_services_.reset(new web_intents::NativeServiceFactory());
 #if defined(TOOLKIT_VIEWS)
   cancelled_ = true;
 #endif
+  icon_loader_.reset(
+      new web_intents::IconLoader(profile_, picker_model_.get()));
 }
 
 WebIntentPickerController::~WebIntentPickerController() {
+  if (picker_)
+    picker_->InvalidateDelegate();
 }
 
 // TODO(gbillock): combine this with ShowDialog.
@@ -219,14 +215,14 @@ void WebIntentPickerController::SetIntentsDispatcher(
 // TODO(smckay): rename this "StartActivity".
 void WebIntentPickerController::ShowDialog(const string16& action,
                                            const string16& type) {
-  ShowDialog(false);
+  ShowDialog(kEnableDefaults);
 }
 
 void WebIntentPickerController::ReshowDialog() {
-  ShowDialog(true);
+  ShowDialog(kSuppressDefaults);
 }
 
-void WebIntentPickerController::ShowDialog(bool suppress_defaults) {
+void WebIntentPickerController::ShowDialog(DefaultsUsage suppress_defaults) {
   web_intents::RecordIntentDispatched(uma_bucket_);
 
   DCHECK(intents_dispatcher_);
@@ -263,16 +259,6 @@ void WebIntentPickerController::ShowDialog(bool suppress_defaults) {
   // TODO(gbillock): Decide whether to honor the default suppression flag
   // here or suppress the control for explicit intents.
   if (service.is_valid() && !suppress_defaults) {
-    // TODO(gbillock): When we can parse pages for the intent tag,
-    // take out this requirement that explicit intents dispatch to
-    // extension urls.
-    if (!service.SchemeIs(chrome::kExtensionScheme)) {
-      intents_dispatcher_->SendReplyMessage(
-          webkit_glue::WEB_INTENT_REPLY_FAILURE, ASCIIToUTF16(
-              "Only extension urls are supported for explicit invocation"));
-      return;
-    }
-
     // Get services from the registry to verify a registered extension
     // page for this action/type if it is permitted to be dispatched. (Also
     // required to find disposition set by service.)
@@ -318,22 +304,14 @@ void WebIntentPickerController::ShowDialog(bool suppress_defaults) {
                  weak_ptr_factory_.GetWeakPtr()));
 }
 
-void WebIntentPickerController::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  DCHECK(type == content::NOTIFICATION_LOAD_START ||
-         type == chrome::NOTIFICATION_TAB_CLOSING);
-  ClosePicker();
-}
-
 void WebIntentPickerController::OnServiceChosen(
     const GURL& url,
-    webkit_glue::WebIntentServiceData::Disposition disposition) {
+    webkit_glue::WebIntentServiceData::Disposition disposition,
+    DefaultsUsage suppress_defaults) {
   web_intents::RecordServiceInvoke(uma_bucket_);
   uma_reporter_->ResetServiceActiveTimer();
-  ExtensionService* service = profile_->GetExtensionService();
-  DCHECK(service);
+  ExtensionService* extension_service = profile_->GetExtensionService();
+  DCHECK(extension_service);
 
 #if defined(TOOLKIT_VIEWS)
   cancelled_ = false;
@@ -342,11 +320,13 @@ void WebIntentPickerController::OnServiceChosen(
   // Set the default here. Activating the intent resets the picker model.
   // TODO(gbillock): we should perhaps couple the model to the dispatcher so
   // we can re-activate the model on use-another-service.
-  SetDefaultServiceForSelection(url);
+  if (!suppress_defaults)
+    SetDefaultServiceForSelection(url);
 
-  const extensions::Extension* extension = service->GetInstalledApp(url);
 
   // TODO(smckay): this basically smells like another disposition.
+  const extensions::Extension* extension =
+      extension_service->GetInstalledApp(url);
   if (extension && extension->is_platform_app()) {
     extensions::LaunchPlatformAppWithWebIntent(profile_,
         extension, intents_dispatcher_, web_contents_);
@@ -363,8 +343,12 @@ void WebIntentPickerController::OnServiceChosen(
     case webkit_glue::WebIntentServiceData::DISPOSITION_NATIVE: {
       web_intents::IntentServiceHost* service =
           native_services_->CreateServiceInstance(
-              url, intents_dispatcher_->GetIntent());
+              url, intents_dispatcher_->GetIntent(), web_contents_);
       DCHECK(service);
+
+      intents_dispatcher_->RegisterReplyNotification(
+          base::Bind(&DeleteIntentService, base::Unretained(service)));
+
       service->HandleIntent(intents_dispatcher_);
       break;
     }
@@ -384,9 +368,12 @@ void WebIntentPickerController::OnServiceChosen(
           MSG_ROUTING_NONE, NULL);
 
       // Let the controller for the target TabContents know that it is hosting a
-      // web intents service.
-      WebIntentPickerController::FromWebContents(contents->web_contents())->
-          SetWindowDispositionSource(web_contents_, intents_dispatcher_);
+      // web intents service. Suppress if we're not showing the
+      // use-another-service button.
+      if (picker_model_->show_use_another_service()) {
+        WebIntentPickerController::FromWebContents(contents->web_contents())->
+            SetWindowDispositionSource(web_contents_, intents_dispatcher_);
+      }
 
       intents_dispatcher_->DispatchIntent(contents->web_contents());
       service_tab_ = contents->web_contents();
@@ -415,72 +402,51 @@ void WebIntentPickerController::OnServiceChosen(
   }
 }
 
-// Take the MD5 digest of the origins of picker options
-// and record it as the default context string.
-int64 WebIntentPickerController::DigestServices() {
-  // The context in which the default is registered is all
-  // the installed services represented in the picker (represented
-  // by their site origins).
-  std::vector<std::string> context_urls;
-  for (size_t i = 0; i < picker_model_->GetInstalledServiceCount(); ++i) {
-    const GURL& url = picker_model_->GetInstalledServiceAt(i).url;
-    if (url.SchemeIs(chrome::kExtensionScheme))
-      context_urls.push_back(url.host());  // this is the extension ID
-    else
-      context_urls.push_back(url.GetOrigin().spec());
-  }
-  std::sort(context_urls.begin(), context_urls.end());
-
-  base::MD5Context md5_context;
-  base::MD5Init(&md5_context);
-  for (size_t i = 0; i < context_urls.size(); ++i)
-    base::MD5Update(&md5_context, context_urls[i]);
-  base::MD5Digest digest;
-  base::MD5Final(&digest, &md5_context);
-  int64 hash = 0;
-  COMPILE_ASSERT(sizeof(base::MD5Digest) > sizeof(int64),
-                 int64_size_greater_than_md5_buffer);
-  memcpy(&hash, &digest, sizeof(int64));
-
-  return hash;
+content::WebContents*
+WebIntentPickerController::CreateWebContentsForInlineDisposition(
+    Profile* profile, const GURL& url) {
+  content::WebContents* web_contents = content::WebContents::Create(
+      profile,
+      tab_util::GetSiteInstanceForNewTab(profile, url),
+      MSG_ROUTING_NONE, NULL);
+  intents_dispatcher_->DispatchIntent(web_contents);
+  return web_contents;
 }
 
 void WebIntentPickerController::SetDefaultServiceForSelection(const GURL& url) {
-  int64 service_hash = DigestServices();
   DCHECK(picker_model_.get());
-  if (url == picker_model_->default_service_url() &&
-      service_hash == picker_model_->default_service_hash()) {
+  if (url == picker_model_->default_service_url())
     return;
-  }
 
   DefaultWebIntentService record;
   record.action = picker_model_->action();
   record.type = picker_model_->type();
   record.service_url = url.spec();
-  record.suppression = service_hash;
   record.user_date = static_cast<int>(floor(base::Time::Now().ToDoubleT()));
   GetWebIntentsRegistry(profile_)->RegisterDefaultIntentService(record);
 }
 
-void WebIntentPickerController::OnInlineDispositionWebContentsCreated(
-    content::WebContents* web_contents) {
-  if (web_contents)
-    intents_dispatcher_->DispatchIntent(web_contents);
-}
-
 void WebIntentPickerController::OnExtensionInstallRequested(
     const std::string& id) {
-  picker_model_->SetPendingExtensionInstallId(id);
+  // Create a local copy of |id| since it is a reference to a member on a UI
+  // object, and SetPendingExtensionInstallId triggers an OnModelChanged and
+  // a subsequent rebuild of UI objects.
+  std::string extension_id(id);
+
+  picker_model_->SetPendingExtensionInstallId(extension_id);
 
   scoped_ptr<WebstoreInstaller::Approval> approval(
       WebstoreInstaller::Approval::CreateWithInstallPrompt(profile_));
   // Don't show a bubble pointing to the extension or any other post
   // installation UI.
   approval->skip_post_install_ui = true;
+  approval->show_dialog_callback = base::Bind(
+      &WebIntentPickerController::OnShowExtensionInstallDialog,
+      weak_ptr_factory_.GetWeakPtr());
 
   scoped_refptr<WebstoreInstaller> installer = new WebstoreInstaller(
       profile_, this,
-      &web_contents_->GetController(), id,
+      &web_contents_->GetController(), extension_id,
       approval.Pass(), WebstoreInstaller::FLAG_INLINE_INSTALL);
 
   pending_async_count_++;
@@ -590,10 +556,10 @@ void WebIntentPickerController::DispatchToInstalledExtension(
   // services. For now, just choose the first.
   const webkit_glue::WebIntentServiceData& service_data = services[0];
 
-  picker_model_->AddInstalledService(
-      service_data.title, service_data.service_url,
-      service_data.disposition);
-  OnServiceChosen(service_data.service_url, service_data.disposition);
+  picker_model_->RemoveSuggestedExtension(extension_id);
+  AddServiceToModel(service_data);
+  OnServiceChosen(service_data.service_url, service_data.disposition,
+                  kEnableDefaults);
   AsyncOperationFinished();
 }
 
@@ -643,26 +609,13 @@ void WebIntentPickerController::OnSendReturnMessage(
 
 void WebIntentPickerController::AddServiceToModel(
     const webkit_glue::WebIntentServiceData& service) {
-  FaviconService* favicon_service = GetFaviconService(profile_);
 
   picker_model_->AddInstalledService(
       service.title,
       service.service_url,
       service.disposition);
 
-  pending_async_count_++;
-  FaviconService::Handle handle = favicon_service->GetFaviconImageForURL(
-      FaviconService::FaviconForURLParams(
-          profile_,
-          service.service_url,
-          history::FAVICON,
-          gfx::kFaviconSize,
-          &favicon_consumer_),
-      base::Bind(
-          &WebIntentPickerController::OnFaviconDataAvailable,
-          weak_ptr_factory_.GetWeakPtr()));
-  favicon_consumer_.SetClientData(
-      favicon_service, handle, picker_model_->GetInstalledServiceCount() - 1);
+  icon_loader_->LoadFavicon(service.service_url);
 }
 
 void WebIntentPickerController::OnWebIntentServicesAvailable(
@@ -682,10 +635,7 @@ void WebIntentPickerController::OnWebIntentServicesAvailableForExplicitIntent(
     if (services[i].service_url != intents_dispatcher_->GetIntent().service)
       continue;
 
-    AddServiceToModel(services[i]);
-
-    InvokeService(*(picker_model_->GetInstalledServiceWithURL(
-        services[i].service_url)));
+    InvokeServiceWithSelection(services[i]);
     AsyncOperationFinished();
     return;
   }
@@ -701,8 +651,9 @@ void WebIntentPickerController::OnWebIntentServicesAvailableForExplicitIntent(
 void WebIntentPickerController::OnWebIntentDefaultsAvailable(
     const DefaultWebIntentService& default_service) {
   if (!default_service.service_url.empty()) {
+    // TODO(gbillock): this doesn't belong in the model, but keep it there
+    // for now.
     picker_model_->set_default_service_url(GURL(default_service.service_url));
-    picker_model_->set_default_service_hash(default_service.suppression);
   }
 
   RegistryCallsCompleted();
@@ -713,19 +664,7 @@ void WebIntentPickerController::RegistryCallsCompleted() {
   pending_registry_calls_count_--;
   if (pending_registry_calls_count_ != 0) return;
 
-  // TODO(groby): Temporary workaround for http://crbug.com/152590
-  // (Also related to http://crbug.com/134197.)
-  // If QuickOffice viewer is a pre-registered default (no digest available) and
-  // no other service is found, use built-in QuickOffice Viewer as default.
-  // Remove once defaults support pre-registration.
-  const GURL kQuickOfficeURL(web_intents::kQuickOfficeViewerServiceURL);
-  bool shouldFireQuickoffice =
-      (picker_model_->default_service_url() == kQuickOfficeURL) &&
-      (picker_model_->GetInstalledServiceCount() == 1);
-
-  if (picker_model_->default_service_url().is_valid() &&
-      (picker_model_->default_service_hash() == DigestServices() ||
-       shouldFireQuickoffice)) {
+  if (picker_model_->default_service_url().is_valid()) {
     // If there's a default service, dispatch to it immediately
     // without showing the picker.
     const WebIntentPickerModel::InstalledService* default_service =
@@ -739,18 +678,6 @@ void WebIntentPickerController::RegistryCallsCompleted() {
 
   OnPickerEvent(kPickerEventRegistryDataComplete);
   OnIntentDataArrived();
-}
-
-void WebIntentPickerController::OnFaviconDataAvailable(
-    FaviconService::Handle handle,
-    const history::FaviconImageResult& image_result) {
-  size_t index = favicon_consumer_.GetClientDataForCurrentRequest();
-  if (!image_result.image.IsEmpty()) {
-    picker_model_->UpdateFaviconAt(index, image_result.image);
-    return;
-  }
-
-  AsyncOperationFinished();
 }
 
 void WebIntentPickerController::OnCWSIntentServicesAvailable(
@@ -856,7 +783,11 @@ void WebIntentPickerController::Reset() {
   pending_cws_request_ = false;
 
   // Reset picker.
+  icon_loader_.reset();
   picker_model_.reset(new WebIntentPickerModel());
+  icon_loader_.reset(
+      new web_intents::IconLoader(profile_, picker_model_.get()));
+
   picker_shown_ = false;
 
   DCHECK(web_contents_);
@@ -905,11 +836,24 @@ void WebIntentPickerController::OnExtensionIconUnavailable(
   AsyncOperationFinished();
 }
 
+void WebIntentPickerController::OnShowExtensionInstallDialog(
+      content::WebContents* parent_web_contents,
+      ExtensionInstallPrompt::Delegate* delegate,
+      const ExtensionInstallPrompt::Prompt& prompt) {
+  picker_model_->SetPendingExtensionInstallDelegate(delegate);
+  picker_model_->SetPendingExtensionInstallPrompt(prompt);
+  if (picker_) {
+    picker_->OnShowExtensionInstallDialog(
+        parent_web_contents, delegate, prompt);
+  }
+}
+
 void WebIntentPickerController::SetWindowDispositionSource(
     content::WebContents* source,
     content::WebIntentsDispatcher* dispatcher) {
   DCHECK(source);
   DCHECK(dispatcher);
+  location_bar_button_indicated_ = false;
   window_disposition_source_ = source;
   if (window_disposition_source_) {
     // This object is self-deleting when the source WebContents is destroyed.
@@ -917,12 +861,12 @@ void WebIntentPickerController::SetWindowDispositionSource(
                              weak_ptr_factory_.GetWeakPtr());
   }
 
-  source_intents_dispatcher_ = dispatcher;
   if (dispatcher) {
     dispatcher->RegisterReplyNotification(
       base::Bind(&WebIntentPickerController::SourceDispatcherReplied,
                  weak_ptr_factory_.GetWeakPtr()));
   }
+  source_intents_dispatcher_ = dispatcher;
 }
 
 void WebIntentPickerController::SourceWebContentsDestroyed(
@@ -1030,13 +974,40 @@ void WebIntentPickerController::AsyncOperationFinished() {
   }
 }
 
+void WebIntentPickerController::InvokeServiceWithSelection(
+    const webkit_glue::WebIntentServiceData& service) {
+  if (picker_shown_) {
+    intents_dispatcher_->SendReplyMessage(
+        webkit_glue::WEB_INTENT_REPLY_FAILURE,
+        ASCIIToUTF16("Simultaneous intent invocation."));
+    return;
+  }
+
+  // TODO(gbillock): this is a bit hacky and exists because in the inline case,
+  // the picker currently assumes it exists.
+  AddServiceToModel(service);
+  picker_model_->set_show_use_another_service(false);
+
+  if (service.disposition ==
+      webkit_glue::WebIntentServiceData::DISPOSITION_INLINE) {
+    picker_model_->SetInlineDisposition(service.service_url);
+    SetDialogState(kPickerInline);
+    return;
+  }
+
+  OnServiceChosen(service.service_url, service.disposition, kSuppressDefaults);
+}
+
 void WebIntentPickerController::InvokeService(
     const WebIntentPickerModel::InstalledService& service) {
   if (service.disposition ==
       webkit_glue::WebIntentServiceData::DISPOSITION_INLINE) {
+    // This call will ensure the picker dialog is created and initialized.
+    picker_model_->SetInlineDisposition(service.url);
     SetDialogState(kPickerInline);
+    return;
   }
-  OnServiceChosen(service.url, service.disposition);
+  OnServiceChosen(service.url, service.disposition, kEnableDefaults);
 }
 
 void WebIntentPickerController::SetDialogState(WebIntentPickerState state) {

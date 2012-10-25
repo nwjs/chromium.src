@@ -11,6 +11,7 @@
 #include "base/string_number_conversions.h"
 #include "base/sys_string_conversions.h"
 #import "chrome/browser/certificate_viewer.h"
+#include "chrome/browser/infobars/infobar_tab_helper.h"
 #import "chrome/browser/ui/browser_dialogs.h"
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
 #import "chrome/browser/ui/cocoa/flipped_view.h"
@@ -494,7 +495,7 @@ NSColor* IdentityVerifiedTextColor() {
   DCHECK(tabContents_);
   content::RecordAction(
       content::UserMetricsAction("WebsiteSettings_CookiesDialogOpened"));
-  chrome::ShowCollectedCookiesDialog(tabContents_);
+  chrome::ShowCollectedCookiesDialog(tabContents_->web_contents());
 }
 
 // Handler for the link button to show certificate information.
@@ -827,13 +828,18 @@ NSColor* IdentityVerifiedTextColor() {
   [button setTarget:self];
 
   // Create the popup menu.
+  // TODO(dubroy): Refactor this code to use PermissionMenuModel.
 
-  [button addItemWithTitle:
-      l10n_util::GetNSString(IDS_WEBSITE_SETTINGS_MENU_ITEM_ALLOW)];
-  [[button lastItem] setTag:CONTENT_SETTING_ALLOW];
+  // Media stream permission does not support "Always allow".
+  if (permissionInfo.type != CONTENT_SETTINGS_TYPE_MEDIASTREAM) {
+    [button addItemWithTitle:
+        l10n_util::GetNSString(IDS_WEBSITE_SETTINGS_MENU_ITEM_ALLOW)];
+    [[button lastItem] setTag:CONTENT_SETTING_ALLOW];
+  }
 
-  // Fullscreen permission does not support "Always block".
-  if (permissionInfo.type != CONTENT_SETTINGS_TYPE_FULLSCREEN) {
+  // Fullscreen and media stream do not support "Always block".
+  if (permissionInfo.type != CONTENT_SETTINGS_TYPE_FULLSCREEN &&
+      permissionInfo.type != CONTENT_SETTINGS_TYPE_MEDIASTREAM) {
     [button addItemWithTitle:
         l10n_util::GetNSString(IDS_WEBSITE_SETTINGS_MENU_ITEM_BLOCK)];
     [[button lastItem] setTag:CONTENT_SETTING_BLOCK];
@@ -1149,7 +1155,7 @@ void WebsiteSettingsUIBridge::Show(gfx::NativeWindow parent,
         profile,
         TabSpecificContentSettings::FromWebContents(
             tab_contents->web_contents()),
-        tab_contents->infobar_tab_helper(),
+        InfoBarTabHelper::FromWebContents(tab_contents->web_contents()),
         url,
         ssl,
         content::CertStore::GetInstance());

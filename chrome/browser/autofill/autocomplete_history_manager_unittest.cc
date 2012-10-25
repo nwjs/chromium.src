@@ -46,7 +46,7 @@ class AutocompleteHistoryManagerTest : public ChromeRenderViewHostTestHarness {
     web_data_service_ = new MockWebDataService();
     autocomplete_manager_.reset(
         new AutocompleteHistoryManager(
-            contents(),
+            web_contents(),
             &profile_,
             scoped_ptr<AutofillWebDataService>(
                 new AutofillWebDataServiceImpl(web_data_service_))));
@@ -149,8 +149,8 @@ namespace {
 
 class MockAutofillExternalDelegate : public TestAutofillExternalDelegate {
  public:
-  explicit MockAutofillExternalDelegate(TabContents* tab_contents)
-      : TestAutofillExternalDelegate(tab_contents, NULL) {}
+  explicit MockAutofillExternalDelegate(content::WebContents* web_contents)
+      : TestAutofillExternalDelegate(web_contents, NULL) {}
   virtual ~MockAutofillExternalDelegate() {}
 
   virtual void ApplyAutofillSuggestions(
@@ -188,13 +188,12 @@ class AutocompleteHistoryManagerStubSend : public AutocompleteHistoryManager {
 TEST_F(AutocompleteHistoryManagerTest, ExternalDelegate) {
   // Local version with a stubbed out Send()
   AutocompleteHistoryManagerStubSend autocomplete_history_manager(
-      contents(),
+      web_contents(),
       &profile_,
       scoped_ptr<AutofillWebDataService>(
           new AutofillWebDataServiceImpl(web_data_service_)));
 
-  MockAutofillExternalDelegate external_delegate(
-      TabContents::FromWebContents(contents()));
+  MockAutofillExternalDelegate external_delegate(web_contents());
   EXPECT_CALL(external_delegate, OnSuggestionsReturned(_, _,  _,  _,  _));
   autocomplete_history_manager.SetExternalDelegate(&external_delegate);
 

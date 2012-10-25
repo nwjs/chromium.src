@@ -4,7 +4,7 @@
  */
 
 /* From private/ppp_content_decryptor_private.idl,
- *   modified Mon Oct 01 20:27:29 2012.
+ *   modified Fri Oct 19 10:45:02 2012.
  */
 
 #ifndef PPAPI_C_PRIVATE_PPP_CONTENT_DECRYPTOR_PRIVATE_H_
@@ -18,10 +18,10 @@
 #include "ppapi/c/pp_var.h"
 #include "ppapi/c/private/pp_content_decryptor.h"
 
-#define PPP_CONTENTDECRYPTOR_PRIVATE_INTERFACE_0_2 \
-    "PPP_ContentDecryptor_Private;0.2"
+#define PPP_CONTENTDECRYPTOR_PRIVATE_INTERFACE_0_4 \
+    "PPP_ContentDecryptor_Private;0.4"
 #define PPP_CONTENTDECRYPTOR_PRIVATE_INTERFACE \
-    PPP_CONTENTDECRYPTOR_PRIVATE_INTERFACE_0_2
+    PPP_CONTENTDECRYPTOR_PRIVATE_INTERFACE_0_4
 
 /**
  * @file
@@ -42,7 +42,7 @@
  * Decryption Module (CDM) for v0.1 of the proposed Encrypted Media Extensions:
  * http://goo.gl/rbdnR
  */
-struct PPP_ContentDecryptor_Private_0_2 {
+struct PPP_ContentDecryptor_Private_0_4 {
   /**
    * Generates a key request. key_system specifies the key or licensing system
    * to use. init_data is a data buffer containing data for use in generating
@@ -114,26 +114,115 @@ struct PPP_ContentDecryptor_Private_0_2 {
                   PP_Resource encrypted_block,
                   const struct PP_EncryptedBlockInfo* encrypted_block_info);
   /**
-   * Decrypts encrypted_video_frame, decodes it, and returns the unencrypted
-   * uncompressed (decoded) video frame to the browser via the
-   * <code>DeliverFrame()</code> method on the
+   * Initializes the audio decoder using codec and settings in
+   * <code>decoder_config</code>, and returns the result of the initialization
+   * request to the browser using the <code>DecoderInitializeDone(
+      )</code> method
+   * on the <code>PPB_ContentDecryptor_Private</code> interface.
+   *
+   * @param[in] decoder_config A <code>PP_AudioDecoderConfig</code> that
+   * contains audio decoder settings and a request ID. The request ID is passed
+   * to the <code>DecoderInitializeDone()</code> method on the
+   * <code>PPB_ContentDecryptor_Private</code> interface to allow clients to
+   * associate the result with a audio decoder initialization request.
+   *
+   * @param[in] codec_extra_data A <code>PP_Resource</code> corresponding to a
+   * <code>PPB_Buffer_Dev</code> resource containing codec setup data required
+   * by some codecs. It should be set to 0 when the codec being initialized
+   * does not require it.
+   */
+  void (*InitializeAudioDecoder)(
+      PP_Instance instance,
+      const struct PP_AudioDecoderConfig* decoder_config,
+      PP_Resource codec_extra_data);
+  /**
+   * Initializes the video decoder using codec and settings in
+   * <code>decoder_config</code>, and returns the result of the initialization
+   * request to the browser using the <code>DecoderInitializeDone()</code>
+   * method on the <code>PPB_ContentDecryptor_Private</code> interface.
+   *
+   * @param[in] decoder_config A <code>PP_VideoDecoderConfig</code> that
+   * contains video decoder settings and a request ID. The request ID is passed
+   * to the <code>DecoderInitializeDone()</code> method on the
+   * <code>PPB_ContentDecryptor_Private</code> interface to allow clients to
+   * associate the result with a video decoder initialization request.
+   *
+   * @param[in] codec_extra_data A <code>PP_Resource</code> corresponding to a
+   * <code>PPB_Buffer_Dev</code> resource containing codec setup data required
+   * by some codecs. It should be set to 0 when the codec being initialized
+   * does not require it.
+   */
+  void (*InitializeVideoDecoder)(
+      PP_Instance instance,
+      const struct PP_VideoDecoderConfig* decoder_config,
+      PP_Resource codec_extra_data);
+  /**
+   * De-initializes the decoder for the <code>PP_DecryptorStreamType</code>
+   * specified by <code>decoder_type</code> and sets it to an uninitialized
+   * state. The decoder can be re-initialized after de-initialization completes
+   * by calling <code>InitializeAudioDecoder</code> or
+   * <code>InitializeVideoDecoder</code>.
+   *
+   * De-initialization completion is reported to the browser using the
+   * <code>DecoderDeinitializeDone()</code> method on the
    * <code>PPB_ContentDecryptor_Private</code> interface.
    *
-   * @param[in] encrypted_video_frame A <code>PP_Resource</code> corresponding
-   * to a <code>PPB_Buffer_Dev</code> resource that contains an encrypted video
-   * frame.
+   * @param[in] decoder_type A <code>PP_DecryptorStreamType</code> that
+   * specifies the decoder to de-initialize.
    *
-   * @param[in] encrypted_video_frame_info A
-   * <code>PP_EncryptedVideoFrameInfo</code> that contains all information
-   * needed to decrypt and decode <code>encrypted_video_frame</code>.
+   * @param[in] request_id A request ID that allows the browser to associate a
+   * request to de-initialize a decoder with the corresponding call to the
+   * <code>DecoderDeinitializeDone()</code> method on the
+   * <code>PPB_ContentDecryptor_Private</code> interface.
    */
-  void (*DecryptAndDecodeFrame)(
+  void (*DeinitializeDecoder)(PP_Instance instance,
+                              PP_DecryptorStreamType decoder_type,
+                              uint32_t request_id);
+  /**
+   * Resets the decoder for the <code>PP_DecryptorStreamType</code> specified
+   * by <code>decoder_type</code> to an initialized clean state. Reset
+   * completion is reported to the browser using the
+   * <code>DecoderResetDone()</code> method on the
+   * <code>PPB_ContentDecryptor_Private</code> interface. This method can be
+   * used to signal a discontinuity in the encoded data stream, and is safe to
+   * call multiple times.
+   *
+   * @param[in] decoder_type A <code>PP_DecryptorStreamType</code> that
+   * specifies the decoder to reset.
+   *
+   * @param[in] request_id A request ID that allows the browser to associate a
+   * request to reset the decoder with a corresponding call to the
+   * <code>DecoderResetDone()</code> method on the
+   * <code>PPB_ContentDecryptor_Private</code> interface.
+   */
+  void (*ResetDecoder)(PP_Instance instance,
+                       PP_DecryptorStreamType decoder_type,
+                       uint32_t request_id);
+  /**
+   * Decrypts encrypted_buffer, decodes it, and returns the unencrypted
+   * uncompressed (decoded) data to the browser via the
+   * <code>DeliverFrame()</code> or <code>DeliverSamples()</code> method on the
+   * <code>PPB_ContentDecryptor_Private</code> interface.
+   *
+   * @param[in] decoder_type A <code>PP_DecryptorStreamType</code> that
+   * specifies the decoder to use after <code>encrypted_buffer</code> is
+   * decrypted.
+   *
+   * @param[in] encrypted_buffer A <code>PP_Resource</code> corresponding to a
+   * <code>PPB_Buffer_Dev</code> resource that contains encrypted media data.
+   *
+   * @param[in] encrypted_block_info A <code>PP_EncryptedBlockInfo</code> that
+   * contains all auxiliary information needed for decryption of the
+   * <code>encrypted_block</code>.
+   */
+  void (*DecryptAndDecode)(
       PP_Instance instance,
-      PP_Resource encrypted_video_frame,
-      const struct PP_EncryptedVideoFrameInfo* encrypted_video_frame_info);
+      PP_DecryptorStreamType decoder_type,
+      PP_Resource encrypted_buffer,
+      const struct PP_EncryptedBlockInfo* encrypted_block_info);
 };
 
-typedef struct PPP_ContentDecryptor_Private_0_2 PPP_ContentDecryptor_Private;
+typedef struct PPP_ContentDecryptor_Private_0_4 PPP_ContentDecryptor_Private;
 /**
  * @}
  */

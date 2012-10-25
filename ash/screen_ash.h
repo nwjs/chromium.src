@@ -7,7 +7,7 @@
 
 #include "ash/ash_export.h"
 #include "base/compiler_specific.h"
-#include "ui/gfx/screen_impl.h"
+#include "ui/gfx/screen.h"
 
 namespace gfx {
 class Rect;
@@ -17,7 +17,7 @@ namespace ash {
 
 // Aura implementation of gfx::Screen. Implemented here to avoid circular
 // dependencies.
-class ASH_EXPORT ScreenAsh : public gfx::ScreenImpl {
+class ASH_EXPORT ScreenAsh : public gfx::Screen {
  public:
   ScreenAsh();
   virtual ~ScreenAsh();
@@ -30,10 +30,6 @@ class ASH_EXPORT ScreenAsh : public gfx::ScreenImpl {
   // Returns the bounds for maximized windows in parent coordinates.
   // Maximized windows trigger auto-hiding the shelf.
   static gfx::Rect GetMaximizedWindowBoundsInParent(aura::Window* window);
-
-  // Returns work area when a maximized window is not present in
-  // parent coordinates.
-  static gfx::Rect GetUnmaximizedWorkAreaBoundsInParent(aura::Window* window);
 
   // Returns the display bounds in parent coordinates.
   static gfx::Rect GetDisplayBoundsInParent(aura::Window* window);
@@ -56,6 +52,9 @@ class ASH_EXPORT ScreenAsh : public gfx::ScreenImpl {
   static const gfx::Display& GetSecondaryDisplay();
 
  protected:
+
+  // Implementation of gfx::Screen:
+  virtual bool IsDIPEnabled() OVERRIDE;
   virtual gfx::Point GetCursorScreenPoint() OVERRIDE;
   virtual gfx::NativeWindow GetWindowAtCursorScreenPoint() OVERRIDE;
 

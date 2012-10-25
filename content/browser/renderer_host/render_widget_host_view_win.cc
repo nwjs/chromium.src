@@ -32,6 +32,7 @@
 #include "content/browser/renderer_host/backing_store_win.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
+#include "content/browser/renderer_host/ui_events_helper.h"
 #include "content/common/accessibility_messages.h"
 #include "content/common/gpu/gpu_messages.h"
 #include "content/common/plugin_messages.h"
@@ -410,24 +411,6 @@ class WebTouchState {
   // Returns if any touches are modified in the event.
   bool is_changed() { return touch_event_.changedTouchesLength != 0; }
 
-  void QueueEvents(ui::GestureConsumer* consumer, ui::GestureRecognizer* gr) {
-    if (touch_event_.touchesLength > 0)
-      touch_count_.push(touch_event_.touchesLength);
-    base::TimeDelta timestamp = base::TimeDelta::FromMilliseconds(
-        touch_event_.timeStampSeconds * 1000);
-    for (size_t i = 0; i < touch_event_.touchesLength; ++i) {
-      gr->QueueTouchEventForGesture(consumer,
-          TouchEventFromWebTouchPoint(touch_event_.touches[i], timestamp));
-    }
-  }
-
-  int GetNextTouchCount() {
-    DCHECK(!touch_count_.empty());
-    int result = touch_count_.top();
-    touch_count_.pop();
-    return result;
-  }
-
  private:
   typedef std::map<unsigned int, int> MapType;
 
@@ -444,12 +427,6 @@ class WebTouchState {
 
   // Remove any mappings that are no longer in use.
   void RemoveExpiredMappings();
-
-  // The gesture recognizer processes touch events one at a time, but WebKit
-  // (ForwardTouchEvent) takes a set of touch events. |touchCount_| tracks how
-  // many individual touch events were sent to ForwardTouchEvent, so we can
-  // send the correct number of AdvanceTouchQueue's
-  std::stack<int> touch_count_;
 
   WebKit::WebTouchEvent touch_event_;
   const RenderWidgetHostViewWin* const window_;
@@ -547,7 +524,7 @@ void RenderWidgetHostViewWin::InitAsPopup(
 
 void RenderWidgetHostViewWin::InitAsFullscreen(
     RenderWidgetHostView* reference_host_view) {
-  gfx::Rect pos = gfx::Screen::GetDisplayNearestWindow(
+  gfx::Rect pos = gfx::Screen::GetNativeScreen()->GetDisplayNearestWindow(
       reference_host_view->GetNativeView()).bounds();
   is_fullscreen_ = true;
   DoPopupOrFullscreenInit(ui::GetWindowToParentTo(true), pos, 0);
@@ -927,7 +904,7 @@ void RenderWidgetHostViewWin::CopyFromCompositingSurface(
     const gfx::Rect& src_subrect,
     const gfx::Size& dst_size,
     const base::Callback<void(bool)>& callback,
-    skia::PlatformCanvas* output) {
+    skia::PlatformBitmap* output) {
   base::ScopedClosureRunner scoped_callback_runner(base::Bind(callback, false));
   if (!accelerated_surface_.get())
     return;
@@ -935,13 +912,13 @@ void RenderWidgetHostViewWin::CopyFromCompositingSurface(
   if (dst_size.IsEmpty())
     return;
 
-  if (!output->initialize(dst_size.width(), dst_size.height(), true))
+  if (!output->Allocate(dst_size.width(), dst_size.height(), true))
     return;
 
   const bool result = accelerated_surface_->CopyTo(
       src_subrect,
       dst_size,
-      output->getTopDevice()->accessBitmap(true).getPixels());
+      output->GetBitmap().getPixels());
   scoped_callback_runner.Release();
   callback.Run(result);
 }
@@ -951,71 +928,52 @@ void RenderWidgetHostViewWin::SetBackground(const SkBitmap& background) {
   render_widget_host_->SetBackground(background);
 }
 
-void RenderWidgetHostViewWin::ProcessTouchAck(
-    WebKit::WebInputEvent::Type type, bool processed) {
+void RenderWidgetHostViewWin::ProcessAckedTouchEvent(
+    const WebKit::WebTouchEvent& touch,
+    bool processed) {
+  DCHECK(touch_events_enabled_);
 
-  DCHECK(render_widget_host_->has_touch_handler() &&
-      touch_events_enabled_);
+  ScopedVector<ui::TouchEvent> events;
+  if (!MakeUITouchEventsFromWebTouchEvents(touch, &events))
+    return;
 
-  int touch_count = touch_state_->GetNextTouchCount();
-  for (int i = 0; i < touch_count; ++i) {
+  ui::EventResult result = processed ? ui::ER_HANDLED : ui::ER_UNHANDLED;
+  for (ScopedVector<ui::TouchEvent>::iterator iter = events.begin(),
+      end = events.end(); iter != end; ++iter)  {
     scoped_ptr<ui::GestureRecognizer::Gestures> gestures;
-    gestures.reset(gesture_recognizer_->AdvanceTouchQueue(this, processed));
+    gestures.reset(gesture_recognizer_->ProcessTouchEventForGesture(
+        *(*iter), result, this));
     ProcessGestures(gestures.get());
   }
-
-  if (type == WebKit::WebInputEvent::TouchStart)
-    UpdateDesiredTouchMode(processed);
 }
 
-void RenderWidgetHostViewWin::SetToGestureMode() {
-  if (base::win::GetVersion() < base::win::VERSION_WIN7)
-    return;
-  UnregisterTouchWindow(m_hWnd);
-  // Single finger panning is consistent with other windows applications.
-  const DWORD gesture_allow = GC_PAN_WITH_SINGLE_FINGER_VERTICALLY |
-                              GC_PAN_WITH_SINGLE_FINGER_HORIZONTALLY;
-  const DWORD gesture_block = GC_PAN_WITH_GUTTER;
-  GESTURECONFIG gc[] = {
-      { GID_ZOOM, GC_ZOOM, 0 },
-      { GID_PAN, gesture_allow , gesture_block},
-      { GID_TWOFINGERTAP, GC_TWOFINGERTAP , 0},
-      { GID_PRESSANDTAP, GC_PRESSANDTAP , 0}
-  };
-  if (!SetGestureConfig(m_hWnd, 0, arraysize(gc), gc,
-      sizeof(GESTURECONFIG))) {
-    NOTREACHED();
-  }
-  touch_events_enabled_ = false;
-}
-
-bool RenderWidgetHostViewWin::SetToTouchMode() {
-  if (base::win::GetVersion() < base::win::VERSION_WIN7)
-    return false;
-  bool touch_mode = RegisterTouchWindow(m_hWnd, TWF_WANTPALM) == TRUE;
-  touch_events_enabled_ = touch_mode;
-  return touch_mode;
-}
-
-void RenderWidgetHostViewWin::UpdateDesiredTouchMode(bool touch_mode) {
+void RenderWidgetHostViewWin::UpdateDesiredTouchMode() {
   // Make sure that touch events even make sense.
-  bool touch_mode_valid = base::win::GetVersion() >= base::win::VERSION_WIN7 &&
+  static bool touch_mode = base::win::GetVersion() >= base::win::VERSION_WIN7 &&
       CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableTouchEvents);
-  touch_mode = touch_mode_valid;
 
-  // Already in correct mode, nothing to do.
-  if ((touch_mode && touch_events_enabled_) ||
-      (!touch_mode && !touch_events_enabled_))
+  if (!touch_mode)
     return;
 
   // Now we know that the window's current state doesn't match the desired
   // state. If we want touch mode, then we attempt to register for touch
   // events, and otherwise to unregister.
-  if (touch_mode) {
-    touch_mode = SetToTouchMode();
-  }
-  if (!touch_mode) {
-    SetToGestureMode();
+  touch_events_enabled_ = RegisterTouchWindow(m_hWnd, TWF_WANTPALM) == TRUE;
+
+  if (!touch_events_enabled_) {
+    UnregisterTouchWindow(m_hWnd);
+    // Single finger panning is consistent with other windows applications.
+    const DWORD gesture_allow = GC_PAN_WITH_SINGLE_FINGER_VERTICALLY |
+                                GC_PAN_WITH_SINGLE_FINGER_HORIZONTALLY;
+    const DWORD gesture_block = GC_PAN_WITH_GUTTER;
+    GESTURECONFIG gc[] = {
+        { GID_ZOOM, GC_ZOOM, 0 },
+        { GID_PAN, gesture_allow , gesture_block},
+        { GID_TWOFINGERTAP, GC_TWOFINGERTAP , 0},
+        { GID_PRESSANDTAP, GC_PRESSANDTAP , 0}
+    };
+    if (!SetGestureConfig(m_hWnd, 0, arraysize(gc), gc, sizeof(GESTURECONFIG)))
+      NOTREACHED();
   }
 }
 
@@ -1026,8 +984,10 @@ bool RenderWidgetHostViewWin::DispatchLongPressGestureEvent(
 
 bool RenderWidgetHostViewWin::DispatchCancelTouchEvent(
     ui::TouchEvent* event) {
-  if (!render_widget_host_ || !touch_events_enabled_)
+  if (!render_widget_host_ || !touch_events_enabled_ ||
+      !render_widget_host_->ShouldForwardTouchEvent()) {
     return false;
+  }
   DCHECK(event->type() == WebKit::WebInputEvent::TouchCancel);
   WebKit::WebTouchEvent cancel_event;
   cancel_event.type = WebKit::WebInputEvent::TouchCancel;
@@ -1270,13 +1230,7 @@ LRESULT RenderWidgetHostViewWin::OnCreate(CREATESTRUCT* create_struct) {
   // scrolled when under the mouse pointer even if inactive.
   props_.push_back(ui::SetWindowSupportsRerouteMouseWheel(m_hWnd));
 
-  bool touch_enabled = base::win::GetVersion() >= base::win::VERSION_WIN7 &&
-      CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableTouchEvents);
-  if (touch_enabled)
-    SetToTouchMode();
-  else
-    SetToGestureMode();
-
+  UpdateDesiredTouchMode();
   UpdateIMEState();
 
   return 0;
@@ -2254,17 +2208,15 @@ LRESULT RenderWidgetHostViewWin::OnTouchEvent(UINT message, WPARAM wparam,
         TOUCH_COORD_TO_PIXEL(points[0].y));
   }
 
-  bool has_touch_handler = render_widget_host_->has_touch_handler() &&
+  bool should_forward = render_widget_host_->ShouldForwardTouchEvent() &&
       touch_events_enabled_;
 
   // Send a copy of the touch events on to the gesture recognizer.
   for (size_t start = 0; start < total;) {
     start += touch_state_->UpdateTouchPoints(points + start, total - start);
-    if (has_touch_handler) {
-      if (touch_state_->is_changed()) {
+    if (should_forward) {
+      if (touch_state_->is_changed())
         render_widget_host_->ForwardTouchEvent(touch_state_->touch_event());
-        touch_state_->QueueEvents(this, gesture_recognizer_.get());
-      }
     } else {
       const WebKit::WebTouchEvent& touch_event = touch_state_->touch_event();
       base::TimeDelta timestamp = base::TimeDelta::FromMilliseconds(
@@ -3072,14 +3024,23 @@ LRESULT RenderWidgetHostViewWin::OnQueryCharPosition(
     IMECHARPOSITION* position) {
   DCHECK(position);
 
-  if (!ime_input_.is_composing() || composition_range_.is_empty() ||
-      position->dwSize < sizeof(IMECHARPOSITION) ||
-      position->dwCharPos >= composition_character_bounds_.size()) {
+  if (position->dwSize < sizeof(IMECHARPOSITION))
+    return 0;
+
+  RECT target_rect = {};
+  if (ime_input_.is_composing() && !composition_range_.is_empty() &&
+      position->dwCharPos < composition_character_bounds_.size()) {
+    target_rect =
+        composition_character_bounds_[position->dwCharPos].ToRECT();
+  } else if (position->dwCharPos == 0) {
+    // When there is no on-going composition but |position->dwCharPos| is 0,
+    // use the caret rect. This behavior is the same to RichEdit. In fact,
+    // CUAS (Cicero Unaware Application Support) relies on this behavior to
+    // implement ITfContextView::GetTextExt on top of IMM32-based applications.
+    target_rect = caret_rect_.ToRECT();
+  } else {
     return 0;
   }
-
-  RECT target_rect =
-      composition_character_bounds_[position->dwCharPos].ToRECT();
   ClientToScreen(&target_rect);
 
   RECT document_rect = GetViewBounds().ToRECT();

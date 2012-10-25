@@ -151,6 +151,7 @@ Panel::Panel(const std::string& app_name,
 }
 
 Panel::~Panel() {
+  DCHECK(!panel_strip_);
   // Invoked by native panel destructor. Do not access native_panel_ here.
   browser::EndKeepAlive();  // Remove shutdown prevention.
 }
@@ -675,14 +676,12 @@ void Panel::OnActiveStateChanged(bool active) {
   if (panel_strip_)
     panel_strip_->OnPanelActiveStateChanged(this);
 
-  // Send extension event about window becoming active.
-  if (active) {
-    ExtensionService* service =
-        extensions::ExtensionSystem::Get(profile())->extension_service();
-    if (service) {
-      service->window_event_router()->OnActiveWindowChanged(
-          extension_window_controller_.get());
-    }
+  // Send extension event about window changing active state.
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile())->extension_service();
+  if (service) {
+    service->window_event_router()->OnActiveWindowChanged(
+        active ? extension_window_controller_.get() : NULL);
   }
 
   content::NotificationService::current()->Notify(

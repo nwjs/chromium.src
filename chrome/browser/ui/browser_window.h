@@ -49,11 +49,6 @@ class Rect;
 class Size;
 }
 
-enum DevToolsDockSide {
-  DEVTOOLS_DOCK_SIDE_BOTTOM = 0,
-  DEVTOOLS_DOCK_SIDE_RIGHT = 1
-};
-
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserWindow interface
 //  An interface implemented by the "view" of the Browser window.
@@ -103,9 +98,6 @@ class BrowserWindow : public BaseWindow {
   // Inform the frame that the dev tools window for the selected tab has
   // changed.
   virtual void UpdateDevTools() = 0;
-
-  // Requests that the docked dev tools window changes its dock mode.
-  virtual void SetDevToolsDockSide(DevToolsDockSide side) = 0;
 
   // Update any loading animations running in the window. |should_animate| is
   // true if there are tabs loading and the animations should continue, false
@@ -300,7 +292,6 @@ class BrowserWindow : public BaseWindow {
   virtual void ShowCreateChromeAppShortcutsDialog(Profile* profile,
       const extensions::Extension* app) = 0;
 
-
   // Clipboard commands applied to the whole browser window.
   virtual void Cut() = 0;
   virtual void Copy() = 0;
@@ -318,14 +309,6 @@ class BrowserWindow : public BaseWindow {
   virtual void ExitPresentationMode() = 0;
   virtual bool InPresentationMode() = 0;
 #endif
-
-  // Invoked when instant's tab contents should be shown with given |height|.
-  virtual void ShowInstant(TabContents* preview,
-                           int height,
-                           InstantSizeUnits units) = 0;
-
-  // Invoked when instant's tab contents should be hidden.
-  virtual void HideInstant() = 0;
 
   // Returns the desired bounds for instant in screen coordinates. Note that if
   // instant isn't currently visible this returns the bounds instant would be

@@ -1265,7 +1265,7 @@ void ProfileSyncService::UpdateSelectedTypesHistogram(
     browser_sync::user_selectable_type::TYPED_URLS
   };
 
-  COMPILE_ASSERT(17 == syncer::MODEL_TYPE_COUNT, UpdateCustomConfigHistogram);
+  COMPILE_ASSERT(20 == syncer::MODEL_TYPE_COUNT, UpdateCustomConfigHistogram);
   COMPILE_ASSERT(arraysize(model_types) ==
                  browser_sync::user_selectable_type::SELECTABLE_DATATYPE_COUNT,
                  UpdateCustomConfigHistogram);
@@ -1357,7 +1357,17 @@ syncer::ModelTypeSet ProfileSyncService::GetRegisteredDataTypes() const {
 }
 
 bool ProfileSyncService::IsUsingSecondaryPassphrase() const {
-  return backend_->IsUsingExplicitPassphrase();
+  syncer::PassphraseType passphrase_type = GetPassphraseType();
+  return passphrase_type == syncer::FROZEN_IMPLICIT_PASSPHRASE ||
+         passphrase_type == syncer::CUSTOM_PASSPHRASE;
+}
+
+syncer::PassphraseType ProfileSyncService::GetPassphraseType() const {
+  return backend_->GetPassphraseType();
+}
+
+base::Time ProfileSyncService::GetExplicitPassphraseTime() const {
+  return backend_->GetExplicitPassphraseTime();
 }
 
 bool ProfileSyncService::IsCryptographerReady(

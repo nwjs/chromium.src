@@ -40,7 +40,7 @@
 #include "net/base/escape.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
+#include "chrome/browser/chromeos/drive/drive_file_system_util.h"
 #endif
 
 using content::BrowserContext;
@@ -100,7 +100,7 @@ void GetDownloadFilePath(
 
 #if defined (OS_CHROMEOS)
   // Do not use drive for extension downloads.
-  if (gdata::util::IsUnderDriveMountPoint(directory))
+  if (drive::util::IsUnderDriveMountPoint(directory))
     directory = download_util::GetDefaultDownloadDirectory();
 #endif
 
@@ -345,8 +345,9 @@ void WebstoreInstaller::StartDownload(const FilePath& file) {
     return;
   }
 
-  content::DownloadSaveInfo save_info;
-  save_info.file_path = file;
+  scoped_ptr<content::DownloadSaveInfo> save_info(
+      new content::DownloadSaveInfo());
+  save_info->file_path = file;
 
   // The download url for the given extension is contained in |download_url_|.
   // We will navigate the current tab to this url to start the download. The
@@ -355,7 +356,7 @@ void WebstoreInstaller::StartDownload(const FilePath& file) {
       download_util::INITIATED_BY_WEBSTORE_INSTALLER);
   scoped_ptr<DownloadUrlParameters> params(
       DownloadUrlParameters::FromWebContents(
-          controller_->GetWebContents(), download_url_, save_info));
+          controller_->GetWebContents(), download_url_, save_info.Pass()));
   if (controller_->GetActiveEntry())
     params->set_referrer(
         content::Referrer(controller_->GetActiveEntry()->GetURL(),

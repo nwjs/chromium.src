@@ -7,6 +7,8 @@
 #include "chrome/browser/extensions/activity_log.h"
 #include "chrome/browser/extensions/app_notify_channel_ui.h"
 #include "chrome/browser/extensions/crx_installer.h"
+#include "chrome/browser/extensions/extension_action.h"
+#include "chrome/browser/extensions/extension_action_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/page_action_controller.h"
@@ -21,12 +23,10 @@
 #include "chrome/browser/ui/web_applications/web_app_ui.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/extension_messages.h"
 #include "chrome/common/extensions/extension_resource.h"
-#include "chrome/common/extensions/extension_switch_utils.h"
 #include "chrome/common/extensions/feature_switch.h"
 #include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/navigation_controller.h"
@@ -86,7 +86,7 @@ TabHelper::TabHelper(content::WebContents* web_contents)
       web_contents,
       SessionID::IdForTab(web_contents),
       Profile::FromBrowserContext(web_contents->GetBrowserContext())));
-  if (switch_utils::AreScriptBadgesEnabled()) {
+  if (FeatureSwitch::script_badges()->IsEnabled()) {
     location_bar_controller_.reset(
         new ScriptBadgeController(web_contents, &script_executor_, this));
   } else {
@@ -94,7 +94,7 @@ TabHelper::TabHelper(content::WebContents* web_contents)
         new PageActionController(web_contents));
   }
 
-  if (FeatureSwitch::GetScriptBubble()->IsEnabled()) {
+  if (FeatureSwitch::script_bubble()->IsEnabled()) {
     script_bubble_controller_.reset(
         new ScriptBubbleController(web_contents, this));
   }
@@ -185,9 +185,12 @@ void TabHelper::DidNavigateMainFrame(
   if (!service)
     return;
 
+  ExtensionActionManager* extension_action_manager =
+      ExtensionActionManager::Get(profile);
   for (ExtensionSet::const_iterator it = service->extensions()->begin();
        it != service->extensions()->end(); ++it) {
-    ExtensionAction* browser_action = (*it)->browser_action();
+    ExtensionAction* browser_action =
+        extension_action_manager->GetBrowserAction(**it);
     if (browser_action) {
       browser_action->ClearAllValuesForTab(SessionID::IdForTab(web_contents()));
       content::NotificationService::current()->Notify(
@@ -242,16 +245,15 @@ void TabHelper::OnDidGetApplicationInfo(int32 page_id,
   if (!entry || (entry->GetPageID() != page_id))
     return;
 
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents());
   switch (pending_web_app_action_) {
     case CREATE_SHORTCUT: {
       chrome::ShowCreateWebAppShortcutsDialog(
           web_contents()->GetView()->GetTopLevelNativeWindow(),
-          tab_contents);
+          web_contents());
       break;
     }
     case UPDATE_SHORTCUT: {
-      web_app::UpdateShortcutForTabContents(tab_contents);
+      web_app::UpdateShortcutForTabContents(web_contents());
       break;
     }
     default:
@@ -271,13 +273,8 @@ void TabHelper::OnInstallApplication(const WebApplicationInfo& info) {
     return;
 
   ExtensionInstallPrompt* prompt = NULL;
-  if (extension_service->show_extensions_prompts()) {
-    gfx::NativeWindow parent =
-        web_contents()->GetView()->GetTopLevelNativeWindow();
-    Profile* profile =
-        Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-    prompt = new ExtensionInstallPrompt(parent, web_contents(), profile);
-  }
+  if (extension_service->show_extensions_prompts())
+    prompt = new ExtensionInstallPrompt(web_contents());
   scoped_refptr<CrxInstaller> installer(
       CrxInstaller::Create(extension_service, prompt));
   installer->InstallWebApp(info);

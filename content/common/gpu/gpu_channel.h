@@ -28,9 +28,7 @@
 #include "content/common/android/surface_texture_peer.h"
 #endif
 
-class GpuChannelManager;
 struct GPUCreateCommandBufferConfig;
-class GpuWatchdog;
 
 namespace base {
 class MessageLoopProxy;
@@ -39,6 +37,9 @@ class WaitableEvent;
 
 namespace gpu {
 struct RefCountedCounter;
+namespace gles2 {
+class ImageManager;
+}
 }
 
 #if defined(OS_ANDROID)
@@ -46,6 +47,10 @@ namespace content {
 class StreamTextureManagerAndroid;
 }
 #endif
+
+namespace content {
+class GpuChannelManager;
+class GpuWatchdog;
 
 // Encapsulates an IPC channel between the GPU process and one renderer
 // process. On the renderer side there's a corresponding GpuChannelHost.
@@ -100,6 +105,12 @@ class GpuChannel : public IPC::Listener,
       const GPUCreateCommandBufferConfig& init_params,
       int32* route_id);
 
+  void CreateImage(
+      gfx::PluginWindowHandle window,
+      int32 image_id,
+      gfx::Size* size);
+  void DeleteImage(int32 image_id);
+
   gfx::GLShareGroup* share_group() const { return share_group_.get(); }
 
   GpuCommandBufferStub* LookupCommandBuffer(int32 route_id);
@@ -126,7 +137,7 @@ class GpuChannel : public IPC::Listener,
       scoped_refptr<gpu::RefCountedCounter> preempt_by_counter);
 
 #if defined(OS_ANDROID)
-  content::StreamTextureManagerAndroid* stream_texture_manager() {
+  StreamTextureManagerAndroid* stream_texture_manager() {
     return stream_texture_manager_.get();
   }
 #endif
@@ -159,7 +170,7 @@ class GpuChannel : public IPC::Listener,
   // Create a java surface texture object and send it to the renderer process
   // through binder thread.
   void OnEstablishStreamTexture(
-      int32 stream_id, content::SurfaceTexturePeer::SurfaceTextureTarget type,
+      int32 stream_id, SurfaceTexturePeer::SurfaceTextureTarget type,
       int32 primary_id, int32 secondary_id);
 #endif
 
@@ -198,6 +209,7 @@ class GpuChannel : public IPC::Listener,
   scoped_refptr<gfx::GLShareGroup> share_group_;
 
   scoped_refptr<gpu::gles2::MailboxManager> mailbox_manager_;
+  scoped_refptr<gpu::gles2::ImageManager> image_manager_;
 
 #if defined(ENABLE_GPU)
   typedef IDMap<GpuCommandBufferStub, IDMapOwnPointer> StubMap;
@@ -212,12 +224,14 @@ class GpuChannel : public IPC::Listener,
   bool processed_get_state_fast_;
 
 #if defined(OS_ANDROID)
-  scoped_ptr<content::StreamTextureManagerAndroid> stream_texture_manager_;
+  scoped_ptr<StreamTextureManagerAndroid> stream_texture_manager_;
 #endif
 
   base::WeakPtrFactory<GpuChannel> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(GpuChannel);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_COMMON_GPU_GPU_CHANNEL_H_

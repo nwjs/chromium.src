@@ -8,10 +8,10 @@
 #include "base/file_util.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/path_service.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
+#include "base/prefs/pref_notifier.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/prefs/pref_notifier.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -310,7 +310,7 @@ void ComponentLoader::AddChromeApp() {
 }
 
 void ComponentLoader::AddScriptBubble() {
-  if (FeatureSwitch::GetScriptBubble()->IsEnabled()) {
+  if (FeatureSwitch::script_bubble()->IsEnabled()) {
     script_bubble_id_ =
         Add(IDR_SCRIPT_BUBBLE_MANIFEST,
             FilePath(FILE_PATH_LITERAL("script_bubble")));
@@ -371,6 +371,14 @@ void ComponentLoader::AddDefaultComponentExtensions() {
 #endif  // !defined(OS_CHROMEOS)
 
   Add(IDR_WEBSTORE_MANIFEST, FilePath(FILE_PATH_LITERAL("web_store")));
+
+#if defined(OS_WIN)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableSettingsApp)) {
+    Add(IDR_SETTINGS_APP_MANIFEST,
+        FilePath(FILE_PATH_LITERAL("settings_app")));
+  }
+#endif
 
 #if !defined(OS_CHROMEOS)
   // Cloud Print component app. Not required on Chrome OS.

@@ -86,15 +86,6 @@ cr.define('options', function() {
       // Sync (Sign in) section.
       this.updateSyncState_(loadTimeData.getValue('syncData'));
 
-      $('sync-action-link').onclick = function(event) {
-        if (cr.isChromeOS) {
-          // On Chrome OS, sign out the user and sign in again to get fresh
-          // credentials on auth errors.
-          SyncSetupOverlay.doSignOutOnAuthError();
-        } else {
-          SyncSetupOverlay.showErrorUI();
-        }
-      };
       $('start-stop-sync').onclick = function(event) {
         if (self.syncSetupCompleted)
           SyncSetupOverlay.showStopSyncingUI();
@@ -119,7 +110,12 @@ cr.define('options', function() {
 
       // On Startup section.
       Preferences.getInstance().addEventListener('session.restore_on_startup',
-         this.onRestoreOnStartupChanged_.bind(this));
+          this.onRestoreOnStartupChanged_.bind(this));
+      Preferences.getInstance().addEventListener(
+          'session.urls_to_restore_on_startup',
+          function(event) {
+            $('startup-set-pages').disabled = event.value.disabled;
+          });
 
       $('startup-set-pages').onclick = function() {
         OptionsPage.navigateToPage('startup');
@@ -476,11 +472,7 @@ cr.define('options', function() {
      * @private
      */
     onRestoreOnStartupChanged_: function(event) {
-      /** @const */ var showPagesValue = Number($('startup-show-pages').value);
       /** @const */ var showHomePageValue = 0;
-
-      $('startup-set-pages').disabled = event.value.disabled &&
-                                        event.value.value != showPagesValue;
 
       if (event.value.value == showHomePageValue) {
         // If the user previously selected "Show the homepage", the
@@ -650,6 +642,15 @@ cr.define('options', function() {
       $('sync-action-link').hidden = syncData.actionLinkText.length == 0;
       $('sync-action-link').disabled = syncData.managed;
 
+      // On Chrome OS, sign out the user and sign in again to get fresh
+      // credentials on auth errors.
+      $('sync-action-link').onclick = function(event) {
+        if (cr.isChromeOS && syncData.hasError)
+          SyncSetupOverlay.doSignOutOnAuthError();
+        else
+          SyncSetupOverlay.showErrorUI();
+      };
+
       if (syncData.hasError)
         $('sync-status').classList.add('sync-error');
       else
@@ -773,6 +774,11 @@ cr.define('options', function() {
         path = path.replace(/\//g, ' \u203a ');
         $('downloadLocationPath').value = path;
       }
+      if (event.value.disabled)
+        $('download-location-label').classList.add('disabled');
+      else
+        $('download-location-label').classList.remove('disabled');
+      $('downloadLocationChangeButton').disabled = event.value.disabled;
     },
 
     /**
@@ -813,6 +819,8 @@ cr.define('options', function() {
       this.clearSearchEngines_();
       engineSelect = $('default-search-engine');
       engineSelect.disabled = defaultManaged;
+      if (defaultManaged && defaultValue == -1)
+        return;
       engineCount = engines.length;
       var defaultIndex = -1;
       for (var i = 0; i < engineCount; i++) {

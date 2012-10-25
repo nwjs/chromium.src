@@ -6,7 +6,6 @@
 
 #include "ash/launcher/launcher.h"
 #include "ash/launcher/launcher_model.h"
-#include "ash/shell.h"
 #include "ash/wm/window_util.h"
 #include "base/command_line.h"
 #include "base/utf_string_conversions.h"
@@ -25,6 +24,7 @@
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -42,13 +42,14 @@ class LauncherPlatformAppBrowserTest
     : public extensions::PlatformAppBrowserTest {
  protected:
   LauncherPlatformAppBrowserTest()
-      : launcher_(NULL) {
+      : launcher_(NULL),
+        controller_(NULL) {
   }
 
   virtual ~LauncherPlatformAppBrowserTest() {}
 
   virtual void RunTestOnMainThreadLoop() {
-    launcher_ = ash::Shell::GetInstance()->launcher();
+    launcher_ = ash::Launcher::ForPrimaryDisplay();
     controller_ = static_cast<ChromeLauncherController*>(launcher_->delegate());
     return extensions::PlatformAppBrowserTest::RunTestOnMainThreadLoop();
   }
@@ -72,7 +73,7 @@ class LauncherAppBrowserTest : public ExtensionBrowserTest {
   virtual ~LauncherAppBrowserTest() {}
 
   virtual void RunTestOnMainThreadLoop() {
-    launcher_ = ash::Shell::GetInstance()->launcher();
+    launcher_ = ash::Launcher::ForPrimaryDisplay();
     model_ = launcher_->model();
     return ExtensionBrowserTest::RunTestOnMainThreadLoop();
   }
@@ -121,7 +122,7 @@ class LauncherAppBrowserTest : public ExtensionBrowserTest {
 
 // Test that we can launch a platform app and get a running item.
 IN_PROC_BROWSER_TEST_F(LauncherPlatformAppBrowserTest, LaunchUnpinned) {
-  ash::Launcher* launcher = ash::Shell::GetInstance()->launcher();
+  ash::Launcher* launcher = ash::Launcher::ForPrimaryDisplay();
   int item_count = launcher->model()->item_count();
   const Extension* extension = LoadAndLaunchPlatformApp("launch");
   ShellWindow* window = CreateShellWindow(extension);
@@ -452,8 +453,8 @@ IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchPinned) {
   EXPECT_EQ(ash::STATUS_ACTIVE, (*model_->ItemByID(shortcut_id)).status);
   TabContents* tab = tab_strip->GetActiveTabContents();
   content::WindowedNotificationObserver close_observer(
-      chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
-      content::Source<TabContents>(tab));
+      content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
+      content::Source<WebContents>(tab->web_contents()));
   browser()->tab_strip_model()->CloseSelectedTabs();
   close_observer.Wait();
   EXPECT_EQ(--tab_count, tab_strip->count());
@@ -471,8 +472,8 @@ IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchUnpinned) {
   EXPECT_EQ(ash::STATUS_ACTIVE, (*model_->ItemByID(shortcut_id)).status);
   TabContents* tab = tab_strip->GetActiveTabContents();
   content::WindowedNotificationObserver close_observer(
-      chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
-      content::Source<TabContents>(tab));
+      content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
+      content::Source<WebContents>(tab->web_contents()));
   browser()->tab_strip_model()->CloseSelectedTabs();
   close_observer.Wait();
   EXPECT_EQ(--tab_count, tab_strip->count());
@@ -487,7 +488,7 @@ IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchInBackground) {
   LoadAndLaunchExtension("app1", extension_misc::LAUNCH_TAB,
                          NEW_BACKGROUND_TAB);
   EXPECT_EQ(++tab_count, tab_strip->count());
-  ChromeLauncherController::instance()->OpenAppID(last_loaded_extension_id_, 0);
+  ChromeLauncherController::instance()->LaunchApp(last_loaded_extension_id_, 0);
 }
 
 // Confirm that clicking a icon for an app running in one of 2 maxmized windows
@@ -519,17 +520,30 @@ IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchMaximized) {
   EXPECT_EQ(ash::STATUS_ACTIVE, (*model_->ItemByID(shortcut_id)).status);
 }
 
-// Launches app multiple times through the api that the applist uses.
-IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, OpenAppID) {
+// Activating the same app multiple times should launch only a single copy.
+IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, ActivateApp) {
   TabStripModel* tab_strip = browser()->tab_strip_model();
   int tab_count = tab_strip->count();
   const Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("app1"));
 
-  ChromeLauncherController::instance()->OpenAppID(extension->id(), 0);
+  ChromeLauncherController::instance()->ActivateApp(extension->id(), 0);
   EXPECT_EQ(++tab_count, tab_strip->count());
-  ChromeLauncherController::instance()->OpenAppID(extension->id(), 0);
+  ChromeLauncherController::instance()->ActivateApp(extension->id(), 0);
   EXPECT_EQ(tab_count, tab_strip->count());
+}
+
+// Launching the same app multiple times should launch a copy for each call.
+IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, LaunchApp) {
+  TabStripModel* tab_strip = browser()->tab_strip_model();
+  int tab_count = tab_strip->count();
+  const Extension* extension =
+      LoadExtension(test_data_dir_.AppendASCII("app1"));
+
+  ChromeLauncherController::instance()->LaunchApp(extension->id(), 0);
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  ChromeLauncherController::instance()->LaunchApp(extension->id(), 0);
+  EXPECT_EQ(++tab_count, tab_strip->count());
 }
 
 // Launch 2 apps and toggle which is active.
@@ -606,4 +620,109 @@ IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, Navigation) {
   ui_test_utils::NavigateToURL(
       browser(), GURL("http://www.example.com/path1/foo.html"));
   EXPECT_EQ(ash::STATUS_ACTIVE, (*model_->ItemByID(shortcut_id)).status);
+}
+
+IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, MultipleOwnedTabs) {
+  TabStripModel* tab_strip = browser()->tab_strip_model();
+  int tab_count = tab_strip->count();
+  ash::LauncherID shortcut_id = CreateShortcut("app1");
+  launcher_->ActivateLauncherItem(model_->ItemIndexByID(shortcut_id));
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  EXPECT_EQ(ash::STATUS_ACTIVE, model_->ItemByID(shortcut_id)->status);
+
+  // Create new tab owned by app.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(),
+      GURL("http://www.example.com/path2/bar.html"),
+      NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  // Confirm app is still active.
+  EXPECT_EQ(ash::STATUS_ACTIVE, model_->ItemByID(shortcut_id)->status);
+  TabContents* second_tab = tab_strip->GetActiveTabContents();
+
+  // Create new tab not owned by app.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(),
+      GURL("http://www.example.com/path3/foo.html"),
+      NEW_FOREGROUND_TAB,
+      0);
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  // No longer active.
+  EXPECT_EQ(ash::STATUS_RUNNING, model_->ItemByID(shortcut_id)->status);
+
+  // Activating app makes second tab active again.
+  launcher_->ActivateLauncherItem(model_->ItemIndexByID(shortcut_id));
+  EXPECT_EQ(ash::STATUS_ACTIVE, model_->ItemByID(shortcut_id)->status);
+  EXPECT_EQ(tab_strip->GetActiveTabContents(), second_tab);
+}
+
+IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, RefocusFilter) {
+  ChromeLauncherController* controller =
+      static_cast<ChromeLauncherController*>(launcher_->delegate());
+  TabStripModel* tab_strip = browser()->tab_strip_model();
+  int tab_count = tab_strip->count();
+  ash::LauncherID shortcut_id = CreateShortcut("app1");
+  launcher_->ActivateLauncherItem(model_->ItemIndexByID(shortcut_id));
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  EXPECT_EQ(ash::STATUS_ACTIVE, model_->ItemByID(shortcut_id)->status);
+  TabContents* first_tab = tab_strip->GetActiveTabContents();
+
+  controller->SetRefocusURLPattern(
+      shortcut_id, GURL("http://www.example.com/path1/*"));
+  // Create new tab owned by app.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(),
+      GURL("http://www.example.com/path2/bar.html"),
+      NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  // Confirm app is still active.
+  EXPECT_EQ(ash::STATUS_ACTIVE, model_->ItemByID(shortcut_id)->status);
+
+  // Create new tab not owned by app.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(),
+      GURL("http://www.example.com/path3/foo.html"),
+      NEW_FOREGROUND_TAB,
+      0);
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  // No longer active.
+  EXPECT_EQ(ash::STATUS_RUNNING, model_->ItemByID(shortcut_id)->status);
+
+  // Activating app makes first tab active again, because second tab isn't
+  // in its refocus url path.
+  launcher_->ActivateLauncherItem(model_->ItemIndexByID(shortcut_id));
+  EXPECT_EQ(ash::STATUS_ACTIVE, model_->ItemByID(shortcut_id)->status);
+  EXPECT_EQ(tab_strip->GetActiveTabContents(), first_tab);
+}
+
+IN_PROC_BROWSER_TEST_F(LauncherAppBrowserTest, RefocusFilterLaunch) {
+  ChromeLauncherController* controller =
+      static_cast<ChromeLauncherController*>(launcher_->delegate());
+  TabStripModel* tab_strip = browser()->tab_strip_model();
+  int tab_count = tab_strip->count();
+  ash::LauncherID shortcut_id = CreateShortcut("app1");
+  controller->SetRefocusURLPattern(
+      shortcut_id, GURL("http://www.example.com/path1/*"));
+
+  // Create new tab owned by app.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(),
+      GURL("http://www.example.com/path2/bar.html"),
+      NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  TabContents* first_tab = tab_strip->GetActiveTabContents();
+  // Confirm app is active.
+  EXPECT_EQ(ash::STATUS_ACTIVE, model_->ItemByID(shortcut_id)->status);
+
+  // Activating app should launch new tab, because second tab isn't
+  // in its refocus url path.
+  launcher_->ActivateLauncherItem(model_->ItemIndexByID(shortcut_id));
+  EXPECT_EQ(++tab_count, tab_strip->count());
+  TabContents* second_tab = tab_strip->GetActiveTabContents();
+  EXPECT_EQ(ash::STATUS_ACTIVE, model_->ItemByID(shortcut_id)->status);
+  EXPECT_NE(first_tab, second_tab);
+  EXPECT_EQ(tab_strip->GetActiveTabContents(), second_tab);
 }

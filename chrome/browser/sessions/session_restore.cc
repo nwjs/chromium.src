@@ -490,6 +490,7 @@ class SessionRestoreImpl : public content::NotificationObserver {
         clobber_existing_tab_(clobber_existing_tab),
         always_create_tabbed_browser_(always_create_tabbed_browser),
         urls_to_open_(urls_to_open),
+        active_window_id_(0),
         restore_started_(base::TimeTicks::Now()),
         browser_shown_(false) {
 
@@ -527,7 +528,7 @@ class SessionRestoreImpl : public content::NotificationObserver {
         MessageLoop::ScopedNestableTaskAllower allow(MessageLoop::current());
         MessageLoop::current()->Run();
       }
-      Browser* browser = ProcessSessionWindows(&windows_);
+      Browser* browser = ProcessSessionWindows(&windows_, active_window_id_);
       delete this;
       return browser;
     }
@@ -708,7 +709,8 @@ class SessionRestoreImpl : public content::NotificationObserver {
   }
 
   void OnGotSession(SessionService::Handle handle,
-                    std::vector<SessionWindow*>* windows) {
+                    std::vector<SessionWindow*>* windows,
+                    SessionID::id_type active_window_id) {
     base::TimeDelta time_to_got_sessions =
         base::TimeTicks::Now() - restore_started_;
     UMA_HISTOGRAM_CUSTOM_TIMES(
@@ -724,14 +726,16 @@ class SessionRestoreImpl : public content::NotificationObserver {
     if (synchronous_) {
       // See comment above windows_ as to why we don't process immediately.
       windows_.swap(*windows);
+      active_window_id_ = active_window_id;
       MessageLoop::current()->QuitNow();
       return;
     }
 
-    ProcessSessionWindows(windows);
+    ProcessSessionWindows(windows, active_window_id);
   }
 
-  Browser* ProcessSessionWindows(std::vector<SessionWindow*>* windows) {
+  Browser* ProcessSessionWindows(std::vector<SessionWindow*>* windows,
+                                 SessionID::id_type active_window_id) {
     VLOG(1) << "ProcessSessionWindows " << windows->size();
     base::TimeDelta time_to_process_sessions =
         base::TimeTicks::Now() - restore_started_;
@@ -760,6 +764,11 @@ class SessionRestoreImpl : public content::NotificationObserver {
     // tabbed browsers exist.
     Browser* last_browser = NULL;
     bool has_tabbed_browser = false;
+
+    // After the for loop, this contains the browser to activate, if one of the
+    // windows has the same id as specified in active_window_id.
+    Browser* browser_to_activate = NULL;
+    int selected_tab_to_activate = -1;
 
     // Determine if there is a visible window.
     bool has_visible_browser = false;
@@ -833,16 +842,24 @@ class SessionRestoreImpl : public content::NotificationObserver {
       selected_tab_index =
           RestoreTabsToBrowser(*(*i), browser, selected_tab_index);
       ShowBrowser(browser, selected_tab_index);
+      if ((*i)->window_id.id() == active_window_id) {
+        browser_to_activate = browser;
+        selected_tab_to_activate = selected_tab_index;
+      }
       if (clobber_existing_tab_ && i == windows->begin() &&
           (*i)->type == Browser::TYPE_TABBED && active_tab &&
           browser == browser_ && browser->tab_count() > initial_tab_count) {
         chrome::CloseWebContents(browser, active_tab);
         active_tab = NULL;
+        selected_tab_to_activate = -1;
       }
       tab_loader_->TabIsLoading(
           &chrome::GetActiveWebContents(browser)->GetController());
       NotifySessionServiceOfRestoredTabs(browser, initial_tab_count);
     }
+
+    if (browser_to_activate && browser_to_activate->is_type_tabbed())
+      last_browser = browser_to_activate;
 
     if (last_browser && !urls_to_open_.empty())
       AppendURLsToBrowser(last_browser, urls_to_open_);
@@ -850,6 +867,19 @@ class SessionRestoreImpl : public content::NotificationObserver {
     chromeos::BootTimesLoader::Get()->AddLoginTimeMarker(
         "SessionRestore-CreatingTabs-End", false);
 #endif
+    if (browser_to_activate) {
+      browser_to_activate->window()->Activate();
+      // On Win8 Metro, we merge all browsers together, so if we need to
+      // activate one of the previously separated window, we need to activate
+      // the tab. But we don't keep this within IsMetro, so that other platforms
+      // don't complain about an unused variable. Also, selected_tab_to_activate
+      // can be -1 if we clobbered the tab that would have been activated.
+      // In that case we'll leave activation to last tab.
+      // The only current usage of clobber is for crash recovery, so it's fine.
+      if (selected_tab_to_activate != -1)
+        ShowBrowser(browser_to_activate, selected_tab_to_activate);
+    }
+
     // If last_browser is NULL and urls_to_open_ is non-empty,
     // FinishedTabCreation will create a new TabbedBrowser and add the urls to
     // it.
@@ -889,14 +919,19 @@ class SessionRestoreImpl : public content::NotificationObserver {
     VLOG(1) << "RestoreTabsToBrowser " << window.tabs.size();
     DCHECK(!window.tabs.empty());
     WebContents* selected_web_contents = NULL;
+    // If browser already has tabs, we want to restore the new ones after the
+    // existing ones. E.g., this happens in Win8 Metro where we merge windows.
+    int tab_index_offset = browser->tab_count();
     for (int i = 0; i < static_cast<int>(window.tabs.size()); ++i) {
       const SessionTab& tab = *(window.tabs[i]);
       // Don't schedule a load for the selected tab, as ShowBrowser() will do
       // that.
-      if (i == selected_tab_index)
-        selected_web_contents = RestoreTab(tab, i, browser, false);
-      else
-        RestoreTab(tab, i, browser, true);
+      if (i == selected_tab_index) {
+        selected_web_contents = RestoreTab(
+            tab, tab_index_offset + i, browser, false);
+      } else {
+        RestoreTab(tab, tab_index_offset + i, browser, true);
+      }
     }
     return selected_web_contents ?
         chrome::GetIndexOfTab(browser, selected_web_contents) : 0;
@@ -1065,6 +1100,7 @@ class SessionRestoreImpl : public content::NotificationObserver {
   // loop take a while) we cache the SessionWindows here and create the actual
   // windows when the nested message loop exits.
   std::vector<SessionWindow*> windows_;
+  SessionID::id_type active_window_id_;
 
   content::NotificationRegistrar registrar_;
 

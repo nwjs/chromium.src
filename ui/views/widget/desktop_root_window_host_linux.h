@@ -36,6 +36,7 @@ class InputMethodEventFilter;
 
 namespace views {
 class DesktopCaptureClient;
+class X11DesktopWindowMoveClient;
 class X11WindowEventFilter;
 
 class VIEWS_EXPORT DesktopRootWindowHostLinux
@@ -130,6 +131,8 @@ class VIEWS_EXPORT DesktopRootWindowHostLinux
   virtual void SetAccessibleState(ui::AccessibilityTypes::State state) OVERRIDE;
   virtual void InitModalType(ui::ModalType modal_type) OVERRIDE;
   virtual void FlashFrame(bool flash_frame) OVERRIDE;
+  virtual void OnNativeWidgetFocus() OVERRIDE;
+  virtual void OnNativeWidgetBlur() OVERRIDE;
 
   // Overridden from aura::RootWindowHost:
   virtual void SetDelegate(aura::RootWindowHostDelegate* delegate) OVERRIDE;
@@ -144,7 +147,6 @@ class VIEWS_EXPORT DesktopRootWindowHostLinux
   virtual void SetCapture() OVERRIDE;
   virtual void ReleaseCapture() OVERRIDE;
   virtual void SetCursor(gfx::NativeCursor cursor) OVERRIDE;
-  virtual void ShowCursor(bool show) OVERRIDE;
   virtual bool QueryMouseLocation(gfx::Point* location_return) OVERRIDE;
   virtual bool ConfineCursorToRootWindow() OVERRIDE;
   virtual void UnConfineCursor() OVERRIDE;
@@ -159,8 +161,11 @@ class VIEWS_EXPORT DesktopRootWindowHostLinux
 
   // Overridden from aura::CursorClient:
   // Note: other methods are just set on aura::RootWindowHost:
+  virtual void ShowCursor(bool show) OVERRIDE;
   virtual bool IsCursorVisible() const OVERRIDE;
   virtual void SetDeviceScaleFactor(float device_scale_factor) OVERRIDE;
+  virtual void LockCursor() OVERRIDE;
+  virtual void UnlockCursor() OVERRIDE;
 
   // Overridden from views::internal::InputMethodDelegate:
   virtual void DispatchKeyEventPostIME(const ui::KeyEvent& key) OVERRIDE;
@@ -222,6 +227,7 @@ class VIEWS_EXPORT DesktopRootWindowHostLinux
   // An event filter that pre-handles all key events to send them to an IME.
   scoped_ptr<aura::shared::InputMethodEventFilter> input_method_filter_;
   scoped_ptr<X11WindowEventFilter> x11_window_event_filter_;
+  scoped_ptr<X11DesktopWindowMoveClient> x11_window_move_client_;
 
   // TODO(beng): Consider providing an interface to DesktopNativeWidgetAura
   //             instead of providing this route back to Widget.

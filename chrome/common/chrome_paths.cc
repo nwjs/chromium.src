@@ -23,6 +23,8 @@
 #include "base/mac/mac_util.h"
 #endif
 
+#include "widevine_cdm_version.h"  // In SHARED_INTERMEDIATE_DIR.
+
 namespace {
 
 // File name of the internal Flash plugin on different platforms.
@@ -250,11 +252,6 @@ bool PathProvider(int key, FilePath* result) {
       cur = cur.Append(FILE_PATH_LITERAL("Dictionaries"));
       create_dir = true;
       break;
-    case chrome::DIR_USER_DATA_TEMP:
-      if (!PathService::Get(chrome::DIR_USER_DATA, &cur))
-        return false;
-      cur = cur.Append(FILE_PATH_LITERAL("Temp"));
-      break;
     case chrome::DIR_INTERNAL_PLUGINS:
       if (!GetInternalPluginsDirectory(&cur))
         return false;
@@ -322,14 +319,21 @@ bool PathProvider(int key, FilePath* result) {
       cur = cur.Append(kInternalNaClHelperBootstrapFileName);
       break;
     case chrome::FILE_O3D_PLUGIN:
-        if (!PathService::Get(base::DIR_MODULE, &cur))
-          return false;
+      if (!PathService::Get(base::DIR_MODULE, &cur))
+        return false;
       cur = cur.Append(kO3DPluginFileName);
       break;
     case chrome::FILE_GTALK_PLUGIN:
-        if (!PathService::Get(base::DIR_MODULE, &cur))
-          return false;
+      if (!PathService::Get(base::DIR_MODULE, &cur))
+        return false;
       cur = cur.Append(kGTalkPluginFileName);
+      break;
+#endif
+#if defined(WIDEVINE_CDM_AVAILABLE)
+    case chrome::FILE_WIDEVINE_CDM_PLUGIN:
+      if (!PathService::Get(base::DIR_MODULE, &cur))
+        return false;
+      cur = cur.Append(kWidevineCdmPluginFileName);
       break;
 #endif
     case chrome::FILE_RESOURCES_PACK:

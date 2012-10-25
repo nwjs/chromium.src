@@ -199,6 +199,7 @@
         <structure type="chrome_scaled_image" name="IDR_ENROLL_SUCCESS" file="enroll_success.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_EXTENSIONS_FAVICON" file="common/favicon_extensions.png" />
+      <structure type="chrome_scaled_image" name="IDR_EXTENSIONS_PUZZLE_PIECE" file="common/exstension-features_28.png" />
       <structure type="chrome_scaled_image" name="IDR_EXTENSIONS_RATING_STAR_HALF_LEFT" file="extensions_rating_star_half_left.png" />
       <structure type="chrome_scaled_image" name="IDR_EXTENSIONS_RATING_STAR_HALF_RIGHT" file="extensions_rating_star_half_right.png" />
       <structure type="chrome_scaled_image" name="IDR_EXTENSIONS_RATING_STAR_OFF" file="extensions_rating_star_off.png" />
@@ -278,6 +279,7 @@
       <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_DENIED_LOCATIONBAR_ICON" file="blocked_location.png" />
       <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_INFOBAR_ICON" file="infobar_geolocation.png" />
       <structure type="chrome_scaled_image" name="IDR_GOOGLE_LOGO_LG" file="google_logo_lg.png" />
+      <structure type="chrome_scaled_image" name="IDR_GOOGLE_LOGO_WHITE" file="google_logo_white.png" />
       <if expr="pp_ifdef('chromeos')">
         <structure type="chrome_scaled_image" name="IDR_HELP_MENU" file="help_16.png" />
       </if>
@@ -470,8 +472,12 @@
         <structure type="chrome_scaled_image" name="IDR_NEWTAB_BUTTON_PLUS" file="common/newtab_plus.png" />
         <structure type="chrome_scaled_image" name="IDR_NEWTAB_BUTTON_P_PLUS" file="common/newtab_plus_pressed.png" />
       </if>
-      <structure type="chrome_scaled_image" name="IDR_NEWTAB_CHROMEOS_WELCOME_PAGE_THUMBNAIL" file="ntp_welcome_thumb_chromeos.png" />
-      <structure type="chrome_scaled_image" name="IDR_NEWTAB_CHROME_WELCOME_PAGE_THUMBNAIL" file="ntp_welcome_thumb.png" />
+      <if expr="pp_ifdef('chromeos')">
+        <structure type="chrome_scaled_image" name="IDR_NEWTAB_CHROME_WELCOME_PAGE_THUMBNAIL" file="cros/ntp_welcome_thumb.png" />
+      </if>
+      <if expr="not pp_ifdef('chromeos')">
+        <structure type="chrome_scaled_image" name="IDR_NEWTAB_CHROME_WELCOME_PAGE_THUMBNAIL" file="common/ntp_welcome_thumb.png" />
+      </if>
       <structure type="chrome_scaled_image" name="IDR_NEWTAB_WEBSTORE_THUMBNAIL" file="ntp_webstore_thumb.png" />
       <structure type="chrome_scaled_image" name="IDR_OMNIBOX_CS_BUBBLE_BACKGROUND_C" file="common/cs_bubble_center.png" />
       <structure type="chrome_scaled_image" name="IDR_OMNIBOX_CS_BUBBLE_BACKGROUND_L" file="common/cs_bubble_left.png" />
@@ -633,6 +639,10 @@
       <structure type="chrome_scaled_image" name="IDR_SEARCH_ENGINE_CHANGE_ALERT" file="protector_search_alert.png" />
       <structure type="chrome_scaled_image" name="IDR_SEARCH_ENGINE_CHANGE_BADGE" file="protector_search_badge.png" />
       <structure type="chrome_scaled_image" name="IDR_SEARCH_ENGINE_CHANGE_MENU" file="protector_search_menu.png" />
+      <if expr="is_win">
+        <structure type="chrome_scaled_image" name="IDR_SETTINGS_APP_ICON_128" file="settings_app_icon_128.png" />
+        <structure type="chrome_scaled_image" name="IDR_SETTINGS_APP_ICON_16" file="settings_app_icon_16.png" />
+      </if>
       <structure type="chrome_scaled_image" name="IDR_SETTINGS_FAVICON" file="common/favicon_settings.png" />
       <structure type="chrome_scaled_image" name="IDR_SIDETABS_NEW_TAB" file="sidetabs_new_tab.png" />
       <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_EMPTY" file="common/speech_input_mic_empty.png" />
@@ -818,11 +828,14 @@
       <structure type="chrome_scaled_image" name="IDR_UPDATE_BADGE2" file="update_badge2.png" />
       <structure type="chrome_scaled_image" name="IDR_UPDATE_BADGE3" file="update_badge3.png" />
       <structure type="chrome_scaled_image" name="IDR_UPDATE_BADGE4" file="update_badge4.png" />
+      <!-- TODO(mpcomplete): need icon for IDR_UPDATE_*_EXTENSION -->
+      <structure type="chrome_scaled_image" name="IDR_UPDATE_BADGE_EXTENSION" file="external_extension_install_badge.png" />
       <structure type="chrome_scaled_image" name="IDR_UPDATE_FAIL" file="update_fail.png" />
       <structure type="chrome_scaled_image" name="IDR_UPDATE_MENU" file="update_menu.png" />
       <structure type="chrome_scaled_image" name="IDR_UPDATE_MENU2" file="update_menu2.png" />
       <structure type="chrome_scaled_image" name="IDR_UPDATE_MENU3" file="update_menu3.png" />
       <structure type="chrome_scaled_image" name="IDR_UPDATE_MENU4" file="update_menu4.png" />
+      <structure type="chrome_scaled_image" name="IDR_UPDATE_MENU_EXTENSION" file="external_extension_install_menu.png" />
       <structure type="chrome_scaled_image" name="IDR_UPDATE_UPTODATE" file="update_uptodate.png" />
       <if expr="pp_ifdef('chromeos')">
         <structure type="chrome_scaled_image" name="IDR_USER_IMAGE_CAPTURE" file="snapshot_wide.png" />
@@ -834,6 +847,9 @@
       <structure type="chrome_scaled_image" name="IDR_WARNING" file="alert_small.png" />
       <structure type="chrome_scaled_image" name="IDR_WEB_INTENT_PROGRESS_BACKGROUND" file="common/web_intent_progress_background.png" />
       <structure type="chrome_scaled_image" name="IDR_WEB_INTENT_PROGRESS_FOREGROUND" file="common/web_intent_progress_foreground.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEB_UI_CLOSE" file="web_ui_close.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEB_UI_CLOSE_HOVER" file="web_ui_close_hover.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEB_UI_CLOSE_PRESSED" file="web_ui_close_pressed.png" />
       <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TABSTRIP_CENTER" file="website_settings_tabstrip_center.png" />
       <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TABSTRIP_LEFT" file="website_settings_tabstrip_left.png" />
       <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TABSTRIP_RIGHT" file="website_settings_tabstrip_right.png" />

@@ -75,6 +75,10 @@
         'controls/button/custom_button.h',
         'controls/button/image_button.cc',
         'controls/button/image_button.h',
+        'controls/button/label_button.cc',
+        'controls/button/label_button.h',
+        'controls/button/label_button_border.cc',
+        'controls/button/label_button_border.h',
         'controls/button/menu_button.cc',
         'controls/button/menu_button.h',
         'controls/button/menu_button_listener.h',
@@ -298,8 +302,6 @@
         'view_model.h',
         'view_model_utils.cc',
         'view_model_utils.h',
-        'views_switches.cc',
-        'views_switches.h',
         'view_text_utils.cc',
         'view_text_utils.h',
         'view_win.cc',
@@ -351,6 +353,8 @@
         'widget/native_widget_win.h',
         'widget/widget.cc',
         'widget/widget.h',
+        'widget/widget_aura_utils.cc',
+        'widget/widget_aura_utils.h',
         'widget/widget_delegate.cc',
         'widget/widget_delegate.h',
         'widget/widget_hwnd_utils.cc',
@@ -436,6 +440,8 @@
             ['exclude', '/x11_[^/]*\\.cc$'],
             ['exclude', 'widget/native_widget_aura_window_observer.cc'],
             ['exclude', 'widget/native_widget_aura_window_observer.h'],
+            ['exclude', 'widget/widget_aura_utils.cc'],
+            ['exclude', 'widget/widget_aura_utils.h'],
           ],
         }],
         ['chromeos==1', {
@@ -500,17 +506,14 @@
       ],
     }, # target_name: views
     {
-      'target_name': 'test_support_views',
+      'target_name': 'views_test_support',
       'type': 'static_library',
       'dependencies': [
         '../../base/base.gyp:base',
-        '../../content/content.gyp:content',
-        '../../content/content.gyp:test_support_content',
         '../../ipc/ipc.gyp:test_support_ipc',
         '../../skia/skia.gyp:skia',
         '../../testing/gtest.gyp:gtest',
         '../ui.gyp:ui',
-        'controls/webview/webview.gyp:webview',
         'views',
       ],
       'include_dirs': [
@@ -521,10 +524,31 @@
         'test/test_views_delegate.h',
         'test/views_test_base.cc',
         'test/views_test_base.h',
+      ],
+    },  # target_name: views_test_support
+    {
+      'target_name': 'views_with_content_test_support',
+      'type': 'static_library',
+      'dependencies': [
+        '../../base/base.gyp:base',
+        '../../content/content.gyp:content',
+        '../../content/content.gyp:test_support_content',
+        '../../ipc/ipc.gyp:test_support_ipc',
+        '../../skia/skia.gyp:skia',
+        '../../testing/gtest.gyp:gtest',
+        '../ui.gyp:ui',
+        'controls/webview/webview.gyp:webview',
+        'views_test_support',
+        'views',
+      ],
+      'include_dirs': [
+        '..',
+      ],
+      'sources': [
         'test/webview_test_helper.cc',
         'test/webview_test_helper.h',
       ],
-    },  # target_name: test_support_views
+    },  # target_name: views_with_content_test_support
     {
       'target_name': 'views_unittests',
       'type': 'executable',
@@ -547,8 +571,8 @@
         '../ui.gyp:ui',
         '../ui.gyp:ui_resources',
         '../ui.gyp:ui_test_support',
-        'test_support_views',
         'views',
+        'views_test_support',
       ],
       'include_dirs': [
         '..',
@@ -560,6 +584,7 @@
         'bubble/bubble_delegate_unittest.cc',
         'bubble/bubble_frame_view_unittest.cc',
         'controls/button/image_button_unittest.cc',
+        'controls/button/label_button_unittest.cc',
         'controls/combobox/native_combobox_views_unittest.cc',
         'controls/label_unittest.cc',
         'controls/menu/menu_model_adapter_unittest.cc',

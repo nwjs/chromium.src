@@ -85,43 +85,6 @@ void UninstallBrowserMonitor() {
 
 #endif // !defined(OS_ANDROID)
 
-bool ShouldRunStage3DFieldTrial() {
-#if !defined(OS_WIN)
-  return false;
-#else
-  if (base::win::GetVersion() >= base::win::VERSION_VISTA)
-    return false;
-  return true;
-#endif
-}
-
-void InitializeStage3DFieldTrial() {
-  if (!ShouldRunStage3DFieldTrial()) {
-    base::FieldTrial* trial =
-        base::FieldTrialList::Find(content::kStage3DFieldTrialName);
-    if (trial)
-      trial->Disable();
-    return;
-  }
-
-  const base::FieldTrial::Probability kDivisor = 1000;
-  scoped_refptr<base::FieldTrial> trial(
-    base::FieldTrialList::FactoryGetFieldTrial(
-        content::kStage3DFieldTrialName, kDivisor,
-        content::kStage3DFieldTrialEnabledName, 2013, 3, 1, NULL));
-
-  // Produce the same result on every run of this client.
-  trial->UseOneTimeRandomization();
-
-  // Kill-switch, so disabled unless we get info from server.
-  int blacklisted_group = trial->AppendGroup(
-      content::kStage3DFieldTrialBlacklistedName, kDivisor);
-
-  bool enabled = (trial->group() != blacklisted_group);
-
-  UMA_HISTOGRAM_BOOLEAN("GPU.Stage3DFieldTrial", enabled);
-}
-
 void DisableCompositingFieldTrial() {
   base::FieldTrial* trial =
       base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
@@ -135,21 +98,39 @@ bool ShouldRunCompositingFieldTrial() {
   return false;
 #endif
 
+// Necessary for linux_chromeos build since it defines both OS_LINUX
+// and OS_CHROMEOS.
+#if defined(OS_CHROMEOS)
+  return false;
+#endif
+
 #if defined(OS_WIN)
   // Don't run the trial on Windows XP.
   if (base::win::GetVersion() < base::win::VERSION_VISTA)
     return false;
 #endif
 
+  const GpuDataManager* gpu_data_manager = GpuDataManager::GetInstance();
+  content::GpuFeatureType blacklisted_features =
+      gpu_data_manager->GetBlacklistedFeatures();
+
+  // Don't run the field trial if gpu access has been blocked or
+  // accelerated compositing is blacklisted.
+  if (!gpu_data_manager->GpuAccessAllowed() ||
+      blacklisted_features & content::GPU_FEATURE_TYPE_ACCELERATED_COMPOSITING)
+    return false;
+
   // The performance of accelerated compositing is too low with software
   // rendering.
-  if (content::GpuDataManager::GetInstance()->ShouldUseSoftwareRendering())
+  if (gpu_data_manager->ShouldUseSoftwareRendering())
     return false;
 
   // Don't activate the field trial if force-compositing-mode has been
   // explicitly disabled from the command line.
   if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableForceCompositingMode))
+          switches::kDisableForceCompositingMode) ||
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableAcceleratedCompositing))
     return false;
 
   return true;

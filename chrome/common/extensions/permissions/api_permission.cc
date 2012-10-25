@@ -4,8 +4,6 @@
 
 #include "chrome/common/extensions/permissions/api_permission.h"
 
-#include "chrome/common/extensions/permissions/filesystem_permission.h"
-#include "chrome/common/extensions/permissions/media_galleries_permission.h"
 #include "chrome/common/extensions/permissions/permissions_info.h"
 #include "chrome/common/extensions/permissions/socket_permission.h"
 #include "grit/generated_resources.h"
@@ -212,9 +210,6 @@ void APIPermissionInfo::RegisterAllPermissions(
     { APIPermission::kManagement, "management", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_MANAGEMENT,
       PermissionMessage::kManagement },
-    { APIPermission::kPageCapture, "pageCapture", kFlagNone,
-      IDS_EXTENSION_PROMPT_WARNING_ALL_PAGES_CONTENT,
-      PermissionMessage::kAllPageContent },
     { APIPermission::kPrivacy, "privacy", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_PRIVACY,
       PermissionMessage::kPrivacy },
@@ -273,19 +268,21 @@ void APIPermissionInfo::RegisterAllPermissions(
       kFlagCannotBeOptional },
 
     // Full url access permissions.
-    { APIPermission::kProxy, "proxy",
-      kFlagImpliesFullURLAccess | kFlagCannotBeOptional },
     { APIPermission::kDebugger, "debugger",
       kFlagImpliesFullURLAccess | kFlagCannotBeOptional,
       IDS_EXTENSION_PROMPT_WARNING_DEBUGGER,
       PermissionMessage::kDebugger },
     { APIPermission::kDevtools, "devtools",
       kFlagImpliesFullURLAccess | kFlagCannotBeOptional },
+    { APIPermission::kPageCapture, "pageCapture",
+      kFlagImpliesFullURLAccess },
     { APIPermission::kPlugin, "plugin",
       kFlagImpliesFullURLAccess | kFlagImpliesFullAccess |
           kFlagCannotBeOptional,
       IDS_EXTENSION_PROMPT_WARNING_FULL_ACCESS,
       PermissionMessage::kFullAccess },
+    { APIPermission::kProxy, "proxy",
+      kFlagImpliesFullURLAccess | kFlagCannotBeOptional },
 
     // Platform-app permissions.
     { APIPermission::kSerial, "serial", kFlagNone,
@@ -310,12 +307,20 @@ void APIPermissionInfo::RegisterAllPermissions(
     // present. Read-only access is only granted after the user has been shown
     // a file chooser dialog and selected a file. Selecting the file is
     // considered consent to read it.
-    { APIPermission::kFileSystem, "fileSystem", kFlagNone, 0,
-      PermissionMessage::kNone, &::CreateAPIPermission<FileSystemPermission> },
-    { APIPermission::kMediaGalleries, "mediaGalleries", kFlagNone, 0,
-      PermissionMessage::kNone,
-      &::CreateAPIPermission<MediaGalleriesPermission> },
+    { APIPermission::kFileSystem, "fileSystem" },
+    { APIPermission::kFileSystemWrite, "fileSystem.write", kFlagNone,
+      IDS_EXTENSION_PROMPT_WARNING_FILE_SYSTEM_WRITE,
+      PermissionMessage::kFileSystemWrite },
+    { APIPermission::kMediaGalleries, "mediaGalleries" },
+    { APIPermission::kMediaGalleriesRead, "mediaGalleries.read" },
+    { APIPermission::kMediaGalleriesAllAutoDetected,
+      "mediaGalleries.allAutoDetected", kFlagNone,
+      IDS_EXTENSION_PROMPT_WARNING_MEDIA_GALLERIES_ALL_GALLERIES,
+      PermissionMessage::kMediaGalleriesAllGalleries },
     { APIPermission::kPushMessaging, "pushMessaging", kFlagCannotBeOptional },
+    { APIPermission::kBluetooth, "bluetooth", kFlagNone,
+      IDS_EXTENSION_PROMPT_WARNING_BLUETOOTH,
+      PermissionMessage::kBluetooth },
   };
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(PermissionsToRegister); ++i) {

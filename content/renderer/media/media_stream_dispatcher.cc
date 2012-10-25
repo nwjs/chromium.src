@@ -10,6 +10,8 @@
 #include "content/renderer/render_view_impl.h"
 #include "googleurl/src/gurl.h"
 
+namespace content {
+
 struct MediaStreamDispatcher::Request {
   Request(const base::WeakPtr<MediaStreamDispatcherEventHandler>& handler,
           int request_id,
@@ -59,7 +61,7 @@ struct MediaStreamDispatcher::EnumerationState::CachedDevices {
 };
 
 MediaStreamDispatcher::MediaStreamDispatcher(RenderViewImpl* render_view)
-    : content::RenderViewObserver(render_view),
+    : RenderViewObserver(render_view),
       main_loop_(base::MessageLoopProxy::current()),
       next_ipc_id_(0) {
 }
@@ -69,7 +71,7 @@ MediaStreamDispatcher::~MediaStreamDispatcher() {}
 void MediaStreamDispatcher::GenerateStream(
     int request_id,
     const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
-    media_stream::StreamOptions components,
+    const media_stream::StreamOptions& components,
     const GURL& security_origin) {
   DCHECK(main_loop_->BelongsToCurrentThread());
   DVLOG(1) << "MediaStreamDispatcher::GenerateStream(" << request_id << ")";
@@ -79,24 +81,6 @@ void MediaStreamDispatcher::GenerateStream(
                                              next_ipc_id_++,
                                              components,
                                              security_origin));
-}
-
-void MediaStreamDispatcher::GenerateStreamForDevice(
-    int request_id,
-    const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
-    media_stream::StreamOptions components,
-    const std::string& device_id,
-    const GURL& security_origin) {
-  DCHECK(main_loop_->BelongsToCurrentThread());
-  DVLOG(1) << "MediaStreamDispatcher::GenerateStreamForDevice("
-           << request_id << ")";
-
-  requests_.push_back(Request(event_handler, request_id, next_ipc_id_));
-  Send(new MediaStreamHostMsg_GenerateStreamForDevice(routing_id(),
-                                                      next_ipc_id_++,
-                                                      components,
-                                                      device_id,
-                                                      security_origin));
 }
 
 void MediaStreamDispatcher::CancelGenerateStream(int request_id) {
@@ -135,13 +119,13 @@ void MediaStreamDispatcher::EnumerateDevices(
     media_stream::MediaStreamType type,
     const GURL& security_origin) {
   DCHECK(main_loop_->BelongsToCurrentThread());
-  DCHECK(type == content::MEDIA_DEVICE_AUDIO_CAPTURE ||
-         type == content::MEDIA_DEVICE_VIDEO_CAPTURE);
+  DCHECK(type == MEDIA_DEVICE_AUDIO_CAPTURE ||
+         type == MEDIA_DEVICE_VIDEO_CAPTURE);
   DVLOG(1) << "MediaStreamDispatcher::EnumerateDevices("
            << request_id << ")";
 
   EnumerationState* state =
-      (type == content::MEDIA_DEVICE_AUDIO_CAPTURE ?
+      (type == MEDIA_DEVICE_AUDIO_CAPTURE ?
        &audio_enumeration_state_ : &video_enumeration_state_);
   state->requests.push_back(EnumerationRequest(event_handler, request_id));
 
@@ -225,10 +209,6 @@ bool MediaStreamDispatcher::OnMessageReceived(const IPC::Message& message) {
                         OnStreamGenerated)
     IPC_MESSAGE_HANDLER(MediaStreamMsg_StreamGenerationFailed,
                         OnStreamGenerationFailed)
-    IPC_MESSAGE_HANDLER(MediaStreamHostMsg_VideoDeviceFailed,
-                        OnVideoDeviceFailed)
-    IPC_MESSAGE_HANDLER(MediaStreamHostMsg_AudioDeviceFailed,
-                        OnAudioDeviceFailed)
     IPC_MESSAGE_HANDLER(MediaStreamMsg_DevicesEnumerated,
                         OnDevicesEnumerated)
     IPC_MESSAGE_HANDLER(MediaStreamMsg_DevicesEnumerationFailed,
@@ -285,38 +265,6 @@ void MediaStreamDispatcher::OnStreamGenerationFailed(int request_id) {
       break;
     }
   }
-}
-
-void MediaStreamDispatcher::OnVideoDeviceFailed(const std::string& label,
-                                                int index) {
-  DCHECK(main_loop_->BelongsToCurrentThread());
-  LabelStreamMap::iterator it = label_stream_map_.find(label);
-  if (it == label_stream_map_.end())
-    return;
-
-  // index is the index in the video_array that has failed.
-  DCHECK_GT(it->second.video_array.size(), static_cast<size_t>(index));
-  media_stream::StreamDeviceInfoArray::iterator device_it =
-      it->second.video_array.begin();
-  it->second.video_array.erase(device_it + index);
-  if (it->second.handler)
-    it->second.handler->OnVideoDeviceFailed(label, index);
-}
-
-void MediaStreamDispatcher::OnAudioDeviceFailed(const std::string& label,
-                                                int index) {
-  DCHECK(main_loop_->BelongsToCurrentThread());
-  LabelStreamMap::iterator it = label_stream_map_.find(label);
-  if (it == label_stream_map_.end())
-    return;
-
-  // index is the index in the audio_array that has failed.
-  DCHECK_GT(it->second.audio_array.size(), static_cast<size_t>(index));
-  media_stream::StreamDeviceInfoArray::iterator device_it =
-      it->second.audio_array.begin();
-  it->second.audio_array.erase(device_it + index);
-  if (it->second.handler)
-    it->second.handler->OnAudioDeviceFailed(label, index);
 }
 
 void MediaStreamDispatcher::OnDevicesEnumerated(
@@ -382,9 +330,9 @@ void MediaStreamDispatcher::OnDeviceOpened(
     if (request.ipc_request == request_id) {
       Stream new_stream;
       new_stream.handler = request.handler;
-      if (content::IsAudioMediaType(device_info.stream_type)) {
+      if (IsAudioMediaType(device_info.stream_type)) {
         new_stream.audio_array.push_back(device_info);
-      } else if (content::IsVideoMediaType(device_info.stream_type)) {
+      } else if (IsVideoMediaType(device_info.stream_type)) {
         new_stream.video_array.push_back(device_info);
       } else {
         NOTREACHED();
@@ -442,3 +390,5 @@ int MediaStreamDispatcher::video_session_id(const std::string& label,
   DCHECK_GT(it->second.video_array.size(), static_cast<size_t>(index));
   return it->second.video_array[index].session_id;
 }
+
+}  // namespace content

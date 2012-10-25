@@ -15,6 +15,9 @@
 #include "media/crypto/aes_decryptor.h"
 #include "webkit/media/crypto/ppapi/content_decryption_module.h"
 
+// Enable this to use the fake decoder for testing.
+// #define CLEAR_KEY_CDM_USE_FAKE_VIDEO_DECODER
+
 namespace media {
 class DecoderBuffer;
 }
@@ -24,7 +27,7 @@ namespace webkit_media {
 // Clear key implementation of the cdm::ContentDecryptionModule interface.
 class ClearKeyCdm : public cdm::ContentDecryptionModule {
  public:
-  explicit ClearKeyCdm(cdm::Allocator* allocator);
+  explicit ClearKeyCdm(cdm::Allocator* allocator, cdm::CdmHost*);
   virtual ~ClearKeyCdm();
 
   // ContentDecryptionModule implementation.
@@ -40,15 +43,21 @@ class ClearKeyCdm : public cdm::ContentDecryptionModule {
                              int key_id_size) OVERRIDE;
   virtual cdm::Status CancelKeyRequest(const char* session_id,
                                        int session_id_size) OVERRIDE;
+  virtual void TimerExpired(cdm::KeyMessage* msg, bool* populated) OVERRIDE;
   virtual cdm::Status Decrypt(const cdm::InputBuffer& encrypted_buffer,
                               cdm::DecryptedBlock* decrypted_block) OVERRIDE;
+  virtual cdm::Status InitializeAudioDecoder(
+      const cdm::AudioDecoderConfig& audio_decoder_config) OVERRIDE;
   virtual cdm::Status InitializeVideoDecoder(
       const cdm::VideoDecoderConfig& video_decoder_config) OVERRIDE;
+  virtual void DeinitializeDecoder(cdm::StreamType decoder_type) OVERRIDE;
+  virtual void ResetDecoder(cdm::StreamType decoder_type) OVERRIDE;
   virtual cdm::Status DecryptAndDecodeFrame(
       const cdm::InputBuffer& encrypted_buffer,
       cdm::VideoFrame* video_frame) OVERRIDE;
-  virtual void ResetVideoDecoder() OVERRIDE;
-  virtual void StopVideoDecoder() OVERRIDE;
+  virtual cdm::Status DecryptAndDecodeSamples(
+      const cdm::InputBuffer& encrypted_buffer,
+      cdm::Buffer* sample_buffer) OVERRIDE;
 
  private:
   class Client : public media::DecryptorClient {
@@ -97,6 +106,11 @@ class ClearKeyCdm : public cdm::ContentDecryptionModule {
     std::string default_url_;
   };
 
+#if defined(CLEAR_KEY_CDM_USE_FAKE_VIDEO_DECODER)
+  void GenerateFakeVideoFrame(base::TimeDelta timestamp,
+                              cdm::VideoFrame* video_frame);
+#endif  // CLEAR_KEY_CDM_USE_FAKE_VIDEO_DECODER
+
   Client client_;
   media::AesDecryptor decryptor_;
 
@@ -105,6 +119,10 @@ class ClearKeyCdm : public cdm::ContentDecryptionModule {
   base::Lock client_lock_;
 
   cdm::Allocator* const allocator_;
+
+#if defined(CLEAR_KEY_CDM_USE_FAKE_VIDEO_DECODER)
+  cdm::Size video_size_;
+#endif  // CLEAR_KEY_CDM_USE_FAKE_VIDEO_DECODER
 };
 
 }  // namespace webkit_media

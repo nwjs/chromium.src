@@ -82,10 +82,8 @@ void AppListView::InitAsBubble(
   set_move_with_anchor(true);
   set_parent_window(parent);
   set_close_on_deactivate(false);
-  // Shift anchor rect up 1px because app menu icon center is 1px above anchor
-  // rect center when shelf is on left/right.
-  set_anchor_insets(gfx::Insets(kArrowOffset - 1, kArrowOffset,
-                                kArrowOffset + 1, kArrowOffset));
+  set_anchor_insets(gfx::Insets(kArrowOffset, kArrowOffset,
+                                kArrowOffset, kArrowOffset));
   set_shadow(views::BubbleBorder::BIG_SHADOW);
   views::BubbleDelegateView::CreateBubble(this);
   SetBubbleArrowLocation(arrow_location);
@@ -193,6 +191,20 @@ void AppListView::InvokeResultAction(const SearchResult& result,
                                      int event_flags) {
   if (delegate_.get())
     delegate_->InvokeSearchResultAction(result, action_index, event_flags);
+}
+
+void AppListView::OnWidgetClosing(views::Widget* widget) {
+  BubbleDelegateView::OnWidgetClosing(widget);
+  if (delegate_.get() && widget == GetWidget())
+    delegate_->ViewClosing();
+}
+
+void AppListView::OnWidgetActivationChanged(views::Widget* widget,
+                                            bool active) {
+  // Do not called inherited function as the bubble delegate auto close
+  // functionality is not used.
+  if (delegate_.get() && widget == GetWidget())
+    delegate_->ViewActivationChanged(active);
 }
 
 }  // namespace app_list

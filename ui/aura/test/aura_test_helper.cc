@@ -46,7 +46,8 @@ void AuraTestHelper::SetUp() {
   setup_called_ = true;
   Env::GetInstance()->SetDisplayManager(new SingleDisplayManager);
   root_window_.reset(aura::DisplayManager::CreateRootWindowForPrimaryDisplay());
-  gfx::Screen::SetInstance(new aura::TestScreen(root_window_.get()));
+  test_screen_.reset(new aura::TestScreen(root_window_.get()));
+  gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_NATIVE, test_screen_.get());
   ui_controls::InstallUIControlsAura(CreateUIControlsAura(root_window_.get()));
 
   focus_manager_.reset(new FocusManager);
@@ -74,6 +75,8 @@ void AuraTestHelper::TearDown() {
   root_window_capture_client_.reset();
   focus_manager_.reset();
   root_window_.reset();
+  test_screen_.reset();
+  gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_NATIVE, NULL);
   aura::Env::DeleteInstance();
 }
 

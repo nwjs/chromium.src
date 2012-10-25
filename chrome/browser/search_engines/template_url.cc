@@ -14,7 +14,6 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_field_trial.h"
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/search_engines/search_terms_data.h"
 #include "chrome/browser/search_engines/template_url_service.h"
@@ -318,11 +317,9 @@ std::string TemplateURLRef::ReplaceSearchTermsUsingTermsData(
       }
 
       case GOOGLE_SEARCH_FIELDTRIAL_GROUP:
-        if (AutocompleteFieldTrial::InSuggestFieldTrial()) {
-          // Add something like sugexp=chrome,mod=5 to the URL request.
-          url.insert(i->index, "sugexp=chrome,mod=" +
-              AutocompleteFieldTrial::GetSuggestGroupName() + "&");
-        }
+        // We are not currently running any fieldtrials that modulate the search
+        // url.  If we do, then we'd have some conditional insert such as:
+        // url.insert(i->index, used_www ? "gcx=w&" : "gcx=c&");
         break;
 
       case GOOGLE_UNESCAPED_SEARCH_TERMS: {
@@ -460,9 +457,8 @@ bool TemplateURLRef::ExtractSearchTermsFromURL(const GURL& url,
   // Fill-in the replacements. We don't care about search terms in the pattern,
   // so we use the empty string.
   GURL pattern(ReplaceSearchTerms(SearchTermsArgs(string16())));
-  // Scheme, host, path and port must match.
-  if (!url.SchemeIs(pattern.scheme().c_str()) ||
-      url.port() != pattern.port() ||
+  // Host, path and port must match.
+  if (url.port() != pattern.port() ||
       url.host() != host_ ||
       url.path() != path_) {
     return false;

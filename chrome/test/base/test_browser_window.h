@@ -42,7 +42,6 @@ class TestBrowserWindow : public BrowserWindow {
   virtual void BookmarkBarStateChanged(
       BookmarkBar::AnimateChangeType change_type) OVERRIDE {}
   virtual void UpdateDevTools() OVERRIDE {}
-  virtual void SetDevToolsDockSide(DevToolsDockSide side) OVERRIDE {}
   virtual void UpdateLoadingAnimations(bool should_animate) OVERRIDE {}
   virtual void SetStarredState(bool is_starred) OVERRIDE {}
   virtual void ZoomChangedForActiveTab(bool can_show_bubble) OVERRIDE {}
@@ -130,10 +129,6 @@ class TestBrowserWindow : public BrowserWindow {
   virtual bool InPresentationMode() OVERRIDE;
 #endif
 
-  virtual void ShowInstant(TabContents* preview_contents,
-                           int height,
-                           InstantSizeUnits units) OVERRIDE {}
-  virtual void HideInstant() OVERRIDE {}
   virtual gfx::Rect GetInstantBounds() OVERRIDE;
   virtual bool IsInstantTabShowing() OVERRIDE;
   virtual WindowOpenDisposition GetDispositionForPopupBounds(

@@ -9,7 +9,6 @@
 #include "ash/shell_delegate.h"
 #include "ash/shell_window_ids.h"
 #include "ash/system/bluetooth/bluetooth_observer.h"
-#include "ash/system/network/network_observer.h"
 #include "ash/system/status_area_widget_delegate.h"
 #include "ash/system/tray/system_tray.h"
 #include "ash/system/tray/system_tray_delegate.h"
@@ -87,7 +86,8 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
   }
 
   virtual user::LoginStatus GetUserLoginStatus() const OVERRIDE {
-    return user::LOGGED_IN_USER;
+    return Shell::GetInstance()->IsScreenLocked() ? user::LOGGED_IN_LOCKED :
+                                                    user::LOGGED_IN_USER;
   }
 
   virtual bool SystemShouldUpgrade() const OVERRIDE {
@@ -200,30 +200,18 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
 
   virtual void ToggleWifi() OVERRIDE {
     wifi_enabled_ = !wifi_enabled_;
-    ash::NetworkObserver* observer =
-        ash::Shell::GetInstance()->system_tray()->network_observer();
-    if (observer) {
-      ash::NetworkIconInfo info;
-      observer->OnNetworkRefresh(info);
-    }
   }
 
   virtual void ToggleMobile() OVERRIDE {
     cellular_enabled_ = !cellular_enabled_;
-    ash::NetworkObserver* observer =
-        ash::Shell::GetInstance()->system_tray()->network_observer();
-    if (observer) {
-      ash::NetworkIconInfo info;
-      observer->OnNetworkRefresh(info);
-    }
   }
 
   virtual void ToggleBluetooth() OVERRIDE {
     bluetooth_enabled_ = !bluetooth_enabled_;
-    ash::BluetoothObserver* observer =
-        ash::Shell::GetInstance()->system_tray()->bluetooth_observer();
-    if (observer)
-      observer->OnBluetoothRefresh();
+  }
+
+  virtual bool IsBluetoothDiscovering() OVERRIDE {
+    return false;
   }
 
   virtual void ShowOtherWifi() OVERRIDE {
@@ -300,7 +288,7 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
 
 namespace internal {
 
-StatusAreaWidget::StatusAreaWidget()
+StatusAreaWidget::StatusAreaWidget(aura::Window* status_container)
     : status_area_widget_delegate_(new internal::StatusAreaWidgetDelegate),
       system_tray_(NULL),
       web_notification_tray_(NULL),
@@ -308,9 +296,7 @@ StatusAreaWidget::StatusAreaWidget()
   views::Widget::InitParams params(
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.delegate = status_area_widget_delegate_;
-  params.parent =
-      Shell::GetPrimaryRootWindowController()->GetContainer(
-          ash::internal::kShellWindowId_StatusContainer);
+  params.parent = status_container;
   params.transparent = true;
   Init(params);
   set_focus_on_creation(false);
@@ -350,7 +336,7 @@ bool StatusAreaWidget::ShouldShowLauncher() const {
        web_notification_tray_->IsMessageCenterBubbleVisible()))
     return true;
 
-  if (!Shell::GetInstance()->shelf()->IsVisible())
+  if (!RootWindowController::ForLauncher(GetNativeView())->shelf()->IsVisible())
     return false;
 
   // If the launcher is currently visible, don't hide the launcher if the mouse

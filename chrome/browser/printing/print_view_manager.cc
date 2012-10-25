@@ -260,12 +260,9 @@ void PrintViewManager::OnDidPrintPage(
 #if defined(OS_WIN)
   bool big_emf = (params.data_size && params.data_size >= kMetafileMaxSize);
   const CommandLine* cmdline = CommandLine::ForCurrentProcess();
-  if (big_emf ||
-      (cmdline && cmdline->HasSwitch(switches::kPrintRaster)) ||
-      (!print_job_->settings().supports_alpha_blend() &&
-       metafile->IsAlphaBlendUsed())) {
-    int raster_size = std::min(params.page_size.GetArea(),
-                               kMaxRasterSizeInPixels);
+  int raster_size = std::min(params.page_size.GetArea(),
+                             kMaxRasterSizeInPixels);
+  if (big_emf || (cmdline && cmdline->HasSwitch(switches::kPrintRaster))) {
     scoped_ptr<NativeMetafile> raster_metafile(
         metafile->RasterizeMetafile(raster_size));
     if (raster_metafile.get()) {
@@ -277,6 +274,12 @@ void PrintViewManager::OnDidPrintPage(
       web_contents()->Stop();
       return;
     }
+  } else if (!print_job_->settings().supports_alpha_blend() &&
+             metafile->IsAlphaBlendUsed()) {
+    scoped_ptr<NativeMetafile> raster_metafile(
+        metafile->RasterizeAlphaBlend());
+    if (raster_metafile.get())
+      metafile.swap(raster_metafile);
   }
 
 #endif
@@ -304,8 +307,7 @@ void PrintViewManager::OnPrintingFailed(int cookie) {
 
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_PRINT_JOB_RELEASED,
-      content::Source<TabContents>(
-          TabContents::FromWebContents(web_contents())),
+      content::Source<content::WebContents>(web_contents()),
       content::NotificationService::NoDetails());
 }
 
@@ -411,8 +413,7 @@ void PrintViewManager::OnNotifyPrintJobEvent(
 
       content::NotificationService::current()->Notify(
           chrome::NOTIFICATION_PRINT_JOB_RELEASED,
-          content::Source<TabContents>(
-              TabContents::FromWebContents(web_contents())),
+          content::Source<content::WebContents>(web_contents()),
           content::NotificationService::NoDetails());
       break;
     }
@@ -442,8 +443,7 @@ void PrintViewManager::OnNotifyPrintJobEvent(
 
       content::NotificationService::current()->Notify(
           chrome::NOTIFICATION_PRINT_JOB_RELEASED,
-          content::Source<TabContents>(
-              TabContents::FromWebContents(web_contents())),
+          content::Source<content::WebContents>(web_contents()),
           content::NotificationService::NoDetails());
       break;
     }

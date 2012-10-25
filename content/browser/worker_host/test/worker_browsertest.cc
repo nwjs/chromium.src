@@ -23,9 +23,9 @@
 #include "content/test/content_browser_test_utils.h"
 #include "content/test/layout_browsertest.h"
 #include "googleurl/src/gurl.h"
+#include "net/test/test_server.h"
 
-using content::BrowserThread;
-using content::WorkerServiceImpl;
+namespace content {
 
 class WorkerLayoutTest : public InProcessBrowserLayoutTest {
  public:
@@ -221,54 +221,23 @@ IN_PROC_BROWSER_TEST_F(WorkerXHRHttpLayoutTest, Tests) {
     RunHttpLayoutTest(kLayoutTestFiles[i]);
 }
 
-class WorkerWebSocketHttpLayoutTest : public InProcessBrowserLayoutTest {
- public:
-  WorkerWebSocketHttpLayoutTest() : InProcessBrowserLayoutTest(
-      FilePath(),
-      FilePath().AppendASCII("http").AppendASCII("tests").
-          AppendASCII("websocket").AppendASCII("tests").AppendASCII("hybi").
-          AppendASCII("workers"),
-      -1) {
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(WorkerWebSocketHttpLayoutTest, DISABLED_Tests) {
-  static const char* kLayoutTestFiles[] = {
-    "close-in-onmessage-crash.html",
-    "close-in-shared-worker.html",
-    "close-in-worker.html",
-    "shared-worker-simple.html",
-    "worker-handshake-challenge-randomness.html",
-    "worker-simple.html"
-  };
-
-  FilePath websocket_test_dir;
-  ASSERT_TRUE(PathService::Get(content::DIR_LAYOUT_TESTS, &websocket_test_dir));
-
-  content::TestWebSocketServer websocket_server;
-  ASSERT_TRUE(websocket_server.Start(websocket_test_dir));
-
-  for (size_t i = 0; i < arraysize(kLayoutTestFiles); ++i)
-    RunHttpLayoutTest(kLayoutTestFiles[i]);
-}
-
-class WorkerTest : public content::ContentBrowserTest {
+class WorkerTest : public ContentBrowserTest {
  public:
   WorkerTest() {}
 
   GURL GetTestURL(const std::string& test_case, const std::string& query) {
-    FilePath test_file_path = content::GetTestFilePath(
+    FilePath test_file_path = GetTestFilePath(
         "workers", test_case.c_str());
-    return content::GetFileUrlWithQuery(test_file_path, query);
+    return GetFileUrlWithQuery(test_file_path, query);
   }
 
-  void RunTest(content::Shell* window,
+  void RunTest(Shell* window,
                const std::string& test_case,
                const std::string& query) {
     GURL url = GetTestURL(test_case, query);
     const string16 expected_title = ASCIIToUTF16("OK");
-    content::TitleWatcher title_watcher(window->web_contents(), expected_title);
-    content::NavigateToURL(window, url);
+    TitleWatcher title_watcher(window->web_contents(), expected_title);
+    NavigateToURL(window, url);
     string16 final_title = title_watcher.WaitAndGetTitle();
     EXPECT_EQ(expected_title, final_title);
   }
@@ -292,7 +261,7 @@ class WorkerTest : public content::ContentBrowserTest {
           BrowserThread::IO, FROM_HERE,
           base::Bind(&CountWorkerProcesses, &cur_process_count));
 
-      content::RunMessageLoop();
+      RunMessageLoop();
       if (cur_process_count == count)
         return true;
 
@@ -310,11 +279,9 @@ class WorkerTest : public content::ContentBrowserTest {
   }
 
   void NavigateAndWaitForAuth(const GURL& url) {
-    content::ShellContentBrowserClient* browser_client =
-        static_cast<content::ShellContentBrowserClient*>(
-            content::GetContentClient()->browser());
-    scoped_refptr<content::MessageLoopRunner> runner =
-        new content::MessageLoopRunner();
+    ShellContentBrowserClient* browser_client =
+        static_cast<ShellContentBrowserClient*>(GetContentClient()->browser());
+    scoped_refptr<MessageLoopRunner> runner = new MessageLoopRunner();
     browser_client->resource_dispatcher_host_delegate()->
         set_login_request_callback(
             base::Bind(&QuitUIMessageLoop, runner->QuitClosure()));
@@ -378,7 +345,7 @@ IN_PROC_BROWSER_TEST_F(WorkerTest, LimitPerPage) {
   std::string query = StringPrintf("?count=%d", max_workers_per_tab + 1);
 
   GURL url = GetTestURL("many_shared_workers.html", query);
-  content::NavigateToURL(shell(), url);
+  NavigateToURL(shell(), url);
   ASSERT_TRUE(WaitForWorkerProcessCount(max_workers_per_tab));
 }
 
@@ -400,13 +367,12 @@ IN_PROC_BROWSER_TEST_F(WorkerTest, LimitTotal) {
 
   std::string query = StringPrintf("?count=%d", max_workers_per_tab);
   GURL url = GetTestURL("many_shared_workers.html", query);
-  content::NavigateToURL(
-      shell(), GURL(url.spec() + StringPrintf("&client_id=0")));
+  NavigateToURL(shell(), GURL(url.spec() + StringPrintf("&client_id=0")));
 
   // Adding 1 so that we cause some workers to be queued.
   int tab_count = (total_workers / max_workers_per_tab) + 1;
   for (int i = 1; i < tab_count; ++i) {
-    content::NavigateToURL(
+    NavigateToURL(
         CreateBrowser(), GURL(url.spec() + StringPrintf("&client_id=%d", i)));
   }
 
@@ -414,8 +380,8 @@ IN_PROC_BROWSER_TEST_F(WorkerTest, LimitTotal) {
   ASSERT_TRUE(WaitForWorkerProcessCount(total_workers));
 
   // Now close a page and check that the queued workers were started.
-  url = GURL(content::GetTestUrl("google", "google.html"));
-  content::NavigateToURL(shell(), url);
+  url = GURL(GetTestUrl("google", "google.html"));
+  NavigateToURL(shell(), url);
 
   ASSERT_TRUE(WaitForWorkerProcessCount(total_workers));
 }
@@ -445,19 +411,19 @@ IN_PROC_BROWSER_TEST_F(WorkerTest, DISABLED_MultipleTabsQueuedSharedWorker) {
   int max_workers_per_tab = WorkerServiceImpl::kMaxWorkersPerTabWhenSeparate;
   std::string query = StringPrintf("?count=%d", max_workers_per_tab + 1);
   GURL url = GetTestURL("many_shared_workers.html", query);
-  content::NavigateToURL(shell(), url);
+  NavigateToURL(shell(), url);
   ASSERT_TRUE(WaitForWorkerProcessCount(max_workers_per_tab));
 
   // Create same set of workers in new tab (leaves one worker queued from this
   // tab).
   url = GetTestURL("many_shared_workers.html", query);
-  content::NavigateToURL(CreateBrowser(), url);
+  NavigateToURL(CreateBrowser(), url);
   ASSERT_TRUE(WaitForWorkerProcessCount(max_workers_per_tab));
 
   // Now shutdown one of the shared workers - this will fire both queued
   // workers, but only one instance should be started.
   url = GetTestURL("shutdown_shared_worker.html", "?id=0");
-  content::NavigateToURL(CreateBrowser(), url);
+  NavigateToURL(CreateBrowser(), url);
   ASSERT_TRUE(WaitForWorkerProcessCount(max_workers_per_tab));
 }
 
@@ -468,7 +434,7 @@ IN_PROC_BROWSER_TEST_F(WorkerTest, DISABLED_QueuedSharedWorkerStartedFromOtherTa
   int max_workers_per_tab = WorkerServiceImpl::kMaxWorkersPerTabWhenSeparate;
   std::string query = StringPrintf("?count=%d", max_workers_per_tab + 1);
   GURL url = GetTestURL("many_shared_workers.html", query);
-  content::NavigateToURL(shell(), url);
+  NavigateToURL(shell(), url);
   ASSERT_TRUE(WaitForWorkerProcessCount(max_workers_per_tab));
 
   // First window has hit its limit. Now launch second window which creates
@@ -476,7 +442,32 @@ IN_PROC_BROWSER_TEST_F(WorkerTest, DISABLED_QueuedSharedWorkerStartedFromOtherTa
   // connected to the first window too.
   query = StringPrintf("?id=%d", max_workers_per_tab);
   url = GetTestURL("single_shared_worker.html", query);
-  content::NavigateToURL(CreateBrowser(), url);
+  NavigateToURL(CreateBrowser(), url);
 
   ASSERT_TRUE(WaitForWorkerProcessCount(max_workers_per_tab + 1));
 }
+
+IN_PROC_BROWSER_TEST_F(WorkerTest, WebSocketSharedWorker) {
+  // Launch WebSocket server.
+  net::TestServer ws_server(net::TestServer::TYPE_WS,
+                            net::TestServer::kLocalhost,
+                            FilePath(FILE_PATH_LITERAL("net/data/websocket")));
+  ASSERT_TRUE(ws_server.Start());
+
+  // Generate test URL.
+  std::string scheme("http");
+  GURL::Replacements replacements;
+  replacements.SetSchemeStr(scheme);
+  GURL url = ws_server.GetURL(
+      "websocket_shared_worker.html").ReplaceComponents(replacements);
+
+  // Run test.
+  Shell* window = shell();
+  const string16 expected_title = ASCIIToUTF16("OK");
+  TitleWatcher title_watcher(window->web_contents(), expected_title);
+  NavigateToURL(window, url);
+  string16 final_title = title_watcher.WaitAndGetTitle();
+  EXPECT_EQ(expected_title, final_title);
+}
+
+}  // namespace content

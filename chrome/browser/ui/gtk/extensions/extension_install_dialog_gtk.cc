@@ -8,13 +8,15 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/bundle_installer.h"
-#include "chrome/browser/extensions/extension_install_dialog.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_link_button.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/page_navigator.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_view.h"
 #include "grit/generated_resources.h"
 #include "skia/ext/image_operations.h"
 #include "ui/base/gtk/gtk_hig_constants.h"
@@ -28,6 +30,8 @@ using extensions::BundleInstaller;
 namespace {
 
 const int kLeftColumnMinWidth = 250;
+// External installs have more text, so use a wider dialog.
+const int kExternalInstallLeftColumnWidth = 350;
 const int kImageSize = 69;
 const int kDetailIndent = 20;
 
@@ -75,15 +79,14 @@ gboolean OnZippyButtonRelease(GtkWidget* event_box,
 
 }  // namespace
 
-namespace browser {
+namespace chrome {
 
 // Displays the dialog when constructed, deletes itself when dialog is
 // dismissed. Success/failure is passed back through the
 // ExtensionInstallPrompt::Delegate instance.
 class ExtensionInstallDialog {
  public:
-  ExtensionInstallDialog(gfx::NativeWindow parent,
-                         content::PageNavigator* navigator,
+  ExtensionInstallDialog(content::WebContents* parent_web_contents,
                          ExtensionInstallPrompt::Delegate* delegate,
                          const ExtensionInstallPrompt::Prompt& prompt);
  private:
@@ -102,11 +105,10 @@ class ExtensionInstallDialog {
 };
 
 ExtensionInstallDialog::ExtensionInstallDialog(
-    gfx::NativeWindow parent,
-    content::PageNavigator* navigator,
+    content::WebContents* parent_web_contents,
     ExtensionInstallPrompt::Delegate *delegate,
     const ExtensionInstallPrompt::Prompt& prompt)
-    : navigator_(navigator),
+    : navigator_(parent_web_contents),
       delegate_(delegate),
       dialog_(NULL) {
   bool show_permissions = prompt.GetPermissionCount() > 0;
@@ -115,11 +117,16 @@ ExtensionInstallDialog::ExtensionInstallDialog(
       prompt.type() == ExtensionInstallPrompt::INLINE_INSTALL_PROMPT;
   bool is_bundle_install =
       prompt.type() == ExtensionInstallPrompt::BUNDLE_INSTALL_PROMPT;
+  bool is_external_install =
+      prompt.type() == ExtensionInstallPrompt::EXTERNAL_INSTALL_PROMPT;
 
   if (is_inline_install)
     extension_id_ = prompt.extension()->id();
 
   // Build the dialog.
+  gfx::NativeWindow parent = NULL;
+  if (parent_web_contents)
+    parent = parent_web_contents->GetView()->GetTopLevelNativeWindow();
   dialog_ = gtk_dialog_new_with_buttons(
       UTF16ToUTF8(prompt.GetDialogTitle()).c_str(),
       parent,
@@ -151,10 +158,13 @@ ExtensionInstallDialog::ExtensionInstallDialog(
   GtkWidget* top_content_hbox = gtk_hbox_new(FALSE, ui::kContentAreaSpacing);
   gtk_box_pack_start(GTK_BOX(content_vbox), top_content_hbox, TRUE, TRUE, 0);
 
-  // We don't show the image for bunle installs, so let the left column take up
-  // that space.
-  const int left_column_min_width =
-      kLeftColumnMinWidth + (is_bundle_install ? kImageSize : 0);
+  // We don't show the image for bundle installs, so let the left column take
+  // up that space.
+  int left_column_min_width = kLeftColumnMinWidth;
+  if (is_bundle_install)
+    left_column_min_width += kImageSize;
+  if (is_external_install)
+    left_column_min_width = kExternalInstallLeftColumnWidth;
 
   // Create a new vbox for the left column.
   GtkWidget* left_column_area = gtk_vbox_new(FALSE, ui::kControlSpacing);
@@ -381,12 +391,21 @@ GtkWidget* ExtensionInstallDialog::CreateWidgetForIssueAdvice(
   return box;
 }
 
-}  // namespace browser
+}  // namespace chrome
+
+namespace {
 
 void ShowExtensionInstallDialogImpl(
-    gfx::NativeWindow parent,
-    content::PageNavigator* navigator,
+    content::WebContents* parent_web_content,
     ExtensionInstallPrompt::Delegate* delegate,
     const ExtensionInstallPrompt::Prompt& prompt) {
-  new browser::ExtensionInstallDialog(parent, navigator, delegate, prompt);
+  new chrome::ExtensionInstallDialog(parent_web_content, delegate, prompt);
+}
+
+}  // namespace
+
+// static
+ExtensionInstallPrompt::ShowDialogCallback
+ExtensionInstallPrompt::GetDefaultShowDialogCallback() {
+  return base::Bind(&ShowExtensionInstallDialogImpl);
 }

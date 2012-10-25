@@ -31,6 +31,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -87,8 +88,9 @@
 #define SECCOMP_MAX_PROGRAM_SIZE (1<<30)
 
 #if defined(__i386__)
-#define MIN_SYSCALL  0u
-#define MAX_SYSCALL  1024u
+#define MIN_SYSCALL         0u
+#define MAX_PUBLIC_SYSCALL  1024u
+#define MAX_SYSCALL         MAX_PUBLIC_SYSCALL
 #define SECCOMP_ARCH AUDIT_ARCH_I386
 
 #define SECCOMP_REG(_ctx, _reg) ((_ctx)->uc_mcontext.gregs[(_reg)])
@@ -103,8 +105,9 @@
 #define SECCOMP_PARM6(_ctx)     SECCOMP_REG(_ctx, REG_EBP)
 
 #elif defined(__x86_64__)
-#define MIN_SYSCALL  0u
-#define MAX_SYSCALL  1024u
+#define MIN_SYSCALL         0u
+#define MAX_PUBLIC_SYSCALL  1024u
+#define MAX_SYSCALL         MAX_PUBLIC_SYSCALL
 #define SECCOMP_ARCH AUDIT_ARCH_X86_64
 
 #define SECCOMP_REG(_ctx, _reg) ((_ctx)->uc_mcontext.gregs[(_reg)])
@@ -123,8 +126,12 @@
 // and a "ghost syscall private to the kernel", cmpxchg,
 // at |__ARM_NR_BASE+0x00fff0|.
 // See </arch/arm/include/asm/unistd.h> in the Linux kernel.
-#define MIN_SYSCALL  ((unsigned int)__NR_SYSCALL_BASE)
-#define MAX_SYSCALL  ((unsigned int)__ARM_NR_BASE + 0x00ffffu)
+#define MIN_SYSCALL         ((unsigned int)__NR_SYSCALL_BASE)
+#define MAX_PUBLIC_SYSCALL  (MIN_SYSCALL + 1024u)
+#define MIN_PRIVATE_SYSCALL ((unsigned int)__ARM_NR_BASE)
+#define MAX_PRIVATE_SYSCALL (MIN_PRIVATE_SYSCALL + 16u)
+#define MIN_GHOST_SYSCALL   ((unsigned int)__ARM_NR_BASE + 0xfff0u)
+#define MAX_SYSCALL         (MIN_GHOST_SYSCALL + 4u)
 // <linux/audit.h> includes <linux/elf-em.h>, which does not define EM_ARM.
 // <linux/elf.h> only includes <asm/elf.h> if we're in the kernel.
 # if !defined(EM_ARM)
@@ -151,6 +158,15 @@
 
 #endif
 
+#if defined(SECCOMP_BPF_STANDALONE)
+#define arraysize(x) (sizeof(x)/sizeof(*(x)))
+#define HANDLE_EINTR TEMP_FAILURE_RETRY
+#define DISALLOW_IMPLICIT_CONSTRUCTORS(TypeName) \
+  TypeName();                                    \
+  TypeName(const TypeName&);                     \
+  void operator=(const TypeName&)
+#endif
+
 #include "sandbox/linux/seccomp-bpf/die.h"
 #include "sandbox/linux/seccomp-bpf/errorcode.h"
 
@@ -169,14 +185,9 @@ struct arch_sigsys {
   unsigned int arch;
 };
 
-#if defined(SECCOMP_BPF_STANDALONE)
-#define arraysize(x) sizeof(x)/sizeof(*(x)))
-#define HANDLE_EINTR TEMP_FAILURE_RETRY
-#define DISALLOW_IMPLICIT_CONSTRUCTORS(TypeName) \
-  TypeName();                                    \
-  TypeName(const TypeName&);                     \
-  void operator=(const TypeName&)
-#endif
+class CodeGen;
+class SandboxUnittestHelper;
+struct Instruction;
 
 class Sandbox {
  public:
@@ -216,6 +227,11 @@ class Sandbox {
   typedef int       (*EvaluateArguments)(int sysno, int arg,
                                          Constraint *constraint);
   typedef std::vector<std::pair<EvaluateSyscall,EvaluateArguments> >Evaluators;
+
+  // Checks whether a particular system call number is valid on the current
+  // architecture. E.g. on ARM there's a non-contiguous range of private
+  // system calls.
+  static bool isValidSyscallNumber(int sysnum);
 
   // There are a lot of reasons why the Seccomp sandbox might not be available.
   // This could be because the kernel does not support Seccomp mode, or it
@@ -260,9 +276,12 @@ class Sandbox {
 
  private:
   friend class ErrorCode;
+  friend class CodeGen;
+  friend class SandboxUnittestHelper;
   friend class Util;
   friend class Verifier;
 
+  typedef std::vector<struct sock_filter> Program;
 
   struct Range {
     Range(uint32_t f, uint32_t t, const ErrorCode& e) :
@@ -273,15 +292,7 @@ class Sandbox {
     uint32_t  from, to;
     ErrorCode err;
   };
-  struct FixUp {
-    FixUp(unsigned int a, bool j) :
-      jt(j), addr(a) { }
-    bool     jt:1;
-    unsigned addr:31;
-  };
   typedef std::vector<Range> Ranges;
-  typedef std::map<uint32_t, std::vector<FixUp> > RetInsns;
-  typedef std::vector<struct sock_filter> Program;
   typedef std::map<uint32_t, ErrorCode> ErrMap;
   typedef std::vector<ErrorCode> Traps;
   typedef std::map<std::pair<TrapFnc, const void *>, int> TrapIds;
@@ -291,7 +302,7 @@ class Sandbox {
 
   static ErrorCode probeEvaluator(int signo) __attribute__((const));
   static void      probeProcess(void);
-  static ErrorCode allowAllEvaluator(int signo);
+  static ErrorCode allowAllEvaluator(int sysnum);
   static void      tryVsyscallProcess(void);
   static bool      kernelSupportSeccompBPF(int proc_fd);
   static bool      RunFunctionInPolicy(void (*function)(),
@@ -305,10 +316,9 @@ class Sandbox {
                                       EvaluateArguments argumentEvaluator);
   static void      installFilter(bool quiet);
   static void      findRanges(Ranges *ranges);
-  static void      emitJumpStatements(Program *program, RetInsns *rets,
-                                      Ranges::const_iterator start,
-                                      Ranges::const_iterator stop);
-  static void      emitReturnStatements(Program *prog, const RetInsns& rets);
+  static Instruction *assembleJumpTable(CodeGen *gen,
+                                        Ranges::const_iterator start,
+                                        Ranges::const_iterator stop);
   static void      sigSys(int nr, siginfo_t *info, void *void_context);
   static intptr_t  bpfFailure(const struct arch_seccomp_data& data, void *aux);
   static int       getTrapId(TrapFnc fnc, const void *aux);

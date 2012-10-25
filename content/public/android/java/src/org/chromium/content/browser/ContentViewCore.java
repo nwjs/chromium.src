@@ -33,7 +33,6 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
-import android.webkit.DownloadListener;
 
 import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
@@ -41,7 +40,6 @@ import org.chromium.base.WeakContext;
 import org.chromium.content.app.AppResource;
 import org.chromium.content.browser.ContentViewGestureHandler.MotionEventDelegate;
 import org.chromium.content.browser.accessibility.AccessibilityInjector;
-import org.chromium.content.common.CleanupReference;
 import org.chromium.content.common.TraceEvent;
 import org.chromium.ui.gfx.NativeWindow;
 
@@ -133,19 +131,6 @@ public class ContentViewCore implements MotionEventDelegate {
         boolean super_awakenScrollBars(int startDelay, boolean invalidate);
     }
 
-    private static final class DestroyRunnable implements Runnable {
-        private final int mNativeContentViewCore;
-        private DestroyRunnable(int nativeContentViewCore) {
-            mNativeContentViewCore = nativeContentViewCore;
-        }
-        @Override
-        public void run() {
-            nativeDestroy(mNativeContentViewCore);
-        }
-    }
-
-    private CleanupReference mCleanupReference;
-
     private final Context mContext;
     private ViewGroup mContainerView;
     private InternalAccessDelegate mContainerViewInternals;
@@ -197,19 +182,23 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private SelectionHandleController mSelectionHandleController;
     private InsertionHandleController mInsertionHandleController;
+    // These offsets in document space with page scale normalized to 1.0.
+    private final PointF mStartHandleNormalizedPoint = new PointF();
+    private final PointF mEndHandleNormalizedPoint = new PointF();
+    private final PointF mInsertionHandleNormalizedPoint = new PointF();
 
     // Tracks whether a selection is currently active.  When applied to selected text, indicates
     // whether the last selected text is still highlighted.
     private boolean mHasSelection;
     private String mLastSelectedText;
     private boolean mSelectionEditable;
-    private ActionMode mActionMode;
+    // TODO(http://code.google.com/p/chromium/issues/detail?id=136704): Register
+    // the necessary resources in ContentViewActivity so we can create an action
+    // bar for text editing.
+    // private ActionMode mActionMode;
+    private boolean mActionBarVisible; // Remove this when mActionMode is upstreamed.
 
-    // The legacy webview DownloadListener.
-    private DownloadListener mDownloadListener;
-    // ContentViewDownloadDelegate adds support for authenticated downloads
-    // and POST downloads. Embedders should prefer ContentViewDownloadDelegate
-    // over DownloadListener.
+    // Delegate that will handle GET downloads, and be notified of completion of POST downloads.
     private ContentViewDownloadDelegate mDownloadDelegate;
 
     // Whether a physical keyboard is connected.
@@ -313,6 +302,32 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     protected ViewGroup getContainerView() {
         return mContainerView;
+    }
+
+    /**
+     * Returns a delegate that can be used to add and remove views from the ContainerView.
+     *
+     * NOTE: Use with care, as not all ContentViewCore users setup their ContainerView in the same
+     * way. In particular, the Android WebView has limitations on what implementation details can
+     * be provided via a child view, as they are visible in the API and could introduce
+     * compatibility breaks with existing applications. If in doubt, contact the
+     * android_webview/OWNERS
+     *
+     * @return A ContainerViewDelegate that can be used to add and remove views.
+     */
+    @CalledByNative
+    public ContainerViewDelegate getContainerViewDelegate() {
+        return new ContainerViewDelegate() {
+            @Override
+            public void addViewToContainerView(View view) {
+                mContainerView.addView(view);
+            }
+
+            @Override
+            public void removeViewFromContainerView(View view) {
+                mContainerView.removeView(view);
+            }
+        };
     }
 
     private ImeAdapter createImeAdapter(Context context) {
@@ -447,8 +462,6 @@ public class ContentViewCore implements MotionEventDelegate {
         mContainerView = containerView;
         mNativeContentViewCore = nativeInit(mHardwareAccelerated, nativeWebContents,
                 nativeWindow.getNativePointer());
-        mCleanupReference = new CleanupReference(
-                this, new DestroyRunnable(mNativeContentViewCore));
         mContentSettings = new ContentSettings(
                 this, mNativeContentViewCore, isAccessFromFileURLsGrantedByDefault);
         initializeContainerView(internalDispatcher);
@@ -473,6 +486,12 @@ public class ContentViewCore implements MotionEventDelegate {
                 hidePopupDialog();
             }
         };
+    }
+
+    @CalledByNative
+    void onNativeContentViewCoreDestroyed(int nativeContentViewCore) {
+        assert nativeContentViewCore == mNativeContentViewCore;
+        mNativeContentViewCore = 0;
     }
 
     /**
@@ -563,10 +582,10 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public void destroy() {
         hidePopupDialog();
-        mCleanupReference.cleanupNow();
+        if (mNativeContentViewCore != 0) {
+            nativeOnJavaContentViewCoreDestroyed(mNativeContentViewCore);
+        }
         mNativeContentViewCore = 0;
-        // Do not propagate the destroy() to settings, as the client may still hold a reference to
-        // that and could still be using it.
         mContentSettings = null;
         mVSyncMonitor.stop();
     }
@@ -654,7 +673,8 @@ public class ContentViewCore implements MotionEventDelegate {
                 params.getExtraHeadersString(),
                 params.mPostData,
                 params.mBaseUrlForDataUrl,
-                params.mVirtualUrlForDataUrl);
+                params.mVirtualUrlForDataUrl,
+                params.mCanLoadLocalResources);
     }
 
     void setAllUserAgentOverridesInHistory() {
@@ -716,11 +736,23 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     public Bitmap getBitmap(int width, int height) {
-        return getBitmap(width, height, Bitmap.Config.ARGB_8888);
-    }
+        if (getWidth() == 0 || getHeight() == 0) return null;
 
-    public Bitmap getBitmap(int width, int height, Bitmap.Config config) {
-        // TODO(nileshagrawal): Implement this.
+        Bitmap b = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+
+        if (mNativeContentViewCore != 0 &&
+                nativePopulateBitmapFromCompositor(mNativeContentViewCore, b)) {
+            // If we successfully grabbed a bitmap, check if we have to draw the Android overlay
+            // components as well.
+            if (mContainerView.getParent() != null &&
+                    mContainerView.getVisibility() == View.VISIBLE) {
+                Canvas c = new Canvas(b);
+                c.scale(width / (float) getWidth(), height / (float) getHeight());
+                mContainerView.draw(c);
+            }
+            return b;
+        }
+
         return null;
     }
 
@@ -838,8 +870,8 @@ public class ContentViewCore implements MotionEventDelegate {
 
     @SuppressWarnings("unused")
     @CalledByNative
-    private void didSetNeedTouchEvents(boolean needTouchEvents) {
-        mContentViewGestureHandler.didSetNeedTouchEvents(needTouchEvents);
+    private void hasTouchEventHandlers(boolean hasTouchHandlers) {
+        mContentViewGestureHandler.hasTouchEventHandlers(hasTouchHandlers);
     }
 
     @SuppressWarnings("unused")
@@ -977,13 +1009,20 @@ public class ContentViewCore implements MotionEventDelegate {
                 x, y, computeHorizontalScrollOffset(), computeVerticalScrollOffset());
     }
 
+    @Override
+    public boolean hasFixedPageScale() {
+        return mNativeMinimumScale == mNativeMaximumScale;
+    }
+
     private void hidePopupDialog() {
         SelectPopupDialog.hide(this);
     }
 
     void hideSelectActionBar() {
-        if (mActionMode != null) {
-            mActionMode.finish();
+        if (mActionBarVisible) {
+            mActionBarVisible = false;
+            mImeAdapter.unselect();
+            getContentViewClient().onContextualActionBarHidden();
         }
     }
 
@@ -991,7 +1030,7 @@ public class ContentViewCore implements MotionEventDelegate {
      * @see View#onAttachedToWindow()
      */
     @SuppressWarnings("javadoc")
-    protected void onAttachedToWindow() {
+    public void onAttachedToWindow() {
         setAccessibilityState(true);
     }
 
@@ -999,7 +1038,7 @@ public class ContentViewCore implements MotionEventDelegate {
      * @see View#onDetachedFromWindow()
      */
     @SuppressWarnings("javadoc")
-    protected void onDetachedFromWindow() {
+    public void onDetachedFromWindow() {
         setAccessibilityState(false);
     }
 
@@ -1264,9 +1303,7 @@ public class ContentViewCore implements MotionEventDelegate {
      * @see View#computeHorizontalScrollExtent()
      */
     @SuppressWarnings("javadoc")
-    protected int computeHorizontalScrollExtent() {
-        // TODO (dtrainor): Need to expose scroll events properly to public. Either make getScroll*
-        // work or expose computeHorizontalScrollOffset()/computeVerticalScrollOffset as public.
+    public int computeHorizontalScrollExtent() {
         return getWidth();
     }
 
@@ -1316,7 +1353,7 @@ public class ContentViewCore implements MotionEventDelegate {
      * @see View#awakenScrollBars(int, boolean)
      */
     @SuppressWarnings("javadoc")
-    protected boolean awakenScrollBars(int startDelay, boolean invalidate) {
+    public boolean awakenScrollBars(int startDelay, boolean invalidate) {
         // For the default implementation of ContentView which draws the scrollBars on the native
         // side, calling this function may get us into a bad state where we keep drawing the
         // scrollBars, so disable it by always returning false.
@@ -1335,6 +1372,8 @@ public class ContentViewCore implements MotionEventDelegate {
         if (!mPopupZoomer.isShowing()) mPopupZoomer.setLastTouch(x, y);
 
         if (isLongPress) {
+            getInsertionHandleController().allowAutomaticShowing();
+            getSelectionHandleController().allowAutomaticShowing();
             if (mNativeContentViewCore != 0) {
                 nativeLongPress(mNativeContentViewCore, timeMs, x, y, false);
             }
@@ -1389,30 +1428,10 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     /**
-     * Register the listener to be used when content can not be handled by the
-     * rendering engine, and should be downloaded instead. This will replace the
-     * current listener.
-     * @param listener An implementation of DownloadListener.
-     */
-    // TODO(nileshagrawal): decide if setDownloadDelegate will be public API. If so,
-    // this method should be deprecated and the javadoc should make reference to the
-    // fact that a ContentViewDownloadDelegate will be used in preference to a
-    // DownloadListener.
-    public void setDownloadListener(DownloadListener listener) {
-        mDownloadListener = listener;
-    }
-
-    // Called by DownloadController.
-    DownloadListener downloadListener() {
-        return mDownloadListener;
-    }
-
-    /**
      * Register the delegate to be used when content can not be handled by
      * the rendering engine, and should be downloaded instead. This will replace
-     * the current delegate or existing DownloadListner.
-     * Embedders should prefer this over the legacy DownloadListener.
-     * @param listener An implementation of ContentViewDownloadDelegate.
+     * the current delegate, if any.
+     * @param delegate An implementation of ContentViewDownloadDelegate.
      */
     public void setDownloadDelegate(ContentViewDownloadDelegate delegate) {
         mDownloadDelegate = delegate;
@@ -1425,8 +1444,28 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private SelectionHandleController getSelectionHandleController() {
         if (mSelectionHandleController == null) {
-            mSelectionHandleController = new SelectionHandleController(getContainerView());
-            // TODO(olilan): add specific method implementations.
+            mSelectionHandleController = new SelectionHandleController(getContainerView()) {
+                @Override
+                public void selectBetweenCoordinates(int x1, int y1, int x2, int y2) {
+                    if (mNativeContentViewCore != 0 && !(x1 == x2 && y1 == y2)) {
+                        nativeSelectBetweenCoordinates(mNativeContentViewCore, x1, y1, x2, y2);
+                    }
+                }
+
+                @Override
+                public void showHandlesAt(int x1, int y1, int dir1, int x2, int y2, int dir2) {
+                    super.showHandlesAt(x1, y1, dir1, x2, y2, dir2);
+                    mStartHandleNormalizedPoint.set(
+                        (x1 + mNativeScrollX) / mNativePageScaleFactor,
+                        (y1 + mNativeScrollY) / mNativePageScaleFactor);
+                    mEndHandleNormalizedPoint.set(
+                        (x2 + mNativeScrollX) / mNativePageScaleFactor,
+                        (y2 + mNativeScrollY) / mNativePageScaleFactor);
+
+                    showSelectActionBar();
+                }
+
+            };
 
             mSelectionHandleController.hideAndDisallowAutomaticShowing();
         }
@@ -1436,8 +1475,35 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private InsertionHandleController getInsertionHandleController() {
         if (mInsertionHandleController == null) {
-            mInsertionHandleController = new InsertionHandleController(getContainerView());
-            // TODO(olilan): add specific method implementations.
+            mInsertionHandleController = new InsertionHandleController(getContainerView()) {
+                private static final int AVERAGE_LINE_HEIGHT = 14;
+
+                @Override
+                public void setCursorPosition(int x, int y) {
+                    if (mNativeContentViewCore != 0) {
+                        nativeSelectBetweenCoordinates(mNativeContentViewCore, x, y, x, y);
+                    }
+                }
+
+                @Override
+                public void paste() {
+                    mImeAdapter.paste();
+                    hideHandles();
+                }
+
+                @Override
+                public int getLineHeight() {
+                    return (int) (mNativePageScaleFactor * AVERAGE_LINE_HEIGHT);
+                }
+
+                @Override
+                public void showHandleAt(int x, int y) {
+                    super.showHandleAt(x, y);
+                    mInsertionHandleNormalizedPoint.set(
+                        (x + mNativeScrollX) / mNativePageScaleFactor,
+                        (y + mNativeScrollY) / mNativePageScaleFactor);
+                }
+            };
 
             mInsertionHandleController.hideAndDisallowAutomaticShowing();
         }
@@ -1445,7 +1511,42 @@ public class ContentViewCore implements MotionEventDelegate {
         return mInsertionHandleController;
     }
 
+    private void updateHandleScreenPositions() {
+        if (mSelectionHandleController != null && mSelectionHandleController.isShowing()) {
+            float startX = mStartHandleNormalizedPoint.x * mNativePageScaleFactor - mNativeScrollX;
+            float startY = mStartHandleNormalizedPoint.y * mNativePageScaleFactor - mNativeScrollY;
+            mSelectionHandleController.setStartHandlePosition((int) startX, (int) startY);
+
+            float endX = mEndHandleNormalizedPoint.x * mNativePageScaleFactor - mNativeScrollX;
+            float endY = mEndHandleNormalizedPoint.y * mNativePageScaleFactor - mNativeScrollY;
+            mSelectionHandleController.setEndHandlePosition((int) endX, (int) endY);
+        }
+
+        if (mInsertionHandleController != null && mInsertionHandleController.isShowing()) {
+            float x = mInsertionHandleNormalizedPoint.x * mNativePageScaleFactor - mNativeScrollX;
+            float y = mInsertionHandleNormalizedPoint.y * mNativePageScaleFactor - mNativeScrollY;
+            mInsertionHandleController.setHandlePosition((int) x, (int) y);
+        }
+    }
+
+    private void hideHandles() {
+        if (mSelectionHandleController != null) {
+            mSelectionHandleController.hideAndDisallowAutomaticShowing();
+        }
+        if (mInsertionHandleController != null) {
+            mInsertionHandleController.hideAndDisallowAutomaticShowing();
+        }
+    }
+
     private void showSelectActionBar() {
+        if (!mActionBarVisible) {
+            mActionBarVisible = true;
+            getContentViewClient().onContextualActionBarShown();
+        }
+
+// TODO(http://code.google.com/p/chromium/issues/detail?id=136704): Uncomment
+// this code when we have the resources needed to create the action bar.
+/*
         if (mActionMode != null) {
             mActionMode.invalidate();
             return;
@@ -1500,6 +1601,7 @@ public class ContentViewCore implements MotionEventDelegate {
         } else {
             getContentViewClient().onContextualActionBarShown();
         }
+*/
     }
 
     public boolean getUseDesktopUserAgent() {
@@ -1518,6 +1620,10 @@ public class ContentViewCore implements MotionEventDelegate {
         if (mNativeContentViewCore != 0) {
             nativeSetUseDesktopUserAgent(mNativeContentViewCore, override, reloadOnChange);
         }
+    }
+
+    public void clearSslPreferences() {
+        nativeClearSslPreferences(mNativeContentViewCore);
     }
 
     /**
@@ -1616,8 +1722,65 @@ public class ContentViewCore implements MotionEventDelegate {
 
     @SuppressWarnings("unused")
     @CalledByNative
+    private void onSelectionChanged(String text) {
+        mLastSelectedText = text;
+    }
+
+    @SuppressWarnings("unused")
+    @CalledByNative
+    private void onSelectionBoundsChanged(Rect startRect, int dir1, Rect endRect, int dir2) {
+        int x1 = startRect.left;
+        int y1 = startRect.bottom;
+        int x2 = endRect.left;
+        int y2 = endRect.bottom;
+        if (x1 != x2 || y1 != y2) {
+            if (mInsertionHandleController != null) {
+                mInsertionHandleController.hide();
+            }
+            getSelectionHandleController().onSelectionChanged(x1, y1, dir1, x2, y2, dir2);
+            mHasSelection = true;
+        } else {
+            hideSelectActionBar();
+            if (x1 != 0 && y1 != 0
+                    && (mSelectionHandleController == null
+                            || !mSelectionHandleController.isDragging())
+                    && mSelectionEditable) {
+                // Selection is a caret, and a text field is focused.
+                if (mSelectionHandleController != null) {
+                    mSelectionHandleController.hide();
+                }
+                getInsertionHandleController().onCursorPositionChanged(x1, y1);
+                InputMethodManager manager = (InputMethodManager)
+                        getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (manager.isWatchingCursor(mContainerView)) {
+                    manager.updateCursor(mContainerView, startRect.left, startRect.top,
+                            startRect.right, startRect.bottom);
+                }
+            } else {
+                // Deselection
+                if (mSelectionHandleController != null
+                        && !mSelectionHandleController.isDragging()) {
+                    mSelectionHandleController.hideAndDisallowAutomaticShowing();
+                }
+                if (mInsertionHandleController != null) {
+                    mInsertionHandleController.hideAndDisallowAutomaticShowing();
+                }
+            }
+            mHasSelection = false;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    @CalledByNative
     private void onEvaluateJavaScriptResult(int id, String jsonResult) {
         getContentViewClient().onEvaluateJavaScriptResult(id, jsonResult);
+    }
+
+    @SuppressWarnings("unused")
+    @CalledByNative
+    private void showPastePopup(int x, int y) {
+        getInsertionHandleController()
+                .showHandleWithPastePopupAt(x - mNativeScrollX, y - mNativeScrollY);
     }
 
     /**
@@ -1724,7 +1887,7 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     @Override
     public void invokeZoomPicker() {
-        if (mContentSettings.supportZoom()) {
+        if (mContentSettings != null && mContentSettings.supportZoom()) {
             mZoomManager.invokeZoomPicker();
         }
     }
@@ -1956,7 +2119,7 @@ public class ContentViewCore implements MotionEventDelegate {
     private native int nativeInit(boolean hardwareAccelerated, int webContentsPtr,
             int windowAndroidPtr);
 
-    private static native void nativeDestroy(int nativeContentViewCore);
+    private native void nativeOnJavaContentViewCoreDestroyed(int nativeContentViewCoreImpl);
 
     private native void nativeLoadUrl(
             int nativeContentViewCoreImpl,
@@ -1967,7 +2130,8 @@ public class ContentViewCore implements MotionEventDelegate {
             String extraHeaders,
             byte[] postData,
             String baseUrlForDataUrl,
-            String virtualUrlForDataUrl);
+            String virtualUrlForDataUrl,
+            boolean canLoadLocalResources);
 
     private native void nativeSetAllUserAgentOverridesInHistory(int nativeContentViewCoreImpl,
             String userAgentOverride);
@@ -2066,6 +2230,8 @@ public class ContentViewCore implements MotionEventDelegate {
             boolean enabled, boolean reloadOnChange);
     private native boolean nativeGetUseDesktopUserAgent(int nativeContentViewCoreImpl);
 
+    private native void nativeClearSslPreferences(int nativeContentViewCoreImpl);
+
     private native void nativeAddJavascriptInterface(int nativeContentViewCoreImpl, Object object,
                                                      String name, boolean requireAnnotation);
 
@@ -2075,4 +2241,7 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private native void nativeUpdateVSyncParameters(int nativeContentViewCoreImpl,
             long timebaseMicros, long intervalMicros);
+
+    private native boolean nativePopulateBitmapFromCompositor(int nativeContentViewCoreImpl,
+            Bitmap bitmap);
 }

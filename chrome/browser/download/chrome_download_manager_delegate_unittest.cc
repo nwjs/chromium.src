@@ -16,7 +16,6 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/safe_browsing/download_protection_service.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_switch_utils.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_pref_service.h"
@@ -306,7 +305,7 @@ void ChromeDownloadManagerDelegateTest::SetUp() {
   delegate_ = new TestChromeDownloadManagerDelegate(profile());
   delegate_->SetDownloadManager(download_manager_.get());
   pref_service_ = profile()->GetTestingPrefService();
-  contents()->SetDelegate(&web_contents_delegate_);
+  web_contents()->SetDelegate(&web_contents_delegate_);
 
   ASSERT_TRUE(test_download_dir_.CreateUniqueTempDir());
   SetDefaultDownloadPath(test_download_dir_.path());
@@ -345,7 +344,7 @@ content::MockDownloadItem*
   ON_CALL(*item, IsTemporary())
       .WillByDefault(Return(false));
   ON_CALL(*item, GetWebContents())
-      .WillByDefault(Return(contents()));
+      .WillByDefault(Return(web_contents()));
   EXPECT_CALL(*item, GetId())
       .WillRepeatedly(Return(id));
   EXPECT_CALL(*item, GetState())
@@ -911,6 +910,7 @@ TEST_F(ChromeDownloadManagerDelegateTest, StartDownload_LastSavePath) {
   RunTestCases(kLastSavePathTestCases, 1);
 }
 
+#if defined(OS_CHROMEOS)
 TEST_F(ChromeDownloadManagerDelegateTest, StartDownload_WebIntents) {
   const DownloadTestCase kWebIntentsTestCases[] = {
     {
@@ -919,7 +919,7 @@ TEST_F(ChromeDownloadManagerDelegateTest, StartDownload_WebIntents) {
       // .webintents extension).
       AUTOMATIC,
       content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS,
-      "http://example.com/feed.exe", "application/rss+xml",
+      "http://example.com/feed.exe", "application/msword",
       FILE_PATH_LITERAL(""),
 
       FILE_PATH_LITERAL("feed.exe.webintents"),
@@ -933,7 +933,7 @@ TEST_F(ChromeDownloadManagerDelegateTest, StartDownload_WebIntents) {
       // 2: A download with a forced path won't be handled by web intents.
       FORCED,
       content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS,
-      "http://example.com/feed.exe", "application/rss+xml",
+      "http://example.com/feed.exe", "application/msword",
       FILE_PATH_LITERAL("forced.feed.exe"),
 
       FILE_PATH_LITERAL("forced.feed.exe"),
@@ -946,6 +946,7 @@ TEST_F(ChromeDownloadManagerDelegateTest, StartDownload_WebIntents) {
 
   RunTestCases(kWebIntentsTestCases, arraysize(kWebIntentsTestCases));
 }
+#endif
 
 // TODO(asanka): Add more tests.
 // * Default download path is not writable.

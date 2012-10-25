@@ -14,12 +14,10 @@
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "base/string16.h"
-#include "base/tuple.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/extensions/app_shortcut_manager.h"
 #include "chrome/browser/extensions/app_sync_bundle.h"
 #include "chrome/browser/extensions/extension_icon_manager.h"
@@ -36,7 +34,6 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_set.h"
-#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "sync/api/string_ordinal.h"
@@ -46,7 +43,6 @@
 class BookmarkExtensionEventRouter;
 class CommandLine;
 class ExtensionErrorUI;
-class ExtensionFontSettingsEventRouter;
 class ExtensionManagementEventRouter;
 class ExtensionSyncData;
 class ExtensionToolbarModel;
@@ -56,7 +52,6 @@ class Profile;
 class Version;
 
 namespace chromeos {
-class ExtensionBluetoothEventRouter;
 class ExtensionInputMethodEventRouter;
 }
 
@@ -69,6 +64,7 @@ class ContentSettingsStore;
 class CrxInstaller;
 class Extension;
 class ExtensionActionStorageManager;
+class ExtensionBluetoothEventRouter;
 class ExtensionCookiesEventRouter;
 class ExtensionManagedModeEventRouter;
 class ExtensionSyncData;
@@ -205,9 +201,13 @@ class ExtensionService
   virtual const ExtensionSet* disabled_extensions() const OVERRIDE;
   const ExtensionSet* terminated_extensions() const;
 
-  // Retuns a set of all installed, disabled, and terminated extensions and
+  // Returns a set of all installed, disabled, and terminated extensions and
   // transfers ownership to caller.
   const ExtensionSet* GenerateInstalledExtensionsSet() const;
+
+  // Returns a set of all extensions disabled by the sideload wipeout
+  // initiative.
+  const ExtensionSet* GetWipedOutExtensions() const;
 
   // Gets the object managing the set of pending extensions.
   virtual extensions::PendingExtensionManager*
@@ -391,6 +391,10 @@ class ExtensionService
   // permissions the given extension has been granted.
   bool ExtensionBindingsAllowed(const GURL& url);
 
+  // Returns true if a normal browser window should avoid showing |url| in a
+  // tab. In this case, |url| is also rewritten to an error URL.
+  bool ShouldBlockUrlInBrowserTab(GURL* url);
+
   // Returns the icon to display in the omnibox for the given extension.
   gfx::Image GetOmniboxIcon(const std::string& extension_id);
 
@@ -415,6 +419,10 @@ class ExtensionService
   // Initializes the |extension|'s active permission set and disables the
   // extension if the privilege level has increased (e.g., due to an upgrade).
   void InitializePermissions(const extensions::Extension* extension);
+
+  // Check to see if this extension needs to be disabled, as per the sideload
+  // wipeout initiative.
+  void MaybeWipeout(const extensions::Extension* extension);
 
   // Go through each extensions in pref, unload blacklisted extensions
   // and update the blacklist state in pref.
@@ -515,10 +523,11 @@ class ExtensionService
     return window_event_router_.get();
   }
 
-#if defined(OS_CHROMEOS)
-  chromeos::ExtensionBluetoothEventRouter* bluetooth_event_router() {
+  extensions::ExtensionBluetoothEventRouter* bluetooth_event_router() {
     return bluetooth_event_router_.get();
   }
+
+#if defined(OS_CHROMEOS)
   chromeos::ExtensionInputMethodEventRouter* input_method_event_router() {
     return input_method_event_router_.get();
   }
@@ -586,9 +595,8 @@ class ExtensionService
   // the member variable to make it easier to test the method in isolation.
   bool PopulateExtensionErrorUI(ExtensionErrorUI* extension_error_ui);
 
-  // Marks alertable extensions as acknowledged, after the user presses the
-  // accept button.
-  void HandleExtensionAlertAccept();
+  // Checks if there are any new external extensions to notify the user about.
+  void UpdateExternalExtensionAlert();
 
   // Given a (presumably just-installed) extension id, mark that extension as
   // acknowledged.
@@ -600,6 +608,10 @@ class ExtensionService
 
   // Called when the extension alert is closed.
   void HandleExtensionAlertClosed();
+
+  // Marks alertable extensions as acknowledged, after the user presses the
+  // accept button.
+  void HandleExtensionAlertAccept();
 
   // content::NotificationObserver
   virtual void Observe(int type,
@@ -639,6 +651,13 @@ class ExtensionService
 
   // Specialization of syncer::SyncableService::AsWeakPtr.
   base::WeakPtr<ExtensionService> AsWeakPtr() { return base::AsWeakPtr(this); }
+
+  bool browser_terminating() const { return browser_terminating_; }
+
+  // For testing.
+  void set_browser_terminating_for_test(bool value) {
+    browser_terminating_ = value;
+  }
 
  private:
   // Contains Extension data that can change during the life of the process,
@@ -733,6 +752,10 @@ class ExtensionService
 
   // Helper to inspect an ExtensionHost after it has been loaded.
   void InspectExtensionHost(extensions::ExtensionHost* host);
+
+  // Helper to determine whether we should initially enable an installed
+  // (or upgraded) extension.
+  bool ShouldEnableOnInstall(const extensions::Extension* extension);
 
   // The normal profile associated with this ExtensionService.
   Profile* profile_;
@@ -850,8 +873,9 @@ class ExtensionService
   scoped_ptr<extensions::ExtensionManagedModeEventRouter>
       managed_mode_event_router_;
 
+  scoped_ptr<extensions::ExtensionBluetoothEventRouter> bluetooth_event_router_;
+
 #if defined(OS_CHROMEOS)
-  scoped_ptr<chromeos::ExtensionBluetoothEventRouter> bluetooth_event_router_;
   scoped_ptr<chromeos::ExtensionInputMethodEventRouter>
       input_method_event_router_;
 #endif
@@ -867,6 +891,11 @@ class ExtensionService
   // OnAllExternalProvidersReady() to determine if an update check is needed to
   // install pending extensions.
   bool update_once_all_providers_are_ready_;
+
+  // Set when the browser is terminating. Prevents us from installing or
+  // updating additional extensions and allows in-progress installations to
+  // decide to abort.
+  bool browser_terminating_;
 
   NaClModuleInfoList nacl_module_list_;
 

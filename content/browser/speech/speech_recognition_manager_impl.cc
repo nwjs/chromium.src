@@ -73,7 +73,8 @@ class SpeechRecognitionManagerImpl::PermissionRequest
         this,
         render_process_id,
         render_view_id,
-        media_stream::StreamOptions(/*audio=*/true, /*video=*/false),
+        media_stream::StreamOptions(content::MEDIA_DEVICE_AUDIO_CAPTURE,
+                                    content::MEDIA_DEVICE_VIDEO_CAPTURE),
         origin,
         &label_);
   }
@@ -81,7 +82,7 @@ class SpeechRecognitionManagerImpl::PermissionRequest
   void Abort() {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
     started_ = false;
-    BrowserMainLoop::GetMediaStreamManager()->CancelGenerateStream(label_);
+    BrowserMainLoop::GetMediaStreamManager()->CancelRequest(label_);
   }
 
   int Session() const { return session_id_; }
@@ -111,10 +112,6 @@ class SpeechRecognitionManagerImpl::PermissionRequest
   }
 
   // The callbacks below are ignored.
-  virtual void AudioDeviceFailed(const std::string& label,
-                                 int index) OVERRIDE {}
-  virtual void VideoDeviceFailed(const std::string& label,
-                                 int index) OVERRIDE {}
   virtual void DevicesEnumerated(
       const std::string& label,
       const media_stream::StreamDeviceInfoArray& devices) OVERRIDE {}

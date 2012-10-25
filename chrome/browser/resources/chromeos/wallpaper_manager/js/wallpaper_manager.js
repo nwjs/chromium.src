@@ -83,23 +83,29 @@ function WallpaperManager(dialogDom) {
   WallpaperManager.prototype.fetchManifest_ = function() {
     var xhr = new XMLHttpRequest();
     var locale = navigator.language;
-    xhr.open('GET', ManifestBaseURL + locale + '.json', false);
-    xhr.send(null);
-    // TODO(bshe): We should save the downloaded manifest to local disk. Other
-    // components may want to use it (i.e. screen saver).
-    if (xhr.status === 200) {
-      this.parseManifest_(xhr.responseText);
-    } else {
-      // Fall back to en locale if current locale is not supported.
-      xhr.open('GET', ManifestBaseURL + 'en.json', false);
-      xhr.send(null);
-      if (xhr.status === 200) {
-        this.parseManifest_(xhr.responseText);
-      } else {
+    var urls = [
+        ManifestBaseURL + locale + '.json',
+        // Fallback url. Use 'en' locale by default.
+        ManifestBaseURL + 'en.json'];
+
+    for (var i = 0; i < urls.length; i++) {
+      xhr.open('GET', urls[i], false);
+      try {
+        xhr.send(null);
+        // TODO(bshe): We should save the downloaded manifest to local disk.
+        // Other components may want to use it (i.e. screen saver).
+        if (xhr.status === 200) {
+          this.parseManifest_(xhr.responseText);
+          return;
+        }
+      } catch (e) {
         this.manifest_ = {};
         this.butterBar_.showError_(str('connectionFailed'));
+        return;
       }
     }
+    this.manifest_ = {};
+    this.butterBar_.showError_(str('connectionFailed'));
 
     // TODO(bshe): Fall back to saved manifest if there is a problem fetching
     // manifest from server.
@@ -193,7 +199,8 @@ function WallpaperManager(dialogDom) {
           var image = self.wallpaperRequest_.response;
           chrome.wallpaperPrivate.setWallpaper(image,
                                                selectedItem.layout,
-                                               wallpaperURL);
+                                               wallpaperURL,
+                                               self.onFinished_.bind(self));
           self.currentWallpaper_ = wallpaperURL;
         } else {
           self.butterBar_.showError_(str('downloadFailed'));
@@ -288,10 +295,17 @@ function WallpaperManager(dialogDom) {
     var files = $('file-selector').files;
     if (files.length != 1)
       console.error('More than one files are selected or no file selected');
+    var file = files[0];
+    if (!file.type.match('image/jpeg')) {
+      this.butterBar_.showError_(str('invalidWallpaper'));
+      return;
+    }
     var reader = new FileReader();
     reader.readAsArrayBuffer(files[0]);
     var self = this;
-    // TODO(bshe): Handle file error.
+    reader.addEventListener('error', function(e) {
+      this.butterBar_.showError_(str('accessFileFailure'));
+    });
     reader.addEventListener('load', function(e) {
       self.customWallpaperData_ = e.target.result;
       self.refreshWallpaper_(self.customWallpaperData_);
@@ -308,8 +322,19 @@ function WallpaperManager(dialogDom) {
     var layout =
         setWallpaperLayout.options[setWallpaperLayout.selectedIndex].value;
     chrome.wallpaperPrivate.setCustomWallpaper(customWallpaper,
-                                               layout);
+                                               layout,
+                                               this.onFinished_.bind(this));
     this.currentWallpaper_ = 'CUSTOM';
+  };
+
+  /**
+   * Sets wallpaper finished. Displays error message in butter bar if any.
+   */
+  WallpaperManager.prototype.onFinished_ = function() {
+    if (chrome.runtime.lastError != undefined)
+      this.butterBar_.showError_(chrome.runtime.lastError.message);
+    else
+      this.butterBar_.hide_();
   };
 
   /**

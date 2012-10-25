@@ -14,7 +14,6 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/command.h"
-#include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_error_utils.h"
 #include "chrome/common/extensions/extension_file_util.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
@@ -474,7 +473,7 @@ TEST(ExtensionTest, SocketPermissions) {
                                     &error);
   EXPECT_TRUE(extension == NULL);
   ASSERT_EQ(ExtensionErrorUtils::FormatErrorMessage(
-        errors::kInvalidPermission, base::IntToString(0)), error);
+        errors::kInvalidPermission, "socket"), error);
 
   extension = LoadManifest("socket_permissions", "socket2.json");
   EXPECT_TRUE(CheckSocketPermission(
@@ -902,7 +901,7 @@ TEST_F(ExtensionScriptAndCaptureVisibleTest, Permissions) {
                                     &error);
   EXPECT_TRUE(extension == NULL);
   EXPECT_EQ(ExtensionErrorUtils::FormatErrorMessage(
-      errors::kInvalidPermissionScheme, base::IntToString(1)), error);
+      errors::kInvalidPermissionScheme, "chrome://*/"), error);
 
   // Having chrome://favicon/* should not give you chrome://*
   extension = LoadManifestStrict("script_and_capture",

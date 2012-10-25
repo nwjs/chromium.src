@@ -12,6 +12,7 @@
 #include "chrome/browser/google_apis/auth_service_observer.h"
 #include "chrome/browser/google_apis/operations_base.h"
 #include "chrome/browser/google_apis/task_util.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/token_service.h"
 #include "chrome/browser/signin/token_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -21,9 +22,13 @@
 #include "content/public/browser/notification_types.h"
 #include "google_apis/gaia/gaia_constants.h"
 
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/login/user_manager.h"
+#endif  // OS_CHROMEOS
+
 using content::BrowserThread;
 
-namespace gdata {
+namespace google_apis {
 
 void AuthService::Initialize(Profile* profile) {
   profile_ = profile;
@@ -60,7 +65,7 @@ void AuthService::StartAuthentication(OperationRegistry* registry,
 
   if (HasAccessToken()) {
     relay_proxy->PostTask(FROM_HERE,
-         base::Bind(callback, gdata::HTTP_SUCCESS, access_token_));
+         base::Bind(callback, google_apis::HTTP_SUCCESS, access_token_));
   } else if (HasRefreshToken()) {
     BrowserThread::PostTask(
         BrowserThread::UI,
@@ -74,7 +79,7 @@ void AuthService::StartAuthentication(OperationRegistry* registry,
                                   callback))));
   } else {
     relay_proxy->PostTask(FROM_HERE,
-        base::Bind(callback, gdata::GDATA_NOT_READY, std::string()));
+        base::Bind(callback, google_apis::GDATA_NOT_READY, std::string()));
   }
 }
 
@@ -130,4 +135,20 @@ void AuthService::Observe(int type,
                     OnOAuth2RefreshTokenChanged());
 }
 
-}  // namespace gdata
+// static
+bool AuthService::CanAuthenticate(Profile* profile) {
+#if defined(OS_CHROMEOS)
+  if (!chromeos::UserManager::Get()->IsUserLoggedIn() ||
+      chromeos::UserManager::Get()->IsLoggedInAsGuest() ||
+      chromeos::UserManager::Get()->IsLoggedInAsDemoUser())
+    return false;
+#endif  // OS_CHROMEOS
+
+  // Authentication cannot be done with the incognito mode profile.
+  if (profile->IsOffTheRecord())
+    return false;
+
+  return true;
+}
+
+}  // namespace google_apis

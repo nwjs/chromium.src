@@ -4,12 +4,12 @@
 
 #include "chrome/browser/policy/configuration_policy_handler_list.h"
 
+#include "base/prefs/pref_value_map.h"
 #include "base/stl_util.h"
 #include "base/values.h"
 #include "chrome/browser/policy/configuration_policy_handler.h"
 #include "chrome/browser/policy/policy_error_map.h"
 #include "chrome/browser/policy/policy_map.h"
-#include "chrome/browser/prefs/pref_value_map.h"
 #include "chrome/common/pref_names.h"
 #include "grit/generated_resources.h"
 #include "policy/policy_constants.h"
@@ -311,11 +311,11 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kChromeOsReleaseChannel,
     prefs::kChromeOsReleaseChannel,
     Value::TYPE_STRING },
-  { key::kGDataDisabled,
-    prefs::kDisableGData,
+  { key::kDriveDisabled,
+    prefs::kDisableDrive,
     Value::TYPE_BOOLEAN },
-  { key::kGDataDisabledOverCellular,
-    prefs::kDisableGDataOverCellular,
+  { key::kDriveDisabledOverCellular,
+    prefs::kDisableDriveOverCellular,
     Value::TYPE_BOOLEAN },
   { key::kExternalStorageDisabled,
     prefs::kExternalStorageDisabled,
@@ -348,7 +348,6 @@ ConfigurationPolicyHandlerList::ConfigurationPolicyHandlerList() {
   handlers_.push_back(new AutofillPolicyHandler());
   handlers_.push_back(new ClearSiteDataOnExitPolicyHandler());
   handlers_.push_back(new DefaultSearchPolicyHandler());
-  handlers_.push_back(new DisabledPluginsByVersionPolicyHandler());
   handlers_.push_back(new DiskCacheDirPolicyHandler());
   handlers_.push_back(new FileSelectionDialogsHandler());
   handlers_.push_back(new IncognitoModePolicyHandler());

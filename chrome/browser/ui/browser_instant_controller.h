@@ -8,8 +8,8 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "base/string16.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/instant/instant_controller_delegate.h"
 #include "chrome/browser/instant/instant_unload_handler.h"
 #include "chrome/browser/ui/search/search_model_observer.h"
@@ -52,11 +52,9 @@ class BrowserInstantController : public InstantControllerDelegate,
 
  private:
   // Overridden from InstantControllerDelegate:
-  virtual void ShowInstant(int height, InstantSizeUnits units) OVERRIDE;
-  virtual void HideInstant() OVERRIDE;
   virtual void CommitInstant(TabContents* preview, bool in_new_tab) OVERRIDE;
-  virtual void SetSuggestedText(const string16& text,
-                                InstantCompleteBehavior behavior) OVERRIDE;
+  virtual void SetInstantSuggestion(
+      const InstantSuggestion& suggestion) OVERRIDE;
   virtual gfx::Rect GetInstantBounds() OVERRIDE;
   virtual void InstantPreviewFocused() OVERRIDE;
   virtual TabContents* GetActiveTabContents() const OVERRIDE;

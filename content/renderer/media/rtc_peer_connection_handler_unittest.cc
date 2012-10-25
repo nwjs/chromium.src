@@ -27,6 +27,8 @@
 static const char kDummySdp[] = "dummy sdp";
 static const char kDummySdpType[] = "dummy type";
 
+namespace content {
+
 class RTCPeerConnectionHandlerUnderTest : public RTCPeerConnectionHandler {
  public:
   RTCPeerConnectionHandlerUnderTest(
@@ -35,9 +37,8 @@ class RTCPeerConnectionHandlerUnderTest : public RTCPeerConnectionHandler {
       : RTCPeerConnectionHandler(client, dependency_factory) {
   }
 
-  webrtc::MockPeerConnectionImpl* native_peer_connection() {
-    return static_cast<webrtc::MockPeerConnectionImpl*>(
-        native_peer_connection_.get());
+  MockPeerConnectionImpl* native_peer_connection() {
+    return static_cast<MockPeerConnectionImpl*>(native_peer_connection_.get());
   }
 };
 
@@ -47,7 +48,7 @@ class RTCPeerConnectionHandlerTest : public ::testing::Test {
   }
 
   void SetUp() {
-    mock_client_.reset(new WebKit::MockWebRTCPeerConnectionHandlerClient());
+    mock_client_.reset(new MockWebRTCPeerConnectionHandlerClient());
     mock_dependency_factory_.reset(new MockMediaStreamDependencyFactory());
     mock_dependency_factory_->EnsurePeerConnectionFactory();
     pc_handler_.reset(
@@ -75,7 +76,8 @@ class RTCPeerConnectionHandlerTest : public ::testing::Test {
                                                         NULL));
     native_stream->AddTrack(audio_track);
     scoped_refptr<webrtc::LocalVideoTrackInterface> video_track(
-        mock_dependency_factory_->CreateLocalVideoTrack(video_track_label, 0));
+        mock_dependency_factory_->CreateLocalVideoTrack(
+            video_track_label, 0, false));
     native_stream->AddTrack(video_track);
 
     WebKit::WebVector<WebKit::WebMediaStreamSource> audio_sources(
@@ -107,8 +109,8 @@ class RTCPeerConnectionHandlerTest : public ::testing::Test {
         mock_dependency_factory_->CreateLocalMediaStream(stream_label));
     if (!video_track_label.empty()) {
       scoped_refptr<webrtc::LocalVideoTrackInterface> video_track(
-          mock_dependency_factory_->CreateLocalVideoTrack(video_track_label,
-                                                          0));
+          mock_dependency_factory_->CreateLocalVideoTrack(
+              video_track_label, 0, false));
       stream->AddTrack(video_track);
     }
     if (!audio_track_label.empty()) {
@@ -121,12 +123,12 @@ class RTCPeerConnectionHandlerTest : public ::testing::Test {
     return stream;
   }
 
-  scoped_ptr<WebKit::MockWebRTCPeerConnectionHandlerClient> mock_client_;
+  scoped_ptr<MockWebRTCPeerConnectionHandlerClient> mock_client_;
   scoped_ptr<MockMediaStreamDependencyFactory> mock_dependency_factory_;
   scoped_ptr<RTCPeerConnectionHandlerUnderTest> pc_handler_;
 
   // Weak reference to the mocked native peer connection implementation.
-  webrtc::MockPeerConnectionImpl* mock_peer_connection_;
+  MockPeerConnectionImpl* mock_peer_connection_;
 };
 
 TEST_F(RTCPeerConnectionHandlerTest, CreateOffer) {
@@ -311,3 +313,5 @@ TEST_F(RTCPeerConnectionHandlerTest, OnRenegotiationNeeded) {
   pc_handler_->OnRenegotiationNeeded();
   EXPECT_TRUE(mock_client_->renegotiate());
 }
+
+}  // namespace content

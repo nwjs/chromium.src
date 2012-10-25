@@ -9,12 +9,11 @@
 #include "ash/system/audio/audio_observer.h"
 #include "ash/system/bluetooth/bluetooth_observer.h"
 #include "ash/system/brightness/brightness_observer.h"
+#include "ash/system/chromeos/network/network_observer.h"
 #include "ash/system/date/clock_observer.h"
 #include "ash/system/drive/drive_observer.h"
 #include "ash/system/ime/ime_observer.h"
-#include "ash/system/network/network_observer.h"
 #include "ash/system/power/power_status_observer.h"
-#include "ash/system/status_area_widget.h"
 #include "ash/system/tray/system_tray.h"
 #include "ash/system/tray/system_tray_delegate.h"
 #include "ash/system/tray_accessibility.h"
@@ -31,13 +30,9 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_util.h"
 #include "chrome/browser/chromeos/audio/audio_handler.h"
-#include "chrome/browser/chromeos/bluetooth/bluetooth_adapter.h"
-#include "chrome/browser/chromeos/bluetooth/bluetooth_adapter_factory.h"
-#include "chrome/browser/chromeos/bluetooth/bluetooth_device.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
-#include "chrome/browser/chromeos/gdata/drive_service_interface.h"
-#include "chrome/browser/chromeos/gdata/drive_system_service.h"
+#include "chrome/browser/chromeos/drive/drive_system_service.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
 #include "chrome/browser/chromeos/input_method/xkeyboard.h"
@@ -53,7 +48,7 @@
 #include "chrome/browser/chromeos/status/network_menu_icon.h"
 #include "chrome/browser/chromeos/system/timezone_settings.h"
 #include "chrome/browser/chromeos/system_key_event_listener.h"
-#include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/drive_service_interface.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -74,11 +69,14 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/user_metrics.h"
+#include "device/bluetooth/bluetooth_adapter.h"
+#include "device/bluetooth/bluetooth_adapter_factory.h"
+#include "device/bluetooth/bluetooth_device.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
-using gdata::DriveSystemService;
-using gdata::DriveSystemServiceFactory;
+using drive::DriveSystemService;
+using drive::DriveSystemServiceFactory;
 
 namespace chromeos {
 
@@ -109,9 +107,10 @@ void ExtractIMEInfo(const input_method::InputMethodDescriptor& ime,
 }
 
 ash::DriveOperationStatusList GetDriveStatusList(
-    const gdata::OperationProgressStatusList& list) {
+    const google_apis::OperationProgressStatusList& list) {
   ash::DriveOperationStatusList results;
-  for (gdata::OperationProgressStatusList::const_iterator it = list.begin();
+  for (google_apis::OperationProgressStatusList::const_iterator it =
+           list.begin();
        it != list.end(); ++it) {
     ash::DriveOperationStatus status;
     status.file_path = it->file_path;
@@ -152,11 +151,11 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
                            public NetworkLibrary::NetworkManagerObserver,
                            public NetworkLibrary::NetworkObserver,
                            public NetworkLibrary::CellularDataPlanObserver,
-                           public gdata::DriveServiceObserver,
+                           public drive::DriveServiceObserver,
                            public content::NotificationObserver,
                            public input_method::InputMethodManager::Observer,
                            public system::TimezoneSettings::Observer,
-                           public BluetoothAdapter::Observer,
+                           public device::BluetoothAdapter::Observer,
                            public SystemKeyEventListener::CapsLockObserver,
                            public ash::NetworkTrayDelegate {
  public:
@@ -218,7 +217,7 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     network_icon_->SetResourceColorTheme(NetworkMenuIcon::COLOR_LIGHT);
     network_icon_dark_->SetResourceColorTheme(NetworkMenuIcon::COLOR_DARK);
 
-    bluetooth_adapter_ = BluetoothAdapterFactory::DefaultAdapter();
+    bluetooth_adapter_ = device::BluetoothAdapterFactory::DefaultAdapter();
     bluetooth_adapter_->AddObserver(this);
   }
 
@@ -253,15 +252,15 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
   }
 
   virtual const string16 GetUserDisplayName() const OVERRIDE {
-    return UserManager::Get()->GetLoggedInUser().GetDisplayName();
+    return UserManager::Get()->GetLoggedInUser()->GetDisplayName();
   }
 
   virtual const std::string GetUserEmail() const OVERRIDE {
-    return UserManager::Get()->GetLoggedInUser().display_email();
+    return UserManager::Get()->GetLoggedInUser()->display_email();
   }
 
   virtual const gfx::ImageSkia& GetUserImage() const OVERRIDE {
-    return UserManager::Get()->GetLoggedInUser().image();
+    return UserManager::Get()->GetLoggedInUser()->image();
   }
 
   virtual ash::user::LoginStatus GetUserLoginStatus() const OVERRIDE {
@@ -364,9 +363,10 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
 
   virtual void GetAvailableBluetoothDevices(
       ash::BluetoothDeviceList* list) OVERRIDE {
-    BluetoothAdapter::DeviceList devices = bluetooth_adapter_->GetDevices();
+    device::BluetoothAdapter::DeviceList devices =
+        bluetooth_adapter_->GetDevices();
     for (size_t i = 0; i < devices.size(); ++i) {
-      BluetoothDevice* device = devices[i];
+      device::BluetoothDevice* device = devices[i];
       if (!device->IsPaired())
         continue;
       ash::BluetoothDeviceInfo info;
@@ -378,7 +378,7 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
   }
 
   virtual void ToggleBluetoothConnection(const std::string& address) OVERRIDE {
-    BluetoothDevice* device = bluetooth_adapter_->GetDevice(address);
+    device::BluetoothDevice* device = bluetooth_adapter_->GetDevice(address);
     if (!device)
       return;
     if (device->IsConnected()) {
@@ -391,6 +391,10 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
           base::Bind(&base::DoNothing),
           base::Bind(&BluetoothDeviceConnectError));
     }
+  }
+
+  virtual bool IsBluetoothDiscovering() OVERRIDE {
+    return bluetooth_adapter_->IsDiscovering();
   }
 
   virtual void GetCurrentIME(ash::IMEInfo* info) OVERRIDE {
@@ -785,6 +789,12 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
       observer->OnBluetoothRefresh();
   }
 
+  void NotifyBluetoothDiscoveringChanged() {
+    ash::BluetoothObserver* observer = tray_->bluetooth_observer();
+    if (observer)
+      observer->OnBluetoothDiscoveringChanged();
+  }
+
   void NotifyRefreshIME(bool show_message) {
     ash::IMEObserver* observer = tray_->ime_observer();
     if (observer)
@@ -945,14 +955,14 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
   // Overridden from SessionManagerClient::Observer.
   virtual void LockScreen() OVERRIDE {
     screen_locked_ = true;
-    ash::Shell::GetInstance()->status_area_widget()->
-        UpdateAfterLoginStatusChange(GetUserLoginStatus());
+    ash::Shell::GetInstance()->UpdateAfterLoginStatusChange(
+        GetUserLoginStatus());
   }
 
   virtual void UnlockScreen() OVERRIDE {
     screen_locked_ = false;
-    ash::Shell::GetInstance()->status_area_widget()->
-        UpdateAfterLoginStatusChange(GetUserLoginStatus());
+    ash::Shell::GetInstance()->UpdateAfterLoginStatusChange(
+        GetUserLoginStatus());
   }
 
   // TODO(sad): Override more from PowerManagerClient::Observer here (e.g.
@@ -1076,8 +1086,8 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
         break;
       }
       case chrome::NOTIFICATION_SESSION_STARTED: {
-        ash::Shell::GetInstance()->status_area_widget()->
-            UpdateAfterLoginStatusChange(GetUserLoginStatus());
+        ash::Shell::GetInstance()->UpdateAfterLoginStatusChange(
+            GetUserLoginStatus());
         SetProfile(ProfileManager::GetDefaultProfile());
         break;
       }
@@ -1097,9 +1107,9 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     NotifyRefreshIME(false);
   }
 
-  // gdata::DriveServiceObserver overrides.
+  // google_apis::DriveServiceObserver overrides.
   virtual void OnProgressUpdate(
-      const gdata::OperationProgressStatusList& list) OVERRIDE {
+      const google_apis::OperationProgressStatusList& list) OVERRIDE {
     std::vector<ash::DriveOperationStatus> ui_list = GetDriveStatusList(list);
     NotifyRefreshDrive(ui_list);
 
@@ -1108,11 +1118,12 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     // raise events that will let us properly clear the uber tray state.
     if (list.size() > 0) {
       bool has_in_progress_items = false;
-      for (gdata::OperationProgressStatusList::const_iterator it = list.begin();
-          it != list.end(); ++it) {
-        if (it->transfer_state == gdata::OPERATION_STARTED ||
-            it->transfer_state == gdata::OPERATION_IN_PROGRESS ||
-            it->transfer_state == gdata::OPERATION_SUSPENDED) {
+      for (google_apis::OperationProgressStatusList::const_iterator it =
+               list.begin();
+           it != list.end(); ++it) {
+        if (it->transfer_state == google_apis::OPERATION_STARTED ||
+            it->transfer_state == google_apis::OPERATION_IN_PROGRESS ||
+            it->transfer_state == google_apis::OPERATION_SUSPENDED) {
           has_in_progress_items = true;
           break;
         }
@@ -1144,8 +1155,6 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
 
   DriveSystemService* FindDriveSystemService() {
     Profile* profile = ProfileManager::GetDefaultProfile();
-    if (!gdata::util::IsGDataAvailable(profile))
-      return NULL;
     return DriveSystemServiceFactory::FindForProfile(profile);
   }
 
@@ -1155,34 +1164,33 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
   }
 
   // Overridden from BluetoothAdapter::Observer.
-  virtual void AdapterPresentChanged(BluetoothAdapter* adapter,
+  virtual void AdapterPresentChanged(device::BluetoothAdapter* adapter,
                                      bool present) OVERRIDE {
     NotifyRefreshBluetooth();
   }
 
-  virtual void AdapterPoweredChanged(BluetoothAdapter* adapter,
+  virtual void AdapterPoweredChanged(device::BluetoothAdapter* adapter,
                                      bool powered) OVERRIDE {
     NotifyRefreshBluetooth();
   }
 
-  virtual void AdapterDiscoveringChanged(BluetoothAdapter* adapter,
+  virtual void AdapterDiscoveringChanged(device::BluetoothAdapter* adapter,
                                          bool discovering) OVERRIDE {
-    // TODO: Perhaps start/stop throbbing the icon, or some other visual
-    // effects?
+    NotifyBluetoothDiscoveringChanged();
   }
 
-  virtual void DeviceAdded(BluetoothAdapter* adapter,
-                           BluetoothDevice* device) OVERRIDE {
+  virtual void DeviceAdded(device::BluetoothAdapter* adapter,
+                           device::BluetoothDevice* device) OVERRIDE {
     NotifyRefreshBluetooth();
   }
 
-  virtual void DeviceChanged(BluetoothAdapter* adapter,
-                             BluetoothDevice* device) OVERRIDE {
+  virtual void DeviceChanged(device::BluetoothAdapter* adapter,
+                             device::BluetoothDevice* device) OVERRIDE {
     NotifyRefreshBluetooth();
   }
 
-  virtual void DeviceRemoved(BluetoothAdapter* adapter,
-                             BluetoothDevice* device) OVERRIDE {
+  virtual void DeviceRemoved(device::BluetoothAdapter* adapter,
+                             device::BluetoothDevice* device) OVERRIDE {
     NotifyRefreshBluetooth();
   }
 
@@ -1251,7 +1259,7 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
 
   std::string last_connection_string_;
 
-  scoped_refptr<BluetoothAdapter> bluetooth_adapter_;
+  scoped_refptr<device::BluetoothAdapter> bluetooth_adapter_;
 
   BooleanPrefMember accessibility_enabled_;
 

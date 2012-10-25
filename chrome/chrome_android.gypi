@@ -32,7 +32,7 @@
       'conditions': [
         [ 'order_profiling!=0', {
           'conditions': [
-            [ 'OS="android"', {
+            [ 'OS=="android"', {
               'dependencies': [ '../tools/cygprofile/cygprofile.gyp:cygprofile', ],
             }],
           ],
@@ -51,26 +51,13 @@
       'variables': {
         'package_name': 'chromium_testshell',
         'apk_name': 'ChromiumTestShell',
+        'manifest_package_name': 'org.chromium.chrome.testshell',
         'java_in_dir': 'android/testshell/java',
         'resource_dir': '../res',
         'asset_location': '<(ant_build_out)/../assets/chrome',
-        'native_libs_paths': [ '<(PRODUCT_DIR)/chromium_testshell/libs/<(android_app_abi)/libchromiumtestshell.so', ],
+        'native_libs_paths': [ '<(SHARED_LIB_DIR)/libchromiumtestshell.so', ],
         'additional_input_paths': [ '<@(chrome_android_pak_output_resources)', ],
       },
-      'actions': [
-        {
-          'action_name': 'copy_and_strip_so',
-          'inputs': ['<(SHARED_LIB_DIR)/libchromiumtestshell.so'],
-          'outputs': ['<(PRODUCT_DIR)/chromium_testshell/libs/<(android_app_abi)/libchromiumtestshell.so'],
-          'action': [
-            '<(android_strip)',
-            '--strip-unneeded',
-            '<@(_inputs)',
-            '-o',
-            '<@(_outputs)',
-          ],
-        },
-      ],
       'includes': [ '../build/java_apk.gypi', ],
     },
     {
@@ -95,14 +82,15 @@
         'chrome.gyp:chrome_java',
         'chromium_testshell',
       ],
-      'outputs': [
-        '<(PRODUCT_DIR)/lib.java/chromium_chromium_testshell.jar',
-      ],
+      'variables': {
+        'output_jar': '<(PRODUCT_DIR)/lib.java/chromium_apk_chromium_testshell.jar'
+      },
+      'outputs': ['<(output_jar)'],
       # This all_dependent_settings is used for java targets only. This will add
       # the chromium_testshell jar to the classpath of dependent java targets.
       'all_dependent_settings': {
         'variables': {
-          'input_jars_paths': ['<(PRODUCT_DIR)/lib.java/chromium_chromium_testshell.jar'],
+          'input_jars_paths': ['<(output_jar)'],
         },
       },
       # Add an action with the appropriate output. This allows the generated
@@ -111,7 +99,7 @@
         {
           'action_name': 'fake_generate_jar',
           'inputs': [],
-          'outputs': ['<(PRODUCT_DIR)/lib.java/chromium_chromium_testshell.jar'],
+          'outputs': ['<(output_jar)'],
           'action': [],
         },
       ],

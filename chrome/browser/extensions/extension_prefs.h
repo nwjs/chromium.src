@@ -173,6 +173,10 @@ class ExtensionPrefs : public ContentSettingsStore::Observer,
   // Based on extension id, checks prefs to see if it is orphaned.
   bool IsExtensionOrphaned(const std::string& id);
 
+  // Increment the count of how many times we prompted the user to acknowledge
+  // the given extension, and return the new count.
+  int IncrementAcknowledgePromptCount(const std::string& extension_id);
+
   // Whether the user has acknowledged an external extension.
   bool IsExternalExtensionAcknowledged(const std::string& extension_id);
   void AcknowledgeExternalExtension(const std::string& extension_id);
@@ -289,6 +293,13 @@ class ExtensionPrefs : public ContentSettingsStore::Observer,
   const DictionaryValue* GetFilteredEvents(
       const std::string& extension_id) const;
 
+  // Records whether or not this extension is currently running.
+  void SetExtensionRunning(const std::string& extension_id, bool is_running);
+
+  // Returns whether or not this extension is marked as running. This is used to
+  // restart apps across browser restarts.
+  bool IsExtensionRunning(const std::string& extension_id);
+
   // Controls the omnibox default suggestion as set by the extension.
   ExtensionOmniboxSuggestion GetOmniboxDefaultSuggestion(
       const std::string& extension_id);
@@ -371,6 +382,11 @@ class ExtensionPrefs : public ContentSettingsStore::Observer,
   // otherwise. The Set will overwrite any previous login.
   bool GetWebStoreLogin(std::string* result);
   void SetWebStoreLogin(const std::string& login);
+
+  // Returns true if the one-time Sideload Wipeout effort has been executed.
+  bool GetSideloadWipeoutDone() const;
+  // Mark the one-time Sideload Wipeout effort as finished.
+  void SetSideloadWipeoutDone();
 
   // Returns true if the user repositioned the app on the app launcher via drag
   // and drop.

@@ -35,6 +35,10 @@
       "extension", "packaged_app", "hosted_app", "platform_app"
     ]
   },
+  "bluetooth": {
+    "channel": "dev",
+    "extension_types": ["platform_app"]
+  },
   "bookmarkManagerPrivate": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"],
@@ -133,6 +137,10 @@
     "channel": "stable",
     "extension_types": ["platform_app"]
   },
+  "fileSystem.write": {
+    "channel": "stable",
+    "extension_types": ["platform_app"]
+  },
   "fontSettings": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
@@ -180,12 +188,21 @@
     "channel": "stable",
     "extension_types": [ "platform_app" ]
   },
-  // TODO(thestig) Remove this after M23.
+  "mediaGalleries.allAutoDetected": {
+    "channel": "stable",
+    "extension_types": [ "platform_app" ]
+  },
+  "mediaGalleries.read": {
+    "channel": "stable",
+    "extension_types": [ "platform_app" ]
+  },
+  // TODO(thestig) Remove this as part of http:://crbug.com/144496
   "mediaGalleriesPrivate": {
     "channel": "stable",
     "extension_types": [ "platform_app" ],
     "whitelist": [
       "ebpbnabdhheoknfklmpddcdijjkmklkp",
+      "efjnaogkjbogokcnohkmnjdojkikgobo",
       "ejegoaikibpmikoejfephaneibodccma"
     ]
   },
@@ -196,8 +213,16 @@
   },
   "metricsPrivate": {
     "channel": "stable",
-    "extension_types": ["extension", "packaged_app"],
-    "location": "component"
+    "extension_types": ["extension", "packaged_app", "platform_app"],
+    "whitelist": [
+      // The file manager is a component extension, and it can currently use
+      // whitelisted interfaces without being on the corresponding whitelist.
+      // Adding it to this whitelist documents its dependency, however, and also
+      // doesn't hurt anything.
+      "hhaomjibdihmijegdhdafkllkbggdgoj",  // File manager
+      "gbkeegbaiigmenfmjfclcdgdpimamgkj",  // Quickoffice
+      "ionpfmkccalenbmnddpbmocokhaknphg"   // Quickoffice dev
+    ]
   },
   "notifications": {
     "channel": "stable",
@@ -252,7 +277,7 @@
     "extension_types": ["platform_app"]
   },
   "socket": {
-    "channel": "dev",
+    "channel": "stable",
     "extension_types": ["platform_app"]
   },
   "syncFileSystem": {

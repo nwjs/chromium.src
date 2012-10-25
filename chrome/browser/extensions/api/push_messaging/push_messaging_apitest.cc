@@ -9,6 +9,7 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_test_message_listener.h"
+#include "chrome/browser/extensions/platform_app_launcher.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
@@ -43,7 +44,6 @@ class PushMessagingApiTest : public ExtensionApiTest {
  public:
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
     ExtensionApiTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitch(switches::kEnableExperimentalExtensionApis);
   }
 
   PushMessagingEventRouter* GetEventRouter() {
@@ -55,13 +55,13 @@ class PushMessagingApiTest : public ExtensionApiTest {
 IN_PROC_BROWSER_TEST_F(PushMessagingApiTest, EventDispatch) {
   ResultCatcher catcher;
   catcher.RestrictToProfile(browser()->profile());
-
   ExtensionTestMessageListener ready("ready", true);
+
   const extensions::Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("push_messaging"));
   ASSERT_TRUE(extension);
-  GURL page_url = extension->GetResourceURL("event_dispatch.html");
-  ui_test_utils::NavigateToURL(browser(), page_url);
+  extensions::LaunchPlatformApp(
+      browser()->profile(), extension, NULL, FilePath());
   EXPECT_TRUE(ready.WaitUntilSatisfied());
 
   GetEventRouter()->TriggerMessageForTest(extension->id(), 1, "payload");
@@ -77,10 +77,10 @@ IN_PROC_BROWSER_TEST_F(PushMessagingApiTest, ReceivesPush) {
   ExtensionTestMessageListener ready("ready", true);
 
   const extensions::Extension* extension =
-    LoadExtension(test_data_dir_.AppendASCII("push_messaging"));
+      LoadExtension(test_data_dir_.AppendASCII("push_messaging"));
   ASSERT_TRUE(extension);
-  GURL page_url = extension->GetResourceURL("event_dispatch.html");
-  ui_test_utils::NavigateToURL(browser(), page_url);
+  extensions::LaunchPlatformApp(
+      browser()->profile(), extension, NULL, FilePath());
   EXPECT_TRUE(ready.WaitUntilSatisfied());
 
   ProfileSyncService* pss = ProfileSyncServiceFactory::GetForProfile(
@@ -142,12 +142,11 @@ IN_PROC_BROWSER_TEST_F(PushMessagingApiTest, GetChannelId) {
   ResultCatcher catcher;
   catcher.RestrictToProfile(browser()->profile());
 
-  ExtensionTestMessageListener ready("ready", true);
   const extensions::Extension* extension =
-      LoadExtension(test_data_dir_.AppendASCII("push_messaging"));
+      LoadExtension(test_data_dir_.AppendASCII("get_channel_id"));
   ASSERT_TRUE(extension);
-  GURL page_url = extension->GetResourceURL("get_channel_id.html");
-  ui_test_utils::NavigateToURL(browser(), page_url);
+  extensions::LaunchPlatformApp(
+      browser()->profile(), extension, NULL, FilePath());
 
   // Just loading the page will cause a getChannelId call, so we check
   // for a callback.  It should fail because there is no auth token.

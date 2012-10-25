@@ -7,13 +7,15 @@
 
 #include "base/memory/scoped_ptr.h"
 
-class InterceptedRequestData;
+class GURL;
 
 namespace net {
 class URLRequest;
 }
 
 namespace android_webview {
+
+class InterceptedRequestData;
 
 // This class provides a means of calling Java methods on an instance that has
 // a 1:1 relationship with a WebContents instance directly from the IO thread.
@@ -43,7 +45,16 @@ class AwContentsIoThreadClient {
 
   // This method is called on the IO thread only.
   virtual scoped_ptr<InterceptedRequestData> ShouldInterceptRequest(
+      const GURL& location,
       const net::URLRequest* request) = 0;
+
+  // Retrieve the AllowContentAccess setting value of this AwContents.
+  // This method is called on the IO thread only.
+  virtual bool ShouldBlockContentUrls() const = 0;
+
+  // Retrieve the AllowFileAccess setting value of this AwContents.
+  // This method is called on the IO thread only.
+  virtual bool ShouldBlockFileUrls() const = 0;
 
   // Retrieve the BlockNetworkLoads setting value of this AwContents.
   // This method is called on the IO thread only.

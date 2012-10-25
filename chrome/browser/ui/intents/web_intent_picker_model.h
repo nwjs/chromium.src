@@ -9,6 +9,7 @@
 
 #include "base/basictypes.h"
 #include "base/string16.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "googleurl/src/gurl.h"
 #include "ui/gfx/image/image.h"
 #include "webkit/glue/web_intent_service_data.h"
@@ -81,11 +82,6 @@ class WebIntentPickerModel {
     default_service_url_ = default_url;
   }
 
-  int64 default_service_hash() const { return default_service_hash_; }
-  void set_default_service_hash(int64 default_service_hash) {
-    default_service_hash_ = default_service_hash;
-  }
-
   // Add a new installed service with |title|, |url| and |disposition| to the
   // picker.
   void AddInstalledService(
@@ -110,12 +106,15 @@ class WebIntentPickerModel {
   // Return the number of intent services in the picker.
   size_t GetInstalledServiceCount() const;
 
-  // Update the favicon for the intent service at |index| to |image|.
-  void UpdateFaviconAt(size_t index, const gfx::Image& image);
+  // Update favicon for the intent service with service URL |url| to |image|.
+  void UpdateFaviconForServiceWithURL(const GURL& url, const gfx::Image& image);
 
   // Add a list of suggested extensions to the model.
   void AddSuggestedExtensions(
       const std::vector<SuggestedExtension>& suggestions);
+
+  // Remove the suggested extension with this id.
+  void RemoveSuggestedExtension(const std::string& id);
 
   // Return the suggested extension at |index|.
   const SuggestedExtension& GetSuggestedExtensionAt(size_t index) const;
@@ -180,8 +179,37 @@ class WebIntentPickerModel {
     return pending_extension_install_status_string_;
   }
 
+  // Sets the extension install delegate.
+  void SetPendingExtensionInstallDelegate(
+      ExtensionInstallPrompt::Delegate* delegate);
+
+  // Gets the extension install delegate.
+  ExtensionInstallPrompt::Delegate* pending_extension_install_delegate() const {
+    return pending_extension_install_delegate_;
+  }
+
+  // Sets the extension install prompt.
+  void SetPendingExtensionInstallPrompt(
+      const ExtensionInstallPrompt::Prompt& prompt);
+
+  // Gets the extension install prompt.
+  const ExtensionInstallPrompt::Prompt* pending_extension_install_prompt()
+      const {
+    return pending_extension_install_prompt_.get();
+  }
+
   // Removes any pending extension install state.
   void ClearPendingExtensionInstall();
+
+  // Set whether the picker should be showing the use-another-app control.
+  void set_show_use_another_service(bool show) {
+    show_use_another_service_ = show;
+  }
+
+  // Whether or not the picker should show the use-another-app control.
+  bool show_use_another_service() const {
+    return show_use_another_service_;
+  }
 
  private:
   // Delete all elements in |installed_services_| and |suggested_extensions_|.
@@ -215,13 +243,15 @@ class WebIntentPickerModel {
   // Indicates that there are still open requests to CWS.
   bool waiting_for_suggestions_;
 
-  // The hash context for the default service, if there is one.
-  int64 default_service_hash_;
-
   // Information about the pending extension install.
   std::string pending_extension_install_id_;
   int pending_extension_install_download_progress_;
   string16 pending_extension_install_status_string_;
+  ExtensionInstallPrompt::Delegate* pending_extension_install_delegate_;
+  scoped_ptr<ExtensionInstallPrompt::Prompt> pending_extension_install_prompt_;
+
+  // Indicates the use-another-service control should be shown.
+  bool show_use_another_service_;
 
   DISALLOW_COPY_AND_ASSIGN(WebIntentPickerModel);
 };

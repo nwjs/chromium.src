@@ -8,17 +8,13 @@
 
 namespace media_stream {
 
+const char kMediaStreamSource[] = "chromeMediaSource";
+const char kMediaStreamSourceId[] = "chromeMediaSourceId";
+const char kMediaStreamSourceTab[] = "tab";
+
 StreamOptions::StreamOptions()
     : audio_type(content::MEDIA_NO_SERVICE),
       video_type(content::MEDIA_NO_SERVICE) {}
-
-StreamOptions::StreamOptions(bool user_audio, bool user_video)
-    : audio_type(user_audio ?
-                     content::MEDIA_DEVICE_AUDIO_CAPTURE :
-                     content::MEDIA_NO_SERVICE),
-      video_type(user_video ?
-                     content::MEDIA_DEVICE_VIDEO_CAPTURE :
-                     content::MEDIA_NO_SERVICE) {}
 
 StreamOptions::StreamOptions(MediaStreamType audio_type,
                              MediaStreamType video_type)

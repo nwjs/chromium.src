@@ -310,11 +310,7 @@
    fun:+[QTCaptureDevice devicesWithIOType:]
    fun:+[QTCaptureDevice inputDevices]
    fun:+[QTCaptureDevice inputDevicesWithMediaType:]
-   fun:+[VideoCaptureDeviceQTKit deviceNames]
-   fun:_ZN5media18VideoCaptureDevice14GetDeviceNamesEPSt4listINS0_4NameESaIS2_EE
-   fun:_ZN5media21VideoCaptureDeviceMac4InitEv
-   fun:_ZN5media18VideoCaptureDevice6CreateERKNS0_4NameE
-   fun:_ZN5media45VideoCaptureDeviceTest_OpenInvalidDevice_Test8TestBodyEv
+   ...
 }
 {
    # See http://crbug.com/141293
@@ -733,8 +729,7 @@
    ...
    fun:_ZN9HALSystem15InitializeShellEv
    fun:_ZN9HALSystem16CheckOutInstanceEv
-   fun:AudioObjectGetPropertyData
-   fun:*16HasAudioHardware*
+   fun:AudioObjectGetPropertyData*
 }
 {
    bug_47949_a
@@ -2461,8 +2456,34 @@
    bug_148865
    Memcheck:Leak
    fun:_Znw*
-   fun:_ZN16RenderThreadImpl4InitEv
-   fun:_ZN16RenderThreadImplC2ERKSs
-   fun:_ZN16RenderThreadImplC1ERKSs
-   fun:_ZN21WebRTCAudioDeviceTest5SetUpEv
+   fun:_ZN7content16RenderThreadImpl4InitEv
+   fun:_ZN7content16RenderThreadImplC2ERKSs
+   fun:_ZN7content16RenderThreadImplC1ERKSs
+   fun:_ZN7content21WebRTCAudioDeviceTest5SetUpEv
+}
+{
+   bug_155053a
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN12HALCADClient19AddPropertyListenerEmPK26AudioObjectPropertyAddressPFlmmS2_PvES3_
+   fun:_ZN9HALSystem15InitializeShellEv
+   fun:_ZN9HALSystem16CheckOutInstanceEv
+   fun:AudioObjectGetPropertyDataSize
+   fun:_ZN5mediaL18GetAudioDeviceInfoEbPSt4listINS_15AudioDeviceNameESaIS1_EE
+   fun:_ZN5media15AudioManagerMac24GetAudioInputDeviceNamesEPSt4listINS_15AudioDeviceNameESaIS2_EE
+   fun:_ZN12media_stream23AudioInputDeviceManager23EnumerateOnDeviceThreadEv
+}
+{
+   bug_155053b
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN12HALCADClient19AddPropertyListenerEmPK26AudioObjectPropertyAddressPFlmmS2_PvES3_
+   fun:_ZN16HALDefaultDevice22InstallServerListenersEv
+   fun:_ZN16HALDefaultDevice10InitializeEv
+   fun:_ZN9HALSystem15InitializeShellEv
+   fun:_ZN9HALSystem16CheckOutInstanceEv
+   fun:AudioObjectGetPropertyDataSize
+   fun:_ZN5mediaL18GetAudioDeviceInfoEbPSt4listINS_15AudioDeviceNameESaIS1_EE
+   fun:_ZN5media15AudioManagerMac24GetAudioInputDeviceNamesEPSt4listINS_15AudioDeviceNameESaIS2_EE
+   fun:_ZN12media_stream23AudioInputDeviceManager23EnumerateOnDeviceThreadEv
 }

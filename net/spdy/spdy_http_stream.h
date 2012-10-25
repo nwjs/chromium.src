@@ -13,7 +13,6 @@
 #include "base/memory/weak_ptr.h"
 #include "net/base/completion_callback.h"
 #include "net/base/net_log.h"
-#include "net/base/upload_data.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_stream.h"
 #include "net/spdy/spdy_protocol.h"
@@ -26,13 +25,11 @@ class DrainableIOBuffer;
 class HttpResponseInfo;
 class IOBuffer;
 class SpdySession;
-class UploadData;
 class UploadDataStream;
 
 // The SpdyHttpStream is a HTTP-specific type of stream known to a SpdySession.
 class NET_EXPORT_PRIVATE SpdyHttpStream : public SpdyStream::Delegate,
-                                          public HttpStream,
-                                          public ChunkCallback {
+                                          public HttpStream {
  public:
   SpdyHttpStream(SpdySession* spdy_session, bool direct);
   virtual ~SpdyHttpStream();
@@ -86,9 +83,6 @@ class NET_EXPORT_PRIVATE SpdyHttpStream : public SpdyStream::Delegate,
   virtual void OnDataSent(int length) OVERRIDE;
   virtual void OnClose(int status) OVERRIDE;
 
-  // ChunkCallback implementation.
-  virtual void OnChunkAvailable() OVERRIDE;
-
  private:
   FRIEND_TEST_ALL_PREFIXES(SpdyNetworkTransactionSpdy2Test,
                            FlowControlStallResume);
@@ -105,6 +99,8 @@ class NET_EXPORT_PRIVATE SpdyHttpStream : public SpdyStream::Delegate,
 
   // Call the user callback.
   void DoCallback(int rv);
+
+  int OnRequestBodyReadCompleted(int status);
 
   void ScheduleBufferedReadCallback();
 
@@ -154,11 +150,6 @@ class NET_EXPORT_PRIVATE SpdyHttpStream : public SpdyStream::Delegate,
 
   // Is this spdy stream direct to the origin server (or to a proxy).
   bool direct_;
-
-  // Is the connection stalled waiting for an upload data chunk.
-  bool waiting_for_chunk_;
-
-  bool send_last_chunk_;
 
   DISALLOW_COPY_AND_ASSIGN(SpdyHttpStream);
 };

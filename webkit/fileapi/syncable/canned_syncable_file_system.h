@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "base/basictypes.h"
+#include "base/callback_forward.h"
 #include "base/message_loop.h"
 #include "base/platform_file.h"
 #include "base/scoped_temp_dir.h"
@@ -16,8 +16,13 @@
 #include "webkit/fileapi/syncable/sync_status_code.h"
 
 namespace base {
-class Thread;
 class MessageLoopProxy;
+class SingleThreadTaskRunner;
+class Thread;
+}
+
+namespace net {
+class URLRequestContext;
 }
 
 namespace quota {
@@ -27,13 +32,20 @@ class QuotaManager;
 namespace fileapi {
 
 class FileSystemContext;
+class FileSystemOperation;
+class LocalFileSyncContext;
 
 // A canned syncable filesystem for testing.
 // This internally creates its own QuotaManager and FileSystemContext
 // (as we do so for each isolated application).
 class CannedSyncableFileSystem {
  public:
-  CannedSyncableFileSystem(const GURL& origin, const std::string& service);
+  typedef base::Callback<void(base::PlatformFileError)> StatusCallback;
+  typedef base::Callback<void(int64)> WriteCallback;
+
+  CannedSyncableFileSystem(const GURL& origin,
+                           const std::string& service,
+                           base::SingleThreadTaskRunner* io_task_runner);
   ~CannedSyncableFileSystem();
 
   // SetUp must be called before using this instance.
@@ -44,6 +56,11 @@ class CannedSyncableFileSystem {
 
   // Creates a FileSystemURL for the given (utf8) path string.
   FileSystemURL URL(const std::string& path) const;
+
+  // Initialize this with given |sync_context| if it hasn't
+  // been initialized.
+  SyncStatusCode MaybeInitializeFileSystemContext(
+      LocalFileSyncContext* sync_context);
 
   // Opens a new syncable file system.
   base::PlatformFileError OpenFileSystem();
@@ -60,23 +77,61 @@ class CannedSyncableFileSystem {
   }
 
   // Helper routines to perform file system operations.
-  // (They run on the current thread and returns synchronously).
+  // OpenFileSystem() must have been called before calling any of them.
+  // They run on io_task_runner.
   base::PlatformFileError CreateDirectory(const FileSystemURL& url);
   base::PlatformFileError CreateFile(const FileSystemURL& url);
+  base::PlatformFileError Copy(const FileSystemURL& src_url,
+                               const FileSystemURL& dest_url);
+  base::PlatformFileError Move(const FileSystemURL& src_url,
+                               const FileSystemURL& dest_url);
   base::PlatformFileError TruncateFile(const FileSystemURL& url, int64 size);
   base::PlatformFileError Remove(const FileSystemURL& url, bool recursive);
+  base::PlatformFileError FileExists(const FileSystemURL& url);
+  base::PlatformFileError DirectoryExists(const FileSystemURL& url);
+
+  // Returns the # of bytes written (>=0) or an error code (<0).
+  int64 Write(net::URLRequestContext* url_request_context,
+              const FileSystemURL& url, const GURL& blob_url);
 
   // Pruges the file system local storage.
   base::PlatformFileError DeleteFileSystem();
 
+  // Returns new FileSystemOperation.
+  FileSystemOperation* NewOperation();
+
  private:
+  // Operation methods body.
+  void DoCreateDirectory(const FileSystemURL& url,
+                         const StatusCallback& callback);
+  void DoCreateFile(const FileSystemURL& url,
+                    const StatusCallback& callback);
+  void DoCopy(const FileSystemURL& src_url,
+              const FileSystemURL& dest_url,
+              const StatusCallback& callback);
+  void DoMove(const FileSystemURL& src_url,
+              const FileSystemURL& dest_url,
+              const StatusCallback& callback);
+  void DoTruncateFile(const FileSystemURL& url,
+                      int64 size,
+                      const StatusCallback& callback);
+  void DoRemove(const FileSystemURL& url,
+                bool recursive,
+                const StatusCallback& callback);
+  void DoFileExists(const FileSystemURL& url,
+                    const StatusCallback& callback);
+  void DoDirectoryExists(const FileSystemURL& url,
+                         const StatusCallback& callback);
+  void DoWrite(net::URLRequestContext* url_request_context,
+               const FileSystemURL& url,
+               const GURL& blob_url,
+               const WriteCallback& callback);
+
   // Callbacks.
   void DidOpenFileSystem(base::PlatformFileError result,
                          const std::string& name,
                          const GURL& root);
-  void StatusCallback(base::PlatformFileError result);
-
-  FileSystemOperationContext* NewOperationContext();
+  void DidInitializeFileSystemContext(SyncStatusCode status);
 
   ScopedTempDir data_dir_;
   const std::string service_name_;
@@ -88,7 +143,11 @@ class CannedSyncableFileSystem {
   base::PlatformFileError result_;
   SyncStatusCode sync_status_;
 
-  base::WeakPtrFactory<CannedSyncableFileSystem> weak_factory_;
+  scoped_refptr<base::SingleThreadTaskRunner> io_task_runner_;
+
+  // Boolean flags mainly for helping debug.
+  bool is_filesystem_set_up_;
+  bool is_filesystem_opened_;
 
   DISALLOW_COPY_AND_ASSIGN(CannedSyncableFileSystem);
 };

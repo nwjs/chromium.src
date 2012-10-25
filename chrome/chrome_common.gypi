@@ -33,28 +33,22 @@
         '<(DEPTH)/base/base.gyp:base_i18n',
         '<(DEPTH)/base/base.gyp:base_static',
         '<(DEPTH)/build/temp_gyp/googleurl.gyp:googleurl',
-        '<(DEPTH)/chrome/app/policy/cloud_policy_codegen.gyp:policy',
         '<(DEPTH)/chrome/chrome_resources.gyp:chrome_resources',
         '<(DEPTH)/chrome/chrome_resources.gyp:chrome_strings',
         '<(DEPTH)/chrome/chrome_resources.gyp:theme_resources',
-        '<(DEPTH)/chrome/common/extensions/api/api.gyp:api',
         '<(DEPTH)/chrome/common_constants.gyp:common_constants',
         '<(DEPTH)/content/content.gyp:content_common',
-        '<(DEPTH)/ipc/ipc.gyp:ipc',
         '<(DEPTH)/net/net.gyp:net',
-        '<(DEPTH)/printing/printing.gyp:printing',
         '<(DEPTH)/skia/skia.gyp:skia',
-        '<(DEPTH)/third_party/adobe/flash/flash_player.gyp:flapper_version_h',
         '<(DEPTH)/third_party/bzip2/bzip2.gyp:bzip2',
         '<(DEPTH)/third_party/icu/icu.gyp:icui18n',
         '<(DEPTH)/third_party/icu/icu.gyp:icuuc',
         '<(DEPTH)/third_party/libxml/libxml.gyp:libxml',
         '<(DEPTH)/third_party/mt19937ar/mt19937ar.gyp:mt19937ar',
-        '<(DEPTH)/third_party/re2/re2.gyp:re2',
         '<(DEPTH)/third_party/sqlite/sqlite.gyp:sqlite',
+        '<(DEPTH)/third_party/zlib/zlib.gyp:minizip',
         '<(DEPTH)/third_party/zlib/zlib.gyp:zlib',
         '<(DEPTH)/ui/ui.gyp:ui_resources',
-        '<(DEPTH)/webkit/support/webkit_support.gyp:glue',
         '<(DEPTH)/webkit/support/webkit_support.gyp:user_agent',
       ],
       'sources': [
@@ -128,8 +122,6 @@
         'common/extensions/event_matcher.h',
         'common/extensions/extension.cc',
         'common/extensions/extension.h',
-        'common/extensions/extension_action.cc',
-        'common/extensions/extension_action.h',
         'common/extensions/extension_constants.cc',
         'common/extensions/extension_constants.h',
         'common/extensions/extension_error_utils.cc',
@@ -152,8 +144,6 @@
         'common/extensions/extension_resource.h',
         'common/extensions/extension_set.cc',
         'common/extensions/extension_set.h',
-        'common/extensions/extension_switch_utils.cc',
-        'common/extensions/extension_switch_utils.h',
         'common/extensions/feature_switch.cc',
         'common/extensions/feature_switch.h',
         'common/extensions/features/feature.cc',
@@ -189,10 +179,6 @@
         'common/extensions/permissions/api_permission.h',
         'common/extensions/permissions/api_permission_set.cc',
         'common/extensions/permissions/api_permission_set.h',
-        'common/extensions/permissions/filesystem_permission.h',
-        'common/extensions/permissions/filesystem_permission.cc',
-        'common/extensions/permissions/media_galleries_permission.h',
-        'common/extensions/permissions/media_galleries_permission.cc',
         'common/extensions/permissions/permission_message.cc',
         'common/extensions/permissions/permission_message.h',
         'common/extensions/permissions/permission_set.cc',
@@ -234,8 +220,6 @@
         'common/important_file_writer.h',
         'common/instant_types.cc',
         'common/instant_types.h',
-        'common/json_pref_store.cc',
-        'common/json_pref_store.h',
         'common/json_schema_constants.cc',
         'common/json_schema_constants.h',
         'common/json_schema_validator.cc',
@@ -252,6 +236,8 @@
         'common/mac/cfbundle_blocker.mm',
         'common/mac/launchd.h',
         'common/mac/launchd.mm',
+        'common/mac/nscoder_util.h',
+        'common/mac/nscoder_util.mm',
         'common/mac/objc_method_swizzle.h',
         'common/mac/objc_method_swizzle.mm',
         'common/mac/objc_zombie.h',
@@ -284,9 +270,6 @@
         'common/password_generation_util.h',
         'common/pepper_flash.cc',
         'common/pepper_flash.h',
-        'common/persistent_pref_store.h',
-        'common/pref_store.cc',
-        'common/pref_store.h',
         'common/print_messages.cc',
         'common/print_messages.h',
         'common/profiling.cc',
@@ -334,8 +317,52 @@
         'common/zip_internal.h',
         'common/zip_reader.cc',
         'common/zip_reader.h',
+
+        # TODO(joi): Move to 'base_prefs' target in base/base.gyp once
+        # Prefs move is complete and dependencies have been broken.
+        '../base/prefs/json_pref_store.cc',
+        '../base/prefs/json_pref_store.h',
+        '../base/prefs/persistent_pref_store.h',
+        '../base/prefs/pref_store.cc',
+        '../base/prefs/pref_store.h',
       ],
       'conditions': [
+        ['OS != "ios"', {
+          'dependencies': [
+            '<(DEPTH)/chrome/app/policy/cloud_policy_codegen.gyp:policy',
+            '<(DEPTH)/chrome/common/extensions/api/api.gyp:api',
+            '<(DEPTH)/ipc/ipc.gyp:ipc',
+            '<(DEPTH)/printing/printing.gyp:printing',
+            '<(DEPTH)/third_party/adobe/flash/flash_player.gyp:flapper_version_h',
+            '<(DEPTH)/third_party/re2/re2.gyp:re2',
+            '<(DEPTH)/third_party/widevine/cdm/widevine_cdm.gyp:widevine_cdm_version_h',
+            '<(DEPTH)/webkit/support/webkit_support.gyp:glue',
+          ],
+        }, {  # OS == ios
+          'sources/': [
+            ['exclude', '^common/automation_'],
+            ['exclude', '^common/child_process_'],
+            ['exclude', '^common/chrome_content_client\\.cc$'],
+            ['exclude', '^common/chrome_version_info_posix\\.cc$'],
+            ['exclude', '^common/common_message_generator\\.cc$'],
+            ['exclude', '^common/common_param_traits'],
+            ['exclude', '^common/custom_handlers/'],
+            ['exclude', '^common/extensions/'],
+            ['exclude', '^common/external_ipc_fuzzer\\.'],
+            ['exclude', '^common/logging_chrome\\.'],
+            ['exclude', '^common/multi_process_'],
+            ['exclude', '^common/nacl_'],
+            ['exclude', '^common/pepper_flash\\.'],
+            ['exclude', '^common/profiling\\.'],
+            ['exclude', '^common/service_process_util_'],
+            ['exclude', '^common/spellcheck_'],
+            ['exclude', '^common/web_apps\\.'],
+            # TODO(ios): Include files here as they are made to work; once
+            # everything is online, remove everything below here and just
+            # use the exclusions above.
+            ['exclude', '.*'],
+          ],
+        }],
         ['OS=="android"', {
           'sources/': [
             ['exclude', '^common/service_'],
@@ -390,6 +417,15 @@
           ],
         }],
       ],
+      'target_conditions': [
+        ['OS == "ios"', {
+          'sources/': [
+            # Pull in specific Mac files for iOS (which have been filtered out
+            # by file name rules).
+            ['include', '^common/chrome_version_info_mac\\.mm$'],
+          ],
+        }],
+      ],
       'export_dependent_settings': [
         '../base/base.gyp:base',
         'metrics_proto',
@@ -399,7 +435,7 @@
       'target_name': 'common_version',
       'type': 'none',
       'conditions': [
-        ['os_posix == 1 and OS != "mac"', {
+        ['os_posix == 1 and OS != "mac" and OS != "ios"', {
           'direct_dependent_settings': {
             'include_dirs': [
               '<(SHARED_INTERMEDIATE_DIR)',
@@ -474,20 +510,29 @@
         '<(DEPTH)/chrome/chrome_resources.gyp:chrome_resources',
         '<(DEPTH)/chrome/chrome_resources.gyp:chrome_strings',
         '<(DEPTH)/crypto/crypto.gyp:crypto',
-        '<(DEPTH)/gpu/gpu.gyp:gpu_ipc',
         '<(DEPTH)/net/net.gyp:net_resources',
         '<(DEPTH)/net/net.gyp:net',
         '<(DEPTH)/third_party/icu/icu.gyp:icui18n',
         '<(DEPTH)/third_party/icu/icu.gyp:icuuc',
       ],
       'conditions': [
-        ['os_posix == 1 and OS != "mac" and OS != "android"', {
+        ['OS != "ios"', {
+          'dependencies': [
+            '<(DEPTH)/gpu/gpu.gyp:gpu_ipc',
+          ],
+        }, {  # OS == ios
+          'sources!': [
+            'common/net/net_resource_provider.cc',
+            'common/net/x509_certificate_model.cc',
+          ],
+        }],
+        ['os_posix == 1 and OS != "mac" and OS != "ios" and OS != "android"', {
             'dependencies': [
               '../build/linux/system.gyp:ssl',
             ],
           },
         ],
-        ['os_posix != 1 or OS == "mac"', {
+        ['os_posix != 1 or OS == "mac" or OS == "ios"', {
             'sources!': [
               'common/net/x509_certificate_model_nss.cc',
               'common/net/x509_certificate_model_openssl.cc',

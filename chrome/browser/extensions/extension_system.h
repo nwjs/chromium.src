@@ -28,7 +28,6 @@ namespace extensions {
 class AlarmManager;
 class EventRouter;
 class Extension;
-class ExtensionActionManager;
 class ExtensionPrefs;
 class ExtensionSystemSharedFactory;
 class LazyBackgroundTaskQueue;
@@ -205,7 +204,6 @@ class ExtensionSystemImpl : public ExtensionSystem {
     LazyBackgroundTaskQueue* lazy_background_task_queue();
     MessageService* message_service();
     EventRouter* event_router();
-    ExtensionActionManager* extension_action_manager();
 
    private:
     Profile* profile_;
@@ -226,7 +224,6 @@ class ExtensionSystemImpl : public ExtensionSystem {
     scoped_ptr<MessageService> message_service_;
     scoped_ptr<EventRouter> extension_event_router_;
     scoped_ptr<NavigationObserver> navigation_observer_;
-    scoped_ptr<ExtensionActionManager> extension_action_manager_;
   };
 
   Profile* profile_;

@@ -14,8 +14,8 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "webkit/fileapi/file_system_mount_point_provider.h"
-#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/quota/special_storage_policy.h"
+#include "webkit/storage/webkit_storage_export.h"
 
 namespace fileapi {
 class FileSystemFileUtil;
@@ -28,7 +28,7 @@ namespace chromeos {
 class FileAccessPermissions;
 
 // An interface to provide local filesystem paths.
-class FILEAPI_EXPORT CrosMountPointProvider
+class WEBKIT_STORAGE_EXPORT CrosMountPointProvider
     : public fileapi::ExternalFileSystemMountPointProvider {
  public:
   using fileapi::FileSystemMountPointProvider::ValidateFileSystemCallback;
@@ -67,6 +67,7 @@ class FILEAPI_EXPORT CrosMountPointProvider
   virtual webkit_blob::FileStreamReader* CreateFileStreamReader(
       const fileapi::FileSystemURL& path,
       int64 offset,
+      const base::Time& expected_modification_time,
       fileapi::FileSystemContext* context) const OVERRIDE;
   virtual fileapi::FileStreamWriter* CreateFileStreamWriter(
       const fileapi::FileSystemURL& url,

@@ -42,19 +42,36 @@ using WebKit::WebVector;
 namespace content {
 
 namespace {
-const char kCrashEventName[] = "crash";
+const char kExitEventName[] = "exit";
 const char kIsTopLevel[] = "isTopLevel";
-const char kLoadAbortEventName[] = "loadAbort";
-const char kLoadRedirectEventName[] = "loadRedirect";
-const char kLoadStartEventName[] = "loadStart";
-const char kNavigationEventName[] = "navigation";
+const char kLoadAbortEventName[] = "loadabort";
+const char kLoadCommitEventName[] = "loadcommit";
+const char kLoadRedirectEventName[] = "loadredirect";
+const char kLoadStartEventName[] = "loadstart";
+const char kLoadStopEventName[] = "loadstop";
 const char kNewURL[] = "newUrl";
 const char kOldURL[] = "oldUrl";
 const char kPartitionAttribute[] = "partition";
 const char kPersistPrefix[] = "persist:";
+const char kProcessId[] = "processId";
 const char kSrcAttribute[] = "src";
 const char kType[] = "type";
 const char kURL[] = "url";
+
+static std::string TerminationStatusToString(base::TerminationStatus status) {
+  switch (status) {
+    case base::TERMINATION_STATUS_NORMAL_TERMINATION:
+      return "normal";
+    case base::TERMINATION_STATUS_ABNORMAL_TERMINATION:
+      return "abnormal";
+    case base::TERMINATION_STATUS_PROCESS_WAS_KILLED:
+      return "killed";
+    default:
+      // This should never happen.
+      DCHECK(false);
+      return "unknown";
+  }
+}
 }
 
 BrowserPlugin::BrowserPlugin(
@@ -63,7 +80,8 @@ BrowserPlugin::BrowserPlugin(
     WebKit::WebFrame* frame,
     const WebPluginParams& params)
     : instance_id_(instance_id),
-      render_view_(render_view),
+      render_view_(render_view->AsWeakPtr()),
+      render_view_routing_id_(render_view->GetRoutingID()),
       container_(NULL),
       damage_buffer_(NULL),
       sad_guest_(NULL),
@@ -72,9 +90,14 @@ BrowserPlugin::BrowserPlugin(
       navigate_src_sent_(false),
       process_id_(-1),
       persist_storage_(false),
-      visible_(true) {
+      content_window_routing_id_(MSG_ROUTING_NONE),
+      visible_(true),
+      current_nav_entry_index_(0),
+      nav_entry_count_(0) {
   BrowserPluginManager::Get()->AddBrowserPlugin(instance_id, this);
   bindings_.reset(new BrowserPluginBindings(this));
+
+  InitializeEvents();
 
   ParseAttributes(params);
 }
@@ -86,7 +109,7 @@ BrowserPlugin::~BrowserPlugin() {
   BrowserPluginManager::Get()->RemoveBrowserPlugin(instance_id_);
   BrowserPluginManager::Get()->Send(
       new BrowserPluginHostMsg_PluginDestroyed(
-          render_view_->GetRoutingID(),
+          render_view_routing_id_,
           instance_id_));
 }
 
@@ -100,44 +123,47 @@ std::string BrowserPlugin::GetSrcAttribute() const {
 }
 
 void BrowserPlugin::SetSrcAttribute(const std::string& src) {
-  if (src == src_ && !guest_crashed_)
+  if (src.empty() || (src == src_ && !guest_crashed_))
     return;
 
-  // If we haven't created the guest yet, do so now, if |src| is not empty and
-  // we will navigate it right after creation. If |src| is empty, we can delay
-  // the creation until we acutally need it.
-  if (!navigate_src_sent_ && !src.empty()) {
+  // If we haven't created the guest yet, do so now. We will navigate it right
+  // after creation. If |src| is empty, we can delay the creation until we
+  // acutally need it.
+  if (!navigate_src_sent_) {
     BrowserPluginManager::Get()->Send(
         new BrowserPluginHostMsg_CreateGuest(
-            render_view_->GetRoutingID(),
+            render_view_routing_id_,
             instance_id_,
             storage_partition_id_,
             persist_storage_));
   }
 
-  if (navigate_src_sent_ || !src.empty()) {
-    scoped_ptr<BrowserPluginHostMsg_ResizeGuest_Params> params(
-        GetPendingResizeParams());
-    DCHECK(!params->resize_pending);
+  scoped_ptr<BrowserPluginHostMsg_ResizeGuest_Params> params(
+      GetPendingResizeParams());
+  DCHECK(!params->resize_pending);
 
-    BrowserPluginManager::Get()->Send(
-        new BrowserPluginHostMsg_NavigateGuest(
-            render_view_->GetRoutingID(),
-            instance_id_,
-            src,
-            *params));
-    // Record that we sent a NavigateGuest message to embedder. Once we send
-    // such a message, subsequent SetSrcAttribute() calls must always send
-    // NavigateGuest messages to the embedder (even if |src| is empty), so
-    // resize works correctly for all cases (e.g. The embedder can reset the
-    // guest's |src| to empty value, resize and then set the |src| to a
-    // non-empty value).
-    // Additionally, once this instance has navigated, the storage partition
-    // cannot be changed, so this value is used for enforcing this.
-    navigate_src_sent_ = true;
-  }
+  BrowserPluginManager::Get()->Send(
+      new BrowserPluginHostMsg_NavigateGuest(
+          render_view_routing_id_,
+          instance_id_,
+          src,
+          *params));
+  // Record that we sent a NavigateGuest message to embedder.
+  // Once this instance has navigated, the storage partition cannot be changed,
+  // so this value is used for enforcing this.
+  navigate_src_sent_ = true;
   src_ = src;
-  guest_crashed_ = false;
+}
+
+NPObject* BrowserPlugin::GetContentWindow() const {
+  if (content_window_routing_id_ == MSG_ROUTING_NONE)
+    return NULL;
+  RenderViewImpl* guest_render_view = static_cast<RenderViewImpl*>(
+      ChildThread::current()->ResolveRoute(content_window_routing_id_));
+  if (!guest_render_view)
+    return NULL;
+  WebKit::WebFrame* guest_frame = guest_render_view->GetWebView()->mainFrame();
+  return guest_frame->windowObject();
 }
 
 std::string BrowserPlugin::GetPartitionAttribute() const {
@@ -147,6 +173,15 @@ std::string BrowserPlugin::GetPartitionAttribute() const {
 
   value.append(storage_partition_id_);
   return value;
+}
+
+bool BrowserPlugin::CanGoBack() const {
+  return nav_entry_count_ > 1 && current_nav_entry_index_ > 0;
+}
+
+bool BrowserPlugin::CanGoForward() const {
+  return current_nav_entry_index_ >= 0 &&
+      current_nav_entry_index_ < (nav_entry_count_ - 1);
 }
 
 bool BrowserPlugin::SetPartitionAttribute(const std::string& partition_id,
@@ -197,14 +232,22 @@ void BrowserPlugin::ParseAttributes(const WebKit::WebPluginParams& params) {
 
   // Set the 'src' attribute last, as it will set the has_navigated_ flag to
   // true, which prevents changing the 'partition' attribute.
-  if (!src.empty())
-    SetSrcAttribute(src);
+  SetSrcAttribute(src);
 }
 
 float BrowserPlugin::GetDeviceScaleFactor() const {
   if (!render_view_)
     return 1.0f;
   return render_view_->GetWebView()->deviceScaleFactor();
+}
+
+void BrowserPlugin::InitializeEvents() {
+  event_listener_map_[kExitEventName] = EventListeners();
+  event_listener_map_[kLoadAbortEventName] = EventListeners();
+  event_listener_map_[kLoadCommitEventName] = EventListeners();
+  event_listener_map_[kLoadRedirectEventName] = EventListeners();
+  event_listener_map_[kLoadStartEventName] = EventListeners();
+  event_listener_map_[kLoadStopEventName] = EventListeners();
 }
 
 void BrowserPlugin::RemoveEventListeners() {
@@ -222,11 +265,35 @@ void BrowserPlugin::RemoveEventListeners() {
   event_listener_map_.clear();
 }
 
+bool BrowserPlugin::IsValidEvent(const std::string& event_name) {
+  return event_listener_map_.find(event_name) != event_listener_map_.end();
+}
+
+void BrowserPlugin::TriggerEvent(const std::string& event_name,
+                                 v8::Local<v8::Object>* event) {
+  WebKit::WebElement plugin = container()->element();
+  WebKit::WebFrame* frame = plugin.document().frame();
+  if (!frame)
+    return;
+
+  // TODO(fsamuel): Copying the event listeners is insufficent because
+  // new persistent handles are not created when the copy constructor is
+  // called. See http://crbug.com/155044.
+  EventListeners listeners(event_listener_map_[event_name.c_str()]);
+  (*event)->Set(v8::String::New("name"), v8::String::New(event_name.c_str()));
+  v8::Local<v8::Value> argv[] = { *event };
+  for (EventListeners::iterator it = listeners.begin();
+       it != listeners.end();
+       ++it) {
+    frame->callFunctionEvenIfScriptDisabled(*it, v8::Object::New(), 1, argv);
+  }
+}
+
 void BrowserPlugin::Back() {
   if (!navigate_src_sent_)
     return;
   BrowserPluginManager::Get()->Send(
-      new BrowserPluginHostMsg_Go(render_view_->GetRoutingID(),
+      new BrowserPluginHostMsg_Go(render_view_routing_id_,
                                   instance_id_, -1));
 }
 
@@ -234,7 +301,7 @@ void BrowserPlugin::Forward() {
   if (!navigate_src_sent_)
     return;
   BrowserPluginManager::Get()->Send(
-      new BrowserPluginHostMsg_Go(render_view_->GetRoutingID(),
+      new BrowserPluginHostMsg_Go(render_view_routing_id_,
                                   instance_id_, 1));
 }
 
@@ -242,7 +309,7 @@ void BrowserPlugin::Go(int relative_index) {
   if (!navigate_src_sent_)
     return;
   BrowserPluginManager::Get()->Send(
-      new BrowserPluginHostMsg_Go(render_view_->GetRoutingID(),
+      new BrowserPluginHostMsg_Go(render_view_routing_id_,
                                   instance_id_,
                                   relative_index));
 }
@@ -251,7 +318,7 @@ void BrowserPlugin::TerminateGuest() {
   if (!navigate_src_sent_)
     return;
   BrowserPluginManager::Get()->Send(
-      new BrowserPluginHostMsg_TerminateGuest(render_view_->GetRoutingID(),
+      new BrowserPluginHostMsg_TerminateGuest(render_view_routing_id_,
                                               instance_id_));
 }
 
@@ -259,16 +326,15 @@ void BrowserPlugin::Stop() {
   if (!navigate_src_sent_)
     return;
   BrowserPluginManager::Get()->Send(
-      new BrowserPluginHostMsg_Stop(render_view_->GetRoutingID(),
+      new BrowserPluginHostMsg_Stop(render_view_routing_id_,
                                     instance_id_));
 }
 
 void BrowserPlugin::Reload() {
   if (!navigate_src_sent_)
     return;
-  guest_crashed_ = false;
   BrowserPluginManager::Get()->Send(
-      new BrowserPluginHostMsg_Reload(render_view_->GetRoutingID(),
+      new BrowserPluginHostMsg_Reload(render_view_routing_id_,
                                       instance_id_));
 }
 
@@ -278,7 +344,7 @@ void BrowserPlugin::UpdateRect(
   if (width() != params.view_size.width() ||
       height() != params.view_size.height()) {
     BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_UpdateRect_ACK(
-        render_view_->GetRoutingID(),
+        render_view_routing_id_,
         instance_id_,
         message_id,
         gfx::Size(width(), height())));
@@ -309,81 +375,108 @@ void BrowserPlugin::UpdateRect(
                                         damage_buffer_);
   }
   // Invalidate the container.
-  container_->invalidate();
+  // If the BrowserPlugin is scheduled to be deleted, then container_ will be
+  // NULL so we shouldn't attempt to access it.
+  if (container_)
+    container_->invalidate();
   BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_UpdateRect_ACK(
-      render_view_->GetRoutingID(),
+      render_view_routing_id_,
       instance_id_,
       message_id,
       gfx::Size()));
 }
 
-void BrowserPlugin::GuestCrashed() {
+void BrowserPlugin::GuestGone(int process_id, base::TerminationStatus status) {
+  // We fire the event listeners before painting the sad graphic to give the
+  // developer an opportunity to display an alternative overlay image on crash.
+  if (HasListeners(kExitEventName)) {
+    WebKit::WebElement plugin = container()->element();
+    v8::HandleScope handle_scope;
+    v8::Context::Scope context_scope(
+        plugin.document().frame()->mainWorldScriptContext());
+
+    // Construct the exit event object.
+    v8::Local<v8::Object> event = v8::Object::New();
+    event->Set(v8::String::New(kProcessId, sizeof(kProcessId) - 1),
+               v8::Integer::New(process_id));
+    std::string termination_status = TerminationStatusToString(status);
+    event->Set(v8::String::New(kType, sizeof(kType) - 1),
+               v8::String::New(termination_status.data(),
+                               termination_status.size()));
+    // Event listeners may remove the BrowserPlugin from the document. If that
+    // happens, the BrowserPlugin will be scheduled for later deletion (see
+    // BrowserPlugin::destroy()). That will clear the container_ reference,
+    // but leave other member variables valid below.
+    TriggerEvent(kExitEventName, &event);
+  }
   guest_crashed_ = true;
-  container_->invalidate();
-
-  if (!HasListeners(kCrashEventName))
-    return;
-
-  EventListeners& listeners = event_listener_map_[kCrashEventName];
-  EventListeners::iterator it = listeners.begin();
-  for (; it != listeners.end(); ++it) {
-    v8::Context::Scope context_scope(v8::Context::New());
-    v8::HandleScope handle_scope;
-    container()->element().document().frame()->
-        callFunctionEvenIfScriptDisabled(*it,
-                                         v8::Object::New(),
-                                         0,
-                                         NULL);
-  }
-}
-
-void BrowserPlugin::DidNavigate(const GURL& url, int process_id) {
-  src_ = url.spec();
-  process_id_ = process_id;
-  if (!HasListeners(kNavigationEventName))
-    return;
-
-  EventListeners& listeners = event_listener_map_[kNavigationEventName];
-  EventListeners::iterator it = listeners.begin();
-  for (; it != listeners.end(); ++it) {
-    v8::Context::Scope context_scope(v8::Context::New());
-    v8::HandleScope handle_scope;
-    v8::Local<v8::Value> param =
-        v8::Local<v8::Value>::New(v8::String::New(src_.c_str()));
-    container()->element().document().frame()->
-        callFunctionEvenIfScriptDisabled(*it,
-                                         v8::Object::New(),
-                                         1,
-                                         &param);
-  }
+  // We won't paint the contents of the current backing store again so we might
+  // as well toss it out and save memory.
+  backing_store_.reset();
+  // If the BrowserPlugin is scheduled to be deleted, then container_ will be
+  // NULL so we shouldn't attempt to access it.
+  if (container_)
+    container_->invalidate();
 }
 
 void BrowserPlugin::LoadStart(const GURL& url, bool is_top_level) {
   if (!HasListeners(kLoadStartEventName))
     return;
 
-  EventListeners& listeners = event_listener_map_[kLoadStartEventName];
-  EventListeners::iterator it = listeners.begin();
-
-  v8::Context::Scope context_scope(v8::Context::New());
+  WebKit::WebElement plugin = container()->element();
   v8::HandleScope handle_scope;
+  v8::Context::Scope context_scope(
+      plugin.document().frame()->mainWorldScriptContext());
+
   // Construct the loadStart event object.
-  v8::Local<v8::Value> event =
-      v8::Local<v8::Object>::New(v8::Object::New());
-  v8::Local<v8::Object>::Cast(event)->Set(
-      v8::String::New(kURL, sizeof(kURL) - 1),
-      v8::String::New(url.spec().c_str(), url.spec().size()));
-  v8::Local<v8::Object>::Cast(event)->Set(
-      v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
-      v8::Boolean::New(is_top_level));
-  for (; it != listeners.end(); ++it) {
-    // Fire the event listener.
-    container()->element().document().frame()->
-        callFunctionEvenIfScriptDisabled(*it,
-                                         v8::Object::New(),
-                                         1,
-                                         &event);
-  }
+  v8::Local<v8::Object> event = v8::Object::New();
+  event->Set(v8::String::New(kURL, sizeof(kURL) - 1),
+             v8::String::New(url.spec().data(), url.spec().size()));
+  event->Set(v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
+             v8::Boolean::New(is_top_level));
+  TriggerEvent(kLoadStartEventName, &event);
+}
+
+void BrowserPlugin::LoadCommit(
+    const BrowserPluginMsg_LoadCommit_Params& params) {
+  // If the guest has just committed a new navigation then it is no longer
+  // crashed.
+  guest_crashed_ = false;
+  src_ = params.url.spec();
+  process_id_ = params.process_id;
+  current_nav_entry_index_ = params.current_entry_index;
+  nav_entry_count_ = params.entry_count;
+
+  if (!HasListeners(kLoadCommitEventName))
+    return;
+
+  WebKit::WebElement plugin = container()->element();
+  v8::HandleScope handle_scope;
+  v8::Context::Scope context_scope(
+      plugin.document().frame()->mainWorldScriptContext());
+
+  // Construct the loadCommit event object.
+  v8::Local<v8::Object> event = v8::Object::New();
+  event->Set(v8::String::New(kURL, sizeof(kURL) - 1),
+             v8::String::New(src_.data(), src_.size()));
+  event->Set(v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
+             v8::Boolean::New(params.is_top_level));
+
+  TriggerEvent(kLoadCommitEventName, &event);
+}
+
+void BrowserPlugin::LoadStop() {
+  if (!HasListeners(kLoadStopEventName))
+    return;
+
+  WebKit::WebElement plugin = container()->element();
+  v8::HandleScope handle_scope;
+  v8::Context::Scope context_scope(
+      plugin.document().frame()->mainWorldScriptContext());
+
+  // Construct the loadStop event object.
+  v8::Local<v8::Object> event = v8::Object::New();
+  TriggerEvent(kLoadStopEventName, &event);
 }
 
 void BrowserPlugin::LoadAbort(const GURL& url,
@@ -392,31 +485,21 @@ void BrowserPlugin::LoadAbort(const GURL& url,
   if (!HasListeners(kLoadAbortEventName))
     return;
 
-  EventListeners& listeners = event_listener_map_[kLoadAbortEventName];
-  EventListeners::iterator it = listeners.begin();
-
-  v8::Context::Scope context_scope(v8::Context::New());
+  WebKit::WebElement plugin = container()->element();
   v8::HandleScope handle_scope;
+  v8::Context::Scope context_scope(
+      plugin.document().frame()->mainWorldScriptContext());
+
   // Construct the loadAbort event object.
-  v8::Local<v8::Value> event =
-      v8::Local<v8::Object>::New(v8::Object::New());
-  v8::Local<v8::Object>::Cast(event)->Set(
-      v8::String::New(kURL, sizeof(kURL) - 1),
-      v8::String::New(url.spec().c_str(), url.spec().size()));
-  v8::Local<v8::Object>::Cast(event)->Set(
-      v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
-      v8::Boolean::New(is_top_level));
-  v8::Local<v8::Object>::Cast(event)->Set(
-      v8::String::New(kType, sizeof(kType) - 1),
-      v8::String::New(type.c_str(), type.size()));
-  for (; it != listeners.end(); ++it) {
-    // Fire the event listener.
-    container()->element().document().frame()->
-        callFunctionEvenIfScriptDisabled(*it,
-                                         v8::Object::New(),
-                                         1,
-                                         &event);
-  }
+  v8::Local<v8::Object> event = v8::Object::New();
+  event->Set(v8::String::New(kURL, sizeof(kURL) - 1),
+             v8::String::New(url.spec().data(), url.spec().size()));
+  event->Set(v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
+             v8::Boolean::New(is_top_level));
+  event->Set(v8::String::New(kType, sizeof(kType) - 1),
+             v8::String::New(type.data(), type.size()));
+
+  TriggerEvent(kLoadAbortEventName, &event);
 }
 
 void BrowserPlugin::LoadRedirect(const GURL& old_url,
@@ -425,32 +508,21 @@ void BrowserPlugin::LoadRedirect(const GURL& old_url,
   if (!HasListeners(kLoadRedirectEventName))
     return;
 
-  EventListeners& listeners = event_listener_map_[kLoadRedirectEventName];
-  EventListeners::iterator it = listeners.begin();
-
-  v8::Context::Scope context_scope(v8::Context::New());
+  WebKit::WebElement plugin = container()->element();
   v8::HandleScope handle_scope;
+  v8::Context::Scope context_scope(
+      plugin.document().frame()->mainWorldScriptContext());
 
   // Construct the loadRedirect event object.
-  v8::Local<v8::Value> event =
-      v8::Local<v8::Object>::New(v8::Object::New());
-  v8::Local<v8::Object>::Cast(event)->Set(
-      v8::String::New(kOldURL, sizeof(kOldURL) - 1),
-      v8::String::New(old_url.spec().c_str(), old_url.spec().size()));
-  v8::Local<v8::Object>::Cast(event)->Set(
-      v8::String::New(kNewURL, sizeof(kNewURL) - 1),
-      v8::String::New(new_url.spec().c_str(), new_url.spec().size()));
-  v8::Local<v8::Object>::Cast(event)->Set(
-      v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
-      v8::Boolean::New(is_top_level));
-  for (; it != listeners.end(); ++it) {
-    // Fire the event listener.
-    container()->element().document().frame()->
-        callFunctionEvenIfScriptDisabled(*it,
-                                         v8::Object::New(),
-                                         1,
-                                         &event);
-  }
+  v8::Local<v8::Object> event = v8::Object::New();
+  event->Set(v8::String::New(kOldURL, sizeof(kOldURL) - 1),
+             v8::String::New(old_url.spec().data(), old_url.spec().size()));
+  event->Set(v8::String::New(kNewURL, sizeof(kNewURL) - 1),
+             v8::String::New(new_url.spec().data(), new_url.spec().size()));
+  event->Set(v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
+             v8::Boolean::New(is_top_level));
+
+  TriggerEvent(kLoadRedirectEventName, &event);
 }
 
 void BrowserPlugin::AdvanceFocus(bool reverse) {
@@ -459,17 +531,25 @@ void BrowserPlugin::AdvanceFocus(bool reverse) {
     render_view_->GetWebView()->advanceFocus(reverse);
 }
 
+void BrowserPlugin::GuestContentWindowReady(int content_window_routing_id) {
+  DCHECK(content_window_routing_id != MSG_ROUTING_NONE);
+  content_window_routing_id_ = content_window_routing_id;
+}
+
 void BrowserPlugin::SetAcceptTouchEvents(bool accept) {
   if (container())
     container()->setIsAcceptingTouchEvents(accept);
 }
 
 bool BrowserPlugin::HasListeners(const std::string& event_name) {
-  return event_listener_map_.find(event_name) != event_listener_map_.end();
+  return IsValidEvent(event_name) &&
+         !event_listener_map_[event_name].empty();
 }
 
 bool BrowserPlugin::AddEventListener(const std::string& event_name,
                                      v8::Local<v8::Function> function) {
+  if (!IsValidEvent(event_name))
+    return false;
   EventListeners& listeners = event_listener_map_[event_name];
   for (unsigned int i = 0; i < listeners.size(); ++i) {
     if (listeners[i] == function)
@@ -483,7 +563,7 @@ bool BrowserPlugin::AddEventListener(const std::string& event_name,
 
 bool BrowserPlugin::RemoveEventListener(const std::string& event_name,
                                         v8::Local<v8::Function> function) {
-  if (event_listener_map_.find(event_name) == event_listener_map_.end())
+  if (!HasListeners(event_name))
     return false;
 
   EventListeners& listeners = event_listener_map_[event_name];
@@ -508,6 +588,9 @@ bool BrowserPlugin::initialize(WebPluginContainer* container) {
 }
 
 void BrowserPlugin::destroy() {
+  // The BrowserPlugin's WebPluginContainer is deleted immediately after this
+  // call returns, so let's not keep a reference to it around.
+  container_ = NULL;
   MessageLoop::current()->DeleteSoon(FROM_HERE, this);
 }
 
@@ -522,6 +605,10 @@ bool BrowserPlugin::supportsKeyboardFocus() const {
   return true;
 }
 
+bool BrowserPlugin::canProcessDrag() const {
+  return true;
+}
+
 void BrowserPlugin::paint(WebCanvas* canvas, const WebRect& rect) {
   if (guest_crashed_) {
     if (!sad_guest_)  // Lazily initialize bitmap.
@@ -529,8 +616,12 @@ void BrowserPlugin::paint(WebCanvas* canvas, const WebRect& rect) {
           GetSadPluginBitmap();
     // TODO(fsamuel): Do we want to paint something other than a sad plugin
     // on crash? See http://www.crbug.com/140266.
-    webkit::PaintSadPlugin(canvas, plugin_rect_, *sad_guest_);
-    return;
+    // content_shell does not have the sad plugin bitmap, so we'll paint black
+    // instead to make it clear that something went wrong.
+    if (sad_guest_) {
+      webkit::PaintSadPlugin(canvas, plugin_rect_, *sad_guest_);
+      return;
+    }
   }
   SkAutoCanvasRestore auto_restore(canvas, true);
   canvas->translate(plugin_rect_.x(), plugin_rect_.y());
@@ -540,13 +631,13 @@ void BrowserPlugin::paint(WebCanvas* canvas, const WebRect& rect) {
       SkIntToScalar(plugin_rect_.width()),
       SkIntToScalar(plugin_rect_.height()));
   canvas->clipRect(image_data_rect);
-  // Paint white in case we have nothing in our backing store or we need to
-  // show a gutter.
+  // Paint black or white in case we have nothing in our backing store or we
+  // need to show a gutter.
   SkPaint paint;
   paint.setStyle(SkPaint::kFill_Style);
-  paint.setColor(SK_ColorWHITE);
+  paint.setColor(guest_crashed_ ? SK_ColorBLACK : SK_ColorWHITE);
   canvas->drawRect(image_data_rect, paint);
-  // Stay at white if we have never set a non-empty src, or we don't yet have a
+  // Stay a solid color if we have never set a non-empty src, or we don't have a
   // backing store.
   if (!backing_store_.get() || !navigate_src_sent_)
     return;
@@ -602,12 +693,12 @@ void BrowserPlugin::updateGeometry(
 
   if (navigate_src_sent_) {
     BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_ResizeGuest(
-        render_view_->GetRoutingID(),
+        render_view_routing_id_,
         instance_id_,
         *params));
     resize_pending_ = true;
   } else {
-    // Until an actual navigation occurs, there is no browser side embedder
+    // Until an actual navigation occurs, there is no browser-side embedder
     // present to notify about geometry updates. In this case, after we've
     // updated the BrowserPlugin's state we are done and we do not send a resize
     // message to the browser.
@@ -621,7 +712,7 @@ void BrowserPlugin::updateGeometry(
 void BrowserPlugin::FreeDamageBuffer() {
   DCHECK(damage_buffer_);
 #if defined(OS_MACOSX)
-  // We don't need to (nor we should) send ViewHostMsg_FreeTransportDIB
+  // We don't need to (nor should we) send ViewHostMsg_FreeTransportDIB
   // message to the browser to free the damage buffer since we manage the
   // damage buffer ourselves.
   delete damage_buffer_;
@@ -680,7 +771,7 @@ TransportDIB* BrowserPlugin::CreateTransportDIB(const size_t size) {
 
 void BrowserPlugin::updateFocus(bool focused) {
   BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_SetFocus(
-      render_view_->GetRoutingID(),
+      render_view_routing_id_,
       instance_id_,
       focused));
 }
@@ -694,7 +785,7 @@ void BrowserPlugin::updateVisibility(bool visible) {
     return;
 
   BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_SetVisibility(
-      render_view_->GetRoutingID(),
+      render_view_routing_id_,
       instance_id_,
       visible));
 }
@@ -711,7 +802,7 @@ bool BrowserPlugin::handleInputEvent(const WebKit::WebInputEvent& event,
   WebCursor cursor;
   IPC::Message* message =
       new BrowserPluginHostMsg_HandleInputEvent(
-          render_view_->GetRoutingID(),
+          render_view_routing_id_,
           &handled,
           &cursor);
   message->WriteInt(instance_id_);
@@ -721,6 +812,24 @@ bool BrowserPlugin::handleInputEvent(const WebKit::WebInputEvent& event,
   BrowserPluginManager::Get()->Send(message);
   cursor.GetCursorInfo(&cursor_info);
   return handled;
+}
+
+bool BrowserPlugin::handleDragStatusUpdate(WebKit::WebDragStatus drag_status,
+                                           const WebKit::WebDragData& drag_data,
+                                           WebKit::WebDragOperationsMask mask,
+                                           const WebKit::WebPoint& position,
+                                           const WebKit::WebPoint& screen) {
+  if (guest_crashed_ || !navigate_src_sent_)
+    return false;
+  BrowserPluginManager::Get()->Send(
+      new BrowserPluginHostMsg_DragStatusUpdate(
+        render_view_routing_id_,
+        instance_id_,
+        drag_status,
+        WebDropData(drag_data),
+        mask,
+        position));
+  return false;
 }
 
 void BrowserPlugin::didReceiveResponse(

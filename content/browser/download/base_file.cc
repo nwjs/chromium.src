@@ -209,24 +209,18 @@ BaseFile::BaseFile(const FilePath& full_path,
                    int64 received_bytes,
                    bool calculate_hash,
                    const std::string& hash_state,
-                   const linked_ptr<net::FileStream>& file_stream,
+                   scoped_ptr<net::FileStream> file_stream,
                    const net::BoundNetLog& bound_net_log)
     : full_path_(full_path),
       source_url_(source_url),
       referrer_url_(referrer_url),
-      file_stream_(file_stream),
+      file_stream_(file_stream.Pass()),
       bytes_so_far_(received_bytes),
       start_tick_(base::TimeTicks::Now()),
       calculate_hash_(calculate_hash),
       detached_(false),
       bound_net_log_(bound_net_log) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   memcpy(sha256_hash_, kEmptySha256Hash, kSha256HashLen);
-  if (file_stream_.get()) {
-    file_stream_->SetBoundNetLogSource(bound_net_log_);
-    file_stream_->EnableErrorStatistics();
-  }
-
   if (calculate_hash_) {
     secure_hash_.reset(crypto::SecureHash::Create(crypto::SecureHash::SHA256));
     if ((bytes_so_far_ > 0) &&  // Not starting at the beginning.
@@ -248,6 +242,11 @@ BaseFile::~BaseFile() {
 net::Error BaseFile::Initialize(const FilePath& default_directory) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   DCHECK(!detached_);
+
+  if (file_stream_.get()) {
+    file_stream_->SetBoundNetLogSource(bound_net_log_);
+    file_stream_->EnableErrorStatistics();
+  }
 
   if (full_path_.empty()) {
     FilePath initial_directory(default_directory);

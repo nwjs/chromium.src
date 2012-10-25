@@ -4,6 +4,8 @@
 
 #include "webkit/fileapi/file_system_url.h"
 
+#include <sstream>
+
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "net/base/escape.h"
@@ -100,11 +102,20 @@ FileSystemURL::FileSystemURL(
 
 FileSystemURL::~FileSystemURL() {}
 
-std::string FileSystemURL::spec() const {
+std::string FileSystemURL::DebugString() const {
   if (!is_valid_)
-    return std::string();
-  return GetFileSystemRootURI(origin_, type_).spec() + "/" +
-      path_.AsUTF8Unsafe();
+    return "invalid filesystem: URL";
+  std::ostringstream ss;
+  ss << GetFileSystemRootURI(origin_, mount_type_);
+  if (!virtual_path_.empty())
+    ss << virtual_path_.value();
+  if (type_ != mount_type_ || path_ != virtual_path_) {
+    ss << " (";
+    ss << GetFileSystemTypeString(type_) << "@" << filesystem_id_ << ":";
+    ss << path_.value();
+    ss << ")";
+  }
+  return ss.str();
 }
 
 FileSystemURL FileSystemURL::WithPath(const FilePath& path) const {
@@ -112,6 +123,13 @@ FileSystemURL FileSystemURL::WithPath(const FilePath& path) const {
   url.path_ = path;
   url.virtual_path_.clear();
   return url;
+}
+
+bool FileSystemURL::IsParent(const FileSystemURL& child) const {
+  return origin() == child.origin() &&
+         type() == child.type() &&
+         filesystem_id() == child.filesystem_id() &&
+         path().IsParent(child.path());
 }
 
 bool FileSystemURL::operator==(const FileSystemURL& that) const {

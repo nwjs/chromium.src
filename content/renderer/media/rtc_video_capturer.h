@@ -11,23 +11,25 @@
 #include "content/renderer/media/rtc_video_capture_delegate.h"
 #include "third_party/libjingle/source/talk/media/base/videocapturer.h"
 
+namespace content {
 class VideoCaptureImplManager;
 
 // RtcVideoCapturer implements a simple cricket::VideoCapturer that is used for
 // VideoCapturing in libJingle and especially in PeerConnections.
 // The class is created and destroyed on the main render thread.
-// PeerConnection access cricket::VideoCapturer from a libJingle thread.
+// PeerConnection access cricket::VideoCapturer from a libJingle worker thread.
 // The video frames are delivered in OnFrameCaptured on a thread owned by
 // Chrome's video capture implementation.
 class RtcVideoCapturer
     : public cricket::VideoCapturer {
  public:
   RtcVideoCapturer(const media::VideoCaptureSessionId id,
-                   VideoCaptureImplManager* vc_manager);
+                   VideoCaptureImplManager* vc_manager,
+                   bool is_screencast);
   virtual ~RtcVideoCapturer();
 
   // cricket::VideoCapturer implementation.
-  // These methods are accessed from a libJingle thread.
+  // These methods are accessed from a libJingle worker thread.
   virtual cricket::CaptureState Start(
       const cricket::VideoFormat& capture_format) OVERRIDE;
   virtual void Stop() OVERRIDE;
@@ -35,17 +37,24 @@ class RtcVideoCapturer
   virtual bool GetPreferredFourccs(std::vector<uint32>* fourccs) OVERRIDE;
   virtual bool GetBestCaptureFormat(const cricket::VideoFormat& desired,
                                     cricket::VideoFormat* best_format) OVERRIDE;
+  virtual bool IsScreencast() OVERRIDE;
 
  private:
   // Frame captured callback method.
   virtual void OnFrameCaptured(
       const media::VideoCapture::VideoFrameBuffer& frame);
 
+  // State change callback, must be called on same thread as Start is called.
+  void OnStateChange(RtcVideoCaptureDelegate::CaptureState state);
+
+  const bool is_screencast_;
   scoped_refptr<RtcVideoCaptureDelegate> delegate_;
   video_capture::State state_;
   base::Time start_time_;
 
   DISALLOW_COPY_AND_ASSIGN(RtcVideoCapturer);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_MEDIA_RTC_VIDEO_CAPTURER_H_

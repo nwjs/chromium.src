@@ -17,15 +17,15 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
 #include "base/memory/weak_ptr.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "base/string16.h"
 #include "base/time.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/api/sync/profile_sync_service_observer.h"
+#include "chrome/browser/autofill/autocomplete_history_manager.h"
 #include "chrome/browser/autofill/autofill_download.h"
 #include "chrome/browser/autofill/field_types.h"
 #include "chrome/browser/autofill/form_structure.h"
 #include "content/public/browser/notification_observer.h"
-#include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class AutofillExternalDelegate;
@@ -78,13 +78,8 @@ class AutofillManager : public content::NotificationObserver,
   // Registers our Enable/Disable Autofill pref.
   static void RegisterUserPrefs(PrefServiceBase* prefs);
 
-  // Set our external delegate.
-  // TODO(jrg): consider passing delegate into the ctor.  That won't
-  // work if the delegate has a pointer to the AutofillManager, but
-  // future directions may not need such a pointer.
-  void SetExternalDelegate(AutofillExternalDelegate* delegate) {
-    external_delegate_ = delegate;
-  }
+  // Set an external delegate.
+  void SetExternalDelegate(AutofillExternalDelegate* delegate);
 
   // Used to say if this class has an external delegate that it is using.
   bool HasExternalDelegate();
@@ -105,6 +100,9 @@ class AutofillManager : public content::NotificationObserver,
   // Remove the credit card or Autofill profile that matches |unique_id|
   // from the database.
   void RemoveAutofillProfileOrCreditCard(int unique_id);
+
+  // Remove the specified Autocomplete entry.
+  void RemoveAutocompleteEntry(const string16& name, const string16& value);
 
  protected:
   // Only test code should subclass AutofillManager.
@@ -180,6 +178,8 @@ class AutofillManager : public content::NotificationObserver,
       const content::LoadCommittedDetails& details,
       const content::FrameNavigateParams& params) OVERRIDE;
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
+  virtual void WebContentsDestroyed(
+      content::WebContents* web_contents) OVERRIDE;
 
   // AutofillDownloadManager::Observer:
   virtual void OnLoadedServerPredictions(
@@ -334,6 +334,7 @@ class AutofillManager : public content::NotificationObserver,
   PersonalDataManager* personal_data_;
 
   std::list<std::string> autofilled_form_signatures_;
+
   // Handles queries and uploads to Autofill servers.
   AutofillDownloadManager download_manager_;
 
@@ -342,6 +343,9 @@ class AutofillManager : public content::NotificationObserver,
   // default for the public constructor, and true by default for the test-only
   // constructors.
   bool disable_download_manager_requests_;
+
+  // Handles single-field autocomplete form data.
+  AutocompleteHistoryManager autocomplete_history_manager_;
 
   // For logging UMA metrics. Overridden by metrics tests.
   scoped_ptr<const AutofillMetrics> metric_logger_;
@@ -369,9 +373,6 @@ class AutofillManager : public content::NotificationObserver,
   bool password_generation_enabled_;
   // Listens for changes to the 'enabled' state for password generation.
   PrefChangeRegistrar registrar_;
-  // Listens for TabContents destruction to avoid using pointer during
-  // destruction.
-  content::NotificationRegistrar notification_registrar_;
 
   // To be passed to the password generation UI to generate the password.
   scoped_ptr<autofill::PasswordGenerator> password_generator_;

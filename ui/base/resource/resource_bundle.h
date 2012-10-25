@@ -115,7 +115,17 @@ class UI_EXPORT ResourceBundle {
   // the |delegate| value. Returns the language selected.
   // NOTE: Mac ignores this and always loads up resources for the language
   // defined by the Cocoa UI (i.e., NSBundle does the language work).
+  //
+  // TODO(sergeyu): This method also loads common resources (i.e. chrome.pak).
+  // There is no way to specify which resource files are loaded, i.e. names of
+  // the files are hardcoded in ResourceBundle. Fix it to allow to specify which
+  // files are loaded (e.g. add a new method in Delegate).
   static std::string InitSharedInstanceWithLocale(
+      const std::string& pref_locale, Delegate* delegate);
+
+  // Same as InitSharedInstanceWithLocale(), but loads only localized resources,
+  // without default resource packs.
+  static std::string InitSharedInstanceLocaleOnly(
       const std::string& pref_locale, Delegate* delegate);
 
   // Initialize the ResourceBundle using given file. The second argument
@@ -275,14 +285,22 @@ class UI_EXPORT ResourceBundle {
   // Initialize all the gfx::Font members if they haven't yet been initialized.
   void LoadFontsIfNecessary();
 
-  // Creates and returns a new SkBitmap given the data file to look in and the
-  // |resource_id|.  It's up to the caller to free the returned bitmap when
-  // done.
-  SkBitmap* LoadBitmap(const ResourceHandle& dll_inst, int resource_id) const;
+  // Fills the |bitmap| given the data file to look in and the |resource_id|.
+  // Returns false if the resource does not exist.
+  //
+  // If the call succeeds, |fell_back_to_1x| indicates whether Chrome's custom
+  // csCl PNG chunk is present (added by GRIT if it falls back to a 100% image).
+  bool LoadBitmap(const ResourceHandle& data_handle,
+                  int resource_id,
+                  SkBitmap* bitmap,
+                  bool* fell_back_to_1x) const;
 
-  // Creates and returns a new SkBitmap for |resource_id| and |scale_factor|.
-  // Returns NULL if the resource does not exist.
-  SkBitmap* LoadBitmap(int resource_id, ScaleFactor scale_factor) const;
+  // Fills the |bitmap| given the |resource_id| and |scale_factor|.
+  // Returns false if the resource does not exist.
+  bool LoadBitmap(int resource_id,
+                  ScaleFactor scale_factor,
+                  SkBitmap* bitmap,
+                  bool* fell_back_to_1x) const;
 
   // Returns an empty image for when a resource cannot be loaded. This is a
   // bright red bitmap.

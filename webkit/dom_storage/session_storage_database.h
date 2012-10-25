@@ -13,6 +13,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "third_party/leveldatabase/src/include/leveldb/status.h"
+#include "webkit/dom_storage/dom_storage_export.h"
 #include "webkit/dom_storage/dom_storage_types.h"
 
 class GURL;
@@ -30,8 +31,9 @@ namespace dom_storage {
 // SessionStorageDatabase.
 
 // Only one thread is allowed to call the public functions other than
-// ReadAreaValues. Other threads area allowed to call ReadAreaValues.
-class SessionStorageDatabase :
+// ReadAreaValues and ReadNamespacesAndOrigins. Other threads are allowed to
+// call ReadAreaValues and ReadNamespacesAndOrigins.
+class DOM_STORAGE_EXPORT SessionStorageDatabase :
     public base::RefCountedThreadSafe<SessionStorageDatabase> {
  public:
   explicit SessionStorageDatabase(const FilePath& file_path);
@@ -66,12 +68,9 @@ class SessionStorageDatabase :
   // Deletes the data for |namespace_id|.
   bool DeleteNamespace(const std::string& namespace_id);
 
-  // Reads all namespace IDs from the database.
-  bool ReadNamespaceIds(std::vector<std::string>* namespace_ids);
-
-  // Reads all origins which have data stored in |namespace_id|.
-  bool ReadOriginsInNamespace(const std::string& namespace_id,
-                              std::vector<GURL>* origins);
+  // Reads the namespace IDs and origins present in the database.
+  bool ReadNamespacesAndOrigins(
+      std::map<std::string, std::vector<GURL> >* namespaces_and_origins);
 
  private:
   friend class base::RefCountedThreadSafe<SessionStorageDatabase>;

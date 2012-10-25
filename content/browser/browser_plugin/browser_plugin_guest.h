@@ -38,11 +38,14 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragStatus.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragOperation.h"
 #include "ui/gfx/rect.h"
 #include "webkit/glue/webcursor.h"
 
 class TransportDIB;
 struct ViewHostMsg_UpdateRect_Params;
+struct WebDropData;
 
 namespace WebKit {
 class WebInputEvent;
@@ -79,9 +82,8 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
     guest_hang_timeout_ = timeout;
   }
 
-  void set_embedder_render_process_host(
-      RenderProcessHost* render_process_host) {
-    embedder_render_process_host_ = render_process_host;
+  void set_embedder_web_contents(WebContents* web_contents) {
+    embedder_web_contents_ = web_contents;
   }
 
   bool visible() const { return visible_; }
@@ -94,6 +96,7 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   // WebContentsObserver implementation.
   virtual void DidStartProvisionalLoadForFrame(
       int64 frame_id,
+      int64 parent_frame_id,
       bool is_main_frame,
       const GURL& validated_url,
       bool is_error_page,
@@ -111,6 +114,8 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
       const GURL& url,
       PageTransition transition_type,
       RenderViewHost* render_view_host) OVERRIDE;
+  virtual void DidStopLoading(RenderViewHost* render_view_host) OVERRIDE;
+
   virtual void RenderViewGone(base::TerminationStatus status) OVERRIDE;
 
   // WebContentsDelegate implementation.
@@ -119,16 +124,12 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
                            const std::string& request_method) OVERRIDE;
   virtual bool HandleContextMenu(const ContextMenuParams& params) OVERRIDE;
   virtual void RendererUnresponsive(WebContents* source) OVERRIDE;
+  virtual void RunFileChooser(WebContents* web_contents,
+                              const FileChooserParams& params) OVERRIDE;
 
   void UpdateRect(RenderViewHost* render_view_host,
                   const ViewHostMsg_UpdateRect_Params& params);
   void UpdateRectACK(int message_id, const gfx::Size& size);
-  // Handles input event routed through the embedder (which is initiated in the
-  // browser plugin (renderer side of the embedder)).
-  void HandleInputEvent(RenderViewHost* render_view_host,
-                        const gfx::Rect& guest_rect,
-                        const WebKit::WebInputEvent& event,
-                        IPC::Message* reply_message);
   // Overrides default ShowWidget message so we show them on the correct
   // coordinates.
   void ShowWidget(RenderViewHost* render_view_host,
@@ -160,6 +161,22 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   // RenderThreadImpl::IdleHandlerInForegroundTab (executed when visible).
   void SetVisibility(bool embedder_visible, bool visible);
 
+  // Handles drag events from the embedder.
+  // When dragging, the drag events go to the embedder first, and if the drag
+  // happens on the browser plugin, then the plugin sends a corresponding
+  // drag-message to the guest. This routes the drag-message to the guest
+  // renderer.
+  void DragStatusUpdate(WebKit::WebDragStatus drag_status,
+                        const WebDropData& drop_data,
+                        WebKit::WebDragOperationsMask drag_mask,
+                        const gfx::Point& location);
+
+  // Updates the cursor during dragging.
+  // During dragging, if the guest notifies to update the cursor for a drag,
+  // then it is necessary to route the cursor update to the embedder correctly
+  // so that the cursor updates properly.
+  void UpdateDragCursor(WebKit::WebDragOperation operation);
+
   // Exposes the protected web_contents() from WebContentsObserver.
   WebContents* GetWebContents();
 
@@ -167,6 +184,12 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   void Terminate();
 
   // Overridden in tests.
+  // Handles input event routed through the embedder (which is initiated in the
+  // browser plugin (renderer side of the embedder)).
+  virtual void HandleInputEvent(RenderViewHost* render_view_host,
+                                const gfx::Rect& guest_rect,
+                                const WebKit::WebInputEvent& event,
+                                IPC::Message* reply_message);
   virtual bool ViewTakeFocus(bool reverse);
   // If possible, navigate the guest to |relative_index| entries away from the
   // current navigation entry.
@@ -192,9 +215,6 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
                      WebContentsImpl* web_contents,
                      RenderViewHost* render_view_host);
 
-  RenderProcessHost* embedder_render_process_host() {
-    return embedder_render_process_host_;
-  }
   // Returns the identifier that uniquely identifies a browser plugin guest
   // within an embedder.
   int instance_id() const { return instance_id_; }
@@ -217,7 +237,7 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   static content::BrowserPluginHostFactory* factory_;
 
   NotificationRegistrar notification_registrar_;
-  RenderProcessHost* embedder_render_process_host_;
+  WebContents* embedder_web_contents_;
   // An identifier that uniquely identifies a browser plugin guest within an
   // embedder.
   int instance_id_;

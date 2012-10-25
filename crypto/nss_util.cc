@@ -504,6 +504,11 @@ class NSSInitSingleton {
       }
 
       root_ = InitDefaultRootCerts();
+
+      // MD5 certificate signatures are disabled by default in NSS 3.14.
+      // Enable MD5 certificate signatures until we figure out how to deal
+      // with the weak certificate signature unit tests.
+      NSS_SetAlgorithmPolicy(SEC_OID_MD5, NSS_USE_ALG_IN_CERT_SIGNATURE, 0);
 #endif  // defined(USE_NSS)
     }
   }
@@ -702,8 +707,14 @@ bool CheckNSSVersion(const char* version) {
 }
 
 #if defined(USE_NSS)
-bool OpenTestNSSDB() {
-  return g_nss_singleton.Get().OpenTestNSSDB();
+ScopedTestNSSDB::ScopedTestNSSDB()
+  : is_open_(g_nss_singleton.Get().OpenTestNSSDB()) {
+}
+
+ScopedTestNSSDB::~ScopedTestNSSDB() {
+  // TODO(mattm): Close the dababase once NSS 3.14 is required,
+  // which fixes https://bugzilla.mozilla.org/show_bug.cgi?id=588269
+  // Resource leaks are suppressed. http://crbug.com/156433 .
 }
 
 base::Lock* GetNSSWriteLock() {

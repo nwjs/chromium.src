@@ -12,10 +12,12 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebMediaStreamSource.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 
+namespace content {
+
 static webrtc::LocalMediaStreamInterface* GetLocalNativeMediaStream(
     const WebKit::WebMediaStreamDescriptor& stream) {
   MediaStreamExtraData* extra_data =
-    static_cast<MediaStreamExtraData*>(stream.extraData());
+      static_cast<MediaStreamExtraData*>(stream.extraData());
   if (extra_data)
     return extra_data->local_stream();
   return NULL;
@@ -94,3 +96,5 @@ PeerConnectionHandlerBase::CreateWebKitStreamDescriptor(
   descriptor.setExtraData(new MediaStreamExtraData(stream));
   return descriptor;
 }
+
+}  // namespace content

@@ -5,6 +5,7 @@
 #include "ash/screen_ash.h"
 
 #include "ash/display/display_controller.h"
+#include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/window_util.h"
@@ -22,7 +23,7 @@ typedef test::AshTestBase ScreenAshTest;
 #if !defined(OS_WIN)
 TEST_F(ScreenAshTest, Bounds) {
   UpdateDisplay("600x600,500x500");
-  Shell::GetInstance()->SetShelfAutoHideBehavior(
+  Shell::GetPrimaryRootWindowController()->SetShelfAutoHideBehavior(
       ash::SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
 
   views::Widget* primary =
@@ -38,14 +39,6 @@ TEST_F(ScreenAshTest, Bounds) {
                 primary->GetNativeView()).ToString());
   EXPECT_EQ("0,0 500x500",
             ScreenAsh::GetMaximizedWindowBoundsInParent(
-                secondary->GetNativeView()).ToString());
-
-  // Unmaximized work area bounds
-  EXPECT_EQ("0,0 600x597",
-            ScreenAsh::GetUnmaximizedWorkAreaBoundsInParent(
-                primary->GetNativeView()).ToString());
-  EXPECT_EQ("0,0 500x500",
-            ScreenAsh::GetUnmaximizedWorkAreaBoundsInParent(
                 secondary->GetNativeView()).ToString());
 
   // Display bounds

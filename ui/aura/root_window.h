@@ -29,6 +29,7 @@
 
 namespace gfx {
 class Size;
+class Transform;
 }
 
 namespace ui {
@@ -39,7 +40,6 @@ class LayerAnimationSequence;
 class MouseEvent;
 class ScrollEvent;
 class TouchEvent;
-class Transform;
 class ViewProp;
 }
 
@@ -107,7 +107,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   ui::Compositor* compositor() { return compositor_.get(); }
   gfx::NativeCursor last_cursor() const { return last_cursor_; }
   Window* mouse_pressed_handler() { return mouse_pressed_handler_; }
-  bool cursor_shown() const { return cursor_shown_; }
 
   void set_focus_manager(FocusManager* focus_manager) {
     focus_manager_ = focus_manager;
@@ -143,8 +142,8 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   // used.
   void SetCursor(gfx::NativeCursor cursor);
 
-  // Shows or hides the cursor.
-  void ShowCursor(bool show);
+  // Invoked when the cursor's visibility has changed.
+  void OnCursorVisibilityChanged(bool visible);
 
   // Moves the cursor to the specified location relative to the root window.
   virtual void MoveCursorTo(const gfx::Point& location) OVERRIDE;
@@ -204,13 +203,14 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
 
   // Gesture Recognition -------------------------------------------------------
 
-  // When a touch event is dispatched to a Window, it can notify the RootWindow
-  // to queue the touch event for asynchronous gesture recognition. These are
-  // the entry points for the asynchronous processing of the queued touch
-  // events.
-  // Process the next touch event for gesture recognition. |processed| indicates
-  // whether the queued event was processed by the window or not.
-  void AdvanceQueuedTouchEvent(Window* window, bool processed);
+  // When a touch event is dispatched to a Window, it may want to process the
+  // touch event asynchronously. In such cases, the window should consume the
+  // event during the event dispatch. Once the event is properly processed, the
+  // window should let the RootWindow know about the result of the event
+  // processing, so that gesture events can be properly created and dispatched.
+  void ProcessedTouchEvent(ui::TouchEvent* event,
+                           Window* window,
+                           ui::EventResult result);
 
   ui::GestureRecognizer* gesture_recognizer() const {
     return gesture_recognizer_.get();
@@ -252,7 +252,7 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   // Overridden from Window:
   virtual RootWindow* GetRootWindow() OVERRIDE;
   virtual const RootWindow* GetRootWindow() const OVERRIDE;
-  virtual void SetTransform(const ui::Transform& transform) OVERRIDE;
+  virtual void SetTransform(const gfx::Transform& transform) OVERRIDE;
 
   // Overridden from ui::EventTarget:
   virtual ui::EventTarget* GetParentTarget() OVERRIDE;
@@ -381,9 +381,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
 
   // Last cursor set.  Used for testing.
   gfx::NativeCursor last_cursor_;
-
-  // Is the cursor currently shown?  Used for testing.
-  bool cursor_shown_;
 
   ObserverList<RootWindowObserver> observers_;
 

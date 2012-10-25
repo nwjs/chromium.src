@@ -9,6 +9,7 @@
 #include <string>
 
 #include "base/gtest_prod_util.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/threading/non_thread_safe.h"
 #include "base/time.h"
 #include "net/base/address_family.h"
@@ -22,13 +23,19 @@ namespace net {
 class NET_EXPORT HostCache : NON_EXPORTED_BASE(public base::NonThreadSafe) {
  public:
   // Stores the latest address list that was looked up for a hostname.
-  struct Entry {
+  struct NET_EXPORT Entry {
+    Entry(int error, const AddressList& addrlist, base::TimeDelta ttl);
+    // Use when |ttl| is unknown.
     Entry(int error, const AddressList& addrlist);
     ~Entry();
+
+    bool has_ttl() const { return ttl >= base::TimeDelta(); }
 
     // The resolve results for this entry.
     int error;
     AddressList addrlist;
+    // TTL obtained from the nameserver. Negative if unknown.
+    base::TimeDelta ttl;
   };
 
   struct Key {
@@ -67,11 +74,10 @@ class NET_EXPORT HostCache : NON_EXPORTED_BASE(public base::NonThreadSafe) {
   const Entry* Lookup(const Key& key, base::TimeTicks now);
 
   // Overwrites or creates an entry for |key|.
-  // (|error|, |addrlist|) is the value to set, |now| is the current time
+  // |entry| is the value to set, |now| is the current time
   // |ttl| is the "time to live".
   void Set(const Key& key,
-           int error,
-           const AddressList& addrlist,
+           const Entry& entry,
            base::TimeTicks now,
            base::TimeDelta ttl);
 
@@ -87,7 +93,7 @@ class NET_EXPORT HostCache : NON_EXPORTED_BASE(public base::NonThreadSafe) {
   const EntryMap& entries() const;
 
   // Creates a default cache.
-  static HostCache* CreateDefaultCache();
+  static scoped_ptr<HostCache> CreateDefaultCache();
 
  private:
   FRIEND_TEST_ALL_PREFIXES(HostCacheTest, NoCache);

@@ -70,10 +70,6 @@ class WebrtcCallTest(webrtc_test_base.WebrtcTestBase):
     self.AssertNoFailures(tab_index=0)
     self.AssertNoFailures(tab_index=1)
 
-  def testSimpleWebrtcJsep00Call(self):
-    """Uses a draft of the PeerConnection API, using JSEP00."""
-    self._SimpleWebrtcCall('webrtc_jsep00_test.html')
-
   def testSimpleWebrtcJsep01Call(self):
     """Uses a draft of the PeerConnection API, using JSEP01."""
     self._SimpleWebrtcCall('webrtc_jsep01_test.html')
@@ -87,7 +83,7 @@ class WebrtcCallTest(webrtc_test_base.WebrtcTestBase):
     detect video in that tag using the video detector, and if we see video
     moving the test passes.
     """
-    url = self.GetFileURLForDataPath('webrtc', 'webrtc_jsep00_test.html')
+    url = self.GetFileURLForDataPath('webrtc', 'webrtc_jsep01_test.html')
     self.NavigateToURL(url)
     self.assertEquals('ok-got-stream', self.GetUserMedia(tab_index=0))
     self._StartDetectingVideo(tab_index=0, video_element='local-view')

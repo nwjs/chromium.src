@@ -15,9 +15,11 @@
 #include "content/browser/android/touch_point.h"
 #include "content/browser/renderer_host/java/java_bound_object.h"
 #include "content/browser/renderer_host/java/java_bridge_dispatcher_host_manager.h"
+#include "content/browser/renderer_host/compositor_impl_android.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
+#include "content/browser/ssl/ssl_host_state.h"
 #include "content/browser/web_contents/navigation_controller_impl.h"
 #include "content/browser/web_contents/navigation_entry_impl.h"
 #include "content/browser/web_contents/web_contents_view_android.h"
@@ -50,6 +52,7 @@ using base::android::ConvertUTF16ToJavaString;
 using base::android::ConvertUTF8ToJavaString;
 using base::android::GetClass;
 using base::android::HasField;
+using base::android::MethodID;
 using base::android::JavaByteArrayToByteVector;
 using base::android::ScopedJavaGlobalRef;
 using base::android::ScopedJavaLocalRef;
@@ -65,22 +68,65 @@ enum PopupItemType {
   POPUP_ITEM_TYPE_ENABLED
 };
 
-namespace {
-jfieldID g_native_content_view;
-}  // namespace
-
 namespace content {
 
-struct ContentViewCoreImpl::JavaObject {
+namespace {
+jfieldID g_native_content_view;
 
+const void* kContentViewUserDataKey = &kContentViewUserDataKey;
+}  // namespace
+
+// Enables a callback when the underlying WebContents is destroyed, to enable
+// nulling the back-pointer.
+class ContentViewCoreImpl::ContentViewUserData
+    : public base::SupportsUserData::Data {
+ public:
+  explicit ContentViewUserData(ContentViewCoreImpl* content_view_core)
+      : content_view_core_(content_view_core) {
+  }
+
+  virtual ~ContentViewUserData() {
+    // TODO(joth): When chrome has finished removing the TabContents class (see
+    // crbug.com/107201) consider inverting relationship, so ContentViewCore
+    // would own WebContents. That effectively implies making the WebContents
+    // destructor private on Android.
+    delete content_view_core_;
+  }
+
+  ContentViewCoreImpl* get() const { return content_view_core_; }
+
+ private:
+  // Not using scoped_ptr as ContentViewCoreImpl destructor is private.
+  ContentViewCoreImpl* content_view_core_;
+
+  DISALLOW_IMPLICIT_CONSTRUCTORS(ContentViewUserData);
 };
+
+struct ContentViewCoreImpl::JavaObject {
+  ScopedJavaGlobalRef<jclass> rect_clazz;
+  jmethodID rect_constructor;
+};
+
+// static
+ContentViewCoreImpl* ContentViewCoreImpl::FromWebContents(
+    content::WebContents* web_contents) {
+  ContentViewCoreImpl::ContentViewUserData* data =
+      reinterpret_cast<ContentViewCoreImpl::ContentViewUserData*>(
+          web_contents->GetUserData(kContentViewUserDataKey));
+  return data ? data->get() : NULL;
+}
+
+// static
+ContentViewCore* ContentViewCore::FromWebContents(
+    content::WebContents* web_contents) {
+  return ContentViewCoreImpl::FromWebContents(web_contents);
+}
 
 ContentViewCore* ContentViewCore::GetNativeContentViewCore(JNIEnv* env,
                                                            jobject obj) {
   return reinterpret_cast<ContentViewCore*>(
       env->GetIntField(obj, g_native_content_view));
 }
-
 
 ContentViewCoreImpl::ContentViewCoreImpl(JNIEnv* env, jobject obj,
                                          bool hardware_accelerated,
@@ -97,7 +143,7 @@ ContentViewCoreImpl::ContentViewCoreImpl(JNIEnv* env, jobject obj,
 
   InitJNI(env, obj);
 
-  if (!gfx::Screen::IsDIPEnabled()) {
+  if (!gfx::Screen::GetNativeScreen()->IsDIPEnabled()) {
     dpi_scale_ = 1;
   } else {
     scoped_ptr<content::DeviceInfo> device_info(new content::DeviceInfo());
@@ -118,31 +164,42 @@ ContentViewCoreImpl::ContentViewCoreImpl(JNIEnv* env, jobject obj,
       webkit_glue::BuildUserAgentFromOSAndProduct(kLinuxInfoStr, product);
   web_contents->SetUserAgentOverride(spoofed_ua);
 
-  InitWebContents(web_contents);
+  InitWebContents();
 }
 
 ContentViewCoreImpl::~ContentViewCoreImpl() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> j_obj = java_ref_.get(env);
+  java_ref_.reset();
+  if (!j_obj.is_null()) {
+    Java_ContentViewCore_onNativeContentViewCoreDestroyed(
+        env, j_obj.obj(), reinterpret_cast<jint>(this));
+  }
   // Make sure nobody calls back into this object while we are tearing things
   // down.
   notification_registrar_.RemoveAll();
 
   delete java_object_;
   java_object_ = NULL;
+}
+
+void ContentViewCoreImpl::OnJavaContentViewCoreDestroyed(JNIEnv* env,
+                                                         jobject obj) {
+  DCHECK(env->IsSameObject(java_ref_.get(env).obj(), obj));
   java_ref_.reset();
 }
 
-void ContentViewCoreImpl::Destroy(JNIEnv* env, jobject obj) {
-  delete this;
-}
-
-void ContentViewCoreImpl::InitWebContents(WebContents* web_contents) {
-  web_contents_ = static_cast<WebContentsImpl*>(web_contents);
+void ContentViewCoreImpl::InitWebContents() {
+  DCHECK(web_contents_);
   notification_registrar_.Add(this,
       NOTIFICATION_RENDER_VIEW_HOST_CHANGED,
       Source<NavigationController>(&web_contents_->GetController()));
 
   static_cast<WebContentsViewAndroid*>(web_contents_->GetView())->
       SetContentViewCore(this);
+  DCHECK(!web_contents_->GetUserData(kContentViewUserDataKey));
+  web_contents_->SetUserData(kContentViewUserDataKey,
+                             new ContentViewUserData(this));
 }
 
 void ContentViewCoreImpl::Observe(int type,
@@ -173,6 +230,9 @@ void ContentViewCoreImpl::Observe(int type,
 
 void ContentViewCoreImpl::InitJNI(JNIEnv* env, jobject obj) {
   java_object_ = new JavaObject;
+  java_object_->rect_clazz.Reset(GetClass(env, "android/graphics/Rect"));
+  java_object_->rect_constructor = MethodID::Get<MethodID::TYPE_INSTANCE>(
+      env, java_object_->rect_clazz.obj(), "<init>", "(IIII)V");
 }
 
 RenderWidgetHostViewAndroid*
@@ -186,6 +246,14 @@ RenderWidgetHostViewAndroid*
 ScopedJavaLocalRef<jobject> ContentViewCoreImpl::GetJavaObject() {
   JNIEnv* env = AttachCurrentThread();
   return java_ref_.get(env);
+}
+
+ScopedJavaLocalRef<jobject> ContentViewCoreImpl::GetContainerViewDelegate() {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return ScopedJavaLocalRef<jobject>();
+  return Java_ContentViewCore_getContainerViewDelegate(env, obj.obj());
 }
 
 void ContentViewCoreImpl::OnWebPreferencesUpdated() {
@@ -320,12 +388,12 @@ void ContentViewCoreImpl::ConfirmTouchEvent(bool handled) {
   Java_ContentViewCore_confirmTouchEvent(env, j_obj.obj(), handled);
 }
 
-void ContentViewCoreImpl::DidSetNeedTouchEvents(bool need_touch_events) {
+void ContentViewCoreImpl::HasTouchEventHandlers(bool need_touch_events) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> j_obj = java_ref_.get(env);
   if (j_obj.is_null())
     return;
-  Java_ContentViewCore_didSetNeedTouchEvents(env,
+  Java_ContentViewCore_hasTouchEventHandlers(env,
                                              j_obj.obj(),
                                              need_touch_events);
 }
@@ -339,7 +407,58 @@ bool ContentViewCoreImpl::HasFocus() {
 }
 
 void ContentViewCoreImpl::OnSelectionChanged(const std::string& text) {
-  NOTIMPLEMENTED() << "not upstreamed yet";
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return;
+  ScopedJavaLocalRef<jstring> jtext = ConvertUTF8ToJavaString(env, text);
+  Java_ContentViewCore_onSelectionChanged(env, obj.obj(), jtext.obj());
+}
+
+void ContentViewCoreImpl::OnSelectionBoundsChanged(
+    const gfx::Rect& start_rect, base::i18n::TextDirection start_dir,
+    const gfx::Rect& end_rect, base::i18n::TextDirection end_dir) {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return;
+  ScopedJavaLocalRef<jobject> start_rect_object(env,
+      env->NewObject(java_object_->rect_clazz.obj(),
+                     java_object_->rect_constructor,
+                     start_rect.x(),
+                     start_rect.y(),
+                     start_rect.right(),
+                     start_rect.bottom()));
+  ScopedJavaLocalRef<jobject> end_rect_object(env,
+      env->NewObject(java_object_->rect_clazz.obj(),
+                     java_object_->rect_constructor,
+                     end_rect.x(),
+                     end_rect.y(),
+                     end_rect.right(),
+                     end_rect.bottom()));
+  Java_ContentViewCore_onSelectionBoundsChanged(env, obj.obj(),
+                                                start_rect_object.obj(),
+                                                start_dir,
+                                                end_rect_object.obj(),
+                                                end_dir);
+}
+
+void ContentViewCoreImpl::ShowPastePopup(int x, int y) {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return;
+  Java_ContentViewCore_showPastePopup(env, obj.obj(), static_cast<jint>(x),
+                                      static_cast<jint>(y));
+}
+
+unsigned int ContentViewCoreImpl::GetScaledContentTexture(
+    const gfx::Size& size) {
+  RenderWidgetHostViewAndroid* view = GetRenderWidgetHostViewAndroid();
+  if (!view)
+    return 0;
+
+  return view->GetScaledContentTexture(size);
 }
 
 void ContentViewCoreImpl::StartContentIntent(const GURL& content_url) {
@@ -396,7 +515,8 @@ void ContentViewCoreImpl::LoadUrl(
     jstring extra_headers,
     jbyteArray post_data,
     jstring base_url_for_data_url,
-    jstring virtual_url_for_data_url) {
+    jstring virtual_url_for_data_url,
+    jboolean can_load_local_resources) {
   DCHECK(url);
   NavigationController::LoadURLParams params(
       GURL(ConvertJavaStringToUTF8(env, url)));
@@ -427,6 +547,8 @@ void ContentViewCoreImpl::LoadUrl(
     params.virtual_url_for_data_url =
         GURL(ConvertJavaStringToUTF8(env, virtual_url_for_data_url));
   }
+
+  params.can_load_local_resources = can_load_local_resources;
 
   LoadUrl(params);
 }
@@ -773,6 +895,16 @@ void ContentViewCoreImpl::UpdateVSyncParameters(JNIEnv* env, jobject /* obj */,
       base::TimeDelta::FromMicroseconds(interval_micros));
 }
 
+jboolean ContentViewCoreImpl::PopulateBitmapFromCompositor(JNIEnv* env,
+                                                           jobject obj,
+                                                           jobject jbitmap) {
+  RenderWidgetHostViewAndroid* view = GetRenderWidgetHostViewAndroid();
+  if (!view)
+    return false;
+
+  return view->PopulateBitmapWithContents(jbitmap);
+}
+
 void ContentViewCoreImpl::ScrollFocusedEditableNodeIntoView(JNIEnv* env,
                                                             jobject obj) {
   RenderViewHost* host = web_contents_->GetRenderViewHost();
@@ -869,6 +1001,12 @@ void ContentViewCoreImpl::ImeUpdateAdapter(int native_ime_adapter,
                                         selection_start, selection_end,
                                         composition_start, composition_end,
                                         show_ime_if_needed);
+}
+
+void ContentViewCoreImpl::ClearSslPreferences(JNIEnv* env, jobject obj) {
+  SSLHostState* state = SSLHostState::GetFor(
+      web_contents_->GetController().GetBrowserContext());
+  state->Clear();
 }
 
 void ContentViewCoreImpl::SetUseDesktopUserAgent(

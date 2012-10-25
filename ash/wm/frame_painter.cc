@@ -147,8 +147,15 @@ FramePainter::FramePainter()
 
 FramePainter::~FramePainter() {
   // Sometimes we are destroyed before the window closes, so ensure we clean up.
-  if (window_)
+  if (window_) {
+    aura::RootWindow* root = window_->GetRootWindow();
+    if (root &&
+        root->GetProperty(internal::kSoloWindowFramePainterKey) == this) {
+      root->SetProperty(internal::kSoloWindowFramePainterKey,
+                        static_cast<FramePainter*>(NULL));
+    }
     window_->RemoveObserver(this);
+  }
   instances_->erase(this);
 }
 
@@ -471,8 +478,7 @@ void FramePainter::PaintTitleBar(views::NonClientFrameView* view,
 void FramePainter::LayoutHeader(views::NonClientFrameView* view,
                                 bool shorter_layout) {
   // The new assets only make sense if the window is actually maximized.
-  if (internal::WorkspaceController::IsWorkspace2Enabled() &&
-      shorter_layout && frame_->IsMaximized() &&
+  if (shorter_layout && frame_->IsMaximized() &&
       GetTrackedByWorkspace(frame_->GetNativeWindow())) {
     SetButtonImages(close_button_,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE2,
@@ -652,9 +658,7 @@ int FramePainter::GetHeaderOpacity(HeaderMode header_mode,
 
   // Maximized windows with workspace2 are totally transparent, except those not
   // tracked by workspace code (which are used for tab dragging).
-  if (frame_->IsMaximized() &&
-      internal::WorkspaceController::IsWorkspace2Enabled() &&
-      GetTrackedByWorkspace(frame_->GetNativeWindow()))
+  if (frame_->IsMaximized() && GetTrackedByWorkspace(frame_->GetNativeWindow()))
     return 0;
 
   // Single browser window is very transparent.
@@ -674,7 +678,7 @@ int FramePainter::AdjustFrameHitCodeForMaximizedModes(int hit_code) {
     // be active.
     const gfx::Rect& bounds = frame_->GetWindowBoundsInScreen();
     const gfx::Rect& screen =
-        gfx::Screen::GetDisplayMatching(bounds).work_area();
+        Shell::GetScreen()->GetDisplayMatching(bounds).work_area();
     if (bounds.y() == screen.y() && bounds.bottom() == screen.bottom()) {
       // The window is probably either left or right maximized.
       if (bounds.x() == screen.x()) {
@@ -731,8 +735,7 @@ FramePainter* FramePainter::GetSoloPainterInRoot(
     // the existence of a layout manager gets additionally tested.
     if (IsVisibleNormalWindow((*it)->window_) &&
         (!(*it)->window_->GetProperty(ash::kConstrainedWindowKey))) {
-      if (internal::WorkspaceController::IsWorkspace2Enabled() &&
-          wm::IsWindowMaximized((*it)->window_)) {
+      if (wm::IsWindowMaximized((*it)->window_)) {
         return NULL;
       }
       if (painter)
@@ -755,12 +758,16 @@ void FramePainter::UpdateSoloWindowFramePainter(
       internal::kSoloWindowFramePainterKey);
   FramePainter* new_solo_painter = GetSoloPainterInRoot(ignorable_window);
   if (old_solo_painter != new_solo_painter) {
-    if (old_solo_painter)
+    if (old_solo_painter && old_solo_painter->frame_ &&
+        old_solo_painter->frame_->non_client_view()) {
       old_solo_painter->frame_->non_client_view()->SchedulePaint();
+    }
     window_->GetRootWindow()->SetProperty(
         internal::kSoloWindowFramePainterKey, new_solo_painter);
-    if (new_solo_painter)
+    if (new_solo_painter && new_solo_painter->frame_ &&
+        new_solo_painter->frame_->non_client_view()) {
       new_solo_painter->frame_->non_client_view()->SchedulePaint();
+    }
   }
 }
 

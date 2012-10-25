@@ -22,6 +22,8 @@ using testing::InvokeWithoutArgs;
 using testing::Return;
 using testing::StrEq;
 
+namespace content {
+
 namespace {
 
 class AudioUtil : public AudioUtilInterface {
@@ -35,7 +37,7 @@ class AudioUtil : public AudioUtilInterface {
       const std::string& device_id) OVERRIDE {
     return media::GetAudioInputHardwareSampleRate(device_id);
   }
-  virtual ChannelLayout GetAudioInputHardwareChannelLayout(
+  virtual media::ChannelLayout GetAudioInputHardwareChannelLayout(
       const std::string& device_id) OVERRIDE {
     return media::GetAudioInputHardwareChannelLayout(device_id);
   }
@@ -46,7 +48,7 @@ class AudioUtil : public AudioUtilInterface {
 class AudioUtilNoHardware : public AudioUtilInterface {
  public:
   AudioUtilNoHardware(int output_rate, int input_rate,
-                      ChannelLayout input_channel_layout)
+                      media::ChannelLayout input_channel_layout)
       : output_rate_(output_rate),
         input_rate_(input_rate),
         input_channel_layout_(input_channel_layout) {
@@ -59,7 +61,7 @@ class AudioUtilNoHardware : public AudioUtilInterface {
       const std::string& device_id) OVERRIDE {
     return input_rate_;
   }
-  virtual ChannelLayout GetAudioInputHardwareChannelLayout(
+  virtual media::ChannelLayout GetAudioInputHardwareChannelLayout(
       const std::string& device_id) OVERRIDE {
     return input_channel_layout_;
   }
@@ -67,7 +69,7 @@ class AudioUtilNoHardware : public AudioUtilInterface {
  private:
   int output_rate_;
   int input_rate_;
-  ChannelLayout input_channel_layout_;
+  media::ChannelLayout input_channel_layout_;
   DISALLOW_COPY_AND_ASSIGN(AudioUtilNoHardware);
 };
 
@@ -91,7 +93,7 @@ bool HardwareSampleRatesAreValid() {
 
   // Verify the input sample rate.
   int input_sample_rate =
-      static_cast<int>(audio_hardware::GetInputSampleRate());
+      static_cast<int>(AudioHardware::GetInputSampleRate());
 
   if (!FindElementInArray(valid_input_rates, arraysize(valid_input_rates),
                           input_sample_rate)) {
@@ -101,7 +103,7 @@ bool HardwareSampleRatesAreValid() {
 
   // Given that the input rate was OK, verify the output rate as well.
   int output_sample_rate =
-      static_cast<int>(audio_hardware::GetOutputSampleRate());
+      static_cast<int>(AudioHardware::GetOutputSampleRate());
   if (!FindElementInArray(valid_output_rates, arraysize(valid_output_rates),
                           output_sample_rate)) {
     LOG(WARNING) << "Non-supported output sample rate detected.";
@@ -221,7 +223,7 @@ TEST_F(WebRTCAudioDeviceTest, TestValidOutputRates) {
 // Basic test that instantiates and initializes an instance of
 // WebRtcAudioDeviceImpl.
 TEST_F(WebRTCAudioDeviceTest, Construct) {
-  AudioUtilNoHardware audio_util(48000, 48000, CHANNEL_LAYOUT_MONO);
+  AudioUtilNoHardware audio_util(48000, 48000, media::CHANNEL_LAYOUT_MONO);
   SetAudioUtilCallback(&audio_util);
   scoped_refptr<WebRtcAudioDeviceImpl> webrtc_audio_device(
       new WebRtcAudioDeviceImpl());
@@ -518,3 +520,5 @@ TEST_F(WebRTCAudioDeviceTest, FullDuplexAudioWithAGC) {
   EXPECT_EQ(0, base->DeleteChannel(ch));
   EXPECT_EQ(0, base->Terminate());
 }
+
+}  // namespace content

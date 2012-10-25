@@ -131,9 +131,6 @@ RootWindow::RootWindow(const CreateParams& params)
       mouse_button_flags_(0),
       touch_ids_down_(0),
       last_cursor_(ui::kCursorNull),
-      // TODO(ivankr): this currently tracks the default state in
-      // RootWindowHostLinux. Other platforms do not implement ShowCursor().
-      cursor_shown_(true),
       mouse_pressed_handler_(NULL),
       mouse_moved_handler_(NULL),
       mouse_event_dispatch_target_(NULL),
@@ -260,15 +257,11 @@ void RootWindow::SetCursor(gfx::NativeCursor cursor) {
   host_->SetCursor(cursor);
 }
 
-void RootWindow::ShowCursor(bool show) {
+void RootWindow::OnCursorVisibilityChanged(bool show) {
   // Send entered / exited so that visual state can be updated to match
   // cursor state.
-  if (show != cursor_shown_) {
-    cursor_shown_ = show;
-    host_->ShowCursor(show);
-    Env::GetInstance()->SetCursorShown(show);
-    PostMouseMoveEventAfterWindowChange();
-  }
+  Env::GetInstance()->SetCursorShown(show);
+  PostMouseMoveEventAfterWindowChange();
 }
 
 void RootWindow::MoveCursorTo(const gfx::Point& location_in_dip) {
@@ -400,9 +393,12 @@ void RootWindow::ConvertPointFromNativeScreen(gfx::Point* point) const {
       point->Scale(1 / ui::GetDeviceScaleFactor(layer())));
 }
 
-void RootWindow::AdvanceQueuedTouchEvent(Window* window, bool processed) {
+void RootWindow::ProcessedTouchEvent(ui::TouchEvent* event,
+                                     Window* window,
+                                     ui::EventResult result) {
   scoped_ptr<ui::GestureRecognizer::Gestures> gestures;
-  gestures.reset(gesture_recognizer_->AdvanceTouchQueue(window, processed));
+  gestures.reset(gesture_recognizer_->ProcessTouchEventForGesture(
+      *event, result, window));
   ProcessGestures(gestures.get());
 }
 
@@ -476,7 +472,7 @@ const RootWindow* RootWindow::GetRootWindow() const {
   return this;
 }
 
-void RootWindow::SetTransform(const ui::Transform& transform) {
+void RootWindow::SetTransform(const gfx::Transform& transform) {
   Window::SetTransform(transform);
 
   // If the layer is not animating, then we need to update the host size
@@ -542,19 +538,23 @@ void RootWindow::OnDeviceScaleFactorChanged(
     float device_scale_factor) {
   const bool cursor_is_in_bounds =
       GetBoundsInScreen().Contains(Env::GetInstance()->last_mouse_location());
-  if (cursor_is_in_bounds && cursor_shown_)
-    ShowCursor(false);
+  bool cursor_visible = false;
+  client::CursorClient* cursor_client = client::GetCursorClient(this);
+  if (cursor_is_in_bounds && cursor_client) {
+    cursor_visible = cursor_client->IsCursorVisible();
+    if (cursor_visible)
+      cursor_client->ShowCursor(false);
+  }
   host_->OnDeviceScaleFactorChanged(device_scale_factor);
   Window::OnDeviceScaleFactorChanged(device_scale_factor);
   // Update the device scale factor of the cursor client only when the last
   // mouse location is on this root window.
   if (cursor_is_in_bounds) {
-    client::CursorClient* cursor_client = client::GetCursorClient(this);
     if (cursor_client)
       cursor_client->SetDeviceScaleFactor(device_scale_factor);
   }
-  if (cursor_is_in_bounds && cursor_shown_)
-    ShowCursor(true);
+  if (cursor_is_in_bounds && cursor_client && cursor_visible)
+    cursor_client->ShowCursor(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -759,7 +759,7 @@ void RootWindow::OnWindowHidden(Window* invisible, bool destroyed) {
 }
 
 void RootWindow::CleanupGestureRecognizerState(Window* window) {
-  gesture_recognizer_->FlushTouchQueue(window);
+  gesture_recognizer_->CleanupStateForConsumer(window);
   Windows windows = window->children();
   for (Windows::const_iterator iter = windows.begin();
       iter != windows.end();
@@ -838,7 +838,7 @@ bool RootWindow::OnHostMouseEvent(ui::MouseEvent* event) {
 bool RootWindow::OnHostScrollEvent(ui::ScrollEvent* event) {
   DispatchHeldMouseMove();
   float scale = ui::GetDeviceScaleFactor(layer());
-  ui::Transform transform = layer()->transform();
+  gfx::Transform transform = layer()->transform();
   transform.ConcatScale(scale, scale);
   event->UpdateForRootTransform(transform);
 
@@ -882,7 +882,7 @@ bool RootWindow::OnHostTouchEvent(ui::TouchEvent* event) {
       break;
   }
   float scale = ui::GetDeviceScaleFactor(layer());
-  ui::Transform transform = layer()->transform();
+  gfx::Transform transform = layer()->transform();
   transform.ConcatScale(scale, scale);
   event->UpdateForRootTransform(transform);
   bool handled = false;
@@ -914,11 +914,6 @@ bool RootWindow::OnHostTouchEvent(ui::TouchEvent* event) {
         *event, static_cast<Window*>(this), target);
     result = ProcessTouchEvent(target, &translated_event);
     handled = result != ui::ER_UNHANDLED;
-
-    if (result & ui::ER_ASYNC) {
-      gesture_recognizer_->QueueTouchEventForGesture(target, *event);
-      return true;
-    }
   }
 
   // Get the list of GestureEvents from GestureRecognizer.
@@ -973,7 +968,7 @@ RootWindow* RootWindow::AsRootWindow() {
 
 bool RootWindow::DispatchMouseEventImpl(ui::MouseEvent* event) {
   float scale = ui::GetDeviceScaleFactor(layer());
-  ui::Transform transform = layer()->transform();
+  gfx::Transform transform = layer()->transform();
   transform.ConcatScale(scale, scale);
   event->UpdateForRootTransform(transform);
   Window* target = mouse_pressed_handler_ ?
@@ -1050,7 +1045,7 @@ void RootWindow::SynthesizeMouseMoveEvent() {
 #if !defined(OS_WIN)
   // Temporarily disabled for windows. See crbug.com/112222.
   gfx::Point3f point(GetLastMouseLocationInRoot());
-  ui::Transform transform = layer()->transform();
+  gfx::Transform transform = layer()->transform();
   float scale = ui::GetDeviceScaleFactor(layer());
   transform.ConcatScale(scale, scale);
   transform.TransformPoint(point);

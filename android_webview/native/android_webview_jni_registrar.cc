@@ -10,7 +10,9 @@
 #include "android_webview/native/aw_contents.h"
 #include "android_webview/native/aw_contents_io_thread_client_impl.h"
 #include "android_webview/native/aw_http_auth_handler.h"
+#include "android_webview/native/aw_resource.h"
 #include "android_webview/native/cookie_manager.h"
+#include "android_webview/native/intercepted_request_data_impl.h"
 #include "android_webview/native/js_result_handler.h"
 #include "base/android/jni_android.h"
 #include "base/android/jni_registrar.h"
@@ -32,7 +34,9 @@ static base::android::RegistrationMethod kWebViewRegisteredMethods[] = {
   { "AwContents", RegisterAwContents },
   { "AwContentsIoThreadClientImpl", RegisterAwContentsIoThreadClientImpl},
   { "AwHttpAuthHandler", RegisterAwHttpAuthHandler },
+  { "AwResource", AwResource::RegisterAwResource },
   { "CookieManager", RegisterCookieManager },
+  { "InterceptedRequestDataImpl", RegisterInterceptedRequestData },
   { "JsResultHandler", RegisterJsResultHandler },
 };
 

@@ -13,13 +13,12 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
-#include "content/public/test/browser_test_utils.h"
 #include "net/base/net_util.h"
+#include "net/test/test_server.h"
 
 namespace {
 
@@ -103,6 +102,7 @@ void ExtensionApiTest::SetUpInProcessBrowserTestFixture() {
   test_config_.reset(new DictionaryValue());
   test_config_->SetString(kTestDataDirectory,
                           net::FilePathToFileURL(test_data_dir_).spec());
+  test_config_->SetInteger(kTestWebSocketPort, 0);
   extensions::TestGetConfigFunction::set_test_config_state(
       test_config_.get());
 }
@@ -293,30 +293,21 @@ bool ExtensionApiTest::StartTestServer() {
 }
 
 bool ExtensionApiTest::StartWebSocketServer(const FilePath& root_directory) {
-  websocket_server_.reset(new content::TestWebSocketServer());
-  int port = websocket_server_->UseRandomPort();
-  if (!websocket_server_->Start(root_directory))
+  websocket_server_.reset(new net::TestServer(
+      net::TestServer::TYPE_WS,
+      net::TestServer::kLocalhost,
+      root_directory));
+
+  if (!websocket_server_->Start())
     return false;
 
-  test_config_->SetInteger(kTestWebSocketPort, port);
+  test_config_->SetInteger(kTestWebSocketPort,
+                           websocket_server_->host_port_pair().port());
+
   return true;
 }
 
 void ExtensionApiTest::SetUpCommandLine(CommandLine* command_line) {
   ExtensionBrowserTest::SetUpCommandLine(command_line);
   test_data_dir_ = test_data_dir_.AppendASCII("api_test");
-}
-
-PlatformAppApiTest::PlatformAppApiTest() {}
-
-PlatformAppApiTest::~PlatformAppApiTest() {}
-
-void PlatformAppApiTest::SetUpCommandLine(CommandLine* command_line) {
-  ExtensionApiTest::SetUpCommandLine(command_line);
-
-  // If someone is using this class, we're going to insist on management of the
-  // relevant flags. If these flags are already set, die.
-  DCHECK(!command_line->HasSwitch(switches::kEnableExperimentalExtensionApis));
-
-  command_line->AppendSwitch(switches::kEnableExperimentalExtensionApis);
 }

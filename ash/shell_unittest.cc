@@ -10,11 +10,13 @@
 #include "ash/ash_switches.h"
 #include "ash/desktop_background/desktop_background_widget_controller.h"
 #include "ash/launcher/launcher.h"
+#include "ash/root_window_controller.h"
 #include "ash/shell_delegate.h"
 #include "ash/shell_window_ids.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/root_window_layout_manager.h"
 #include "ash/wm/shelf_layout_manager.h"
+#include "ash/wm/window_util.h"
 #include "base/utf_string_conversions.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/root_window.h"
@@ -277,7 +279,7 @@ TEST_F(ShellTest, MAYBE_ManagedWindowModeBasics) {
   // We start with the usual window containers.
   ExpectAllContainers();
   // Launcher is visible.
-  views::Widget* launcher_widget = shell->launcher()->widget();
+  views::Widget* launcher_widget = Launcher::ForPrimaryDisplay()->widget();
   EXPECT_TRUE(launcher_widget->IsVisible());
   // Launcher is at bottom-left of screen.
   EXPECT_EQ(0, launcher_widget->GetWindowBoundsInScreen().x());
@@ -316,18 +318,21 @@ TEST_F(ShellTest, FullscreenWindowHidesShelf) {
   EXPECT_FALSE(widget->IsMaximized());
 
   // Shelf defaults to visible.
-  EXPECT_EQ(internal::ShelfLayoutManager::VISIBLE,
-            Shell::GetInstance()->shelf()->visibility_state());
+  EXPECT_EQ(
+      internal::ShelfLayoutManager::VISIBLE,
+      Shell::GetPrimaryRootWindowController()->shelf()->visibility_state());
 
   // Fullscreen window hides it.
   widget->SetFullscreen(true);
-  EXPECT_EQ(internal::ShelfLayoutManager::HIDDEN,
-            Shell::GetInstance()->shelf()->visibility_state());
+  EXPECT_EQ(
+      internal::ShelfLayoutManager::HIDDEN,
+      Shell::GetPrimaryRootWindowController()->shelf()->visibility_state());
 
   // Restoring the window restores it.
   widget->Restore();
-  EXPECT_EQ(internal::ShelfLayoutManager::VISIBLE,
-            Shell::GetInstance()->shelf()->visibility_state());
+  EXPECT_EQ(
+      internal::ShelfLayoutManager::VISIBLE,
+      Shell::GetPrimaryRootWindowController()->shelf()->visibility_state());
 
   // Clean up.
   widget->Close();
@@ -385,6 +390,41 @@ TEST_F(ShellTest, SystemBackgroundBehindDesktopBackground) {
   }
   EXPECT_TRUE(false) <<
       "system background and desktop background need to have a common parent";
+}
+
+// Various assertions around IsAutoHideMenuHideChecked() and
+// ToggleAutoHideMenu().
+TEST_F(ShellTest, ToggleAutoHide) {
+  scoped_ptr<aura::Window> window(new aura::Window(NULL));
+  window->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
+  window->SetType(aura::client::WINDOW_TYPE_NORMAL);
+  window->Init(ui::LAYER_TEXTURED);
+  window->SetParent(NULL);
+  window->Show();
+  wm::ActivateWindow(window.get());
+
+  internal::RootWindowController* controller =
+      Shell::GetPrimaryRootWindowController();
+  controller->SetShelfAutoHideBehavior(ash::SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
+  EXPECT_EQ(ash::SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS,
+            controller->GetShelfAutoHideBehavior());
+  EXPECT_TRUE(controller->IsShelfAutoHideMenuHideChecked());
+  controller->SetShelfAutoHideBehavior(
+      controller->GetToggledShelfAutoHideBehavior());
+  EXPECT_EQ(ash::SHELF_AUTO_HIDE_BEHAVIOR_NEVER,
+            controller->GetShelfAutoHideBehavior());
+
+  window->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
+  EXPECT_FALSE(controller->IsShelfAutoHideMenuHideChecked());
+  controller->SetShelfAutoHideBehavior(
+      controller->GetToggledShelfAutoHideBehavior());
+  EXPECT_EQ(ash::SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS,
+            controller->GetShelfAutoHideBehavior());
+  EXPECT_TRUE(controller->IsShelfAutoHideMenuHideChecked());
+  controller->SetShelfAutoHideBehavior(
+      controller->GetToggledShelfAutoHideBehavior());
+  EXPECT_EQ(ash::SHELF_AUTO_HIDE_BEHAVIOR_NEVER,
+            controller->GetShelfAutoHideBehavior());
 }
 
 // This verifies WindowObservers are removed when a window is destroyed after

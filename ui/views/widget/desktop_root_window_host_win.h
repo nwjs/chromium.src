@@ -19,6 +19,7 @@ namespace client {
 class ScreenPositionClient;
 }
 namespace shared {
+class CompoundEventFilter;
 class InputMethodEventFilter;
 }
 }
@@ -90,6 +91,8 @@ class VIEWS_EXPORT DesktopRootWindowHostWin
   virtual void SetAccessibleState(ui::AccessibilityTypes::State state) OVERRIDE;
   virtual void InitModalType(ui::ModalType modal_type) OVERRIDE;
   virtual void FlashFrame(bool flash_frame) OVERRIDE;
+  virtual void OnNativeWidgetFocus() OVERRIDE;
+  virtual void OnNativeWidgetBlur() OVERRIDE;
 
   // Overridden from aura::RootWindowHost:
   virtual void SetDelegate(aura::RootWindowHostDelegate* delegate) OVERRIDE;
@@ -104,7 +107,6 @@ class VIEWS_EXPORT DesktopRootWindowHostWin
   virtual void SetCapture() OVERRIDE;
   virtual void ReleaseCapture() OVERRIDE;
   virtual void SetCursor(gfx::NativeCursor cursor) OVERRIDE;
-  virtual void ShowCursor(bool show) OVERRIDE;
   virtual bool QueryMouseLocation(gfx::Point* location_return) OVERRIDE;
   virtual bool ConfineCursorToRootWindow() OVERRIDE;
   virtual void UnConfineCursor() OVERRIDE;
@@ -222,6 +224,9 @@ class VIEWS_EXPORT DesktopRootWindowHostWin
 
   // A simple cursor client which just forwards events to the RootWindow.
   scoped_ptr<aura::DesktopCursorClient> cursor_client_;
+
+  // The RootWindow's CompoundEventFilter.
+  aura::shared::CompoundEventFilter* root_window_event_filter_;
 
   DISALLOW_COPY_AND_ASSIGN(DesktopRootWindowHostWin);
 };

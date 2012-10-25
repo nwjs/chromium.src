@@ -7,7 +7,6 @@
 
 #include "base/basictypes.h"
 #include "base/bind.h"
-#include "base/sys_byteorder.h"
 #include "media/base/decoder_buffer.h"
 #include "media/base/decrypt_config.h"
 #include "media/base/mock_filters.h"
@@ -92,8 +91,8 @@ const WebmEncryptedData kWebmEncryptedFrames[] = {
       0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40
       }, 16,
     // encrypted_data
-    { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x01, 0x9c, 0x71, 0x26, 0x57, 0x3e, 0x25, 0x37,
+    { 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x9c, 0x71, 0x26, 0x57, 0x3e, 0x25, 0x37,
       0xf7, 0x31, 0x81, 0x19, 0x64, 0xce, 0xbc
       }, 23
   },
@@ -161,16 +160,16 @@ static const SubsampleEntry kSubsampleEntries[] = {
   { 1, 0 }
 };
 
-// Returns a 16 byte CTR counter block. The CTR counter block format is a
-// CTR IV appended with a CTR block counter. |iv| is a CTR IV. |iv_size| is
-// the size of |iv| in bytes.
+// Generates a 16 byte CTR counter block. The CTR counter block format is a
+// CTR IV appended with a CTR block counter. |iv| is an 8 byte CTR IV.
+// |iv_size| is the size of |iv| in btyes. Returns a string of
+// kDecryptionKeySize bytes.
 static std::string GenerateCounterBlock(const uint8* iv, int iv_size) {
-  const int kDecryptionKeySize = 16;
   CHECK_GT(iv_size, 0);
-  CHECK_LE(iv_size, kDecryptionKeySize);
+  CHECK_LE(iv_size, DecryptConfig::kDecryptionKeySize);
 
   std::string counter_block(reinterpret_cast<const char*>(iv), iv_size);
-  counter_block.append(kDecryptionKeySize - iv_size, 0);
+  counter_block.append(DecryptConfig::kDecryptionKeySize - iv_size, 0);
   return counter_block;
 }
 
@@ -187,9 +186,10 @@ static scoped_refptr<DecoderBuffer> CreateWebMEncryptedBuffer(
   scoped_refptr<DecoderBuffer> encrypted_buffer = DecoderBuffer::CopyFrom(
       data, data_size);
   CHECK(encrypted_buffer);
+  DCHECK_EQ(kWebMSignalByteSize, 1);
 
   uint8 signal_byte = data[0];
-  int data_offset = sizeof(signal_byte);
+  int data_offset = kWebMSignalByteSize;
 
   // Setting the DecryptConfig object of the buffer while leaving the
   // initialization vector empty will tell the decryptor that the frame is
@@ -197,12 +197,8 @@ static scoped_refptr<DecoderBuffer> CreateWebMEncryptedBuffer(
   std::string counter_block_str;
 
   if (signal_byte & kWebMFlagEncryptedFrame) {
-    uint64 network_iv;
-    memcpy(&network_iv, data + data_offset, sizeof(network_iv));
-    const uint64 iv = base::NetToHost64(network_iv);
-    counter_block_str =
-        GenerateCounterBlock(reinterpret_cast<const uint8*>(&iv), sizeof(iv));
-    data_offset += sizeof(iv);
+    counter_block_str = GenerateCounterBlock(data + data_offset, kWebMIvSize);
+    data_offset += kWebMIvSize;
   }
 
   encrypted_buffer->SetDecryptConfig(
@@ -275,7 +271,7 @@ class AesDecryptorTest : public testing::Test {
     EXPECT_CALL(*this, BufferDecrypted(AesDecryptor::kSuccess, NotNull()))
         .WillOnce(SaveArg<1>(&decrypted));
 
-    decryptor_.Decrypt(encrypted, decrypt_cb_);
+    decryptor_.Decrypt(Decryptor::kVideo, encrypted, decrypt_cb_);
     ASSERT_TRUE(decrypted);
     ASSERT_EQ(plain_text_size, decrypted->GetDataSize());
     EXPECT_EQ(0, memcmp(plain_text, decrypted->GetData(), plain_text_size));
@@ -288,7 +284,7 @@ class AesDecryptorTest : public testing::Test {
     EXPECT_CALL(*this, BufferDecrypted(AesDecryptor::kSuccess, NotNull()))
         .WillOnce(SaveArg<1>(&decrypted));
 
-    decryptor_.Decrypt(encrypted, decrypt_cb_);
+    decryptor_.Decrypt(Decryptor::kVideo, encrypted, decrypt_cb_);
     ASSERT_TRUE(decrypted);
     ASSERT_EQ(plain_text_size, decrypted->GetDataSize());
     EXPECT_NE(0, memcmp(plain_text, decrypted->GetData(), plain_text_size));
@@ -301,7 +297,7 @@ class AesDecryptorTest : public testing::Test {
     EXPECT_CALL(*this, BufferDecrypted(AesDecryptor::kSuccess, NotNull()))
         .WillOnce(SaveArg<1>(&decrypted));
 
-    decryptor_.Decrypt(encrypted, decrypt_cb_);
+    decryptor_.Decrypt(Decryptor::kVideo, encrypted, decrypt_cb_);
     ASSERT_TRUE(decrypted);
     EXPECT_NE(plain_text_size, decrypted->GetDataSize());
     EXPECT_NE(0, memcmp(plain_text, decrypted->GetData(), plain_text_size));
@@ -309,7 +305,7 @@ class AesDecryptorTest : public testing::Test {
 
   void DecryptAndExpectToFail(const scoped_refptr<DecoderBuffer>& encrypted) {
     EXPECT_CALL(*this, BufferDecrypted(AesDecryptor::kError, IsNull()));
-    decryptor_.Decrypt(encrypted, decrypt_cb_);
+    decryptor_.Decrypt(Decryptor::kVideo, encrypted, decrypt_cb_);
   }
 
   MockDecryptorClient client_;
@@ -374,7 +370,7 @@ TEST_F(AesDecryptorTest, NoKey) {
       CreateWebMEncryptedBuffer(frame.encrypted_data, frame.encrypted_data_size,
                                 frame.key_id, frame.key_id_size);
   EXPECT_CALL(*this, BufferDecrypted(AesDecryptor::kNoKey, IsNull()));
-  decryptor_.Decrypt(encrypted_data, decrypt_cb_);
+  decryptor_.Decrypt(Decryptor::kVideo, encrypted_data, decrypt_cb_);
 }
 
 TEST_F(AesDecryptorTest, KeyReplacement) {

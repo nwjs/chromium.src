@@ -7,12 +7,14 @@
 
 #include "ash/ash_export.h"
 #include "ash/launcher/background_animator.h"
+#include "ash/system/tray/tray_bubble_view.h"
 #include "ash/system/tray/tray_views.h"
 #include "ash/wm/shelf_types.h"
 
 namespace ash {
 namespace internal {
 
+class ShelfLayoutManager;
 class StatusAreaWidget;
 class TrayBackground;
 class TrayLayerAnimationObserver;
@@ -82,7 +84,17 @@ class ASH_EXPORT TrayBackgroundView : public internal::ActionableView,
   // Called when the anchor (tray or bubble) may have moved or changed.
   virtual void AnchorUpdated() {}
 
-  virtual string16 GetAccessibleName() = 0;
+  // Called from GetAccessibleState, must return a valid accessible name.
+  virtual string16 GetAccessibleNameForTray() = 0;
+
+  // Hides the bubble associated with |bubble_view|. Called when the widget
+  // is closed.
+  virtual void HideBubbleWithView(
+      const message_center::TrayBubbleView* bubble_view) = 0;
+
+  // Called by the bubble wrapper when a click event occurs outside the bubble.
+  // May close the bubble. Returns true if the event is handled.
+  virtual bool ClickedOutsideBubble() = 0;
 
   // Sets |contents| as a child.
   void SetContents(views::View* contents);
@@ -96,11 +108,31 @@ class ASH_EXPORT TrayBackgroundView : public internal::ActionableView,
       bool value,
       internal::BackgroundAnimator::ChangeType change_type);
 
+  // Initializes animations for the bubble.
+  void InitializeBubbleAnimations(views::Widget* bubble_widget);
+
+  // Returns the window hosting the bubble.
+  aura::Window* GetBubbleWindowContainer() const;
+
+  // Returns the anchor rect for the bubble.
+  gfx::Rect GetBubbleAnchorRect(
+      views::Widget* anchor_widget,
+      message_center::TrayBubbleView::AnchorType anchor_type,
+      message_center::TrayBubbleView::AnchorAlignment anchor_alignment) const;
+
+  // Returns the bubble anchor alignment based on |shelf_alignment_|.
+  message_center::TrayBubbleView::AnchorAlignment GetAnchorAlignment() const;
+
   StatusAreaWidget* status_area_widget() {
+    return status_area_widget_;
+  }
+  const StatusAreaWidget* status_area_widget() const {
     return status_area_widget_;
   }
   TrayContainer* tray_container() const { return tray_container_; }
   ShelfAlignment shelf_alignment() const { return shelf_alignment_; }
+
+  ShelfLayoutManager* GetShelfLayoutManager();
 
  private:
   friend class TrayLayerAnimationObserver;

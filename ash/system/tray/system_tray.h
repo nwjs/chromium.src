@@ -7,7 +7,9 @@
 
 #include "ash/ash_export.h"
 #include "ash/system/power/power_supply_status.h"
+#include "ash/system/tray/system_tray_bubble.h"
 #include "ash/system/tray/tray_background_view.h"
+#include "ash/system/tray/tray_bubble_view.h"
 #include "ash/system/tray/tray_views.h"
 #include "ash/system/user/login_status.h"
 #include "base/basictypes.h"
@@ -30,16 +32,18 @@ class ClockObserver;
 class DriveObserver;
 class IMEObserver;
 class LocaleObserver;
-class NetworkObserver;
-class SmsObserver;
 class PowerStatusObserver;
 class UpdateObserver;
 class UserObserver;
+#if defined(OS_CHROMEOS)
+class NetworkObserver;
+class SmsObserver;
+#endif
 
 class SystemTrayItem;
 
 namespace internal {
-class SystemTrayBubble;
+class SystemBubbleWrapper;
 class SystemTrayContainer;
 class TrayGestureHandler;
 }
@@ -50,7 +54,8 @@ enum BubbleCreationType {
   BUBBLE_USE_EXISTING,  // Uses any existing bubble, or creates a new one.
 };
 
-class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
+class ASH_EXPORT SystemTray : public internal::TrayBackgroundView,
+                              public message_center::TrayBubbleView::Delegate {
  public:
   explicit SystemTray(internal::StatusAreaWidget* status_area_widget);
   virtual ~SystemTray();
@@ -100,6 +105,9 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   // of being created).
   bool HasSystemBubble() const;
 
+  // Returns a pointer to the system bubble or NULL if none.
+  internal::SystemTrayBubble* GetSystemBubble();
+
   // Returns true if any bubble is visible.
   bool IsAnyBubbleVisible() const;
 
@@ -133,14 +141,16 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   LocaleObserver* locale_observer() const {
     return locale_observer_;
   }
+#if defined(OS_CHROMEOS)
   NetworkObserver* network_observer() const {
     return network_observer_;
   }
-  ObserverList<PowerStatusObserver>& power_status_observers() {
-    return power_status_observers_;
-  }
   SmsObserver* sms_observer() const {
     return sms_observer_;
+  }
+#endif
+  ObserverList<PowerStatusObserver>& power_status_observers() {
+    return power_status_observers_;
   }
   UpdateObserver* update_observer() const {
     return update_observer_;
@@ -158,24 +168,31 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   virtual void Initialize() OVERRIDE;
   virtual void SetShelfAlignment(ShelfAlignment alignment) OVERRIDE;
   virtual void AnchorUpdated() OVERRIDE;
-  virtual string16 GetAccessibleName() OVERRIDE;
+  virtual string16 GetAccessibleNameForTray() OVERRIDE;
+  virtual void HideBubbleWithView(
+      const message_center::TrayBubbleView* bubble_view) OVERRIDE;
+  virtual bool ClickedOutsideBubble() OVERRIDE;
+
+  // Overridden from message_center::TrayBubbleView::Delegate.
+  virtual void BubbleViewDestroyed() OVERRIDE;
+  virtual void OnMouseEnteredView() OVERRIDE;
+  virtual void OnMouseExitedView() OVERRIDE;
+  virtual string16 GetAccessibleNameForBubble() OVERRIDE;
+  virtual gfx::Rect GetAnchorRect(views::Widget* anchor_widget,
+                                  AnchorType anchor_type,
+                                  AnchorAlignment anchor_alignment) OVERRIDE;
+  virtual void HideBubble(
+      const message_center::TrayBubbleView* bubble_view) OVERRIDE;
 
  private:
-  friend class internal::SystemTrayBubble;
-  friend class internal::TrayGestureHandler;
+  // Returns true if the system_bubble_ exists and is of type |type|.
+  bool HasSystemBubbleType(internal::SystemTrayBubble::BubbleType type);
 
-  // Resets |bubble_| and clears any related state.
-  void DestroyBubble();
+  // Resets |system_bubble_| and clears any related state.
+  void DestroySystemBubble();
 
   // Resets |notification_bubble_| and clears any related state.
   void DestroyNotificationBubble();
-
-  // Called when the widget associated with |bubble| closes. |bubble| should
-  // always == |bubble_|. This triggers destroying |bubble_| and hiding the
-  // launcher if necessary.
-  void RemoveBubble(internal::SystemTrayBubble* bubble);
-
-  const ScopedVector<SystemTrayItem>& items() const { return items_; }
 
   // Calculates the x-offset for the item in the tray. Returns -1 if its tray
   // item view is not visible.
@@ -185,7 +202,7 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   void ShowDefaultViewWithOffset(BubbleCreationType creation_type,
                                  int x_offset);
 
-  // Constructs or re-constructs |bubble_| and populates it with |items|.
+  // Constructs or re-constructs |system_bubble_| and populates it with |items|.
   void ShowItems(const std::vector<SystemTrayItem*>& items,
                  bool details,
                  bool activate,
@@ -195,6 +212,8 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   // Constructs or re-constructs |notification_bubble_| and populates it with
   // |notification_items_|, or destroys it if there are no notification items.
   void UpdateNotificationBubble();
+
+  const ScopedVector<SystemTrayItem>& items() const { return items_; }
 
   // Overridden from internal::ActionableView.
   virtual bool PerformAction(const ui::Event& event) OVERRIDE;
@@ -219,17 +238,19 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   DriveObserver* drive_observer_;
   IMEObserver* ime_observer_;
   LocaleObserver* locale_observer_;
+#if defined(OS_CHROMEOS)
   NetworkObserver* network_observer_;
-  ObserverList<PowerStatusObserver> power_status_observers_;
   SmsObserver* sms_observer_;
+#endif
+  ObserverList<PowerStatusObserver> power_status_observers_;
   UpdateObserver* update_observer_;
   UserObserver* user_observer_;
 
   // Bubble for default and detailed views.
-  scoped_ptr<internal::SystemTrayBubble> bubble_;
+  scoped_ptr<internal::SystemBubbleWrapper> system_bubble_;
 
   // Bubble for notifications.
-  scoped_ptr<internal::SystemTrayBubble> notification_bubble_;
+  scoped_ptr<internal::SystemBubbleWrapper> notification_bubble_;
 
   // Keep track of the default view height so that when we create detailed
   // views directly (e.g. from a notification) we know what height to use.

@@ -7,10 +7,10 @@
 #include "base/string16.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "googleurl/src/gurl.h"
-#include "chrome/common/chrome_switches.h"
-#include "chrome/browser/intents/web_intents_util.h"
 #include "chrome/browser/intents/native_services.h"
+#include "chrome/browser/intents/web_intents_util.h"
+#include "chrome/common/chrome_switches.h"
+#include "googleurl/src/gurl.h"
 #include "webkit/glue/web_intent_service_data.h"
 
 namespace web_intents {
@@ -29,7 +29,7 @@ void NativeServiceRegistry::GetSupportedServices(
       switches::kWebIntentsNativeServicesEnabled))
     return;
 
-#if defined(TOOLKIT_VIEWS)
+#if !defined(ANDROID)
   if (EqualsASCII(action, web_intents::kActionPick)) {
     // File picker registrations.
     webkit_glue::WebIntentServiceData service(
@@ -49,15 +49,16 @@ NativeServiceFactory::NativeServiceFactory() {}
 
 IntentServiceHost* NativeServiceFactory::CreateServiceInstance(
     const GURL& service_url,
-    const webkit_glue::WebIntentData& intent) {
+    const webkit_glue::WebIntentData& intent,
+    content::WebContents* web_contents) {
 
-#if defined(TOOLKIT_VIEWS)
+#if !defined(ANDROID)
   if (service_url.spec() == kNativeFilePickerUrl) {
-    return FilePickerFactory::CreateServiceInstance(intent);
+    return FilePickerFactory::CreateServiceInstance(intent, web_contents);
   }
 #endif
 
   return NULL;  // couldn't create instance
 }
 
-}  // web_intents namespace
+}  // namespace web_intents

@@ -216,6 +216,8 @@
           'mac/scoped_cftyperef.h',
           'mac/scoped_ioobject.h',
           'mac/scoped_launch_data.h',
+          'mac/scoped_mach_port.cc',
+          'mac/scoped_mach_port.h',
           'mac/scoped_nsautorelease_pool.h',
           'mac/scoped_nsautorelease_pool.mm',
           'mac/scoped_nsexception_enabler.h',
@@ -391,6 +393,7 @@
           'system_monitor/system_monitor.cc',
           'system_monitor/system_monitor.h',
           'system_monitor/system_monitor_android.cc',
+          'system_monitor/system_monitor_android.h',
           'system_monitor/system_monitor_ios.mm',
           'system_monitor/system_monitor_mac.mm',
           'system_monitor/system_monitor_posix.cc',
@@ -538,9 +541,8 @@
         'include_dirs': [
           '..',
         ],
-        # These warnings are needed for the files in third_party\dmg_fp.
         'msvs_disabled_warnings': [
-          4244, 4554, 4018, 4102,
+          4018,
         ],
         'target_conditions': [
           ['<(use_glib)==0 or >(nacl_untrusted_build)==1', {
@@ -619,6 +621,7 @@
               ['include', '^mac/foundation_util\\.'],
               ['include', '^mac/mac_logging\\.'],
               ['include', '^mac/objc_property_releaser\\.'],
+              ['include', '^mac/scoped_mach_port\\.'],
               ['include', '^mac/scoped_nsautorelease_pool\\.'],
               ['include', '^message_pump_mac\\.'],
               ['include', '^threading/platform_thread_mac\\.'],

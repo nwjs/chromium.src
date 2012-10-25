@@ -21,6 +21,7 @@
 #include "ppapi/c/dev/pp_video_capture_dev.h"
 #include "ppapi/c/dev/pp_video_dev.h"
 #include "ppapi/c/dev/ppb_text_input_dev.h"
+#include "ppapi/c/dev/ppb_url_util_dev.h"
 #include "ppapi/c/dev/ppp_printing_dev.h"
 #include "ppapi/c/pp_bool.h"
 #include "ppapi/c/pp_file_info.h"
@@ -31,6 +32,7 @@
 #include "ppapi/c/pp_resource.h"
 #include "ppapi/c/pp_size.h"
 #include "ppapi/c/pp_time.h"
+#include "ppapi/c/private/pp_content_decryptor.h"
 #include "ppapi/c/private/pp_private_font_charset.h"
 #include "ppapi/c/private/ppb_flash.h"
 #include "ppapi/c/private/ppb_host_resolver_private.h"
@@ -60,6 +62,7 @@
 #define IPC_MESSAGE_START PpapiMsgStart
 
 IPC_ENUM_TRAITS(PP_DeviceType_Dev)
+IPC_ENUM_TRAITS(PP_DecryptorStreamType)
 IPC_ENUM_TRAITS(PP_Flash_BrowserOperations_Permission)
 IPC_ENUM_TRAITS(PP_Flash_BrowserOperations_SettingType)
 IPC_ENUM_TRAITS(PP_FlashSetting)
@@ -132,6 +135,22 @@ IPC_STRUCT_TRAITS_BEGIN(PP_PrintSettings_Dev)
   IPC_STRUCT_TRAITS_MEMBER(print_scaling_option)
   IPC_STRUCT_TRAITS_MEMBER(grayscale)
   IPC_STRUCT_TRAITS_MEMBER(format)
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(PP_URLComponent_Dev)
+  IPC_STRUCT_TRAITS_MEMBER(begin)
+  IPC_STRUCT_TRAITS_MEMBER(len)
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(PP_URLComponents_Dev)
+  IPC_STRUCT_TRAITS_MEMBER(scheme)
+  IPC_STRUCT_TRAITS_MEMBER(username)
+  IPC_STRUCT_TRAITS_MEMBER(password)
+  IPC_STRUCT_TRAITS_MEMBER(host)
+  IPC_STRUCT_TRAITS_MEMBER(port)
+  IPC_STRUCT_TRAITS_MEMBER(path)
+  IPC_STRUCT_TRAITS_MEMBER(query)
+  IPC_STRUCT_TRAITS_MEMBER(ref)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(ppapi::DeviceRefData)
@@ -627,8 +646,27 @@ IPC_MESSAGE_ROUTED3(PpapiMsg_PPPContentDecryptor_Decrypt,
                     PP_Instance /* instance */,
                     ppapi::proxy::PPPDecryptor_Buffer /* buffer */,
                     std::string /* serialized_block_info */)
-IPC_MESSAGE_ROUTED3(PpapiMsg_PPPContentDecryptor_DecryptAndDecodeFrame,
+IPC_MESSAGE_ROUTED3(
+    PpapiMsg_PPPContentDecryptor_InitializeAudioDecoder,
+    PP_Instance /* instance */,
+    std::string /* serialized_decoder_config */,
+    ppapi::proxy::PPPDecryptor_Buffer /* extra_data_buffer */)
+IPC_MESSAGE_ROUTED3(
+    PpapiMsg_PPPContentDecryptor_InitializeVideoDecoder,
+    PP_Instance /* instance */,
+    std::string /* serialized_decoder_config */,
+    ppapi::proxy::PPPDecryptor_Buffer /* extra_data_buffer. */)
+IPC_MESSAGE_ROUTED3(PpapiMsg_PPPContentDecryptor_DeinitializeDecoder,
                     PP_Instance /* instance */,
+                    PP_DecryptorStreamType /* decoder_type */,
+                    uint32_t /* request_id */)
+IPC_MESSAGE_ROUTED3(PpapiMsg_PPPContentDecryptor_ResetDecoder,
+                    PP_Instance /* instance */,
+                    PP_DecryptorStreamType /* decoder_type */,
+                    uint32_t /* request_id */)
+IPC_MESSAGE_ROUTED4(PpapiMsg_PPPContentDecryptor_DecryptAndDecode,
+                    PP_Instance /* instance */,
+                    PP_DecryptorStreamType /* decoder_type */,
                     ppapi::proxy::PPPDecryptor_Buffer /* buffer */,
                     std::string /* serialized_block_info */)
 
@@ -1049,8 +1087,9 @@ IPC_SYNC_MESSAGE_ROUTED2_1(PpapiHostMsg_PPBInstance_DocumentCanAccessDocument,
                            PP_Instance /* active */,
                            PP_Instance /* target */,
                            PP_Bool /* result */)
-IPC_SYNC_MESSAGE_ROUTED1_1(PpapiHostMsg_PPBInstance_GetDocumentURL,
+IPC_SYNC_MESSAGE_ROUTED1_2(PpapiHostMsg_PPBInstance_GetDocumentURL,
                            PP_Instance /* active */,
+                           PP_URLComponents_Dev /* components */,
                            ppapi::proxy::SerializedVar /* result */)
 IPC_SYNC_MESSAGE_ROUTED1_1(PpapiHostMsg_PPBInstance_GetPluginInstanceURL,
                            PP_Instance /* active */,
@@ -1212,13 +1251,26 @@ IPC_MESSAGE_ROUTED3(PpapiHostMsg_PPBInstance_DeliverBlock,
                     PP_Instance /* instance */,
                     PP_Resource /* decrypted_block, PPB_Buffer_Dev */,
                     std::string /* serialized_block_info */)
+IPC_MESSAGE_ROUTED4(PpapiHostMsg_PPBInstance_DecoderInitializeDone,
+                    PP_Instance /* instance */,
+                    PP_DecryptorStreamType /* decoder_type */,
+                    uint32_t /* request_id */,
+                    PP_Bool /* success */)
+IPC_MESSAGE_ROUTED3(PpapiHostMsg_PPBInstance_DecoderDeinitializeDone,
+                    PP_Instance /* instance */,
+                    PP_DecryptorStreamType /* decoder_type */,
+                    uint32_t /* request_id */)
+IPC_MESSAGE_ROUTED3(PpapiHostMsg_PPBInstance_DecoderResetDone,
+                    PP_Instance /* instance */,
+                    PP_DecryptorStreamType /* decoder_type */,
+                    uint32_t /* request_id */)
 IPC_MESSAGE_ROUTED3(PpapiHostMsg_PPBInstance_DeliverFrame,
                     PP_Instance /* instance */,
                     PP_Resource /* decrypted_frame, PPB_Buffer_Dev */,
                     std::string /* serialized_block_info */)
 IPC_MESSAGE_ROUTED3(PpapiHostMsg_PPBInstance_DeliverSamples,
                     PP_Instance /* instance */,
-                    PP_Resource /* decrypted_samples, PPB_Buffer_Dev */,
+                    PP_Resource /* audio_frames, PPB_Buffer_Dev */,
                     std::string /* serialized_block_info */)
 #endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
 
@@ -1675,4 +1727,11 @@ IPC_MESSAGE_CONTROL1(PpapiHostMsg_FlashFontFile_GetFontTable,
                      uint32_t /* table */)
 IPC_MESSAGE_CONTROL1(PpapiPluginMsg_FlashFontFile_GetFontTableReply,
                      std::string /* output */)
+
+// Flash functions.
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_Flash_Create)
+IPC_MESSAGE_CONTROL1(PpapiHostMsg_Flash_EnumerateVideoCaptureDevices,
+                     ppapi::HostResource /* video_capture */)
+IPC_MESSAGE_CONTROL1(PpapiPluginMsg_Flash_EnumerateVideoCaptureDevicesReply,
+                     std::vector<ppapi::DeviceRefData> /* devices */)
 #endif  // !defined(OS_NACL) && !defined(NACL_WIN64)

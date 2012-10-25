@@ -117,7 +117,7 @@ void DisplayOptionsHandler::SendDisplayInfo() {
   base::FundamentalValue mirroring(
       output_configurator->output_state() == chromeos::STATE_DUAL_MIRROR);
 
-  int64 primary_id = gfx::Screen::GetPrimaryDisplay().id();
+  int64 primary_id = ash::Shell::GetScreen()->GetPrimaryDisplay().id();
   base::ListValue displays;
   for (size_t i = 0; i < display_manager->GetNumDisplays(); ++i) {
     const gfx::Display* display = display_manager->GetDisplayAt(i);
@@ -209,8 +209,7 @@ void DisplayOptionsHandler::HandleSetPrimary(const base::ListValue* args) {
     return;
   }
 
-  SetPrimaryDisplayIDPref(
-      Profile::FromWebUI(web_ui())->GetPrefs(), display_id);
+  SetPrimaryDisplayIDPref(display_id);
   SendDisplayInfo();
 }
 

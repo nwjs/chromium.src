@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/string16.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "ui/gfx/size.h"
 
 class WebIntentPickerDelegate;
@@ -36,7 +37,7 @@ class WebIntentPicker {
   static const int kTitleLinkMaxWidth = 130;
 
   // The space in pixels between the top-level groups and the dialog border.
-  static const int kContentAreaBorder = 10;
+  static const int kContentAreaBorder = 20;
 
   // Vertical space above the separator.
   static const int kHeaderSeparatorPaddingTop = 16;
@@ -51,7 +52,7 @@ class WebIntentPicker {
   static const int kServiceIconHeight = 16;
 
   // Space between icon and text.
-  static const int kIconTextPadding = 6;
+  static const int kIconTextPadding = 10;
 
   // Space between star rating and select button.
   static const int kStarButtonPadding = 20;
@@ -83,6 +84,14 @@ class WebIntentPicker {
   // Called when an extension installation started via the picker has failed.
   virtual void OnExtensionInstallFailure(const std::string& id) = 0;
 
+  // Shows the default extension install dialog. Override this to show a custom
+  // dialog. We *MUST* eventually call either Proceed() or Abort() on
+  // |delegate|.
+  virtual void OnShowExtensionInstallDialog(
+      content::WebContents* parent_web_contents,
+      ExtensionInstallPrompt::Delegate* delegate,
+      const ExtensionInstallPrompt::Prompt& prompt);
+
   // Called when the inline disposition experiences an auto-resize.
   virtual void OnInlineDispositionAutoResize(const gfx::Size& size) = 0;
 
@@ -92,6 +101,10 @@ class WebIntentPicker {
   // Called when the controller has finished all pending asynchronous
   // activities.
   virtual void OnPendingAsyncCompleted() = 0;
+
+  // Called once the delegate gets destroyed/invalid. This should only be
+  // called during a shut down sequence that will tear down the picker, too.
+  virtual void InvalidateDelegate() = 0;
 
   // Called when the inline disposition's web contents have been loaded.
   virtual void OnInlineDispositionWebContentsLoaded(

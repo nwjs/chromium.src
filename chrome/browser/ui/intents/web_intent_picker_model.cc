@@ -26,8 +26,9 @@ const size_t kMaxSuggestionCount = 5;  // Maximum number of visible suggestions.
 WebIntentPickerModel::WebIntentPickerModel()
     : observer_(NULL),
       waiting_for_suggestions_(true),
-      default_service_hash_(0),
-      pending_extension_install_download_progress_(0) {
+      pending_extension_install_download_progress_(0),
+      pending_extension_install_delegate_(NULL),
+      show_use_another_service_(true) {
 }
 
 WebIntentPickerModel::~WebIntentPickerModel() {
@@ -90,12 +91,18 @@ size_t WebIntentPickerModel::GetInstalledServiceCount() const {
   return installed_services_.size();
 }
 
-void WebIntentPickerModel::UpdateFaviconAt(size_t index,
-                                           const gfx::Image& image) {
-  DCHECK_LT(index, installed_services_.size());
-  installed_services_[index]->favicon = image;
-  if (observer_)
-    observer_->OnFaviconChanged(this, index);
+void WebIntentPickerModel::UpdateFaviconForServiceWithURL(
+    const GURL& url, const gfx::Image& image) {
+  for (size_t i = 0; i < installed_services_.size(); ++i) {
+    InstalledService* service = installed_services_[i];
+    if (service->url == url) {
+      service->favicon = image;
+      if (observer_)
+        observer_->OnFaviconChanged(this, i);
+      return;
+    }
+  }
+  NOTREACHED();  // Calling this with an invalid URL is not allowed.
 }
 
 void WebIntentPickerModel::AddSuggestedExtensions(
@@ -105,6 +112,19 @@ void WebIntentPickerModel::AddSuggestedExtensions(
                                suggestions.end());
   if (observer_)
     observer_->OnModelChanged(this);
+}
+
+void WebIntentPickerModel::RemoveSuggestedExtension(const std::string& id) {
+  std::vector<SuggestedExtension>::iterator it;
+  for (it = suggested_extensions_.begin();
+       it < suggested_extensions_.end();
+       ++it) {
+    SuggestedExtension extension = *it;
+    if (extension.id == id) {
+      suggested_extensions_.erase(it);
+      break;
+    }
+  }
 }
 
 const WebIntentPickerModel::SuggestedExtension&
@@ -209,10 +229,27 @@ void WebIntentPickerModel::SetPendingExtensionInstallStatusString(
     observer_->OnModelChanged(this);
 }
 
+void WebIntentPickerModel::SetPendingExtensionInstallDelegate(
+    ExtensionInstallPrompt::Delegate* delegate) {
+  pending_extension_install_delegate_ = delegate;
+  if (observer_)
+    observer_->OnModelChanged(this);
+}
+
+void WebIntentPickerModel::SetPendingExtensionInstallPrompt(
+    const ExtensionInstallPrompt::Prompt& prompt) {
+  pending_extension_install_prompt_.reset(
+      new ExtensionInstallPrompt::Prompt(prompt));
+  if (observer_)
+    observer_->OnModelChanged(this);
+}
+
 void WebIntentPickerModel::ClearPendingExtensionInstall() {
   pending_extension_install_id_.clear();
   pending_extension_install_download_progress_ = 0;
   pending_extension_install_status_string_.clear();
+  pending_extension_install_delegate_ = NULL;
+  pending_extension_install_prompt_.reset();
   if (observer_)
     observer_->OnModelChanged(this);
 }

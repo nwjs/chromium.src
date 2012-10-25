@@ -10,6 +10,12 @@
 #include "ui/gfx/rect.h"
 #include "ui/gfx/size.h"
 
+#include "third_party/WebKit/Source/Platform/chromium/public/WebGraphicsContext3D.h"
+
+namespace gfx {
+class JavaBitmap;
+}
+
 namespace WebKit {
 class WebLayer;
 }
@@ -19,6 +25,15 @@ namespace content {
 // An interface to the browser-side compositor.
 class Compositor {
  public:
+  class Client {
+   public:
+    // Tells the client that it should schedule a composite.
+    virtual void ScheduleComposite() = 0;
+
+    // The compositor has completed swapping a frame.
+    virtual void OnSwapBuffersCompleted() {}
+  };
+
   virtual ~Compositor() {}
 
   // Performs the global initialization needed before any compositor
@@ -26,7 +41,7 @@ class Compositor {
   static void Initialize();
 
   // Creates and returns a compositor instance.
-  static Compositor* Create();
+  static Compositor* Create(Client* client);
 
   // Attaches the layer tree.
   virtual void SetRootLayer(WebKit::WebLayer* root) = 0;
@@ -42,12 +57,26 @@ class Compositor {
   // The buffer is not modified if false is returned.
   virtual bool CompositeAndReadback(void *pixels, const gfx::Rect& rect) = 0;
 
-  // Callback to be run after the frame has been drawn. It passes back
-  // a synchronization point identifier.
-  typedef base::Callback<void(uint32)> SurfacePresentedCallback;
+  // Composite immediately. Used in single-threaded mode.
+  virtual void Composite() = 0;
 
-  virtual void OnSurfaceUpdated(const SurfacePresentedCallback& callback) = 0;
+  // Generates an OpenGL texture and returns a texture handle.  May return 0
+  // if the current context is lost.
+  virtual WebKit::WebGLId GenerateTexture(gfx::JavaBitmap& bitmap) = 0;
 
+  // Generates an OpenGL compressed texture and returns a texture handle.  May
+  // return 0 if the current context is lost.
+  virtual WebKit::WebGLId GenerateCompressedTexture(gfx::Size& size,
+                                                    int data_size,
+                                                    void* data) = 0;
+
+  // Deletes an OpenGL texture.
+  virtual void DeleteTexture(WebKit::WebGLId texture_id) = 0;
+
+  // Grabs a copy of |texture_id| and saves it into |bitmap|.  No scaling is
+  // done.  It is assumed that the texture size matches that of the bitmap.
+  virtual void CopyTextureToBitmap(WebKit::WebGLId texture_id,
+                                   gfx::JavaBitmap& bitmap) = 0;
  protected:
   Compositor() {}
 };

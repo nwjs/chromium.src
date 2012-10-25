@@ -6,10 +6,16 @@
 #define ASH_ROOT_WINDOW_CONTROLLER_H_
 
 #include "ash/ash_export.h"
+#include "ash/system/user/login_status.h"
+#include "ash/wm/shelf_types.h"
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 
 class SkBitmap;
+
+namespace gfx {
+class Point;
+}
 
 namespace aura {
 class EventFilter;
@@ -22,11 +28,17 @@ class RootWindowEventFilter;
 }  // namespace aura
 
 namespace ash {
+class Launcher;
 class ToplevelWindowEventHandler;
+
 namespace internal {
 
+class ColoredWindowController;
+class PanelLayoutManager;
 class RootWindowLayoutManager;
 class ScreenDimmer;
+class ShelfLayoutManager;
+class StatusAreaWidget;
 class SystemBackgroundController;
 class SystemModalContainerLayoutManager;
 class WorkspaceController;
@@ -41,32 +53,69 @@ class ASH_EXPORT RootWindowController {
   explicit RootWindowController(aura::RootWindow* root_window);
   ~RootWindowController();
 
-  aura::RootWindow* root_window() {
-    return root_window_.get();
-  }
+  // Returns a RootWindowController that has a launcher for given
+  // |window|. This returns the RootWindowController for the |window|'s
+  // root window when multiple launcher mode is enabled, or the primary
+  // RootWindowController otherwise.
+  static RootWindowController* ForLauncher(aura::Window* window);
 
-  RootWindowLayoutManager* root_window_layout() {
-    return root_window_layout_;
-  }
+  aura::RootWindow* root_window() { return root_window_.get(); }
+
+  RootWindowLayoutManager* root_window_layout() { return root_window_layout_; }
 
   WorkspaceController* workspace_controller() {
     return workspace_controller_.get();
   }
 
-  ScreenDimmer* screen_dimmer() {
-    return screen_dimmer_.get();
+  ScreenDimmer* screen_dimmer() { return screen_dimmer_.get(); }
+
+  Launcher* launcher() { return launcher_.get(); }
+
+  ShelfLayoutManager* shelf() const { return shelf_; }
+
+  StatusAreaWidget* status_area_widget() const {
+    return status_area_widget_;
   }
 
-  SystemModalContainerLayoutManager* GetSystemModalLayoutManager();
+  // Shows context menu at the |location_in_screen|. This uses
+  // |ShellDelegate::CreateContextMenu| to define the content of the menu.
+  void ShowContextMenu(const gfx::Point& location_in_screen);
+
+  // Returns the layout-manager for the appropriate modal-container. If the
+  // window is inside the lockscreen modal container, then the layout manager
+  // for that is returned. Otherwise the layout manager for the default modal
+  // container is returned.
+  // If no window is specified (i.e. |window| is NULL), then the lockscreen
+  // modal container is used if the screen is currently locked. Otherwise, the
+  // default modal container is used.
+  SystemModalContainerLayoutManager* GetSystemModalLayoutManager(
+      aura::Window* window);
 
   aura::Window* GetContainer(int container_id);
 
   void InitLayoutManagers();
   void CreateContainers();
 
+  // Initializs the RootWindowController for primary display. This
+  // creates
+  void InitForPrimaryDisplay();
+
   // Initializes |background_|.  |is_first_run_after_boot| determines the
   // background's initial color.
   void CreateSystemBackground(bool is_first_run_after_boot);
+
+  // Initializes |launcher_|.  Does nothing if it's already initialized.
+  void CreateLauncher();
+
+  // Show launcher view if it was created hidden (before session has started).
+  void ShowLauncher();
+
+  // Called when the user logs in.
+  void OnLoginStateChanged(user::LoginStatus status);
+
+  // Called when the login status changes after login (such as lock/unlock).
+  // TODO(oshima): Investigate if we can merge this and |OnLoginStateChanged|.
+  void UpdateAfterLoginStatusChange(user::LoginStatus status);
 
   // Updates |background_| to be black after the desktop background is visible.
   void HandleDesktopBackgroundVisible();
@@ -80,11 +129,23 @@ class ASH_EXPORT RootWindowController {
   // Deletes all child windows and performs necessary cleanup.
   void CloseChildWindows();
 
-  // Returns true if the workspace has a maximized or fullscreen window.
-  bool IsInMaximizedMode() const;
-
   // Moves child windows to |dest|.
   void MoveWindowsTo(aura::RootWindow* dest);
+
+  // Force the shelf to query for it's current visibility state.
+  void UpdateShelfVisibility();
+
+  // Sets/gets the shelf auto-hide behavior.
+  void SetShelfAutoHideBehavior(ShelfAutoHideBehavior behavior);
+  ShelfAutoHideBehavior GetShelfAutoHideBehavior() const;
+
+  // Sets/gets the shelf alignemnt.
+  bool SetShelfAlignment(ShelfAlignment alignment);
+  ShelfAlignment GetShelfAlignment();
+
+  // Get the shelf's auto hide status.
+  bool IsShelfAutoHideMenuHideChecked();
+  ShelfAutoHideBehavior GetToggledShelfAutoHideBehavior();
 
  private:
   // Creates each of the special window containers that holds windows of various
@@ -94,11 +155,24 @@ class ASH_EXPORT RootWindowController {
   scoped_ptr<aura::RootWindow> root_window_;
   RootWindowLayoutManager* root_window_layout_;
 
+  // Widget containing system tray.
+  StatusAreaWidget* status_area_widget_;
+
+  // The shelf for managing the launcher and the status widget.
+  // RootWindowController does not own the shelf. Instead, it is owned
+  // by container of the status area.
+  ShelfLayoutManager* shelf_;
+
+  // Manages layout of panels. Owned by PanelContainer.
+  PanelLayoutManager* panel_layout_manager_;
+
+  scoped_ptr<Launcher> launcher_;
+
   // A background layer that's displayed beneath all other layers.  Without
   // this, portions of the root window that aren't covered by layers will be
   // painted white; this can show up if e.g. it takes a long time to decode the
   // desktop background image when displaying the login screen.
-  scoped_ptr<SystemBackgroundController> background_;
+  scoped_ptr<ColoredWindowController> background_;
 
   scoped_ptr<ScreenDimmer> screen_dimmer_;
   scoped_ptr<WorkspaceController> workspace_controller_;

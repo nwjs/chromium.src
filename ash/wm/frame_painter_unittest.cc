@@ -8,6 +8,7 @@
 #include "ash/shell_window_ids.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/property_util.h"
+#include "ash/wm/window_properties.h"
 #include "ash/wm/window_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "grit/ash_resources.h"
@@ -121,6 +122,40 @@ TEST_F(FramePainterTest, Basics) {
   painter.reset();
   ASSERT_TRUE(FramePainter::instances_);
   EXPECT_EQ(0u, FramePainter::instances_->size());
+}
+
+TEST_F(FramePainterTest, CreateAndDeleteSingleWindow) {
+  // Ensure that creating/deleting a window works well and doesn't cause
+  // crashes.  See crbug.com/155634
+  aura::RootWindow* root = Shell::GetActiveRootWindow();
+
+  scoped_ptr<Widget> widget(CreateTestWidget());
+  scoped_ptr<FramePainter> painter(new FramePainter);
+  ImageButton size(NULL);
+  ImageButton close(NULL);
+  painter->Init(
+      widget.get(), NULL, &size, &close, FramePainter::SIZE_BUTTON_MAXIMIZES);
+  widget->Show();
+
+  // We only have one window, so it should use a solo header.
+  EXPECT_TRUE(painter->UseSoloWindowHeader());
+  EXPECT_EQ(painter.get(),
+            root->GetProperty(internal::kSoloWindowFramePainterKey));
+
+  // Close the window.
+  widget.reset();
+  EXPECT_EQ(NULL, root->GetProperty(internal::kSoloWindowFramePainterKey));
+
+  // Recreate another window again.
+  painter.reset(new FramePainter);
+  widget.reset(CreateTestWidget());
+
+  painter->Init(
+      widget.get(), NULL, &size, &close, FramePainter::SIZE_BUTTON_MAXIMIZES);
+  widget->Show();
+  EXPECT_TRUE(painter->UseSoloWindowHeader());
+  EXPECT_EQ(painter.get(),
+            root->GetProperty(internal::kSoloWindowFramePainterKey));
 }
 
 TEST_F(FramePainterTest, UseSoloWindowHeader) {
@@ -336,7 +371,8 @@ TEST_F(FramePainterTest, HitTestSpecialMaximizedModes) {
   views::NonClientFrameView* frame = w1->non_client_view()->frame_view();
   w1->Show();
   gfx::Rect any_rect = gfx::Rect(0, 0, 100, 100);
-  gfx::Rect screen = gfx::Screen::GetDisplayMatching(any_rect).work_area();
+  gfx::Rect screen = Shell::GetScreen()->GetDisplayMatching(
+      any_rect).work_area();
   w1->SetBounds(any_rect);
   EXPECT_EQ(HTTOPLEFT, p1.NonClientHitTest(frame, gfx::Point(0, 15)));
   w1->SetBounds(gfx::Rect(

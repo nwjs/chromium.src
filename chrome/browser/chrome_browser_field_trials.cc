@@ -16,7 +16,6 @@
 #include "chrome/browser/auto_launch_trial.h"
 #include "chrome/browser/autocomplete/autocomplete_field_trial.h"
 #include "chrome/browser/chrome_gpu_util.h"
-#include "chrome/browser/extensions/default_apps_trial.h"
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/net/predictor.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
@@ -119,10 +118,8 @@ void ChromeBrowserFieldTrials::SetupFieldTrials(bool proxy_policy_is_set) {
   ConnectBackupJobsFieldTrial();
   WarmConnectionFieldTrial();
   PredictorFieldTrial();
-  DefaultAppsFieldTrial();
   AutoLaunchChromeFieldTrial();
   gpu_util::InitializeCompositingFieldTrial();
-  gpu_util::InitializeStage3DFieldTrial();
   SetupUniformityFieldTrials();
   AutocompleteFieldTrial::Activate();
   DisableNewTabFieldTrialIfNecesssary();
@@ -460,20 +457,6 @@ void ChromeBrowserFieldTrials::PredictorFieldTrial() {
   }
 }
 
-void ChromeBrowserFieldTrials::DefaultAppsFieldTrial() {
-  std::string brand;
-  google_util::GetBrand(&brand);
-
-  // Create a 100% field trial based on the brand code.
-  if (LowerCaseEqualsASCII(brand, "ecdb")) {
-    base::FieldTrialList::CreateFieldTrial(kDefaultAppsTrialName,
-                                           kDefaultAppsTrialNoAppsGroup);
-  } else if (LowerCaseEqualsASCII(brand, "ecda")) {
-    base::FieldTrialList::CreateFieldTrial(kDefaultAppsTrialName,
-                                           kDefaultAppsTrialWithAppsGroup);
-  }
-}
-
 void ChromeBrowserFieldTrials::AutoLaunchChromeFieldTrial() {
   std::string brand;
   google_util::GetBrand(&brand);
@@ -571,7 +554,7 @@ void ChromeBrowserFieldTrials::SetUpCacheSensitivityAnalysisFieldTrial() {
 #if (defined(OS_ANDROID) || defined(OS_IOS))
   base::FieldTrial::Probability sensitivity_analysis_probability = 0;
 #else
-  base::FieldTrial::Probability sensitivity_analysis_probability = 8;
+  base::FieldTrial::Probability sensitivity_analysis_probability = 0;
 #endif
 
   scoped_refptr<base::FieldTrial> trial(

@@ -369,7 +369,8 @@ gfx::Point BalloonCollectionImpl::Layout::OffScreenLocation() const {
       break;
     case VERTICALLY_FROM_TOP_RIGHT:
     case VERTICALLY_FROM_BOTTOM_RIGHT:
-      location.Offset(-kBalloonMaxWidth, kBalloonMaxHeight);
+      location.Offset(-kBalloonMaxWidth - BalloonView::GetHorizontalMargin(),
+                      kBalloonMaxHeight);
       break;
     default:
       NOTREACHED();
@@ -464,9 +465,11 @@ bool BalloonCollectionImpl::Layout::RefreshSystemMetrics() {
 #if defined(OS_MACOSX)
   gfx::Rect new_work_area = GetMacWorkArea();
 #else
-  gfx::Rect new_work_area = gfx::Screen::GetPrimaryDisplay().work_area();
+  // TODO(scottmg): NativeScreen is wrong. http://crbug.com/133312
+  gfx::Rect new_work_area =
+      gfx::Screen::GetNativeScreen()->GetPrimaryDisplay().work_area();
 #endif
-  if (!work_area_.Equals(new_work_area)) {
+  if (work_area_ != new_work_area) {
     work_area_.SetRect(new_work_area.x(), new_work_area.y(),
                        new_work_area.width(), new_work_area.height());
     changed = true;

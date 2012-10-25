@@ -6,11 +6,16 @@
 
 #include <math.h>
 
+#include <algorithm>
+
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/callback_helpers.h"
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "media/audio/audio_util.h"
+#include "media/base/demuxer_stream.h"
+#include "media/base/media_switches.h"
 
 namespace media {
 
@@ -22,10 +27,8 @@ AudioRendererImpl::AudioRendererImpl(media::AudioRendererSink* sink)
       audio_time_buffered_(kNoTimestamp()),
       current_time_(kNoTimestamp()),
       bytes_per_frame_(0),
-      bytes_per_second_(0),
       stopped_(false),
       sink_(sink),
-      is_initialized_(false),
       underflow_disabled_(false),
       preroll_aborted_(false) {
 }
@@ -50,7 +53,6 @@ void AudioRendererImpl::Play(const base::Closure& callback) {
 
 void AudioRendererImpl::DoPlay() {
   earliest_end_time_ = base::Time::Now();
-  DCHECK(sink_.get());
   sink_->Play();
 }
 
@@ -74,7 +76,6 @@ void AudioRendererImpl::Pause(const base::Closure& callback) {
 }
 
 void AudioRendererImpl::DoPause() {
-  DCHECK(sink_.get());
   sink_->Pause(false);
 }
 
@@ -83,22 +84,22 @@ void AudioRendererImpl::Flush(const base::Closure& callback) {
 }
 
 void AudioRendererImpl::Stop(const base::Closure& callback) {
-  if (!stopped_) {
-    DCHECK(sink_.get());
-    sink_->Stop();
+  DCHECK(!callback.is_null());
 
+  if (!stopped_) {
+    sink_->Stop();
     stopped_ = true;
   }
   {
     base::AutoLock auto_lock(lock_);
     state_ = kStopped;
     algorithm_.reset(NULL);
-    time_cb_.Reset();
+    init_cb_.Reset();
     underflow_cb_.Reset();
+    time_cb_.Reset();
   }
-  if (!callback.is_null()) {
-    callback.Run();
-  }
+
+  callback.Run();
 }
 
 void AudioRendererImpl::Preroll(base::TimeDelta time,
@@ -130,36 +131,85 @@ void AudioRendererImpl::Preroll(base::TimeDelta time,
   sink_->Pause(true);
 }
 
-void AudioRendererImpl::Initialize(const scoped_refptr<AudioDecoder>& decoder,
+void AudioRendererImpl::Initialize(const scoped_refptr<DemuxerStream>& stream,
+                                   const AudioDecoderList& decoders,
                                    const PipelineStatusCB& init_cb,
+                                   const StatisticsCB& statistics_cb,
                                    const base::Closure& underflow_cb,
                                    const TimeCB& time_cb,
                                    const base::Closure& ended_cb,
                                    const base::Closure& disabled_cb,
                                    const PipelineStatusCB& error_cb) {
-  DCHECK(decoder);
+  base::AutoLock auto_lock(lock_);
+  DCHECK(stream);
+  DCHECK(!decoders.empty());
+  DCHECK_EQ(stream->type(), DemuxerStream::AUDIO);
   DCHECK(!init_cb.is_null());
+  DCHECK(!statistics_cb.is_null());
   DCHECK(!underflow_cb.is_null());
   DCHECK(!time_cb.is_null());
   DCHECK(!ended_cb.is_null());
   DCHECK(!disabled_cb.is_null());
   DCHECK(!error_cb.is_null());
   DCHECK_EQ(kUninitialized, state_);
-  decoder_ = decoder;
+
+  init_cb_ = init_cb;
+  statistics_cb_ = statistics_cb;
   underflow_cb_ = underflow_cb;
   time_cb_ = time_cb;
   ended_cb_ = ended_cb;
   disabled_cb_ = disabled_cb;
   error_cb_ = error_cb;
 
-  // Create a callback so our algorithm can request more reads.
-  base::Closure cb = base::Bind(&AudioRendererImpl::ScheduleRead_Locked, this);
+  scoped_ptr<AudioDecoderList> decoder_list(new AudioDecoderList(decoders));
+  InitializeNextDecoder(stream, decoder_list.Pass());
+}
 
-  // Construct the algorithm.
-  algorithm_.reset(new AudioRendererAlgorithm());
+void AudioRendererImpl::InitializeNextDecoder(
+    const scoped_refptr<DemuxerStream>& demuxer_stream,
+    scoped_ptr<AudioDecoderList> decoders) {
+  lock_.AssertAcquired();
+  DCHECK(!decoders->empty());
 
-  // Initialize our algorithm with media properties, initial playback rate,
-  // and a callback to request more reads from the data source.
+  scoped_refptr<AudioDecoder> decoder = decoders->front();
+  decoders->pop_front();
+
+  DCHECK(decoder);
+  decoder_ = decoder;
+
+  base::AutoUnlock auto_unlock(lock_);
+  decoder->Initialize(
+      demuxer_stream,
+      base::Bind(&AudioRendererImpl::OnDecoderInitDone, this,
+                 demuxer_stream,
+                 base::Passed(&decoders)),
+      statistics_cb_);
+}
+
+void AudioRendererImpl::OnDecoderInitDone(
+    const scoped_refptr<DemuxerStream>& demuxer_stream,
+    scoped_ptr<AudioDecoderList> decoders,
+    PipelineStatus status) {
+  base::AutoLock auto_lock(lock_);
+
+  if (state_ == kStopped) {
+    DCHECK(stopped_);
+    return;
+  }
+
+  if (!decoders->empty() && status == DECODER_ERROR_NOT_SUPPORTED) {
+    InitializeNextDecoder(demuxer_stream, decoders.Pass());
+    return;
+  }
+
+  if (status != PIPELINE_OK) {
+    base::ResetAndReturn(&init_cb_).Run(status);
+    return;
+  }
+
+  // We're all good! Continue initializing the rest of the audio renderer based
+  // on the decoder format.
+
   ChannelLayout channel_layout = decoder_->channel_layout();
   int channels = ChannelLayoutToChannelCount(channel_layout);
   int bits_per_channel = decoder_->bits_per_channel();
@@ -167,37 +217,60 @@ void AudioRendererImpl::Initialize(const scoped_refptr<AudioDecoder>& decoder,
   // TODO(vrk): Add method to AudioDecoder to compute bytes per frame.
   bytes_per_frame_ = channels * bits_per_channel / 8;
 
-  bool config_ok = algorithm_->ValidateConfig(channels, sample_rate,
-                                              bits_per_channel);
-  if (!config_ok || is_initialized_) {
-    init_cb.Run(PIPELINE_ERROR_INITIALIZATION_FAILED);
+  algorithm_.reset(new AudioRendererAlgorithm());
+  if (!algorithm_->ValidateConfig(channels, sample_rate, bits_per_channel)) {
+    base::ResetAndReturn(&init_cb_).Run(PIPELINE_ERROR_INITIALIZATION_FAILED);
     return;
   }
 
-  if (config_ok)
-    algorithm_->Initialize(channels, sample_rate, bits_per_channel, 0.0f, cb);
+  algorithm_->Initialize(
+      channels, sample_rate, bits_per_channel, 0.0f,
+      base::Bind(&AudioRendererImpl::ScheduleRead_Locked, this));
 
-  // We use the AUDIO_PCM_LINEAR flag because AUDIO_PCM_LOW_LATENCY
-  // does not currently support all the sample-rates that we require.
-  // Please see: http://code.google.com/p/chromium/issues/detail?id=103627
-  // for more details.
+  int buffer_size = GetHighLatencyOutputBufferSize(sample_rate);
+  AudioParameters::Format format = AudioParameters::AUDIO_PCM_LINEAR;
+
+  // On Windows and Mac we can use the low latency pipeline because they provide
+  // accurate and smooth delay information.  On other platforms like Linux there
+  // are jitter issues.
+  // TODO(dalecurtis): Fix bugs: http://crbug.com/138098 http://crbug.com/32757
+#if defined(OS_WIN) || defined(OS_MAC)
+  const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  // Either AudioOutputResampler or renderer side mixing must be enabled to use
+  // the low latency pipeline.
+  if (!cmd_line->HasSwitch(switches::kDisableRendererSideMixing) ||
+      !cmd_line->HasSwitch(switches::kDisableAudioOutputResampler)) {
+    // There are two cases here:
+    //
+    // 1. Renderer side mixing is enabled and the buffer size is actually
+    //    controlled by the size of the AudioBus provided to Render().  In this
+    //    case the buffer size below is ignored.
+    //
+    // 2. Renderer side mixing is disabled and AudioOutputResampler on the
+    //    browser side is rebuffering to the hardware size on the fly.
+    //
+    // In the second case we need to choose a a buffer size small enough that
+    // the decoder can fulfill the high frequency low latency audio callbacks,
+    // but not so small that it's less than the hardware buffer size (or we'll
+    // run into issues since the shared memory sync is non-blocking).
+    //
+    // The buffer size below is arbitrarily the same size used by Pepper Flash
+    // for consistency.  Since renderer side mixing is only disabled for debug
+    // purposes it's okay that this buffer size might lead to jitter since it's
+    // not a multiple of the hardware buffer size.
+    format = AudioParameters::AUDIO_PCM_LOW_LATENCY;
+    buffer_size = 2048;
+  }
+#endif
+
   audio_parameters_ = AudioParameters(
-      AudioParameters::AUDIO_PCM_LINEAR, channel_layout, sample_rate,
-      bits_per_channel, GetHighLatencyOutputBufferSize(sample_rate));
-
-  bytes_per_second_ = audio_parameters_.GetBytesPerSecond();
-
-  DCHECK(sink_.get());
-  DCHECK(!is_initialized_);
+      format, channel_layout, sample_rate, bits_per_channel, buffer_size);
 
   sink_->Initialize(audio_parameters_, this);
-
   sink_->Start();
-  is_initialized_ = true;
 
-  // Finally, execute the start callback.
   state_ = kPaused;
-  init_cb.Run(PIPELINE_OK);
+  base::ResetAndReturn(&init_cb_).Run(PIPELINE_OK);
 }
 
 void AudioRendererImpl::ResumeAfterUnderflow(bool buffer_more_audio) {
@@ -489,11 +562,10 @@ void AudioRendererImpl::UpdateEarliestEndTime(int bytes_filled,
 }
 
 base::TimeDelta AudioRendererImpl::ConvertToDuration(int bytes) {
-  if (bytes_per_second_) {
-    return base::TimeDelta::FromMicroseconds(
-        base::Time::kMicrosecondsPerSecond * bytes / bytes_per_second_);
-  }
-  return base::TimeDelta();
+  int bytes_per_second = audio_parameters_.GetBytesPerSecond();
+  CHECK(bytes_per_second);
+  return base::TimeDelta::FromMicroseconds(
+      base::Time::kMicrosecondsPerSecond * bytes / bytes_per_second);
 }
 
 void AudioRendererImpl::OnRenderError() {
@@ -501,7 +573,6 @@ void AudioRendererImpl::OnRenderError() {
 }
 
 void AudioRendererImpl::DisableUnderflowForTesting() {
-  DCHECK(!is_initialized_);
   underflow_disabled_ = true;
 }
 

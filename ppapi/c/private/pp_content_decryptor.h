@@ -3,7 +3,7 @@
  * found in the LICENSE file.
  */
 
-/* From private/pp_content_decryptor.idl modified Wed Oct  3 16:16:49 2012. */
+/* From private/pp_content_decryptor.idl modified Tue Oct 16 23:14:26 2012. */
 
 #ifndef PPAPI_C_PRIVATE_PP_CONTENT_DECRYPTOR_H_
 #define PPAPI_C_PRIVATE_PP_CONTENT_DECRYPTOR_H_
@@ -140,59 +140,6 @@ typedef enum {
 PP_COMPILE_ASSERT_SIZE_IN_BYTES(PP_DecryptedFrameFormat, 4);
 
 /**
- * <code>PP_VideoCodec</code> contains video codec type constants.
- */
-typedef enum {
-  PP_VIDEOCODEC_UNKNOWN = 0,
-  PP_VIDEOCODEC_VP8 = 1
-} PP_VideoCodec;
-PP_COMPILE_ASSERT_SIZE_IN_BYTES(PP_VideoCodec, 4);
-/**
- * @}
- */
-
-/**
- * @addtogroup Structs
- * @{
- */
-/**
- * <code>PP_EncryptedVideoFrameInfo</code> contains the information required
- * to decrypt and decode a video frame.
- * TODO(tomfinegan): Revisit necessity of including format information in this
- * struct once we decide how to implement video decoder initialization.
- */
-struct PP_EncryptedVideoFrameInfo {
-  /**
-   * The decoded video frame format.
-   */
-  PP_DecryptedFrameFormat format;
-  /**
-   * The video frame codec type.
-   */
-  PP_VideoCodec codec;
-  /**
-   * Video frame width in pixels.
-   */
-  int32_t width;
-  /**
-   * Video frame height in pixels.
-   */
-  int32_t height;
-  /**
-   * Information required to decrypt the frame.
-   */
-  struct PP_EncryptedBlockInfo encryption_info;
-};
-PP_COMPILE_ASSERT_STRUCT_SIZE_IN_BYTES(PP_EncryptedVideoFrameInfo, 256);
-/**
- * @}
- */
-
-/**
- * @addtogroup Enums
- * @{
- */
-/**
  * The <code>PP_DecryptResult</code> enum contains decryption and decoding
  * result constants.
  */
@@ -226,8 +173,8 @@ struct PP_DecryptedBlockInfo {
   PP_DecryptResult result;
   /**
    * 4-byte padding to make the size of <code>PP_DecryptedBlockInfo</code>
-   * a multiple of 8 bytes and make sure |tracking_info| starts on an 8-byte
-   * boundary. The value of this field should not be used.
+   * a multiple of 8 bytes, and ensure consistent size on all targets. This
+   * value should never be used.
    */
   uint32_t padding;
   /**
@@ -298,6 +245,151 @@ struct PP_DecryptedFrameInfo {
   struct PP_DecryptTrackingInfo tracking_info;
 };
 PP_COMPILE_ASSERT_STRUCT_SIZE_IN_BYTES(PP_DecryptedFrameInfo, 56);
+/**
+ * @}
+ */
+
+/**
+ * @addtogroup Enums
+ * @{
+ */
+/**
+ * <code>PP_AudioCodec</code> contains audio codec type constants.
+ */
+typedef enum {
+  PP_AUDIOCODEC_UNKNOWN = 0,
+  PP_AUDIOCODEC_VORBIS = 1
+} PP_AudioCodec;
+PP_COMPILE_ASSERT_SIZE_IN_BYTES(PP_AudioCodec, 4);
+/**
+ * @}
+ */
+
+/**
+ * @addtogroup Structs
+ * @{
+ */
+/**
+ * <code>PP_AudioDecoderConfig</code> contains audio decoder configuration
+ * information required to initialize audio decoders, and a request ID
+ * that allows clients to associate a decoder initialization request with a
+ * status response. Note: When <code>codec</code> requires extra data for
+ * initialization, the data is sent as a <code>PP_Resource</code> carried
+ * alongside <code>PP_AudioDecoderConfig</code>.
+ */
+struct PP_AudioDecoderConfig {
+  /**
+   * The audio codec to initialize.
+   */
+  PP_AudioCodec codec;
+  /**
+   * Number of audio channels.
+   */
+  int32_t channel_count;
+  /**
+   * Size of each audio channel.
+   */
+  int32_t bits_per_channel;
+  /**
+   * Audio sampling rate.
+   */
+  int32_t samples_per_second;
+  /**
+   * Client-specified identifier for the associated audio decoder initialization
+   * request. By using this value, the client can associate a decoder
+   * initialization status response with an initialization request.
+   */
+  uint32_t request_id;
+};
+PP_COMPILE_ASSERT_STRUCT_SIZE_IN_BYTES(PP_AudioDecoderConfig, 20);
+/**
+ * @}
+ */
+
+/**
+ * @addtogroup Enums
+ * @{
+ */
+/**
+ * <code>PP_VideoCodec</code> contains video codec type constants.
+ */
+typedef enum {
+  PP_VIDEOCODEC_UNKNOWN = 0,
+  PP_VIDEOCODEC_VP8 = 1
+} PP_VideoCodec;
+PP_COMPILE_ASSERT_SIZE_IN_BYTES(PP_VideoCodec, 4);
+
+/**
+ * <code>PP_VideoCodecProfile</code> contains video codec profile type
+ * constants required for video decoder configuration.
+ *.
+ */
+typedef enum {
+  PP_VIDEOCODECPROFILE_UNKNOWN = 0,
+  PP_VIDEOCODECPROFILE_VP8_MAIN = 1
+} PP_VideoCodecProfile;
+PP_COMPILE_ASSERT_SIZE_IN_BYTES(PP_VideoCodecProfile, 4);
+/**
+ * @}
+ */
+
+/**
+ * @addtogroup Structs
+ * @{
+ */
+/**
+ * <code>PP_VideoDecoderConfig</code> contains video decoder configuration
+ * information required to initialize video decoders, and a request ID
+ * that allows clients to associate a decoder initialization request with a
+ * status response. Note: When <code>codec</code> requires extra data for
+ * initialization, the data is sent as a <code>PP_Resource</code> carried
+ * alongside <code>PP_VideoDecoderConfig</code>.
+ */
+struct PP_VideoDecoderConfig {
+  /**
+   * The video codec to initialize.
+   */
+  PP_VideoCodec codec;
+  /**
+   * Profile to use when initializing the video codec.
+   */
+  PP_VideoCodecProfile profile;
+  /**
+   * Output video format.
+   */
+  PP_DecryptedFrameFormat format;
+  /**
+   * Width of decoded video frames, in pixels.
+   */
+  int32_t width;
+  /**
+   * Height of decoded video frames, in pixels.
+   */
+  int32_t height;
+  /**
+   * Client-specified identifier for the associated video decoder initialization
+   * request. By using this value, the client can associate a decoder
+   * initialization status response with an initialization request.
+   */
+  uint32_t request_id;
+};
+PP_COMPILE_ASSERT_STRUCT_SIZE_IN_BYTES(PP_VideoDecoderConfig, 24);
+/**
+ * @}
+ */
+
+/**
+ * @addtogroup Enums
+ * @{
+ */
+/**
+ * <code>PP_DecryptorStreamType</code> contains stream type constants.
+ */
+typedef enum {
+  PP_DECRYPTORSTREAMTYPE_AUDIO = 0,
+  PP_DECRYPTORSTREAMTYPE_VIDEO = 1
+} PP_DecryptorStreamType;
+PP_COMPILE_ASSERT_SIZE_IN_BYTES(PP_DecryptorStreamType, 4);
 /**
  * @}
  */

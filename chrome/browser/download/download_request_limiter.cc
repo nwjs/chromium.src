@@ -11,7 +11,6 @@
 #include "chrome/browser/tab_contents/tab_util.h"
 #include "chrome/browser/ui/blocked_content/blocked_content_tab_helper.h"
 #include "chrome/browser/ui/blocked_content/blocked_content_tab_helper_delegate.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -61,17 +60,18 @@ DownloadRequestLimiter::TabDownloadState::~TabDownloadState() {
 
 void DownloadRequestLimiter::TabDownloadState::DidGetUserGesture() {
   if (is_showing_prompt()) {
-    // Don't change the state if the user clicks on the page some where.
+    // Don't change the state if the user clicks on the page somewhere.
     return;
   }
 
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents());
-  // See PromptUserForDownload(): if there's no TabContents, then
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(web_contents());
+  // See PromptUserForDownload(): if there's no InfoBarTabHelper, then
   // DOWNLOADS_NOT_ALLOWED is functionally equivalent to PROMPT_BEFORE_DOWNLOAD.
-  if ((tab_contents &&
+  if ((infobar_helper &&
        status_ != DownloadRequestLimiter::ALLOW_ALL_DOWNLOADS &&
        status_ != DownloadRequestLimiter::DOWNLOADS_NOT_ALLOWED) ||
-      (!tab_contents &&
+      (!infobar_helper &&
        status_ != DownloadRequestLimiter::ALLOW_ALL_DOWNLOADS)) {
     // Revert to default status.
     host_->Remove(this);
@@ -91,11 +91,13 @@ void DownloadRequestLimiter::TabDownloadState::PromptUserForDownload(
     NotifyCallbacks(DownloadRequestLimiter::delegate_->ShouldAllowDownload());
     return;
   }
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
-  if (!tab_contents) {
-    // If |web_contents| doesn't have a TabContents, then it isn't what a user
-    // thinks of as a tab, it's actually a "raw" WebContents like those used
-    // for extension popups/bubbles and hosted apps etc.
+
+  InfoBarTabHelper* infobar_helper =
+      InfoBarTabHelper::FromWebContents(web_contents);
+  if (!infobar_helper) {
+    // |web_contents| may not have a InfoBarTabHelper if it's actually a
+    // WebContents like those used for extension popups/bubbles and hosted apps
+    // etc.
     // TODO(benjhayden): If this is an automatic download from an extension,
     // it would be convenient for the extension author if we send a message to
     // the extension's DevTools console (as we do for CSP) about how
@@ -104,7 +106,6 @@ void DownloadRequestLimiter::TabDownloadState::PromptUserForDownload(
     Cancel();
     return;
   }
-  InfoBarTabHelper* infobar_helper = tab_contents->infobar_tab_helper();
   infobar_ = new DownloadRequestInfoBarDelegate(infobar_helper, this);
   infobar_helper->AddInfoBar(infobar_);
 }

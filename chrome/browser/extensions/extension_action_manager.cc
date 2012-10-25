@@ -4,24 +4,60 @@
 
 #include "chrome/browser/extensions/extension_action_manager.h"
 
-#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_action.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_dependency_manager.h"
+#include "chrome/browser/profiles/profile_keyed_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_action.h"
-#include "chrome/common/extensions/extension_switch_utils.h"
+#include "chrome/common/extensions/feature_switch.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 
 namespace extensions {
 
-ExtensionActionManager::ExtensionActionManager(Profile* profile)
-    : profile_(profile) {
+namespace {
+
+// ProfileKeyedServiceFactory for ExtensionActionManager.
+class ExtensionActionManagerFactory : public ProfileKeyedServiceFactory {
+ public:
+  // ProfileKeyedServiceFactory implementation:
+  static ExtensionActionManager* GetForProfile(Profile* profile) {
+    return static_cast<ExtensionActionManager*>(
+        GetInstance()->GetServiceForProfile(profile, true));
+  }
+
+  static ExtensionActionManagerFactory* GetInstance();
+
+ private:
+  friend struct DefaultSingletonTraits<ExtensionActionManagerFactory>;
+
+  ExtensionActionManagerFactory()
+      : ProfileKeyedServiceFactory("ExtensionActionManager",
+                                   ProfileDependencyManager::GetInstance()) {
+  }
+
+  virtual ProfileKeyedService* BuildServiceInstanceFor(
+      Profile* profile) const OVERRIDE {
+    return new ExtensionActionManager(profile);
+  }
+
+  virtual bool ServiceRedirectedInIncognito() const OVERRIDE {
+    return true;
+  }
+};
+
+ExtensionActionManagerFactory*
+ExtensionActionManagerFactory::GetInstance() {
+  return Singleton<ExtensionActionManagerFactory>::get();
+}
+
+}  // namespace
+
+ExtensionActionManager::ExtensionActionManager(Profile* profile) {
   CHECK_EQ(profile, profile->GetOriginalProfile())
       << "Don't instantiate this with an incognito profile.";
-  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_LOADED,
-                 content::Source<Profile>(profile));
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED,
                  content::Source<Profile>(profile));
 }
@@ -31,53 +67,8 @@ ExtensionActionManager::~ExtensionActionManager() {
   // sometimes (only in tests?) not unloaded before the Profile is destroyed.
 }
 
-// This will be unnecessary when the accessors within Extension go away.
-void ExtensionActionManager::Shutdown() {
-  const ExtensionService* extension_service =
-      ExtensionSystem::Get(profile_)->extension_service();
-  if (!extension_service) {
-    // Some tests fire the EXTENSION_LOADED notification without using
-    // an ExtensionService.  For them, don't bother nulling out the
-    // extension fields on shutdown.
-    return;
-  }
-
-  for (ExtIdToActionMap::const_iterator it = page_actions_.begin();
-       it != page_actions_.end(); ++it) {
-    const std::string& extension_id = it->second->extension_id();
-    const Extension* extension =
-        extension_service->GetExtensionById(extension_id,
-                                            /*include_disabled=*/true);
-    if (extension) {
-      // If the Extension is still alive, make sure it doesn't have a
-      // dangling pointer to the destroyed ExtensionAction.
-      extension->page_action_ = NULL;
-    }
-  }
-  for (ExtIdToActionMap::const_iterator it = browser_actions_.begin();
-       it != browser_actions_.end(); ++it) {
-    const std::string& extension_id = it->second->extension_id();
-    const Extension* extension =
-        extension_service->GetExtensionById(extension_id,
-                                            /*include_disabled=*/true);
-    if (extension) {
-      // If the Extension is still alive, make sure it doesn't have a
-      // dangling pointer to the destroyed ExtensionAction.
-      extension->browser_action_ = NULL;
-    }
-  }
-  for (ExtIdToActionMap::const_iterator it = script_badges_.begin();
-       it != script_badges_.end(); ++it) {
-    const std::string& extension_id = it->second->extension_id();
-    const Extension* extension =
-        extension_service->GetExtensionById(extension_id,
-                                            /*include_disabled=*/true);
-    if (extension) {
-      // If the Extension is still alive, make sure it doesn't have a
-      // dangling pointer to the destroyed ExtensionAction.
-      extension->script_badge_ = NULL;
-    }
-  }
+ExtensionActionManager* ExtensionActionManager::Get(Profile* profile) {
+  return ExtensionActionManagerFactory::GetForProfile(profile);
 }
 
 void ExtensionActionManager::Observe(
@@ -85,63 +76,72 @@ void ExtensionActionManager::Observe(
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_LOADED: {
-      const Extension* extension =
-          content::Details<const Extension>(details).ptr();
-      if (extension->page_action_info() &&
-          !ContainsKey(page_actions_, extension->id())) {
-        linked_ptr<ExtensionAction> page_action(
-            new ExtensionAction(extension->id(),
-                                Extension::ActionInfo::TYPE_PAGE,
-                                *extension->page_action_info()));
-        // The action box changes the meaning of the page action area, so we
-        // need to convert page actions into browser actions.
-        if (switch_utils::AreScriptBadgesEnabled()) {
-          browser_actions_[extension->id()] = page_action;
-          extension->browser_action_ = page_action.get();
-        } else {
-          page_actions_[extension->id()] = page_action;
-          extension->page_action_ = page_action.get();
-        }
-      }
-      if (extension->browser_action_info() &&
-          !ContainsKey(browser_actions_, extension->id())) {
-        linked_ptr<ExtensionAction> browser_action(
-            new ExtensionAction(extension->id(),
-                                Extension::ActionInfo::TYPE_BROWSER,
-                                *extension->browser_action_info()));
-        browser_actions_[extension->id()] = browser_action;
-        extension->browser_action_ = browser_action.get();
-      }
-      DCHECK(extension->script_badge_info());
-      if (!ContainsKey(script_badges_, extension->id())) {
-        linked_ptr<ExtensionAction> script_badge(
-            new ExtensionAction(extension->id(),
-                                Extension::ActionInfo::TYPE_SCRIPT_BADGE,
-                                *extension->script_badge_info()));
-        script_badges_[extension->id()] = script_badge;
-        extension->script_badge_ = script_badge.get();
-      }
-      break;
-    }
     case chrome::NOTIFICATION_EXTENSION_UNLOADED: {
       const Extension* extension =
           content::Details<UnloadedExtensionInfo>(details)->extension;
-      if (ContainsKey(page_actions_, extension->id())) {
-        extension->page_action_ = NULL;
-        page_actions_.erase(extension->id());
-      }
-      if (ContainsKey(browser_actions_, extension->id())) {
-        extension->browser_action_ = NULL;
-        browser_actions_.erase(extension->id());
-      }
-      if (ContainsKey(script_badges_, extension->id())) {
-        extension->script_badge_ = NULL;
-        script_badges_.erase(extension->id());
-      }
+      page_actions_.erase(extension->id());
+      browser_actions_.erase(extension->id());
+      script_badges_.erase(extension->id());
       break;
     }
   }
+}
+
+namespace {
+
+// Returns map[extension_id] if that entry exists. Otherwise, if
+// action_info!=NULL, creates an ExtensionAction from it, fills in the map, and
+// returns that.  Otherwise (action_info==NULL), returns NULL.
+ExtensionAction* GetOrCreateOrNull(
+    std::map<std::string, linked_ptr<ExtensionAction> >* map,
+    const std::string& extension_id,
+    Extension::ActionInfo::Type action_type,
+    const Extension::ActionInfo* action_info) {
+  std::map<std::string, linked_ptr<ExtensionAction> >::const_iterator it =
+      map->find(extension_id);
+  if (it != map->end())
+    return it->second.get();
+  if (!action_info)
+    return NULL;
+  linked_ptr<ExtensionAction> action(new ExtensionAction(
+      extension_id, action_type, *action_info));
+  (*map)[extension_id] = action;
+  return action.get();
+}
+
+}
+
+ExtensionAction* ExtensionActionManager::GetPageAction(
+    const extensions::Extension& extension) const {
+  // The action box changes the meaning of the page action area, so we
+  // need to convert page actions into browser actions.
+  if (FeatureSwitch::script_badges()->IsEnabled())
+    return NULL;
+  return GetOrCreateOrNull(&page_actions_, extension.id(),
+                           Extension::ActionInfo::TYPE_PAGE,
+                           extension.page_action_info());
+}
+
+ExtensionAction* ExtensionActionManager::GetBrowserAction(
+    const extensions::Extension& extension) const {
+  const Extension::ActionInfo* action_info = extension.browser_action_info();
+  Extension::ActionInfo::Type action_type = Extension::ActionInfo::TYPE_BROWSER;
+  if (FeatureSwitch::script_badges()->IsEnabled() &&
+      extension.page_action_info()) {
+    // The action box changes the meaning of the page action area, so we
+    // need to convert page actions into browser actions.
+    action_info = extension.page_action_info();
+    action_type = Extension::ActionInfo::TYPE_PAGE;
+  }
+  return GetOrCreateOrNull(&browser_actions_, extension.id(),
+                           action_type, action_info);
+}
+
+ExtensionAction* ExtensionActionManager::GetScriptBadge(
+    const extensions::Extension& extension) const {
+  return GetOrCreateOrNull(&script_badges_, extension.id(),
+                           Extension::ActionInfo::TYPE_SCRIPT_BADGE,
+                           extension.script_badge_info());
 }
 
 }

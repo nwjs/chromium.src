@@ -10,7 +10,7 @@ class DidNotScrollException(multi_page_benchmark.MeasurementFailure):
   def __init__(self):
     super(DidNotScrollException, self).__init__('Page did not scroll')
 
-def CalcScrollResults(rendering_stats_deltas):
+def CalcScrollResults(rendering_stats_deltas, results):
   num_frames_sent_to_screen = rendering_stats_deltas['numFramesSentToScreen']
 
   mean_frame_time_seconds = (
@@ -21,10 +21,8 @@ def CalcScrollResults(rendering_stats_deltas):
     rendering_stats_deltas['droppedFrameCount'] /
     float(num_frames_sent_to_screen))
 
-  return {
-      'mean_frame_time_ms': round(mean_frame_time_seconds * 1000, 3),
-      'dropped_percent': round(dropped_percent * 100, 1)
-      }
+  results.Add('mean_frame_time', 'ms', round(mean_frame_time_seconds * 1000, 3))
+  results.Add('dropped_percent', '%', round(dropped_percent * 100, 1))
 
 class ScrollingBenchmark(multi_page_benchmark.MultiPageBenchmark):
   def __init__(self):
@@ -46,50 +44,45 @@ class ScrollingBenchmark(multi_page_benchmark.MultiPageBenchmark):
     # Run scroll test.
     tab.runtime.Execute(scroll_js)
 
-    start_scroll_js = """
-      window.__renderingStatsDeltas = null;
-      new __ScrollTest(function(rendering_stats_deltas) {
-        window.__renderingStatsDeltas = rendering_stats_deltas;
-      }).start(element);
-    """
-    # scrollable_element_function is a function that passes the scrollable
-    # element on the page to a callback. For example:
-    #   function (callback) {
-    #     callback(document.getElementById('foo'));
-    #   }
-    if hasattr(page, 'scrollable_element_function'):
-      tab.runtime.Execute('(%s)(function(element) { %s });' %
-                          (page.scrollable_element_function, start_scroll_js))
-    else:
-      tab.runtime.Execute('(function() { var element = document.body; %s})();' %
-                          start_scroll_js)
+    with tab.browser.platform.GetSurfaceCollector(''):
 
-    # Poll for scroll benchmark completion.
-    util.WaitFor(lambda: tab.runtime.Evaluate(
-        'window.__renderingStatsDeltas'), 60)
+      start_scroll_js = """
+        window.__renderingStatsDeltas = null;
+        new __ScrollTest(function(rendering_stats_deltas) {
+          window.__renderingStatsDeltas = rendering_stats_deltas;
+        }).start(element);
+      """
+      # scrollable_element_function is a function that passes the scrollable
+      # element on the page to a callback. For example:
+      #   function (callback) {
+      #     callback(document.getElementById('foo'));
+      #   }
+      if hasattr(page, 'scrollable_element_function'):
+        tab.runtime.Execute('(%s)(function(element) { %s });' %
+                            (page.scrollable_element_function, start_scroll_js))
+      else:
+        tab.runtime.Execute(
+            '(function() { var element = document.body; %s})();' %
+            start_scroll_js)
 
-    rendering_stats_deltas = tab.runtime.Evaluate(
-      'window.__renderingStatsDeltas')
+      # Poll for scroll benchmark completion.
+      util.WaitFor(lambda: tab.runtime.Evaluate(
+          'window.__renderingStatsDeltas'), 60)
 
-    if not (rendering_stats_deltas['numFramesSentToScreen'] > 0):
-      raise DidNotScrollException()
+      rendering_stats_deltas = tab.runtime.Evaluate(
+        'window.__renderingStatsDeltas')
+
+      if not (rendering_stats_deltas['numFramesSentToScreen'] > 0):
+        raise DidNotScrollException()
     return rendering_stats_deltas
 
   def CustomizeBrowserOptions(self, options):
     if not options.no_gpu_benchmarking_extension:
       options.extra_browser_args.append('--enable-gpu-benchmarking')
 
-  def MeasurePage(self, page, tab):
+  def MeasurePage(self, page, tab, results):
     rendering_stats_deltas = self.ScrollPageFully(page, tab)
-    scroll_results = CalcScrollResults(rendering_stats_deltas)
+    CalcScrollResults(rendering_stats_deltas, results)
     if self.options.report_all_results:
-      all_results = {}
-      all_results.update(rendering_stats_deltas)
-      all_results.update(scroll_results)
-      return all_results
-    return scroll_results
-
-
-
-def Main():
-  return multi_page_benchmark.Main(ScrollingBenchmark())
+      for k, v in rendering_stats_deltas.iteritems():
+        results.Add(k, '', v)

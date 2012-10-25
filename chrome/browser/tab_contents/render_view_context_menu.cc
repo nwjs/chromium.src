@@ -381,8 +381,15 @@ void RenderViewContextMenu::AppendAllExtensionItems() {
   std::vector<std::pair<std::string, std::string> >::const_iterator i;
   for (i = sorted_ids.begin();
        i != sorted_ids.end(); ++i) {
-    extension_items_.AppendExtensionItems(i->second, PrintableSelectionText(),
-                                       &index);
+    string16 printable_selection_text = PrintableSelectionText();
+    // Escape "&" as "&&".
+    for (size_t position = printable_selection_text.find('&');
+         position != string16::npos;
+         position = printable_selection_text.find('&', position + 2))
+      printable_selection_text.insert(position, 1, '&');
+
+    extension_items_.AppendExtensionItems(i->second, printable_selection_text,
+                                          &index);
   }
   UMA_HISTOGRAM_TIMES("Extensions.ContextMenus_BuildTime",
                       base::TimeTicks::Now() - begin);
@@ -501,7 +508,11 @@ const Extension* RenderViewContextMenu::GetExtension() const {
 
 void RenderViewContextMenu::AppendPlatformAppItems() {
   const Extension* platform_app = GetExtension();
-  DCHECK(platform_app);
+
+  // The RVH might be for a process sandboxed from the extension.
+  if (!platform_app)
+    return;
+
   DCHECK(platform_app->is_platform_app());
 
   bool has_selection = !params_.selection_text.empty();
@@ -1349,12 +1360,13 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       const GURL& referrer =
           params_.frame_url.is_empty() ? params_.page_url : params_.frame_url;
       const GURL& url = params_.link_url;
-      content::DownloadSaveInfo save_info;
-      save_info.prompt_for_save_location = true;
+      scoped_ptr<content::DownloadSaveInfo> save_info(
+          new content::DownloadSaveInfo());
+      save_info->prompt_for_save_location = true;
       DownloadManager* dlm = BrowserContext::GetDownloadManager(profile_);
       scoped_ptr<DownloadUrlParameters> dl_params(
           DownloadUrlParameters::FromWebContents(
-            source_web_contents_, url, save_info));
+              source_web_contents_, url, save_info.Pass()));
       dl_params->set_referrer(
           content::Referrer(referrer, params_.referrer_policy));
       dl_params->set_referrer_encoding(params_.frame_charset);
@@ -1369,8 +1381,9 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       const GURL& referrer =
           params_.frame_url.is_empty() ? params_.page_url : params_.frame_url;
       const GURL& url = params_.src_url;
-      content::DownloadSaveInfo save_info;
-      save_info.prompt_for_save_location = true;
+      scoped_ptr<content::DownloadSaveInfo> save_info(
+          new content::DownloadSaveInfo());
+      save_info->prompt_for_save_location = true;
       int64 post_id = -1;
       if (url == source_web_contents_->GetURL()) {
         const NavigationEntry* entry =
@@ -1381,7 +1394,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       DownloadManager* dlm = BrowserContext::GetDownloadManager(profile_);
       scoped_ptr<DownloadUrlParameters> dl_params(
           DownloadUrlParameters::FromWebContents(
-            source_web_contents_, url, save_info));
+              source_web_contents_, url, save_info.Pass()));
       dl_params->set_referrer(
           content::Referrer(referrer, params_.referrer_policy));
       dl_params->set_post_id(post_id);

@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/cocoa/tab_modal_confirm_dialog_mac.h"
 
-#include "base/command_line.h"
 #include "base/memory/scoped_nsobject.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/cocoa/constrained_window/constrained_window_alert.h"
@@ -20,8 +19,7 @@
 TabModalConfirmDialog* TabModalConfirmDialog::Create(
     TabModalConfirmDialogDelegate* delegate,
     TabContents* tab_contents) {
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-        switches::kEnableFramelessConstrainedDialogs)) {
+  if (chrome::IsFramelessConstrainedDialogEnabled()) {
     // Deletes itself when closed.
     return new TabModalConfirmDialogMac2(delegate, tab_contents);
   }
@@ -82,7 +80,8 @@ TabModalConfirmDialogMac::TabModalConfirmDialogMac(
 
   set_sheet(alert);
 
-  delegate->set_window(new ConstrainedWindowMac(tab_contents, this));
+  delegate->set_window(
+      new ConstrainedWindowMac(tab_contents->web_contents(), this));
 }
 
 TabModalConfirmDialogMac::~TabModalConfirmDialogMac() {
@@ -163,15 +162,23 @@ TabModalConfirmDialogMac2::TabModalConfirmDialogMac2(
   [[alert_ closeButton] setAction:@selector(onCancelButton:)];
   [alert_ layout];
 
-  delegate->set_window(
-      new ConstrainedWindowMac2(tab_contents, [alert_ window]));
+  window_.reset(new ConstrainedWindowMac2(
+      this, tab_contents->web_contents(), [alert_ window]));
+  delegate->set_window(window_.get());
 }
 
 TabModalConfirmDialogMac2::~TabModalConfirmDialogMac2() {
 }
 
 void TabModalConfirmDialogMac2::AcceptTabModalDialog() {
+  delegate_->Accept();
 }
 
 void TabModalConfirmDialogMac2::CancelTabModalDialog() {
+  delegate_->Cancel();
+}
+
+void TabModalConfirmDialogMac2::OnConstrainedWindowClosed(
+    ConstrainedWindowMac2* window) {
+  delete this;
 }

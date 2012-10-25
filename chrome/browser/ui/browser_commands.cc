@@ -240,7 +240,7 @@ int GetContentRestrictions(const Browser* browser) {
   return content_restrictions;
 }
 
-void NewEmptyWindow(Profile* profile) {
+void NewEmptyWindow(Profile* profile, HostDesktopType desktop_type) {
   bool incognito = profile->IsOffTheRecord();
   PrefService* prefs = profile->GetPrefs();
   if (incognito) {
@@ -258,23 +258,32 @@ void NewEmptyWindow(Profile* profile) {
 
   if (incognito) {
     content::RecordAction(UserMetricsAction("NewIncognitoWindow"));
-    OpenEmptyWindow(profile->GetOffTheRecordProfile());
+    OpenEmptyWindow(profile->GetOffTheRecordProfile(), desktop_type);
   } else {
     content::RecordAction(UserMetricsAction("NewWindow"));
     SessionService* session_service =
         SessionServiceFactory::GetForProfile(profile->GetOriginalProfile());
     if (!session_service ||
         !session_service->RestoreIfNecessary(std::vector<GURL>())) {
-      OpenEmptyWindow(profile->GetOriginalProfile());
+      OpenEmptyWindow(profile->GetOriginalProfile(), desktop_type);
     }
   }
 }
 
-Browser* OpenEmptyWindow(Profile* profile) {
-  Browser* browser = new Browser(Browser::CreateParams(profile));
+void NewEmptyWindow(Profile* profile) {
+  NewEmptyWindow(profile, HOST_DESKTOP_TYPE_NATIVE);
+}
+
+Browser* OpenEmptyWindow(Profile* profile, HostDesktopType desktop_type) {
+  Browser* browser = new Browser(
+      Browser::CreateParams(Browser::TYPE_TABBED, profile, desktop_type));
   AddBlankTab(browser, true);
   browser->window()->Show();
   return browser;
+}
+
+Browser* OpenEmptyWindow(Profile* profile) {
+  return OpenEmptyWindow(profile, HOST_DESKTOP_TYPE_NATIVE);
 }
 
 void OpenWindowWithRestoredTabs(Profile* profile) {
@@ -607,7 +616,7 @@ void BookmarkCurrentPage(Browser* browser) {
   GURL url;
   string16 title;
   WebContents* web_contents = GetActiveWebContents(browser);
-  bookmark_utils::GetURLAndTitleToBookmark(web_contents, &url, &title);
+  GetURLAndTitleToBookmark(web_contents, &url, &title);
   bool was_bookmarked = model->IsBookmarked(url);
   if (!was_bookmarked && web_contents->GetBrowserContext()->IsOffTheRecord()) {
     // If we're incognito the favicon may not have been saved. Save it now
@@ -692,18 +701,6 @@ void ShowChromeToMobileBubble(Browser* browser) {
   // weird situations where the bubble is deleted as soon as it is shown.
   if (browser->window()->IsActive())
     browser->window()->ShowChromeToMobileBubble();
-}
-
-void ShareCurrentPage(Browser* browser) {
-  const GURL& current_url = chrome::GetActiveWebContents(browser)->GetURL();
-  webkit_glue::WebIntentData intent_data(
-      ASCIIToUTF16("http://webintents.org/share"),
-      ASCIIToUTF16("text/uri-list"),
-      UTF8ToUTF16(current_url.spec()));
-  scoped_ptr<content::WebIntentsDispatcher> dispatcher(
-      content::WebIntentsDispatcher::Create(intent_data));
-  static_cast<content::WebContentsDelegate*>(browser)->
-      WebIntentDispatch(NULL, dispatcher.release());
 }
 
 void Print(Browser* browser) {

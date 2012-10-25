@@ -704,7 +704,7 @@ void MenuController::OnDragExitedScrollButton(SubmenuView* source) {
 
 void MenuController::UpdateSubmenuSelection(SubmenuView* submenu) {
   if (submenu->IsShowing()) {
-    gfx::Point point = gfx::Screen::GetCursorScreenPoint();
+    gfx::Point point = GetScreen()->GetCursorScreenPoint();
     const SubmenuView* root_submenu =
         submenu->GetMenuItem()->GetRootMenuItem()->GetSubmenu();
     views::View::ConvertPointFromScreen(
@@ -1108,14 +1108,14 @@ void MenuController::UpdateInitialLocation(
 
   // Calculate the bounds of the monitor we'll show menus on. Do this once to
   // avoid repeated system queries for the info.
-  pending_state_.monitor_bounds = gfx::Screen::GetDisplayNearestPoint(
+  pending_state_.monitor_bounds = GetScreen()->GetDisplayNearestPoint(
       bounds.origin()).work_area();
 #if defined(USE_ASH)
   if (!pending_state_.monitor_bounds.Contains(bounds)) {
     // Use the monitor area if the work area doesn't contain the bounds. This
     // handles showing a menu from the launcher.
-    gfx::Rect monitor_area =
-        gfx::Screen::GetDisplayNearestPoint(bounds.origin()).bounds();
+    gfx::Rect monitor_area = GetScreen()->GetDisplayNearestPoint(
+        bounds.origin()).bounds();
     if (monitor_area.Contains(bounds))
       pending_state_.monitor_bounds = monitor_area;
   }
@@ -1149,7 +1149,7 @@ bool MenuController::ShowSiblingMenu(SubmenuView* source,
   }
 
   gfx::NativeWindow window_under_mouse =
-      gfx::Screen::GetWindowAtCursorScreenPoint();
+      GetScreen()->GetWindowAtCursorScreenPoint();
   // TODO(oshima): Replace with views only API.
   if (window_under_mouse != owner_->GetNativeWindow())
     return false;
@@ -1556,19 +1556,21 @@ gfx::Rect MenuController::CalculateMenuBounds(MenuItemView* item,
 
   int x, y;
 
+  const MenuConfig& menu_config = item->GetMenuConfig();
+
   if (!item->GetParentMenuItem()) {
     // First item, position relative to initial location.
     x = state_.initial_bounds.x();
 
     // Offsets for context menu prevent menu items being selected by
     // simply opening the menu (bug 142992).
-    if (MenuConfig::instance().offset_context_menus && state_.context_menu)
+    if (menu_config.offset_context_menus && state_.context_menu)
       x += 1;
 
     y = state_.initial_bounds.bottom();
     if (state_.anchor == MenuItemView::TOPRIGHT) {
       x = x + state_.initial_bounds.width() - pref.width();
-      if (MenuConfig::instance().offset_context_menus && state_.context_menu)
+      if (menu_config.offset_context_menus && state_.context_menu)
         x -= 1;
     } else if (state_.anchor == MenuItemView::BOTTOMCENTER) {
       x = x - (pref.width() - state_.initial_bounds.width()) / 2;
@@ -1645,7 +1647,7 @@ gfx::Rect MenuController::CalculateMenuBounds(MenuItemView* item,
       item->set_actual_menu_position(MenuItemView::POSITION_BELOW_BOUNDS);
     }
     if (state_.monitor_bounds.width() != 0 &&
-        MenuConfig::instance().offset_context_menus && state_.context_menu) {
+        menu_config.offset_context_menus && state_.context_menu) {
       if (x + pref.width() > state_.monitor_bounds.right())
         x = state_.initial_bounds.x() - pref.width() - 1;
       if (x < state_.monitor_bounds.x())
@@ -1663,8 +1665,7 @@ gfx::Rect MenuController::CalculateMenuBounds(MenuItemView* item,
     bool layout_is_rtl = base::i18n::IsRTL();
     bool create_on_the_right = (prefer_leading && !layout_is_rtl) ||
                                (!prefer_leading && layout_is_rtl);
-    int submenu_horizontal_inset =
-            MenuConfig::instance().submenu_horizontal_inset;
+    int submenu_horizontal_inset = menu_config.submenu_horizontal_inset;
 
     if (create_on_the_right) {
       x = item_loc.x() + item->width() - submenu_horizontal_inset;
@@ -1686,7 +1687,7 @@ gfx::Rect MenuController::CalculateMenuBounds(MenuItemView* item,
         x = item_loc.x() + item->width() - submenu_horizontal_inset;
       }
     }
-    y = item_loc.y() - MenuConfig::instance().submenu_vertical_margin_size;
+    y = item_loc.y() - menu_config.submenu_vertical_margin_size;
     if (state_.monitor_bounds.width() != 0) {
       pref.set_height(std::min(pref.height(), state_.monitor_bounds.height()));
       if (y + pref.height() > state_.monitor_bounds.bottom())
@@ -2133,5 +2134,13 @@ void MenuController::OnWindowActivated(aura::Window* active,
     Cancel(EXIT_ALL);
 }
 #endif
+
+gfx::Screen* MenuController::GetScreen() {
+#if defined(USE_AURA)
+  return gfx::Screen::GetScreenFor(root_window_);
+#else
+  return gfx::Screen::GetNativeScreen();
+#endif
+}
 
 }  // namespace views

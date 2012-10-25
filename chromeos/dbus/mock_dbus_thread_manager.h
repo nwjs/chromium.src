@@ -39,7 +39,6 @@ class MockShillServiceClient;
 class MockGsmSMSClient;
 class MockImageBurnerClient;
 class MockIntrospectableClient;
-class MockMediaTransferProtocolDaemonClient;
 class MockModemMessagingClient;
 class MockPermissionBrokerClient;
 class MockPowerManagerClient;
@@ -80,8 +79,6 @@ class MockDBusThreadManager : public DBusThreadManager {
   MOCK_METHOD0(GetGsmSMSClient, GsmSMSClient*(void));
   MOCK_METHOD0(GetImageBurnerClient, ImageBurnerClient*(void));
   MOCK_METHOD0(GetIntrospectableClient, IntrospectableClient*(void));
-  MOCK_METHOD0(GetMediaTransferProtocolDaemonClient,
-               MediaTransferProtocolDaemonClient*(void));
   MOCK_METHOD0(GetModemMessagingClient, ModemMessagingClient*(void));
   MOCK_METHOD0(GetPermissionBrokerClient, PermissionBrokerClient*(void));
   MOCK_METHOD0(GetPowerManagerClient, PowerManagerClient*(void));
@@ -154,10 +151,6 @@ class MockDBusThreadManager : public DBusThreadManager {
   MockIntrospectableClient* mock_introspectable_client() {
     return mock_introspectable_client_.get();
   }
-  MockMediaTransferProtocolDaemonClient*
-  mock_media_transfer_protocol_daemon_client() {
-    return mock_media_transfer_protocol_daemon_client_.get();
-  }
   MockModemMessagingClient* mock_modem_messaging_client() {
     return mock_modem_messaging_client_.get();
   }
@@ -200,8 +193,6 @@ class MockDBusThreadManager : public DBusThreadManager {
   scoped_ptr<MockGsmSMSClient> mock_gsm_sms_client_;
   scoped_ptr<MockImageBurnerClient> mock_image_burner_client_;
   scoped_ptr<MockIntrospectableClient> mock_introspectable_client_;
-  scoped_ptr<MockMediaTransferProtocolDaemonClient>
-      mock_media_transfer_protocol_daemon_client_;
   scoped_ptr<MockModemMessagingClient> mock_modem_messaging_client_;
   scoped_ptr<MockPermissionBrokerClient> mock_permission_broker_client_;
   scoped_ptr<MockPowerManagerClient> mock_power_manager_client_;

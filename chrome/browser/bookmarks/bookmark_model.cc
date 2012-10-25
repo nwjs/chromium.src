@@ -22,7 +22,6 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/pref_names.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/notification_service.h"
 #include "grit/generated_resources.h"
@@ -39,6 +38,14 @@ namespace {
 BookmarkNode* AsMutable(const BookmarkNode* node) {
   return const_cast<BookmarkNode*>(node);
 }
+
+// Whitespace characters to strip from bookmark titles.
+const char16 kInvalidChars[] = {
+  '\n', '\r', '\t',
+  0x2028,  // Line separator
+  0x2029,  // Paragraph separator
+  0
+};
 
 }  // namespace
 
@@ -58,8 +65,11 @@ BookmarkNode::~BookmarkNode() {
 }
 
 void BookmarkNode::SetTitle(const string16& title) {
-  // Remove extra whitespace from folder/bookmark names.
-  ui::TreeNode<BookmarkNode>::SetTitle(CollapseWhitespace(title, false));
+  // Replace newlines and other problematic whitespace characters in
+  // folder/bookmark names with spaces.
+  string16 trimmed_title;
+  ReplaceChars(title, kInvalidChars, ASCIIToUTF16(" "), &trimmed_title);
+  ui::TreeNode<BookmarkNode>::SetTitle(trimmed_title);
 }
 
 bool BookmarkNode::IsVisible() const {
@@ -70,13 +80,13 @@ void BookmarkNode::Initialize(int64 id) {
   id_ = id;
   type_ = url_.is_empty() ? FOLDER : URL;
   date_added_ = Time::Now();
-  is_favicon_loaded_ = false;
+  favicon_state_ = INVALID_FAVICON;
   favicon_load_handle_ = 0;
 }
 
 void BookmarkNode::InvalidateFavicon() {
   favicon_ = gfx::Image();
-  is_favicon_loaded_ = false;
+  favicon_state_ = INVALID_FAVICON;
 }
 
 namespace {
@@ -171,7 +181,7 @@ void BookmarkModel::Load() {
   }
 
   expanded_state_tracker_.reset(new BookmarkExpandedStateTracker(
-      profile_, prefs::kBookmarkEditorExpandedNodes, this));
+      profile_, this));
 
   // Listen for changes to favicons so that we can update the favicon of the
   // node appropriately.
@@ -293,9 +303,9 @@ void BookmarkModel::Copy(const BookmarkNode* node,
 
 const gfx::Image& BookmarkModel::GetFavicon(const BookmarkNode* node) {
   DCHECK(node);
-  if (!node->is_favicon_loaded()) {
+  if (node->favicon_state() == BookmarkNode::INVALID_FAVICON) {
     BookmarkNode* mutable_node = AsMutable(node);
-    mutable_node->set_is_favicon_loaded(true);
+    mutable_node->set_favicon_state(BookmarkNode::LOADING_FAVICON);
     LoadFavicon(mutable_node);
   }
   return node->favicon();
@@ -468,7 +478,9 @@ const BookmarkNode* BookmarkModel::AddURLWithCreationTime(
 
   bool was_bookmarked = IsBookmarked(url);
 
-  SetDateFolderModified(parent, creation_time);
+  // Syncing may result in dates older than the last modified date.
+  if (creation_time > parent->date_folder_modified())
+    SetDateFolderModified(parent, creation_time);
 
   BookmarkNode* new_node = new BookmarkNode(generate_next_node_id(), url);
   new_node->SetTitle(title);
@@ -639,7 +651,7 @@ void BookmarkModel::DoneLoading(BookmarkLoadDetails* details_delete_me) {
   // And generic notification.
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_BOOKMARK_MODEL_LOADED,
-      content::Source<Profile>(profile_),
+      content::Source<content::BrowserContext>(profile_),
       content::NotificationService::NoDetails());
 }
 
@@ -692,7 +704,7 @@ void BookmarkModel::RemoveAndDeleteNode(BookmarkNode* delete_me) {
 
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_URLS_STARRED,
-      content::Source<Profile>(profile_),
+      content::Source<content::BrowserContext>(profile_),
       content::Details<history::URLsStarredDetails>(&details));
 }
 
@@ -782,6 +794,7 @@ void BookmarkModel::OnFaviconDataAvailable(
               profile_, Profile::EXPLICIT_ACCESS), handle);
   DCHECK(node);
   node->set_favicon_load_handle(0);
+  node->set_favicon_state(BookmarkNode::LOADED_FAVICON);
   if (!image_result.image.IsEmpty()) {
     node->set_favicon(image_result.image);
     FaviconLoaded(node);

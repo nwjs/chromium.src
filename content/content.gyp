@@ -273,7 +273,7 @@
           },
           'sources': [
             'public/android/java/src/org/chromium/content/common/ISandboxedProcessCallback.aidl',
-          'public/android/java/src/org/chromium/content/common/ISandboxedProcessService.aidl',
+            'public/android/java/src/org/chromium/content/common/ISandboxedProcessService.aidl',
           ],
           'includes': [ '../build/java_aidl.gypi' ],
         },

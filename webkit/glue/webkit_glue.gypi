@@ -11,8 +11,6 @@
         'webkit_src_dir': '../../third_party/WebKit',
       }],
     ],
-
-    'use_libcc_for_compositor%': 0,
   },
   'target_defaults': {
      # Disable narrowing-conversion-in-initialization-list warnings in that we
@@ -96,12 +94,11 @@
         '<(DEPTH)/v8/tools/gyp/v8.gyp:v8',
         '<(DEPTH)/webkit/compositor_bindings/compositor_bindings.gyp:webkit_compositor_support',
         '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
-        'blob',
-        'fileapi',
         'user_agent',
         'webkit_base',
         'webkit_media',
         'webkit_resources',
+        'webkit_storage',
         'webkit_strings',
       ],
       'include_dirs': [
@@ -372,6 +369,7 @@
         'weburlresponse_extradata_impl.h',
         'web_intent_data.cc',
         'web_intent_data.h',
+        'web_intent_reply_data.cc',
         'web_intent_reply_data.h',
         'web_intent_service_data.cc',
         'web_intent_service_data.h',
@@ -472,11 +470,6 @@
         ['inside_chromium_build==0', {
           'dependencies': [
             '<(DEPTH)/webkit/support/setup_third_party.gyp:third_party_headers',
-          ],
-        }],
-        ['use_libcc_for_compositor==1', {
-          'defines': [
-            'USE_LIBCC_FOR_COMPOSITOR',
           ],
         }],
       ],

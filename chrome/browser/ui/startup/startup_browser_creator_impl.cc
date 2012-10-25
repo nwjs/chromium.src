@@ -26,6 +26,8 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
 #include "chrome/browser/defaults.h"
+#include "chrome/browser/extensions/app_restore_service.h"
+#include "chrome/browser/extensions/app_restore_service_factory.h"
 #include "chrome/browser/extensions/extension_creator.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/pack_extension_job.h"
@@ -95,6 +97,8 @@
 
 #if defined(USE_ASH)
 #include "ash/launcher/launcher_types.h"
+#include "ash/shell.h"
+#include "ui/aura/window.h"
 #endif
 
 #if defined(OS_MACOSX)
@@ -387,25 +391,13 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
     // be an app tab.
     OpenApplicationTab(profile);
 
-    if (process_startup) {
-      if (browser_defaults::kOSSupportsOtherBrowsers &&
-          !command_line_.HasSwitch(switches::kNoDefaultBrowserCheck)) {
-        // Generally, the default browser prompt should not be shown on first
-        // run. However, when the set-as-default dialog has been suppressed, we
-        // need to allow it.
-        if ((!is_first_run_ ||
-             (browser_creator_ &&
-              browser_creator_->is_default_browser_dialog_suppressed())) &&
-            !chrome::ShowAutolaunchPrompt(profile)) {
-          chrome::ShowDefaultBrowserPrompt(profile);
-        }
-      }
 #if defined(OS_MACOSX)
+    if (process_startup) {
       // Check whether the auto-update system needs to be promoted from user
       // to system.
       KeystoneInfoBar::PromotionInfoBar(profile);
-#endif
     }
+#endif
   }
 
   // If we're recording or playing back, startup the EventRecorder now
@@ -441,7 +433,9 @@ void StartupBrowserCreatorImpl::ExtractOptionalAppWindowSize(
     std::string switch_value =
         command_line_.GetSwitchValueASCII(switches::kAppWindowSize);
     if (ParseCommaSeparatedIntegers(switch_value, &width, &height)) {
-      const gfx::Rect work_area = gfx::Screen::GetPrimaryDisplay().work_area();
+      // TODO(scottmg): NativeScreen might be wrong. http://crbug.com/133312
+      const gfx::Rect work_area =
+          gfx::Screen::GetNativeScreen()->GetPrimaryDisplay().work_area();
       width = std::min(width, work_area.width());
       height = std::min(height, work_area.height());
       bounds->set_size(gfx::Size(width, height));
@@ -623,12 +617,14 @@ void StartupBrowserCreatorImpl::ProcessLaunchURLs(
   std::vector<GURL> adjust_urls = urls_to_open;
   if (adjust_urls.empty()) {
     AddStartupURLs(&adjust_urls);
+    if (StartupBrowserCreatorImpl::OpenStartupURLsInExistingBrowser(
+            profile_, adjust_urls))
+      return;
   } else if (!command_line_.HasSwitch(switches::kOpenInNewWindow)) {
     // Always open a list of urls in a window on the native desktop.
     browser = browser::FindBrowserWithProfile(profile_,
                                               chrome::HOST_DESKTOP_TYPE_NATIVE);
   }
-
   // This will launch a browser; prevent session restore.
   in_synchronous_profile_launch = true;
   browser = OpenURLsInBrowser(browser, process_startup, adjust_urls);
@@ -647,6 +643,12 @@ bool StartupBrowserCreatorImpl::ProcessStartupURLs(
     VLOG(1) << "Pref: urls";
   else if (pref.type == SessionStartupPref::DEFAULT)
     VLOG(1) << "Pref: default";
+
+  extensions::AppRestoreService* service =
+      extensions::AppRestoreServiceFactory::GetForProfile(profile_);
+  // NULL in incognito mode.
+  if (service)
+    service->HandleStartup(StartupBrowserCreator::WasRestarted());
 
   if (pref.type == SessionStartupPref::LAST) {
     if (profile_->GetLastSessionExitType() == Profile::EXIT_CRASHED &&
@@ -806,6 +808,20 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
 #endif
   }
 
+#if defined(USE_ASH)
+  if (ash::Shell::HasInstance()) {
+    // Set the browser's root window to be an active root window now so
+    // that that web contents can determine correct scale factor for the
+    // renderer. This is a short term fix for crbug.com/155201.  Without
+    // this, the renderer may use wrong scale factor first, then
+    // switched to the correct scale factor, which can cause race
+    // condition and lead to the results rendered at wrong scale factor.
+    // Long term fix is tracked in crbug.com/15543.
+    ash::Shell::GetInstance()->set_active_root_window(
+        browser->window()->GetNativeWindow()->GetRootWindow());
+  }
+#endif
+
   // In kiosk mode, we want to always be fullscreen, so switch to that now.
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kKioskMode))
     chrome::ToggleFullscreenMode(browser);
@@ -882,6 +898,20 @@ void StartupBrowserCreatorImpl::AddInfoBarsIfNecessary(
   if (is_process_startup == chrome::startup::IS_PROCESS_STARTUP) {
     chrome::ShowBadFlagsPrompt(browser);
     chrome::ShowObsoleteOSPrompt(browser);
+
+    if (browser_defaults::kOSSupportsOtherBrowsers &&
+        !command_line_.HasSwitch(switches::kNoDefaultBrowserCheck)) {
+      // Generally, the default browser prompt should not be shown on first
+      // run. However, when the set-as-default dialog has been suppressed, we
+      // need to allow it.
+      if ((!is_first_run_ ||
+           (browser_creator_ &&
+            browser_creator_->is_default_browser_dialog_suppressed())) &&
+          !chrome::ShowAutolaunchPrompt(browser)) {
+        chrome::ShowDefaultBrowserPrompt(profile_,
+                                         browser->host_desktop_type());
+      }
+    }
   }
 }
 
@@ -1008,3 +1038,13 @@ void StartupBrowserCreatorImpl::CheckPreferencesBackup(Profile* profile) {
         backup_show_home_button));
   }
 }
+
+#if !defined(OS_WIN) || defined(USE_AURA)
+// static
+bool StartupBrowserCreatorImpl::OpenStartupURLsInExistingBrowser(
+    Profile* profile,
+    const std::vector<GURL>& startup_urls) {
+  return false;
+}
+#endif
+

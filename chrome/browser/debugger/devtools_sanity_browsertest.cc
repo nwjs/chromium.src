@@ -420,17 +420,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestShowScriptsTab) {
 // Tests that scripts tab is populated with inspected scripts even if it
 // hadn't been shown by the moment inspected paged refreshed.
 // @see http://crbug.com/26312
-#if defined(OS_WIN)
-// http://crbug.com/141849
-#define MAYBE_TestScriptsTabIsPopulatedOnInspectedPageRefresh \
-        FLAKY_TestScriptsTabIsPopulatedOnInspectedPageRefresh
-#else
-#define MAYBE_TestScriptsTabIsPopulatedOnInspectedPageRefresh \
-        TestScriptsTabIsPopulatedOnInspectedPageRefresh
-#endif
 IN_PROC_BROWSER_TEST_F(
     DevToolsSanityTest,
-    MAYBE_TestScriptsTabIsPopulatedOnInspectedPageRefresh) {
+    TestScriptsTabIsPopulatedOnInspectedPageRefresh) {
   // Clear inspector settings to ensure that Elements will be
   // current panel when DevTools window is open.
   content::GetContentClient()->browser()->ClearInspectorSettings(
@@ -496,29 +488,18 @@ IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestNetworkTiming) {
   RunTest("testNetworkTiming", kSlowTestPage);
 }
 
-// crbug.com/118165
-#if defined(OS_MACOSX)
-#define MAYBE_TestNetworkSize FAILS_TestNetworkSize
-#define MAYBE_TestNetworkSyncSize FAILS_TestNetworkSyncSize
-#define MAYBE_TestNetworkRawHeadersText FAILS_TestNetworkRawHeadersText
-#else
-#define MAYBE_TestNetworkSize TestNetworkSize
-#define MAYBE_TestNetworkSyncSize TestNetworkSyncSize
-#define MAYBE_TestNetworkRawHeadersText TestNetworkRawHeadersText
-#endif
-
 // Tests network size.
-IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, MAYBE_TestNetworkSize) {
+IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestNetworkSize) {
   RunTest("testNetworkSize", kChunkedTestPage);
 }
 
 // Tests raw headers text.
-IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, MAYBE_TestNetworkSyncSize) {
+IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestNetworkSyncSize) {
   RunTest("testNetworkSyncSize", kChunkedTestPage);
 }
 
 // Tests raw headers text.
-IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, MAYBE_TestNetworkRawHeadersText) {
+IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestNetworkRawHeadersText) {
   RunTest("testNetworkRawHeadersText", kChunkedTestPage);
 }
 
@@ -529,7 +510,8 @@ IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestConsoleOnNavigateBack) {
 
 // Tests that inspector will reattach to inspected page when it is reloaded
 // after a crash. See http://crbug.com/101952
-IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestReattachAfterCrash) {
+// DISABLED: crbug.com/156985
+IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, DISABLED_TestReattachAfterCrash) {
   OpenDevToolsWindow(kDebuggerTestPage);
 
   content::CrashTab(GetInspectedTab());

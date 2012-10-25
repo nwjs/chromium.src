@@ -221,6 +221,8 @@ bool ExtensionHelper::OnMessageReceived(const IPC::Message& message) {
                         OnNotifyRendererViewType)
     IPC_MESSAGE_HANDLER(ExtensionMsg_AddMessageToConsole,
                         OnAddMessageToConsole)
+    IPC_MESSAGE_HANDLER(ExtensionMsg_AppWindowClosed,
+                        OnAppWindowClosed);
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -265,12 +267,6 @@ void ExtensionHelper::DraggableRegionsChanged(WebKit::WebFrame* frame) {
     extensions::DraggableRegion region;
     region.bounds = webregions[i].bounds;
     region.draggable = webregions[i].draggable;
-
-    // TODO(jianli): to be removed after WebKit patch that changes the draggable
-    // region syntax is landed.
-    region.label = UTF16ToASCII(webregions[i].label);
-    region.clip = webregions[i].clip;
-
     regions.push_back(region);
   }
   Send(new ExtensionHostMsg_UpdateDraggableRegions(routing_id(), regions));
@@ -414,6 +410,15 @@ void ExtensionHelper::OnUpdateBrowserWindowId(int window_id) {
 void ExtensionHelper::OnAddMessageToConsole(ConsoleMessageLevel level,
                                             const std::string& message) {
   AddMessageToRootConsole(level, UTF8ToUTF16(message));
+}
+
+void ExtensionHelper::OnAppWindowClosed() {
+  v8::HandleScope scope;
+  v8::Handle<v8::Context> script_context =
+      render_view()->GetWebView()->mainFrame()->mainWorldScriptContext();
+  ChromeV8Context* chrome_v8_context =
+      dispatcher_->v8_context_set().GetByV8Context(script_context);
+  chrome_v8_context->CallChromeHiddenMethod("OnAppWindowClosed", 0, NULL, NULL);
 }
 
 void ExtensionHelper::DidDownloadApplicationDefinition(

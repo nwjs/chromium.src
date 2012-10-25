@@ -20,6 +20,7 @@
 
 namespace gfx {
 class Rect;
+class Transform;
 }
 
 namespace ui {
@@ -29,7 +30,6 @@ class LayerAnimationSequence;
 class LayerAnimationDelegate;
 class LayerAnimationObserver;
 class ScopedLayerAnimationSettings;
-class Transform;
 
 // When a property of layer needs to be changed it is set by way of
 // LayerAnimator. This enables LayerAnimator to animate property changes.
@@ -60,8 +60,8 @@ class COMPOSITOR_EXPORT LayerAnimator
   static LayerAnimator* CreateImplicitAnimator();
 
   // Sets the transform on the delegate. May cause an implicit animation.
-  virtual void SetTransform(const Transform& transform);
-  Transform GetTargetTransform() const;
+  virtual void SetTransform(const gfx::Transform& transform);
+  gfx::Transform GetTargetTransform() const;
 
   // Sets the bounds on the delegate. May cause an implicit animation.
   virtual void SetBounds(const gfx::Rect& bounds);
@@ -82,6 +82,10 @@ class COMPOSITOR_EXPORT LayerAnimator
   // Sets the grayscale on the delegate. May cause an implicit animation.
   virtual void SetGrayscale(float grayscale);
   float GetTargetGrayscale() const;
+
+  // Sets the color on the delegate. May cause an implicit animation.
+  virtual void SetColor(SkColor color);
+  SkColor GetTargetColor() const;
 
   // Sets the layer animation delegate the animator is associated with. The
   // animator does not own the delegate. The layer animator expects a non-NULL

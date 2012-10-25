@@ -6,15 +6,19 @@
 
 #include "ash/display/display_controller.h"
 #include "ash/display/mouse_cursor_event_filter.h"
+#include "ash/root_window_controller.h"
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
 #include "ash/test/ash_test_base.h"
+#include "ash/test/cursor_manager_test_api.h"
+#include "ash/wm/cursor_manager.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/shelf_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
 #include "ash/wm/workspace/snap_sizer.h"
 #include "ash/wm/workspace/phantom_window_controller.h"
+#include "ash/wm/workspace/workspace_layout_manager2.h"
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "ui/aura/root_window.h"
@@ -123,6 +127,10 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
     return std::vector<aura::Window*>();
   }
 
+  internal::ShelfLayoutManager* shelf_layout_manager() {
+    return Shell::GetPrimaryRootWindowController()->shelf();
+  }
+
   TestWindowDelegate delegate_;
   TestWindowDelegate delegate2_;
   TestWindowDelegate delegate3_;
@@ -136,7 +144,7 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
 
 }  // namespace
 
-// Fails on win_aura since wm::GetRootWindowRelativeToWindow is not implemented
+// Fails on win_aura since ash::GetRootWindowRelativeToWindow is not implemented
 // yet for the platform.
 #if defined(OS_WIN)
 #define MAYBE_WindowDragWithMultiDisplays \
@@ -145,12 +153,14 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
   DISABLED_WindowDragWithMultiDisplaysRightToLeft
 #define MAYBE_PhantomStyle DISABLED_PhantomStyle
 #define MAYBE_CancelSnapPhantom DISABLED_CancelSnapPhantom
+#define MAYBE_CursorDeviceScaleFactor DISABLED_CursorDeviceScaleFactor
 #else
 #define MAYBE_WindowDragWithMultiDisplays WindowDragWithMultiDisplays
 #define MAYBE_WindowDragWithMultiDisplaysRightToLeft \
   WindowDragWithMultiDisplaysRightToLeft
 #define MAYBE_PhantomStyle PhantomStyle
 #define MAYBE_CancelSnapPhantom CancelSnapPhantom
+#define MAYBE_CursorDeviceScaleFactor CursorDeviceScaleFactor
 #endif
 
 // Assertions around attached window resize dragging from the right with 2
@@ -449,7 +459,7 @@ TEST_F(WorkspaceWindowResizerTest, AttachedResize_BOTTOM_3_Compress) {
 // Assertions around dragging to the left/right edge of the screen.
 TEST_F(WorkspaceWindowResizerTest, Edge) {
   int bottom =
-      ScreenAsh::GetUnmaximizedWorkAreaBoundsInParent(window_.get()).bottom();
+      ScreenAsh::GetDisplayWorkAreaBoundsInParent(window_.get()).bottom();
   window_->SetBounds(gfx::Rect(20, 30, 50, 60));
   {
     scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
@@ -480,12 +490,12 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_WindowDragWithMultiDisplays) {
   // The secondary display is logically on the right, but on the system (e.g. X)
   // layer, it's below the primary one. See UpdateDisplay() in ash_test_base.cc.
   UpdateDisplay("800x600,800x600");
-  Shell::GetInstance()->shelf()->LayoutShelf();
+  shelf_layout_manager()->LayoutShelf();
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
   ASSERT_EQ(2U, root_windows.size());
 
   window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
-                             gfx::Screen::GetPrimaryDisplay());
+                             Shell::GetScreen()->GetPrimaryDisplay());
   EXPECT_EQ(root_windows[0], window_->GetRootWindow());
   {
     // Grab (0, 0) of the window.
@@ -503,7 +513,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_WindowDragWithMultiDisplays) {
   }
 
   window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
-                             gfx::Screen::GetPrimaryDisplay());
+                             Shell::GetScreen()->GetPrimaryDisplay());
   EXPECT_EQ(root_windows[0], window_->GetRootWindow());
   {
     // Grab (0, 0) of the window and move the pointer to (790, 10).
@@ -519,7 +529,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_WindowDragWithMultiDisplays) {
   }
 
   window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
-                             gfx::Screen::GetPrimaryDisplay());
+                             Shell::GetScreen()->GetPrimaryDisplay());
   EXPECT_EQ(root_windows[0], window_->GetRootWindow());
   {
     // Grab the top-right edge of the window and move the pointer to (0, 10)
@@ -541,13 +551,13 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_WindowDragWithMultiDisplays) {
 TEST_F(WorkspaceWindowResizerTest,
        MAYBE_WindowDragWithMultiDisplaysRightToLeft) {
   UpdateDisplay("800x600,800x600");
-  Shell::GetInstance()->shelf()->LayoutShelf();
+  shelf_layout_manager()->LayoutShelf();
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
   ASSERT_EQ(2U, root_windows.size());
 
   window_->SetBoundsInScreen(
       gfx::Rect(800, 00, 50, 60),
-      gfx::Screen::GetDisplayNearestWindow(root_windows[1]));
+      Shell::GetScreen()->GetDisplayNearestWindow(root_windows[1]));
   EXPECT_EQ(root_windows[1], window_->GetRootWindow());
   {
     // Grab (0, 0) of the window.
@@ -569,7 +579,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
   ASSERT_EQ(2U, root_windows.size());
 
   window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
-                             gfx::Screen::GetPrimaryDisplay());
+                             Shell::GetScreen()->GetPrimaryDisplay());
   EXPECT_EQ(root_windows[0], window_->GetRootWindow());
   EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
   {
@@ -620,7 +630,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
 
   // Do the same test with RevertDrag().
   window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
-                             gfx::Screen::GetPrimaryDisplay());
+                             Shell::GetScreen()->GetPrimaryDisplay());
   EXPECT_EQ(root_windows[0], window_->GetRootWindow());
   EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
   {
@@ -644,7 +654,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_CancelSnapPhantom) {
   ASSERT_EQ(2U, root_windows.size());
 
   window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
-                             gfx::Screen::GetPrimaryDisplay());
+                             Shell::GetScreen()->GetPrimaryDisplay());
   EXPECT_EQ(root_windows[0], window_->GetRootWindow());
   EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
   {
@@ -768,7 +778,7 @@ TEST_F(WorkspaceWindowResizerTest, DontDragOffBottom) {
   Shell::GetInstance()->SetDisplayWorkAreaInsets(
       Shell::GetPrimaryRootWindow(), gfx::Insets(0, 0, 10, 0));
 
-  ASSERT_EQ(1, gfx::Screen::GetNumDisplays());
+  ASSERT_EQ(1, Shell::GetScreen()->GetNumDisplays());
 
   window_->SetBounds(gfx::Rect(100, 200, 300, 400));
   scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
@@ -784,7 +794,7 @@ TEST_F(WorkspaceWindowResizerTest, DontDragOffBottom) {
 // Makes sure we don't allow dragging on the work area with multidisplay.
 TEST_F(WorkspaceWindowResizerTest, DontDragOffBottomWithMultiDisplay) {
   UpdateDisplay("800x600,800x600");
-  ASSERT_EQ(2, gfx::Screen::GetNumDisplays());
+  ASSERT_EQ(2, Shell::GetScreen()->GetNumDisplays());
 
   Shell::GetInstance()->SetDisplayWorkAreaInsets(
       Shell::GetPrimaryRootWindow(), gfx::Insets(0, 0, 10, 0));
@@ -845,10 +855,70 @@ TEST_F(WorkspaceWindowResizerTest, ResizeBottomOutsideWorkArea) {
   EXPECT_EQ("100,200 300x380", window_->bounds().ToString());
 }
 
+TEST_F(WorkspaceWindowResizerTest, ResizeWindowOutsideLeftWorkArea) {
+  Shell::GetInstance()->SetDisplayWorkAreaInsets(
+      Shell::GetPrimaryRootWindow(), gfx::Insets(0, 0, 50, 0));
+  int left = ScreenAsh::GetDisplayWorkAreaBoundsInParent(window_.get()).x();
+  int pixels_to_left_border = 50;
+  int window_width = 300;
+  int window_x = left - window_width + pixels_to_left_border;
+  window_->SetBounds(gfx::Rect(window_x, 100, window_width, 380));
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(pixels_to_left_border, 0), HTRIGHT,
+      empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(CalculateDragPoint(*resizer, -window_width, 0), 0);
+  EXPECT_EQ(base::IntToString(window_x) + ",100 " +
+            base::IntToString(kMinimumOnScreenArea - window_x) +
+            "x380", window_->bounds().ToString());
+}
+
+TEST_F(WorkspaceWindowResizerTest, ResizeWindowOutsideRightWorkArea) {
+  Shell::GetInstance()->SetDisplayWorkAreaInsets(
+      Shell::GetPrimaryRootWindow(), gfx::Insets(0, 0, 50, 0));
+  int right = ScreenAsh::GetDisplayWorkAreaBoundsInParent(
+      window_.get()).right();
+  int pixels_to_right_border = 50;
+  int window_width = 300;
+  int window_x = right - pixels_to_right_border;
+  window_->SetBounds(gfx::Rect(window_x, 100, window_width, 380));
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(window_x, 0), HTLEFT,
+      empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(CalculateDragPoint(*resizer, window_width, 0), 0);
+  EXPECT_EQ(base::IntToString(right - kMinimumOnScreenArea) +
+            ",100 " +
+            base::IntToString(window_width - pixels_to_right_border +
+                              kMinimumOnScreenArea) +
+            "x380", window_->bounds().ToString());
+}
+
+TEST_F(WorkspaceWindowResizerTest, ResizeWindowOutsideBottomWorkArea) {
+  Shell::GetInstance()->SetDisplayWorkAreaInsets(
+      Shell::GetPrimaryRootWindow(), gfx::Insets(0, 0, 50, 0));
+  int bottom = ScreenAsh::GetDisplayWorkAreaBoundsInParent(
+      window_.get()).bottom();
+  int delta_to_bottom = 50;
+  int height = 380;
+  window_->SetBounds(gfx::Rect(100, bottom - delta_to_bottom, 300, height));
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(0, bottom - delta_to_bottom), HTTOP,
+      empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(CalculateDragPoint(*resizer, 0, bottom), 0);
+  EXPECT_EQ("100," +
+            base::IntToString(bottom - kMinimumOnScreenArea) +
+            " 300x" +
+            base::IntToString(height - (delta_to_bottom -
+                                        kMinimumOnScreenArea)),
+            window_->bounds().ToString());
+}
+
 // Verifies snapping to edges works.
 TEST_F(WorkspaceWindowResizerTest, SnapToEdge) {
-  Shell::GetInstance()->SetShelfAutoHideBehavior(
-      SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
+  Shell::GetPrimaryRootWindowController()->
+      SetShelfAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
   window_->SetBounds(gfx::Rect(96, 112, 320, 160));
   scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
       window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
@@ -897,6 +967,65 @@ TEST_F(WorkspaceWindowResizerTest, SnapToEdge) {
   // No need to test dragging < 0 as we force that to 0.
 }
 
+// Verifies a resize snap when dragging TOPLEFT.
+TEST_F(WorkspaceWindowResizerTest, SnapToWorkArea_TOPLEFT) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(), HTTOPLEFT, empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(CalculateDragPoint(*resizer, -98, -199), 0);
+  EXPECT_EQ("0,0 120x230", window_->bounds().ToString());
+}
+
+// Verifies a resize snap when dragging TOPRIGHT.
+TEST_F(WorkspaceWindowResizerTest, SnapToWorkArea_TOPRIGHT) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  gfx::Rect work_area(ScreenAsh::GetDisplayWorkAreaBoundsInParent(
+                          window_.get()));
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(), HTTOPRIGHT, empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(
+      CalculateDragPoint(*resizer, work_area.right() - 120 - 1, -199), 0);
+  EXPECT_EQ(100, window_->bounds().x());
+  EXPECT_EQ(work_area.y(), window_->bounds().y());
+  EXPECT_EQ(work_area.right() - 100, window_->bounds().width());
+  EXPECT_EQ(230, window_->bounds().height());
+}
+
+// Verifies a resize snap when dragging BOTTOMRIGHT.
+TEST_F(WorkspaceWindowResizerTest, SnapToWorkArea_BOTTOMRIGHT) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  gfx::Rect work_area(ScreenAsh::GetDisplayWorkAreaBoundsInParent(
+                          window_.get()));
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(), HTBOTTOMRIGHT, empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(
+      CalculateDragPoint(*resizer, work_area.right() - 120 - 1,
+                         work_area.bottom() - 220 - 2), 0);
+  EXPECT_EQ(100, window_->bounds().x());
+  EXPECT_EQ(200, window_->bounds().y());
+  EXPECT_EQ(work_area.right() - 100, window_->bounds().width());
+  EXPECT_EQ(work_area.bottom() - 200, window_->bounds().height());
+}
+
+// Verifies a resize snap when dragging BOTTOMLEFT.
+TEST_F(WorkspaceWindowResizerTest, SnapToWorkArea_BOTTOMLEFT) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  gfx::Rect work_area(ScreenAsh::GetDisplayWorkAreaBoundsInParent(
+                          window_.get()));
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(), HTBOTTOMLEFT, empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(
+      CalculateDragPoint(*resizer, -98, work_area.bottom() - 220 - 2), 0);
+  EXPECT_EQ(0, window_->bounds().x());
+  EXPECT_EQ(200, window_->bounds().y());
+  EXPECT_EQ(120, window_->bounds().width());
+  EXPECT_EQ(work_area.bottom() - 200, window_->bounds().height());
+}
+
 // Verifies a window taller than work area height doesn't snap above the top of
 // the work area.
 TEST_F(WorkspaceWindowResizerTest, TallWindow) {
@@ -939,7 +1068,19 @@ TEST_F(WorkspaceWindowResizerTest, TestProperSizerResolutions) {
   scoped_ptr<SnapSizer> resizer(new SnapSizer(
       window_.get(), gfx::Point(), SnapSizer::LEFT_EDGE));
   ASSERT_TRUE(resizer.get());
+  shelf_layout_manager()->SetAutoHideBehavior(
+      SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
   gfx::Rect rect = resizer->GetTargetBoundsForSize(0);
+  EXPECT_EQ("0,0 720x597", rect.ToString());
+  rect = resizer->GetTargetBoundsForSize(1);
+  EXPECT_EQ("0,0 720x597", rect.ToString());
+  rect = resizer->GetTargetBoundsForSize(2);
+  EXPECT_EQ("0,0 720x597", rect.ToString());
+  rect = resizer->GetTargetBoundsForSize(3);
+  EXPECT_EQ("0,0 640x597", rect.ToString());
+  shelf_layout_manager()->SetAutoHideBehavior(
+      SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
+  rect = resizer->GetTargetBoundsForSize(0);
   EXPECT_EQ("0,0 720x552", rect.ToString());
   rect = resizer->GetTargetBoundsForSize(1);
   EXPECT_EQ("0,0 720x552", rect.ToString());
@@ -990,21 +1131,228 @@ TEST_F(WorkspaceWindowResizerTest, MagneticallyAttach) {
   scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
       window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
   ASSERT_TRUE(resizer.get());
-  // Move |window| one pixel to the left of |window2|.
+  // Move |window| one pixel to the left of |window2|. Should snap to right and
+  // top.
   resizer->Drag(CalculateDragPoint(*resizer, 119, 145), 0);
-  EXPECT_EQ("130,155 20x30", window_->bounds().ToString());
+  EXPECT_EQ("130,160 20x30", window_->bounds().ToString());
 
-  // Move |window| one pixel to the right of |window2|.
+  // Move |window| one pixel to the right of |window2|. Should snap to left and
+  // top.
   resizer->Drag(CalculateDragPoint(*resizer, 164, 145), 0);
-  EXPECT_EQ("175,155 20x30", window_->bounds().ToString());
+  EXPECT_EQ("175,160 20x30", window_->bounds().ToString());
 
-  // Move |window| one pixel above |window2|.
+  // Move |window| one pixel above |window2|. Should snap to top and left.
   resizer->Drag(CalculateDragPoint(*resizer, 142, 119), 0);
-  EXPECT_EQ("152,130 20x30", window_->bounds().ToString());
+  EXPECT_EQ("150,130 20x30", window_->bounds().ToString());
 
-  // Move |window| one pixel above the bottom of |window2|.
+  // Move |window| one pixel above the bottom of |window2|. Should snap to
+  // bottom and left.
   resizer->Drag(CalculateDragPoint(*resizer, 142, 169), 0);
-  EXPECT_EQ("152,180 20x30", window_->bounds().ToString());
+  EXPECT_EQ("150,180 20x30", window_->bounds().ToString());
+}
+
+// The following variants verify magnetic snapping during resize when dragging a
+// particular edge.
+TEST_F(WorkspaceWindowResizerTest, MagneticallyResize_TOP) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  window2_->SetBounds(gfx::Rect(99, 179, 10, 20));
+  window2_->Show();
+
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+    window_.get(), gfx::Point(), HTTOP, empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+  EXPECT_EQ("100,199 20x31", window_->bounds().ToString());
+}
+
+TEST_F(WorkspaceWindowResizerTest, MagneticallyResize_TOPLEFT) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  window2_->SetBounds(gfx::Rect(99, 179, 10, 20));
+  window2_->Show();
+
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTTOPLEFT, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+    EXPECT_EQ("99,199 21x31", window_->bounds().ToString());
+    resizer->RevertDrag();
+  }
+
+  {
+    window2_->SetBounds(gfx::Rect(88, 201, 10, 20));
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTTOPLEFT, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+    EXPECT_EQ("98,201 22x29", window_->bounds().ToString());
+    resizer->RevertDrag();
+  }
+}
+
+TEST_F(WorkspaceWindowResizerTest, MagneticallyResize_TOPRIGHT) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  window2_->Show();
+
+  {
+    window2_->SetBounds(gfx::Rect(111, 179, 10, 20));
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTTOPRIGHT, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+    EXPECT_EQ("100,199 21x31", window_->bounds().ToString());
+    resizer->RevertDrag();
+  }
+
+  {
+    window2_->SetBounds(gfx::Rect(121, 199, 10, 20));
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTTOPRIGHT, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+    EXPECT_EQ("100,199 21x31", window_->bounds().ToString());
+    resizer->RevertDrag();
+  }
+}
+
+TEST_F(WorkspaceWindowResizerTest, MagneticallyResize_RIGHT) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  window2_->SetBounds(gfx::Rect(121, 199, 10, 20));
+  window2_->Show();
+
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(), HTRIGHT, empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+  EXPECT_EQ("100,200 21x30", window_->bounds().ToString());
+}
+
+TEST_F(WorkspaceWindowResizerTest, MagneticallyResize_BOTTOMRIGHT) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  window2_->Show();
+
+  {
+    window2_->SetBounds(gfx::Rect(122, 212, 10, 20));
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTBOTTOMRIGHT, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+    EXPECT_EQ("100,200 22x32", window_->bounds().ToString());
+    resizer->RevertDrag();
+  }
+
+  {
+    window2_->SetBounds(gfx::Rect(111, 233, 10, 20));
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTBOTTOMRIGHT, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+    EXPECT_EQ("100,200 21x33", window_->bounds().ToString());
+    resizer->RevertDrag();
+  }
+}
+
+TEST_F(WorkspaceWindowResizerTest, MagneticallyResize_BOTTOM) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  window2_->SetBounds(gfx::Rect(111, 233, 10, 20));
+  window2_->Show();
+
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTBOTTOM, empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+  EXPECT_EQ("100,200 20x33", window_->bounds().ToString());
+}
+
+TEST_F(WorkspaceWindowResizerTest, MagneticallyResize_BOTTOMLEFT) {
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  window2_->Show();
+
+  {
+    window2_->SetBounds(gfx::Rect(99, 231, 10, 20));
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTBOTTOMLEFT, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+    EXPECT_EQ("99,200 21x31", window_->bounds().ToString());
+    resizer->RevertDrag();
+  }
+
+  {
+    window2_->SetBounds(gfx::Rect(89, 209, 10, 20));
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTBOTTOMLEFT, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+    EXPECT_EQ("99,200 21x29", window_->bounds().ToString());
+    resizer->RevertDrag();
+  }
+}
+
+TEST_F(WorkspaceWindowResizerTest, MagneticallyResize_LEFT) {
+  window2_->SetBounds(gfx::Rect(89, 209, 10, 20));
+  window_->SetBounds(gfx::Rect(100, 200, 20, 30));
+  window2_->Show();
+
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(), HTLEFT, empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(CalculateDragPoint(*resizer, 0, 0), 0);
+  EXPECT_EQ("99,200 21x30", window_->bounds().ToString());
+}
+
+// Verifies cursor's device scale factor is updated whe a window is moved across
+// root windows with different device scale factors (http://crbug.com/154183).
+TEST_F(WorkspaceWindowResizerTest, MAYBE_CursorDeviceScaleFactor) {
+  // The secondary display is logically on the right, but on the system (e.g. X)
+  // layer, it's below the primary one. See UpdateDisplay() in ash_test_base.cc.
+  UpdateDisplay("400x400,800x800*2");
+  shelf_layout_manager()->LayoutShelf();
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  ASSERT_EQ(2U, root_windows.size());
+
+  test::CursorManagerTestApi cursor_test_api(
+      Shell::GetInstance()->cursor_manager());
+  MouseCursorEventFilter* event_filter =
+      Shell::GetInstance()->mouse_cursor_filter();
+  // Move window from the root window with 1.0 device scale factor to the root
+  // window with 2.0 device scale factor.
+  {
+    window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
+                               Shell::GetScreen()->GetPrimaryDisplay());
+    EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+    // Grab (0, 0) of the window.
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    EXPECT_EQ(1.0f, cursor_test_api.GetDeviceScaleFactor());
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 399, 200), 0);
+    event_filter->WarpMouseCursorIfNecessary(root_windows[0],
+                                             gfx::Point(399, 200));
+    EXPECT_EQ(2.0f, cursor_test_api.GetDeviceScaleFactor());
+    resizer->CompleteDrag(0);
+    EXPECT_EQ(2.0f, cursor_test_api.GetDeviceScaleFactor());
+  }
+
+  // Move window from the root window with 2.0 device scale factor to the root
+  // window with 1.0 device scale factor.
+  {
+    window_->SetBoundsInScreen(
+        gfx::Rect(600, 0, 50, 60),
+        Shell::GetScreen()->GetDisplayNearestWindow(root_windows[1]));
+    EXPECT_EQ(root_windows[1], window_->GetRootWindow());
+    // Grab (0, 0) of the window.
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    EXPECT_EQ(2.0f, cursor_test_api.GetDeviceScaleFactor());
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, -200, 200), 0);
+    event_filter->WarpMouseCursorIfNecessary(root_windows[1],
+                                             gfx::Point(400, 200));
+    EXPECT_EQ(1.0f, cursor_test_api.GetDeviceScaleFactor());
+    resizer->CompleteDrag(0);
+    EXPECT_EQ(1.0f, cursor_test_api.GetDeviceScaleFactor());
+  }
 }
 
 }  // namespace internal

@@ -7,6 +7,12 @@
 
 #include "base/platform_file.h"
 #include "chrome/browser/extensions/extension_function.h"
+#include "webkit/fileapi/syncable/sync_status_code.h"
+#include "webkit/quota/quota_types.h"
+
+namespace fileapi {
+class FileSystemContext;
+}
 
 namespace extensions {
 
@@ -20,9 +26,31 @@ class SyncFileSystemRequestFileSystemFunction
   virtual bool RunImpl() OVERRIDE;
 
  private:
+  typedef SyncFileSystemRequestFileSystemFunction self;
+
+  // Returns the file system context for this extension.
+  fileapi::FileSystemContext* GetFileSystemContext();
+
+  void DidInitializeFileSystemContext(const std::string& service_name,
+                                      fileapi::SyncStatusCode status);
   void DidOpenFileSystem(base::PlatformFileError error,
                          const std::string& file_system_name,
                          const GURL& root_url);
+};
+
+class SyncFileSystemGetUsageAndQuotaFunction
+    : public AsyncExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION_NAME("syncFileSystem.getUsageAndQuota");
+
+ protected:
+  virtual ~SyncFileSystemGetUsageAndQuotaFunction() {}
+  virtual bool RunImpl() OVERRIDE;
+
+ private:
+  void DidGetUsageAndQuota(quota::QuotaStatusCode status,
+                           int64 usage,
+                           int64 quota);
 };
 
 }  // namespace extensions

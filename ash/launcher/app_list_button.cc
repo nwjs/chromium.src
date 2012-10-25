@@ -25,7 +25,7 @@ namespace {
 
 const int kAnimationDurationInMs = 600;
 const float kAnimationOpacity[] = { 1.0f, 0.4f, 1.0f };
-const int kImageOffsetY = 7;
+const int kImageOffsetY = 9;
 }  // namespace
 
 AppListButton::AppListButton(views::ButtonListener* listener,
@@ -86,7 +86,7 @@ void AppListButton::StopLoadingAnimation() {
   settings.SetTransitionDuration(
       base::TimeDelta::FromMilliseconds(kAnimationDurationInMs));
   layer()->SetOpacity(1.0f);
-  layer()->SetTransform(ui::Transform());
+  layer()->SetTransform(gfx::Transform());
 }
 
 bool AppListButton::OnMousePressed(const ui::MouseEvent& event) {

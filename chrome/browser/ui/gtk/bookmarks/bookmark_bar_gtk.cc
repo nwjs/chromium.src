@@ -17,9 +17,9 @@
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/ntp_background_util.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/bookmarks/bookmark_bar_constants.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -38,6 +38,7 @@
 #include "chrome/browser/ui/gtk/rounded_window.h"
 #include "chrome/browser/ui/gtk/tabstrip_origin_provider.h"
 #include "chrome/browser/ui/gtk/view_id_util.h"
+#include "chrome/browser/ui/ntp_background_util.h"
 #include "chrome/browser/ui/webui/ntp/app_launcher_handler.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -132,8 +133,6 @@ void RecordAppLaunch(Profile* profile, const GURL& url) {
 }
 
 }  // namespace
-
-const int BookmarkBarGtk::kBookmarkBarNTPHeight = 57;
 
 BookmarkBarGtk::BookmarkBarGtk(BrowserWindowGtk* window,
                                Browser* browser,
@@ -324,7 +323,7 @@ void BookmarkBarGtk::CalculateMaxHeight() {
     max_height_ = req.height;
   } else {
     max_height_ = (bookmark_bar_state_ == BookmarkBar::DETACHED) ?
-                  kBookmarkBarNTPHeight : kBookmarkBarHeight;
+                  chrome::kNTPBookmarkBarHeight : kBookmarkBarHeight;
   }
 }
 
@@ -1421,7 +1420,7 @@ gboolean BookmarkBarGtk::OnEventBoxExpose(GtkWidget* widget,
     gfx::Rect area = gtk_widget_get_has_window(widget) ?
                      gfx::Rect(0, 0, allocation.width, allocation.height) :
                      gfx::Rect(allocation);
-    NtpBackgroundUtil::PaintBackgroundDetachedMode(theme_provider, &canvas,
+    NtpBackgroundUtil::PaintBackgroundDetachedMode(browser_->profile(), &canvas,
         area, tab_contents_size.height());
   }
 

@@ -22,6 +22,8 @@ namespace base {
 class MessageLoopProxy;
 }
 
+namespace content {
+
 class RenderViewImpl;
 
 // MediaStreamDispatcher is a delegate for the Media Stream API messages.
@@ -30,7 +32,7 @@ class RenderViewImpl;
 // It's the complement of MediaStreamDispatcherHost (owned by
 // BrowserRenderProcessHost).
 class CONTENT_EXPORT MediaStreamDispatcher
-    : public content::RenderViewObserver,
+    : public RenderViewObserver,
       public base::SupportsWeakPtr<MediaStreamDispatcher> {
  public:
   explicit MediaStreamDispatcher(RenderViewImpl* render_view);
@@ -42,16 +44,7 @@ class CONTENT_EXPORT MediaStreamDispatcher
   virtual void GenerateStream(
       int request_id,
       const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
-      media_stream::StreamOptions components,
-      const GURL& security_origin);
-
-  // Like GenerateStream above, except use the device specified by |device_id|
-  // rather than allow the user to choose one.
-  virtual void GenerateStreamForDevice(
-      int request_id,
-      const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
-      media_stream::StreamOptions components,
-      const std::string& device_id,
+      const media_stream::StreamOptions& components,
       const GURL& security_origin);
 
   // Cancel the request for a new media stream to be created.
@@ -137,8 +130,6 @@ class CONTENT_EXPORT MediaStreamDispatcher
       const media_stream::StreamDeviceInfoArray& audio_array,
       const media_stream::StreamDeviceInfoArray& video_array);
   void OnStreamGenerationFailed(int request_id);
-  void OnVideoDeviceFailed(const std::string& label, int index);
-  void OnAudioDeviceFailed(const std::string& label, int index);
   void OnDevicesEnumerated(
       int request_id,
       const std::string& label,
@@ -165,12 +156,13 @@ class CONTENT_EXPORT MediaStreamDispatcher
   EnumerationState audio_enumeration_state_;
   EnumerationState video_enumeration_state_;
 
-  // List of calls made to GenerateStream/GenerateStreamForDevice that has not
-  // yet completed.
+  // List of calls made to GenerateStream that have not yet completed.
   typedef std::list<Request> RequestList;
   RequestList requests_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaStreamDispatcher);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_RENDERER_MEDIA_MEDIA_STREAM_DISPATCHER_H_

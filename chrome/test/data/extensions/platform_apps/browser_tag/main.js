@@ -48,6 +48,99 @@ onload = function() {
           }, 0);
         }, 0);
       }, 0);
+    },
+
+    function browserTagApiMethodExistence() {
+      var browserTag = document.createElement('browser');
+      browserTag.setAttribute('src', 'data:text/html,browser tag check api');
+      var apiMethodsToCheck = [
+        'addEventListener',
+        'back',
+        'canGoBack',
+        'canGoForward',
+        'forward',
+        'getProcessId',
+        'go',
+        'reload',
+        'removeEventListener',
+        'stop',
+        'terminate'
+      ];
+      document.body.appendChild(browserTag);
+
+      // Timeout is necessary to give the mutation observers of the browser tag
+      // shim a chance to fire.
+      setTimeout(function() {
+        for (var i = 0; i < apiMethodsToCheck.length; ++i) {
+          chrome.test.assertEq('function',
+                               typeof browserTag[apiMethodsToCheck[i]]);
+        }
+
+        // Check contentWindow.
+        chrome.test.assertEq('object', typeof browserTag.contentWindow);
+        chrome.test.assertEq('function',
+                             typeof browserTag.contentWindow.postMessage);
+
+        chrome.test.succeed();
+      }, 0);
+    },
+
+    function browserTagEventListeners() {
+      var browserTag = document.createElement('browser');
+      browserTag.setAttribute('src', 'data:text/html,browser tag check api');
+      document.body.appendChild(browserTag);
+
+      var validEvents = [
+        'exit',
+        'loadabort',
+        'loadredirect',
+        'loadstart',
+        'loadstop'
+      ];
+      var invalidEvents = [
+        'makemesandwich',
+        'sudomakemesandwich'
+      ];
+
+      // Timeout is necessary to give the mutation observers of the browser tag
+      // shim a chance to fire.
+      setTimeout(function() {
+        for (var i = 0; i < validEvents.length; ++i) {
+          chrome.test.assertTrue(
+              browserTag.addEventListener(validEvents[i], function() {}));
+        }
+
+        for (var i = 0; i < invalidEvents.length; ++i) {
+          chrome.test.assertFalse(
+              browserTag.addEventListener(invalidEvents[i], function() {}));
+        }
+
+        chrome.test.succeed();
+      }, 0);
+    },
+
+    function browserTagEventName() {
+      var browserTag = document.createElement('browser');
+      browserTag.setAttribute('src', 'data:text/html,browser tag check api');
+      document.body.appendChild(browserTag);
+
+      setTimeout(function() {
+        browserTag.addEventListener('loadstart', function(evt) {
+          chrome.test.assertEq('loadstart', evt.name);
+        });
+
+        browserTag.addEventListener('loadstop', function(evt) {
+          chrome.test.assertEq('loadstop', evt.name);
+          browserTag.terminate();
+        });
+
+        browserTag.addEventListener('exit', function(evt) {
+          chrome.test.assertEq('exit', evt.name);
+          chrome.test.succeed();
+        });
+
+        browserTag.setAttribute('src', 'data:text/html,trigger navigation');
+      }, 0);
     }
   ]);
 };

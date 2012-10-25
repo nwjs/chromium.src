@@ -20,7 +20,6 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_l10n_util.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/extensions/extension_messages.h"
@@ -36,6 +35,8 @@ using extensions::Extension;
 namespace errors = extension_manifest_errors;
 
 namespace {
+
+const FilePath::CharType kTempDirectoryName[] = FILE_PATH_LITERAL("Temp");
 
 bool ValidateExtensionIconSet(const ExtensionIconSet& icon_set,
                               const Extension* extension,
@@ -67,13 +68,11 @@ static bool ValidateLocaleInfo(const Extension& extension,
 static bool IsScriptValid(const FilePath& path, const FilePath& relative_path,
                           int message_id, std::string* error);
 
-const char kInstallDirectoryName[] = "Extensions";
-
 FilePath InstallExtension(const FilePath& unpacked_source_dir,
                           const std::string& id,
                           const std::string& version,
-                          const FilePath& all_extensions_dir) {
-  FilePath extension_dir = all_extensions_dir.AppendASCII(id);
+                          const FilePath& extensions_dir) {
+  FilePath extension_dir = extensions_dir.AppendASCII(id);
   FilePath version_dir;
 
   // Create the extension directory if it doesn't exist already.
@@ -82,34 +81,21 @@ FilePath InstallExtension(const FilePath& unpacked_source_dir,
       return FilePath();
   }
 
-  FilePath profile_temp_dir = GetUserDataTempDir();
-  // Move the extracted extension to a temp folder under the profile which will
-  // then be moved to the final destination to ensure integrity of the installed
-  // extension. The first move is actually a copy+delete to ensure proper
-  // behavor in case we are moving a folder inside another folder on the same
-  // level because Move will attempt rename in this case instead of proper move.
-  // PLEASE NOTE: This issue has been observed in extension unit tests that try
-  // to install user exnteions (not crx files but unpacked ones) from subfolder
-  // of the temp folder. In that case a move will only rename the folder insted
-  // of miving it into the destination folder as expected. That is the reason we
-  // do copy+delete instead of a plain delete here! It can happen in the wild
-  // with say autounpacked archive going to the temp folder and the user tries
-  // to install it from there.
+  // Get a temp directory on the same file system as the profile.
+  FilePath install_temp_dir = GetInstallTempDir(extensions_dir);
   ScopedTempDir extension_temp_dir;
-  if (profile_temp_dir.empty() ||
-      !extension_temp_dir.CreateUniqueTempDirUnderPath(profile_temp_dir)) {
+  if (install_temp_dir.empty() ||
+      !extension_temp_dir.CreateUniqueTempDirUnderPath(install_temp_dir)) {
     LOG(ERROR) << "Creating of temp dir under in the profile failed.";
     return FilePath();
   }
-  if (!file_util::CopyDirectory(unpacked_source_dir,
-                                extension_temp_dir.path(), true)) {
-    LOG(ERROR) << "Moving extension from : " << unpacked_source_dir.value()
-               << " to : " << extension_temp_dir.path().value() << " failed.";
-    return FilePath();
-  }
-  file_util::Delete(unpacked_source_dir, true);
   FilePath crx_temp_source =
       extension_temp_dir.path().Append(unpacked_source_dir.BaseName());
+  if (!file_util::Move(unpacked_source_dir, crx_temp_source)) {
+    LOG(ERROR) << "Moving extension from : " << unpacked_source_dir.value()
+               << " to : " << crx_temp_source.value() << " failed.";
+    return FilePath();
+  }
 
   // Try to find a free directory. There can be legitimate conflicts in the case
   // of overinstallation of the same version.
@@ -451,6 +437,14 @@ void GarbageCollectExtensions(
     std::string extension_id;
 
     FilePath basename = extension_path.BaseName();
+    // Clean up temporary files left if Chrome crashed or quit in the middle
+    // of an extension install.
+    if (basename.value() == kTempDirectoryName) {
+      file_util::Delete(extension_path, true);  // Recursive
+      continue;
+    }
+
+    // Parse directory name as a potential extension ID.
     if (IsStringASCII(basename.value())) {
       extension_id = UTF16ToASCII(basename.LossyDisplayName());
       if (!Extension::IdIsValid(extension_id))
@@ -723,68 +717,36 @@ FilePath ExtensionResourceURLToFilePath(const GURL& url, const FilePath& root) {
   return path;
 }
 
-FilePath GetUserDataTempDir() {
+FilePath GetInstallTempDir(const FilePath& extensions_dir) {
   // We do file IO in this function, but only when the current profile's
   // Temp directory has never been used before, or in a rare error case.
   // Developers are not likely to see these situations often, so do an
   // explicit thread check.
   base::ThreadRestrictions::AssertIOAllowed();
 
-  // The following enum used to be sent as a histogram to diagnose issues
-  // accessing the temp path (crbug/70056).  The histogram is gone, but
-  // the enum makes it clear exactly why the temp directory can not be
-  // accessed, which may aid debugging in the future.
-  enum DirectoryCreationResult {
-    SUCCESS = 0,
-
-    CANT_GET_PARENT_PATH,
-    CANT_GET_UDT_PATH,
-    NOT_A_DIRECTORY,
-    CANT_CREATE_DIR,
-    CANT_WRITE_TO_PATH,
-
-    UNSET,
-    NUM_DIRECTORY_CREATION_RESULTS
-  };
-
-  // All paths should set |result|.
-  DirectoryCreationResult result = UNSET;
-
-  FilePath temp_path;
-  if (!PathService::Get(chrome::DIR_USER_DATA_TEMP, &temp_path)) {
-    FilePath parent_path;
-    if (!PathService::Get(chrome::DIR_USER_DATA, &parent_path))
-      result = CANT_GET_PARENT_PATH;
-    else
-      result = CANT_GET_UDT_PATH;
-
-  } else if (file_util::PathExists(temp_path)) {
-
-    // Path exists.  Check that it is a directory we can write to.
+  // Create the temp directory as a sub-directory of the Extensions directory.
+  // This guarantees it is on the same file system as the extension's eventual
+  // install target.
+  FilePath temp_path = extensions_dir.Append(kTempDirectoryName);
+  if (file_util::PathExists(temp_path)) {
     if (!file_util::DirectoryExists(temp_path)) {
-      result = NOT_A_DIRECTORY;
-
-    } else if (!file_util::PathIsWritable(temp_path)) {
-      result = CANT_WRITE_TO_PATH;
-
-    } else {
-      // Temp is a writable directory.
-      result = SUCCESS;
+      DLOG(WARNING) << "Not a directory: " << temp_path.value();
+      return FilePath();
     }
-
-  } else if (!file_util::CreateDirectory(temp_path)) {
-    // Path doesn't exist, and we failed to create it.
-    result = CANT_CREATE_DIR;
-
-  } else {
-    // Successfully created the Temp directory.
-    result = SUCCESS;
+    if (!file_util::PathIsWritable(temp_path)) {
+      DLOG(WARNING) << "Can't write to path: " << temp_path.value();
+      return FilePath();
+    }
+    // This is a directory we can write to.
+    return temp_path;
   }
 
-  if (result == SUCCESS)
-    return temp_path;
-
-  return FilePath();
+  // Directory doesn't exist, so create it.
+  if (!file_util::CreateDirectory(temp_path)) {
+    DLOG(WARNING) << "Couldn't create directory: " << temp_path.value();
+    return FilePath();
+  }
+  return temp_path;
 }
 
 void DeleteFile(const FilePath& path, bool recursive) {

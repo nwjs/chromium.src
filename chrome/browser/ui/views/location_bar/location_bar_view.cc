@@ -58,7 +58,7 @@
 #include "chrome/browser/ui/webui/instant_ui.h"
 #include "chrome/browser/ui/zoom/zoom_controller.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/extensions/extension_switch_utils.h"
+#include "chrome/common/extensions/feature_switch.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -328,8 +328,8 @@ void LocationBarView::Init(views::View* popup_parent_view) {
     AddChildView(star_view_);
     star_view_->SetVisible(true);
   }
-  if (extensions::switch_utils::IsActionBoxEnabled() && (mode_ == NORMAL) &&
-      browser_) {
+  if (extensions::FeatureSwitch::action_box()->IsEnabled() &&
+      mode_ == NORMAL && browser_) {
     action_box_button_view_ = new ActionBoxButtonView(browser_,
         gfx::Point(kNormalHorizontalEdgeThickness, kVerticalEdgeThickness));
     AddChildView(action_box_button_view_);
@@ -412,7 +412,7 @@ SkColor LocationBarView::GetColor(bool instant_extended_api_enabled,
 int LocationBarView::GetItemPadding() {
   if (ui::GetDisplayLayout() == ui::LAYOUT_TOUCH)
     return kTouchItemPadding;
-  return extensions::switch_utils::AreScriptBadgesEnabled() ?
+  return extensions::FeatureSwitch::script_badges()->IsEnabled() ?
       kDesktopScriptBadgeItemPadding : kDesktopItemPadding;
 }
 
@@ -420,7 +420,7 @@ int LocationBarView::GetItemPadding() {
 int LocationBarView::GetEdgeItemPadding() {
   if (ui::GetDisplayLayout() == ui::LAYOUT_TOUCH)
     return kTouchEdgeItemPadding;
-  return extensions::switch_utils::AreScriptBadgesEnabled() ?
+  return extensions::FeatureSwitch::script_badges()->IsEnabled() ?
       kDesktopScriptBadgeEdgeItemPadding : kDesktopEdgeItemPadding;
 }
 
@@ -458,19 +458,19 @@ void LocationBarView::Update(const WebContents* tab_for_state_restoring) {
   RefreshPageActionViews();
   web_intents_button_view_->Update(GetTabContents());
   open_pdf_in_reader_view_->Update(
-      model_->input_in_progress() ? NULL : GetTabContents());
+      model_->GetInputInProgress() ? NULL : GetTabContents());
 
-  bool star_enabled = star_view_ && !model_->input_in_progress() &&
+  bool star_enabled = star_view_ && !model_->GetInputInProgress() &&
                       edit_bookmarks_enabled_.GetValue();
 
   command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, star_enabled);
-  if (star_view_ && !extensions::switch_utils::IsActionBoxEnabled())
+  if (star_view_ && !extensions::FeatureSwitch::action_box()->IsEnabled())
     star_view_->SetVisible(star_enabled);
 
   ChromeToMobileService* chrome_to_mobile_service =
       ChromeToMobileServiceFactory::GetForProfile(profile_);
   command_updater_->UpdateCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE,
-      !model_->input_in_progress() && chrome_to_mobile_service &&
+      !model_->GetInputInProgress() && chrome_to_mobile_service &&
           chrome_to_mobile_service->HasMobiles());
 
   // Don't Update in app launcher mode so that the location entry does not show
@@ -521,7 +521,7 @@ void LocationBarView::UpdateWebIntentsButton() {
 
 void LocationBarView::UpdateOpenPDFInReaderPrompt() {
   open_pdf_in_reader_view_->Update(
-      model_->input_in_progress() ? NULL : GetTabContents());
+      model_->GetInputInProgress() ? NULL : GetTabContents());
   Layout();
   SchedulePaint();
 }
@@ -674,8 +674,11 @@ gfx::Size LocationBarView::GetPreferredSize() {
     return gfx::Size(0, chrome::search::GetNTPOmniboxHeight(
         location_entry_->GetFont()));
   int delta = instant_extended_api_enabled_ ? kSearchEditHeightPadding : 0;
-  return gfx::Size(0, GetThemeProvider()->GetImageSkiaNamed(mode_ == POPUP ?
-      IDR_LOCATIONBG_POPUPMODE_CENTER : IDR_LOCATIONBG_C)->height() + delta);
+  int sizing_image_id = mode_ == POPUP ? IDR_LOCATIONBG_POPUPMODE_CENTER :
+                                         IDR_LOCATION_BAR_BORDER;
+  return gfx::Size(
+      0,
+      GetThemeProvider()->GetImageSkiaNamed(sizing_image_id)->height() + delta);
 }
 
 void LocationBarView::Layout() {
@@ -753,8 +756,10 @@ void LocationBarView::Layout() {
                     location_icon_width + kItemEditPadding);
   }
 
-  if (action_box_button_view_)
+  if (action_box_button_view_) {
+    action_box_button_view_->SetVisible(true);
     entry_width -= action_box_button_view_->width() + GetItemPadding();
+  }
   if (star_view_ && star_view_->visible())
     entry_width -= star_view_->GetPreferredSize().width() + GetItemPadding();
   if (open_pdf_in_reader_view_ && open_pdf_in_reader_view_->visible()) {
@@ -828,7 +833,10 @@ void LocationBarView::Layout() {
   int offset = width() - kEdgeThickness;
   if (action_box_button_view_) {
     offset -= action_box_button_view_->width();
-    action_box_button_view_->SetPosition(gfx::Point(offset, location_y));
+    action_box_button_view_->SetPosition(
+        gfx::Point(offset,
+                   kVerticalEdgeThickness -
+                       ActionBoxButtonView::kBorderOverlap));
     offset -= GetItemPadding();
   } else {
     offset -= GetEdgeItemPadding();
@@ -982,12 +990,6 @@ void LocationBarView::Layout() {
 
 void LocationBarView::OnPaint(gfx::Canvas* canvas) {
   View::OnPaint(canvas);
-
-  // If Instant Extended API is enabled, paint the background color of NTP page
-  // first; otherwise, there will be a white outline around the location bar
-  // border.
-  if (instant_extended_api_enabled_)
-    canvas->DrawColor(chrome::search::GetNTPBackgroundColor(profile_));
 
   if (background_painter_.get()) {
     background_painter_->Paint(canvas, size());
@@ -1224,7 +1226,7 @@ void LocationBarView::LayoutView(views::View* view,
 void LocationBarView::RefreshContentSettingViews() {
   for (ContentSettingViews::const_iterator i(content_setting_views_.begin());
        i != content_setting_views_.end(); ++i) {
-    (*i)->Update(model_->input_in_progress() ? NULL : GetTabContents());
+    (*i)->Update(model_->GetInputInProgress() ? NULL : GetTabContents());
   }
 }
 
@@ -1288,7 +1290,7 @@ void LocationBarView::RefreshPageActionViews() {
 
     for (PageActionViews::const_iterator i(page_action_views_.begin());
          i != page_action_views_.end(); ++i) {
-      (*i)->UpdateVisibility(model_->input_in_progress() ? NULL : contents,
+      (*i)->UpdateVisibility(model_->GetInputInProgress() ? NULL : contents,
                              url);
 
       // Check if the visibility of the action changed and notify if it did.
@@ -1461,9 +1463,9 @@ void LocationBarView::ShowFirstRunBubble() {
   ShowFirstRunBubbleInternal();
 }
 
-void LocationBarView::SetSuggestedText(const string16& text,
-                                       InstantCompleteBehavior behavior) {
-  location_entry_->model()->SetSuggestedText(text, behavior);
+void LocationBarView::SetInstantSuggestion(
+    const InstantSuggestion& suggestion) {
+  location_entry_->model()->SetInstantSuggestion(suggestion);
 }
 
 string16 LocationBarView::GetInputString() const {

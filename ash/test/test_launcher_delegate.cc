@@ -59,10 +59,7 @@ void TestLauncherDelegate::OnWillRemoveWindow(aura::Window* window) {
   }
 }
 
-void TestLauncherDelegate::CreateNewTab() {
-}
-
-void TestLauncherDelegate::CreateNewWindow() {
+void TestLauncherDelegate::OnBrowserShortcutClicked(int event_flags) {
 }
 
 void TestLauncherDelegate::ItemClicked(const ash::LauncherItem& item,
@@ -81,11 +78,8 @@ string16 TestLauncherDelegate::GetTitle(const ash::LauncherItem& item) {
 }
 
 ui::MenuModel* TestLauncherDelegate::CreateContextMenu(
-    const ash::LauncherItem& item) {
-  return NULL;
-}
-
-ui::MenuModel* TestLauncherDelegate::CreateContextMenuForLauncher() {
+    const ash::LauncherItem& item,
+    aura::RootWindow* root) {
   return NULL;
 }
 

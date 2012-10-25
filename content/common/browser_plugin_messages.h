@@ -14,14 +14,20 @@
 #include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_message_utils.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragStatus.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragOperation.h"
+#include "ui/gfx/point.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/size.h"
 #include "webkit/glue/webcursor.h"
+#include "webkit/glue/webdropdata.h"
 
 #undef IPC_MESSAGE_EXPORT
 #define IPC_MESSAGE_EXPORT CONTENT_EXPORT
 
 #define IPC_MESSAGE_START BrowserPluginMsgStart
+
+IPC_ENUM_TRAITS(WebKit::WebDragStatus)
 
 // Browser plugin messages
 
@@ -122,6 +128,14 @@ IPC_MESSAGE_ROUTED2(BrowserPluginHostMsg_SetVisibility,
                     int /* instance_id */,
                     bool /* visible */)
 
+// Tells the guest that a drag event happened on the plugin.
+IPC_MESSAGE_ROUTED5(BrowserPluginHostMsg_DragStatusUpdate,
+                    int /* instance_id */,
+                    WebKit::WebDragStatus /* drag_status */,
+                    WebDropData /* drop_data */,
+                    WebKit::WebDragOperationsMask /* operation_mask */,
+                    gfx::Point /* plugin_location */)
+
 // -----------------------------------------------------------------------------
 // These messages are from the guest renderer to the browser process
 
@@ -134,6 +148,12 @@ IPC_SYNC_MESSAGE_ROUTED2_0(BrowserPluginHostMsg_ResizeGuest,
 
 // -----------------------------------------------------------------------------
 // These messages are from the browser process to the embedder.
+
+// Once the swapped out guest RenderView has been created in the embedder render
+// process, the browser process informs the embedder of its routing ID.
+IPC_MESSAGE_CONTROL2(BrowserPluginMsg_GuestContentWindowReady,
+                     int /* instance_id */,
+                     int /* source_routing_id */)
 
 // When the guest begins to load a page, the browser process informs the
 // embedder through the BrowserPluginMsg_LoadStart message.
@@ -160,17 +180,37 @@ IPC_MESSAGE_CONTROL4(BrowserPluginMsg_LoadRedirect,
                      GURL /* new_url */,
                      bool /* is_top_level */)
 
-// When the guest navigates, the browser process informs the embedder through
-// the BrowserPluginMsg_DidNavigate message.
-IPC_MESSAGE_CONTROL3(BrowserPluginMsg_DidNavigate,
+IPC_STRUCT_BEGIN(BrowserPluginMsg_LoadCommit_Params)
+  // The current URL of the guest.
+  IPC_STRUCT_MEMBER(GURL, url)
+  // Indicates whether the navigation was on the top-level frame.
+  IPC_STRUCT_MEMBER(bool, is_top_level)
+  // Chrome's process ID for the guest.
+  IPC_STRUCT_MEMBER(int, process_id)
+  // The index of the current navigation entry after this navigation was
+  // committed.
+  IPC_STRUCT_MEMBER(int, current_entry_index)
+  // The number of navigation entries after this navigation was committed.
+  IPC_STRUCT_MEMBER(int, entry_count)
+IPC_STRUCT_END()
+
+// When the guest commits a navigation, the browser process informs
+// the embedder through the BrowserPluginMsg_DidCommit message.
+IPC_MESSAGE_CONTROL2(BrowserPluginMsg_LoadCommit,
                      int /* instance_id */,
-                     GURL /* url */,
-                     int /* process_id */)
+                     BrowserPluginMsg_LoadCommit_Params)
+
+// When the guest page has completed loading (including subframes), the browser
+// process informs the embedder through the BrowserPluginMsg_LoadStop message.
+IPC_MESSAGE_CONTROL1(BrowserPluginMsg_LoadStop,
+                     int /* instance_id */)
 
 // When the guest crashes, the browser process informs the embedder through this
 // message.
-IPC_MESSAGE_CONTROL1(BrowserPluginMsg_GuestCrashed,
-                     int /* instance_id */)
+IPC_MESSAGE_CONTROL3(BrowserPluginMsg_GuestGone,
+                     int /* instance_id */,
+                     int /* process_id */,
+                     int /* This is really base::TerminationStatus */)
 
 IPC_STRUCT_BEGIN(BrowserPluginMsg_UpdateRect_Params)
   // The position and size of the bitmap.

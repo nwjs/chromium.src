@@ -63,13 +63,6 @@ const unsigned kCacheEntryTTLSeconds = 60;
 // Default TTL for unsuccessful resolutions with ProcTask.
 const unsigned kNegativeCacheEntryTTLSeconds = 0;
 
-// Maximum of 6 concurrent resolver threads (excluding retries).
-// Some routers (or resolvers) appear to start to provide host-not-found if
-// too many simultaneous resolutions are pending.  This number needs to be
-// further optimized, but 8 is what FF currently does. We found some routers
-// that limit this to 6, so we're temporarily holding it at that level.
-static const size_t kDefaultMaxProcTasks = 6u;
-
 // We use a separate histogram name for each platform to facilitate the
 // display of error codes by their symbolic name (since each platform has
 // different mappings).
@@ -203,6 +196,12 @@ void RecordTotalTime(bool had_dns_config,
       DNS_HISTOGRAM("DNS.TotalTime", duration);
     }
   }
+}
+
+void RecordTTL(base::TimeDelta ttl) {
+  UMA_HISTOGRAM_CUSTOM_TIMES("AsyncDNS.TTL", ttl,
+                             base::TimeDelta::FromSeconds(1),
+                             base::TimeDelta::FromDays(1), 100);
 }
 
 //-----------------------------------------------------------------------------
@@ -403,69 +402,7 @@ class PriorityTracker {
   size_t counts_[NUM_PRIORITIES];
 };
 
-//-----------------------------------------------------------------------------
-
-HostResolver* CreateHostResolver(size_t max_concurrent_resolves,
-                                 size_t max_retry_attempts,
-                                 HostCache* cache,
-                                 scoped_ptr<DnsClient> dns_client,
-                                 NetLog* net_log) {
-  if (max_concurrent_resolves == HostResolver::kDefaultParallelism)
-    max_concurrent_resolves = kDefaultMaxProcTasks;
-
-  // TODO(szym): Add experiments with reserved slots for higher priority
-  // requests.
-
-  PrioritizedDispatcher::Limits limits(NUM_PRIORITIES, max_concurrent_resolves);
-
-  HostResolverImpl* resolver = new HostResolverImpl(
-      cache,
-      limits,
-      HostResolverImpl::ProcTaskParams(NULL, max_retry_attempts),
-      dns_client.Pass(),
-      net_log);
-
-  return resolver;
-}
-
-}  // anonymous namespace
-
-//-----------------------------------------------------------------------------
-
-HostResolver* CreateSystemHostResolver(size_t max_concurrent_resolves,
-                                       size_t max_retry_attempts,
-                                       NetLog* net_log) {
-  return CreateHostResolver(max_concurrent_resolves,
-                            max_retry_attempts,
-                            HostCache::CreateDefaultCache(),
-                            scoped_ptr<DnsClient>(NULL),
-                            net_log);
-}
-
-HostResolver* CreateNonCachingSystemHostResolver(size_t max_concurrent_resolves,
-                                                 size_t max_retry_attempts,
-                                                 NetLog* net_log) {
-  return CreateHostResolver(max_concurrent_resolves,
-                            max_retry_attempts,
-                            NULL,
-                            scoped_ptr<DnsClient>(NULL),
-                            net_log);
-}
-
-HostResolver* CreateAsyncHostResolver(size_t max_concurrent_resolves,
-                                      size_t max_retry_attempts,
-                                      NetLog* net_log) {
-#if !defined(ENABLE_BUILT_IN_DNS)
-  NOTREACHED();
-  return NULL;
-#else
-  return CreateHostResolver(max_concurrent_resolves,
-                            max_retry_attempts,
-                            HostCache::CreateDefaultCache(),
-                            DnsClient::CreateClient(net_log),
-                            net_log);
-#endif  // !defined(ENABLE_BUILT_IN_DNS)
-}
+}  // namespace
 
 //-----------------------------------------------------------------------------
 
@@ -1331,7 +1268,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
       // If we were called from a Request's callback within CompleteRequests,
       // that Request could not have been cancelled, so num_active_requests()
       // could not be 0. Therefore, we are not in CompleteRequests().
-      CompleteRequests(OK, AddressList(), base::TimeDelta());
+      CompleteRequestsWithError(OK /* cancelled */);
     }
   }
 
@@ -1339,7 +1276,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
   // and destroys the job.
   void Abort() {
     DCHECK(is_running());
-    CompleteRequests(ERR_ABORTED, AddressList(), base::TimeDelta());
+    CompleteRequestsWithError(ERR_ABORTED);
   }
 
   // Called by HostResolverImpl when this job is evicted due to queue overflow.
@@ -1352,9 +1289,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
     net_log_.AddEvent(NetLog::TYPE_HOST_RESOLVER_IMPL_JOB_EVICTED);
 
     // This signals to CompleteRequests that this job never ran.
-    CompleteRequests(ERR_HOST_RESOLVER_QUEUE_TOO_LARGE,
-                     AddressList(),
-                     base::TimeDelta());
+    CompleteRequestsWithError(ERR_HOST_RESOLVER_QUEUE_TOO_LARGE);
   }
 
   // Attempts to serve the job from HOSTS. Returns true if succeeded and
@@ -1366,7 +1301,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
                                   requests_.front()->info(),
                                   &addr_list)) {
       // This will destroy the Job.
-      CompleteRequests(OK, addr_list, base::TimeDelta());
+      CompleteRequests(OK, addr_list, base::TimeDelta(), false /* true_ttl */);
       return true;
     }
     return false;
@@ -1464,12 +1399,12 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
       }
     }
 
-    base::TimeDelta ttl = base::TimeDelta::FromSeconds(
-        kNegativeCacheEntryTTLSeconds);
+    base::TimeDelta ttl =
+        base::TimeDelta::FromSeconds(kNegativeCacheEntryTTLSeconds);
     if (net_error == OK)
       ttl = base::TimeDelta::FromSeconds(kCacheEntryTTLSeconds);
 
-    CompleteRequests(net_error, addr_list, ttl);
+    CompleteRequests(net_error, addr_list, ttl, false /* true_ttl */);
   }
 
   void StartDnsTask() {
@@ -1509,14 +1444,16 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
     }
 
     UmaAsyncDnsResolveStatus(RESOLVE_STATUS_DNS_SUCCESS);
+    RecordTTL(ttl);
 
-    CompleteRequests(net_error, addr_list, ttl);
+    CompleteRequests(net_error, addr_list, ttl, true /* true_ttl */);
   }
 
   // Performs Job's last rites. Completes all Requests. Deletes this.
   void CompleteRequests(int net_error,
                         const AddressList& addr_list,
-                        base::TimeDelta ttl) {
+                        base::TimeDelta ttl,
+                        bool true_ttl) {
     CHECK(resolver_);
 
     // This job must be removed from resolver's |jobs_| now to make room for a
@@ -1527,8 +1464,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
 
     resolver_->RemoveJob(this);
 
-    // |addr_list| will be destroyed once we destroy |proc_task_| and
-    // |dns_task_|.
+    // |addr_list| will be destroyed with |proc_task_| and |dns_task_|.
     AddressList list = addr_list;
 
     if (is_running()) {
@@ -1568,8 +1504,12 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
 
     bool did_complete = (net_error != ERR_ABORTED) &&
                         (net_error != ERR_HOST_RESOLVER_QUEUE_TOO_LARGE);
-    if (did_complete)
-      resolver_->CacheResult(key_, net_error, list, ttl);
+    if (did_complete) {
+      HostCache::Entry entry = true_ttl ?
+          HostCache::Entry(net_error, list, ttl) :
+          HostCache::Entry(net_error, list);
+      resolver_->CacheResult(key_, entry, ttl);
+    }
 
     // Complete all of the requests that were attached to the job.
     for (RequestsList::const_iterator it = requests_.begin();
@@ -1595,6 +1535,11 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
       if (!resolver_)
         return;
     }
+  }
+
+  // Convenience wrapper for CompleteRequests in case of failure.
+  void CompleteRequestsWithError(int net_error) {
+    CompleteRequests(net_error, AddressList(), base::TimeDelta(), false);
   }
 
   RequestPriority priority() const {
@@ -1661,12 +1606,12 @@ HostResolverImpl::ProcTaskParams::ProcTaskParams(
 HostResolverImpl::ProcTaskParams::~ProcTaskParams() {}
 
 HostResolverImpl::HostResolverImpl(
-    HostCache* cache,
+    scoped_ptr<HostCache> cache,
     const PrioritizedDispatcher::Limits& job_limits,
     const ProcTaskParams& proc_params,
     scoped_ptr<DnsClient> dns_client,
     NetLog* net_log)
-    : cache_(cache),
+    : cache_(cache.Pass()),
       dispatcher_(job_limits),
       max_queued_jobs_(job_limits.total_jobs * 100u),
       proc_params_(proc_params),
@@ -1958,6 +1903,8 @@ bool HostResolverImpl::ServeFromCache(const Key& key,
 
   *net_error = cache_entry->error;
   if (*net_error == OK) {
+    if (cache_entry->has_ttl())
+      RecordTTL(cache_entry->ttl);
     *addresses = cache_entry->addrlist;
     EnsurePortOnAddressList(info.port(), addresses);
   }
@@ -1998,11 +1945,10 @@ bool HostResolverImpl::ServeFromHosts(const Key& key,
 }
 
 void HostResolverImpl::CacheResult(const Key& key,
-                                   int net_error,
-                                   const AddressList& addr_list,
+                                   const HostCache::Entry& entry,
                                    base::TimeDelta ttl) {
   if (cache_.get())
-    cache_->Set(key, net_error, addr_list, base::TimeTicks::Now(), ttl);
+    cache_->Set(key, entry, base::TimeTicks::Now(), ttl);
 }
 
 void HostResolverImpl::RemoveJob(Job* job) {

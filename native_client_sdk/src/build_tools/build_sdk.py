@@ -407,14 +407,16 @@ def GypNinjaBuild_X86(pepperdir, platform, toolchains):
       buildbot_common.CopyDir(os.path.join(src_dir, '*.a'), dst_dir)
       if tc == 'newlib':
         buildbot_common.CopyDir(os.path.join(src_dir, '*.o'), dst_dir)
-        # TODO(binji) crt1.o for newlib/32 is installed to a subdirectory for
-        # some reason. Can this be fixed in the gyp script?
-        if bits == '32':
-          buildbot_common.CopyFile(os.path.join(src_dir, '32', 'crt1.o'),
-                                   dst_dir)
 
       if tc == 'glibc':
         buildbot_common.CopyDir(os.path.join(src_dir, '*.so'), dst_dir)
+
+      # TODO(binji): temporary hack; copy crt1.o from sdk toolchain directory.
+      lib_dir = os.path.join(ninja_out_dir, 'gen', 'sdk', 'toolchain',
+                             '%s_x86_%s' % (platform, tc), 'x86_64-nacl', 'lib')
+      if bits == '32':
+        lib_dir += '32'
+      buildbot_common.CopyFile(os.path.join(lib_dir, 'crt1.o'), dst_dir)
 
 
 def GypNinjaBuild_X86_Nacl(platform, rel_out_dir):
@@ -461,7 +463,7 @@ def GypNinjaBuild_X86_Chrome(rel_out_dir):
   GypNinjaBuild('ia32', gyp_py, gyp_file, 'ppapi_lib', out_dir)
 
 
-def GypNinjaBuild_Pnacl(rel_out_dir):
+def GypNinjaBuild_Pnacl(rel_out_dir, target_arch):
   # TODO(binji): This will build the pnacl_irt_shim twice; once as part of the
   # Chromium build, and once here. When we move more of the SDK build process
   # to gyp, we can remove this.
@@ -471,7 +473,7 @@ def GypNinjaBuild_Pnacl(rel_out_dir):
   gyp_file = os.path.join(SRC_DIR, 'ppapi', 'native_client', 'src', 'untrusted',
                           'pnacl_irt_shim', 'pnacl_irt_shim.gyp')
   targets = ['pnacl_irt_shim']
-  GypNinjaBuild('ia32', gyp_py, gyp_file, targets, out_dir)
+  GypNinjaBuild(target_arch, gyp_py, gyp_file, targets, out_dir)
 
 
 def GypNinjaBuild(arch, gyp_py_script, gyp_file, targets, out_dir):
@@ -526,13 +528,17 @@ def BuildStepBuildToolchains(pepperdir, platform, arch, pepper_ver, toolchains):
           GetBuildArgs('pnacl', pnacldir, pepperdir, 'x86', '64'),
           cwd=NACL_DIR, shell=(platform=='win'))
 
-      # Fill in the latest native pnacl shim library from the chrome build.
-      GypNinjaBuild_Pnacl('gypbuild')
-      release_build_dir = os.path.join(OUT_DIR, 'gypbuild', 'Release')
+      for arch in ('ia32', 'arm'):
+        # Fill in the latest native pnacl shim library from the chrome build.
+        GypNinjaBuild_Pnacl('gypbuild-' + arch, arch)
+        release_build_dir = os.path.join(OUT_DIR, 'gypbuild-' + arch,
+                                         'Release')
 
-      buildbot_common.CopyFile(
-          os.path.join(release_build_dir, 'libpnacl_irt_shim.a'),
-          GetPNaClNativeLib(pnacldir, 'x86-64'))
+        pnacl_libdir_map = { 'ia32': 'x86-64', 'arm': 'arm' }
+        buildbot_common.CopyFile(
+            os.path.join(release_build_dir, 'libpnacl_irt_shim.a'),
+            GetPNaClNativeLib(pnacldir, pnacl_libdir_map[arch]))
+
       InstallHeaders(GetToolchainNaClInclude('pnacl', pnacldir, 'x86'),
                      pepper_ver,
                      'newlib')
@@ -802,6 +808,7 @@ TEST_EXAMPLE_LIST = [
 ]
 
 TEST_LIBRARY_LIST = [
+  'gmock',
   'gtest',
   'gtest_ppapi',
 ]

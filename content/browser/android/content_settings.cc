@@ -10,11 +10,11 @@
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_client.h"
 #include "jni/ContentSettings_jni.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/glue/webpreferences.h"
 #include "webkit/user_agent/user_agent.h"
-#include "webkit/user_agent/user_agent_util.h"
 
 using base::android::CheckException;
 using base::android::ConvertJavaStringToUTF16;
@@ -77,10 +77,6 @@ struct ContentSettings::FieldIds {
         GetFieldID(env, clazz, "mJavaScriptCanOpenWindowsAutomatically", "Z");
     dom_storage_enabled =
         GetFieldID(env, clazz, "mDomStorageEnabled", "Z");
-    allow_file_url_access =
-        GetFieldID(env, clazz, "mAllowFileUrlAccess", "Z");
-    allow_content_url_access =
-        GetFieldID(env, clazz, "mAllowContentUrlAccess", "Z");
   }
 
   // Field ids
@@ -103,8 +99,6 @@ struct ContentSettings::FieldIds {
   jfieldID allow_file_access_from_file_urls;
   jfieldID java_script_can_open_windows_automatically;
   jfieldID dom_storage_enabled;
-  jfieldID allow_file_url_access;
-  jfieldID allow_content_url_access;
 };
 
 ContentSettings::ContentSettings(JNIEnv* env,
@@ -112,20 +106,22 @@ ContentSettings::ContentSettings(JNIEnv* env,
                          WebContents* contents,
                          bool is_master_mode)
     : WebContentsObserver(contents),
-      is_master_mode_(is_master_mode) {
-  content_settings_.Reset(env, obj);
+      is_master_mode_(is_master_mode),
+      content_settings_(env, obj) {
 }
 
 ContentSettings::~ContentSettings() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = content_settings_.get(env);
+  if (obj.obj()) {
+    Java_ContentSettings_onNativeContentSettingsDestroyed(env, obj.obj(),
+        reinterpret_cast<jint>(this));
+  }
 }
 
 // static
 bool ContentSettings::RegisterContentSettings(JNIEnv* env) {
   return RegisterNativesImpl(env);
-}
-
-void ContentSettings::Destroy(JNIEnv* env, jobject obj) {
-  delete this;
 }
 
 void ContentSettings::SyncFromNativeImpl() {
@@ -134,7 +130,10 @@ void ContentSettings::SyncFromNativeImpl() {
   if (!field_ids_.get())
     field_ids_.reset(new FieldIds(env));
 
-  jobject obj = content_settings_.obj();
+  ScopedJavaLocalRef<jobject> scoped_obj = content_settings_.get(env);
+  jobject obj = scoped_obj.obj();
+  if (!obj)
+    return;
   RenderViewHost* render_view_host = web_contents()->GetRenderViewHost();
   WebPreferences prefs = render_view_host->GetDelegate()->GetWebkitPrefs();
 
@@ -242,7 +241,10 @@ void ContentSettings::SyncToNativeImpl() {
   if (!field_ids_.get())
     field_ids_.reset(new FieldIds(env));
 
-  jobject obj = content_settings_.obj();
+  ScopedJavaLocalRef<jobject> scoped_obj = content_settings_.get(env);
+  jobject obj = scoped_obj.obj();
+  if (!obj)
+    return;
   RenderViewHost* render_view_host = web_contents()->GetRenderViewHost();
   WebPreferences prefs = render_view_host->GetDelegate()->GetWebkitPrefs();
 
@@ -338,6 +340,10 @@ void ContentSettings::RenderViewCreated(RenderViewHost* render_view_host) {
     SyncToNativeImpl();
 }
 
+void ContentSettings::WebContentsDestroyed(WebContents* web_contents) {
+  delete this;
+}
+
 static jint Init(JNIEnv* env, jobject obj, jint nativeContentViewCore,
                  jboolean is_master_mode) {
   WebContents* web_contents =
@@ -349,9 +355,8 @@ static jint Init(JNIEnv* env, jobject obj, jint nativeContentViewCore,
 }
 
 static jstring GetDefaultUserAgent(JNIEnv* env, jclass clazz) {
-  // "Version/4.0" had been hardcoded in the legacy WebView.
-  std::string ua = webkit_glue::BuildUserAgentFromProduct("Version/4.0");
-  return base::android::ConvertUTF8ToJavaString(env, ua).Release();
+  return base::android::ConvertUTF8ToJavaString(
+      env, GetContentClient()->GetUserAgent()).Release();
 }
 
 }  // namespace content

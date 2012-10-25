@@ -7,11 +7,11 @@ package org.chromium.android_webview.test;
 import android.test.FlakyTest;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.test.util.CommonResources;
 import org.chromium.android_webview.test.util.TestWebServer;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.NavigationEntry;
 import org.chromium.content.browser.NavigationHistory;
 import org.chromium.content.browser.test.util.HistoryUtils;
@@ -21,23 +21,39 @@ import java.util.concurrent.Callable;
 
 public class NavigationHistoryTest extends AndroidWebViewTestBase {
 
+    private final String page1Path = "/page1.html";
+    private final String page1Title = "Page 1 Title";
+    private final String page2Path = "/page2.html";
+    private final String page2Title = "Page 2 Title";
+    private final String pageWithHashTagRedirectPath = "/page_with_hashtag.html";
+    private final String pageWithHashTagRedirectTitle = "Page with hashtag";
+
+    private TestWebServer mWebServer;
     private TestAwContentsClient mContentsClient;
-    private ContentViewCore mContentViewCore;
+    private AwContents mAwContents;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
         mContentsClient = new TestAwContentsClient();
-        mContentViewCore =
-                createAwTestContainerViewOnMainSync(mContentsClient).getContentViewCore();
+        final AwTestContainerView testContainerView =
+            createAwTestContainerViewOnMainSync(mContentsClient);
+        mAwContents = testContainerView.getAwContents();
+        mWebServer = new TestWebServer(false);
     }
 
-    private NavigationHistory getNavigationHistory(final ContentViewCore contentViewCore)
+    @Override
+    public void tearDown() throws Exception {
+        mWebServer.shutdown();
+        super.tearDown();
+    }
+
+    private NavigationHistory getNavigationHistory(final AwContents awContents)
             throws Exception {
         return ThreadUtils.runOnUiThreadBlocking(new Callable<NavigationHistory>() {
             @Override
             public NavigationHistory call() {
-                return contentViewCore.getNavigationHistory();
+                return awContents.getContentViewCore().getNavigationHistory();
             }
         });
     }
@@ -54,22 +70,46 @@ public class NavigationHistoryTest extends AndroidWebViewTestBase {
         }
     }
 
-    /*
-     * @SmallTest
-     * Bug 6776361
-     */
-    @FlakyTest
+    private String addPage1ToServer(TestWebServer webServer) {
+        return mWebServer.setResponse(page1Path,
+                CommonResources.makeHtmlPageFrom(
+                        "<title>" + page1Title + "</title>",
+                        "<div>This is test page 1.</div>"),
+                CommonResources.getTextHtmlHeaders(false));
+    }
+
+    private String addPage2ToServer(TestWebServer webServer) {
+        return mWebServer.setResponse(page2Path,
+                CommonResources.makeHtmlPageFrom(
+                        "<title>" + page2Title + "</title>",
+                        "<div>This is test page 2.</div>"),
+                CommonResources.getTextHtmlHeaders(false));
+    }
+
+    private String addPageWithHashTagRedirectToServer(TestWebServer webServer) {
+        return mWebServer.setResponse(page2Path,
+                CommonResources.makeHtmlPageFrom(
+                        "<title>" + pageWithHashTagRedirectTitle + "</title>",
+                        "<iframe onLoad=\"location.replace(location.href + '#tag');\" />"),
+                CommonResources.getTextHtmlHeaders(false));
+    }
+
+    @SmallTest
     public void testNavigateOneUrl() throws Throwable {
-        NavigationHistory history = getNavigationHistory(mContentViewCore);
+        NavigationHistory history = getNavigationHistory(mAwContents);
         assertEquals(0, history.getEntryCount());
 
-        loadUrlSync(mContentViewCore, mContentsClient.getOnPageFinishedHelper(),
-                "chrome://newtab/");
-        history = getNavigationHistory(mContentViewCore);
+        final String pageWithHashTagRedirectUrl = addPageWithHashTagRedirectToServer(mWebServer);
+        enableJavaScriptOnUiThread(mAwContents);
+
+        loadUrlSync(mAwContents, mContentsClient.getOnPageFinishedHelper(),
+                pageWithHashTagRedirectUrl);
+
+        history = getNavigationHistory(mAwContents);
         checkHistoryItem(history.getEntryAtIndex(0),
-                "chrome://newtab/#bookmarks",
-                "chrome://newtab/",
-                "New tab",
+                pageWithHashTagRedirectUrl + "#tag",
+                pageWithHashTagRedirectUrl,
+                pageWithHashTagRedirectTitle,
                 true);
 
         assertEquals(0, history.getCurrentEntryIndex());
@@ -77,31 +117,34 @@ public class NavigationHistoryTest extends AndroidWebViewTestBase {
 
     @SmallTest
     public void testNavigateTwoUrls() throws Throwable {
-        NavigationHistory list = getNavigationHistory(mContentViewCore);
+        NavigationHistory list = getNavigationHistory(mAwContents);
         assertEquals(0, list.getEntryCount());
 
         final TestCallbackHelperContainer.OnPageFinishedHelper onPageFinishedHelper =
                 mContentsClient.getOnPageFinishedHelper();
-        loadUrlSync(mContentViewCore, onPageFinishedHelper, "chrome://newtab/");
-        loadUrlSync(mContentViewCore, onPageFinishedHelper, "chrome://version");
+        final String page1Url = addPage1ToServer(mWebServer);
+        final String page2Url = addPage2ToServer(mWebServer);
 
-        list = getNavigationHistory(mContentViewCore);
+        loadUrlSync(mAwContents, onPageFinishedHelper, page1Url);
+        loadUrlSync(mAwContents, onPageFinishedHelper, page2Url);
+
+        list = getNavigationHistory(mAwContents);
 
         // Make sure there is a new entry entry the list
         assertEquals(2, list.getEntryCount());
 
         // Make sure the first entry is still okay
         checkHistoryItem(list.getEntryAtIndex(0),
-                "chrome://newtab/#bookmarks",
-                "chrome://newtab/",
-                "New tab",
+                page1Url,
+                page1Url,
+                page1Title,
                 true);
 
         // Make sure the second entry was added properly
         checkHistoryItem(list.getEntryAtIndex(1),
-                "chrome://version/",
-                "chrome://version/",
-                "About Version",
+                page2Url,
+                page2Url,
+                page2Title,
                 true);
 
         assertEquals(1, list.getCurrentEntryIndex());
@@ -112,26 +155,31 @@ public class NavigationHistoryTest extends AndroidWebViewTestBase {
     public void testNavigateTwoUrlsAndBack() throws Throwable {
         final TestCallbackHelperContainer.OnPageFinishedHelper onPageFinishedHelper =
                 mContentsClient.getOnPageFinishedHelper();
-        NavigationHistory list = getNavigationHistory(mContentViewCore);
+        NavigationHistory list = getNavigationHistory(mAwContents);
         assertEquals(0, list.getEntryCount());
 
-        loadUrlSync(mContentViewCore, onPageFinishedHelper, "chrome://newtab/");
-        loadUrlSync(mContentViewCore, onPageFinishedHelper, "chrome://version");
-        HistoryUtils.goBackSync(getInstrumentation(), mContentViewCore, onPageFinishedHelper);
-        list = getNavigationHistory(mContentViewCore);
+        final String page1Url = addPage1ToServer(mWebServer);
+        final String page2Url = addPage2ToServer(mWebServer);
+
+        loadUrlSync(mAwContents, onPageFinishedHelper, page1Url);
+        loadUrlSync(mAwContents, onPageFinishedHelper, page2Url);
+
+        HistoryUtils.goBackSync(getInstrumentation(), mAwContents.getContentViewCore(),
+                onPageFinishedHelper);
+        list = getNavigationHistory(mAwContents);
 
         // Make sure the first entry is still okay
         checkHistoryItem(list.getEntryAtIndex(0),
-                "chrome://newtab/#bookmarks",
-                "chrome://newtab/",
-                "New tab",
+                page1Url,
+                page1Url,
+                page1Title,
                 true);
 
         // Make sure the second entry is still okay
         checkHistoryItem(list.getEntryAtIndex(1),
-                "chrome://version/",
-                "chrome://version/",
-                "About Version",
+                page2Url,
+                page2Url,
+                page2Title,
                 true);
 
         // Make sure the current index is back to 0
@@ -146,26 +194,18 @@ public class NavigationHistoryTest extends AndroidWebViewTestBase {
      */
     @DisabledTest
     public void testFavicon() throws Throwable {
-        NavigationHistory list = getNavigationHistory(mContentViewCore);
-        String url;
+        NavigationHistory list = getNavigationHistory(mAwContents);
 
-        TestWebServer webServer = null;
-        try {
-            webServer = new TestWebServer(false);
+        mWebServer.setResponseBase64("/" + CommonResources.FAVICON_FILENAME,
+                CommonResources.FAVICON_DATA_BASE64, CommonResources.getImagePngHeaders(false));
+        final String url = mWebServer.setResponse("/favicon.html",
+                CommonResources.FAVICON_STATIC_HTML, null);
 
-            webServer.setResponseBase64("/" + CommonResources.FAVICON_FILENAME,
-                    CommonResources.FAVICON_DATA_BASE64, CommonResources.getImagePngHeaders(false));
-            url = webServer.setResponse("/favicon.html", CommonResources.FAVICON_STATIC_HTML, null);
+        assertEquals(0, list.getEntryCount());
+        getContentSettingsOnUiThread(mAwContents).setImagesEnabled(true);
+        loadUrlSync(mAwContents, mContentsClient.getOnPageFinishedHelper(), url);
 
-            assertEquals(0, list.getEntryCount());
-            getContentSettingsOnUiThread(mContentViewCore).setImagesEnabled(true);
-            loadUrlSync(mContentViewCore, mContentsClient.getOnPageFinishedHelper(), url);
-
-        } finally {
-            if (webServer != null) webServer.shutdown();
-        }
-
-        list = getNavigationHistory(mContentViewCore);
+        list = getNavigationHistory(mAwContents);
 
         // Make sure the first entry is still okay.
         checkHistoryItem(list.getEntryAtIndex(0), url, url, "", false);

@@ -23,6 +23,7 @@ namespace switches {
 
 // All switches in alphabetical order. The switches should be documented
 // alongside the definition of their values in the .cc file.
+extern const char kActionBox[];
 extern const char kAllowCrossOriginAuthPrompt[];
 extern const char kAllowFileAccess[];
 extern const char kAllowHTTPBackgroundPage[];
@@ -65,6 +66,7 @@ extern const char kCloudPrintProxyId[];
 extern const char kCloudPrintServiceURL[];
 extern const char kComponentUpdaterDebug[];
 extern const char kConflictingModulesCheck[];
+extern const char kContentSettings2[];
 extern const char kCountry[];
 extern const char kCrashOnHangSeconds[];
 extern const char kCrashOnHangThreads[];
@@ -75,13 +77,13 @@ extern const char kDebugPackedApps[];
 extern const char kDebugPrint[];
 extern const char kDeviceManagementUrl[];
 extern const char kDiagnostics[];
-extern const char kDisableActionBox[];
 extern const char kDisableAsyncDns[];
 extern const char kDisableAsynchronousSpellChecking[];
 extern const char kDisableAuthNegotiateCnameLookup[];
 extern const char kDisableBackgroundMode[];
 extern const char kDisableBackgroundNetworking[];
 extern const char kDisableBundledPpapiFlash[];
+extern const char kDisableBookmarkAutocompleteProvider[];
 extern const char kDisableClientSidePhishingDetection[];
 extern const char kDisableComponentUpdate[];
 extern const char kDisableConnectBackupJobs[];
@@ -93,7 +95,6 @@ extern const char kDisableExtensionsFileAccessCheck[];
 extern const char kDisableExtensionsHttpThrottling[];
 extern const char kDisableExtensionsResourceWhitelist[];
 extern const char kDisableExtensions[];
-extern const char kDisableFlashSandbox[];
 extern const char kDisableImprovedDownloadProtection[];
 extern const char kDisableInfiniteCache[];
 extern const char kDisableInternalFlash[];
@@ -135,7 +136,6 @@ extern const char kEnableAuthNegotiatePort[];
 extern const char kEnableAutofillFeedback[];
 extern const char kEnableAutologin[];
 extern const char kEnableBenchmarking[];
-extern const char kEnableBrowserPluginForAllViewTypes[];
 extern const char kEnableBundledPpapiFlash[];
 extern const char kEnableCloudPolicyService[];
 extern const char kEnableCloudPrintProxy[];
@@ -143,11 +143,11 @@ extern const char kEnableConnectBackupJobs[];
 extern const char kEnableContacts[];
 extern const char kEnableCrxlessWebApps[];
 extern const char kEnableDevToolsExperiments[];
-extern const char kEnableEasyOffStoreExtensionInstall[];
+extern const char kEasyOffStoreExtensionInstall[];
 extern const char kEnableExperimentalExtensionApis[];
 extern const char kEnableExtensionActivityLogging[];
 extern const char kEnableExtensionActivityUI[];
-extern const char kEnableExtensionsInActionBox[];
+extern const char kExtensionsInActionBox[];
 extern const char kEnableExtensionTimelineApi[];
 extern const char kEnableFramelessConstrainedDialogs[];
 extern const char kEnableFileCookies[];
@@ -164,6 +164,7 @@ extern const char kEnableNaCl[];
 extern const char kEnableNaClDebug[];
 extern const char kEnableNaClExceptionHandling[];
 extern const char kEnableNaClIPCProxy[];
+extern const char kEnableNativeMessaging[];
 extern const char kEnableNpn[];
 extern const char kDisableSyncTabs[];
 extern const char kEnableNpnHttpOnly[];
@@ -172,12 +173,10 @@ extern const char kEnablePasswordGeneration[];
 extern const char kEnablePnacl[];
 extern const char kEnableProfiling[];
 extern const char kEnableResourceContentSettings[];
-extern const char kEnableRestoreSessionState[];
-extern const char kEnableScriptBadges[];
 extern const char kEnableSdch[];
+extern const char kEnableSettingsApp[];
 extern const char kEnableSpdy3[];
 extern const char kEnableSpdyCredentialFrames[];
-extern const char kEnableSpdyFlowControl[];
 extern const char kEnableStackedTabStrip[];
 extern const char kEnableSuggestionsTabPage[];
 extern const char kEnableTabGroupsContextMenu[];
@@ -266,9 +265,6 @@ extern const char kPerformanceMonitorGathering[];
 extern const char kPerformCrashAnalysis[];
 extern const char kPlaybackMode[];
 extern const char kPnaclDir[];
-extern const char kPpapiFlashFieldTrial[];
-extern const char kPpapiFlashFieldTrialDisableByDefault[];
-extern const char kPpapiFlashFieldTrialEnableByDefault[];
 extern const char kPpapiFlashInProcess[];
 extern const char kPpapiFlashPath[];
 extern const char kPpapiFlashVersion[];
@@ -282,13 +278,13 @@ extern const char kPrerenderModeSwitchValueDisabled[];
 extern const char kPrerenderModeSwitchValueEnabled[];
 extern const char kPrerenderModeSwitchValuePrefetchOnly[];
 extern const char kProductVersion[];
-extern const char kProfileDesktopShortcuts[];
 extern const char kProfileDirectory[];
 extern const char kProfilingAtStart[];
 extern const char kProfilingFile[];
 extern const char kProfilingFlush[];
 extern const char kProfilingOutputFile[];
 extern const char kPromoServerURL[];
+extern const char kPromptForExternalExtensions[];
 extern const char kProtector[];
 extern const char kProxyAutoDetect[];
 extern const char kProxyBypassList[];
@@ -306,8 +302,10 @@ extern const char kSavePageAsMHTML[];
 extern const char kSbURLPrefix[];
 extern const char kSbDisableAutoUpdate[];
 extern const char kSbDisableDownloadProtection[];
-extern const char kScriptBubbleEnabled[];
+extern const char kScriptBadges[];
+extern const char kScriptBubble[];
 extern const char kSearchInOmniboxHint[];
+extern const char kSideloadWipeout[];
 extern const char kSetToken[];
 extern const char kShowAppList[];
 extern const char kShowAutofillTypePredictions[];
@@ -321,6 +319,7 @@ extern const char kSpeculativeResourcePrefetching[];
 extern const char kSpeculativeResourcePrefetchingDisabled[];
 extern const char kSpeculativeResourcePrefetchingLearning[];
 extern const char kSpdyProxyOrigin[];
+extern const char kSpeculativeResourcePrefetchingEnabled[];
 extern const char kSSLVersionMax[];
 extern const char kSSLVersionMin[];
 extern const char kStartMaximized[];
@@ -347,7 +346,6 @@ extern const char kTryChromeAgain[];
 extern const char kUninstall[];
 extern const char kUseSpdy[];
 extern const char kUseGpuInTests[];
-extern const char kIgnoreCertificateErrors[];
 extern const char kMaxSpdySessionsPerDomain[];
 extern const char kMaxSpdyConcurrentStreams[];
 extern const char kUserDataDir[];
@@ -373,8 +371,9 @@ extern const char kTabletUI[];
 extern const char kAshWebUIInit[];
 extern const char kEnableCarrierSwitching[];
 extern const char kDisableBootAnimation[];
+extern const char kDisableDrive[];
+extern const char kDisableDrivePrefetch[];
 extern const char kDisableFactoryReset[];
-extern const char kDisableGData[];
 extern const char kDisableHtml5Camera[];
 extern const char kDisableLoginAnimations[];
 extern const char kDisableNewOobe[];
@@ -397,12 +396,11 @@ extern const char kLoginScreenSize[];
 extern const char kLoginProfile[];
 extern const char kLoginUser[];
 extern const char kLoginPassword[];
+extern const char kNaturalScrollDefault[];
 extern const char kNoDiscardTabs[];
 extern const char kGuestSession[];
 extern const char kEchoExtensionPath[];
-extern const char kShowVolumeStatus[];
 extern const char kStubCrosSettings[];
-extern const char kCompressSystemFeedback[];
 extern const char kAuthExtensionPath[];
 extern const char kEnterpriseEnrollmentInitialModulus[];
 extern const char kEnterpriseEnrollmentModulusLimit[];
@@ -431,19 +429,9 @@ extern const char kDisableDesktopShortcuts[];
 extern const char kEnableSyncCredentialCaching[];
 extern const char kForceImmersive[];
 extern const char kForceDesktop[];
-extern const char kModeSwitch[];
 extern const char kPrintRaster[];
 extern const char kRelaunchShortcut[];
 extern const char kWaitForMutex[];
-#endif
-
-#if defined(USE_AURA)
-extern const char kDisableTCVA[];
-extern const char kOpenAsh[];
-#endif
-
-#if defined(USE_ASH)
-extern const char kEnableAsh[];
 #endif
 
 #ifndef NDEBUG
@@ -461,5 +449,13 @@ extern const char kEnablePrintPreview[];
 // alphabetical order, or in one of the ifdefs (also in order in each section).
 
 }  // namespace switches
+
+namespace chrome {
+
+// Returns true if the new frameless constrained window style is enabled.
+// TODO(sail): Remove this once the feature is fully baked.
+bool IsFramelessConstrainedDialogEnabled();
+
+}  // namespace chrome
 
 #endif  // CHROME_COMMON_CHROME_SWITCHES_H_

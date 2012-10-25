@@ -110,7 +110,7 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
       const gfx::Rect& src_subrect,
       const gfx::Size& dst_size,
       const base::Callback<void(bool)>& callback,
-      skia::PlatformCanvas* output) OVERRIDE;
+      skia::PlatformBitmap* output) OVERRIDE;
   virtual void OnAcceleratedCompositingStateChange() OVERRIDE;
   virtual void AcceleratedSurfaceBuffersSwapped(
       const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params,
@@ -148,7 +148,7 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
   virtual void UpdateFrameInfo(const gfx::Point& scroll_offset,
                                float page_scale_factor,
                                const gfx::Size& content_size) OVERRIDE {}
-  virtual void DidSetNeedTouchEvents(bool need_touch_events) OVERRIDE {}
+  virtual void HasTouchEventHandlers(bool need_touch_events) OVERRIDE {}
 #elif defined(OS_WIN) && !defined(USE_AURA)
   virtual void WillWmDestroy() OVERRIDE;
 #endif
@@ -156,8 +156,6 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
   virtual void GetScreenInfo(WebKit::WebScreenInfo* results) OVERRIDE {}
   virtual gfx::Rect GetBoundsInRootWindow() OVERRIDE;
 #endif
-  virtual void ProcessTouchAck(WebKit::WebInputEvent::Type type,
-                               bool processed) OVERRIDE { }
   virtual void SetHasHorizontalScrollbar(
       bool has_horizontal_scrollbar) OVERRIDE { }
   virtual void SetScrollOffsetPinning(

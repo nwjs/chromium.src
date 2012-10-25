@@ -15,24 +15,20 @@
 
 namespace {
 
-// TODO(mnaganov): This hardcoded version should be replaced with the webkit
-// revision of this build of content shell. This requires a feature addition
-// to the devtools frontend.
-const char* kFrontendVersion = "21.0.1175.0";
 const char kSocketName[] = "content_shell_devtools_remote";
-const char kFrontEndURL[] =
-    "http://chrome-devtools-frontend.appspot.com/static/%s/devtools.html";
 
 }
 
 namespace content {
 
-ShellDevToolsDelegate::ShellDevToolsDelegate(int port) {
+ShellDevToolsDelegate::ShellDevToolsDelegate(BrowserContext* browser_context,
+                                             int port)
+    : browser_context_(browser_context) {
   devtools_http_handler_ = DevToolsHttpHandler::Start(
       new net::UnixDomainSocketWithAbstractNamespaceFactory(
           kSocketName,
           base::Bind(&CanUserConnectToDevTools)),
-      StringPrintf(kFrontEndURL, kFrontendVersion),
+      "",
       this);
 }
 
@@ -51,7 +47,7 @@ std::string ShellDevToolsDelegate::GetDiscoveryPageHTML() {
 }
 
 bool ShellDevToolsDelegate::BundlesFrontendResources() {
-  return false;
+  return true;
 }
 
 FilePath ShellDevToolsDelegate::GetDebugFrontendDir() {
@@ -60,6 +56,10 @@ FilePath ShellDevToolsDelegate::GetDebugFrontendDir() {
 
 std::string ShellDevToolsDelegate::GetPageThumbnailData(const GURL& url) {
   return "";
+}
+
+RenderViewHost* ShellDevToolsDelegate::CreateNewTarget() {
+  return NULL;
 }
 
 }  // namespace content

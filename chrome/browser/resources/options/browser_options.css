@@ -145,6 +145,10 @@ input[type='range'] {
   width: 320px;
 }
 
+#download-location-label.disabled {
+  color: #999;
+}
+
 .network-group {
   -webkit-box-orient: horizontal;
   height: 42px;
@@ -261,6 +265,9 @@ list:not([disabled]) > .network-group[selected] {
 .network-group > .controlled-setting-indicator,
 .network-menu-item > .controlled-setting-indicator {
   -webkit-margin-end: 5px;
+  bottom: auto;
+  position: static;
+  vertical-align: text-bottom;
 }
 
 .network-options-button:hover {

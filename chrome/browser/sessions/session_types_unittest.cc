@@ -97,7 +97,7 @@ TEST(TabNavigationTest, DefaultInitializer) {
   EXPECT_EQ(-1, SessionTypesTestHelper::GetPostID(navigation));
   EXPECT_EQ(GURL(), SessionTypesTestHelper::GetOriginalRequestURL(navigation));
   EXPECT_FALSE(SessionTypesTestHelper::GetIsOverridingUserAgent(navigation));
-  EXPECT_TRUE(navigation.timestamp().is_null());
+  EXPECT_TRUE(SessionTypesTestHelper::GetTimestamp(navigation).is_null());
 }
 
 // Create a TabNavigation from a NavigationEntry.  All its fields
@@ -127,7 +127,7 @@ TEST(TabNavigationTest, FromNavigationEntry) {
             SessionTypesTestHelper::GetOriginalRequestURL(navigation));
   EXPECT_EQ(kIsOverridingUserAgent,
             SessionTypesTestHelper::GetIsOverridingUserAgent(navigation));
-  EXPECT_EQ(kTimestamp, navigation.timestamp());
+  EXPECT_EQ(kTimestamp, SessionTypesTestHelper::GetTimestamp(navigation));
 }
 
 // Create a TabNavigation from a sync_pb::TabNavigation.  All its
@@ -154,7 +154,7 @@ TEST(TabNavigationTest, FromSyncData) {
   EXPECT_EQ(-1, SessionTypesTestHelper::GetPostID(navigation));
   EXPECT_EQ(GURL(), SessionTypesTestHelper::GetOriginalRequestURL(navigation));
   EXPECT_FALSE(SessionTypesTestHelper::GetIsOverridingUserAgent(navigation));
-  EXPECT_TRUE(navigation.timestamp().is_null());
+  EXPECT_TRUE(SessionTypesTestHelper::GetTimestamp(navigation).is_null());
 }
 
 // Create a TabNavigation, pickle it, then create another one by
@@ -190,7 +190,7 @@ TEST(TabNavigationTest, Pickle) {
             SessionTypesTestHelper::GetOriginalRequestURL(new_navigation));
   EXPECT_EQ(kIsOverridingUserAgent,
             SessionTypesTestHelper::GetIsOverridingUserAgent(new_navigation));
-  EXPECT_EQ(kTimestamp, new_navigation.timestamp());
+  EXPECT_EQ(kTimestamp, SessionTypesTestHelper::GetTimestamp(new_navigation));
 }
 
 // Create a NavigationEntry, then create another one by converting to
@@ -244,6 +244,7 @@ TEST(TabNavigationTest, ToSyncData) {
   EXPECT_TRUE(sync_data.has_redirect_type());
   EXPECT_EQ(navigation_entry->GetUniqueID(), sync_data.unique_id());
   EXPECT_EQ(syncer::TimeToProtoTime(kTimestamp), sync_data.timestamp());
+  EXPECT_EQ(kTimestamp.ToInternalValue(), sync_data.global_id());
 }
 
 // Ensure all transition types and qualifiers are converted to/from the sync

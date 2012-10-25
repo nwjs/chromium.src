@@ -46,15 +46,19 @@ def AllocateTestServerPort():
     TEST_SERVER_PORT_LAST. Returning 0 means no more valid port can be used.
   """
   port = 0
+  ports_tried = []
   try:
     fp_lock = open(constants.TEST_SERVER_PORT_LOCKFILE, 'w')
     fcntl.flock(fp_lock, fcntl.LOCK_EX)
     # Get current valid port and calculate next valid port.
-    assert os.path.exists(constants.TEST_SERVER_PORT_FILE)
+    if not os.path.exists(constants.TEST_SERVER_PORT_FILE):
+      ResetTestServerPortAllocation()
     with open(constants.TEST_SERVER_PORT_FILE, 'r+') as fp:
       port = int(fp.read())
+      ports_tried.append(port)
       while IsHostPortUsed(port):
         port += 1
+        ports_tried.append(port)
       if (port > constants.TEST_SERVER_PORT_LAST or
           port < constants.TEST_SERVER_PORT_FIRST):
         port = 0
@@ -67,7 +71,11 @@ def AllocateTestServerPort():
     if fp_lock:
       fcntl.flock(fp_lock, fcntl.LOCK_UN)
       fp_lock.close()
-  logging.info('Allocate port %d for test server.', port)
+  if port:
+    logging.info('Allocate port %d for test server.', port)
+  else:
+    logging.error('Could not allocate port for test server. '
+                  'List of ports tried: %s', str(ports_tried))
   return port
 
 

@@ -17,6 +17,7 @@
 #include "chrome/browser/extensions/api/web_navigation/web_navigation_api.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
+#include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prerender/prerender_contents.h"
 #include "chrome/browser/prerender/prerender_handle.h"
@@ -210,12 +211,12 @@ class TestPrerenderContents : public PrerenderContents {
       Profile* profile,
       const GURL& url,
       const content::Referrer& referrer,
+      Origin origin,
       int expected_number_of_loads,
       FinalStatus expected_final_status,
       bool prerender_should_wait_for_ready_title)
-      : PrerenderContents(prerender_manager, prerender_tracker,
-                          profile, url, referrer, ORIGIN_LINK_REL_PRERENDER,
-                          PrerenderManager::kNoExperiment),
+      : PrerenderContents(prerender_manager, prerender_tracker, profile, url,
+                          referrer, origin, PrerenderManager::kNoExperiment),
         number_of_loads_(0),
         expected_number_of_loads_(expected_number_of_loads),
         expected_final_status_(expected_final_status),
@@ -306,11 +307,12 @@ class TestPrerenderContents : public PrerenderContents {
 
   virtual void AddPendingPrerender(
       base::WeakPtr<PrerenderHandle> weak_prerender_handle,
+      Origin origin,
       const GURL& url,
       const content::Referrer& referrer,
       const gfx::Size& size) OVERRIDE {
     PrerenderContents::AddPendingPrerender(
-        weak_prerender_handle, url, referrer, size);
+        weak_prerender_handle, origin, url, referrer, size);
     if (expected_pending_prerenders_ > 0 &&
         pending_prerenders().size() == expected_pending_prerenders_) {
       MessageLoop::current()->Quit();
@@ -472,8 +474,8 @@ class WaitForLoadPrerenderContentsFactory : public PrerenderContents::Factory {
                " with expected final status " << expected_final_status;
     VLOG(1) << expected_final_status_queue_.size() << " left in the queue.";
     return new TestPrerenderContents(prerender_manager, prerender_tracker,
-                                     profile, url,
-                                     referrer, expected_number_of_loads_,
+                                     profile, url, referrer, origin,
+                                     expected_number_of_loads_,
                                      expected_final_status,
                                      prerender_should_wait_for_ready_title_);
   }
@@ -1790,8 +1792,6 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, DISABLED_PrerenderWindowSize) {
 #else
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderWindowSize) {
 #endif
-  ui_test_utils::CloseAllInfoBars(chrome::GetActiveTabContents(browser()));
-
   PrerenderTestURL("files/prerender/prerender_size.html",
                    FINAL_STATUS_USED,
                    1);

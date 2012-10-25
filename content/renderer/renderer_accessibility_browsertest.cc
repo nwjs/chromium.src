@@ -8,14 +8,13 @@
 #include "content/common/view_messages.h"
 #include "content/renderer/render_view_impl.h"
 #include "content/public/test/render_view_test.h"
-#include "content/shell/shell_main_delegate.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebSize.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 
-using content::AccessibilityNodeData;
+namespace content {
 
-class RendererAccessibilityTest : public content::RenderViewTest {
+class RendererAccessibilityTest : public RenderViewTest {
  public:
   RendererAccessibilityTest() {}
 
@@ -24,9 +23,8 @@ class RendererAccessibilityTest : public content::RenderViewTest {
   }
 
   virtual void SetUp() {
-    content::RenderViewTest::SetUp();
+    RenderViewTest::SetUp();
     sink_ = &render_thread_->sink();
-    content::ShellMainDelegate::InitializeResourceBundle();
   }
 
   void SetMode(AccessibilityMode mode) {
@@ -190,3 +188,5 @@ TEST_F(RendererAccessibilityTest, EditableTextModeFocusNotifications) {
     EXPECT_EQ(notification.id, 1);
   }
 }
+
+}  // namespace content

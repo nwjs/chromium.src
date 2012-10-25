@@ -15,12 +15,14 @@
 #include "chrome/browser/ui/browser_window.h"
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
 #include "chrome/browser/ui/cocoa/constrained_window_mac.h"
+#include "chrome/browser/ui/cocoa/intents/web_intent_picker_cocoa2.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #import "chrome/browser/ui/cocoa/web_intent_sheet_controller.h"
 #include "chrome/browser/ui/intents/web_intent_inline_disposition_delegate.h"
 #include "chrome/browser/ui/intents/web_intent_picker.h"
 #include "chrome/browser/ui/intents/web_intent_picker_delegate.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/common/chrome_switches.h"
 #include "content/public/browser/web_contents.h"
 #include "ipc/ipc_message.h"
 #include "skia/ext/skia_utils_mac.h"
@@ -71,6 +73,8 @@ void ConstrainedPickerSheetDelegate::DeleteDelegate() {
 WebIntentPicker* WebIntentPicker::Create(content::WebContents* web_contents,
                                          WebIntentPickerDelegate* delegate,
                                          WebIntentPickerModel* model) {
+  if (chrome::IsFramelessConstrainedDialogEnabled())
+    return new WebIntentPickerCocoa2(web_contents, delegate, model);
   TabContents* tab_contents = TabContents::FromWebContents(web_contents);
   return new WebIntentPickerCocoa(tab_contents, delegate, model);
 }
@@ -103,7 +107,8 @@ WebIntentPickerCocoa::WebIntentPickerCocoa(TabContents* tab_contents,
   ConstrainedPickerSheetDelegate* constrained_delegate =
       new ConstrainedPickerSheetDelegate(this, sheet_controller_);
 
-  window_ = new ConstrainedWindowMac(tab_contents, constrained_delegate);
+  window_ = new ConstrainedWindowMac(tab_contents->web_contents(),
+                                     constrained_delegate);
 }
 
 WebIntentPickerCocoa::~WebIntentPickerCocoa() {
@@ -115,7 +120,8 @@ void WebIntentPickerCocoa::OnSheetDidEnd(NSWindow* sheet) {
   [sheet orderOut:sheet_controller_];
   if (window_)
     window_->CloseConstrainedWindow();
-  delegate_->OnClosing();
+  if (delegate_)
+    delegate_->OnClosing();
 }
 
 void WebIntentPickerCocoa::Close() {
@@ -159,20 +165,16 @@ void WebIntentPickerCocoa::OnExtensionIconChanged(
 
 void WebIntentPickerCocoa::OnInlineDisposition(const string16& title,
                                                const GURL& url) {
-  content::WebContents* web_contents = content::WebContents::Create(
-      tab_contents_->profile(),
-      tab_util::GetSiteInstanceForNewTab(tab_contents_->profile(), url),
-      MSG_ROUTING_NONE, NULL);
+  DCHECK(delegate_);
+  content::WebContents* web_contents =
+      delegate_->CreateWebContentsForInlineDisposition(
+          tab_contents_->profile(), url);
   inline_disposition_tab_contents_.reset(
       TabContents::Factory::CreateTabContents(web_contents));
   Browser* browser = browser::FindBrowserWithWebContents(
       tab_contents_->web_contents());
   inline_disposition_delegate_.reset(
       new WebIntentInlineDispositionDelegate(this, web_contents, browser));
-
-  // Must call this immediately after WebContents creation to avoid race
-  // with load.
-  delegate_->OnInlineDispositionWebContentsCreated(web_contents);
 
   inline_disposition_tab_contents_->web_contents()->GetController().LoadURL(
       url,
@@ -200,11 +202,13 @@ void WebIntentPickerCocoa::OnServiceChosen(size_t index) {
       model_->GetInstalledServiceAt(index);
   service_invoked = true;
   delegate_->OnServiceChosen(installed_service.url,
-                             installed_service.disposition);
+                             installed_service.disposition,
+                             WebIntentPickerDelegate::kEnableDefaults);
 }
 
 void WebIntentPickerCocoa::OnExtensionInstallRequested(
     const std::string& extension_id) {
+  DCHECK(delegate_);
   delegate_->OnExtensionInstallRequested(extension_id);
 }
 
@@ -227,6 +231,10 @@ void WebIntentPickerCocoa::OnInlineDispositionAutoResize(
 }
 
 void WebIntentPickerCocoa::OnPendingAsyncCompleted() {
+}
+
+void WebIntentPickerCocoa::InvalidateDelegate() {
+  delegate_ = NULL;
 }
 
 void WebIntentPickerCocoa::OnExtensionLinkClicked(

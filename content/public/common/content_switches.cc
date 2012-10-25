@@ -36,6 +36,10 @@ const char kBrowserSubprocessPath[]         = "browser-subprocess-path";
 // as a dependent process of the Chrome Frame plugin.
 const char kChromeFrame[]                   = "chrome-frame";
 
+// Cause a GPU hang to cause a crash dump, allowing for easier debugging of
+// them.
+const char kCrashOnGpuHang[]                = "crash-on-gpu-hang";
+
 // Disables client-visible 3D APIs, in particular WebGL and Pepper 3D.
 // This is controlled by policy and is kept separate from the other
 // enable/disable switches to avoid accidentally regressing the policy
@@ -205,9 +209,6 @@ const char kEnableScriptedSpeech[]          = "enable-scripted-speech";
 // Specifies the request key for the continuous speech recognition webservice.
 const char kSpeechRecognitionWebserviceKey[] = "speech-service-key";
 
-// Disables animation on the compositor thread.
-const char kDisableThreadedAnimation[]      = "disable-threaded-animation";
-
 #if defined(OS_ANDROID)
 // Enable web audio API.
 const char kEnableWebAudio[]                = "enable-webaudio";
@@ -246,6 +247,10 @@ const char kEnableAcceleratedFilters[]      = "enable-accelerated-filters";
 
 // Turns on extremely verbose logging of accessibility events.
 const char kEnableAccessibilityLogging[]    = "enable-accessibility-logging";
+
+// Enables browser plugin for all types of pages.
+const char kEnableBrowserPluginForAllViewTypes[] =
+    "enable-browser-plugin-for-all-view-types";
 
 // Enables old implementation path for browser plugin instead of current one.
 const char kEnableBrowserPluginOldImplementation[] =
@@ -297,17 +302,18 @@ const char kEnableLogging[]                 = "enable-logging";
 // Disable Media Source API on <audio>/<video> elements.
 const char kDisableMediaSource[]             = "disable-media-source";
 
-// Enables using WebMediaPlayerMS for src of <audio>/<video> derived from
+// Disables using WebMediaPlayerMS for src of <audio>/<video> derived from
 // media stream.
-const char kEnableWebMediaPlayerMS[]        = "enable-web-media-player-ms";
+const char kDisableWebMediaPlayerMS[]       = "disable-web-media-player-ms";
+
+// Enables the deprecated PeerConnection functionality.
+const char kEnableDeprecatedPeerConnection[] =
+    "enable-deprecated-peer-connection";
 
 // On Windows, converts the page to the currently-installed monitor profile.
 // This does NOT enable color management for images. The source is still
 // assumed to be sRGB.
 const char kEnableMonitorProfile[]          = "enable-monitor-profile";
-
-// Enables partial swaps in the WK compositor on platforms that support it.
-const char kEnablePartialSwap[]             = "enable-partial-swap";
 
 // Enables UI releasing handle to front surface for background tabs on platforms
 // that support it.
@@ -315,10 +321,6 @@ const char kEnableUIReleaseFrontSurface[] = "enable-ui-release-front-surface";
 
 // Enables touch-screen pinch gestures.
 const char kEnablePinch[]                   = "enable-pinch";
-
-// Enables an alternative pinch-zoom gesture support, via the threaded
-// compositor.
-const char kEnablePinchInCompositor[]       = "enable-pinch-in-compositor";
 
 // Enable caching of pre-parsed JS script data.  See http://crbug.com/32407.
 const char kEnablePreparsedJsCaching[]      = "enable-preparsed-js-caching";
@@ -331,9 +333,6 @@ const char kEnablePrivilegedWebGLExtensions[] =
 // Aggressively free GPU command buffers belonging to hidden tabs.
 const char kEnablePruneGpuCommandBuffers[] =
     "enable-prune-gpu-command-buffers";
-
-// Enable renderer side mixing and low latency audio path for media elements.
-const char kEnableRendererSideMixing[] = "enable-renderer-side-mixing";
 
 // Enables TLS cached info extension.
 const char kEnableSSLCachedInfo[]  = "enable-ssl-cached-info";
@@ -445,6 +444,9 @@ const char kGuestRenderer[]                 = "guest-renderer";
 
 // These mappings only apply to the host resolver.
 const char kHostResolverRules[]             = "host-resolver-rules";
+
+// Ignores certificate-related errors.
+const char kIgnoreCertificateErrors[]       = "ignore-certificate-errors";
 
 // Ignores GPU blacklist.
 const char kIgnoreGpuBlacklist[]            = "ignore-gpu-blacklist";
@@ -676,15 +678,15 @@ const char kZygoteProcess[]                 = "zygote";
 // Enables moving cursor by word in visual order.
 const char kEnableVisualWordMovement[]      = "enable-visual-word-movement";
 
+// Set when Chromium should use a mobile user agent.
+const char kUseMobileUserAgent[] = "use-mobile-user-agent";
+
 #if defined(OS_ANDROID)
 // Disable history logging for media elements.
 const char kDisableMediaHistoryLogging[]    = "disable-media-history";
 
 // Whether to run media elements in the renderer process.
 const char kMediaPlayerInRenderProcess[]    = "media-player-in-render-process";
-
-// Set when Chromium should use a mobile user agent.
-const char kUseMobileUserAgent[] = "use-mobile-user-agent";
 
 // The telephony region (ISO country code) to use in phone number detection.
 const char kNetworkCountryIso[] = "network-country-iso";
@@ -709,8 +711,9 @@ const char kScrollPixels[]                  = "scroll-pixels";
 const char kUseSystemSSL[]                  = "use-system-ssl";
 #endif
 
-// Enable per-tile page painting.
-const char kEnablePerTilePainting[]         = "enable-per-tile-painting";
+#if defined(OS_MACOSX) && !defined(OS_IOS)
+const char kDisableCarbonInterposing[]      = "disable-carbon-interposing";
+#endif
 
 // Disables the use of a 3D software rasterizer.
 const char kDisableSoftwareRasterizer[]     = "disable-software-rasterizer";

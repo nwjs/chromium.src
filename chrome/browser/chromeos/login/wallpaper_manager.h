@@ -62,6 +62,13 @@ class WallpaperManager: public system::TimezoneSettings::Observer,
   // added after PowerManagerClient initialized.
   void AddObservers();
 
+  // Migrate the old wallpaper index to a new wallpaper structure for all users
+  // in |users|.
+  // The new wallpaper structure is:
+  // { WallpaperType: DAILY|CUSTOMIZED|DEFAULT,
+  //   index: index of the default wallpapers }
+  void MigrateWallpaperData(const UserList& users);
+
   // Loads wallpaper asynchronously if the current wallpaper is not the
   // wallpaper of logged in user.
   void EnsureLoggedInUserWallpaperLoaded();
@@ -158,15 +165,12 @@ class WallpaperManager: public system::TimezoneSettings::Observer,
   // Sets |email|'s wallpaper.
   void SetUserWallpaper(const std::string& email);
 
+  // Sets the default wallpaper for the sign-in screen.
+  void SetSigninWallpaper();
+
   // Sets wallpaper to |wallpaper|.
   void SetWallpaperFromImageSkia(const gfx::ImageSkia& wallpaper,
                                  ash::WallpaperLayout layout);
-
-  // User was deselected at login screen, reset wallpaper if needed.
-  void OnUserDeselected() {}
-
-  // User |email| was selected at login screen, load wallpaper.
-  void OnUserSelected(const std::string& email);
 
  private:
   typedef std::map<std::string, gfx::ImageSkia> CustomWallpaperMap;

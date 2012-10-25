@@ -1,0 +1,10 @@
+{
+  "name": "Calculator",
+  "description": "A simple calculator.",
+  "manifest_version": 2,
+  "minimum_chrome_version": "23",
+  "version": "1.2",
+  "offline_enabled": true,
+  "app": {"background": {"scripts": ["model.js", "view.js", "background.js"]}},
+  "icons": {"128": "images/icon-128x128.png"}
+}

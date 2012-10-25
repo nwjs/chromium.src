@@ -18,6 +18,7 @@
 #include "ppapi/c/ppb_gamepad.h"
 #include "ppapi/c/ppb_instance.h"
 #include "ppapi/c/ppb_mouse_cursor.h"
+#include "ppapi/c/private/pp_content_decryptor.h"
 #include "ppapi/c/private/ppb_instance_private.h"
 #include "ppapi/shared_impl/api_id.h"
 
@@ -37,6 +38,7 @@ struct ViewData;
 namespace thunk {
 
 class PPB_Flash_API;
+class PPB_Flash_Functions_API;
 class PPB_Gamepad_API;
 
 class PPB_Instance_API {
@@ -87,8 +89,11 @@ class PPB_Instance_API {
                                 PP_Bool fullscreen) = 0;
   virtual PP_Bool GetScreenSize(PP_Instance instance, PP_Size* size) = 0;
 
-  // Flash.
+  // Flash (Deprecated for Flash_Functions).
   virtual PPB_Flash_API* GetFlashAPI() = 0;
+  // Flash_Functions
+  virtual PPB_Flash_Functions_API* GetFlashFunctionsAPI(
+      PP_Instance instance) = 0;
 
   // Gamepad.
   virtual PPB_Gamepad_API* GetGamepadAPI(PP_Instance instance) = 0;
@@ -135,6 +140,9 @@ class PPB_Instance_API {
   virtual void ZoomLimitsChanged(PP_Instance instance,
                                  double minimum_factor,
                                  double maximium_factor) = 0;
+  // Testing and URLUtil.
+  virtual PP_Var GetDocumentURL(PP_Instance instance,
+                                PP_URLComponents_Dev* components) = 0;
 #if !defined(OS_NACL)
   // Content Decryptor.
   virtual void NeedKey(PP_Instance instance,
@@ -157,11 +165,21 @@ class PPB_Instance_API {
   virtual void DeliverBlock(PP_Instance instance,
                             PP_Resource decrypted_block,
                             const PP_DecryptedBlockInfo* block_info) = 0;
+  virtual void DecoderInitializeDone(PP_Instance instance,
+                                     PP_DecryptorStreamType decoder_type,
+                                     uint32_t request_id,
+                                     PP_Bool success) = 0;
+  virtual void DecoderDeinitializeDone(PP_Instance instance,
+                                       PP_DecryptorStreamType decoder_type,
+                                       uint32_t request_id) = 0;
+  virtual void DecoderResetDone(PP_Instance instance,
+                                PP_DecryptorStreamType decoder_type,
+                                uint32_t request_id) = 0;
   virtual void DeliverFrame(PP_Instance instance,
                             PP_Resource decrypted_frame,
                             const PP_DecryptedFrameInfo* frame_info) = 0;
   virtual void DeliverSamples(PP_Instance instance,
-                              PP_Resource decrypted_samples,
+                              PP_Resource audio_frames,
                               const PP_DecryptedBlockInfo* block_info) = 0;
 
   // URLUtil.
@@ -172,8 +190,6 @@ class PPB_Instance_API {
   virtual PP_Bool DocumentCanRequest(PP_Instance instance, PP_Var url) = 0;
   virtual PP_Bool DocumentCanAccessDocument(PP_Instance instance,
                                             PP_Instance target) = 0;
-  virtual PP_Var GetDocumentURL(PP_Instance instance,
-                                PP_URLComponents_Dev* components) = 0;
   virtual PP_Var GetPluginInstanceURL(PP_Instance instance,
                                       PP_URLComponents_Dev* components) = 0;
 #endif  // !defined(OS_NACL)

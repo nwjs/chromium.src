@@ -108,44 +108,64 @@ are declared in build/common.gypi.
   <translations>
     <file path="resources/generated_resources_am.xtb" lang="am" />
     <file path="resources/generated_resources_ar.xtb" lang="ar" />
-    <file path="../../third_party/launchpad_translations/generated_resources_ast.xtb" lang="ast" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_ast.xtb" lang="ast" />
+    </if>
     <file path="resources/generated_resources_bg.xtb" lang="bg" />
     <file path="resources/generated_resources_bn.xtb" lang="bn" />
-    <file path="../../third_party/launchpad_translations/generated_resources_bs.xtb" lang="bs" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_bs.xtb" lang="bs" />
+    </if>
     <file path="resources/generated_resources_ca.xtb" lang="ca" />
-    <file path="../../third_party/launchpad_translations/generated_resources_ca-valencia.xtb" lang="ca@valencia" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_ca-valencia.xtb" lang="ca@valencia" />
+    </if>
     <file path="resources/generated_resources_cs.xtb" lang="cs" />
     <file path="resources/generated_resources_da.xtb" lang="da" />
     <file path="resources/generated_resources_de.xtb" lang="de" />
     <file path="resources/generated_resources_el.xtb" lang="el" />
-    <file path="../../third_party/launchpad_translations/generated_resources_en-AU.xtb" lang="en-AU" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_en-AU.xtb" lang="en-AU" />
+    </if>
     <file path="resources/generated_resources_en-GB.xtb" lang="en-GB" />
-    <file path="../../third_party/launchpad_translations/generated_resources_eo.xtb" lang="eo" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_eo.xtb" lang="eo" />
+    </if>
     <file path="resources/generated_resources_es.xtb" lang="es" />
     <file path="resources/generated_resources_es-419.xtb" lang="es-419" />
     <file path="resources/generated_resources_et.xtb" lang="et" />
-    <file path="../../third_party/launchpad_translations/generated_resources_eu.xtb" lang="eu" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_eu.xtb" lang="eu" />
+    </if>
     <file path="resources/generated_resources_fa.xtb" lang="fa" />
     <file path="resources/generated_resources_fi.xtb" lang="fi" />
     <file path="resources/generated_resources_fil.xtb" lang="fil" />
     <file path="resources/generated_resources_fr.xtb" lang="fr" />
-    <file path="../../third_party/launchpad_translations/generated_resources_gl.xtb" lang="gl" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_gl.xtb" lang="gl" />
+    </if>
     <file path="resources/generated_resources_gu.xtb" lang="gu" />
     <file path="resources/generated_resources_hi.xtb" lang="hi" />
     <file path="resources/generated_resources_hr.xtb" lang="hr" />
     <file path="resources/generated_resources_hu.xtb" lang="hu" />
-    <file path="../../third_party/launchpad_translations/generated_resources_hy.xtb" lang="hy" />
-    <file path="../../third_party/launchpad_translations/generated_resources_ia.xtb" lang="ia" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_hy.xtb" lang="hy" />
+      <file path="../../third_party/launchpad_translations/generated_resources_ia.xtb" lang="ia" />
+    </if>
     <file path="resources/generated_resources_id.xtb" lang="id" />
     <file path="resources/generated_resources_it.xtb" lang="it" />
     <!-- The translation console uses 'iw' for Hebrew, but we use 'he'. -->
     <file path="resources/generated_resources_iw.xtb" lang="he" />
     <file path="resources/generated_resources_ja.xtb" lang="ja" />
-    <file path="../../third_party/launchpad_translations/generated_resources_ka.xtb" lang="ka" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_ka.xtb" lang="ka" />
+    </if>
     <file path="resources/generated_resources_kn.xtb" lang="kn" />
     <file path="resources/generated_resources_ko.xtb" lang="ko" />
-    <file path="../../third_party/launchpad_translations/generated_resources_ku.xtb" lang="ku" />
-    <file path="../../third_party/launchpad_translations/generated_resources_kw.xtb" lang="kw" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_ku.xtb" lang="ku" />
+      <file path="../../third_party/launchpad_translations/generated_resources_kw.xtb" lang="kw" />
+    </if>
     <file path="resources/generated_resources_lt.xtb" lang="lt" />
     <file path="resources/generated_resources_lv.xtb" lang="lv" />
     <file path="resources/generated_resources_ml.xtb" lang="ml" />
@@ -167,7 +187,9 @@ are declared in build/common.gypi.
     <file path="resources/generated_resources_te.xtb" lang="te" />
     <file path="resources/generated_resources_th.xtb" lang="th" />
     <file path="resources/generated_resources_tr.xtb" lang="tr" />
-    <file path="../../third_party/launchpad_translations/generated_resources_ug.xtb" lang="ug" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <file path="../../third_party/launchpad_translations/generated_resources_ug.xtb" lang="ug" />
+    </if>
     <file path="resources/generated_resources_uk.xtb" lang="uk" />
     <file path="resources/generated_resources_vi.xtb" lang="vi" />
     <file path="resources/generated_resources_zh-CN.xtb" lang="zh-CN" />
@@ -204,7 +226,7 @@ are declared in build/common.gypi.
 
       <!-- Website Settings UI -->
       <message name="IDS_WEBSITE_SETTINGS_INFOBAR_TEXT" desc="The string shown in the infobar after the user has changed site permissions settings, reminding them to reload the page in order for the new settings to take effect.">
-        New site permissions settings will take effect after reloading the page. 
+        New site permissions settings will take effect after reloading the page.
       </message>
       <message name="IDS_WEBSITE_SETTINGS_INFOBAR_BUTTON" desc="The string used in the infobar button allowing the user to reload the page directly from the infobar.">
         Reload
@@ -4313,8 +4335,30 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_TASK_MANAGER_INSTANT_PREVIEW_PREFIX" desc="The prefix for an Instant preview in the Task Manager">
         Instant: <ph name="INSTANT_PREVIEW_NAME">$1<ex>http://www.google.com/</ex></ph>
       </message>
+      <message name="IDS_TASK_MANAGER_BROWSER_TAG_PREFIX" desc="The prefix for a guest page loaded in browser tag in the Task Manager">
+        Browser Tag: <ph name="BROWSER_TAG_NAME">$1<ex>Google</ex></ph>
+      </message>
 
       <!-- Performance Monitor page -->
+      <!-- Aggregation-Related -->
+      <message name="IDS_PERFORMANCE_MONITOR_AGGREGATION_NONE_NAME" desc="Text displayed for the None aggregation strategy title.">
+        None
+      </message>
+      <message name = "IDS_PERFORMANCE_MONITOR_AGGREGATION_NONE_DESCRIPTION" desc="Text displayed on mouseover of the None aggregation strategy title.">
+        Do not aggregate the data - this may be slow!
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_AGGREGATION_MEDIAN_NAME" desc="Text displayed for the Median aggregation strategy title.">
+        Median
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_AGGREGATION_MEDIAN_DESCRIPTION" desc="Text displayed on mouseover of the Median aggregation strategy title.">
+        Use medians, minimizing outlier effect in performance data
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_AGGREGATION_MEAN_NAME" desc="Text displayed for the Mean aggregation strategy title.">
+        Mean
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_AGGREGATION_MEAN_DESCRIPTION" desc="Text displayed on mouseover of the Mean aggregation strategy title.">
+        Weight all values equally in performance data
+      </message>
       <!-- Event-Related -->
       <message name="IDS_PERFORMANCE_MONITOR_EXTENSIONS_EVENT_CATEGORY" desc="Text displayed for the Extensions events category title.">
         Extensions
@@ -4744,9 +4788,6 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_EXTENSION_PROMPT_WARNING_MANAGEMENT" desc="Permisson string for access to extension management.">
         Manage your apps, extensions, and themes
       </message>
-      <message name="IDS_EXTENSION_PROMPT_WARNING_ALL_PAGES_CONTENT" desc="Permisson string for access to page capture.">
-        Access the content of pages you visit
-      </message>
       <message name="IDS_EXTENSION_PROMPT_WARNING_TABS" desc="Permission string for access to tabs.">
         Access your tabs and browsing activity
       </message>
@@ -4767,6 +4808,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       </message>
       <message name="IDS_EXTENSION_PROMPT_WARNING_USB" desc="Permission string for access to USB devices.">
         Access your USB peripherals
+      </message>
+      <message name="IDS_EXTENSION_PROMPT_WARNING_BLUETOOTH" desc="Permission string for access to the Bluetooth API.">
+        Access Bluetooth on your system
       </message>
       <message name="IDS_EXTENSION_PROMPT_WARNING_AUDIO_CAPTURE" desc="Permission string for access to audio capture devices.">
         Use your microphone
@@ -5028,7 +5072,7 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       </message>
       <message name="IDS_EXTENSION_INSTALLED_MANAGE_SHORTCUTS" desc="Text for the link in the InfoBubble that opens the chrome://extensions page with the Configure Commands UI visible.">
         Manage shortcuts
-      </message>      
+      </message>
       <message name="IDS_ACCNAME_INFOBAR_CONTAINER" desc="The accessible name for the infobar container.">
         Infobar Container
       </message>
@@ -5194,6 +5238,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_EXTENSION_TYPE_SHORTCUT" desc="The text shown in a text box to instruct the user to start typing (to capture which shortcut to use for the extension command).">
         Type a shortcut
       </message>
+      <message name="IDS_EXTENSION_DELETE_SHORTCUT" desc="The text shown when you hover over the X inside the input text field.">
+        Delete shortcut
+      </message>
       <message name="IDS_EXTENSION_COMMANDS_GENERIC_ACTIVATE" desc="The generic 'activate extension' text used as description for some commands">
         Activate the extension
       </message>
@@ -5301,7 +5348,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
 
       <!-- Global error messages for extensions -->
-      <message name="IDS_EXTENSION_WARNINGS_WRENCH_MENU_ITEM" desc="The wrench menu item indicating that extensions caused problems">
+      <message name="IDS_EXTENSION_WARNINGS_WRENCH_MENU_ITEM" desc="The wrench menu item indicating that extensions caused problems.">
         Extension error
       </message>
       <message name="IDS_EXTENSION_WARNINGS_TITLE" desc="The title of a section in chrome://extensions which contains the warning(s) that relates to one particular extension">
@@ -5312,6 +5359,44 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_EXTENSION_WARNINGS_NETWORK_CONFLICT" desc="Warning message which indicates that two or more extensions tried to modify a network request in a conflicting way and the modification of this extension was ignored">
         This extension failed to modify a network request because the modification conflicted with another extension.
+      </message>
+
+      <!-- External extension install alerts -->
+      <!-- TODO(mpcomplete): We may need to change Chrome to
+           PRODUCT_NAME. Leaving it as-is until we finalize
+           these strings. -->
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_ALERT_EXTENSION" desc="The wrench menu item indicating that a new external extension was installed.">
+        New extension added (<ph name="EXTENSION_NAME">$1<ex>Babylon Toolbar</ex></ph>)
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_ALERT_APP" desc="The wrench menu item indicating that a new external extension was installed.">
+        New app added (<ph name="EXTENSION_NAME">$1<ex>Babylon Toolbar</ex></ph>)
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_ALERT_THEME" desc="The wrench menu item indicating that a new external extension was installed.">
+        New theme added (<ph name="EXTENSION_NAME">$1<ex>Babylon Toolbar</ex></ph>)
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_TITLE" desc="Titlebar of the prompt window for an externally installed extension or app">
+        "<ph name="EXTENSION_NAME">$1<ex>Babylon Toolbar</ex></ph>" added
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_HEADING_EXTENSION" desc="First bold line of the prompt window for an externally installed extension or app.">
+        Another program on your computer added an extension that may change the way Chrome works.
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_HEADING_APP" desc="First bold line of the prompt window for an externally installed extension or app.">
+        Another program on your computer added an app that may change the way Chrome works.
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_HEADING_THEME" desc="First bold line of the prompt window for an externally installed extension or app.">
+        Another program on your computer added a theme that may change the way Chrome works.
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_ACCEPT_BUTTON_EXTENSION" desc="Button on the external install prompt to enable an extension installed by a third party.">
+        Enable extension
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_ACCEPT_BUTTON_APP" desc="Button on the external install prompt to enable an extension installed by a third party.">
+        Enable app
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_ACCEPT_BUTTON_THEME" desc="Button on the external install prompt to enable an extension installed by a third party.">
+        Enable theme
+      </message>
+      <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_ABORT_BUTTON" desc="Button on the external install prompt to remove an extension installed by a third party.">
+        Remove from Chrome
       </message>
 
       <!-- Plugins -->
@@ -5856,7 +5941,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
         Action box
       </message>
       <message name="IDS_FLAGS_ACTION_BOX_DESCRIPTION" desc="Description of the 'Action Box' lab.">
-        Disables the "Action Box" experimental toolbar UI.
+        Enable or disable the "Action Box" experimental toolbar UI.
       </message>
       <message name="IDS_FLAGS_EXTENSIONS_IN_ACTION_BOX_NAME" desc="Name of the 'Extensions in the Action Box' lab.">
         Extensions in the Action box
@@ -5869,6 +5954,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_SCRIPT_BADGES_DESCRIPTION" desc="Description of the 'Script Badges' lab.">
         Shows extension "script badges" in the location bar rather than page actions.
+      </message>
+      <message name="IDS_FLAGS_SCRIPT_BUBBLE_NAME" desc="Name of the 'Script Bubble' lab.">
+        Script Bubble
+      </message>
+      <message name="IDS_FLAGS_SCRIPT_BUBBLE_DESCRIPTION" desc="Description of the 'Script Bubble' lab.">
+        Enable or disable the "Script Bubble" experimental toolbar UI.
       </message>
       <message name="IDS_FLAGS_APPS_NEW_INSTALL_BUBBLE_NAME" desc="Name of the 'New Apps Install Bubble' lab">
         New Apps Install Bubble
@@ -6371,12 +6462,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
         <message name="IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION3" desc="Description for the option of boot animation function.">
           EASE_OUT_3
         </message>
-        <message name="IDS_FLAGS_DISABLE_WORKSPACE2" desc="Description for the flag to turn off workspace2.">
-          Disable new window stacking.
-        </message>
-        <message name="IDS_FLAGS_DISABLE_WORKSPACE2_DESCRIPTION" desc="Description for the flag to turn off workspace2.">
-          Disable new window stacking.
-        </message>
       </if>
 
       <message name="IDS_FLAGS_OLD_CHECKBOX_STYLE" desc="Name of the flag to turn off the new checkbox style.">
@@ -6403,6 +6488,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_WEBKIT_TEXT_SUBPIXEL_POSITIONING_DESCRIPTION" desc="Description for the flag to set when subpixel text positioning is enabled on web pages.">
         Allows text glyphs on web pages to have X positions which aren't snapped to the pixel grid.
       </message>
+      <message name="IDS_FLAGS_ENABLE_CARRIER_SWITCHING" desc="Name for the flag to set to enable mobile carrier switching.">
+        Enable switching between mobile carriers.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_CARRIER_SWITCHING_DESCRIPTION" desc="Description for the flag to set to enable carrier switching.">
+        Allows the user to switch between mobile carriers from the UI. Warning: The Sprint carrier will ONLY work for users with an existing Sprint plan.
+      </message>
       <message name="IDS_FLAGS_ENABLE_REQUEST_TABLET_SITE_NAME" desc="Name for the flag to set to enable Request Tablet Site in the wrench menu.">
         Enables the request tablet site option in the settings menu.
       </message>
@@ -6420,6 +6511,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_ENABLE_PASSWORD_GENERATION_DESCRIPTION" desc="Description of flag to enable password generation.">
         Allow the user to have Chrome generate passwords when it detects account creation pages.
+      </message>
+      <message name="IDS_FLAGS_CRASH_ON_GPU_HANG_NAME" desc="Name of the flag to enable crashing on gpu hang.">
+        Enable crashing on GPU hang.
+      </message>
+      <message name="IDS_FLAGS_CRASH_ON_GPU_HANG_DESCRIPTION" desc="Description of flag to enable crashing on GPU hang.">
+        Crash the GPU process whenever Chrome detects that it has hung.
       </message>
 
       <!-- Crashes -->
@@ -6663,11 +6760,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
         <message name="IDS_3G_NOTIFICATION_MESSAGE" desc="Text of the 3G data notification telling that 3G data is enabled.">
           Google Chrome will use mobile data if you're not connected to another network.
         </message>
-        
+
         <!-- Natural scroll Notifications -->
         <message name="IDS_NATURAL_SCROLL_NOTIFICATION_MESSAGE" desc="Text of the natural scroll notification saying that natural scroll is now default.">
           Scrolling just changed directions! Simple scrolling lets you use your touchpad the same way you use a touch screen. Click here to change it back.
-        </message>        
+        </message>
 
         <!-- about:system strings -->
         <message name="IDS_ABOUT_SYS_TITLE" desc="about:system page title">
@@ -6952,8 +7049,8 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_CHROME_TO_MOBILE" desc="The text for chrome to mobile menu item">
         Send tab to device
       </message>
-      <message name="IDS_SHARE_PAGE" desc="The text for the Share Page action box menu item">
-        Share this page
+      <message name="IDS_FIND_SHARE_INTENTS" desc="The text for the 'Find places to share' action box menu item">
+        Find places to share
       </message>
 
       <!--Accessible name/action strings-->
@@ -8068,6 +8165,26 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
       </message>
       <message name="IDS_PRINT_PREVIEW_TOS_CHECKBOX_LABEL" desc="Label of the terms-of-service agreement checkbox.">
         I agree
+      </message>
+      <message name="IDS_PRINT_PREVIEW_NO_DESTS_PROMO_TITLE" desc="Title of promotion shown when user has no Google Cloud Print printers.">
+        Add Printers
+      </message>
+      <message name="IDS_PRINT_PREVIEW_NO_DESTS_PROMO_BODY" desc="Main body of promotion shown when user has no Google Cloud Print printers.">
+        You can add printers to your computer by clicking the "Add a printer"
+        button below. If you have no printers to add, you'll still be able to save
+        a PDF or save to Google Drive.
+      </message>
+      <message name="IDS_PRINT_PREVIEW_NO_DESTS_GCP_DESC" desc="A description of the Google Cloud Print service.">
+        Adding your printers to Google Cloud Print allows you to print from
+        anywhere, to anywhere. Share your printers with whoever you choose and
+        print to them from Chrome, your phone, tablet, PC, or any other
+        web-connected device. <ph name="START_LINK">$1</ph>Learn more<ph name="END_LINK">$2</ph>
+      </message>
+      <message name="IDS_PRINT_PREVIEW_NO_DESTS_PROMO_ADD_PRINTER_BUTTON_LABEL" desc="Label of button to setup Google Cloud Print printers.">
+        Add a printer
+      </message>
+      <message name="IDS_PRINT_PREVIEW_NO_DESTS_PROMO_NOT_NOW_BUTTON_LABEL" desc="Label of button to cancel the Google Cloud Print promotion.">
+        Not now
       </message>
 
       <!-- Load State -->
@@ -10083,7 +10200,46 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
       <message name="IDS_OPTIONS_CONTROLLED_SETTING_FOLLOW_RECOMMENDATION" desc="Link text displayed in the controlled settings bubble to clear the user-supplied value and start following the recommendation.">
         Follow recommendation
       </message>
+      <message name="IDS_OPTIONS_CONTROLLED_SETTINGS_POLICY" desc="Text displayed in the controlled settings bubble when it is shown for a group of settings whose values are enforced by policy.">
+        These settings are enforced by your administrator.
+      </message>
+      <message name="IDS_OPTIONS_CONTROLLED_SETTINGS_EXTENSION" desc="Text displayed in the controlled settings bubble when it is shown for a group of settings whose values are enforced by an extension.">
+        These settings are enforced by an extension.
+      </message>
 
+      <!-- Sideload Wipout strings -->
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_BANNER" desc="The banner shown at the top of the Extensions page to warn that some extensions have been disabled.">
+        To make Chrome even faster, we've automatically disabled some extensions that may have been added without your knowledge. You can enable or disable any extension below.
+      </message>
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_WHAT_HAPPENED" desc="Text in the bubble that explains why the extensions were disabled.">
+        To make Chrome even faster, we've automatically disabled some extensions that may have been added without your knowledge:
+      </message>
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_AUTOMATIC_DISABLE" desc="The text explaining what happened to the extension.">
+        This extension was automatically disabled.
+      </message>
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_DISABLE_REASON_UNKNOWN" desc="The text explaining the the installation location is unknown.">
+        Not from Chrome Web Store.
+      </message>
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_DISABLE_REASON_3RD_PARTY" desc="The text explaining the the installation came from a 3rd party app.">
+        Installed by a third party.
+      </message>
+      
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_OVERFLOW" desc="Text in the bubble that describes that more extensions than can be listed were disabled.">
+        ... and <ph name="EXTENSION_COUNT">$1<ex>42</ex></ph> more.
+      </message>
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_BUBBLE_HEADLINE" desc="Text in headline of the bubble explaining that extensions have been disabled.">
+        Some extensions were disabled
+      </message>
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_RECOURSE" desc="Text in the bubble that explains what the user can do after the extension has been disabled.">
+        You can always enable or disable any extension in the extension settings page.
+      </message>      
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_SETTINGS" desc="Text in the button that takes the user to Extension Settings.">
+        Extension Settings
+      </message>
+      <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_DISMISS" desc="Text in the button that acknowledges the change and dismisses the bubble.">
+        OK, Great
+      </message>
+      
       <!-- Options search page strings. -->
       <message name="IDS_OPTIONS_SEARCH_PAGE_TITLE" desc="Title of the settings search page.">
         Search results
@@ -10920,13 +11076,6 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
       <message name="IDS_PROFILES_DELETE_SINGLE_BUTTON_LABEL" desc="The label that appears on the profile delete button in the options dialog to allow a user with only one profile to delete it.">
         Delete this user
       </message>
-      <message name="IDS_PROFILES_SYNCED_TO_USER_WITH_TIME" desc="The message that appears in the options dialog indicating that account is synced to a user with the given email address. The last sync also appears in the message.">
-        Using Chrome profile <ph name="USER_EMAIL_ADDRESS">
-          $1<ex>foo@gmail.com</ex>
-        </ph>. Last synced: <ph name="LAST_SYNC_TIME">
-          $2<ex>12 seconds ago</ex>
-        </ph>
-      </message>
       <if expr="not pp_ifdef('use_titlecase')">
         <message name="IDS_PROFILES_DISCONNECT_BUTTON_LABEL" desc="The text to display on the button to indicate profile disconnect (i.e., stop syncing) functionality.">
           Disconnect this account...
@@ -11534,6 +11683,12 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_WALLPAPER_MANAGER_DOWNLOAD_CANCEL" desc="The string displayed to user when downloading the wallpaper canceled.">
         Download was canceled.
       </message>
+      <message name="IDS_WALLPAPER_MANAGER_ACCESS_FILE_FAILURE" desc="The string displayed to user when accessing custom wallpaper on disk failed.">
+        Chrome cannot access the image.
+      </message>
+      <message name="IDS_WALLPAPER_MANAGER_INVALID_WALLPAPER" desc="The string displayed to user when user selected wallpaper can not be set as a wallpaper.">
+        The image you selected can't be set as a wallpaper.
+      </message>
 
       <!-- File Browser -->
       <message name="IDS_FILE_BROWSER_ROOT_DIRECTORY_LABEL" desc="Root directory label.">
@@ -11581,7 +11736,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_SIZE_PB" desc="Peta bytes.">
         PB
       </message>
-      
+
       <message name="IDS_FILE_BROWSER_SHORTCUT_CTRL" desc="[Ctrl] key name to use in shortcuts descriptions. Shouldn't be translated in many languages actually.">
         Ctrl
       </message>
@@ -11600,7 +11755,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_SHORTCUT_ENTER" desc="[Enter] key name to use in shortcuts descriptions. Shouldn't be translated in many languages actually.">
         Enter
       </message>
-      
+
       <message name="IDS_FILE_BROWSER_TYPE_COLUMN_LABEL" desc="Type column label.">
         Type
       </message>
@@ -11732,9 +11887,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_GALLERY_SLIDESHOW" desc="In the Gallery, the title on the button that starts the slide show.">
         Slideshow
       </message>
-      <message name="IDS_FILE_BROWSER_GALLERY_SLIDESHOW_PAUSED" desc="In the Gallery, the message shown when the slideshow is paused.">
-        Paused. Press "Esc" to exit, any other key to resume.
-      </message>
       <message name="IDS_FILE_BROWSER_GALLERY_DELETE" desc="In the Gallery, the title on the button that deletes selected images.">
         Delete
       </message>
@@ -11822,19 +11974,25 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Import photos to Google Drive
       </message>
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_VIEW_FILES" desc="In the action choice dialog, label of action to view all files.">
-        View all files
+        View files
       </message>
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_WATCH_SINGLE_VIDEO" desc="In the action choice dialog, label of action to watch a single video.">
         Watch <ph name="VIDEO_NAME">$1<ex>Best movie</ex></ph>
       </message>
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_OK" desc="In the action choice dialog, label of the ok button.">
-        Next >
+        Next ›
       </message>
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_COUNTER_NO_MEDIA" desc="In the action choice dialog, text with number of files.">
         <ph name="FILES_COUNT">$1<ex>123</ex></ph> files
       </message>
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_COUNTER" desc="In the action choice dialog, text with number of files and photos.">
-        <ph name="PHOTOS_COUNT">$2<ex>85</ex></ph> photos out of <ph name="FILES_COUNT">$1<ex>123</ex></ph> files
+        <ph name="PHOTOS_COUNT">$1<ex>85</ex></ph> photos
+      </message>
+      <message name="IDS_FILE_BROWSER_ACTION_CHOICE_LOADING_USB" desc="In the action choice dialog, label informing about loading the usb device.">
+        Checking your USB drive...
+      </message>
+      <message name="IDS_FILE_BROWSER_ACTION_CHOICE_LOADING_SD" desc="In the action choice dialog, label informing about loading the sd device.">
+        Checking your SD card...
       </message>
 
       <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_TITLE" desc="In the Photo import, the window title.">
@@ -11925,7 +12083,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_CUT_BUTTON_LABEL" desc="Button Label.">
         Cut
       </message>
-      
+
       <message name="IDS_FILE_BROWSER_OPEN_WITH_BUTTON_LABEL" desc="Menu item label, showing dialog to choose application to open selected files">
         Open with...
       </message>
@@ -12097,7 +12255,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Show Google Docs files
       </message>
       <message name="IDS_FILE_BROWSER_GDATA_CLEAR_LOCAL_CACHE" desc="In the Google Drive settings menu, menu item to clear the local cache of Google Drive">
-        Clean Local Cache
+        Clean local cache
       </message>
       <message name="IDS_FILE_BROWSER_GDATA_MENU_HELP" desc="In the Google Drive settings menu, name of the Help item.">
         Help
@@ -12556,12 +12714,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_SYNC_OPTIONS_GROUP_NAME" desc="The name of the sync group in the options dialog.">
         Sign in
       </message>
-      <message name="IDS_SYNC_OPTIONS_SELECT_DATATYPES" desc="The select option that allows the user to select which datatypes to sync.">
-        Choose what to sync
-      </message>
-      <message name="IDS_SYNC_OPTIONS_SELECT_EVERYTHING" desc="The select option that selects all features to be synced.">
-        Everything
-      </message>
       <if expr="pp_ifdef('android')">
         <message name="IDS_SYNC_OVERVIEW" desc="Mobile: The message that appears in the options dialog when sync has not been set up by the user.">
           Sign in to <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> with your Google Account to save your personalized browser features to the web and access them from <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> on any mobile device. You'll also be automatically signed in to your favorite Google services.
@@ -12595,9 +12747,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_SYNC_ACCOUNT_SYNCING_TO_USER_WITH_MANAGE_LINK" desc="The message that appears in the options dialog indicating that account is syncing to a user with the given email address, together with a link to manage their data (where supported, or not possible through the application)">
         Signed in as <ph name="USER_EMAIL_ADDRESS">$1<ex>foo@gmail.com</ex></ph>. Manage your synced data on <ph name="BEGIN_LINK">&lt;a href="$2" target=&quot;_blank&quot;&gt;<ex>&lt;a href="$2" target=&quot;_blank&quot;&gt;</ex></ph>Google Dashboard<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>.
       </message>
-      <message name="IDS_SYNC_ACCOUNT_DETAILS_NOT_ENTERED" desc="The sync setup is underway and the user has not yet entered credentials.">
-        Account sign-in details are not yet entered.
-      </message>
       <message name="IDS_SYNC_AUTHENTICATING_LABEL" desc="Label to display while the user is being authenticated to use sync.">
         Authenticating...
       </message>
@@ -12606,9 +12755,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_SYNC_GAIA_CAPTCHA_INSTRUCTIONS" desc="Explanatory message shown when the user must type letters shown in a captcha image to reauthenticate.">
         Enter the letters above
-      </message>
-      <message name="IDS_SYNC_GAIA_CAPTCHA_CASE_INSENSITIVE_TIP" desc="Message shown below a GAIA captcha explaining that the letters typed are not case sensitive">
-        Letters are not case sensitive
       </message>
       <message name="IDS_SYNC_ERROR_SIGNING_IN" desc="An error was encountered while signing the user in.">
         Error signing in.
@@ -12626,9 +12772,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_SYNC_CONFIGURE_ENCRYPTION" desc="Link to configure sync encryption for passwords">
         Please update your sync passphrase.
       </message>
-      <message name="IDS_SYNC_NEW_PASSWORD_SYNC" desc="Promotional message for password sync setup.">
-        New! Configure password sync.
-      </message>
       <message name="IDS_SYNC_PASSWORD_SYNC_ATTENTION" desc="Message indicating password sync needs attention.">
         Please update your sync passphrase.
       </message>
@@ -12645,12 +12788,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Sync Error: Please contact administrator to enable sync.
       </message>
 
-      <message name="IDS_SYNC_PLEASE_SIGN_IN" desc="An title for a sign in dialog.">
-        Please sign in
-      </message>
-      <message name="IDS_SYNC_LOGIN_FOR_ENCRYPTION" desc="Explanation of login for the purpose of encryption.">
-        <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> can now sync your passwords. To protect your data, you need to confirm your account information.
-      </message>
       <message name="IDS_SYNC_PASSPHRASE_ENCRYPTION_MESSAGE" desc="Message explaining that passwords are encrypted.">
         For added security, <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> will encrypt your data.
       </message>
@@ -12659,9 +12796,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_SYNC_PASSPHRASE_OPT_EXPLICIT" desc="Radio button label for using explicit passphrase.">
         Choose my own passphrase
-      </message>
-      <message name="IDS_SYNC_PASSPHRASE_OPT_CANCEL" desc="Radio button label for not syncing encrypted types.">
-        Do not sync my passwords
       </message>
       <message name="IDS_SYNC_PASSPHRASE_MSG_GOOGLE" desc="Message when Google password is selected.">
         You have chosen to encrypt data using your Google password; you can always change your mind later by changing your sync settings.
@@ -12674,9 +12808,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_SYNC_PASSPHRASE_MSG_EXPLICIT_POSTFIX" desc="Postfix of the message show when explicit passphrase is selected.">
         reset sync
-      </message>
-      <message name="IDS_SYNC_PASSPHRASE_MSG_CANCEL" desc="Message when not syncing passwords is selected.">
-        You have chosen not to sync passwords; you can always change your mind later by changing your sync settings.
       </message>
       <message name="IDS_SYNC_LOGIN_INFO_OUT_OF_DATE" desc="The login information for the user is out of date - for example, the user changed their password and therefore signing in again is required.">
         Account sign-in details are out of date.
@@ -12694,12 +12825,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
           Sign out then sign in again
         </message>
       </if>
-      <message name="IDS_SYNC_PRIVACY_DASHBOARD_LINK_LABEL" desc="The label on a link that brings users to the Google Privacy Dashboard to control sync">
-        Manage your synced data on the Google Dashboard
-      </message>
-      <message name="IDS_SYNC_CUSTOMIZE_BUTTON_LABEL" desc="The text to display on the button to customize which data types the user is syncing.">
-        Advanced...
-      </message>
       <message name="IDS_OPTIONS_CUSTOMIZE_SYNC_BUTTON_LABEL" desc="The text to display on the button to customize which data types the user is syncing.">
         Advanced sync settings...
       </message>
@@ -12733,18 +12858,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Advanced settings
       </message>
 
-      <!-- Sync / Extension interaction messages -->
-      <message name="IDS_SYNC_EXTENSIONS_MALFUNCTION_DISABLE_SYNC_OPTION" desc="The label of a button allowing the user to choose to disable sync when an extension is believed to be causing sync problems preventing sync operation.">
-        Disable Sync
-      </message>
-      <message name="IDS_SYNC_EXTENSIONS_MALFUNCTION_EXTENSION_DISABLED" desc="A message shown on a dialog when an extension or app has been disabled due to problems arising from interactions with sync.">
-        <ph name="NAME_OF_EXTENSION">$1<ex>foo extension</ex></ph> has been disabled. If you stop syncing your bookmarks, you can re-enable it on the extensions page, accessible through the Tools menu.
-      </message>
-
       <!-- Sync New Tab Page strings -->
-      <message name="IDS_SYNC_NTP_SYNC_SECTION_TITLE" desc="The title of the sync status section in the New Tab Page.">
-        Sync
-      </message>
       <message name="IDS_SYNC_NTP_SYNC_SECTION_ERROR_TITLE" desc="The title to display in the New Tab Page sync status section in case of an error.">
         Sync failed
       </message>
@@ -12773,33 +12887,12 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_SYNC_PROMO_NTP_BUBBLE_MESSAGE" desc="The body of the sync promo NTP bubble.">
         You're now signed in to <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph>. Your bookmarks, history, and other settings are being synced with your Google Account.
       </message>
-      <message name="IDS_SYNC_PROMO_NTP_BUBBLE_MESSAGE_ALT1" desc="And alternate string for the body of the sync promo NTP bubble.">
-        You're now signed in to <ph name="SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph>. Your bookmarks, history, and other settings are being synced with your Google Account using default settings.
-      </message>
-      <message name="IDS_SYNC_PROMO_NTP_BUBBLE_LEARN_MORE" desc="The learn more link in the sync promo NTP bubble. Clicking the link will take users to a page explaining what sync is.">
-        Learn more
-      </message>
       <if expr="not pp_ifdef('use_titlecase')">
         <message name="IDS_SYNC_PROMO_NTP_BUBBLE_OK" desc="The ok button in the sync promo NTP bubble. Clicking on the button will dismiss the bubble.">
           OK
         </message>
         <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED" desc="The advanced link in the sync promo NTP bubble. Clicking the link will take the user to advanced settings.">
           Advanced...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT1" desc="An alternative text for the advanced link in the sync promo NTP bubble.">
-          Configure...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT2" desc="An alternative text for the advanced link in the sync promo NTP bubble.">
-          Edit...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT3" desc="An alternative text for the advanced link in the sync promo NTP bubble.">
-          Advanced settings...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT4" desc="An alternative text for the advanced link in the sync promo NTP bubble.">
-          Configure settings...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT5" desc="An alternative text for the advanced link in the sync promo NTP bubble.">
-          Advanced setup...
         </message>
       </if>
       <if expr="pp_ifdef('use_titlecase')">
@@ -12808,21 +12901,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
         </message>
         <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED" desc="In title case. The advanced link in the sync promo NTP bubble. Clicking the link will take the user to advanced settings.">
           Advanced...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT1" desc="In title case. An alternative text for the advanced link in the sync promo NTP bubble.">
-          Configure...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT2" desc="In title case. An alternative text for the advanced link in the sync promo NTP bubble.">
-          Edit...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT3" desc="In title case. An alternative text for the advanced link in the sync promo NTP bubble.">
-          Advanced Settings...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT4" desc="In title case. An alternative text for the advanced link in the sync promo NTP bubble.">
-          Configure Settings...
-        </message>
-        <message name="IDS_SYNC_PROMO_NTP_BUBBLE_ADVANCED_ALT5" desc="In title case. An alternative text for the advanced link in the sync promo NTP bubble.">
-          Advanced Setup...
         </message>
       </if>
 
@@ -12893,9 +12971,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_SYNC_DATATYPE_TABS" desc="Open Tabs, one of the data types that we allow syncing.">
         Open Tabs
       </message>
-      <message name="IDS_SYNC_DATATYPE_APP_NOTIFICATIONS" desc="App notifications, one of the data types that we allow syncing.">
-        App Notifications
-      </message>
 
       <!-- Encryption tab of the configure sync dialog -->
       <message name="IDS_SYNC_ENCRYPTION_DATA_TYPES_TITLE" desc="Title of the section containing the data types to encrypt.">
@@ -12920,20 +12995,31 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_SYNC_ENCRYPTION_INSTRUCTIONS" desc="Instructions for the encryption settings tab.">
         <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> requires you to encrypt your data using either your Google password or your own passphrase.
       </message>
-      <message name="IDS_SYNC_ENCRYPT_ALL_LABEL" desc="Label for the checkbox that enables encryption of everything.">
-        Encrypt all my data
-      </message>
-      <message name="IDS_SYNC_PASSPHRASE_CHECKBOX_LABEL" desc="Label for the checkbox that enables a passphrase for sync.">
-        Use a sync passphrase to encrypt my data
-      </message>
       <message name="IDS_SYNC_PASSPHRASE_WARNING" desc="Warning message about using a passphrase for sync.">
         You are currently using a passphrase.  If you have forgotten your passphrase, you can reset sync to clear your data from Google's servers using the Google Dashboard.
       </message>
-      <message name="IDS_SYNC_STATUS_NOT_CONNECTED" desc="Status shown in the new tab page when the user is not signed into sync">
-        not signed in
+      <message name="IDS_SYNC_ENCRYPTION_SECTION_TITLE" desc="Title of the section containing sync encryption preferences.">
+        Encryption options
       </message>
-      <message name="IDS_SYNC_STATUS_CONNECTED" desc="Status shown in the new tab page when the user is signed into sync">
-        Signed in to <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> as <ph name="USER_NAME">$2<ex>pat@example.com</ex></ph>
+      <message name="IDS_SYNC_ENCRYPTION_SECTION_MESSAGE" desc="Message explaining that sync data can be encrypted.">
+        For added security, <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> will encrypt your data.
+      </message>
+      <message name="IDS_SYNC_BASIC_ENCRYPTION_DATA" desc="Text of the radio that when selected enables basic encryption.">
+        Encrypt passwords with my Google credentials
+      </message>
+      <message name="IDS_SYNC_FULL_ENCRYPTION_DATA" desc="Text of the radio that when selected enables full encryption.">
+        Encrypt all synced data with a custom passphrase
+      </message>
+      <message name="IDS_SYNC_FULL_ENCRYPTION_BODY_CUSTOM" desc="Text of the radio that when selected enables full encryption.">
+        All data was encrypted with a custom passphrase
+      </message>
+      <message name="IDS_SYNC_FULL_ENCRYPTION_BODY_CUSTOM_WITH_DATE" desc="Text of the radio that when selected enables full encryption.">
+        All data was encrypted with a custom passphrase on
+        <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>
+      </message>
+      <message name="IDS_SYNC_FULL_ENCRYPTION_BODY_GOOGLE_WITH_DATE" desc="Text of the radio that when selected enables full encryption.">
+        All data was encrypted with your Google password on
+        <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>
       </message>
 
       <!-- Passphrase dialog strings -->
@@ -12945,6 +13031,12 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_SYNC_ENTER_GOOGLE_PASSPHRASE_BODY" desc="Instructions for the dialog where the user needs to enter their previous google passphrase.">
         You already have data that is encrypted using a different version of your Google Account password. Please enter it below.
+      </message>
+      <message name="IDS_SYNC_ENTER_PASSPHRASE_BODY_WITH_DATE" desc="Instructions for the dialog where the user enters the passphrase.">
+        Your data was encrypted with a custom passphrase on <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>. Please enter it below.
+      </message>
+      <message name="IDS_SYNC_ENTER_GOOGLE_PASSPHRASE_BODY_WITH_DATE" desc="Instructions for the dialog where the user needs to enter their previous google passphrase.">
+        Your data was encrypted with your Google password on <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>. Please enter it below.
       </message>
       <message name="IDS_SYNC_PASSPHRASE_LABEL" desc="Label for the passphrase field.">
         Passphrase
@@ -12965,19 +13057,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
         If you've forgotten your passphrase, stop and reset Sync via <ph name="BEGIN_LINK">&lt;a href="$1" target=&quot;_blank&quot;&gt;<ex>&lt;a href="$1" target=&quot;_blank&quot;&gt;</ex></ph>Google Dashboard<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>.
       </message>
 
-      <message name="IDS_SYNC_PASSPHRASE_CANCEL_WARNING_HEADER" desc="Header for the passphrase cancel warning.  Should be phrased as a yes-or-no question.">
-        Skip syncing encrypted data?
-      </message>
-      <if expr="pp_ifdef('android')">
-        <message name="IDS_SYNC_PASSPHRASE_CANCEL_WARNING" desc="Mobile: Warning message when the passphrase entry is cancelled.">
-          Without a passphrase, your passwords and other encrypted data will not be synced on this mobile device.
-        </message>
-      </if>
-      <if expr="not pp_ifdef('android')">
-        <message name="IDS_SYNC_PASSPHRASE_CANCEL_WARNING" desc="Warning message when the passphrase entry is cancelled.">
-          Without a passphrase, your passwords and other encrypted data will not be synced on this computer.
-        </message>
-      </if>
       <message name="IDS_SYNC_PASSPHRASE_CANCEL_YES" desc="String for 'yes' button on passphrase cancel warning dialog.">
         Skip
       </message>
@@ -13037,17 +13116,11 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_SYNC_LOGIN_COULD_NOT_CONNECT" desc="The connect error message">
         Could not connect to the server
       </message>
-      <message name="IDS_SYNC_LOGIN_SETTING_UP_SYNC" desc="For the connect error message">
-        Setting up sync
-      </message>
       <message name="IDS_SYNC_LOGIN_SETTING_UP" desc="A progress message">
         Setting up...
       </message>
       <message name="IDS_SYNC_SUCCESS" desc="Operation successful">
         Success!
-      </message>
-      <message name="IDS_SYNC_LOGIN_ACCOUNT_MISMATCH" desc="A warning message shown at sync login when the user is signed in to the web store already.">
-        Your web store account is <ph name="EMAIL_ADDRESS">$1<ex>user@gmail.com</ex></ph> - signing in to sync with a different account will result in incompatibilities.
       </message>
       <message name="IDS_SYNC_ENTER_ACCESS_CODE_LABEL" desc="A message asking the user to enter an application-specific password (aka access code).">
         Enter your application-specific password:
@@ -14158,7 +14231,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       No
     </message>
     <message name="IDS_REGISTER_PROTOCOL_HANDLER_IGNORE" desc="Text to show for an ignore prompt for a register protocol handler registration request.">
-      Ignore 
+      Ignore
     </message>
     <message name="IDS_REGISTER_PROTOCOL_HANDLER_ALREADY_REGISTERED" desc="Text to show when the user tries to register a protocol handler that they have already registered.">
       <ph name="HANDLER_TITLE">$1<ex>Google Search</ex></ph> is already being used to handle <ph name="PROTOCOL">$2<ex>search</ex></ph>: links.
@@ -14178,7 +14251,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       Complete action using:
     </message>
     <message name="IDS_FIND_MORE_INTENT_HANDLER_MESSAGE" desc="Text to show to inform the user that more intent services can be found in the web store.">
-      Find more apps by visiting the Chrome Web Store.
+      Find more apps in the Chrome Web Store
     </message>
     <message name="IDS_FIND_MORE_INTENT_HANDLER_TOOLTIP" desc="Tooltip text for the web store plus button on the intent picker dialog.">
       Find apps in the Chrome Web Store
@@ -14187,7 +14260,13 @@ Some features may be unavailable.  Please check that the profile exists and you 
       No apps are registered for this action.
     </message>
     <message name="IDS_INTENT_PICKER_CHOOSE_SERVICE" desc="Prompt to the user to select one of the given services to complete a Web Intents action.">
-      Which app do you want to use?
+      Choose an app&#8230;
+    </message>
+    <message name="IDS_INTENT_PICKER_CHOOSE_SERVICES_NONE_INSTALLED_TITLE" desc="Heading in the Web Intents picker box for a section containing suggested applications from the Chrome Web Store. Displayed only if there are no installed services.">
+      You have no apps installed.
+    </message>
+    <message name="IDS_INTENT_PICKER_CHOOSE_SERVICES_NONE_INSTALLED_MESSAGE" desc="Message body in the Web Intents picker box for a section containing suggested applications from the Chrome Web Store. Displayed only if there are no installed services.">
+      Here are some suggestions from the Chrome Web Store:
     </message>
     <message name="IDS_INTENT_PICKER_GET_MORE_SERVICES_NONE_INSTALLED" desc="Heading in the Web Intents picker box for a section containing suggested applications from the Chrome Web Store. Displayed only if there are no installed services.">
       You have no apps installed. Here are some app suggestions from the Chrome Web Store:
@@ -14205,7 +14284,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       Use another service
     </message>
     <message name="IDS_INTENT_PICKER_USE_ANOTHER_SERVICE" desc="Button text providing a way for the user to not use the web intents service they are on, and select a new one.">
-      Use another app 
+      Use another app
     </message>
     <message name="IDS_INTENT_PICKER_WAIT_FOR_CWS" desc="Prompt indicating to the user that Chrome is currently waiting for results from the Chrome Web Store">
       Waiting for Chrome Web Store
@@ -14216,19 +14295,19 @@ Some features may be unavailable.  Please check that the profile exists and you 
 
     <!-- Web Intents common actions -->
     <message name="IDS_WEB_INTENTS_ACTION_SHARE" desc="Question asking the user to pick a service for the 'share' action.">
-      Which app should be used for sharing?
+      Share with&#8230;
     </message>
     <message name="IDS_WEB_INTENTS_ACTION_EDIT" desc="Question asking the user to pick a service for the 'edit' action.">
-      Which app should be used for editing?
+      Edit with&#8230;
     </message>
     <message name="IDS_WEB_INTENTS_ACTION_VIEW" desc="Question asking the user to pick a service for the 'viewing' action.">
-      Which app should be used for viewing?
+      View with&#8230;
     </message>
     <message name="IDS_WEB_INTENTS_ACTION_SUBSCRIBE" desc="Question asking the user to pick a service for the 'subscribe' action.">
-      Which app should be used for subscribing?
+      Subscribe with&#8230;
     </message>
     <message name="IDS_WEB_INTENTS_ACTION_SAVE" desc="Question asking the user to pick a service for the 'save' action.">
-      Which app should be used for saving?
+      Save with&#8230;
     </message>
 
     <!-- Web Intents native services (titles) -->
@@ -14412,7 +14491,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       Choose a picture and name
     </message>
     <message name="IDS_PROFILES_CREATE_CONFIRM" desc="Create button confirmation">
-      Create 
+      Create
     </message>
     <message name="IDS_PROFILES_CREATE_SHORTCUT_CHKBOX" desc="Create Shortcut Checkbox">
       Create desktop shortcut for this profile
@@ -14425,6 +14504,12 @@ Some features may be unavailable.  Please check that the profile exists and you 
 
     <!-- Aura strings -->
     <if expr="pp_ifdef('use_ash')">
+      <message name="IDS_LAUNCHER_CONTEXT_MENU_NEW_TAB" desc="Title text for the 'open new' context menu item of the launcher for apps configured to open in a tab">
+        New Tab
+      </message>
+      <message name="IDS_LAUNCHER_CONTEXT_MENU_NEW_WINDOW" desc="Title text for the 'open new' context menu item of the launcher for apps configured to open windowed">
+        New Window
+      </message>
       <message name="IDS_LAUNCHER_CONTEXT_MENU_CLOSE" desc="Title text for the 'close' context menu item of the launcher">
         Close
       </message>
@@ -14468,48 +14553,45 @@ Some features may be unavailable.  Please check that the profile exists and you 
       Expand
     </message>
 
-    <!-- Bluetooth device class strings -->
-    <if expr="pp_ifdef('chromeos')">
-      <message name="IDS_BLUETOOTH_DEVICE_UNKNOWN" desc="Text to identify bluetooth devices of unknown or unsupported class.">
-        Unknown or Unsupported Device (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_COMPUTER" desc="Text to identify bluetooth devices of the computer class.">
-        Computer (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_PHONE" desc="Text to identify bluetooth devices of the phone class.">
-        Phone (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_MODEM" desc="Text to identify bluetooth devices of the modem class.">
-        Modem (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_AUDIO" desc="Text to identify bluetooth devices of the audio class.">
-	Audio (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_CAR_AUDIO" desc="Text to identify bluetooth devices of the car audio class.">
-	Car audio (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_VIDEO" desc="Text to identify bluetooth devices of the video class.">
-	Video (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_JOYSTICK" desc="Text to identify bluetooth devices of the joystick class.">
-        Joystick (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_GAMEPAD" desc="Text to identify bluetooth devices of the gamepad class.">
-        Gamepad (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_KEYBOARD" desc="Text to identify bluetooth devices of the keyboard class.">
-        Keyboard (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_TABLET" desc="Text to identify bluetooth devices of the tablet class.">
-        Tablet (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_MOUSE" desc="Text to identify bluetooth devices of the mouse class.">
-        Mouse (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-      <message name="IDS_BLUETOOTH_DEVICE_KEYBOARD_MOUSE_COMBO" desc="Text to identify bluetooth devices of both keyboard and mouse class.">
-        Keyboard/Mouse (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
-      </message>
-    </if>
+    <message name="IDS_BLUETOOTH_DEVICE_UNKNOWN" desc="Text to identify bluetooth devices of unknown or unsupported class.">
+      Unknown or Unsupported Device (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_COMPUTER" desc="Text to identify bluetooth devices of the computer class.">
+      Computer (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_PHONE" desc="Text to identify bluetooth devices of the phone class.">
+      Phone (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_MODEM" desc="Text to identify bluetooth devices of the modem class.">
+      Modem (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_AUDIO" desc="Text to identify bluetooth devices of the audio class.">
+      Audio (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_CAR_AUDIO" desc="Text to identify bluetooth devices of the car audio class.">
+      Car audio (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_VIDEO" desc="Text to identify bluetooth devices of the video class.">
+      Video (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_JOYSTICK" desc="Text to identify bluetooth devices of the joystick class.">
+      Joystick (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_GAMEPAD" desc="Text to identify bluetooth devices of the gamepad class.">
+      Gamepad (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_KEYBOARD" desc="Text to identify bluetooth devices of the keyboard class.">
+      Keyboard (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_TABLET" desc="Text to identify bluetooth devices of the tablet class.">
+      Tablet (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_MOUSE" desc="Text to identify bluetooth devices of the mouse class.">
+      Mouse (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
+    <message name="IDS_BLUETOOTH_DEVICE_KEYBOARD_MOUSE_COMBO" desc="Text to identify bluetooth devices of both keyboard and mouse class.">
+      Keyboard/Mouse (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
+    </message>
 
     <!-- High-constrast mode. -->
     <message name="IDS_HIGH_CONTRAST_NOTIFICATION"
@@ -14631,6 +14713,12 @@ Some features may be unavailable.  Please check that the profile exists and you 
     </message>
     <message name="IDS_APP_LIST_CONTACT_VIDEO_TOOLTIP" desc="Tooltip text for the 'video' icon displayed next to a contact search result.">
       Start Hangout
+    </message>
+    <message name="IDS_APP_LIST_CONTEXT_MENU_NEW_TAB" desc="Title text for the 'open new' context menu item of an app list item configured to open in a tab">
+      New Tab
+    </message>
+    <message name="IDS_APP_LIST_CONTEXT_MENU_NEW_WINDOW" desc="Title text for the 'open new' context menu item of an app list item configured to open windowed">
+      New Window
     </message>
     <message name="IDS_APP_LIST_CONTEXT_MENU_PIN" desc="Title text for the 'pin' context menu item of an app list item.">
       Pin to Launcher

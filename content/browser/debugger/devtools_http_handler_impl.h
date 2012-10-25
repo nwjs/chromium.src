@@ -15,10 +15,14 @@
 #include "content/common/content_export.h"
 #include "content/public/browser/devtools_http_handler.h"
 #include "content/public/browser/devtools_http_handler_delegate.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
 #include "net/server/http_server.h"
 
 namespace base {
+class DictionaryValue;
 class Thread;
+class Value;
 }
 
 namespace net {
@@ -33,6 +37,7 @@ class RenderViewHost;
 
 class DevToolsHttpHandlerImpl
     : public DevToolsHttpHandler,
+      public NotificationObserver,
       public base::RefCountedThreadSafe<DevToolsHttpHandlerImpl>,
       public net::HttpServer::Delegate {
  private:
@@ -56,6 +61,11 @@ class DevToolsHttpHandlerImpl
       RenderViewHostBinding* binding) OVERRIDE;
   virtual GURL GetFrontendURL(RenderViewHost* render_view_host) OVERRIDE;
 
+  // NotificationObserver implementation.
+  virtual void Observe(int type,
+                       const NotificationSource& source,
+                       const NotificationDetails& details) OVERRIDE;
+
   // net::HttpServer::Delegate implementation.
   virtual void OnHttpRequest(int connection_id,
                              const net::HttpServerRequestInfo& info) OVERRIDE;
@@ -66,8 +76,14 @@ class DevToolsHttpHandlerImpl
                                   const std::string& data) OVERRIDE;
   virtual void OnClose(int connection_id) OVERRIDE;
 
+  void OnVersionRequestUI(int connection_id,
+                          const net::HttpServerRequestInfo& info);
   void OnJsonRequestUI(int connection_id,
                        const net::HttpServerRequestInfo& info);
+  void OnNewTargetRequestUI(int connection_id,
+                            const net::HttpServerRequestInfo& info);
+  void OnCloseTargetRequestUI(int connection_id,
+                              const net::HttpServerRequestInfo& info);
   void OnThumbnailRequestUI(int connection_id,
                        const net::HttpServerRequestInfo& info);
   void OnWebSocketRequestUI(int connection_id,
@@ -81,6 +97,9 @@ class DevToolsHttpHandlerImpl
   void Send200(int connection_id,
                const std::string& data,
                const std::string& mime_type = "text/html");
+  void SendJson(int connection_id,
+                const net::HttpServerRequestInfo& info,
+                const base::Value& value);
   void Send404(int connection_id);
   void Send500(int connection_id,
                const std::string& message);
@@ -92,6 +111,11 @@ class DevToolsHttpHandlerImpl
   // Returns the front end url without the host at the beginning.
   std::string GetFrontendURLInternal(const std::string rvh_id,
                                      const std::string& host);
+
+  PageInfo CreatePageInfo(RenderViewHost* rvh);
+
+  base::DictionaryValue* SerializePageInfo(const PageInfo& page_info,
+                                           const std::string& host);
 
   // The thread used by the devtools handler to run server socket.
   scoped_ptr<base::Thread> thread_;
@@ -105,6 +129,7 @@ class DevToolsHttpHandlerImpl
   scoped_ptr<DevToolsHttpHandlerDelegate> delegate_;
   RenderViewHostBinding* binding_;
   scoped_ptr<RenderViewHostBinding> default_binding_;
+  NotificationRegistrar registrar_;
   DISALLOW_COPY_AND_ASSIGN(DevToolsHttpHandlerImpl);
 };
 

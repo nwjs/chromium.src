@@ -208,7 +208,7 @@ class RenderWidgetHostViewGtkWidget {
                                    GdkEventConfigure* event,
                                    RenderWidgetHostViewGtk* host_view) {
     host_view->MarkCachedWidgetCenterStale();
-    host_view->UpdateScreenInfo();
+    host_view->UpdateScreenInfo(host_view->GetNativeView());
     return FALSE;
   }
 
@@ -1038,7 +1038,7 @@ void RenderWidgetHostViewGtk::CopyFromCompositingSurface(
     const gfx::Rect& src_subrect,
     const gfx::Size& /* dst_size */,
     const base::Callback<void(bool)>& callback,
-    skia::PlatformCanvas* output) {
+    skia::PlatformBitmap* output) {
   base::ScopedClosureRunner scoped_callback_runner(base::Bind(callback, false));
 
   const gfx::Rect bounds = GetViewBounds();
@@ -1051,10 +1051,10 @@ void RenderWidgetHostViewGtk::CopyFromCompositingSurface(
   if (!image.get())
     return;
 
-  if (!output->initialize(src_subrect.width(), src_subrect.height(), true))
+  if (!output->Allocate(src_subrect.width(), src_subrect.height(), true))
     return;
 
-  const SkBitmap& bitmap = output->getTopDevice()->accessBitmap(true);
+  const SkBitmap& bitmap = output->GetBitmap();
   const size_t bitmap_size = bitmap.getSize();
   DCHECK_EQ(bitmap_size,
             static_cast<size_t>(image->height * image->bytes_per_line));
@@ -1239,10 +1239,6 @@ void RenderWidgetHostViewGtk::CreatePluginContainer(
 void RenderWidgetHostViewGtk::DestroyPluginContainer(
     gfx::PluginWindowHandle id) {
   plugin_container_manager_.DestroyPluginContainer(id);
-}
-
-void RenderWidgetHostViewGtk::ProcessTouchAck(
-    WebKit::WebInputEvent::Type type, bool processed) {
 }
 
 void RenderWidgetHostViewGtk::SetHasHorizontalScrollbar(

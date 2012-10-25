@@ -6,10 +6,10 @@
 #define CHROME_BROWSER_CHROMEOS_AUDIO_AUDIO_HANDLER_H_
 
 #include "base/basictypes.h"
-#include "base/observer_list.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/observer_list.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "base/threading/thread.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -52,7 +52,9 @@ class AudioHandler : public content::NotificationObserver {
   // Gets volume level in our internal 0-100% range, 0 being pure silence.
   double GetVolumePercent();
 
-  // Sets volume level from 0-100%.
+  // Sets volume level from 0-100%. If less than kMuteThresholdPercent, then
+  // mutes the sound. If it was muted, and |volume_percent| is larger than
+  // the threshold, then the sound is unmuted.
   void SetVolumePercent(double volume_percent);
 
   // Adjusts volume up (positive percentage) or down (negative percentage).
@@ -67,7 +69,8 @@ class AudioHandler : public content::NotificationObserver {
   // Is the capture volume currently muted?
   bool IsCaptureMuted();
 
-  // Mutes or unmutes all capture devices.
+  // Mutes or unmutes all capture devices. If unmutes and the volume was set
+  // to 0, then increases volume to a minimum value (5%).
   void SetCaptureMuted(bool do_mute);
 
   void AddVolumeObserver(VolumeObserver* observer);
@@ -93,6 +96,9 @@ class AudioHandler : public content::NotificationObserver {
   // Applies the audio muting policies whenever the user logs in or policy
   // change notification is received.
   void ApplyAudioPolicy();
+
+  // Sets volume to specified value and notifies observers.
+  void SetVolumePercentInternal(double volume_percent);
 
   scoped_ptr<AudioMixer> mixer_;
 

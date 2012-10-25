@@ -12,12 +12,25 @@ namespace extensions {
 
 class ApiResourceEventNotifier;
 
+class ApiFunction : public UIThreadExtensionFunction {
+ protected:
+  ApiFunction();
+  virtual ~ApiFunction();
+
+  // Looks for a kSrcId key that might have been added to a create method's
+  // options object.
+  int ExtractSrcId(const DictionaryValue* options);
+
+  // Utility.
+  ApiResourceEventNotifier* CreateEventNotifier(int src_id);
+};
+
 // AsyncApiFunction provides convenient thread management for APIs that need to
 // do essentially all their work on a thread other than the UI thread.
-class AsyncApiFunction : public AsyncExtensionFunction {
+class AsyncApiFunction : public ApiFunction {
  protected:
   AsyncApiFunction();
-  virtual ~AsyncApiFunction() {}
+  virtual ~AsyncApiFunction();
 
   // Like Prepare(). A useful place to put common work in an ApiFunction
   // superclass that multiple API functions want to share.
@@ -39,19 +52,6 @@ class AsyncApiFunction : public AsyncExtensionFunction {
 
   // Respond. Guaranteed to happen on UI thread.
   virtual bool Respond() = 0;
-
-  // Looks for a kSrcId key that might have been added to a create method's
-  // options object.
-  int ExtractSrcId(const DictionaryValue* options);
-
-  // Deprecated. If you're still using this method, you should be converting
-  // your calling code to the new-style argument-parsing code, which won't work
-  // with this method. See the version that takes an options dictionary
-  // instead (above).
-  int DeprecatedExtractSrcId(size_t argument_position);
-
-  // Utility.
-  ApiResourceEventNotifier* CreateEventNotifier(int src_id);
 
   // ExtensionFunction::RunImpl()
   virtual bool RunImpl() OVERRIDE;

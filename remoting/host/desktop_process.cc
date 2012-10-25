@@ -10,13 +10,18 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
-#include "base/logging.h"
+#include "base/memory/ref_counted.h"
+#include "base/message_loop.h"
+#include "base/run_loop.h"
 #include "base/scoped_native_library.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/windows_version.h"
-#include "remoting/host/branding.h"
+#include "ipc/ipc_channel_proxy.h"
+#include "remoting/base/auto_thread.h"
+#include "remoting/base/auto_thread_task_runner.h"
 #include "remoting/host/host_exit_codes.h"
+#include "remoting/host/logging.h"
 #include "remoting/host/usage_stats_consent.h"
 
 #if defined(OS_MACOSX)
@@ -28,6 +33,11 @@
 #endif  // defined(OS_WIN)
 
 namespace {
+
+// The command line switch specifying the name of the daemon IPC endpoint.
+const char kDaemonIpcSwitchName[] = "daemon-pipe";
+
+const char kIoThreadName[] = "I/O thread";
 
 // "--help" or "--?" prints the usage message.
 const char kHelpSwitchName[] = "help";
@@ -49,14 +59,50 @@ void usage(const FilePath& program_name) {
 
 namespace remoting {
 
-DesktopProcess::DesktopProcess() {
+DesktopProcess::DesktopProcess(const std::string& daemon_channel_name)
+    : daemon_channel_name_(daemon_channel_name) {
 }
 
 DesktopProcess::~DesktopProcess() {
 }
 
-int DesktopProcess::Run() {
+bool DesktopProcess::OnMessageReceived(const IPC::Message& message) {
+  return false;
+}
+
+void DesktopProcess::OnChannelConnected(int32 peer_pid) {
   NOTIMPLEMENTED();
+}
+
+void DesktopProcess::OnChannelError() {
+  LOG(ERROR) << "Failed to connect to '" << daemon_channel_name_ << "'";
+  daemon_channel_.reset();
+}
+
+int DesktopProcess::Run() {
+  // Create the UI message loop.
+  MessageLoop message_loop(MessageLoop::TYPE_UI);
+
+  {
+    scoped_refptr<AutoThreadTaskRunner> ui_task_runner =
+        new remoting::AutoThreadTaskRunner(message_loop.message_loop_proxy(),
+                                           MessageLoop::QuitClosure());
+
+    // Launch the I/O thread.
+    scoped_refptr<AutoThreadTaskRunner> io_task_runner =
+        AutoThread::CreateWithType(kIoThreadName, ui_task_runner,
+                                   MessageLoop::TYPE_IO);
+
+    // Connect to the daemon.
+    daemon_channel_.reset(new IPC::ChannelProxy(daemon_channel_name_,
+                                                IPC::Channel::MODE_CLIENT,
+                                                this,
+                                                io_task_runner));
+  }
+
+  // Run the UI message loop.
+  base::RunLoop run_loop;
+  run_loop.Run();
   return 0;
 }
 
@@ -74,19 +120,7 @@ int main(int argc, char** argv) {
   // LazyInstance, MessageLoop).
   base::AtExitManager exit_manager;
 
-  // Initialize logging with an appropriate log-file location, and default to
-  // log to that on Windows, or to standard error output otherwise.
-  FilePath debug_log = remoting::GetConfigDir().
-      Append(FILE_PATH_LITERAL("debug.log"));
-  InitLogging(debug_log.value().c_str(),
-#if defined(OS_WIN)
-              logging::LOG_ONLY_TO_FILE,
-#else
-              logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-#endif
-              logging::DONT_LOCK_LOG_FILE,
-              logging::APPEND_TO_OLD_LOG_FILE,
-              logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+  remoting::InitHostLogging();
 
   const CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(kHelpSwitchName) ||
@@ -95,7 +129,15 @@ int main(int argc, char** argv) {
     return remoting::kSuccessExitCode;
   }
 
-  remoting::DesktopProcess desktop_process;
+  std::string channel_name =
+      command_line->GetSwitchValueASCII(kDaemonIpcSwitchName);
+
+  if (channel_name.empty()) {
+    usage(command_line->GetProgram());
+    return remoting::kUsageExitCode;
+  }
+
+  remoting::DesktopProcess desktop_process(channel_name);
   return desktop_process.Run();
 }
 

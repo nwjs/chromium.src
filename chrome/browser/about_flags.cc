@@ -14,6 +14,7 @@
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "cc/switches.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/common/chrome_content_client.h"
@@ -160,6 +161,22 @@ const Experiment::Choice kNaClDebugMaskChoices[] = {
       switches::kNaClDebugMask, "*://*/*debug.nmf" }
 };
 
+const Experiment::Choice kActionBoxChoices[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED,
+    switches::kActionBox, "0"},
+  { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
+    switches::kActionBox, "1"}
+};
+
+const Experiment::Choice kScriptBubbleChoices[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED,
+    switches::kScriptBubble, "0"},
+  { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
+    switches::kScriptBubble, "1"}
+};
+
 #if defined(OS_CHROMEOS)
 const Experiment::Choice kAshBootAnimationFunction[] = {
   { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
@@ -294,7 +311,7 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_DISABLE_THREADED_ANIMATION_NAME,
     IDS_FLAGS_DISABLE_THREADED_ANIMATION_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kDisableThreadedAnimation)
+    SINGLE_VALUE_TYPE(cc::switches::kDisableThreadedAnimation)
   },
   {
     "composited-layer-borders",
@@ -400,18 +417,25 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableExperimentalExtensionApis)
   },
   {
-    "disable-action-box",
+    "action-box",
     IDS_FLAGS_ACTION_BOX_NAME,
     IDS_FLAGS_ACTION_BOX_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kDisableActionBox),
+    MULTI_VALUE_TYPE(kActionBoxChoices),
   },
   {
     "script-badges",
     IDS_FLAGS_SCRIPT_BADGES_NAME,
     IDS_FLAGS_SCRIPT_BADGES_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableScriptBadges),
+    SINGLE_VALUE_TYPE(switches::kScriptBadges)
+  },
+  {
+    "script-bubble",
+    IDS_FLAGS_SCRIPT_BUBBLE_NAME,
+    IDS_FLAGS_SCRIPT_BUBBLE_DESCRIPTION,
+    kOsAll,
+    MULTI_VALUE_TYPE(kScriptBubbleChoices),
   },
   {
     "apps-new-install-bubble",
@@ -595,7 +619,7 @@ const Experiment kExperiments[] = {
 #else
     0,
 #endif
-    SINGLE_VALUE_TYPE(switches::kEnablePerTilePainting)
+    SINGLE_VALUE_TYPE(cc::switches::kEnablePerTilePainting)
   },
   {
     "enable-javascript-harmony",
@@ -843,13 +867,6 @@ const Experiment kExperiments[] = {
     kOsCrOS,
     MULTI_VALUE_TYPE(kAshBootAnimationFunction),
   },
-  {
-    "disable-workspace2",
-    IDS_FLAGS_DISABLE_WORKSPACE2,
-    IDS_FLAGS_DISABLE_WORKSPACE2_DESCRIPTION,
-    kOsCrOS,
-    SINGLE_VALUE_TYPE(ash::switches::kAshDisableWorkspace2),
-  },
 #endif
   {
     "enable-views-textfield",
@@ -918,6 +935,13 @@ const Experiment kExperiments[] = {
 #endif
 #if defined(OS_CHROMEOS)
   {
+    "enable-carrier-switching",
+    IDS_FLAGS_ENABLE_CARRIER_SWITCHING,
+    IDS_FLAGS_ENABLE_CARRIER_SWITCHING_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableCarrierSwitching)
+  },
+  {
     "enable-request-tablet-site",
     IDS_FLAGS_ENABLE_REQUEST_TABLET_SITE_NAME,
     IDS_FLAGS_ENABLE_REQUEST_TABLET_SITE_DESCRIPTION,
@@ -938,6 +962,13 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_PASSWORD_GENERATION_DESCRIPTION,
     kOsWin | kOsLinux | kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kEnablePasswordGeneration)
+  },
+  {
+    "crash-on-gpu-hang",
+    IDS_FLAGS_CRASH_ON_GPU_HANG_NAME,
+    IDS_FLAGS_CRASH_ON_GPU_HANG_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kCrashOnGpuHang)
   },
 };
 

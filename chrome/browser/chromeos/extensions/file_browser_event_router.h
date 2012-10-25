@@ -15,9 +15,9 @@
 #include "base/string16.h"
 #include "base/synchronization/lock.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
-#include "chrome/browser/chromeos/gdata/drive_file_system_observer.h"
-#include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
-#include "chrome/browser/chromeos/gdata/drive_service_interface.h"
+#include "chrome/browser/chromeos/drive/drive_file_system_observer.h"
+#include "chrome/browser/chromeos/drive/drive_resource_metadata.h"
+#include "chrome/browser/google_apis/drive_service_interface.h"
 #include "chrome/browser/google_apis/operation_registry.h"
 #include "chrome/browser/profiles/refcounted_profile_keyed_service.h"
 #include "chrome/browser/profiles/refcounted_profile_keyed_service_factory.h"
@@ -30,7 +30,7 @@ class FileBrowserNotifications;
 class PrefChangeRegistrar;
 class Profile;
 
-namespace gdata {
+namespace drive {
 class DriveEntryProto;
 class DriveFileSystemInterface;
 }
@@ -42,8 +42,8 @@ class FileBrowserEventRouter
       public chromeos::disks::DiskMountManager::Observer,
       public chromeos::NetworkLibrary::NetworkManagerObserver,
       public content::NotificationObserver,
-      public gdata::DriveFileSystemObserver,
-      public gdata::DriveServiceObserver {
+      public drive::DriveFileSystemObserver,
+      public drive::DriveServiceObserver {
  public:
   // RefcountedProfileKeyedService overrides.
   virtual void ShutdownOnUIThread() OVERRIDE;
@@ -84,12 +84,13 @@ class FileBrowserEventRouter
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // gdata::DriveServiceObserver overrides.
+  // drive::DriveServiceObserver overrides.
   virtual void OnProgressUpdate(
-      const gdata::OperationProgressStatusList& list) OVERRIDE;
-  virtual void OnAuthenticationFailed() OVERRIDE;
+      const google_apis::OperationProgressStatusList& list) OVERRIDE;
+  virtual void OnAuthenticationFailed(
+      google_apis::GDataErrorCode error) OVERRIDE;
 
-  // gdata::DriveFileSystemInterface::Observer overrides.
+  // drive::DriveFileSystemInterface::Observer overrides.
   virtual void OnDirectoryChanged(const FilePath& directory_path) OVERRIDE;
   virtual void OnDocumentFeedFetched(int num_accumulated_entries) OVERRIDE;
   virtual void OnFileSystemMounted() OVERRIDE;
@@ -189,7 +190,7 @@ class FileBrowserEventRouter
                       bool small);
 
   // Returns the DriveFileSystem for the current profile.
-  gdata::DriveFileSystemInterface* GetRemoteFileSystem() const;
+  drive::DriveFileSystemInterface* GetRemoteFileSystem() const;
 
   // Handles requests to start and stop periodic updates on remote file system.
   // When |start| is set to true, this function starts periodic updates only if
@@ -200,7 +201,7 @@ class FileBrowserEventRouter
 
   // Used to implement MountDrive(). Called after the authentication.
   void OnAuthenticated(const base::Closure& callback,
-                       gdata::GDataErrorCode error,
+                       google_apis::GDataErrorCode error,
                        const std::string& tokeni);
 
   scoped_refptr<FileWatcherDelegate> delegate_;

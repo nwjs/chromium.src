@@ -60,6 +60,8 @@ bool WallpaperStringsFunction::RunImpl() {
   SET_STRING("downloadCanceled", IDS_WALLPAPER_MANAGER_DOWNLOAD_CANCEL);
   SET_STRING("customWallpaperWarning",
              IDS_WALLPAPER_MANAGER_SHOW_CUSTOM_WALLPAPER_ON_START_WARNING);
+  SET_STRING("accessFileFailure", IDS_WALLPAPER_MANAGER_ACCESS_FILE_FAILURE);
+  SET_STRING("invalidWallpaper", IDS_WALLPAPER_MANAGER_INVALID_WALLPAPER);
 #undef SET_STRING
 
   ChromeURLDataManager::DataSource::SetFontAndTextDirection(dict);
@@ -99,7 +101,7 @@ class WallpaperFunctionBase::WallpaperDecoder : public ImageDecoder::Delegate {
     gfx::ImageSkia final_image(decoded_image);
     final_image.MakeThreadSafe();
     if (cancel_flag_.IsSet()) {
-      function_->OnFailureOrCancel();
+      function_->OnFailureOrCancel("");
       delete this;
       return;
     }
@@ -108,8 +110,8 @@ class WallpaperFunctionBase::WallpaperDecoder : public ImageDecoder::Delegate {
   }
 
   virtual void OnDecodeImageFailed(const ImageDecoder* decoder) OVERRIDE {
-    function_->OnFailureOrCancel();
-    // TODO(bshe): Dispatches an encoding error event.
+    function_->OnFailureOrCancel(
+        l10n_util::GetStringUTF8(IDS_WALLPAPER_MANAGER_INVALID_WALLPAPER));
     delete this;
   }
 
@@ -128,6 +130,13 @@ WallpaperFunctionBase::WallpaperFunctionBase() {
 }
 
 WallpaperFunctionBase::~WallpaperFunctionBase() {
+}
+
+void WallpaperFunctionBase::OnFailureOrCancel(const std::string& error) {
+  wallpaper_decoder_ = NULL;
+  if (!error.empty())
+    SetError(error);
+  SendResponse(false);
 }
 
 WallpaperSetWallpaperFunction::WallpaperSetWallpaperFunction() {
@@ -150,7 +159,7 @@ bool WallpaperSetWallpaperFunction::RunImpl() {
     return false;
 
   // Gets email address while at UI thread.
-  email_ = chromeos::UserManager::Get()->GetLoggedInUser().email();
+  email_ = chromeos::UserManager::Get()->GetLoggedInUser()->email();
 
   image_data_.assign(input->GetBuffer(), input->GetSize());
   if (wallpaper_decoder_)
@@ -172,11 +181,6 @@ void WallpaperSetWallpaperFunction::OnWallpaperDecoded(
                  this));
 }
 
-void WallpaperSetWallpaperFunction::OnFailureOrCancel() {
-  wallpaper_decoder_ = NULL;
-  SendResponse(false);
-}
-
 void WallpaperSetWallpaperFunction::SaveToFile() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   FilePath wallpaper_dir;
@@ -186,7 +190,8 @@ void WallpaperSetWallpaperFunction::SaveToFile() {
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(&WallpaperSetWallpaperFunction::OnFailureOrCancel,
-                   this));
+                   this, ""));
+    LOG(ERROR) << "Failed to create wallpaper directory.";
     return;
   }
   std::string file_name = GURL(url_).ExtractFileName();
@@ -212,7 +217,8 @@ void WallpaperSetWallpaperFunction::SaveToFile() {
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(&WallpaperSetWallpaperFunction::OnFailureOrCancel,
-                   this));
+                   this, ""));
+    LOG(ERROR) << "Failed to save downloaded wallpaper.";
   }
 }
 
@@ -250,7 +256,7 @@ bool WallpaperSetCustomWallpaperFunction::RunImpl() {
   layout_ = ash::GetLayoutEnum(layout_string);
 
   // Gets email address while at UI thread.
-  email_ = chromeos::UserManager::Get()->GetLoggedInUser().email();
+  email_ = chromeos::UserManager::Get()->GetLoggedInUser()->email();
 
   image_data_.assign(input->GetBuffer(), input->GetSize());
   if (wallpaper_decoder_)
@@ -273,9 +279,4 @@ void WallpaperSetCustomWallpaperFunction::OnWallpaperDecoded(
       base::WeakPtr<chromeos::WallpaperDelegate>(), image);
   wallpaper_decoder_ = NULL;
   SendResponse(true);
-}
-
-void WallpaperSetCustomWallpaperFunction::OnFailureOrCancel() {
-  wallpaper_decoder_ = NULL;
-  SendResponse(false);
 }

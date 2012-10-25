@@ -74,8 +74,7 @@ class LauncherViewIconObserverTest : public ash::test::AshTestBase {
 
   virtual void SetUp() OVERRIDE {
     AshTestBase::SetUp();
-
-    Launcher* launcher = Shell::GetInstance()->launcher();
+    Launcher* launcher = Launcher::ForPrimaryDisplay();
     observer_.reset(new TestLauncherIconObserver(launcher));
 
     launcher_view_test_.reset(new LauncherViewTestAPI(
@@ -125,7 +124,7 @@ TEST_F(LauncherViewIconObserverTest, AddRemove) {
 }
 
 TEST_F(LauncherViewIconObserverTest, BoundsChanged) {
-  Launcher* launcher = Shell::GetInstance()->launcher();
+  Launcher* launcher = Launcher::ForPrimaryDisplay();
   gfx::Size launcher_size =
       launcher->widget()->GetWindowBoundsInScreen().size();
   int total_width = launcher_size.width() / 2;
@@ -145,8 +144,7 @@ class MockLauncherDelegate : public ash::LauncherDelegate {
   virtual ~MockLauncherDelegate() {}
 
   // LauncherDelegate overrides:
-  virtual void CreateNewTab() OVERRIDE {}
-  virtual void CreateNewWindow() OVERRIDE {}
+  virtual void OnBrowserShortcutClicked(int event_flags) OVERRIDE {}
   virtual void ItemClicked(const ash::LauncherItem& item,
                            int event_flags) OVERRIDE {}
   virtual int GetBrowserShortcutResourceId() OVERRIDE {
@@ -156,10 +154,8 @@ class MockLauncherDelegate : public ash::LauncherDelegate {
     return string16();
   }
   virtual ui::MenuModel* CreateContextMenu(
-      const ash::LauncherItem& item) OVERRIDE {
-    return NULL;
-  }
-  virtual ui::MenuModel* CreateContextMenuForLauncher() OVERRIDE {
+      const ash::LauncherItem& item,
+      aura::RootWindow* root_window) OVERRIDE {
     return NULL;
   }
   virtual ash::LauncherID GetIDByWindow(aura::Window* window) OVERRIDE {

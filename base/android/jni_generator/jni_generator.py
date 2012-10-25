@@ -153,7 +153,6 @@ def JavaParamToJni(param):
   ]
   app_param_list = [
       'Landroid/graphics/SurfaceTexture',
-      'Lcom/google/android/apps/chrome/AutofillData',
       'Lcom/google/android/apps/chrome/ChromeContextMenuInfo',
       'Lcom/google/android/apps/chrome/ChromeWindow',
       'Lcom/google/android/apps/chrome/OmniboxSuggestion',
@@ -173,6 +172,8 @@ def JavaParamToJni(param):
       'Lorg/chromium/android_webview/JsResultHandler',
       'Lorg/chromium/android_webview/JsResultReceiver',
       'Lorg/chromium/base/SystemMessageHandler',
+      'Lorg/chromium/chrome/browser/autofill/AutofillExternalDelegate',
+      'Lorg/chromium/chrome/browser/autofill/AutofillSuggestion',
       'Lorg/chromium/chrome/browser/ChromeBrowserProvider$BookmarkNode',
       'Lorg/chromium/chrome/browser/ChromeHttpAuthHandler',
       'Lorg/chromium/chrome/browser/ChromeWebContentsDelegateAndroid',
@@ -186,6 +187,7 @@ def JavaParamToJni(param):
        'WebContentsDelegateAndroid'),
       'Lorg/chromium/chrome/browser/database/SQLiteCursor',
       'Lorg/chromium/content/app/SandboxedProcessService',
+      'Lorg/chromium/content/browser/ContainerViewDelegate',
       'Lorg/chromium/content/browser/ContentVideoView',
       'Lorg/chromium/content/browser/ContentViewCore',
       'Lorg/chromium/content/browser/DeviceOrientation',
@@ -603,13 +605,9 @@ $FORWARD_DECLARATIONS
 // Step 2: method stubs.
 $METHOD_STUBS
 
-// Step 3: GetMethodIDs and RegisterNatives.
-static void GetMethodIDsImpl(JNIEnv* env) {
-$GET_METHOD_IDS_IMPL
-}
+// Step 3: RegisterNatives.
 
 static bool RegisterNativesImpl(JNIEnv* env) {
-  GetMethodIDsImpl(env);
 $REGISTER_NATIVES_IMPL
   return true;
 }
@@ -626,7 +624,6 @@ $CLOSE_NAMESPACE
         'FORWARD_DECLARATIONS': self.GetForwardDeclarationsString(),
         'METHOD_STUBS': self.GetMethodStubsString(),
         'OPEN_NAMESPACE': self.GetOpenNamespaceString(),
-        'GET_METHOD_IDS_IMPL': self.GetMethodIDsImplString(),
         'REGISTER_NATIVES_IMPL': self.GetRegisterNativesImplString(),
         'CLOSE_NAMESPACE': self.GetCloseNamespaceString(),
         'HEADER_GUARD': self.header_guard,
@@ -662,13 +659,6 @@ $CLOSE_NAMESPACE
         ret += [self.GetKMethodArrayEntry(native)]
     return '\n'.join(ret)
 
-  def GetMethodIDsImplString(self):
-    ret = []
-    ret += [self.GetFindClasses()]
-    for called_by_native in self.called_by_natives:
-      ret += [self.GetMethodIDImpl(called_by_native)]
-    return '\n'.join(ret)
-
   def GetRegisterNativesImplString(self):
     """Returns the implementation for RegisterNatives."""
     template = Template("""\
@@ -684,7 +674,7 @@ ${KMETHODS}
     return false;
   }
 """)
-    ret = []
+    ret = [self.GetFindClasses()]
     all_classes = self.GetUniqueClasses(self.natives)
     all_classes[self.class_name] = self.fully_qualified_class
     for clazz in all_classes:
@@ -793,14 +783,15 @@ ${FUNCTION_SIGNATURE} {""")
 ${FUNCTION_SIGNATURE} __attribute__ ((unused));
 ${FUNCTION_SIGNATURE} {""")
     template = Template("""
-static jmethodID g_${JAVA_CLASS}_${METHOD_ID_VAR_NAME} = 0;
+static base::subtle::AtomicWord g_${JAVA_CLASS}_${METHOD_ID_VAR_NAME} = 0;
 ${FUNCTION_HEADER}
   /* Must call RegisterNativesImpl()  */
   DCHECK(g_${JAVA_CLASS}_clazz);
-  DCHECK(g_${JAVA_CLASS}_${METHOD_ID_VAR_NAME});
+  jmethodID method_id =
+    ${GET_METHOD_ID_IMPL}
   ${RETURN_DECLARATION}
   ${PRE_CALL}env->${ENV_CALL}(${FIRST_PARAM_IN_CALL},
-      g_${JAVA_CLASS}_${METHOD_ID_VAR_NAME}${PARAMS_IN_CALL})${POST_CALL};
+      method_id${PARAMS_IN_CALL})${POST_CALL};
   ${CHECK_EXCEPTION}
   ${RETURN_CLAUSE}
 }""")
@@ -855,6 +846,7 @@ ${FUNCTION_HEADER}
         'PARAMS_IN_CALL': params_for_call,
         'METHOD_ID_VAR_NAME': called_by_native.method_id_var_name,
         'CHECK_EXCEPTION': check_exception,
+        'GET_METHOD_ID_IMPL': self.GetMethodIDImpl(called_by_native)
     }
     values['FUNCTION_SIGNATURE'] = (
         function_signature_template.substitute(values))
@@ -924,11 +916,12 @@ jclass g_${JAVA_CLASS}_clazz = NULL;""")
   def GetMethodIDImpl(self, called_by_native):
     """Returns the implementation of GetMethodID."""
     template = Template("""\
-  g_${JAVA_CLASS}_${METHOD_ID_VAR_NAME} =
-      base::android::Get${STATIC}MethodID${SUFFIX}(
-          env, g_${JAVA_CLASS}_clazz,
-          "${JNI_NAME}",
-          ${JNI_SIGNATURE});
+  base::android::MethodID::LazyGet<
+      base::android::MethodID::TYPE_${STATIC}>(
+      env, g_${JAVA_CLASS}_clazz,
+      "${JNI_NAME}",
+      ${JNI_SIGNATURE},
+      &g_${JAVA_CLASS}_${METHOD_ID_VAR_NAME});
 """)
     jni_name = called_by_native.name
     jni_return_type = called_by_native.return_type
@@ -939,8 +932,7 @@ jclass g_${JAVA_CLASS}_clazz = NULL;""")
         'JAVA_CLASS': called_by_native.java_class_name or self.class_name,
         'JNI_NAME': jni_name,
         'METHOD_ID_VAR_NAME': called_by_native.method_id_var_name,
-        'STATIC': 'Static' if called_by_native.static else '',
-        'SUFFIX': 'OrNull' if called_by_native.system_class else '',
+        'STATIC': 'STATIC' if called_by_native.static else 'INSTANCE',
         'JNI_SIGNATURE': JniSignature(called_by_native.params,
                                       jni_return_type,
                                       True)

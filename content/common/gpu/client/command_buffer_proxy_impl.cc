@@ -26,6 +26,8 @@
 
 using gpu::Buffer;
 
+namespace content {
+
 CommandBufferProxyImpl::CommandBufferProxyImpl(
     GpuChannelHost* channel,
     int route_id)
@@ -261,8 +263,8 @@ int32 CommandBufferProxyImpl::CreateTransferBuffer(
   base::SharedMemoryHandle handle = shm->handle();
 #if defined(OS_WIN)
   // Windows needs to explicitly duplicate the handle out to another process.
-  if (!content::BrokerDuplicateHandle(handle, channel_->gpu_pid(),
-                                      &handle, FILE_MAP_WRITE, 0)) {
+  if (!BrokerDuplicateHandle(handle, channel_->gpu_pid(), &handle,
+                             FILE_MAP_WRITE, 0)) {
     return -1;
   }
 #elif defined(OS_POSIX)
@@ -292,8 +294,8 @@ int32 CommandBufferProxyImpl::RegisterTransferBuffer(
   base::SharedMemoryHandle handle = shared_memory->handle();
 #if defined(OS_WIN)
   // Windows needs to explicitly duplicate the handle out to another process.
-  if (!content::BrokerDuplicateHandle(handle, channel_->gpu_pid(),
-                                      &handle, FILE_MAP_WRITE, 0)) {
+  if (!BrokerDuplicateHandle(handle, channel_->gpu_pid(), &handle,
+                             FILE_MAP_WRITE, 0)) {
     return -1;
   }
 #endif
@@ -338,7 +340,7 @@ Buffer CommandBufferProxyImpl::GetTransferBuffer(int32 id) {
 
   // Assuming we are in the renderer process, the service is responsible for
   // duplicating the handle. This might not be true for NaCl.
-  base::SharedMemoryHandle handle;
+  base::SharedMemoryHandle handle = base::SharedMemoryHandle();
   uint32 size;
   if (!Send(new GpuCommandBufferMsg_GetTransferBuffer(route_id_,
                                                       id,
@@ -561,3 +563,5 @@ void CommandBufferProxyImpl::TryUpdateState() {
   if (last_state_.error == gpu::error::kNoError)
     shared_state_->Read(&last_state_);
 }
+
+}  // namespace content

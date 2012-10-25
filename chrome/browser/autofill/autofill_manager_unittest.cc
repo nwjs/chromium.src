@@ -8,13 +8,13 @@
 #include "base/command_line.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
+#include "base/prefs/public/pref_service_base.h"
 #include "base/string16.h"
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/time.h"
 #include "base/tuple.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/api/prefs/pref_service_base.h"
 #include "chrome/browser/autofill/autocomplete_history_manager.h"
 #include "chrome/browser/autofill/autofill_common_test.h"
 #include "chrome/browser/autofill/autofill_manager.h"
@@ -591,9 +591,6 @@ class AutofillManagerTest : public TabContentsTestHarness {
   }
 
   virtual ~AutofillManagerTest() {
-    // Order of destruction is important as AutofillManager relies on
-    // PersonalDataManager to be around when it gets destroyed.
-    autofill_manager_ = NULL;
   }
 
   virtual void SetUp() OVERRIDE {
@@ -613,6 +610,11 @@ class AutofillManagerTest : public TabContentsTestHarness {
   }
 
   virtual void TearDown() OVERRIDE {
+    // Order of destruction is important as AutofillManager relies on
+    // PersonalDataManager to be around when it gets destroyed. Also, a real
+    // AutofillManager is tied to the lifetime of the WebContents, so it must
+    // be destroyed at the destruction of the WebContents.
+    autofill_manager_ = NULL;
     file_thread_.Stop();
     TabContentsTestHarness::TearDown();
   }
@@ -637,8 +639,7 @@ class AutofillManagerTest : public TabContentsTestHarness {
   }
 
   void AutocompleteSuggestionsReturned(const std::vector<string16>& result) {
-    AutocompleteHistoryManager::FromWebContents(web_contents())->
-        SendSuggestions(&result);
+    autofill_manager_->autocomplete_history_manager_.SendSuggestions(&result);
   }
 
   void FormsSeen(const std::vector<FormData>& forms) {
@@ -685,8 +686,7 @@ class AutofillManagerTest : public TabContentsTestHarness {
     if (unique_ids)
       *unique_ids = autofill_param.e;
 
-    AutocompleteHistoryManager::FromWebContents(web_contents())->
-        CancelPendingQuery();
+    autofill_manager_->autocomplete_history_manager_.CancelPendingQuery();
     process()->sink().ClearMessages();
     return true;
   }
@@ -3075,9 +3075,9 @@ namespace {
 
 class MockAutofillExternalDelegate : public TestAutofillExternalDelegate {
  public:
-  explicit MockAutofillExternalDelegate(TabContents* tab_contents,
+  explicit MockAutofillExternalDelegate(content::WebContents* web_contents,
                                         AutofillManager* autofill_manager)
-      : TestAutofillExternalDelegate(tab_contents, autofill_manager) {}
+      : TestAutofillExternalDelegate(web_contents, autofill_manager) {}
   virtual ~MockAutofillExternalDelegate() {}
 
   MOCK_METHOD5(OnQuery, void(int query_id,
@@ -3099,7 +3099,7 @@ class MockAutofillExternalDelegate : public TestAutofillExternalDelegate {
 
 // Test our external delegate is called at the right time.
 TEST_F(AutofillManagerTest, TestExternalDelegate) {
-  MockAutofillExternalDelegate external_delegate(tab_contents(),
+  MockAutofillExternalDelegate external_delegate(web_contents(),
                                                  autofill_manager_);
   EXPECT_CALL(external_delegate, OnQuery(_, _, _, _, _));
   autofill_manager_->SetExternalDelegate(&external_delegate);
@@ -3134,7 +3134,7 @@ TEST_F(AutofillManagerTest, TestTabContentsWithExternalDelegate) {
   EXPECT_TRUE(autofill_manager->external_delegate());
 
   AutocompleteHistoryManager* autocomplete_history_manager =
-      AutocompleteHistoryManager::FromWebContents(contents);
+      &autofill_manager->autocomplete_history_manager_;
   EXPECT_TRUE(autocomplete_history_manager->external_delegate());
 }
 

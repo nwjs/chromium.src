@@ -10,10 +10,12 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/bundle_installer.h"
-#include "chrome/browser/extensions/extension_install_dialog.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/page_navigator.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_view.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/animation/animation_delegate.h"
@@ -55,6 +57,10 @@ const int kNoPermissionsLeftColumnWidth = 200;
 // Width of the left column for bundle install prompts. There's only one column
 // in this case, so make it wider than normal.
 const int kBundleLeftColumnWidth = 300;
+
+// Width of the left column for external install prompts. The text is long in
+// this case, so make it wider than normal.
+const int kExternalInstallLeftColumnWidth = 350;
 
 // Heading font size correction.
 const int kHeadingFontSizeDelta = 1;
@@ -104,12 +110,16 @@ class ExtensionInstallDialogView : public views::DialogDelegateView,
   // views::LinkListener:
   virtual void LinkClicked(views::Link* source, int event_flags) OVERRIDE;
 
-  bool is_inline_install() {
+  bool is_inline_install() const {
     return prompt_.type() == ExtensionInstallPrompt::INLINE_INSTALL_PROMPT;
   }
 
-  bool is_bundle_install() {
+  bool is_bundle_install() const {
     return prompt_.type() == ExtensionInstallPrompt::BUNDLE_INSTALL_PROMPT;
+  }
+
+  bool is_external_install() const {
+    return prompt_.type() == ExtensionInstallPrompt::EXTERNAL_INSTALL_PROMPT;
   }
 
   content::PageNavigator* navigator_;
@@ -171,6 +181,18 @@ class IssueAdviceView : public views::View,
 
   DISALLOW_COPY_AND_ASSIGN(IssueAdviceView);
 };
+
+void ShowExtensionInstallDialogImpl(
+    content::WebContents* parent_web_contents,
+    ExtensionInstallPrompt::Delegate* delegate,
+    const ExtensionInstallPrompt::Prompt& prompt) {
+  gfx::NativeWindow parent = NULL;
+  if (parent_web_contents)
+    parent = parent_web_contents->GetView()->GetTopLevelNativeWindow();
+  views::Widget::CreateWindowWithParent(
+      new ExtensionInstallDialogView(parent_web_contents, delegate, prompt),
+      parent)->Show();
+}
 
 }  // namespace
 
@@ -241,6 +263,8 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
           kPermissionsLeftColumnWidth : kNoPermissionsLeftColumnWidth;
   if (is_bundle_install())
     left_column_width = kBundleLeftColumnWidth;
+  if (is_external_install())
+    left_column_width = kExternalInstallLeftColumnWidth;
 
   column_set->AddColumn(views::GridLayout::LEADING,
                         views::GridLayout::FILL,
@@ -476,14 +500,10 @@ void ExtensionInstallDialogView::LinkClicked(views::Link* source,
   GetWidget()->Close();
 }
 
-void ShowExtensionInstallDialogImpl(
-    gfx::NativeWindow parent,
-    content::PageNavigator* navigator,
-    ExtensionInstallPrompt::Delegate* delegate,
-    const ExtensionInstallPrompt::Prompt& prompt) {
-  views::Widget::CreateWindowWithParent(
-      new ExtensionInstallDialogView(navigator, delegate, prompt),
-      parent)->Show();
+// static
+ExtensionInstallPrompt::ShowDialogCallback
+ExtensionInstallPrompt::GetDefaultShowDialogCallback() {
+  return base::Bind(&ShowExtensionInstallDialogImpl);
 }
 
 // IssueAdviceView::DetailsView ------------------------------------------------
@@ -601,7 +621,7 @@ void IssueAdviceView::AnimationProgressed(const ui::Animation* animation) {
     details_view_->AnimateToState(animation->GetCurrentValue());
 
   if (arrow_view_) {
-    ui::Transform rotate;
+    gfx::Transform rotate;
     if (animation->GetCurrentValue() != 0.0) {
       rotate.SetTranslate(-arrow_view_->width() / 2.0,
                           -arrow_view_->height() / 2.0);

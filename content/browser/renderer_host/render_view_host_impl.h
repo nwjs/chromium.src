@@ -21,6 +21,7 @@
 #include "content/public/common/javascript_message_type.h"
 #include "content/public/common/window_container_type.h"
 #include "net/base/load_states.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebConsoleMessage.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
@@ -222,6 +223,7 @@ class CONTENT_EXPORT RenderViewHostImpl
   virtual webkit_glue::WebPreferences GetWebkitPreferences() OVERRIDE;
   virtual void UpdateWebkitPreferences(
       const webkit_glue::WebPreferences& prefs) OVERRIDE;
+  virtual void NotifyTimezoneChange() OVERRIDE;
 
 #if defined(OS_ANDROID)
   virtual void ActivateNearestFindResult(int request_id,
@@ -484,6 +486,7 @@ class CONTENT_EXPORT RenderViewHostImpl
   void OnMsgRenderViewReady();
   void OnMsgRenderViewGone(int status, int error_code);
   void OnMsgDidStartProvisionalLoadForFrame(int64 frame_id,
+                                            int64 parent_frame_id,
                                             bool main_frame,
                                             const GURL& opener_url,
                                             const GURL& url);
@@ -581,6 +584,7 @@ class CONTENT_EXPORT RenderViewHostImpl
 #endif
 
 #if defined(OS_ANDROID)
+  void OnMsgDidChangeBodyBackgroundColor(SkColor color);
   void OnStartContentIntent(const GURL& content_url);
 #endif
 
@@ -648,6 +652,9 @@ class CONTENT_EXPORT RenderViewHostImpl
   // Set to true when there is a pending ViewMsg_Close message.  Also see
   // is_waiting_for_beforeunload_ack_, unload_ack_is_for_cross_site_transition_.
   bool is_waiting_for_unload_ack_;
+
+  // Set to true when waiting for ViewHostMsg_SwapOut_ACK has timed out.
+  bool has_timed_out_on_unload_;
 
   // Valid only when is_waiting_for_beforeunload_ack_ or
   // is_waiting_for_unload_ack_ is true.  This tells us if the unload request

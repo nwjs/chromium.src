@@ -19,11 +19,11 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/permissions/media_galleries_permission.h"
+#include "chrome/common/extensions/permissions/api_permission.h"
 #include "chrome/common/pref_names.h"
 #include "grit/generated_resources.h"
 
-using extensions::MediaGalleriesPermission;
+using extensions::APIPermission;
 
 namespace chrome {
 
@@ -259,7 +259,10 @@ MediaGalleryPrefId MediaGalleriesPreferences::AddGallery(
       continue;
 
     const MediaGalleryPrefInfo& existing = known_galleries_[*it];
-    if (existing.type == MediaGalleryPrefInfo::kBlackListed) {
+    bool update_gallery_type =
+      existing.type == MediaGalleryPrefInfo::kBlackListed;
+    bool update_gallery_name = existing.display_name != display_name;
+    if (update_gallery_name || update_gallery_type) {
       PrefService* prefs = profile_->GetPrefs();
       ListPrefUpdate update(prefs, prefs::kMediaGalleriesRememberedGalleries);
       ListValue* list = update.Get();
@@ -272,8 +275,12 @@ MediaGalleryPrefId MediaGalleriesPreferences::AddGallery(
         if ((*list_iter)->GetAsDictionary(&dict) &&
             GetPrefId(*dict, &iter_id) &&
             *it == iter_id) {
-          dict->SetString(kMediaGalleriesTypeKey,
-                          kMediaGalleriesTypeAutoDetectedValue);
+          if (update_gallery_type) {
+            dict->SetString(kMediaGalleriesTypeKey,
+                            kMediaGalleriesTypeAutoDetectedValue);
+          }
+          if (update_gallery_name)
+            dict->SetString(kMediaGalleriesDisplayNameKey, display_name);
           InitFromPrefs();
           break;
         }
@@ -344,7 +351,8 @@ MediaGalleryPrefIdSet MediaGalleriesPreferences::GalleriesForExtension(
     const extensions::Extension& extension) const {
   MediaGalleryPrefIdSet result;
 
-  if (MediaGalleriesPermission::HasAllGalleriesAccess(extension)) {
+  if (extension.HasAPIPermission(
+      APIPermission::kMediaGalleriesAllAutoDetected)) {
     for (MediaGalleriesPrefInfoMap::const_iterator it =
              known_galleries_.begin(); it != known_galleries_.end(); ++it) {
       if (it->second.type == MediaGalleryPrefInfo::kAutoDetected)
@@ -385,7 +393,7 @@ void MediaGalleriesPreferences::SetGalleryPermissionForExtension(
     return;
 
   bool all_permission =
-      MediaGalleriesPermission::HasAllGalleriesAccess(extension);
+      extension.HasAPIPermission(APIPermission::kMediaGalleriesAllAutoDetected);
   if (has_permission && all_permission) {
     if (gallery_info->second.type == MediaGalleryPrefInfo::kAutoDetected) {
       GetExtensionPrefs()->UnsetMediaGalleryPermission(extension.id(), pref_id);

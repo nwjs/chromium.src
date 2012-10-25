@@ -43,7 +43,16 @@ import zlib
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import echo_message
-from mod_pywebsocket.standalone import WebSocketServer
+
+# TODO(toyoshim): Some try bots for pyauto don't check out pywebsocket repos
+# unexpectedly. pyauto doesn't use WebSocket module, so just ignore
+# ImportError as a temporal workaround.
+# http://crbug.com/155918
+try:
+  from mod_pywebsocket.standalone import WebSocketServer
+except ImportError:
+  pass
+
 import pyftpdlib.ftpserver
 import tlslite
 import tlslite.api
@@ -84,10 +93,10 @@ class WebSocketOptions:
     self.allow_draft75 = False
     self.strict = True
 
-    # TODO(toyoshim): Support SSL and authenticates (http://crbug.com/137639)
     self.use_tls = False
     self.private_key = None
     self.certificate = None
+    self.tls_client_auth = False
     self.tls_client_ca = None
     self.use_basic_auth = False
 
@@ -1961,7 +1970,7 @@ class SyncPageHandler(BasePageHandler):
     return True;
 
 
-def MakeDataDir():
+def MakeDataDir(options):
   if options.data_dir:
     if not os.path.isdir(options.data_dir):
       print 'specified data dir not found: ' + options.data_dir + ' exiting...'
@@ -2154,10 +2163,7 @@ class FileMultiplexer:
     self.__fd2 = fd2
 
   def __del__(self) :
-    if self.__fd1 != sys.stdout and self.__fd1 != sys.stderr:
-      self.__fd1.close()
-    if self.__fd2 != sys.stdout and self.__fd2 != sys.stderr:
-      self.__fd2.close()
+    self.close()
 
   def write(self, text) :
     self.__fd1.write(text)
@@ -2166,6 +2172,13 @@ class FileMultiplexer:
   def flush(self) :
     self.__fd1.flush()
     self.__fd2.flush()
+
+  def close(self):
+    if self.__fd1 != sys.stdout and self.__fd1 != sys.stderr:
+      self.__fd1.close()
+    if self.__fd2 != sys.stdout and self.__fd2 != sys.stderr:
+      self.__fd2.close()
+
 
 def main(options, args):
   logfile = open('testserver.log', 'w')
@@ -2226,8 +2239,8 @@ def main(options, args):
 
       for ca_cert in options.ssl_client_ca:
         if not os.path.isfile(ca_cert):
-          print 'specified trusted client CA file not found: ' + ca_cert + \
-                ' exiting...'
+          print ('specified trusted client CA file not found: ' + ca_cert +
+                 ' exiting...')
           return
       server = HTTPSServer((host, port), TestPageHandler, pem_cert_and_key,
                            options.ssl_client_auth, options.ssl_client_ca,
@@ -2238,7 +2251,7 @@ def main(options, args):
       server = HTTPServer((host, port), TestPageHandler)
       print 'HTTP server started on %s:%d...' % (host, server.server_port)
 
-    server.data_dir = MakeDataDir()
+    server.data_dir = MakeDataDir(options)
     server.file_root_url = options.file_root_url
     server_data['port'] = server.server_port
     server._device_management_handler = None
@@ -2251,8 +2264,26 @@ def main(options, args):
     logger.addHandler(logging.StreamHandler())
     # TODO(toyoshim): Remove following os.chdir. Currently this operation
     # is required to work correctly. It should be fixed from pywebsocket side.
-    os.chdir(MakeDataDir())
-    server = WebSocketServer(WebSocketOptions(host, port, MakeDataDir()))
+    os.chdir(MakeDataDir(options))
+    websocket_options = WebSocketOptions(host, port, '.')
+    if options.cert_and_key_file:
+      websocket_options.use_tls = True
+      websocket_options.private_key = options.cert_and_key_file
+      websocket_options.certificate = options.cert_and_key_file
+    if options.ssl_client_auth:
+      websocket_options.tls_client_auth = True
+      if len(options.ssl_client_ca) != 1:
+        # TODO(toyoshim): Provide non-zero exit code for these error cases.
+        # Ditto on other paths here and there.
+        # http://crbug.com/156539
+        print 'one trusted client CA file should be specified'
+        return
+      if not os.path.isfile(options.ssl_client_ca[0]):
+        print ('specified trusted client CA file not found: ' +
+               options.ssl_client_ca[0] + ' exiting...')
+        return
+      websocket_options.tls_client_ca = options.ssl_client_ca[0]
+    server = WebSocketServer(websocket_options)
     print 'WebSocket server started on %s:%d...' % (host, server.server_port)
     server_data['port'] = server.server_port
   elif options.server_type == SERVER_SYNC:
@@ -2282,7 +2313,7 @@ def main(options, args):
     server_data['port'] = server.server_port
   # means FTP Server
   else:
-    my_data_dir = MakeDataDir()
+    my_data_dir = MakeDataDir(options)
 
     # Instantiate a dummy authorizer for managing 'virtual' users
     authorizer = pyftpdlib.ftpserver.DummyAuthorizer()

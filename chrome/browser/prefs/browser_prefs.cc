@@ -21,6 +21,7 @@
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_web_ui.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
+#include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/geolocation/geolocation_prefs.h"
 #include "chrome/browser/google/google_url_tracker.h"
 #include "chrome/browser/google/google_url_tracker_factory.h"
@@ -95,6 +96,8 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/audio/audio_handler.h"
 #include "chrome/browser/chromeos/customization_document.h"
+#include "chrome/browser/chromeos/display/display_preferences.h"
+#include "chrome/browser/chromeos/login/user_image_manager.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/login/wallpaper_manager.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
@@ -190,12 +193,14 @@ void RegisterLocalState(PrefService* local_state) {
 
 #if defined(OS_CHROMEOS)
   chromeos::AudioHandler::RegisterPrefs(local_state);
-  chromeos::language_prefs::RegisterPrefs(local_state);
   chromeos::DataPromoNotification::RegisterPrefs(local_state);
-  chromeos::ProxyConfigServiceImpl::RegisterPrefs(local_state);
-  chromeos::UserManager::RegisterPrefs(local_state);
-  chromeos::ServicesCustomizationDocument::RegisterPrefs(local_state);
   chromeos::device_settings_cache::RegisterPrefs(local_state);
+  chromeos::language_prefs::RegisterPrefs(local_state);
+  chromeos::ProxyConfigServiceImpl::RegisterPrefs(local_state);
+  chromeos::RegisterDisplayLocalStatePrefs(local_state);
+  chromeos::ServicesCustomizationDocument::RegisterPrefs(local_state);
+  chromeos::UserImageManager::RegisterPrefs(local_state);
+  chromeos::UserManager::RegisterPrefs(local_state);
   chromeos::WallpaperManager::RegisterPrefs(local_state);
   chromeos::WizardController::RegisterPrefs(local_state);
   policy::AutoEnrollmentClient::RegisterPrefs(local_state);
@@ -220,6 +225,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   extensions::ComponentLoader::RegisterUserPrefs(user_prefs);
   extensions::ExtensionPrefs::RegisterUserPrefs(user_prefs);
   ExtensionWebUI::RegisterUserPrefs(user_prefs);
+  first_run::RegisterUserPrefs(user_prefs);
   GAIAInfoUpdateService::RegisterUserPrefs(user_prefs);
   HostContentSettingsMap::RegisterUserPrefs(user_prefs);
   IncognitoModePrefs::RegisterUserPrefs(user_prefs);

@@ -247,6 +247,13 @@ IPC_MESSAGE_CONTROL5(IndexedDBMsg_CallbacksSuccessSerializedScriptValueWithKey,
                      content::SerializedScriptValue /* value */,
                      content::IndexedDBKey /* indexed_db_key */,
                      content::IndexedDBKeyPath /* indexed_db_keypath */)
+IPC_MESSAGE_CONTROL3(IndexedDBMsg_CallbacksSuccessInteger,
+                     int32 /* thread_id */,
+                     int32 /* response_id */,
+                     int64 /* value */)
+IPC_MESSAGE_CONTROL2(IndexedDBMsg_CallbacksSuccessUndefined,
+                     int32 /* thread_id */,
+                     int32 /* response_id */)
 IPC_MESSAGE_CONTROL3(IndexedDBMsg_CallbacksSuccessStringList,
                      int32 /* thread_id */,
                      int32 /* response_id */,
@@ -271,9 +278,11 @@ IPC_MESSAGE_CONTROL5(IndexedDBMsg_CallbacksUpgradeNeeded,
                      int64) /* old_version */
 
 // IDBTransactionCallback message handlers.
-IPC_MESSAGE_CONTROL2(IndexedDBMsg_TransactionCallbacksAbort,
+IPC_MESSAGE_CONTROL4(IndexedDBMsg_TransactionCallbacksAbort,
                      int32 /* thread_id */,
-                     int32 /* transaction_id */)
+                     int32 /* transaction_id */,
+                     int /* code */,
+                     string16 /* message */)
 IPC_MESSAGE_CONTROL2(IndexedDBMsg_TransactionCallbacksComplete,
                      int32 /* thread_id */,
                      int32 /* transaction_id */)

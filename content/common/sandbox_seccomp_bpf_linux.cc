@@ -48,6 +48,14 @@ inline bool IsChromeOS() {
 #endif
 }
 
+inline bool IsArchitectureArm() {
+#if defined(__arm__)
+  return true;
+#else
+  return false;
+#endif
+}
+
 intptr_t CrashSIGSYS_Handler(const struct arch_seccomp_data& args, void* aux) {
   int syscall = args.nr;
   if (syscall >= 1024)
@@ -1114,7 +1122,7 @@ bool IsArmPrivate(int sysno) {
 
 // End of the system call sets section.
 
-bool IsBaselinePolicyAllowed_x86_64(int sysno) {
+bool IsBaselinePolicyAllowed(int sysno) {
   if (IsAllowedAddressSpaceAccess(sysno) ||
       IsAllowedBasicScheduler(sysno) ||
       IsAllowedEpoll(sysno) ||
@@ -1139,8 +1147,8 @@ bool IsBaselinePolicyAllowed_x86_64(int sysno) {
   }
 }
 
-// System calls that will trigger the crashing sigsys handler.
-bool IsBaselinePolicyWatched_x86_64(int sysno) {
+// System calls that will trigger the crashing SIGSYS handler.
+bool IsBaselinePolicyWatched(int sysno) {
   if (IsAdminOperation(sysno) ||
       IsAdvancedScheduler(sysno) ||
       IsAdvancedTimer(sysno) ||
@@ -1185,9 +1193,9 @@ bool IsBaselinePolicyWatched_x86_64(int sysno) {
   }
 }
 
-// x86_64 only for now. Needs to be adapted and tested for i386.
-ErrorCode BaselinePolicy_x86_64(int sysno) {
-  if (IsBaselinePolicyAllowed_x86_64(sysno)) {
+// x86_64 and ARM for now. Needs to be adapted and tested for i386.
+ErrorCode BaselinePolicy(int sysno) {
+  if (IsBaselinePolicyAllowed(sysno)) {
     return ErrorCode(ErrorCode::ERR_ALLOWED);
   }
   // TODO(jln): some system calls in those sets are not supposed to
@@ -1201,7 +1209,7 @@ ErrorCode BaselinePolicy_x86_64(int sysno) {
     return ErrorCode(EPERM);
   }
 
-  if (IsBaselinePolicyWatched_x86_64(sysno)) {
+  if (IsBaselinePolicyWatched(sysno)) {
     // Previously unseen syscalls. TODO(jln): some of these should
     // be denied gracefully right away.
     return Sandbox::Trap(CrashSIGSYS_Handler, NULL);
@@ -1210,7 +1218,7 @@ ErrorCode BaselinePolicy_x86_64(int sysno) {
   return Sandbox::Trap(CrashSIGSYS_Handler, NULL);
 }
 
-// x86_64 only for now. Needs to be adapted and tested for i386.
+// x86_64 only for now. Needs to be adapted and tested for i386/ARM.
 ErrorCode GpuProcessPolicy_x86_64(int sysno) {
   switch(sysno) {
     case __NR_ioctl:
@@ -1235,7 +1243,7 @@ ErrorCode GpuProcessPolicy_x86_64(int sysno) {
         return ErrorCode(ErrorCode::ERR_ALLOWED);
 
       // Default on the baseline policy.
-      return BaselinePolicy_x86_64(sysno);
+      return BaselinePolicy(sysno);
   }
 }
 
@@ -1268,12 +1276,12 @@ ErrorCode RendererOrWorkerProcessPolicy_x86_64(int sysno) {
 #endif
 
       // Default on the baseline policy.
-      return BaselinePolicy_x86_64(sysno);
+      return BaselinePolicy(sysno);
   }
 }
 
-// x86_64 only for now. Needs to be adapted and tested for i386.
-ErrorCode FlashProcessPolicy_x86_64(int sysno) {
+// x86_64 and ARM for now. Needs to be adapted and tested for i386.
+ErrorCode FlashProcessPolicy(int sysno) {
   switch (sysno) {
     case __NR_sched_getaffinity:
     case __NR_sched_setscheduler:
@@ -1290,13 +1298,12 @@ ErrorCode FlashProcessPolicy_x86_64(int sysno) {
 #endif
 
       // Default on the baseline policy.
-      return BaselinePolicy_x86_64(sysno);
+      return BaselinePolicy(sysno);
   }
 }
 
 ErrorCode BlacklistDebugAndNumaPolicy(int sysno) {
-  if (sysno < static_cast<int>(MIN_SYSCALL) ||
-      sysno > static_cast<int>(MAX_SYSCALL)) {
+  if (!Sandbox::isValidSyscallNumber(sysno)) {
     // TODO(jln) we should not have to do that in a trivial policy.
     return ErrorCode(ENOSYS);
   }
@@ -1311,8 +1318,7 @@ ErrorCode BlacklistDebugAndNumaPolicy(int sysno) {
 // This will still deny x32 or IA32 calls in 64 bits mode or
 // 64 bits system calls in compatibility mode.
 ErrorCode AllowAllPolicy(int sysno) {
-  if (sysno < static_cast<int>(MIN_SYSCALL) ||
-      sysno > static_cast<int>(MAX_SYSCALL)) {
+  if (!Sandbox::isValidSyscallNumber(sysno)) {
     // TODO(jln) we should not have to do that in a trivial policy.
     return ErrorCode(ENOSYS);
   } else {
@@ -1340,10 +1346,12 @@ void WarmupPolicy(Sandbox::EvaluateSyscall policy) {
 Sandbox::EvaluateSyscall GetProcessSyscallPolicy(
     const CommandLine& command_line,
     const std::string& process_type) {
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__arm__)
   if (process_type == switches::kGpuProcess) {
     // On Chrome OS, --enable-gpu-sandbox enables the more restrictive policy.
-    if (IsChromeOS() && !command_line.HasSwitch(switches::kEnableGpuSandbox))
+    // However, we never enable the more restrictive GPU process policy on ARM.
+    if (IsArchitectureArm() ||
+        (IsChromeOS() && !command_line.HasSwitch(switches::kEnableGpuSandbox)))
       return BlacklistDebugAndNumaPolicy;
     else
       return GpuProcessPolicy_x86_64;
@@ -1352,12 +1360,15 @@ Sandbox::EvaluateSyscall GetProcessSyscallPolicy(
   if (process_type == switches::kPpapiPluginProcess) {
     // TODO(jln): figure out what to do with non-Flash PPAPI
     // out-of-process plug-ins.
-    return FlashProcessPolicy_x86_64;
+    return FlashProcessPolicy;
   }
 
   if (process_type == switches::kRendererProcess ||
       process_type == switches::kWorkerProcess) {
-    return RendererOrWorkerProcessPolicy_x86_64;
+    if (IsArchitectureArm())
+      return BlacklistDebugAndNumaPolicy;
+    else
+      return RendererOrWorkerProcessPolicy_x86_64;
   }
 
   if (process_type == switches::kUtilityProcess) {
@@ -1368,11 +1379,11 @@ Sandbox::EvaluateSyscall GetProcessSyscallPolicy(
   // This will be our default if we need one.
   return AllowAllPolicy;
 #else
-  // On other architectures (currently IA32 or ARM),
+  // On other architectures (currently IA32),
   // we only have a small blacklist at the moment.
   (void) process_type;
   return BlacklistDebugAndNumaPolicy;
-#endif  // __x86_64__
+#endif  // __x86_64__ || __arm__
 }
 
 // Initialize the seccomp-bpf sandbox.
@@ -1410,17 +1421,12 @@ bool SandboxSeccompBpf::IsSeccompBpfDesired() {
 bool SandboxSeccompBpf::ShouldEnableSeccompBpf(
     const std::string& process_type) {
 #if defined(SECCOMP_BPF_SANDBOX)
-#if defined(__arm__)
-  // We disable the sandbox on ARM for now until crbug.com/148856 is fixed.
-  return false;
-#else
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   if (process_type == switches::kGpuProcess)
     return !command_line.HasSwitch(switches::kDisableGpuSandbox);
 
   return true;
-#endif  // __arm__
-#endif  // process_type
+#endif  // SECCOMP_BPF_SANDBOX
   return false;
 }
 

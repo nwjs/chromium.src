@@ -152,7 +152,7 @@ gfx::Size SubmenuView::GetPreferredSize() {
   }
   if (max_accelerator_width_ > 0) {
     max_accelerator_width_ +=
-        MenuConfig::instance().label_to_accelerator_padding;
+        GetMenuItem()->GetMenuConfig().label_to_accelerator_padding;
   }
   gfx::Insets insets = GetInsets();
   return gfx::Size(
@@ -338,6 +338,8 @@ void SubmenuView::Close() {
 void SubmenuView::Hide() {
   if (host_)
     host_->HideMenuHost();
+  if (scroll_animator_->is_scrolling())
+    scroll_animator_->Stop();
 }
 
 void SubmenuView::ReleaseCapture() {

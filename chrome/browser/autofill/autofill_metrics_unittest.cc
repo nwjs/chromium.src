@@ -306,6 +306,11 @@ void AutofillMetricsTest::SetUp() {
 }
 
 void AutofillMetricsTest::TearDown() {
+  // Order of destruction is important as AutofillManager relies on
+  // PersonalDataManager to be around when it gets destroyed. Also, a real
+  // AutofillManager is tied to the lifetime of the WebContents, so it must
+  // be destroyed at the destruction of the WebContents.
+  autofill_manager_ = NULL;
   file_thread_.Stop();
   TabContentsTestHarness::TearDown();
 }
@@ -320,7 +325,7 @@ AutofillCCInfoBarDelegate* AutofillMetricsTest::CreateDelegate(
   if (created_card)
     *created_card = credit_card;
   return new AutofillCCInfoBarDelegate(
-      InfoBarService::FromTabContents(tab_contents()),
+      InfoBarService::FromWebContents(web_contents()),
       credit_card,
       &personal_data_,
       metric_logger);

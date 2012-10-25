@@ -476,7 +476,12 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
                     "Native Client in about:flags."));
             placeholder = PluginPlaceholder::CreateBlockedPlugin(
                 render_view, frame, params, plugin, identifier, group_name,
-                IDR_BLOCKED_PLUGIN_HTML, IDS_PLUGIN_BLOCKED);
+                IDR_BLOCKED_PLUGIN_HTML,
+#if defined(OS_CHROMEOS)
+                l10n_util::GetStringUTF16(IDS_NACL_PLUGIN_BLOCKED));
+#else
+                l10n_util::GetStringFUTF16(IDS_PLUGIN_BLOCKED, group_name));
+#endif
             break;
           }
         }
@@ -488,7 +493,8 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
         if (prerender::PrerenderHelper::IsPrerendering(render_view)) {
           placeholder = PluginPlaceholder::CreateBlockedPlugin(
               render_view, frame, params, plugin, identifier, group_name,
-              IDR_CLICK_TO_PLAY_PLUGIN_HTML, IDS_PLUGIN_LOAD);
+              IDR_CLICK_TO_PLAY_PLUGIN_HTML,
+              l10n_util::GetStringFUTF16(IDS_PLUGIN_LOAD, group_name));
           placeholder->set_blocked_for_prerendering(true);
           placeholder->set_allow_loading(true);
           break;
@@ -499,14 +505,16 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
       case ChromeViewHostMsg_GetPluginInfo_Status::kDisabled: {
         placeholder = PluginPlaceholder::CreateBlockedPlugin(
             render_view, frame, params, plugin, identifier, group_name,
-            IDR_DISABLED_PLUGIN_HTML, IDS_PLUGIN_DISABLED);
+            IDR_DISABLED_PLUGIN_HTML,
+            l10n_util::GetStringFUTF16(IDS_PLUGIN_DISABLED, group_name));
         break;
       }
       case ChromeViewHostMsg_GetPluginInfo_Status::kOutdatedBlocked: {
 #if defined(ENABLE_PLUGIN_INSTALLATION)
         placeholder = PluginPlaceholder::CreateBlockedPlugin(
             render_view, frame, params, plugin, identifier, group_name,
-            IDR_BLOCKED_PLUGIN_HTML, IDS_PLUGIN_OUTDATED);
+            IDR_BLOCKED_PLUGIN_HTML,
+            l10n_util::GetStringFUTF16(IDS_PLUGIN_OUTDATED, group_name));
         placeholder->set_allow_loading(true);
         render_view->Send(new ChromeViewHostMsg_BlockedOutdatedPlugin(
             render_view->GetRoutingID(), placeholder->CreateRoutingId(),
@@ -519,13 +527,15 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
       case ChromeViewHostMsg_GetPluginInfo_Status::kOutdatedDisallowed: {
         placeholder = PluginPlaceholder::CreateBlockedPlugin(
             render_view, frame, params, plugin, identifier, group_name,
-            IDR_BLOCKED_PLUGIN_HTML, IDS_PLUGIN_OUTDATED);
+            IDR_BLOCKED_PLUGIN_HTML,
+            l10n_util::GetStringFUTF16(IDS_PLUGIN_OUTDATED, group_name));
         break;
       }
       case ChromeViewHostMsg_GetPluginInfo_Status::kUnauthorized: {
         placeholder = PluginPlaceholder::CreateBlockedPlugin(
             render_view, frame, params, plugin, identifier, group_name,
-            IDR_BLOCKED_PLUGIN_HTML, IDS_PLUGIN_NOT_AUTHORIZED);
+            IDR_BLOCKED_PLUGIN_HTML,
+            l10n_util::GetStringFUTF16(IDS_PLUGIN_NOT_AUTHORIZED, group_name));
         placeholder->set_allow_loading(true);
         render_view->Send(new ChromeViewHostMsg_BlockedUnauthorizedPlugin(
             render_view->GetRoutingID(),
@@ -536,7 +546,8 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
       case ChromeViewHostMsg_GetPluginInfo_Status::kClickToPlay: {
         placeholder = PluginPlaceholder::CreateBlockedPlugin(
             render_view, frame, params, plugin, identifier, group_name,
-            IDR_CLICK_TO_PLAY_PLUGIN_HTML, IDS_PLUGIN_LOAD);
+            IDR_CLICK_TO_PLAY_PLUGIN_HTML,
+            l10n_util::GetStringFUTF16(IDS_PLUGIN_LOAD, group_name));
         placeholder->set_allow_loading(true);
         RenderThread::Get()->RecordUserMetrics("Plugin_ClickToPlay");
         observer->DidBlockContentType(content_type, identifier);
@@ -545,7 +556,8 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
       case ChromeViewHostMsg_GetPluginInfo_Status::kBlocked: {
         placeholder = PluginPlaceholder::CreateBlockedPlugin(
             render_view, frame, params, plugin, identifier, group_name,
-            IDR_BLOCKED_PLUGIN_HTML, IDS_PLUGIN_BLOCKED);
+            IDR_BLOCKED_PLUGIN_HTML,
+            l10n_util::GetStringFUTF16(IDS_PLUGIN_BLOCKED, group_name));
         placeholder->set_allow_loading(true);
         RenderThread::Get()->RecordUserMetrics("Plugin_Blocked");
         observer->DidBlockContentType(content_type, identifier);
@@ -579,6 +591,19 @@ GURL ChromeContentRendererClient::GetNaClContentHandlerURL(
   return GURL();
 }
 
+// TODO(dschuff): remove this when ARM ABI is stable
+#if defined(__arm__) && defined(OS_CHROMEOS)
+static bool IsWhiteListedARM(const GURL& url) {
+  return
+    // QuickOffice
+    url.host() == "gbkeegbaiigmenfmjfclcdgdpimamgkj" ||
+    // ssh dev
+    url.host() == "okddffdblfhhnmhodogpojmfkjmhinfp" ||
+    // ssh stable
+    url.host() == "pnhechapfaindjhompbnflcldabbghjo";
+}
+#endif
+
 //  static
 bool ChromeContentRendererClient::IsNaClAllowed(
     const GURL& manifest_url,
@@ -599,15 +624,15 @@ bool ChromeContentRendererClient::IsNaClAllowed(
   // under development, invocations from whitelisted URLs, and all invocations
   // if --enable-nacl is set.
   bool is_nacl_allowed =
-#if defined(__arm__)
+#if defined(__arm__) && defined(OS_CHROMEOS)
     // The ARM ABI is not quite stable, so only allow NaCl for
     // unrestricted extensions (i.e. built-in and under development),
-    // and for the QuickOffice webstore app.
+    // and for certain whitelisted webstore apps.
     // See http://crbug.com/145694
     // TODO(dschuff): remove this when the ABI is stable
     (is_extension_from_webstore &&
      manifest_url.SchemeIs("chrome-extension") &&
-     manifest_url.host() == "gbkeegbaiigmenfmjfclcdgdpimamgkj") ||
+     IsWhiteListedARM(manifest_url)) ||
 #else
     is_extension_from_webstore ||
     is_whitelisted_url ||
@@ -797,7 +822,7 @@ bool ChromeContentRendererClient::WillSendRequest(WebKit::WebFrame* frame,
           frame,
           transition_type,
           extension_dispatcher_->extensions())) {
-    *new_url = GURL("chrome-extension://invalid/");
+    *new_url = GURL(chrome::kExtensionInvalidRequestURL);
     return true;
 
   }
@@ -806,7 +831,7 @@ bool ChromeContentRendererClient::WillSendRequest(WebKit::WebFrame* frame,
       !extensions::ResourceRequestPolicy::CanRequestExtensionResourceScheme(
           url,
           frame)) {
-    *new_url = GURL("chrome-extension-resource://invalid/");
+    *new_url = GURL(chrome::kExtensionResourceInvalidRequestURL);
     return true;
   }
 

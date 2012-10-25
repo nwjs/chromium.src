@@ -22,6 +22,7 @@
 #include "chrome/browser/signin/signin_manager.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/sync/profile_sync_service.h"
+#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/tab_contents/tab_util.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -72,9 +73,7 @@ bool IsGaiaSignonRealm(const GURL& url) {
   if (!url.SchemeIsSecure())
     return false;
 
-  // Also check "https://www.google.com" to support old style dasher logins.
-  return url == GURL(GaiaUrls::GetInstance()->gaia_origin_url()) ||
-      url == GURL("https://www.google.com/");
+  return url == GURL(GaiaUrls::GetInstance()->gaia_origin_url());
 }
 
 }  // namespace
@@ -318,6 +317,21 @@ bool OneClickSigninHelper::CanOffer(content::WebContents* web_contents,
           return false;
       }
     }
+
+    // If we're about to show a one-click infobar but the user has started
+    // a concurrent signin flow (perhaps via the promo), we may not have yet
+    // established an authenticated username but we still shouldn't move
+    // forward with two simultaneous signin processes.  This is a bit
+    // contentious as the one-click flow is a much smoother flow from the user
+    // perspective, but it's much more difficult to hijack the other flow from
+    // here as it is to bail.
+    ProfileSyncService* service =
+        ProfileSyncServiceFactory::GetForProfile(profile);
+    if (!service)
+      return false;
+
+    if (service->FirstSetupInProgress())
+      return false;
   }
 
   return true;
@@ -416,10 +430,11 @@ void OneClickSigninHelper::DidStopLoading(
   if (email_.empty() || password_.empty())
     return;
 
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents());
+  InfoBarTabHelper* infobar_tab_helper =
+      InfoBarTabHelper::FromWebContents(web_contents());
 
-  tab_contents->infobar_tab_helper()->AddInfoBar(
-      new OneClickInfoBarDelegateImpl(tab_contents->infobar_tab_helper(),
+  infobar_tab_helper->AddInfoBar(
+      new OneClickInfoBarDelegateImpl(infobar_tab_helper,
                                       session_index_, email_, password_));
 
   email_.clear();

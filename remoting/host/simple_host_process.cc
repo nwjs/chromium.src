@@ -23,7 +23,6 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/file_path.h"
-#include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
 #include "base/string_number_conversions.h"
@@ -37,6 +36,7 @@
 #include "remoting/host/audio_capturer.h"
 #include "remoting/host/chromoting_host_context.h"
 #include "remoting/host/chromoting_host.h"
+#include "remoting/host/client_session.h"
 #include "remoting/host/desktop_environment.h"
 #include "remoting/host/desktop_environment.h"
 #include "remoting/host/desktop_environment_factory.h"
@@ -49,6 +49,7 @@
 #include "remoting/host/host_secret.h"
 #include "remoting/host/it2me_host_user_interface.h"
 #include "remoting/host/json_host_config.h"
+#include "remoting/host/logging.h"
 #include "remoting/host/log_to_server.h"
 #include "remoting/host/network_settings.h"
 #include "remoting/host/register_support_host_request.h"
@@ -102,7 +103,7 @@ class FakeDesktopEnvironmentFactory : public DesktopEnvironmentFactory {
   FakeDesktopEnvironmentFactory();
   virtual ~FakeDesktopEnvironmentFactory();
 
-  virtual scoped_ptr<DesktopEnvironment> Create() OVERRIDE;
+  virtual scoped_ptr<DesktopEnvironment> Create(ClientSession* client) OVERRIDE;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(FakeDesktopEnvironmentFactory);
@@ -115,7 +116,8 @@ class FakeDesktopEnvironmentFactory : public DesktopEnvironmentFactory {
 FakeDesktopEnvironmentFactory::~FakeDesktopEnvironmentFactory() {
 }
 
-scoped_ptr<DesktopEnvironment> FakeDesktopEnvironmentFactory::Create() {
+scoped_ptr<DesktopEnvironment> FakeDesktopEnvironmentFactory::Create(
+    ClientSession* client) {
   scoped_ptr<VideoFrameCapturer> capturer(new VideoFrameCapturerFake());
   scoped_ptr<EventExecutor> event_executor(new EventExecutorFake());
   return scoped_ptr<DesktopEnvironment>(new DesktopEnvironment(
@@ -284,6 +286,7 @@ class SimpleHost : public HeartbeatSender::Listener {
       it2me_host_user_interface_.reset(
           new It2MeHostUserInterface(context_.network_task_runner(),
                                      context_.ui_task_runner()));
+      it2me_host_user_interface_->Init();
       it2me_host_user_interface_->Start(
           host_,
           base::Bind(&ChromotingHost::Shutdown, host_, base::Closure()));
@@ -389,18 +392,7 @@ int main(int argc, char** argv) {
 
   base::AtExitManager exit_manager;
 
-  // Initialize logging with an appropriate log-file location, and default to
-  // log to that on Windows, or to standard error output otherwise.
-  FilePath debug_log(FILE_PATH_LITERAL("debug.log"));
-  InitLogging(debug_log.value().c_str(),
-#if defined(OS_WIN)
-              logging::LOG_ONLY_TO_FILE,
-#else
-              logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-#endif
-              logging::DONT_LOCK_LOG_FILE,
-              logging::APPEND_TO_OLD_LOG_FILE,
-              logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+  remoting::InitHostLogging();
 
 #if defined(TOOLKIT_GTK)
   gfx::GtkInitFromCommandLine(*cmd_line);

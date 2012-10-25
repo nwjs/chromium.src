@@ -28,7 +28,7 @@
 #include "ui/aura/window.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
+#include "chrome/browser/chromeos/drive/drive_file_system_util.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #endif
 
@@ -73,9 +73,9 @@ void SaveScreenshot(const FilePath& screenshot_path,
 // TODO(kinaba): crbug.com/140425, remove this ungly #ifdef dispatch.
 #ifdef OS_CHROMEOS
 void SaveScreenshotToDrive(scoped_refptr<base::RefCountedBytes> png_data,
-                           gdata::DriveFileError error,
+                           drive::DriveFileError error,
                            const FilePath& local_path) {
-  if (error != gdata::DRIVE_FILE_OK) {
+  if (error != drive::DRIVE_FILE_OK) {
     LOG(ERROR) << "Failed to write screenshot image to Google Drive: " << error;
     return;
   }
@@ -86,12 +86,12 @@ void EnsureDirectoryExistsCallback(
     Profile* profile,
     const FilePath& screenshot_path,
     scoped_refptr<base::RefCountedBytes> png_data,
-    gdata::DriveFileError error) {
+    drive::DriveFileError error) {
   // It is okay to fail with DRIVE_FILE_ERROR_EXISTS since anyway the directory
   // of the target file exists.
-  if (error == gdata::DRIVE_FILE_OK ||
-      error == gdata::DRIVE_FILE_ERROR_EXISTS) {
-    gdata::util::PrepareWritableFileAndRun(
+  if (error == drive::DRIVE_FILE_OK ||
+      error == drive::DRIVE_FILE_ERROR_EXISTS) {
+    drive::util::PrepareWritableFileAndRun(
         profile,
         screenshot_path,
         base::Bind(&SaveScreenshotToDrive, png_data));
@@ -103,10 +103,10 @@ void EnsureDirectoryExistsCallback(
 
 void PostSaveScreenshotTask(const FilePath& screenshot_path,
                             scoped_refptr<base::RefCountedBytes> png_data) {
-  if (gdata::util::IsUnderDriveMountPoint(screenshot_path)) {
+  if (drive::util::IsUnderDriveMountPoint(screenshot_path)) {
     Profile* profile = ProfileManager::GetDefaultProfileOrOffTheRecord();
     if (profile) {
-      gdata::util::EnsureDirectoryExists(
+      drive::util::EnsureDirectoryExists(
           profile,
           screenshot_path.DirName(),
           base::Bind(&EnsureDirectoryExistsCallback,

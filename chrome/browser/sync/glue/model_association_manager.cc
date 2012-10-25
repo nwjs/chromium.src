@@ -37,6 +37,8 @@ namespace {
 
 static const syncer::ModelType kStartOrder[] = {
   syncer::NIGORI,               //  Listed for completeness.
+  syncer::DEVICE_INFO,          //  Listed for completeness.
+  syncer::EXPERIMENTS,          //  Listed for completeness.
   syncer::BOOKMARKS,            //  UI thread datatypes.
   syncer::PREFERENCES,
   syncer::EXTENSIONS,
@@ -51,6 +53,7 @@ static const syncer::ModelType kStartOrder[] = {
   syncer::APP_SETTINGS,
   syncer::TYPED_URLS,
   syncer::PASSWORDS,
+  syncer::HISTORY_DELETE_DIRECTIVES,
 };
 
 COMPILE_ASSERT(arraysize(kStartOrder) ==

@@ -11,11 +11,11 @@
 #include "base/debug/leak_tracker.h"
 #include "base/lazy_instance.h"
 #include "base/path_service.h"
+#include "base/prefs/public/pref_change_registrar.h"
 #include "base/stl_util.h"
 #include "base/string_util.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
-#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/net/sqlite_persistent_cookie_store.h"
@@ -311,7 +311,7 @@ void SafeBrowsingService::ShutDown() {
   download_service_.reset();
 
   url_request_context_getter_ = NULL;
-  BrowserThread::PostTask(
+  BrowserThread::PostNonNestableTask(
       BrowserThread::IO, FROM_HERE,
       base::Bind(&SafeBrowsingService::DestroyURLRequestContextOnIOThread,
                  this));

@@ -130,11 +130,8 @@ class NativeTestApkGenerator(object):
         logging.warn('%s --> %s', jar, dest)
         shutil.copyfile(jar, dest)
 
-  def CreateBundle(self, sdk_build):
+  def CreateBundle(self):
     """Create the apk bundle source and assemble components."""
-    if not sdk_build:
-      self._SOURCE_FILES.append('Android.mk')
-      self._REPLACEME_FILES.append('Android.mk')
     self._CopyTemplateFilesAndClearDir()
     self._ReplaceStrings()
     self._CopyLibraryAndJars()
@@ -159,17 +156,6 @@ class NativeTestApkGenerator(object):
       logging.error('Ant return code %d', p.returncode)
       sys.exit(p.returncode)
 
-  def CompileAndroidMk(self):
-    """Build the generated apk within Android source tree using Android.mk."""
-    try:
-      import compile_android_mk  # pylint: disable=F0401
-    except:
-      raise AssertionError('Not in Android source tree. '
-                           'Please use --sdk-build.')
-    compile_android_mk.CompileAndroidMk(self._native_library,
-                                        self._output_directory)
-
-
 def main(argv):
   parser = optparse.OptionParser()
   parser.add_option('--verbose',
@@ -184,10 +170,6 @@ def main(argv):
                     help='ABI for native shared library')
   parser.add_option('--strip-binary',
                     help='Binary to use for stripping the native libraries.')
-  parser.add_option('--sdk-build', type='int', default=1,
-                    help='Unless set to 0, build the generated apk with ant. '
-                         'Otherwise assume compiling within the Android '
-                         'source tree using Android.mk.')
   parser.add_option('--ant-args', action='append',
                     help='extra args for ant')
 
@@ -217,13 +199,8 @@ def main(argv):
                                 strip_binary=options.strip_binary,
                                 output_directory=options.output,
                                 target_abi=options.app_abi)
-  ntag.CreateBundle(options.sdk_build)
-
-  if options.sdk_build:
-    ntag.Compile(options.ant_args)
-  else:
-    ntag.CompileAndroidMk()
-
+  ntag.CreateBundle()
+  ntag.Compile(options.ant_args)
   logging.warn('COMPLETE.')
 
 if __name__ == '__main__':

@@ -863,8 +863,9 @@
             "parameters": [
               {
                 "name" : "sizeStats",
+                "optional": true,
                 "$ref": "MountPointSizeStats",
-                "description": "Name/value pairs of size stats."
+                "description": "Name/value pairs of size stats. Will be undefined if stats could not be determined."
               }
             ]
           }
@@ -904,8 +905,8 @@
         ]
       },
       {
-        "name": "getGDataPreferences",
-        "description": "Retrieves GData-related preferences .",
+        "name": "getPreferences",
+        "description": "Retrieves file manager preferences .",
         "parameters": [
           {
             "name": "callback",
@@ -917,7 +918,8 @@
                 "properties": {
                   "driveEnabled": {"type":"boolean"},
                   "cellularDisabled": {"type":"boolean"},
-                  "hostedFilesDisabled": {"type":"boolean"}
+                  "hostedFilesDisabled": {"type":"boolean"},
+                  "use24hourClock": {"type":"boolean"}
                 }
               }
             ]
@@ -925,8 +927,8 @@
         ]
       },
       {
-        "name": "setGDataPreferences",
-        "description": "Sets GData-related preferences.",
+        "name": "setPreferences",
+        "description": "Sets file manager preferences.",
         "parameters": [
           {
             "name": "changeInfo",
@@ -1075,9 +1077,9 @@
         ]
       },
       {
-        "name": "onGDataPreferencesChanged",
+        "name": "onPreferencesChanged",
         "type": "function",
-        "description": "Fired when GData-related preferences change. The preferences can be retrieved via 'getGDataPreferences'.",
+        "description": "Fired when file manager preferences change. The preferences can be retrieved via 'getPreferences'.",
         "parameters": []
       },
       {

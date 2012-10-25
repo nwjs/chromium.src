@@ -18,6 +18,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/extensions/crx_installer.h"
+#include "chrome/browser/extensions/extension_action_manager.h"
 #include "chrome/browser/extensions/extension_disabled_ui.h"
 #include "chrome/browser/extensions/extension_error_reporter.h"
 #include "chrome/browser/extensions/extension_host.h"
@@ -44,6 +45,7 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/extension_set.h"
+#include "chrome/common/extensions/feature_switch.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/notification_service.h"
@@ -144,6 +146,26 @@ DictionaryValue* ExtensionSettingsHandler::CreateExtensionDetailValue(
   extension_data->SetBoolean("homepageProvided",
                              extension->GetHomepageURL().is_valid());
 
+  string16 automatically_disabled_text;
+  int disable_reasons =
+      extension_service_->extension_prefs()->GetDisableReasons(extension->id());
+  if ((disable_reasons & Extension::DISABLE_SIDELOAD_WIPEOUT) != 0) {
+    automatically_disabled_text = l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SIDELOAD_WIPEOUT_AUTOMATIC_DISABLE);
+  }
+  extension_data->SetString("disableReason", automatically_disabled_text);
+
+  string16 location_text;
+  if (extension->location() == Extension::INTERNAL &&
+      !extension->from_webstore()) {
+    location_text = l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SIDELOAD_WIPEOUT_DISABLE_REASON_UNKNOWN);
+  } else if (extension->location() == Extension::EXTERNAL_REGISTRY) {
+    location_text = l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SIDELOAD_WIPEOUT_DISABLE_REASON_3RD_PARTY);
+  }
+  extension_data->SetString("locationText", location_text);
+
   // Determine the sort order: Extensions loaded through --load-extensions show
   // up at the top. Disabled extensions show up at the bottom.
   if (extension->location() == Extension::LOAD)
@@ -174,8 +196,12 @@ DictionaryValue* ExtensionSettingsHandler::CreateExtensionDetailValue(
     views->Append(view_value);
   }
   extension_data->Set("views", views);
-  extension_data->SetBoolean("hasPopupAction",
-      extension->browser_action() || extension->page_action());
+  extensions::ExtensionActionManager* extension_action_manager =
+      extensions::ExtensionActionManager::Get(extension_service_->profile());
+  extension_data->SetBoolean(
+      "hasPopupAction",
+      extension_action_manager->GetBrowserAction(*extension) ||
+      extension_action_manager->GetPageAction(*extension));
 
   // Add warnings.
   if (warnings_set) {
@@ -279,6 +305,12 @@ void ExtensionSettingsHandler::GetLocalizedValues(
      l10n_util::GetStringUTF16(IDS_EXTENSIONS_POLICY_CONTROLLED));
   localized_strings->SetString("extensionSettingsManagedMode",
      l10n_util::GetStringUTF16(IDS_EXTENSIONS_LOCKED_MANAGED_MODE));
+  localized_strings->SetString("extensionSettingsSideloadWipeout",
+      l10n_util::GetStringUTF16(IDS_OPTIONS_SIDELOAD_WIPEOUT_BANNER));
+  localized_strings->SetString("sideloadWipeoutUrl",
+      chrome::kSideloadWipeoutHelpURL);
+  localized_strings->SetString("sideloadWipoutLearnMore",
+      l10n_util::GetStringUTF16(IDS_LEARN_MORE));
   localized_strings->SetString("extensionSettingsShowButton",
       l10n_util::GetStringUTF16(IDS_EXTENSIONS_SHOW_BUTTON));
   localized_strings->SetString("extensionSettingsLoadUnpackedButton",
@@ -518,11 +550,19 @@ void ExtensionSettingsHandler::HandleRequestExtensionsData(
     results.SetBoolean("developerMode", false);
   } else {
     results.SetBoolean("managedMode", false);
-  Profile* profile = Profile::FromWebUI(web_ui());
-  bool developer_mode =
-      profile->GetPrefs()->GetBoolean(prefs::kExtensionsUIDeveloperMode);
-  results.SetBoolean("developerMode", developer_mode);
+    Profile* profile = Profile::FromWebUI(web_ui());
+    bool developer_mode =
+        profile->GetPrefs()->GetBoolean(prefs::kExtensionsUIDeveloperMode);
+    results.SetBoolean("developerMode", developer_mode);
   }
+
+  // Check to see if we have any wiped out extensions.
+  Profile* profile = Profile::FromWebUI(web_ui());
+  ExtensionService* extension_service =
+      extensions::ExtensionSystem::Get(profile)->extension_service();
+  scoped_ptr<const ExtensionSet> wiped_out(
+      extension_service->GetWipedOutExtensions());
+  results.SetBoolean("showDisabledExtensionsWarning", wiped_out->size() > 0);
 
   bool load_unpacked_disabled =
       extension_service_->extension_prefs()->ExtensionsBlacklistedByDefault();
@@ -611,10 +651,8 @@ void ExtensionSettingsHandler::HandleEnableMessage(const ListValue* args) {
   if (enable_str == "true") {
     extensions::ExtensionPrefs* prefs = extension_service_->extension_prefs();
     if (prefs->DidExtensionEscalatePermissions(extension_id)) {
-      Browser* browser = browser::FindBrowserWithWebContents(
-          web_ui()->GetWebContents());
       extensions::ShowExtensionDisabledDialog(
-          extension_service_, browser, extension);
+          extension_service_, web_ui()->GetWebContents(), extension);
     } else if ((prefs->GetDisableReasons(extension_id) &
                    Extension::DISABLE_UNSUPPORTED_REQUIREMENT) &&
                !requirements_checker_.get()) {

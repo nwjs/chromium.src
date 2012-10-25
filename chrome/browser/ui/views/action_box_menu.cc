@@ -12,14 +12,9 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/controls/button/menu_button.h"
+#include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/view.h"
-
-#if defined(OS_WIN) && !defined(USE_AURA)
-// Included for MENU_POPUPITEM and a few other Windows specific constants.
-#include <vssym32.h>
-#include "ui/base/native_theme/native_theme_win.h"
-#endif
 
 // static
 scoped_ptr<ActionBoxMenu> ActionBoxMenu::Create(
@@ -52,35 +47,17 @@ ActionBoxMenu::ActionBoxMenu(Browser* browser,
       model_(model.Pass()) {
   views::MenuItemView* menu = new views::MenuItemView(this);
   menu->set_has_icons(true);
+
+  views::MenuConfig* menu_config = new views::MenuConfig();
+  CustomizeMenu(menu_config);
+  // |menu| will own MenuConfig
+  menu->set_menu_config(menu_config);
+
   menu_runner_.reset(new views::MenuRunner(menu));
 }
 
 void ActionBoxMenu::ExecuteCommand(int id) {
   model_->ExecuteCommand(id);
-}
-
-views::Border* ActionBoxMenu::CreateMenuBorder() {
-  // TODO(yefim): Use correct theme color on non-Windows.
-  SkColor border_color = SK_ColorBLACK;
-#if defined(OS_WIN) && !defined(USE_AURA)
-  // TODO(yefim): Move to Windows only files if possible.
-  border_color = ui::NativeThemeWin::instance()->GetThemeColorWithDefault(
-      ui::NativeThemeWin::MENU, MENU_POPUPITEM, MPI_NORMAL, TMT_TEXTCOLOR,
-      COLOR_MENUTEXT);
-#endif
-  return views::Border::CreateSolidBorder(1, border_color);
-}
-
-views::Background* ActionBoxMenu::CreateMenuBackground() {
-  // TODO(yefim): Use correct theme color on non-Windows.
-  SkColor background_color = SK_ColorWHITE;
-#if defined(OS_WIN) && !defined(USE_AURA)
-  // TODO(yefim): Move to Windows only files if possible.
-  background_color = ui::NativeThemeWin::instance()->GetThemeColorWithDefault(
-      ui::NativeThemeWin::TEXTFIELD, EP_BACKGROUND, EBS_NORMAL,
-      TMT_BACKGROUND, COLOR_WINDOW);
-#endif
-  return views::Background::CreateSolidBackground(background_color);
 }
 
 void ActionBoxMenu::InspectPopup(ExtensionAction* action) {
@@ -142,4 +119,8 @@ void ActionBoxMenu::PopulateMenu() {
       }
     }
   }
+}
+
+void ActionBoxMenu::CustomizeMenu(views::MenuConfig* menu_config) {
+  // TODO(yefim): add menu customization here.
 }

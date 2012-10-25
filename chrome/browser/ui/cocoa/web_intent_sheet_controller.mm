@@ -15,6 +15,7 @@
 #import "chrome/browser/ui/cocoa/info_bubble_window.h"
 #include "chrome/browser/ui/cocoa/web_intent_picker_cocoa.h"
 #include "chrome/browser/ui/constrained_window.h"
+#include "chrome/browser/ui/constrained_window_constants.h"
 #include "chrome/browser/ui/intents/web_intent_picker_delegate.h"
 #include "chrome/browser/ui/intents/web_intent_picker_model.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -268,7 +269,8 @@ NSButton* CreateHyperlinkButton(NSString* title, const NSRect& frame) {
     ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
     titleField_.reset([[NSTextField alloc] initWithFrame:frame]);
     ConfigureTextFieldAsLabel(titleField_);
-    gfx::Font titleFont = rb.GetFont(ConstrainedWindow::kTitleFontStyle);
+    gfx::Font titleFont = rb.GetFont(
+        ConstrainedWindowConstants::kTitleFontStyle);
     titleFont = titleFont.DeriveFont(0, gfx::Font::BOLD);
     [titleField_ setFont:titleFont.GetNativeFont()];
 
@@ -276,7 +278,7 @@ NSButton* CreateHyperlinkButton(NSString* title, const NSRect& frame) {
                        kTextWidth, 1);
     subtitleField_.reset([[NSTextField alloc] initWithFrame:frame]);
     ConfigureTextFieldAsLabel(subtitleField_);
-    gfx::Font textFont = rb.GetFont(ConstrainedWindow::kTextFontStyle);
+    gfx::Font textFont = rb.GetFont(ConstrainedWindowConstants::kTextFontStyle);
     [subtitleField_ setFont:textFont.GetNativeFont()];
 
     frame = NSMakeRect(0, 0, WebIntentPicker::kWindowMinWidth, 1.0);
@@ -764,14 +766,12 @@ const CGFloat kAddButtonWidth = 128.0;
 - (void)setInlineDispositionFrameSize:(NSSize)inlineContentSize {
   DCHECK(contents_);
 
-  // Make sure inline content size is never shrunk. Also, preserve
-  // origin - see http://crbug.com/150914 for details.
-  inlineContentSize = NSMakeSize(
-      std::max(NSWidth(contentFrame_), inlineContentSize.width),
-      std::max(NSHeight(contentFrame_), inlineContentSize.height));
-  contentFrame_.size = inlineContentSize;
-
   NSView* webContentView = contents_->web_contents()->GetNativeView();
+
+  // Make sure inline content size is never shrunk.
+  inlineContentSize = NSMakeSize(
+      std::max(NSWidth([webContentView frame]), inlineContentSize.width),
+      std::max(NSHeight([webContentView frame]), inlineContentSize.height));
 
   // Compute container size to fit all elements, including padding.
   NSSize containerSize = inlineContentSize;
@@ -784,8 +784,7 @@ const CGFloat kAddButtonWidth = 128.0;
       std::max(CGFloat(WebIntentPicker::kWindowMinWidth), containerSize.width);
 
   // Resize web contents.
-  [webContentView setFrame:contentFrame_];
-
+  [webContentView setFrameSize:inlineContentSize];
   [self setContainerSize:containerSize];
 }
 
@@ -944,17 +943,19 @@ const CGFloat kAddButtonWidth = 128.0;
     return 0;
 
   // Determine a good size for the inline disposition window.
+
   gfx::Size size = picker_->GetMinInlineDispositionSize();
-  contentFrame_ = NSMakeRect(
+  NSView* webContentView = contents_->web_contents()->GetNativeView();
+  NSRect contentFrame = NSMakeRect(
       WebIntentPicker::kContentAreaBorder,
       offset,
-      std::max(NSWidth(contentFrame_), CGFloat(size.width())),
-      std::max(NSHeight(contentFrame_), CGFloat(size.height())));
+      std::max(NSWidth([webContentView frame]),CGFloat(size.width())),
+      std::max(NSHeight([webContentView frame]),CGFloat(size.height())));
 
-  [contents_->web_contents()->GetNativeView() setFrame:contentFrame_];
-  [subviews addObject:contents_->web_contents()->GetNativeView()];
+  [webContentView setFrame:contentFrame];
+  [subviews addObject:webContentView];
 
-  return NSHeight(contentFrame_);
+  return NSHeight(contentFrame);
 }
 
 - (CGFloat)addAnotherServiceLinkToSubviews:(NSMutableArray*)subviews
@@ -995,8 +996,9 @@ const CGFloat kAddButtonWidth = 128.0;
 
   // Add link for "choose another service" if other suggestions are available
   // or if more than one (the current) service is installed.
-  if (model_->GetInstalledServiceCount() > 1 ||
-    model_->GetSuggestedExtensionCount()) {
+  if (model_->show_use_another_service() &&
+      (model_->GetInstalledServiceCount() > 1 ||
+       model_->GetSuggestedExtensionCount())) {
     NSRect frame = NSMakeRect(
         NSMaxX(textFrame) + WebIntentPicker::kContentAreaBorder, offset,
         1, 1);
@@ -1053,7 +1055,7 @@ const CGFloat kAddButtonWidth = 128.0;
       [[NSTextField alloc] initWithFrame:titleFrame]);
   ConfigureTextFieldAsLabel(title);
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-  gfx::Font titleFont = rb.GetFont(ConstrainedWindow::kTitleFontStyle);
+  gfx::Font titleFont = rb.GetFont(ConstrainedWindowConstants::kTitleFontStyle);
   titleFont = titleFont.DeriveFont(0, gfx::Font::BOLD);
   [title setFont:titleFont.GetNativeFont()];
   [title setStringValue:
@@ -1154,7 +1156,8 @@ const CGFloat kAddButtonWidth = 128.0;
     actionTextField_.reset([[NSTextField alloc] initWithFrame:textFrame]);
     ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
     ConfigureTextFieldAsLabel(actionTextField_);
-    gfx::Font titleFont = rb.GetFont(ConstrainedWindow::kTitleFontStyle);
+    gfx::Font titleFont = rb.GetFont(
+        ConstrainedWindowConstants::kTitleFontStyle);
     titleFont = titleFont.DeriveFont(0, gfx::Font::BOLD);
     [actionTextField_ setFont:titleFont.GetNativeFont()];
   } else {

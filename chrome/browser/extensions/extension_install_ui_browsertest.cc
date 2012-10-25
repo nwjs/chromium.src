@@ -17,7 +17,6 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
-#include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
 
 using content::WebContents;
@@ -28,9 +27,10 @@ class ExtensionInstallUIBrowserTest : public ExtensionBrowserTest {
   // Checks that a theme info bar is currently visible and issues an undo to
   // revert to the previous theme.
   void VerifyThemeInfoBarAndUndoInstall() {
-    TabContents* tab = chrome::GetActiveTabContents(browser());
-    ASSERT_TRUE(tab);
-    InfoBarTabHelper* infobar_helper = tab->infobar_tab_helper();
+    WebContents* web_contents = chrome::GetActiveWebContents(browser());
+    ASSERT_TRUE(web_contents);
+    InfoBarTabHelper* infobar_helper =
+        InfoBarTabHelper::FromWebContents(web_contents);
     ASSERT_EQ(1U, infobar_helper->GetInfoBarCount());
     ConfirmInfoBarDelegate* delegate = infobar_helper->
         GetInfoBarDelegateAt(0)->AsConfirmInfoBarDelegate();
@@ -154,9 +154,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
 #endif
 IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
                        MAYBE_AppInstallConfirmation_Incognito) {
-  Profile* incognito_profile = browser()->profile()->GetOffTheRecordProfile();
-  Browser* incognito_browser =
-      new Browser(Browser::CreateParams(incognito_profile));
+  Browser* incognito_browser = CreateIncognitoBrowser();
 
   int num_incognito_tabs = incognito_browser->tab_count();
   int num_normal_tabs = browser()->tab_count();

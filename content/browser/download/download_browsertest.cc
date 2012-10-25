@@ -10,11 +10,9 @@
 #include "base/scoped_temp_dir.h"
 #include "content/browser/download/download_file_factory.h"
 #include "content/browser/download/download_file_impl.h"
-#include "content/browser/download/download_file_manager.h"
 #include "content/browser/download/download_item_impl.h"
 #include "content/browser/download/download_manager_impl.h"
 #include "content/browser/power_save_blocker.h"
-#include "content/browser/renderer_host/resource_dispatcher_host_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/test/download_test_observer.h"
 #include "content/public/test/test_utils.h"
@@ -75,15 +73,17 @@ static DownloadManagerImpl* DownloadManagerForShell(Shell* shell) {
 class DownloadFileWithDelay : public DownloadFileImpl {
  public:
   DownloadFileWithDelay(
-      const DownloadCreateInfo* info,
-      scoped_ptr<content::ByteStreamReader> stream,
-      DownloadRequestHandleInterface* request_handle,
-      scoped_refptr<content::DownloadManager> download_manager,
+      scoped_ptr<DownloadSaveInfo> save_info,
+      const FilePath& default_download_directory,
+      const GURL& url,
+      const GURL& referrer_url,
+      int64 received_bytes,
       bool calculate_hash,
-      scoped_ptr<content::PowerSaveBlocker> power_save_blocker,
+      scoped_ptr<ByteStreamReader> stream,
       const net::BoundNetLog& bound_net_log,
-      // |owner| is required to outlive the DownloadFileWithDelay.
-      DownloadFileWithDelayFactory* owner);
+      scoped_ptr<PowerSaveBlocker> power_save_blocker,
+      base::WeakPtr<DownloadDestinationObserver> observer,
+      base::WeakPtr<DownloadFileWithDelayFactory> owner);
 
   virtual ~DownloadFileWithDelay();
 
@@ -103,33 +103,41 @@ class DownloadFileWithDelay : public DownloadFileImpl {
   static void RenameCallbackWrapper(
       DownloadFileWithDelayFactory* factory,
       const RenameCompletionCallback& original_callback,
-      content::DownloadInterruptReason reason,
+      DownloadInterruptReason reason,
       const FilePath& path);
 
   static void DetachCallbackWrapper(
       DownloadFileWithDelayFactory* factory,
       const base::Closure& original_callback);
 
-  // May only be used on the UI thread.
-  DownloadFileWithDelayFactory* owner_;
+  // This variable may only be read on the FILE thread, and may only be
+  // indirected through (e.g. methods on DownloadFileWithDelayFactory called)
+  // on the UI thread.  This is because after construction,
+  // DownloadFileWithDelay lives on the file thread, but
+  // DownloadFileWithDelayFactory is purely a UI thread object.
+  base::WeakPtr<DownloadFileWithDelayFactory> owner_;
 
   DISALLOW_COPY_AND_ASSIGN(DownloadFileWithDelay);
 };
 
+// All routines on this class must be called on the UI thread.
 class DownloadFileWithDelayFactory : public DownloadFileFactory {
  public:
   DownloadFileWithDelayFactory();
   virtual ~DownloadFileWithDelayFactory();
 
   // DownloadFileFactory interface.
-  virtual content::DownloadFile* CreateFile(
-      DownloadCreateInfo* info,
-      scoped_ptr<content::ByteStreamReader> stream,
-      DownloadManager* download_manager,
+  virtual DownloadFile* CreateFile(
+      scoped_ptr<DownloadSaveInfo> save_info,
+      const FilePath& default_download_directory,
+      const GURL& url,
+      const GURL& referrer_url,
+      int64 received_bytes,
       bool calculate_hash,
-      const net::BoundNetLog& bound_net_log) OVERRIDE;
+      scoped_ptr<ByteStreamReader> stream,
+      const net::BoundNetLog& bound_net_log,
+      base::WeakPtr<DownloadDestinationObserver> observer) OVERRIDE;
 
-  // Must all be called on the UI thread.
   void AddRenameCallback(base::Closure callback);
   void AddDetachCallback(base::Closure callback);
   void GetAllRenameCallbacks(std::vector<base::Closure>* results);
@@ -140,6 +148,7 @@ class DownloadFileWithDelayFactory : public DownloadFileFactory {
   void WaitForSomeCallback();
 
  private:
+  base::WeakPtrFactory<DownloadFileWithDelayFactory> weak_ptr_factory_;
   std::vector<base::Closure> rename_callbacks_;
   std::vector<base::Closure> detach_callbacks_;
   bool waiting_;
@@ -148,17 +157,21 @@ class DownloadFileWithDelayFactory : public DownloadFileFactory {
 };
 
 DownloadFileWithDelay::DownloadFileWithDelay(
-      const DownloadCreateInfo* info,
-      scoped_ptr<content::ByteStreamReader> stream,
-      DownloadRequestHandleInterface* request_handle,
-      scoped_refptr<content::DownloadManager> download_manager,
-      bool calculate_hash,
-      scoped_ptr<content::PowerSaveBlocker> power_save_blocker,
-      const net::BoundNetLog& bound_net_log,
-      DownloadFileWithDelayFactory* owner)
-    : DownloadFileImpl(info, stream.Pass(), request_handle, download_manager,
-                       calculate_hash, power_save_blocker.Pass(),
-                       bound_net_log),
+    scoped_ptr<DownloadSaveInfo> save_info,
+    const FilePath& default_download_directory,
+    const GURL& url,
+    const GURL& referrer_url,
+    int64 received_bytes,
+    bool calculate_hash,
+    scoped_ptr<ByteStreamReader> stream,
+    const net::BoundNetLog& bound_net_log,
+    scoped_ptr<PowerSaveBlocker> power_save_blocker,
+    base::WeakPtr<DownloadDestinationObserver> observer,
+    base::WeakPtr<DownloadFileWithDelayFactory> owner)
+    : DownloadFileImpl(
+        save_info.Pass(), default_download_directory, url, referrer_url,
+        received_bytes, calculate_hash, stream.Pass(), bound_net_log,
+        power_save_blocker.Pass(), observer),
       owner_(owner) {}
 
 DownloadFileWithDelay::~DownloadFileWithDelay() {}
@@ -170,21 +183,21 @@ void DownloadFileWithDelay::Rename(const FilePath& full_path,
   DownloadFileImpl::Rename(
       full_path, overwrite_existing_file,
       base::Bind(DownloadFileWithDelay::RenameCallbackWrapper,
-                 base::Unretained(owner_), callback));
+                 owner_, callback));
 }
 
 void DownloadFileWithDelay::Detach(base::Closure callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   DownloadFileImpl::Detach(
       base::Bind(DownloadFileWithDelay::DetachCallbackWrapper,
-                 base::Unretained(owner_), callback));
+                 owner_, callback));
 }
 
 // static
 void DownloadFileWithDelay::RenameCallbackWrapper(
     DownloadFileWithDelayFactory* factory,
     const RenameCompletionCallback& original_callback,
-    content::DownloadInterruptReason reason,
+    DownloadInterruptReason reason,
     const FilePath& path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   factory->AddRenameCallback(base::Bind(original_callback, reason, path));
@@ -199,24 +212,28 @@ void DownloadFileWithDelay::DetachCallbackWrapper(
 }
 
 DownloadFileWithDelayFactory::DownloadFileWithDelayFactory()
-    : waiting_(false) {}
+    : weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
+      waiting_(false) {}
 DownloadFileWithDelayFactory::~DownloadFileWithDelayFactory() {}
 
 DownloadFile* DownloadFileWithDelayFactory::CreateFile(
-    DownloadCreateInfo* info,
-    scoped_ptr<content::ByteStreamReader> stream,
-    DownloadManager* download_manager,
+    scoped_ptr<DownloadSaveInfo> save_info,
+    const FilePath& default_download_directory,
+    const GURL& url,
+    const GURL& referrer_url,
+    int64 received_bytes,
     bool calculate_hash,
-    const net::BoundNetLog& bound_net_log) {
-
+    scoped_ptr<ByteStreamReader> stream,
+    const net::BoundNetLog& bound_net_log,
+    base::WeakPtr<DownloadDestinationObserver> observer) {
+  scoped_ptr<PowerSaveBlocker> psb(
+      new PowerSaveBlocker(
+          PowerSaveBlocker::kPowerSaveBlockPreventAppSuspension,
+          "Download in progress"));
   return new DownloadFileWithDelay(
-      info, stream.Pass(), new DownloadRequestHandle(info->request_handle),
-      download_manager, calculate_hash,
-      scoped_ptr<content::PowerSaveBlocker>(
-          new content::PowerSaveBlocker(
-              content::PowerSaveBlocker::kPowerSaveBlockPreventAppSuspension,
-              "Download in progress")).Pass(),
-      bound_net_log, this);
+      save_info.Pass(), default_download_directory, url, referrer_url,
+      received_bytes, calculate_hash, stream.Pass(), bound_net_log,
+      psb.Pass(), observer, weak_ptr_factory_.GetWeakPtr());
 }
 
 void DownloadFileWithDelayFactory::AddRenameCallback(base::Closure callback) {
@@ -259,6 +276,85 @@ bool WasPersisted(DownloadItem* item) {
   return item->IsPersisted();
 }
 
+class CountingDownloadFile : public DownloadFileImpl {
+ public:
+  CountingDownloadFile(
+    scoped_ptr<content::DownloadSaveInfo> save_info,
+    const FilePath& default_downloads_directory,
+    const GURL& url,
+    const GURL& referrer_url,
+    int64 received_bytes,
+    bool calculate_hash,
+    scoped_ptr<content::ByteStreamReader> stream,
+    const net::BoundNetLog& bound_net_log,
+    scoped_ptr<content::PowerSaveBlocker> power_save_blocker,
+    base::WeakPtr<content::DownloadDestinationObserver> observer)
+      : DownloadFileImpl(save_info.Pass(), default_downloads_directory,
+                         url, referrer_url, received_bytes, calculate_hash,
+                         stream.Pass(), bound_net_log,
+                         power_save_blocker.Pass(), observer) {}
+
+  virtual ~CountingDownloadFile() {
+    DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+    active_files_--;
+  }
+
+  virtual void Initialize(const InitializeCallback& callback) OVERRIDE {
+    DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+    active_files_++;
+    return DownloadFileImpl::Initialize(callback);
+  }
+
+  static void GetNumberActiveFiles(int* result) {
+    DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+    *result = active_files_;
+  }
+
+  // Can be called on any thread, and will block (running message loop)
+  // until data is returned.
+  static int GetNumberActiveFilesFromFileThread() {
+    int result = -1;
+    BrowserThread::PostTaskAndReply(BrowserThread::FILE, FROM_HERE,
+        base::Bind(&CountingDownloadFile::GetNumberActiveFiles, &result),
+        MessageLoop::current()->QuitClosure());
+    MessageLoop::current()->Run();
+    DCHECK_NE(-1, result);
+    return result;
+  }
+
+ private:
+  static int active_files_;
+};
+
+int CountingDownloadFile::active_files_ = 0;
+
+class CountingDownloadFileFactory : public DownloadFileFactory {
+ public:
+  CountingDownloadFileFactory() {}
+  virtual ~CountingDownloadFileFactory() {}
+
+  // DownloadFileFactory interface.
+  virtual content::DownloadFile* CreateFile(
+    scoped_ptr<content::DownloadSaveInfo> save_info,
+    const FilePath& default_downloads_directory,
+    const GURL& url,
+    const GURL& referrer_url,
+    int64 received_bytes,
+    bool calculate_hash,
+    scoped_ptr<content::ByteStreamReader> stream,
+    const net::BoundNetLog& bound_net_log,
+    base::WeakPtr<content::DownloadDestinationObserver> observer) OVERRIDE {
+    scoped_ptr<PowerSaveBlocker> psb(
+        new PowerSaveBlocker(
+            PowerSaveBlocker::kPowerSaveBlockPreventAppSuspension,
+            "Download in progress"));
+    return new CountingDownloadFile(
+        save_info.Pass(), default_downloads_directory, url, referrer_url,
+        received_bytes, calculate_hash, stream.Pass(), bound_net_log,
+        psb.Pass(), observer);
+  }
+};
+
 }  // namespace
 
 class DownloadContentTest : public ContentBrowserTest {
@@ -298,13 +394,21 @@ class DownloadContentTest : public ContentBrowserTest {
     return new DownloadTestObserverInProgress(download_manager, num_downloads);
   }
 
+  // Note: Cannot be used with other alternative DownloadFileFactorys
+  void SetupEnsureNoPendingDownloads() {
+    DownloadManagerForShell(shell())->SetDownloadFileFactoryForTesting(
+        scoped_ptr<content::DownloadFileFactory>(
+            new CountingDownloadFileFactory()).Pass());
+  }
+
   bool EnsureNoPendingDownloads() {
     bool result = true;
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE,
         base::Bind(&EnsureNoPendingDownloadJobsOnIO, &result));
     MessageLoop::current()->Run();
-    return result && DownloadManager::EnsureNoPendingDownloadsForTesting();
+    return result &&
+        (CountingDownloadFile::GetNumberActiveFilesFromFileThread() == 0);
   }
 
   void DownloadAndWait(Shell* shell, const GURL& url) {
@@ -343,11 +447,6 @@ class DownloadContentTest : public ContentBrowserTest {
     return true;
   }
 
-  DownloadFileManager* GetDownloadFileManager() {
-    ResourceDispatcherHostImpl* rdh(ResourceDispatcherHostImpl::Get());
-    return rdh->download_file_manager();
-  }
-
  private:
   static void EnsureNoPendingDownloadJobsOnIO(bool* result) {
     if (URLRequestSlowDownloadJob::NumberOutstandingRequests())
@@ -377,6 +476,8 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, DownloadCancelled) {
   // DownloadItem, and wait for the state that indicates the item has been
   // entered in the history and made visible in the UI.
 
+  SetupEnsureNoPendingDownloads();
+
   // Create a download, wait until it's started, and confirm
   // we're in the expected state.
   scoped_ptr<DownloadTestObserver> observer(CreateInProgressWaiter(shell(), 1));
@@ -401,6 +502,8 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, DownloadCancelled) {
 // Check that downloading multiple (in this case, 2) files does not result in
 // corrupted files.
 IN_PROC_BROWSER_TEST_F(DownloadContentTest, MultiDownload) {
+  SetupEnsureNoPendingDownloads();
+
   // Create a download, wait until it's started, and confirm
   // we're in the expected state.
   scoped_ptr<DownloadTestObserver> observer1(
@@ -460,8 +563,9 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, CancelAtFinalRename) {
   // Setup new factory.
   DownloadFileWithDelayFactory* file_factory =
       new DownloadFileWithDelayFactory();
-  GetDownloadFileManager()->SetFileFactoryForTesting(
-      scoped_ptr<content::DownloadFileFactory>(file_factory).Pass());
+  DownloadManagerImpl* download_manager(DownloadManagerForShell(shell()));
+  download_manager->SetDownloadFileFactoryForTesting(
+      scoped_ptr<DownloadFileFactory>(file_factory).Pass());
 
   // Create a download
   FilePath file(FILE_PATH_LITERAL("download-test.lib"));
@@ -486,7 +590,7 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, CancelAtFinalRename) {
 
   // Cancel it.
   std::vector<DownloadItem*> items;
-  DownloadManagerForShell(shell())->GetAllDownloads(&items);
+  download_manager->GetAllDownloads(&items);
   ASSERT_EQ(1u, items.size());
   items[0]->Cancel(true);
   RunAllPendingInMessageLoop();
@@ -508,8 +612,9 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, CancelAtRelease) {
   // Setup new factory.
   DownloadFileWithDelayFactory* file_factory =
       new DownloadFileWithDelayFactory();
-  GetDownloadFileManager()->SetFileFactoryForTesting(
-      scoped_ptr<content::DownloadFileFactory>(file_factory).Pass());
+  DownloadManagerImpl* download_manager(DownloadManagerForShell(shell()));
+  download_manager->SetDownloadFileFactoryForTesting(
+      scoped_ptr<DownloadFileFactory>(file_factory).Pass());
 
   // Create a download
   FilePath file(FILE_PATH_LITERAL("download-test.lib"));
@@ -536,16 +641,14 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, CancelAtRelease) {
   callbacks[0].Run();
   callbacks.clear();
 
-  // Confirm download isn't complete yet.
+  // Confirm download still IN_PROGRESS.
   std::vector<DownloadItem*> items;
-  DownloadManagerForShell(shell())->GetAllDownloads(&items);
+  download_manager->GetAllDownloads(&items);
   EXPECT_EQ(DownloadItem::IN_PROGRESS, items[0]->GetState());
 
-  // Cancel the download; confirm cancel fails anyway.
+  // Cancel the download; confirm cancel fails.
   ASSERT_EQ(1u, items.size());
   items[0]->Cancel(true);
-  EXPECT_EQ(DownloadItem::IN_PROGRESS, items[0]->GetState());
-  RunAllPendingInMessageLoop();
   EXPECT_EQ(DownloadItem::IN_PROGRESS, items[0]->GetState());
 
   // Confirm detach callback and run it.
@@ -556,6 +659,8 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, CancelAtRelease) {
   ASSERT_EQ(1u, callbacks.size());
   callbacks[0].Run();
   callbacks.clear();
+
+  // *Now* the download should be complete.
   EXPECT_EQ(DownloadItem::COMPLETE, items[0]->GetState());
 }
 
@@ -609,7 +714,7 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, ShutdownAtRelease) {
   // Setup new factory.
   DownloadFileWithDelayFactory* file_factory =
       new DownloadFileWithDelayFactory();
-  GetDownloadFileManager()->SetFileFactoryForTesting(
+  DownloadManagerForShell(shell())->SetDownloadFileFactoryForTesting(
       scoped_ptr<content::DownloadFileFactory>(file_factory).Pass());
 
   // Create a download

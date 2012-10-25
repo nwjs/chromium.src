@@ -96,6 +96,12 @@ UI_EXPORT void UnrefCustomXCursor(::Cursor cursor);
 // should be non-null. Caller owns the returned object.
 UI_EXPORT XcursorImage* SkBitmapToXcursorImage(const SkBitmap* bitmap,
                                                const gfx::Point& hotspot);
+
+// Coalesce all pending motion events (touch or mouse) that are at the top of
+// the queue, and return the number eliminated, storing the last one in
+// |last_event|.
+UI_EXPORT int CoalescePendingMotionEvents(const XEvent* xev,
+                                          XEvent* last_event);
 #endif
 
 // Hides the host cursor.

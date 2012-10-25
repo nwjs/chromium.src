@@ -107,6 +107,7 @@ v8.log
 /google_apis/internal
 /gpu/gles2_conform_test
 /gyp-mac-tool
+/hideout
 /llvm
 /media/test/data/content
 /media/test/data/security
@@ -153,9 +154,11 @@ v8.log
 /third_party/bidichecker
 /third_party/bison
 /third_party/cacheinvalidation/files
+/third_party/cacheinvalidation/src
 /third_party/chromeos_login_manager
 /third_party/chromeos_text_input
 /third_party/cros
+/third_party/cros_dbus_cplusplus/source
 /third_party/cros_system_api
 /third_party/cygwin
 /third_party/directxsdk
@@ -176,6 +179,7 @@ v8.log
 /third_party/leveldb
 /third_party/libexif/sources
 /third_party/libjingle/source
+/third_party/libjingle/source_internal
 /third_party/libjpeg_turbo
 /third_party/libmtp/
 /third_party/libphonenumber/libphonenumber.xml
@@ -196,6 +200,7 @@ v8.log
 /third_party/nacl_sdk_binaries/
 /third_party/nss
 /third_party/openssl
+/third_party/opus/src
 /third_party/ots
 /third_party/pdfsqueeze
 /third_party/pefile
@@ -232,6 +237,10 @@ v8.log
 /third_party/webgl_conformance
 /third_party/webpagereplay/
 /third_party/webrtc
+/third_party/webrtc/common_audio/signal_processing/internal
+/third_party/webrtc/modules/audio_coding/codecs/celt
+/third_party/webrtc/modules/audio_coding/codecs/speex
+/third_party/webrtc/modules/video_coding/codecs/vp8_internal
 /third_party/widevine/cdm/binaries
 /third_party/widevine/cdm/symbols
 /third_party/wix

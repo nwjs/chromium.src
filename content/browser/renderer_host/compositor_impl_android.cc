@@ -4,6 +4,7 @@
 
 #include "content/browser/renderer_host/compositor_impl_android.h"
 
+#include <android/bitmap.h>
 #include <android/native_window_jni.h>
 
 #include "base/bind.h"
@@ -12,13 +13,23 @@
 #include "content/browser/gpu/browser_gpu_channel_host_factory.h"
 #include "content/browser/gpu/gpu_surface_tracker.h"
 #include "content/browser/renderer_host/image_transport_factory_android.h"
+#include "content/common/gpu/client/gl_helper.h"
 #include "content/common/gpu/client/gpu_channel_host.h"
 #include "content/common/gpu/client/webgraphicscontext3d_command_buffer_impl.h"
 #include "content/common/gpu/gpu_process_launch_causes.h"
 #include "content/public/common/content_switches.h"
+#include "third_party/khronos/GLES2/gl2.h"
+#include "third_party/khronos/GLES2/gl2ext.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/Platform.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorSupport.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorOutputSurface.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebGraphicsContext3D.h"
+#include "ui/gfx/android/java_bitmap.h"
+
+
+namespace gfx {
+class JavaBitmap;
+}
 
 namespace {
 
@@ -71,8 +82,8 @@ private:
 namespace content {
 
 // static
-Compositor* Compositor::Create() {
-  return new CompositorImpl();
+Compositor* Compositor::Create(Client* client) {
+  return client ? new CompositorImpl(client) : NULL;
 }
 
 // static
@@ -104,9 +115,11 @@ bool CompositorImpl::IsInitialized() {
   return g_initialized;
 }
 
-CompositorImpl::CompositorImpl()
+CompositorImpl::CompositorImpl(Compositor::Client* client)
     : window_(NULL),
-      surface_id_(0) {
+      surface_id_(0),
+      client_(client) {
+  DCHECK(client);
   root_layer_.reset(
       WebKit::Platform::current()->compositorSupport()->createLayer());
 }
@@ -114,14 +127,9 @@ CompositorImpl::CompositorImpl()
 CompositorImpl::~CompositorImpl() {
 }
 
-void CompositorImpl::OnSurfaceUpdated(
-    const SurfacePresentedCallback& callback) {
+void CompositorImpl::Composite() {
   if (host_.get())
     host_->composite();
-  // TODO(sievers): Let RWHV do this
-  uint32 sync_point =
-      ImageTransportFactoryAndroid::GetInstance()->InsertSyncPoint();
-  callback.Run(sync_point);
 }
 
 void CompositorImpl::SetRootLayer(WebKit::WebLayer* root_layer) {
@@ -137,7 +145,7 @@ void CompositorImpl::SetWindowSurface(ANativeWindow* window) {
     ANativeWindow_release(window_);
     window_ = NULL;
     surface_id_ = 0;
-    size_ = gfx::Size();
+    host_.reset();
   }
 
   if (window) {
@@ -148,6 +156,7 @@ void CompositorImpl::SetWindowSurface(ANativeWindow* window) {
         surface_id_,
         gfx::GLSurfaceHandle(gfx::kDummyPluginWindow, false));
 
+    DCHECK(!host_.get());
     WebKit::WebLayerTreeView::Settings settings;
     settings.refreshRate = 60.0;
     WebKit::WebCompositorSupport* compositor_support =
@@ -156,6 +165,7 @@ void CompositorImpl::SetWindowSurface(ANativeWindow* window) {
         compositor_support->createLayerTreeView(this, *root_layer_, settings));
     host_->setVisible(true);
     host_->setSurfaceReady();
+    host_->setViewportSize(size_);
   }
 }
 
@@ -175,6 +185,65 @@ bool CompositorImpl::CompositeAndReadback(void *pixels, const gfx::Rect& rect) {
     return false;
 }
 
+WebKit::WebGLId CompositorImpl::GenerateTexture(gfx::JavaBitmap& bitmap) {
+  unsigned int texture_id = BuildBasicTexture();
+  WebKit::WebGraphicsContext3D* context =
+      ImageTransportFactoryAndroid::GetInstance()->GetContext3D();
+  if (texture_id == 0 || context->isContextLost())
+    return 0;
+  WebKit::WebGLId format = GetGLFormatForBitmap(bitmap);
+  WebKit::WebGLId type = GetGLTypeForBitmap(bitmap);
+
+  context->texImage2D(GL_TEXTURE_2D,
+                      0,
+                      format,
+                      bitmap.size().width(),
+                      bitmap.size().height(),
+                      0,
+                      format,
+                      type,
+                      bitmap.pixels());
+  DCHECK(context->getError() == GL_NO_ERROR);
+  return texture_id;
+}
+
+WebKit::WebGLId CompositorImpl::GenerateCompressedTexture(gfx::Size& size,
+                                                          int data_size,
+                                                          void* data) {
+  unsigned int texture_id = BuildBasicTexture();
+  WebKit::WebGraphicsContext3D* context =
+        ImageTransportFactoryAndroid::GetInstance()->GetContext3D();
+  if (texture_id == 0 || context->isContextLost())
+    return 0;
+  context->compressedTexImage2D(GL_TEXTURE_2D,
+                                0,
+                                GL_ETC1_RGB8_OES,
+                                size.width(),
+                                size.height(),
+                                0,
+                                data_size,
+                                data);
+  DCHECK(context->getError() == GL_NO_ERROR);
+  return texture_id;
+}
+
+void CompositorImpl::DeleteTexture(WebKit::WebGLId texture_id) {
+  WebKit::WebGraphicsContext3D* context =
+      ImageTransportFactoryAndroid::GetInstance()->GetContext3D();
+  if (context->isContextLost())
+    return;
+  context->deleteTexture(texture_id);
+  DCHECK(context->getError() == GL_NO_ERROR);
+}
+
+void CompositorImpl::CopyTextureToBitmap(WebKit::WebGLId texture_id,
+                                         gfx::JavaBitmap& bitmap) {
+  GLHelper* helper = ImageTransportFactoryAndroid::GetInstance()->GetGLHelper();
+  helper->ReadbackTextureSync(texture_id,
+                              bitmap.size(),
+                              static_cast<unsigned char*> (bitmap.pixels()));
+}
+
 void CompositorImpl::updateAnimations(double frameBeginTime) {
 }
 
@@ -186,8 +255,10 @@ void CompositorImpl::applyScrollAndScale(const WebKit::WebSize& scrollDelta,
 }
 
 WebKit::WebCompositorOutputSurface* CompositorImpl::createOutputSurface() {
+  DCHECK(window_ && surface_id_);
   WebKit::WebGraphicsContext3D::Attributes attrs;
   attrs.shareResources = true;
+  attrs.noAutomaticFlushes = true;
   GpuChannelHostFactory* factory = BrowserGpuChannelHostFactory::instance();
   GURL url("chrome://gpu/Compositor::createContext3D");
   base::WeakPtr<WebGraphicsContext3DSwapBuffersClient> swap_client;
@@ -218,9 +289,61 @@ void CompositorImpl::didCommitAndDrawFrame() {
 }
 
 void CompositorImpl::didCompleteSwapBuffers() {
+  client_->OnSwapBuffersCompleted();
 }
 
 void CompositorImpl::scheduleComposite() {
+  client_->ScheduleComposite();
+}
+
+WebKit::WebGLId CompositorImpl::BuildBasicTexture() {
+  WebKit::WebGraphicsContext3D* context =
+            ImageTransportFactoryAndroid::GetInstance()->GetContext3D();
+  if (context->isContextLost())
+    return 0;
+  WebKit::WebGLId texture_id = context->createTexture();
+  context->bindTexture(GL_TEXTURE_2D, texture_id);
+  context->texParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  context->texParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  context->texParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  context->texParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  DCHECK(context->getError() == GL_NO_ERROR);
+  return texture_id;
+}
+
+WebKit::WGC3Denum CompositorImpl::GetGLFormatForBitmap(
+    gfx::JavaBitmap& bitmap) {
+  switch (bitmap.format()) {
+    case ANDROID_BITMAP_FORMAT_A_8:
+      return GL_ALPHA;
+      break;
+    case ANDROID_BITMAP_FORMAT_RGBA_4444:
+      return GL_RGBA;
+      break;
+    case ANDROID_BITMAP_FORMAT_RGBA_8888:
+      return GL_RGBA;
+      break;
+    case ANDROID_BITMAP_FORMAT_RGB_565:
+    default:
+      return GL_RGB;
+  }
+}
+
+WebKit::WGC3Denum CompositorImpl::GetGLTypeForBitmap(gfx::JavaBitmap& bitmap) {
+  switch (bitmap.format()) {
+    case ANDROID_BITMAP_FORMAT_A_8:
+      return GL_UNSIGNED_BYTE;
+      break;
+    case ANDROID_BITMAP_FORMAT_RGBA_4444:
+      return GL_UNSIGNED_SHORT_4_4_4_4;
+      break;
+    case ANDROID_BITMAP_FORMAT_RGBA_8888:
+      return GL_UNSIGNED_BYTE;
+      break;
+    case ANDROID_BITMAP_FORMAT_RGB_565:
+    default:
+      return GL_UNSIGNED_SHORT_5_6_5;
+  }
 }
 
 } // namespace content

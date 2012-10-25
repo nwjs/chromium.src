@@ -35,7 +35,7 @@
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/extensions/extension_switch_utils.h"
+#include "chrome/common/extensions/feature_switch.h"
 #include "chrome/common/extensions/user_script.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/download_item.h"
@@ -56,8 +56,8 @@
 #endif
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/drive_download_observer.h"
-#include "chrome/browser/chromeos/gdata/drive_file_system_util.h"
+#include "chrome/browser/chromeos/drive/drive_download_observer.h"
+#include "chrome/browser/chromeos/drive/drive_file_system_util.h"
 #include "chrome/browser/download/download_file_picker_chromeos.h"
 #include "chrome/browser/download/save_package_file_picker_chromeos.h"
 #endif
@@ -326,19 +326,12 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
 #if defined(OS_CHROMEOS)
   // If there's a Drive upload associated with this download, we wait until that
   // is complete before allowing the download item to complete.
-  if (!gdata::DriveDownloadObserver::IsReadyToComplete(
+  if (!drive::DriveDownloadObserver::IsReadyToComplete(
         item, internal_complete_callback))
     return false;
 #endif
   return true;
 }
-
-// ShouldCompleteDownloadInternal() will never be called directly by a user, it
-// will only be called asynchronously, so it should run
-// |user_complete_callback|. ShouldCompleteDownload() will only be called
-// directly by a user, so it does not need to run |user_complete_callback|
-// because it can return true synchronously. The two methods look very similar,
-// but their semantics are very different.
 
 void ChromeDownloadManagerDelegate::ShouldCompleteDownloadInternal(
     int download_id,
@@ -346,9 +339,7 @@ void ChromeDownloadManagerDelegate::ShouldCompleteDownloadInternal(
   DownloadItem* item = download_manager_->GetDownload(download_id);
   if (!item)
     return;
-  if (IsDownloadReadyForCompletion(item, base::Bind(
-        &ChromeDownloadManagerDelegate::ShouldCompleteDownloadInternal, this,
-        download_id, user_complete_callback)))
+  if (ShouldCompleteDownload(item, user_complete_callback))
     user_complete_callback.Run();
 }
 
@@ -356,8 +347,8 @@ bool ChromeDownloadManagerDelegate::ShouldCompleteDownload(
     DownloadItem* item,
     const base::Closure& user_complete_callback) {
   return IsDownloadReadyForCompletion(item, base::Bind(
-      &ChromeDownloadManagerDelegate::ShouldCompleteDownloadInternal, this,
-      item->GetId(), user_complete_callback));
+      &ChromeDownloadManagerDelegate::ShouldCompleteDownloadInternal,
+      this, item->GetId(), user_complete_callback));
 }
 
 bool ChromeDownloadManagerDelegate::ShouldOpenDownload(DownloadItem* item) {
@@ -406,10 +397,6 @@ bool ChromeDownloadManagerDelegate::ShouldOpenWithWebIntents(
     return false;
 
   std::string mime_type = item->GetMimeType();
-  if (mime_type == "application/rss+xml" ||
-      mime_type == "application/atom+xml") {
-    return true;
-  }
 
 #if defined(OS_CHROMEOS)
   if (mime_type == "application/msword" ||
@@ -555,7 +542,7 @@ void ChromeDownloadManagerDelegate::GetSaveDir(BrowserContext* browser_context,
 
   *skip_dir_check = false;
 #if defined(OS_CHROMEOS)
-  *skip_dir_check = gdata::util::IsUnderDriveMountPoint(*website_save_dir);
+  *skip_dir_check = drive::util::IsUnderDriveMountPoint(*website_save_dir);
 #endif
 }
 
@@ -604,7 +591,7 @@ bool ChromeDownloadManagerDelegate::IsDangerousFile(
   // Extensions that are not from the gallery are considered dangerous.
   // When off-store install is disabled we skip this, since in this case, we
   // will not offer to install the extension.
-  if (extensions::switch_utils::IsEasyOffStoreInstallEnabled() &&
+  if (extensions::FeatureSwitch::easy_off_store_install()->IsEnabled() &&
       download_crx_util::IsExtensionDownload(download) &&
       !extensions::WebstoreInstaller::GetAssociatedApproval(download)) {
     return true;
@@ -802,7 +789,7 @@ void ChromeDownloadManagerDelegate::CheckVisitedReferrerBeforeDone(
   }
 
 #if defined (OS_CHROMEOS)
-  gdata::DriveDownloadObserver::SubstituteDriveDownloadPath(
+  drive::DriveDownloadObserver::SubstituteDriveDownloadPath(
       profile_, suggested_path, download,
       base::Bind(
           &ChromeDownloadManagerDelegate::SubstituteDriveDownloadPathCallback,

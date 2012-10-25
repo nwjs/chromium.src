@@ -14,7 +14,6 @@
 #include "content/renderer/browser_plugin/mock_browser_plugin_manager.h"
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/renderer_webkitplatformsupport_impl.h"
-#include "content/shell/shell_main_delegate.h"
 #include "skia/ext/platform_canvas.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCursorInfo.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
@@ -53,7 +52,6 @@ void BrowserPluginTest::SetUp() {
   GetContentClient()->set_renderer_for_testing(&content_renderer_client_);
   content::RenderViewTest::SetUp();
   browser_plugin_manager_.reset(new MockBrowserPluginManager());
-  content::ShellMainDelegate::InitializeResourceBundle();
 }
 
 void BrowserPluginTest::TearDown() {
@@ -275,29 +273,25 @@ TEST_F(BrowserPluginTest, GuestCrash) {
 
   const char* kAddEventListener =
     "var msg;"
-    "function crashListener() {"
-    "  msg = 'crashed';"
+    "function exitListener(e) {"
+    "  msg = e.type;"
     "}"
     "document.getElementById('browserplugin')."
-    "    addEventListener('crash', crashListener);";
+    "    addEventListener('exit', exitListener);";
 
   ExecuteJavaScript(kAddEventListener);
 
   // Pretend that the guest has crashed
-  browser_plugin->GuestCrashed();
+  browser_plugin->GuestGone(0, base::TERMINATION_STATUS_NORMAL_TERMINATION);
 
   // Verify that our event listener has fired.
-  EXPECT_EQ("crashed", ExecuteScriptAndReturnString("msg"));
+  EXPECT_EQ("normal", ExecuteScriptAndReturnString("msg"));
 
   // Send an event and verify that events are no longer deported.
   browser_plugin->handleInputEvent(WebKit::WebMouseEvent(),
                                    cursor_info);
   EXPECT_FALSE(browser_plugin_manager()->sink().GetUniqueMessageMatching(
       BrowserPluginHostMsg_HandleInputEvent::ID));
-
-  // Navigate and verify that the guest_crashed_ flag has been reset.
-  browser_plugin->SetSrcAttribute("bar");
-  EXPECT_FALSE(browser_plugin->guest_crashed_);
 }
 
 TEST_F(BrowserPluginTest, RemovePlugin) {
@@ -315,13 +309,13 @@ TEST_F(BrowserPluginTest, CustomEvents) {
   const char* kAddEventListener =
     "var url;"
     "function nav(u) {"
-    "  url = u;"
+    "  url = u.url;"
     "}"
     "document.getElementById('browserplugin')."
-    "    addEventListener('navigation', nav);";
+    "    addEventListener('loadcommit', nav);";
   const char* kRemoveEventListener =
     "document.getElementById('browserplugin')."
-    "    removeEventListener('navigation', nav);";
+    "    removeEventListener('loadcommit', nav);";
   const char* kGetProcessID =
       "document.getElementById('browserplugin').getProcessId()";
   const char* kGoogleURL = "http://www.google.com/";
@@ -344,16 +338,25 @@ TEST_F(BrowserPluginTest, CustomEvents) {
           browser_plugin_manager()->GetBrowserPlugin(instance_id));
   ASSERT_TRUE(browser_plugin);
 
-  browser_plugin->DidNavigate(GURL(kGoogleURL), 1337);
-  EXPECT_EQ(kGoogleURL, ExecuteScriptAndReturnString("url"));
-  EXPECT_EQ(1337, ExecuteScriptAndReturnInt(kGetProcessID));
-
+  {
+    BrowserPluginMsg_LoadCommit_Params navigate_params;
+    navigate_params.url = GURL(kGoogleURL);
+    navigate_params.process_id = 1337;
+    browser_plugin->LoadCommit(navigate_params);
+    EXPECT_EQ(kGoogleURL, ExecuteScriptAndReturnString("url"));
+    EXPECT_EQ(1337, ExecuteScriptAndReturnInt(kGetProcessID));
+  }
   ExecuteJavaScript(kRemoveEventListener);
-  browser_plugin->DidNavigate(GURL(kGoogleNewsURL), 42);
-  // The URL variable should not change because we've removed the event
-  // listener.
-  EXPECT_EQ(kGoogleURL, ExecuteScriptAndReturnString("url"));
-  EXPECT_EQ(42, ExecuteScriptAndReturnInt(kGetProcessID));
+  {
+    BrowserPluginMsg_LoadCommit_Params navigate_params;
+    navigate_params.url = GURL(kGoogleNewsURL);
+    navigate_params.process_id = 42;
+    browser_plugin->LoadCommit(navigate_params);
+    // The URL variable should not change because we've removed the event
+    // listener.
+    EXPECT_EQ(kGoogleURL, ExecuteScriptAndReturnString("url"));
+    EXPECT_EQ(42, ExecuteScriptAndReturnInt(kGetProcessID));
+  }
 }
 
 TEST_F(BrowserPluginTest, StopMethod) {
@@ -487,6 +490,44 @@ TEST_F(BrowserPluginTest, ImmutableAttributesAfterNavigation) {
   partition_value = ExecuteScriptAndReturnString(
       "document.getElementById('browserplugin').partition");
   EXPECT_STREQ("storage", partition_value.c_str());
+}
+
+TEST_F(BrowserPluginTest, RemoveBrowserPluginOnExit) {
+  LoadHTML(GetHTMLForBrowserPluginObject().c_str());
+
+  // Grab the BrowserPlugin's instance ID from its resize message.
+  const IPC::Message* msg =
+      browser_plugin_manager()->sink().GetFirstMessageMatching(
+          BrowserPluginHostMsg_ResizeGuest::ID);
+  ASSERT_TRUE(msg);
+  PickleIterator iter = IPC::SyncMessage::GetDataIterator(msg);
+  BrowserPluginHostMsg_ResizeGuest::SendParam  resize_params;
+  ASSERT_TRUE(IPC::ReadParam(msg, &iter, &resize_params));
+  int instance_id = resize_params.a;
+
+  MockBrowserPlugin* browser_plugin =
+      static_cast<MockBrowserPlugin*>(
+          browser_plugin_manager()->GetBrowserPlugin(instance_id));
+  ASSERT_TRUE(browser_plugin);
+
+  const char* kAddEventListener =
+    "function exitListener(e) {"
+    "  if (e.type == 'killed') {"
+    "    var bp = document.getElementById('browserplugin');"
+    "    bp.parentNode.removeChild(bp);"
+    "  }"
+    "}"
+    "document.getElementById('browserplugin')."
+    "    addEventListener('exit', exitListener);";
+
+  ExecuteJavaScript(kAddEventListener);
+
+  // Pretend that the guest has crashed.
+  browser_plugin->GuestGone(0, base::TERMINATION_STATUS_PROCESS_WAS_KILLED);
+
+  ProcessPendingMessages();
+
+  EXPECT_EQ(NULL, browser_plugin_manager()->GetBrowserPlugin(instance_id));
 }
 
 }  // namespace content

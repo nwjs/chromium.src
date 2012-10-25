@@ -4,6 +4,7 @@
 
 #include "ash/shell/window_type_launcher.h"
 
+#include "ash/root_window_controller.h"
 #include "ash/screensaver/screensaver_view.h"
 #include "ash/shell.h"
 #include "ash/shell/example_factory.h"
@@ -327,8 +328,8 @@ void WindowTypeLauncher::ButtonPressed(views::Button* sender,
                                             base::TimeDelta::FromSeconds(5));
 
   } else if (sender == show_web_notification_) {
-    ash::Shell::GetInstance()->status_area_widget()->
-        web_notification_tray()->AddNotification(
+    ash::Shell::GetPrimaryRootWindowController()->status_area_widget()->
+        web_notification_tray()->message_center()->AddNotification(
             "id0",
             ASCIIToUTF16("Test Shell Web Notification"),
             ASCIIToUTF16("Notification message body."),

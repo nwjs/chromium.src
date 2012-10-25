@@ -8,14 +8,17 @@
 #include "content/common/view_messages.h"
 #include "content/renderer/render_thread_impl.h"
 
+using media::ChannelLayout;
+using media::CHANNEL_LAYOUT_NONE;
+
 static int output_sample_rate = 0;
 static int input_sample_rate = 0;
 static size_t output_buffer_size = 0;
 static ChannelLayout input_channel_layout = CHANNEL_LAYOUT_NONE;
 
-namespace audio_hardware {
+namespace content {
 
-int GetOutputSampleRate() {
+int AudioHardware::GetOutputSampleRate() {
   DCHECK(RenderThreadImpl::current() != NULL);
 
   if (!output_sample_rate) {
@@ -25,7 +28,7 @@ int GetOutputSampleRate() {
   return output_sample_rate;
 }
 
-int GetInputSampleRate() {
+int AudioHardware::GetInputSampleRate() {
   DCHECK(RenderThreadImpl::current() != NULL);
 
   if (!input_sample_rate) {
@@ -35,7 +38,7 @@ int GetInputSampleRate() {
   return input_sample_rate;
 }
 
-size_t GetOutputBufferSize() {
+size_t AudioHardware::GetOutputBufferSize() {
   DCHECK(RenderThreadImpl::current() != NULL);
 
   if (!output_buffer_size) {
@@ -48,7 +51,7 @@ size_t GetOutputBufferSize() {
   return output_buffer_size;
 }
 
-ChannelLayout GetInputChannelLayout() {
+ChannelLayout AudioHardware::GetInputChannelLayout() {
   DCHECK(RenderThreadImpl::current() != NULL);
 
   if (input_channel_layout == CHANNEL_LAYOUT_NONE) {
@@ -61,7 +64,7 @@ ChannelLayout GetInputChannelLayout() {
   return input_channel_layout;
 }
 
-void ResetCache() {
+void AudioHardware::ResetCache() {
   DCHECK(RenderThreadImpl::current() != NULL);
 
   output_sample_rate = 0.0;
@@ -70,4 +73,4 @@ void ResetCache() {
   input_channel_layout = CHANNEL_LAYOUT_NONE;
 }
 
-}  // namespace audio_hardware
+}  // namespace content

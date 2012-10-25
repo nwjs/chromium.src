@@ -15,6 +15,7 @@
 #include "content/browser/renderer_host/dip_util.h"
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
+#include "content/browser/renderer_host/ui_events_helper.h"
 #include "content/browser/renderer_host/web_input_event_aura.h"
 #include "content/common/gpu/client/gl_helper.h"
 #include "content/common/gpu/gpu_messages.h"
@@ -113,7 +114,8 @@ BOOL CALLBACK ShowWindowsCallback(HWND window, LPARAM param) {
 
 void UpdateWebTouchEventAfterDispatch(WebKit::WebTouchEvent* event,
                                       WebKit::WebTouchPoint* point) {
-  if (point->state != WebKit::WebTouchPoint::StateReleased)
+  if (point->state != WebKit::WebTouchPoint::StateReleased &&
+      point->state != WebKit::WebTouchPoint::StateCancelled)
     return;
   --event->touchesLength;
   for (unsigned i = point - event->touches;
@@ -146,8 +148,8 @@ bool CanRendererHandleEvent(const ui::MouseEvent* event) {
 
 void GetScreenInfoForWindow(WebScreenInfo* results, aura::Window* window) {
   const gfx::Display display = window ?
-      gfx::Screen::GetDisplayNearestWindow(window) :
-      gfx::Screen::GetPrimaryDisplay();
+      gfx::Screen::GetScreenFor(window)->GetDisplayNearestWindow(window) :
+      gfx::Screen::GetScreenFor(window)->GetPrimaryDisplay();
   const gfx::Size size = display.size();
   results->rect = WebKit::WebRect(0, 0, size.width(), size.height());
   results->availableRect = results->rect;
@@ -319,8 +321,8 @@ void RenderWidgetHostViewAura::InitAsFullscreen(
       host_tracker_.reset(new aura::WindowTracker);
       host_tracker_->Add(reference_window);
     }
-    gfx::Display display =
-        gfx::Screen::GetDisplayNearestWindow(reference_window);
+    gfx::Display display = gfx::Screen::GetScreenFor(window_)->
+        GetDisplayNearestWindow(reference_window);
     aura::client::StackingClient* stacking_client =
         aura::client::GetStackingClient();
     if (stacking_client)
@@ -475,7 +477,7 @@ bool RenderWidgetHostViewAura::HasFocus() const {
 }
 
 bool RenderWidgetHostViewAura::IsSurfaceAvailableForCopy() const {
-  return current_surface_ != 0;
+  return current_surface_ != 0 || !!host_->GetBackingStore(false);
 }
 
 void RenderWidgetHostViewAura::Show() {
@@ -496,7 +498,8 @@ gfx::Rect RenderWidgetHostViewAura::GetViewBounds() const {
 
 void RenderWidgetHostViewAura::UpdateCursor(const WebCursor& cursor) {
   current_cursor_ = cursor;
-  const gfx::Display display = gfx::Screen::GetDisplayNearestWindow(window_);
+  const gfx::Display display = gfx::Screen::GetScreenFor(window_)->
+      GetDisplayNearestWindow(window_);
   current_cursor_.SetScaleFactor(display.device_scale_factor());
   UpdateCursorIfOverSelf();
 }
@@ -634,7 +637,7 @@ void RenderWidgetHostViewAura::CopyFromCompositingSurface(
     const gfx::Rect& src_subrect,
     const gfx::Size& dst_size,
     const base::Callback<void(bool)>& callback,
-    skia::PlatformCanvas* output) {
+    skia::PlatformBitmap* output) {
   base::ScopedClosureRunner scoped_callback_runner(base::Bind(callback, false));
 
   std::map<uint64, scoped_refptr<ui::Texture> >::iterator it =
@@ -646,7 +649,7 @@ void RenderWidgetHostViewAura::CopyFromCompositingSurface(
   DCHECK(container);
 
   gfx::Size dst_size_in_pixel = ConvertSizeToPixel(this, dst_size);
-  if (!output->initialize(
+  if (!output->Allocate(
       dst_size_in_pixel.width(), dst_size_in_pixel.height(), true))
     return;
 
@@ -656,7 +659,7 @@ void RenderWidgetHostViewAura::CopyFromCompositingSurface(
     return;
 
   unsigned char* addr = static_cast<unsigned char*>(
-      output->getTopDevice()->accessBitmap(true).getPixels());
+      output->GetBitmap().getPixels());
   scoped_callback_runner.Release();
   // Wrap the callback with an internal handler so that we can inject our
   // own completion handlers (where we can call AdjustSurfaceProtection).
@@ -672,12 +675,12 @@ void RenderWidgetHostViewAura::CopyFromCompositingSurface(
   src_subrect_in_gl.set_y(GetViewBounds().height() - src_subrect.bottom());
 
   gfx::Rect src_subrect_in_pixel = ConvertRectToPixel(this, src_subrect_in_gl);
-  gl_helper->CopyTextureTo(container->texture_id(),
-                           container->size(),
-                           src_subrect_in_pixel,
-                           dst_size_in_pixel,
-                           addr,
-                           wrapper_callback);
+  gl_helper->CropScaleReadbackAndCleanTexture(container->PrepareTexture(),
+                                              container->size(),
+                                              src_subrect_in_pixel,
+                                              dst_size_in_pixel,
+                                              addr,
+                                              wrapper_callback);
 }
 
 void RenderWidgetHostViewAura::OnAcceleratedCompositingStateChange() {
@@ -696,14 +699,8 @@ void RenderWidgetHostViewAura::UpdateExternalTexture() {
   // Delay processing accelerated compositing state change till here where we
   // act upon the state change. (Clear the external texture if switching to
   // software mode or set the external texture if going to accelerated mode).
-  if (accelerated_compositing_state_changed_) {
-    // Don't scale the contents in accelerated mode because the renderer takes
-    // care of it.
-    window_->layer()->set_scale_content(
-        !host_->is_accelerated_compositing_active());
-
+  if (accelerated_compositing_state_changed_)
     accelerated_compositing_state_changed_ = false;
-  }
 
   if (current_surface_ != 0 && host_->is_accelerated_compositing_active()) {
     ui::Texture* container = image_transport_clients_[current_surface_];
@@ -1005,13 +1002,23 @@ gfx::Rect RenderWidgetHostViewAura::GetBoundsInRootWindow() {
   return window_->GetToplevelWindow()->GetBoundsInRootWindow();
 }
 
-void RenderWidgetHostViewAura::ProcessTouchAck(
-    WebKit::WebInputEvent::Type type, bool processed) {
-  // The ACKs for the touch-events arrive in the same sequence as they were
-  // dispatched.
-  aura::RootWindow* root_window = window_->GetRootWindow();
-  if (root_window)
-    root_window->AdvanceQueuedTouchEvent(window_, processed);
+void RenderWidgetHostViewAura::ProcessAckedTouchEvent(
+    const WebKit::WebTouchEvent& touch_event,
+    bool processed) {
+  ScopedVector<ui::TouchEvent> events;
+  if (!MakeUITouchEventsFromWebTouchEvents(touch_event, &events))
+    return;
+
+  aura::RootWindow* root = window_->GetRootWindow();
+  // |root| is NULL during tests.
+  if (!root)
+    return;
+
+  ui::EventResult result = processed ? ui::ER_HANDLED : ui::ER_UNHANDLED;
+  for (ScopedVector<ui::TouchEvent>::iterator iter = events.begin(),
+      end = events.end(); iter != end; ++iter) {
+    root->ProcessedTouchEvent((*iter), window_, result);
+  }
 }
 
 void RenderWidgetHostViewAura::SetHasHorizontalScrollbar(
@@ -1407,7 +1414,7 @@ scoped_refptr<ui::Texture> RenderWidgetHostViewAura::CopyTexture() {
   ui::Texture* container = it->second;
   DCHECK(container);
   WebKit::WebGLId texture_id =
-      gl_helper->CopyTexture(container->texture_id(), container->size());
+      gl_helper->CopyTexture(container->PrepareTexture(), container->size());
   if (!texture_id)
     return scoped_refptr<ui::Texture>();
 
@@ -1547,14 +1554,17 @@ ui::EventResult RenderWidgetHostViewAura::OnTouchEvent(ui::TouchEvent* event) {
       &touch_event_);
 
   // Forward the touch event only if a touch point was updated, and there's a
-  // touch-event handler in the page.
-  if (point && host_->has_touch_handler()) {
-    host_->ForwardTouchEvent(touch_event_);
+  // touch-event handler in the page, and no other touch-event is in the queue.
+  ui::EventResult result = ui::ER_UNHANDLED;
+  if (point) {
+    if (host_->ShouldForwardTouchEvent()) {
+      host_->ForwardTouchEvent(touch_event_);
+      result = ui::ER_CONSUMED;
+    }
     UpdateWebTouchEventAfterDispatch(&touch_event_, point);
-    return ui::ER_ASYNC;
   }
 
-  return ui::ER_UNHANDLED;
+  return result;
 }
 
 ui::EventResult RenderWidgetHostViewAura::OnGestureEvent(
@@ -1706,7 +1716,8 @@ RenderWidgetHostViewAura::~RenderWidgetHostViewAura() {
 }
 
 void RenderWidgetHostViewAura::UpdateCursorIfOverSelf() {
-  const gfx::Point screen_point = gfx::Screen::GetCursorScreenPoint();
+  const gfx::Point screen_point =
+      gfx::Screen::GetScreenFor(GetNativeView())->GetCursorScreenPoint();
   aura::RootWindow* root_window = window_->GetRootWindow();
   if (!root_window)
     return;
