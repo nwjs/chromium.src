@@ -140,9 +140,9 @@ deps = {
     'src/v8':
         Var('git_url') + '/external/v8.git@89e18f5599cb4cd462cb1ed324addd7388fb4d60',
     'src/third_party/node':
-        'https://github.com/zcbenz/node.git@master',
+        'https://github.com/zcbenz/node.git@origin/master',
     'src/content/nw':
-        'https://github.com/rogerwang/node-webkit.git@master',
+        'https://github.com/rogerwang/node-webkit.git@origin/master',
 }
 
 deps_os = {
