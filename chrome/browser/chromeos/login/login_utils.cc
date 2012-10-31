@@ -775,6 +775,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kGpuStartupDialog,
       ::switches::kLoginProfile,
       ::switches::kScrollPixels,
+      ::switches::kNaturalScrollDefault,
       ::switches::kNoFirstRun,
       ::switches::kNoSandbox,
       ::switches::kPpapiFlashArgs,
