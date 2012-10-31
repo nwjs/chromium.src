@@ -245,9 +245,8 @@ class SigninScreenHandler : public BaseScreenHandler,
 
   // Returns true iff
   // (i)   log in is restricted to some user list,
-  // (ii)  existing users fit login screen and
-  // (iii) existing users match to restricted list.
-  bool DoRestrictedUsersMatchExistingOnScreen();
+  // (ii)  all users in the restricted list are present.
+  bool AllWhitelistedUsersPresent();
 
   // A delegate that glues this handler with backend LoginDisplay.
   SigninScreenHandlerDelegate* delegate_;
