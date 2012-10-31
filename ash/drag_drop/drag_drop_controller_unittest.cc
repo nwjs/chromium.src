@@ -207,7 +207,7 @@ void AddViewToWidgetAndResize(views::Widget* widget, views::View* view) {
   contents_view->AddChildView(view);
   view->SetBounds(contents_view->width(), 0, 100, 100);
   gfx::Rect contents_view_bounds = contents_view->bounds();
-  contents_view_bounds = contents_view_bounds.Union(view->bounds());
+  contents_view_bounds.Union(view->bounds());
   contents_view->SetBoundsRect(contents_view_bounds);
   widget->SetBounds(contents_view_bounds);
 }
@@ -535,6 +535,9 @@ TEST_F(DragDropControllerTest, DragLeavesClipboardAloneTest) {
       ui::Clipboard::BUFFER_STANDARD));
   cb->ReadAsciiText(ui::Clipboard::BUFFER_STANDARD, &result);
   EXPECT_EQ(clip_str, result);
+  // Destory the clipboard here because ash doesn't delete it.
+  // crbug.com/158150.
+  ui::Clipboard::DestroyClipboardForCurrentThread();
 }
 
 TEST_F(DragDropControllerTest, WindowDestroyedDuringDragDrop) {

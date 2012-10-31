@@ -7,13 +7,15 @@
 
 #include <limits>
 
-#include "CCAnimationEvents.h"
-#include "CCGraphicsContext.h"
 #include "IntRect.h"
 #include "base/basictypes.h"
+#include "base/cancelable_callback.h"
 #include "base/hash_tables.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/time.h"
+#include "cc/animation_events.h"
+#include "cc/graphics_context.h"
 #include "cc/layer_tree_host_client.h"
 #include "cc/layer_tree_host_common.h"
 #include "cc/occlusion_tracker.h"
@@ -42,7 +44,7 @@ class Layer;
 class LayerTreeHostImpl;
 class LayerTreeHostImplClient;
 class PrioritizedTextureManager;
-class TextureUpdateQueue;
+class ResourceUpdateQueue;
 class HeadsUpDisplayLayer;
 class Region;
 struct ScrollAndScaleSet;
@@ -105,7 +107,7 @@ public:
     // LayerTreeHost interface to Proxy.
     void willBeginFrame() { m_client->willBeginFrame(); }
     void didBeginFrame() { m_client->didBeginFrame(); }
-    void updateAnimations(double monotonicFrameBeginTime);
+    void updateAnimations(base::TimeTicks monotonicFrameBeginTime);
     void layout();
     void beginCommitOnImplThread(LayerTreeHostImpl*);
     void finishCommitOnImplThread(LayerTreeHostImpl*);
@@ -127,7 +129,7 @@ public:
     virtual void acquireLayerTextures();
     // Returns false if we should abort this frame due to initialization failure.
     bool initializeRendererIfNeeded();
-    void updateLayers(TextureUpdateQueue&, size_t contentsMemoryLimitBytes);
+    void updateLayers(ResourceUpdateQueue&, size_t contentsMemoryLimitBytes);
 
     LayerTreeHostClient* client() { return m_client; }
 
@@ -141,6 +143,11 @@ public:
     bool compositeAndReadback(void *pixels, const IntRect&);
 
     void finishAllRendering();
+
+    void setDeferCommits(bool deferCommits);
+
+    // Test only hook
+    virtual void didDeferCommit();
 
     int commitNumber() const { return m_commitNumber; }
 
@@ -157,7 +164,7 @@ public:
     void setNeedsRedraw();
     bool commitRequested() const;
 
-    void setAnimationEvents(scoped_ptr<AnimationEventsVector>, double wallClockTime);
+    void setAnimationEvents(scoped_ptr<AnimationEventsVector>, base::Time wallClockTime);
     virtual void didAddAnimation();
 
     Layer* rootLayer() { return m_rootLayer.get(); }
@@ -182,7 +189,7 @@ public:
     bool visible() const { return m_visible; }
     void setVisible(bool);
 
-    void startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, double durationSec);
+    void startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, base::TimeDelta duration);
 
     void applyScrollAndScale(const ScrollAndScaleSet&);
     void setImplTransform(const WebKit::WebTransformationMatrix&);
@@ -195,7 +202,6 @@ public:
 
     bool bufferedUpdates();
     bool requestPartialTextureUpdate();
-    void deleteTextureAfterCommit(scoped_ptr<PrioritizedTexture>);
 
     void setDeviceScaleFactor(float);
     float deviceScaleFactor() const { return m_deviceScaleFactor; }
@@ -213,23 +219,26 @@ private:
 
     void initializeRenderer();
 
-    void update(Layer*, TextureUpdateQueue&, const OcclusionTracker*);
-    bool paintLayerContents(const LayerList&, TextureUpdateQueue&);
-    bool paintMasksForRenderSurface(Layer*, TextureUpdateQueue&);
+    void update(Layer*, ResourceUpdateQueue&, const OcclusionTracker*);
+    bool paintLayerContents(const LayerList&, ResourceUpdateQueue&);
+    bool paintMasksForRenderSurface(Layer*, ResourceUpdateQueue&);
 
-    void updateLayers(Layer*, TextureUpdateQueue&);
+    void updateLayers(Layer*, ResourceUpdateQueue&);
+    void triggerPrepaint();
 
     void prioritizeTextures(const LayerList&, OverdrawMetrics&); 
     void setPrioritiesForSurfaces(size_t surfaceMemoryBytes);
     void setPrioritiesForLayers(const LayerList&);
     size_t calculateMemoryForRenderSurfaces(const LayerList& updateList);
 
-    void animateLayers(double monotonicTime);
-    bool animateLayersRecursive(Layer* current, double monotonicTime);
-    void setAnimationEventsRecursive(const AnimationEventsVector&, Layer*, double wallClockTime);
+    void animateLayers(base::TimeTicks monotonicTime);
+    bool animateLayersRecursive(Layer* current, base::TimeTicks time);
+    void setAnimationEventsRecursive(const AnimationEventsVector&, Layer*, base::Time wallClockTime);
 
     bool m_animating;
     bool m_needsAnimateLayers;
+
+    base::CancelableClosure m_prepaintCallback;
 
     LayerTreeHostClient* m_client;
 
@@ -269,7 +278,6 @@ private:
     bool m_hasTransparentBackground;
 
     typedef ScopedPtrVector<PrioritizedTexture> TextureList;
-    TextureList m_deleteTextureAfterCommitList;
     size_t m_partialTextureUpdateRequests;
 
     static bool s_needsFilterContext;

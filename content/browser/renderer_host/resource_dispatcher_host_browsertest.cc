@@ -6,7 +6,6 @@
 #include "base/utf_string_conversions.h"
 #include "content/browser/download/download_manager_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
-#include "content/common/test_url_constants.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
@@ -233,7 +232,7 @@ IN_PROC_BROWSER_TEST_F(ResourceDispatcherHostBrowserTest,
 // Tests that onunload is run for cross-site requests to URLs that complete
 // without network loads (e.g., about:blank, data URLs).
 IN_PROC_BROWSER_TEST_F(ResourceDispatcherHostBrowserTest,
-                       CrossSiteImmediateLoadOnunloadCookie) {
+                       DISABLED_CrossSiteImmediateLoadOnunloadCookie) {
   ASSERT_TRUE(test_server()->Start());
 
   GURL url = test_server()->GetURL("files/onunload_cookie.html");

@@ -16,17 +16,17 @@
 #include "chrome/browser/chromeos/drive/drive.pb.h"
 #include "chrome/browser/chromeos/drive/drive_file_system.h"
 #include "chrome/browser/chromeos/drive/drive_test_util.h"
-#include "chrome/browser/chromeos/drive/drive_uploader.h"
 #include "chrome/browser/chromeos/drive/drive_webapps_registry.h"
 #include "chrome/browser/chromeos/drive/mock_directory_change_observer.h"
 #include "chrome/browser/chromeos/drive/mock_drive_cache_observer.h"
-#include "chrome/browser/chromeos/drive/mock_drive_service.h"
-#include "chrome/browser/chromeos/drive/mock_drive_uploader.h"
 #include "chrome/browser/chromeos/drive/mock_drive_web_apps_registry.h"
 #include "chrome/browser/chromeos/drive/mock_free_disk_space_getter.h"
 #include "chrome/browser/chromeos/drive/stale_cache_files_remover.h"
 #include "chrome/browser/google_apis/drive_api_parser.h"
+#include "chrome/browser/google_apis/drive_uploader.h"
 #include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/mock_drive_service.h"
+#include "chrome/browser/google_apis/mock_drive_uploader.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_browser_thread.h"
@@ -74,7 +74,7 @@ class StaleCacheFilesRemoverTest : public testing::Test {
 
     // Allocate and keep a pointer to the mock, and inject it into the
     // DriveFileSystem object, which will own the mock object.
-    mock_drive_service_ = new StrictMock<MockDriveService>;
+    mock_drive_service_ = new StrictMock<google_apis::MockDriveService>;
 
     EXPECT_CALL(*mock_drive_service_, Initialize(profile_.get())).Times(1);
 
@@ -90,7 +90,7 @@ class StaleCacheFilesRemoverTest : public testing::Test {
     cache_ = DriveCache::CreateDriveCacheOnUIThread(
         DriveCache::GetCacheRootPath(profile_.get()), blocking_task_runner_);
 
-    mock_uploader_.reset(new StrictMock<MockDriveUploader>);
+    mock_uploader_.reset(new StrictMock<google_apis::MockDriveUploader>);
     mock_webapps_registry_.reset(new StrictMock<MockDriveWebAppsRegistry>);
 
     ASSERT_FALSE(file_system_);
@@ -148,9 +148,9 @@ class StaleCacheFilesRemoverTest : public testing::Test {
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   scoped_ptr<TestingProfile> profile_;
   DriveCache* cache_;
-  scoped_ptr<StrictMock<MockDriveUploader> > mock_uploader_;
+  scoped_ptr<StrictMock<google_apis::MockDriveUploader> > mock_uploader_;
   DriveFileSystem* file_system_;
-  StrictMock<MockDriveService>* mock_drive_service_;
+  StrictMock<google_apis::MockDriveService>* mock_drive_service_;
   scoped_ptr<StrictMock<MockDriveWebAppsRegistry> > mock_webapps_registry_;
   StrictMock<MockFreeDiskSpaceGetter>* mock_free_disk_space_checker_;
   scoped_ptr<StrictMock<MockDriveCacheObserver> > mock_cache_observer_;

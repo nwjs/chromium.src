@@ -13,6 +13,8 @@
 #include "base/memory/singleton.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/profiles/profile_keyed_service_factory.h"
+#include "chrome/browser/sync_file_system/change_observer_interface.h"
+#include "webkit/fileapi/syncable/sync_callbacks.h"
 #include "webkit/fileapi/syncable/sync_status_code.h"
 
 class GURL;
@@ -24,11 +26,15 @@ class FileSystemContext;
 namespace sync_file_system {
 
 class LocalFileSyncService;
+class LocalChangeObserver;
+class RemoteChangeObserver;
+class RemoteFileSyncService;
 
-class SyncFileSystemService : public ProfileKeyedService {
+class SyncFileSystemService
+    : public ProfileKeyedService,
+      public LocalChangeObserver,
+      public RemoteChangeObserver {
  public:
-  typedef base::Callback<void(fileapi::SyncStatusCode status)> StatusCallback;
-
   // ProfileKeyedService overrides.
   virtual void Shutdown() OVERRIDE;
 
@@ -36,7 +42,7 @@ class SyncFileSystemService : public ProfileKeyedService {
       fileapi::FileSystemContext* file_system_context,
       const std::string& service_name,
       const GURL& app_url,
-      const StatusCallback& callback);
+      const fileapi::StatusCallback& callback);
 
  private:
   friend class SyncFileSystemServiceFactory;
@@ -44,11 +50,22 @@ class SyncFileSystemService : public ProfileKeyedService {
   explicit SyncFileSystemService(Profile* profile);
   virtual ~SyncFileSystemService();
 
-  void Initialize(scoped_ptr<LocalFileSyncService> local_file_service);
+  void Initialize(scoped_ptr<LocalFileSyncService> local_file_service,
+                  scoped_ptr<RemoteFileSyncService> remote_file_service);
+
+  // RemoteChangeObserver overrides.
+  virtual void OnLocalChangeAvailable(int64 pending_changes) OVERRIDE;
+
+  // LocalChangeObserver overrides.
+  virtual void OnRemoteChangeAvailable(int64 pending_changes) OVERRIDE;
 
   Profile* profile_;
 
+  int64 pending_local_changes_;
+  int64 pending_remote_changes_;
+
   scoped_ptr<LocalFileSyncService> local_file_service_;
+  scoped_ptr<RemoteFileSyncService> remote_file_service_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncFileSystemService);
 };

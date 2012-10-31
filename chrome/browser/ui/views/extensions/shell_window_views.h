@@ -48,6 +48,7 @@ class ShellWindowViews : public NativeShellWindow,
   virtual gfx::Rect GetBounds() const OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void ShowInactive() OVERRIDE;
+  virtual void Hide() OVERRIDE;
   virtual void Close() OVERRIDE;
   virtual void Activate() OVERRIDE;
   virtual void Deactivate() OVERRIDE;
@@ -111,6 +112,7 @@ class ShellWindowViews : public NativeShellWindow,
       const std::vector<extensions::DraggableRegion>& regions) OVERRIDE;
   virtual void HandleKeyboardEvent(
       const content::NativeWebKeyboardEvent& event) OVERRIDE;
+  virtual void RenderViewHostChanged() OVERRIDE;
 
   void OnViewWasResized();
 

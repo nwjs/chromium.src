@@ -6,23 +6,22 @@
 
 #include "cc/layer_tree_host.h"
 
-#include "CCGraphicsContext.h"
-#include "CCThreadedTest.h"
 #include "base/synchronization/lock.h"
 #include "cc/content_layer.h"
 #include "cc/content_layer_client.h"
+#include "cc/graphics_context.h"
 #include "cc/layer_tree_host_impl.h"
 #include "cc/settings.h"
 #include "cc/single_thread_proxy.h"
 #include "cc/test/fake_web_compositor_output_surface.h"
 #include "cc/test/geometry_test_utils.h"
+#include "cc/test/layer_tree_test_common.h"
 #include "cc/test/occlusion_tracker_test_common.h"
-#include "cc/texture_update_queue.h"
+#include "cc/resource_update_queue.h"
 #include "cc/timing_function.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/khronos/GLES2/gl2.h"
 #include "third_party/khronos/GLES2/gl2ext.h"
-#include <public/Platform.h>
 #include <public/WebLayerScrollClient.h>
 #include <public/WebSize.h>
 
@@ -504,7 +503,7 @@ public:
         postSetNeedsCommitToMainThread();
     }
 
-    virtual void animate(double monotonicTime) OVERRIDE
+    virtual void animate(base::TimeTicks monotonicTime) OVERRIDE
     {
         // We skip the first commit becasue its the commit that populates the
         // impl thread with a tree.
@@ -564,7 +563,7 @@ public:
         postSetNeedsAnimateToMainThread();
     }
 
-    virtual void animate(double) OVERRIDE
+    virtual void animate(base::TimeTicks) OVERRIDE
     {
         if (!m_numAnimates) {
             m_layerTreeHost->setNeedsAnimate();
@@ -595,7 +594,6 @@ public:
         : m_numAnimates(0)
         , m_receivedAnimationStartedNotification(false)
         , m_startTime(0)
-        , m_firstMonotonicTime(0)
     {
     }
 
@@ -604,7 +602,7 @@ public:
         postAddInstantAnimationToMainThread();
     }
 
-    virtual void animateLayers(LayerTreeHostImpl* layerTreeHostImpl, double monotonicTime) OVERRIDE
+    virtual void animateLayers(LayerTreeHostImpl* layerTreeHostImpl, base::TimeTicks monotonicTime) OVERRIDE
     {
         if (!m_numAnimates) {
             // The animation had zero duration so layerTreeHostImpl should no
@@ -615,8 +613,6 @@ public:
             return;
         }
         EXPECT_LT(0, m_startTime);
-        EXPECT_LT(0, m_firstMonotonicTime);
-        EXPECT_NE(m_startTime, m_firstMonotonicTime);
         EXPECT_TRUE(m_receivedAnimationStartedNotification);
         endTest();
     }
@@ -635,7 +631,7 @@ private:
     int m_numAnimates;
     bool m_receivedAnimationStartedNotification;
     double m_startTime;
-    double m_firstMonotonicTime;
+    base::TimeTicks m_firstMonotonicTime;
 };
 
 TEST_F(LayerTreeHostTestAddAnimation, runMultiThread)
@@ -654,14 +650,14 @@ public:
 
     virtual void beginTest() OVERRIDE
     {
-        postAddAnimationToMainThread();
+        postAddAnimationToMainThread(m_layerTreeHost->rootLayer());
     }
 
     virtual void afterTest() OVERRIDE
     {
     }
 
-    virtual void animateLayers(LayerTreeHostImpl* layerTreeHostImpl, double monotonicTime) OVERRIDE
+    virtual void animateLayers(LayerTreeHostImpl* layerTreeHostImpl, base::TimeTicks monotonicTime) OVERRIDE
     {
         m_startedAnimating = true;
     }
@@ -697,13 +693,13 @@ public:
 
     virtual void beginTest() OVERRIDE
     {
-        postAddAnimationToMainThread();
+        postAddAnimationToMainThread(m_layerTreeHost->rootLayer());
     }
 
     // Use willAnimateLayers to set visible false before the animation runs and
     // causes a commit, so we block the second visible animate in single-thread
     // mode.
-    virtual void willAnimateLayers(LayerTreeHostImpl* layerTreeHostImpl, double monotonicTime) OVERRIDE
+    virtual void willAnimateLayers(LayerTreeHostImpl* layerTreeHostImpl, base::TimeTicks monotonicTime) OVERRIDE
     {
         if (m_numAnimates < 2) {
             if (!m_numAnimates) {
@@ -735,10 +731,10 @@ public:
 
     virtual void beginTest() OVERRIDE
     {
-        postAddAnimationToMainThread();
+        postAddAnimationToMainThread(m_layerTreeHost->rootLayer());
     }
 
-    virtual void animateLayers(LayerTreeHostImpl* layerTreeHostImpl, double monotonicTime) OVERRIDE
+    virtual void animateLayers(LayerTreeHostImpl* layerTreeHostImpl, base::TimeTicks monotonicTime) OVERRIDE
     {
         const ActiveAnimation* animation = m_layerTreeHost->rootLayer()->layerAnimationController()->getActiveAnimation(0, ActiveAnimation::Opacity);
         if (!animation)
@@ -764,40 +760,6 @@ private:
 
 SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestAddAnimationWithTimingFunction)
 
-// Ensures that when opacity is being animated, this value does not cause the subtree to be skipped.
-class LayerTreeHostTestDoNotSkipLayersWithAnimatedOpacity : public LayerTreeHostTest {
-public:
-    LayerTreeHostTestDoNotSkipLayersWithAnimatedOpacity()
-    {
-    }
-
-    virtual void beginTest() OVERRIDE
-    {
-        m_layerTreeHost->rootLayer()->setDrawOpacity(1);
-        m_layerTreeHost->setViewportSize(IntSize(10, 10), IntSize(10, 10));
-        m_layerTreeHost->rootLayer()->setOpacity(0);
-        postAddAnimationToMainThread();
-    }
-
-    virtual void commitCompleteOnThread(LayerTreeHostImpl*) OVERRIDE
-    {
-        // If the subtree was skipped when preparing to draw, the layer's draw opacity
-        // will not have been updated. It should be set to 0 due to the animation.
-        // Without the animation, the layer will be skipped since it has zero opacity.
-        EXPECT_EQ(0, m_layerTreeHost->rootLayer()->drawOpacity());
-        endTest();
-    }
-
-    virtual void afterTest() OVERRIDE
-    {
-    }
-};
-
-TEST_F(LayerTreeHostTestDoNotSkipLayersWithAnimatedOpacity, runMultiThread)
-{
-    runTest(true);
-}
-
 // Ensures that main thread animations have their start times synchronized with impl thread animations.
 class LayerTreeHostTestSynchronizeAnimationStartTimes : public LayerTreeHostTest {
 public:
@@ -808,11 +770,11 @@ public:
 
     virtual void beginTest() OVERRIDE
     {
-        postAddAnimationToMainThread();
+        postAddAnimationToMainThread(m_layerTreeHost->rootLayer());
     }
 
-    // This is guaranteed to be called before LayerTreeHostImpl::animateLayers.
-    virtual void willAnimateLayers(LayerTreeHostImpl* layerTreeHostImpl, double monotonicTime) OVERRIDE
+    // This is guaranteed to be called before CCLayerTreeHostImpl::animateLayers.
+    virtual void willAnimateLayers(LayerTreeHostImpl* layerTreeHostImpl, base::TimeTicks monotonicTime) OVERRIDE
     {
         m_layerTreeHostImpl = layerTreeHostImpl;
     }
@@ -1072,7 +1034,7 @@ public:
 
     void requestStartPageScaleAnimation()
     {
-        layerTreeHost()->startPageScaleAnimation(IntSize(), false, 1.25, 0);
+        layerTreeHost()->startPageScaleAnimation(IntSize(), false, 1.25, base::TimeDelta());
     }
 
     virtual void drawLayersOnThread(LayerTreeHostImpl* impl) OVERRIDE
@@ -1083,7 +1045,7 @@ public:
 
         // We request animation only once.
         if (!m_animationRequested) {
-            m_mainThreadProxy->postTask(createThreadTask(this, &LayerTreeHostTestStartPageScaleAnimation::requestStartPageScaleAnimation));
+            m_mainThreadProxy->postTask(FROM_HERE, base::Bind(&LayerTreeHostTestStartPageScaleAnimation::requestStartPageScaleAnimation, base::Unretained(this)));
             m_animationRequested = true;
         }
     }
@@ -1158,19 +1120,25 @@ TEST_F(LayerTreeHostTestSetVisible, runMultiThread)
 
 class TestOpacityChangeLayerDelegate : public ContentLayerClient {
 public:
-    TestOpacityChangeLayerDelegate(LayerTreeHostTest* test)
-        : m_test(test)
+    TestOpacityChangeLayerDelegate()
+        : m_testLayer(0)
     {
+    }
+
+    void setTestLayer(Layer* testLayer)
+    {
+        m_testLayer = testLayer;
     }
 
     virtual void paintContents(SkCanvas*, const IntRect&, FloatRect&) OVERRIDE
     {
         // Set layer opacity to 0.
-        m_test->layerTreeHost()->rootLayer()->setOpacity(0);
+        if (m_testLayer)
+            m_testLayer->setOpacity(0);
     }
 
 private:
-    LayerTreeHostTest* m_test;
+    Layer* m_testLayer;
 };
 
 class ContentLayerWithUpdateTracking : public ContentLayer {
@@ -1180,7 +1148,7 @@ public:
     int paintContentsCount() { return m_paintContentsCount; }
     void resetPaintContentsCount() { m_paintContentsCount = 0; }
 
-    virtual void update(TextureUpdateQueue& queue, const OcclusionTracker* occlusion, RenderingStats& stats) OVERRIDE
+    virtual void update(ResourceUpdateQueue& queue, const OcclusionTracker* occlusion, RenderingStats& stats) OVERRIDE
     {
         ContentLayer::update(queue, occlusion, stats);
         m_paintContentsCount++;
@@ -1206,15 +1174,16 @@ private:
 class LayerTreeHostTestOpacityChange : public LayerTreeHostTest {
 public:
     LayerTreeHostTestOpacityChange()
-        : m_testOpacityChangeDelegate(this)
+        : m_testOpacityChangeDelegate()
         , m_updateCheckLayer(ContentLayerWithUpdateTracking::create(&m_testOpacityChangeDelegate))
     {
+        m_testOpacityChangeDelegate.setTestLayer(m_updateCheckLayer.get());
     }
 
     virtual void beginTest() OVERRIDE
     {
-        m_layerTreeHost->setRootLayer(m_updateCheckLayer);
         m_layerTreeHost->setViewportSize(IntSize(10, 10), IntSize(10, 10));
+        m_layerTreeHost->rootLayer()->addChild(m_updateCheckLayer);
 
         postSetNeedsCommitToMainThread();
     }
@@ -1262,6 +1231,47 @@ private:
         : ContentLayer(client) { }
     virtual ~NoScaleContentLayer() { }
 };
+
+// Ensures that when opacity is being animated, this value does not cause the subtree to be skipped.
+class LayerTreeHostTestDoNotSkipLayersWithAnimatedOpacity : public LayerTreeHostTest {
+public:
+    LayerTreeHostTestDoNotSkipLayersWithAnimatedOpacity()
+        : m_updateCheckLayer(ContentLayerWithUpdateTracking::create(&m_client))
+    {
+    }
+
+    virtual void beginTest() OVERRIDE
+    {
+        m_layerTreeHost->setViewportSize(IntSize(10, 10), IntSize(10, 10));
+        m_layerTreeHost->rootLayer()->addChild(m_updateCheckLayer);
+        m_updateCheckLayer->setOpacity(0);
+        m_updateCheckLayer->setDrawOpacity(0);
+        postAddAnimationToMainThread(m_updateCheckLayer.get());
+    }
+
+    virtual void commitCompleteOnThread(LayerTreeHostImpl*) OVERRIDE
+    {
+        endTest();
+    }
+
+    virtual void afterTest() OVERRIDE
+    {
+        // update() should have been called once, proving that the layer was not skipped.
+        EXPECT_EQ(1, m_updateCheckLayer->paintContentsCount());
+
+        // clear m_updateCheckLayer so LayerTreeHost dies.
+        m_updateCheckLayer = NULL;
+    }
+
+private:
+    MockContentLayerClient m_client;
+    scoped_refptr<ContentLayerWithUpdateTracking> m_updateCheckLayer;
+};
+
+TEST_F(LayerTreeHostTestDoNotSkipLayersWithAnimatedOpacity, runMultiThread)
+{
+    runTest(true);
+}
 
 class LayerTreeHostTestDeviceScaleFactorScalesViewportAndLayers : public LayerTreeHostTest {
 public:
@@ -1613,7 +1623,7 @@ class TestLayer : public Layer {
 public:
     static scoped_refptr<TestLayer> create() { return make_scoped_refptr(new TestLayer()); }
 
-    virtual void update(TextureUpdateQueue&, const OcclusionTracker* occlusion, RenderingStats&) OVERRIDE
+    virtual void update(ResourceUpdateQueue&, const OcclusionTracker* occlusion, RenderingStats&) OVERRIDE
     {
         // Gain access to internals of the OcclusionTracker.
         const TestOcclusionTracker* testOcclusion = static_cast<const TestOcclusionTracker*>(occlusion);
@@ -1669,7 +1679,7 @@ public:
         m_layerTreeHost->setRootLayer(rootLayer);
         m_layerTreeHost->setViewportSize(rootLayer->bounds(), rootLayer->bounds());
         ASSERT_TRUE(m_layerTreeHost->initializeRendererIfNeeded());
-        TextureUpdateQueue queue;
+        ResourceUpdateQueue queue;
         m_layerTreeHost->updateLayers(queue, std::numeric_limits<size_t>::max());
         m_layerTreeHost->commitComplete();
 
@@ -1877,7 +1887,7 @@ public:
         m_layerTreeHost->setRootLayer(rootLayer);
         m_layerTreeHost->setViewportSize(rootLayer->bounds(), rootLayer->bounds());
         ASSERT_TRUE(m_layerTreeHost->initializeRendererIfNeeded());
-        TextureUpdateQueue queue;
+        ResourceUpdateQueue queue;
         m_layerTreeHost->updateLayers(queue, std::numeric_limits<size_t>::max());
         m_layerTreeHost->commitComplete();
 
@@ -1966,7 +1976,7 @@ public:
         m_layerTreeHost->setRootLayer(layers[0].get());
         m_layerTreeHost->setViewportSize(layers[0]->bounds(), layers[0]->bounds());
         ASSERT_TRUE(m_layerTreeHost->initializeRendererIfNeeded());
-        TextureUpdateQueue queue;
+        ResourceUpdateQueue queue;
         m_layerTreeHost->updateLayers(queue, std::numeric_limits<size_t>::max());
         m_layerTreeHost->commitComplete();
 
@@ -2606,7 +2616,7 @@ class EvictionTestLayer : public Layer {
 public:
     static scoped_refptr<EvictionTestLayer> create() { return make_scoped_refptr(new EvictionTestLayer()); }
 
-    virtual void update(TextureUpdateQueue&, const OcclusionTracker*, RenderingStats&) OVERRIDE;
+    virtual void update(ResourceUpdateQueue&, const OcclusionTracker*, RenderingStats&) OVERRIDE;
     virtual bool drawsContent() const OVERRIDE { return true; }
 
     virtual scoped_ptr<LayerImpl> createLayerImpl() OVERRIDE;
@@ -2664,7 +2674,7 @@ void EvictionTestLayer::setTexturePriorities(const PriorityCalculator&)
     m_texture->setRequestPriority(PriorityCalculator::uiPriority(true));
 }
 
-void EvictionTestLayer::update(TextureUpdateQueue& queue, const OcclusionTracker*, RenderingStats&)
+void EvictionTestLayer::update(ResourceUpdateQueue& queue, const OcclusionTracker*, RenderingStats&)
 {
     createTextureIfNeeded();
     if (!m_texture.get())
@@ -2709,24 +2719,17 @@ public:
         postSetNeedsCommitToMainThread();
     }
 
-    class EvictTexturesTask : public WebKit::WebThread::Task {
-    public:
-        EvictTexturesTask(LayerTreeHostTestEvictTextures* test) : m_test(test) { }
-        virtual ~EvictTexturesTask() { }
-        virtual void run() OVERRIDE
-        {
-            DCHECK(m_test->m_implForEvictTextures);
-            m_test->m_implForEvictTextures->enforceManagedMemoryPolicy(ManagedMemoryPolicy(0));
-        }
-
-    private:
-        LayerTreeHostTestEvictTextures* m_test;
-    };
-
     void postEvictTextures()
     {
-        DCHECK(webThread());
-        webThread()->postTask(new EvictTexturesTask(this));
+        DCHECK(implThread());
+        implThread()->postTask(base::Bind(&LayerTreeHostTestEvictTextures::evictTexturesOnImplThread,
+                               base::Unretained(this)));
+    }
+
+    void evictTexturesOnImplThread()
+    {
+        DCHECK(m_implForEvictTextures);
+        m_implForEvictTextures->enforceManagedMemoryPolicy(ManagedMemoryPolicy(0));
     }
 
     // Commit 1: Just commit and draw normally, then post an eviction at the end
@@ -2849,24 +2852,12 @@ public:
         postSetNeedsCommitToMainThread();
     }
 
-    class EvictTexturesTask : public WebKit::WebThread::Task {
-    public:
-        EvictTexturesTask(LayerTreeHostTestLostContextAfterEvictTextures* test) : m_test(test) { }
-        virtual ~EvictTexturesTask() { }
-        virtual void run() OVERRIDE
-        {
-            m_test->evictTexturesOnImplThread();
-        }
-
-    private:
-        LayerTreeHostTestLostContextAfterEvictTextures* m_test;
-    };
-
     void postEvictTextures()
     {
-        if (webThread())
-            webThread()->postTask(new EvictTexturesTask(this));
-        else {
+        if (implThread()) {
+            implThread()->postTask(base::Bind(&LayerTreeHostTestLostContextAfterEvictTextures::evictTexturesOnImplThread,
+                                              base::Unretained(this)));
+        } else {
             DebugScopedSetImplThread impl;
             evictTexturesOnImplThread();
         }
@@ -3144,7 +3135,7 @@ public:
         postSetNeedsCommitToMainThread();
     }
 
-    virtual void animate(double) OVERRIDE
+    virtual void animate(base::TimeTicks) OVERRIDE
     {
         m_layerTreeHost->setNeedsAnimate();
     }
@@ -3179,6 +3170,59 @@ private:
 };
 
 TEST_F(LayerTreeHostTestContinuousAnimate, runMultiThread)
+{
+    runTest(true);
+}
+
+class LayerTreeHostTestDeferCommits : public LayerTreeHostTest {
+public:
+    LayerTreeHostTestDeferCommits()
+        : m_numCommitsDeferred(0)
+        , m_numCompleteCommits(0)
+    {
+    }
+
+    virtual void beginTest() OVERRIDE
+    {
+        postSetNeedsCommitToMainThread();
+    }
+
+    virtual void didDeferCommit() OVERRIDE
+    {
+        m_numCommitsDeferred++;
+        m_layerTreeHost->setDeferCommits(false);
+    }
+
+    virtual void didCommit() OVERRIDE
+    {
+        m_numCompleteCommits++;
+        switch (m_numCompleteCommits) {
+        case 1:
+            EXPECT_EQ(0, m_numCommitsDeferred);
+            m_layerTreeHost->setDeferCommits(true);
+            postSetNeedsCommitToMainThread();
+            break;
+        case 2:
+            endTest();
+            break;
+        default:
+            NOTREACHED();
+            break;
+        }
+    }
+
+    virtual void afterTest() OVERRIDE
+    {
+        EXPECT_EQ(1, m_numCommitsDeferred);
+        EXPECT_EQ(2, m_numCompleteCommits);
+    }
+
+private:
+    int m_numCommitsDeferred;
+    int m_numCompleteCommits;
+};
+
+TEST_F(LayerTreeHostTestDeferCommits, runMultiThread)
 {
     runTest(true);
 }

@@ -57,6 +57,8 @@
         'bubble/bubble_delegate.h',
         'bubble/bubble_frame_view.cc',
         'bubble/bubble_frame_view.h',
+        'bubble/tray_bubble_view.cc',
+        'bubble/tray_bubble_view.h',
         'button_drag_utils.cc',
         'button_drag_utils.h',
         'color_chooser/color_chooser_listener.h',
@@ -65,6 +67,8 @@
         'color_constants.cc',
         'color_constants.h',
         'context_menu_controller.h',
+        'controls/button/border_images.cc',
+        'controls/button/border_images.h',
         'controls/button/button.cc',
         'controls/button/button.h',
         'controls/button/button_dropdown.cc',
@@ -318,8 +322,6 @@
         'widget/desktop_layout_manager.h',
         'widget/desktop_native_widget_aura.cc',
         'widget/desktop_native_widget_aura.h',
-        'widget/desktop_native_widget_helper_aura.cc',
-        'widget/desktop_native_widget_helper_aura.h',
         'widget/desktop_root_window_host.h',
         'widget/desktop_root_window_host_linux.cc',
         'widget/desktop_root_window_host_linux.h',
@@ -347,7 +349,6 @@
         'widget/native_widget_aura_window_observer.cc',
         'widget/native_widget_aura_window_observer.h',
         'widget/native_widget_delegate.h',
-        'widget/native_widget_helper_aura.h',
         'widget/native_widget_private.h',
         'widget/native_widget_win.cc',
         'widget/native_widget_win.h',
@@ -447,10 +448,6 @@
         ['chromeos==1', {
           'sources/': [
             ['exclude', '/desktop_[^/]*\\.cc$'],
-            ['include', 'widget/desktop_native_widget_helper_aura.cc'],
-            ['include', 'widget/desktop_native_widget_helper_aura.h'],
-            ['include', 'widget/desktop_screen_position_client.cc'],
-            ['include', 'widget/desktop_screen_position_client.h'],
           ],
         }],
         ['use_aura==0 and OS=="win"', {
@@ -520,6 +517,8 @@
         '..',
       ],
       'sources': [
+        'test/desktop_test_views_delegate.cc',
+        'test/desktop_test_views_delegate.h',
         'test/test_views_delegate.cc',
         'test/test_views_delegate.h',
         'test/views_test_base.cc',
@@ -840,6 +839,7 @@
         '../ui.gyp:ui_resources',
         'views',
         'views_examples_with_content_lib',
+        'views_test_support'
       ],
       'include_dirs': [
         '../..',
@@ -853,8 +853,6 @@
         'examples/content_client/examples_main_delegate.cc',
         'examples/content_client/examples_main_delegate.h',
         'examples/examples_main.cc',
-        'test/test_views_delegate.cc',
-        'test/test_views_delegate.h',
       ],
       'conditions': [
         ['OS=="win"', {

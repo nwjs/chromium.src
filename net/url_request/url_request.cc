@@ -156,6 +156,7 @@ URLRequest::URLRequest(const GURL& url,
           base::Bind(&URLRequest::BeforeRequestComplete,
                      base::Unretained(this)))),
       has_notified_completion_(false),
+      received_response_content_length_(0),
       creation_time_(base::TimeTicks::Now()) {
   SIMPLE_STATS_COUNTER("URLRequestCount");
 
@@ -193,6 +194,7 @@ URLRequest::URLRequest(const GURL& url,
           base::Bind(&URLRequest::BeforeRequestComplete,
                      base::Unretained(this)))),
       has_notified_completion_(false),
+      received_response_content_length_(0),
       creation_time_(base::TimeTicks::Now()) {
   SIMPLE_STATS_COUNTER("URLRequestCount");
 
@@ -514,7 +516,8 @@ void URLRequest::StartJob(URLRequestJob* job) {
   net_log_.BeginEvent(
       NetLog::TYPE_URL_REQUEST_START_JOB,
       base::Bind(&NetLogURLRequestStartCallback,
-                 &url(), &method_, load_flags_, priority_));
+                 &url(), &method_, load_flags_, priority_,
+                 upload_.get() ? upload_->identifier() : -1));
 
   job_ = job;
   job_->SetExtraRequestHeaders(extra_request_headers_);

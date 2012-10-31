@@ -30,6 +30,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_plugin_service_filter.h"
 #include "chrome/browser/debugger/devtools_window.h"
+#include "chrome/browser/extensions/api/app_runtime/app_runtime_api.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api.h"
 #include "chrome/browser/extensions/api/declarative/rules_registry_service.h"
 #include "chrome/browser/extensions/api/extension_action/extension_actions_api.h"
@@ -686,6 +687,18 @@ bool ExtensionService::UpdateExtension(const std::string& id,
 }
 
 void ExtensionService::ReloadExtension(const std::string& extension_id) {
+  int events = HasShellWindows(extension_id) ? EVENT_LAUNCHED : EVENT_NONE;
+  ReloadExtensionWithEvents(extension_id, events);
+}
+
+void ExtensionService::RestartExtension(const std::string& extension_id) {
+  int events = HasShellWindows(extension_id) ? EVENT_RESTARTED : EVENT_NONE;
+  ReloadExtensionWithEvents(extension_id, events);
+}
+
+void ExtensionService::ReloadExtensionWithEvents(
+    const std::string& extension_id,
+    int events) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   FilePath path;
   const Extension* current_extension = GetExtensionById(extension_id, false);
@@ -711,11 +724,7 @@ void ExtensionService::ReloadExtension(const std::string& extension_id) {
         orphaned_dev_tools_[extension_id] = devtools_cookie;
     }
 
-    if (current_extension->is_platform_app() &&
-        !extensions::ShellWindowRegistry::Get(profile_)->
-            GetShellWindowsForApp(extension_id).empty()) {
-      relaunch_app_ids_.insert(extension_id);
-    }
+    on_load_events_[extension_id] = events;
 
     path = current_extension->path();
     DisableExtension(extension_id, Extension::DISABLE_RELOAD);
@@ -1836,9 +1845,7 @@ void ExtensionService::HandleExtensionAlertDetails() {
 }
 
 void ExtensionService::UpdateExternalExtensionAlert() {
-#if ENABLE_EXTERNAL_INSTALL_UI
-  if (!extensions::FeatureSwitch::prompt_for_external_extensions()->
-          IsEnabled())
+  if (!FeatureSwitch::prompt_for_external_extensions()->IsEnabled())
     return;
 
   const Extension* extension = NULL;
@@ -1846,7 +1853,9 @@ void ExtensionService::UpdateExternalExtensionAlert() {
        iter != disabled_extensions_.end(); ++iter) {
     const Extension* e = *iter;
     if (Extension::IsExternalLocation(e->location())) {
-      if (!extension_prefs_->IsExternalExtensionAcknowledged(e->id())) {
+      if (!extension_prefs_->IsExternalExtensionAcknowledged(e->id()) &&
+          !(extension_prefs_->GetDisableReasons(e->id()) &
+                Extension::DISABLE_SIDELOAD_WIPEOUT)) {
         extension = e;
         break;
       }
@@ -1864,7 +1873,6 @@ void ExtensionService::UpdateExternalExtensionAlert() {
   } else {
     extensions::RemoveExternalInstallError(this);
   }
-#endif
 }
 
 void ExtensionService::UnloadExtension(
@@ -2042,7 +2050,7 @@ void ExtensionService::AddExtension(const Extension* extension) {
   extensions_.Insert(scoped_extension);
   SyncExtensionChangeIfNeeded(*extension);
   NotifyExtensionLoaded(extension);
-  QueueRestoreAppWindow(extension);
+  DoPostLoadTasks(extension);
 }
 
 void ExtensionService::InitializePermissions(const Extension* extension) {
@@ -2190,11 +2198,13 @@ void ExtensionService::MaybeWipeout(
   if (done)
     return;
 
+  Extension::Type type = extension->GetType();
   int disable_reasons = extension_prefs_->GetDisableReasons(extension->id());
-  if (disable_reasons == Extension::DISABLE_NONE) {
+  if (disable_reasons == Extension::DISABLE_NONE &&
+      type == Extension::TYPE_EXTENSION) {
     Extension::Location location = extension->location();
     if (location == Extension::EXTERNAL_REGISTRY ||
-        (location == Extension::INTERNAL && !extension->from_webstore())) {
+        (location == Extension::INTERNAL && !extension->UpdatesFromGallery())) {
       extension_prefs_->SetExtensionState(extension->id(), Extension::DISABLED);
       extension_prefs_->AddDisableReason(
           extension->id(),
@@ -2307,12 +2317,14 @@ void ExtensionService::OnExtensionInstalled(
       content::Source<Profile>(profile_),
       content::Details<const Extension>(extension));
 
+  Extension::Location location = extension->location();
+
   // Transfer ownership of |extension| to AddExtension.
   AddExtension(scoped_extension);
 
   // If this is a new external extension that was disabled, alert the user
   // so he can reenable it.
-  if (Extension::IsExternalLocation(extension->location()) && !initial_enable)
+  if (Extension::IsExternalLocation(location) && !initial_enable)
     UpdateExternalExtensionAlert();
 }
 
@@ -2626,7 +2638,8 @@ void ExtensionService::SetBackgroundPageReady(const Extension* extension) {
 void ExtensionService::InspectBackgroundPage(const Extension* extension) {
   DCHECK(extension);
 
-  ExtensionProcessManager* pm = profile_->GetExtensionProcessManager();
+  ExtensionProcessManager* pm =
+      extensions::ExtensionSystem::Get(profile_)->process_manager();
   extensions::LazyBackgroundTaskQueue* queue =
       extensions::ExtensionSystem::Get(profile_)->lazy_background_task_queue();
 
@@ -2740,19 +2753,25 @@ ExtensionService::NaClModuleInfoList::iterator
   return nacl_module_list_.end();
 }
 
-void ExtensionService::QueueRestoreAppWindow(const Extension* extension) {
-  std::set<std::string>::iterator relaunch_iter =
-      relaunch_app_ids_.find(extension->id());
-  if (relaunch_iter != relaunch_app_ids_.end()) {
-    extensions::LazyBackgroundTaskQueue* queue =
-        system_->lazy_background_task_queue();
-    if (queue->ShouldEnqueueTask(profile(), extension)) {
+void ExtensionService::DoPostLoadTasks(const Extension* extension) {
+  std::map<std::string, int>::iterator it =
+      on_load_events_.find(extension->id());
+  if (it == on_load_events_.end())
+    return;
+
+  int events_to_fire = it->second;
+  extensions::LazyBackgroundTaskQueue* queue =
+      system_->lazy_background_task_queue();
+  if (queue->ShouldEnqueueTask(profile(), extension)) {
+    if (events_to_fire & EVENT_LAUNCHED)
       queue->AddPendingTask(profile(), extension->id(),
                             base::Bind(&ExtensionService::LaunchApplication));
-    }
-
-    relaunch_app_ids_.erase(relaunch_iter);
+    if (events_to_fire & EVENT_RESTARTED)
+      queue->AddPendingTask(profile(), extension->id(),
+                            base::Bind(&ExtensionService::RestartApplication));
   }
+
+  on_load_events_.erase(it);
 }
 
 // static
@@ -2766,6 +2785,25 @@ void ExtensionService::LaunchApplication(
                                 extension_host->extension(),
                                 NULL, FilePath());
 #endif
+}
+
+// static
+void ExtensionService::RestartApplication(
+    extensions::ExtensionHost* extension_host) {
+  if (!extension_host)
+    return;
+
+#if !defined(OS_ANDROID)
+  extensions::AppEventRouter::DispatchOnRestartedEvent(
+      extension_host->profile(), extension_host->extension());
+#endif
+}
+
+bool ExtensionService::HasShellWindows(const std::string& extension_id) {
+  const Extension* current_extension = GetExtensionById(extension_id, false);
+  return current_extension && current_extension->is_platform_app() &&
+      !extensions::ShellWindowRegistry::Get(profile_)->
+          GetShellWindowsForApp(extension_id).empty();
 }
 
 void ExtensionService::InspectExtensionHost(
@@ -2783,9 +2821,7 @@ bool ExtensionService::ShouldEnableOnInstall(const Extension* extension) {
   if (extension_prefs_->IsExtensionDisabled(extension->id()))
     return false;
 
-#if ENABLE_EXTERNAL_INSTALL_UI
-  if (extensions::FeatureSwitch::prompt_for_external_extensions()->
-          IsEnabled()) {
+  if (FeatureSwitch::prompt_for_external_extensions()->IsEnabled()) {
     // External extensions are initially disabled. We prompt the user before
     // enabling them.
     if (Extension::IsExternalLocation(extension->location()) &&
@@ -2793,7 +2829,6 @@ bool ExtensionService::ShouldEnableOnInstall(const Extension* extension) {
       return false;
     }
   }
-#endif
 
   return true;
 }

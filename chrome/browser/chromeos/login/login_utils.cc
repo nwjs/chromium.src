@@ -759,6 +759,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kDisableSeccompSandbox,
       ::switches::kEnableBrowserTextSubpixelPositioning,
       ::switches::kEnableCompositingForFixedPosition,
+      ::switches::kEnableEncryptedMedia,
       ::switches::kEnableGView,
       ::switches::kEnableLogging,
       ::switches::kEnableUIReleaseFrontSurface,
@@ -766,7 +767,6 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kEnableGestureTapHighlight,
       ::switches::kEnableSmoothScrolling,
       ::switches::kEnableThreadedCompositing,
-      ::switches::kEnableTouchCalibration,
       ::switches::kEnableViewport,
       ::switches::kEnableWebkitTextSubpixelPositioning,
       ::switches::kDisableThreadedCompositing,
@@ -783,6 +783,9 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kRendererStartupDialog,
       ::switches::kFlingTapSuppressMaxDown,
       ::switches::kFlingTapSuppressMaxGap,
+#if defined(USE_XI2_MT)
+      ::switches::kTouchCalibration,
+#endif
       ::switches::kTouchDevices,
       ::switches::kTouchOptimizedUI,
       ::switches::kOldCheckboxStyle,
@@ -795,6 +798,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       cc::switches::kEnablePartialSwap,
       cc::switches::kEnablePinchInCompositor,
       ::switches::kUIEnablePartialSwap,
+      ::switches::kUIEnableThreadedCompositing,
       ::switches::kUIPrioritizeInGpuProcess,
 #if defined(USE_CRAS)
       ::switches::kUseCras,

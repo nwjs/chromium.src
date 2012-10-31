@@ -858,19 +858,19 @@ void RenderWidgetHostViewGtk::DidUpdateBackingStore(
   // be done using XCopyArea?  Perhaps similar to
   // BackingStore::ScrollBackingStore?
   if (about_to_validate_and_paint_)
-    invalid_rect_ = invalid_rect_.Union(scroll_rect);
+    invalid_rect_.Union(scroll_rect);
   else
     Paint(scroll_rect);
 
   for (size_t i = 0; i < copy_rects.size(); ++i) {
     // Avoid double painting.  NOTE: This is only relevant given the call to
     // Paint(scroll_rect) above.
-    gfx::Rect rect = copy_rects[i].Subtract(scroll_rect);
+    gfx::Rect rect = gfx::SubtractRects(copy_rects[i], scroll_rect);
     if (rect.IsEmpty())
       continue;
 
     if (about_to_validate_and_paint_)
-      invalid_rect_ = invalid_rect_.Union(rect);
+      invalid_rect_.Union(rect);
     else
       Paint(rect);
   }
@@ -968,7 +968,7 @@ void RenderWidgetHostViewGtk::SelectionBoundsChanged(
     WebKit::WebTextDirection start_direction,
     const gfx::Rect& end_rect,
     WebKit::WebTextDirection end_direction) {
-  im_context_->UpdateCaretBounds(start_rect.Union(end_rect));
+  im_context_->UpdateCaretBounds(gfx::UnionRects(start_rect, end_rect));
 }
 
 GdkEventButton* RenderWidgetHostViewGtk::GetLastMouseDown() {
@@ -1069,14 +1069,14 @@ void RenderWidgetHostViewGtk::AcceleratedSurfaceBuffersSwapped(
     const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params,
     int gpu_host_id) {
   RenderWidgetHostImpl::AcknowledgeBufferPresent(
-      params.route_id, gpu_host_id, 0);
+      params.route_id, gpu_host_id, true, 0);
 }
 
 void RenderWidgetHostViewGtk::AcceleratedSurfacePostSubBuffer(
     const GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params& params,
     int gpu_host_id) {
   RenderWidgetHostImpl::AcknowledgeBufferPresent(
-      params.route_id, gpu_host_id, 0);
+      params.route_id, gpu_host_id, true, 0);
 }
 
 void RenderWidgetHostViewGtk::AcceleratedSurfaceSuspend() {
@@ -1175,7 +1175,7 @@ void RenderWidgetHostViewGtk::Paint(const gfx::Rect& damage_rect) {
   about_to_validate_and_paint_ = false;
 
   gfx::Rect paint_rect = gfx::Rect(0, 0, kMaxWindowWidth, kMaxWindowHeight);
-  paint_rect = paint_rect.Intersect(invalid_rect_);
+  paint_rect.Intersect(invalid_rect_);
 
   if (backing_store) {
     // Only render the widget if it is attached to a window; there's a short

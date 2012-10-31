@@ -32,45 +32,52 @@ static const char kClearKeyKeySystem[] = "webkit-org.w3.clearkey";
 static const char kExternalClearKeyKeySystem[] =
     "org.chromium.externalclearkey";
 
+static const char kWebMAudioOnly[] = "audio/webm; codecs=\"vorbis\"";
+static const char kWebMVideoOnly[] = "video/webm; codecs=\"vp8\"";
+static const char kWebMAudioVideo[] = "video/webm; codecs=\"vorbis, vp8\"";
 
-class EncryptedMediaTest
+namespace content {
+
+// Disabled, http://crbug.com/158591 .
+class DISABLED_EncryptedMediaTest
     : public testing::WithParamInterface<const char*>,
-      public content::ContentBrowserTest {
+      public ContentBrowserTest {
  public:
-  void TestSimplePlayback(const char* encrypted_video, const char* key_system,
-                          const string16 expectation) {
-    PlayEncryptedMedia("encrypted_media_player.html", encrypted_video,
-                       key_system, expectation);
+  void TestSimplePlayback(const char* encrypted_media, const char* media_type,
+                          const char* key_system, const string16 expectation) {
+    PlayEncryptedMedia("encrypted_media_player.html", encrypted_media,
+                       media_type, key_system, expectation);
   }
 
   void TestFrameSizeChange(const char* key_system, const string16 expectation) {
     PlayEncryptedMedia("encrypted_frame_size_change.html",
-                       "frame_size_change-av-enc-v.webm", key_system,
-                       expectation);
+                       "frame_size_change-av-enc-v.webm", kWebMAudioVideo,
+                       key_system, expectation);
   }
 
   void PlayEncryptedMedia(const char* html_page, const char* media_file,
-                          const char* key_system, const string16 expectation) {
+                          const char* media_type, const char* key_system,
+                          const string16 expectation) {
     // TODO(shadi): Add non-HTTP tests once src is supported for EME.
     ASSERT_TRUE(test_server()->Start());
 
     const string16 kError = ASCIIToUTF16("ERROR");
     const string16 kFailed = ASCIIToUTF16("FAILED");
     GURL player_gurl = test_server()->GetURL(base::StringPrintf(
-        "files/media/%s?keysystem=%s&mediafile=%s", html_page, key_system,
-        media_file));
-    content::TitleWatcher title_watcher(shell()->web_contents(), expectation);
+        "files/media/%s?keysystem=%s&mediafile=%s&mediatype=%s", html_page,
+        key_system, media_file, media_type));
+    TitleWatcher title_watcher(shell()->web_contents(), expectation);
     title_watcher.AlsoWaitForTitle(kError);
     title_watcher.AlsoWaitForTitle(kFailed);
 
-    content::NavigateToURL(shell(), player_gurl);
+    NavigateToURL(shell(), player_gurl);
 
     string16 final_title = title_watcher.WaitAndGetTitle();
     EXPECT_EQ(expectation, final_title);
 
     if (final_title == kFailed) {
       std::string fail_message;
-      EXPECT_TRUE(content::ExecuteJavaScriptAndExtractString(
+      EXPECT_TRUE(ExecuteJavaScriptAndExtractString(
           shell()->web_contents()->GetRenderViewHost(), L"",
           L"window.domAutomationController.send(failMessage);", &fail_message));
       LOG(INFO) << "Test failed: " << fail_message;
@@ -104,44 +111,70 @@ class EncryptedMediaTest
   }
 };
 
-// Fails on Linux/ChromeOS with ASan.  http://crbug.com/153231
-// IN_PROC_BROWSER_TEST_P doesn't accept #define MAYBE_test DISABLED_test.
-#if (defined(OS_LINUX) || defined(OS_CHROMEOS)) && defined(ADDRESS_SANITIZER)
-IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, DISABLED_BasicPlayback) {
-  const string16 kExpected = ASCIIToUTF16("ENDED");
-  ASSERT_NO_FATAL_FAILURE(TestSimplePlayback("bear-320x240-encrypted.webm",
-                                             GetParam(), kExpected));
-}
-
-IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, DISABLED_FrameChangeVideo) {
-  const string16 kExpected = ASCIIToUTF16("ENDED");
-  ASSERT_NO_FATAL_FAILURE(TestFrameSizeChange(GetParam(), kExpected));
-}
-#else
-IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, BasicPlayback) {
-  const string16 kExpected = ASCIIToUTF16("ENDED");
-  ASSERT_NO_FATAL_FAILURE(TestSimplePlayback("bear-320x240-encrypted.webm",
-                                             GetParam(), kExpected));
-}
-
-IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, FrameChangeVideo) {
-  const string16 kExpected = ASCIIToUTF16("ENDED");
-  ASSERT_NO_FATAL_FAILURE(TestFrameSizeChange(GetParam(), kExpected));
-}
-#endif
-
-IN_PROC_BROWSER_TEST_F(EncryptedMediaTest, InvalidKeySystem) {
-  const string16 kExpected = ASCIIToUTF16(
-      StringToUpperASCII(std::string("GenerateKeyRequestException")));
-  ASSERT_NO_FATAL_FAILURE(TestSimplePlayback("bear-320x240-encrypted.webm",
-                                             "com.example.invalid", kExpected));
-}
-
-INSTANTIATE_TEST_CASE_P(ClearKey, EncryptedMediaTest,
+INSTANTIATE_TEST_CASE_P(ClearKey, DISABLED_EncryptedMediaTest,
                         ::testing::Values(kClearKeyKeySystem));
 
-// http://crbug.com/152864
-#if !defined(OS_MACOSX)
-INSTANTIATE_TEST_CASE_P(ExternalClearKey, EncryptedMediaTest,
+// http://crbug.com/152864 (Mac) and http://crbug.com/157759 (ASAN on Aura)
+#if !defined(OS_MACOSX) && !(defined(ADDRESS_SANITIZER) && defined(USE_AURA))
+INSTANTIATE_TEST_CASE_P(ExternalClearKey, DISABLED_EncryptedMediaTest,
                         ::testing::Values(kExternalClearKeyKeySystem));
+#define MAYBE(test) test
+#else
+#define MAYBE(test) DISABLED_ ## test
 #endif
+
+IN_PROC_BROWSER_TEST_F(DISABLED_EncryptedMediaTest, InvalidKeySystem) {
+  const string16 kExpected = ASCIIToUTF16(
+      StringToUpperASCII(std::string("GenerateKeyRequestException")));
+  ASSERT_NO_FATAL_FAILURE(
+      TestSimplePlayback("bear-320x240-av-enc_av.webm", kWebMAudioVideo,
+                         "com.example.invalid", kExpected));
+}
+
+// TODO: Make these three IN_PROC_BROWSER_TEST_P() when internal Clear Key
+// supports encrypted audio.
+IN_PROC_BROWSER_TEST_F(DISABLED_EncryptedMediaTest,
+                       MAYBE(BasicPlayback_AudioOnly)) {
+  const string16 kExpected = ASCIIToUTF16("ENDED");
+  ASSERT_NO_FATAL_FAILURE(
+      TestSimplePlayback("bear-a-enc_a.webm", kWebMAudioOnly,
+                         kExternalClearKeyKeySystem, kExpected));
+}
+
+IN_PROC_BROWSER_TEST_F(DISABLED_EncryptedMediaTest,
+                       MAYBE(BasicPlayback_AudioClearVideo)) {
+  const string16 kExpected = ASCIIToUTF16("ENDED");
+  ASSERT_NO_FATAL_FAILURE(
+      TestSimplePlayback("bear-320x240-av-enc_a.webm", kWebMAudioVideo,
+                         kExternalClearKeyKeySystem, kExpected));
+}
+
+IN_PROC_BROWSER_TEST_F(DISABLED_EncryptedMediaTest,
+                       MAYBE(BasicPlayback_VideoAudio)) {
+  const string16 kExpected = ASCIIToUTF16("ENDED");
+  ASSERT_NO_FATAL_FAILURE(
+      TestSimplePlayback("bear-320x240-av-enc_av.webm", kWebMAudioVideo,
+                         kExternalClearKeyKeySystem, kExpected));
+}
+
+IN_PROC_BROWSER_TEST_P(DISABLED_EncryptedMediaTest, BasicPlayback_VideoOnly) {
+  const string16 kExpected = ASCIIToUTF16("ENDED");
+  ASSERT_NO_FATAL_FAILURE(
+      TestSimplePlayback("bear-320x240-v-enc_v.webm", kWebMVideoOnly,
+                         GetParam(), kExpected));
+}
+
+IN_PROC_BROWSER_TEST_P(DISABLED_EncryptedMediaTest,
+                       BasicPlayback_VideoClearAudio) {
+  const string16 kExpected = ASCIIToUTF16("ENDED");
+  ASSERT_NO_FATAL_FAILURE(
+      TestSimplePlayback("bear-320x240-av-enc_v.webm", kWebMAudioVideo,
+                         GetParam(), kExpected));
+}
+
+IN_PROC_BROWSER_TEST_P(DISABLED_EncryptedMediaTest, FrameChangeVideo) {
+  const string16 kExpected = ASCIIToUTF16("ENDED");
+  ASSERT_NO_FATAL_FAILURE(TestFrameSizeChange(GetParam(), kExpected));
+}
+
+}  // namespace content

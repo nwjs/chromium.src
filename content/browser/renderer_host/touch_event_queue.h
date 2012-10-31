@@ -8,12 +8,13 @@
 #include <deque>
 
 #include "base/basictypes.h"
+#include "content/common/content_export.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
-
-class MockRenderWidgetHost;
 
 namespace content {
 
+class CoalescedWebTouchEvent;
+class MockRenderWidgetHost;
 class RenderWidgetHostImpl;
 
 // A queue for throttling and coalescing touch-events.
@@ -47,7 +48,10 @@ class TouchEventQueue {
   }
 
  private:
-  friend class ::MockRenderWidgetHost;
+  friend class MockRenderWidgetHost;
+
+  CONTENT_EXPORT size_t GetQueueSize() const;
+  CONTENT_EXPORT const WebKit::WebTouchEvent& GetLatestEvent() const;
 
   // Pops the touch-event from the top of the queue and sends it to the
   // RenderWidgetHostView. This reduces the size of the queue by one.
@@ -56,7 +60,7 @@ class TouchEventQueue {
   // The RenderWidgetHost that owns this event-queue.
   RenderWidgetHostImpl* render_widget_host_;
 
-  typedef std::deque<WebKit::WebTouchEvent> TouchQueue;
+  typedef std::deque<CoalescedWebTouchEvent*> TouchQueue;
   TouchQueue touch_queue_;
 
   DISALLOW_COPY_AND_ASSIGN(TouchEventQueue);

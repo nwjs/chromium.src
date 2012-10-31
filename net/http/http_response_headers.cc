@@ -1097,7 +1097,18 @@ bool HttpResponseHeaders::GetTimeValuedHeader(const std::string& name,
   if (!EnumerateHeader(NULL, name, &value))
     return false;
 
-  return Time::FromString(value.c_str(), result);
+  // When parsing HTTP dates it's beneficial to default to GMT because:
+  // 1. RFC2616 3.3.1 says times should always be specified in GMT
+  // 2. Only counter-example incorrectly appended "UTC" (crbug.com/153759)
+  // 3. When adjusting cookie expiration times for clock skew
+  //    (crbug.com/135131) this better matches our cookie expiration
+  //    time parser which ignores timezone specifiers and assumes GMT.
+  // 4. This is exactly what Firefox does.
+  // TODO(pauljensen): The ideal solution would be to return false if the
+  // timezone could not be understood so as to avoid makeing other calculations
+  // based on an incorrect time.  This would require modifying the time
+  // library or duplicating the code. (http://crbug.com/158327)
+  return Time::FromUTCString(value.c_str(), result);
 }
 
 bool HttpResponseHeaders::IsKeepAlive() const {
@@ -1140,9 +1151,14 @@ bool HttpResponseHeaders::HasStrongValidators() const {
 // From RFC 2616:
 // Content-Length = "Content-Length" ":" 1*DIGIT
 int64 HttpResponseHeaders::GetContentLength() const {
+  return GetInt64HeaderValue("content-length");
+}
+
+int64 HttpResponseHeaders::GetInt64HeaderValue(
+    const std::string& header) const {
   void* iter = NULL;
   std::string content_length_val;
-  if (!EnumerateHeader(&iter, "content-length", &content_length_val))
+  if (!EnumerateHeader(&iter, header, &content_length_val))
     return -1;
 
   if (content_length_val.empty())

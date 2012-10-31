@@ -35,6 +35,8 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_messages.h"
+#include "chrome/common/extensions/feature_switch.h"
+#include "chrome/common/extensions/request_media_access_permission_helper.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/content_browser_client.h"
@@ -53,6 +55,10 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
+
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/login/user_manager.h"
+#endif
 
 using WebKit::WebDragOperation;
 using WebKit::WebDragOperationsMask;
@@ -409,6 +415,14 @@ void ExtensionHost::CloseContents(WebContents* contents) {
   }
 }
 
+#if defined(OS_CHROMEOS)
+bool ExtensionHost::ShouldSuppressDialogs() {
+  // Prevent extensions from creating dialogs while user session hasn't
+  // started yet.
+  return !chromeos::UserManager::Get()->IsSessionStarted();
+}
+#endif
+
 void ExtensionHost::OnStartDownload(
     content::WebContents* source, content::DownloadItem* download) {
   // If |source| is in the context of a Browser, show the DownloadShelf on that
@@ -638,6 +652,15 @@ void ExtensionHost::RenderViewReady() {
       chrome::NOTIFICATION_EXTENSION_HOST_CREATED,
       content::Source<Profile>(profile_),
       content::Details<ExtensionHost>(this));
+}
+
+void ExtensionHost::RequestMediaAccessPermission(
+    content::WebContents* web_contents,
+    const content::MediaStreamRequest* request,
+    const content::MediaResponseCallback& callback) {
+  // For tab capture device, we require the tabCapture permission.
+  RequestMediaAccessPermissionHelper::AuthorizeRequest(
+      request, callback, extension(), false);
 }
 
 }  // namespace extensions

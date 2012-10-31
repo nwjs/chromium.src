@@ -5,7 +5,6 @@
 #include "ash/wm/toplevel_window_event_handler.h"
 
 #include "ash/shell.h"
-#include "ash/wm/default_window_resizer.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/resize_shadow_controller.h"
 #include "ash/wm/window_resizer.h"
@@ -63,6 +62,9 @@ class ToplevelWindowEventHandler::ScopedWindowResizer
   WindowResizer* resizer() { return resizer_.get(); }
 
   // WindowObserver overrides:
+  virtual void OnWindowPropertyChanged(aura::Window* window,
+                                       const void* key,
+                                       intptr_t old) OVERRIDE;
   virtual void OnWindowDestroying(aura::Window* window) OVERRIDE;
 
  private:
@@ -86,6 +88,14 @@ ToplevelWindowEventHandler::ScopedWindowResizer::~ScopedWindowResizer() {
     resizer_->GetTarget()->RemoveObserver(this);
 }
 
+void ToplevelWindowEventHandler::ScopedWindowResizer::OnWindowPropertyChanged(
+    aura::Window* window,
+    const void* key,
+    intptr_t old) {
+  if (!wm::IsWindowNormal(window))
+    handler_->CompleteDrag(DRAG_COMPLETE, 0);
+}
+
 void ToplevelWindowEventHandler::ScopedWindowResizer::OnWindowDestroying(
     aura::Window* window) {
   DCHECK(resizer_.get());
@@ -99,7 +109,8 @@ void ToplevelWindowEventHandler::ScopedWindowResizer::OnWindowDestroying(
 ToplevelWindowEventHandler::ToplevelWindowEventHandler(aura::Window* owner)
     : in_move_loop_(false),
       move_cancelled_(false),
-      in_gesture_resize_(false) {
+      in_gesture_resize_(false),
+      destroyed_(NULL) {
   aura::client::SetWindowMoveClient(owner, this);
   Shell::GetInstance()->display_controller()->AddObserver(this);
   owner->AddPreTargetHandler(this);
@@ -108,6 +119,8 @@ ToplevelWindowEventHandler::ToplevelWindowEventHandler(aura::Window* owner)
 
 ToplevelWindowEventHandler::~ToplevelWindowEventHandler() {
   Shell::GetInstance()->display_controller()->RemoveObserver(this);
+  if (destroyed_)
+    *destroyed_ = true;
 }
 
 ui::EventResult ToplevelWindowEventHandler::OnKeyEvent(ui::KeyEvent* event) {
@@ -253,6 +266,8 @@ aura::client::WindowMoveResult ToplevelWindowEventHandler::RunMoveLoop(
       aura::client::GetCursorClient(root_window);
   if (cursor_client)
     cursor_client->SetCursor(ui::kCursorPointer);
+  bool destroyed = false;
+  destroyed_ = &destroyed;
 #if !defined(OS_MACOSX)
   MessageLoopForUI* loop = MessageLoopForUI::current();
   MessageLoop::ScopedNestableTaskAllower allow_nested(loop);
@@ -260,6 +275,9 @@ aura::client::WindowMoveResult ToplevelWindowEventHandler::RunMoveLoop(
   quit_closure_ = run_loop.QuitClosure();
   run_loop.Run();
 #endif  // !defined(OS_MACOSX)
+  if (destroyed)
+    return aura::client::MOVE_CANCELED;
+  destroyed_ = NULL;
   in_gesture_resize_ = in_move_loop_ = false;
   return move_cancelled_ ? aura::client::MOVE_CANCELED :
       aura::client::MOVE_SUCCESSFUL;
@@ -287,25 +305,13 @@ void ToplevelWindowEventHandler::OnDisplayConfigurationChanging() {
   }
 }
 
-// static
-WindowResizer* ToplevelWindowEventHandler::CreateWindowResizer(
-    aura::Window* window,
-    const gfx::Point& point_in_parent,
-    int window_component) {
-  if (!wm::IsWindowNormal(window))
-    return NULL;  // Don't allow resizing/dragging maximized/fullscreen windows.
-  return DefaultWindowResizer::Create(
-      window, point_in_parent, window_component);
-}
-
-
 void ToplevelWindowEventHandler::CreateScopedWindowResizer(
     aura::Window* window,
     const gfx::Point& point_in_parent,
     int window_component) {
   window_resizer_.reset();
   WindowResizer* resizer =
-      CreateWindowResizer(window, point_in_parent, window_component);
+      CreateWindowResizer(window, point_in_parent, window_component).release();
   if (resizer)
     window_resizer_.reset(new ScopedWindowResizer(this, resizer));
 }

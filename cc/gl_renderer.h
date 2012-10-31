@@ -5,9 +5,9 @@
 #ifndef CCRendererGL_h
 #define CCRendererGL_h
 
-#include "CCCheckerboardDrawQuad.h"
-#include "CCDebugBorderDrawQuad.h"
-#include "CCDirectRenderer.h"
+#include "cc/checkerboard_draw_quad.h"
+#include "cc/debug_border_draw_quad.h"
+#include "cc/direct_renderer.h"
 #include "cc/io_surface_draw_quad.h"
 #include "cc/render_pass_draw_quad.h"
 #include "cc/renderer.h"
@@ -56,6 +56,8 @@ public:
 
     virtual void setVisible(bool) OVERRIDE;
 
+    virtual void sendManagedMemoryStats(size_t bytesVisible, size_t bytesVisibleAndNearby, size_t bytesAllocated) OVERRIDE;
+
 protected:
     GLRenderer(RendererClient*, ResourceProvider*);
 
@@ -83,6 +85,7 @@ protected:
 
 private:
     static void toGLMatrix(float*, const WebKit::WebTransformationMatrix&);
+    static int priorityCutoffValue(WebKit::WebGraphicsMemoryAllocation::PriorityCutoff);
 
     void drawCheckerboardQuad(const DrawingFrame&, const CheckerboardDrawQuad*);
     void drawDebugBorderQuad(const DrawingFrame&, const DebugBorderDrawQuad*);

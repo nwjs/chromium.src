@@ -99,12 +99,6 @@ WebPreferences::WebPreferences()
       fullscreen_enabled(false),
       allow_displaying_insecure_content(true),
       allow_running_insecure_content(false),
-#if defined(OS_ANDROID)
-      text_autosizing_enabled(true),
-      font_scale_factor(1.0f),
-      force_enable_zoom(false),
-      user_gesture_required_for_media_playback(true),
-#endif
       password_echo_enabled(false),
       should_print_backgrounds(false),
       enable_scroll_animator(false),
@@ -121,9 +115,19 @@ WebPreferences::WebPreferences()
       max_untiled_layer_height(512),
       fixed_position_creates_stacking_context(false),
       sync_xhr_in_documents_enabled(true),
+      deferred_image_decoding_enabled(false),
       number_of_cpu_cores(1),
       cookie_enabled(true),
-      apply_page_scale_factor_in_compositor(false) {
+      apply_page_scale_factor_in_compositor(false)
+#if defined(OS_ANDROID)
+      ,
+      text_autosizing_enabled(true),
+      font_scale_factor(1.0f),
+      force_enable_zoom(false),
+      user_gesture_required_for_media_playback(true),
+      supports_multiple_windows(true)
+#endif
+{
   standard_font_family_map[kCommonScript] =
       ASCIIToUTF16("Times New Roman");
   fixed_font_family_map[kCommonScript] =
@@ -348,9 +352,6 @@ void WebPreferences::Apply(WebView* web_view) const {
   // Enable gpu-accelerated compositing if requested on the command line.
   settings->setAcceleratedCompositingEnabled(accelerated_compositing_enabled);
 
-  // Always enter compositing if requested on the command line.
-  settings->setForceCompositingMode(force_compositing_mode);
-
   // Enable compositing for fixed position elements if requested
   // on the command line.
   settings->setAcceleratedCompositingForFixedPositionEnabled(
@@ -409,15 +410,6 @@ void WebPreferences::Apply(WebView* web_view) const {
   settings->setFullScreenEnabled(fullscreen_enabled);
   settings->setAllowDisplayOfInsecureContent(allow_displaying_insecure_content);
   settings->setAllowRunningOfInsecureContent(allow_running_insecure_content);
-#if defined(OS_ANDROID)
-  settings->setTextAutosizingEnabled(text_autosizing_enabled);
-  settings->setTextAutosizingFontScaleFactor(font_scale_factor);
-  web_view->setIgnoreViewportTagMaximumScale(force_enable_zoom);
-  settings->setAutoZoomFocusedNodeToLegibleScale(true);
-  settings->setDoubleTapToZoomEnabled(true);
-  settings->setMediaPlaybackRequiresUserGesture(
-      user_gesture_required_for_media_playback);
-#endif
   settings->setPasswordEchoEnabled(password_echo_enabled);
   settings->setShouldPrintBackgrounds(should_print_backgrounds);
   settings->setEnableScrollAnimator(enable_scroll_animator);
@@ -441,6 +433,19 @@ void WebPreferences::Apply(WebView* web_view) const {
 
   settings->setApplyPageScaleFactorInCompositor(
       apply_page_scale_factor_in_compositor);
+
+  settings->setDeferredImageDecodingEnabled(deferred_image_decoding_enabled);
+
+#if defined(OS_ANDROID)
+  settings->setTextAutosizingEnabled(text_autosizing_enabled);
+  settings->setTextAutosizingFontScaleFactor(font_scale_factor);
+  web_view->setIgnoreViewportTagMaximumScale(force_enable_zoom);
+  settings->setAutoZoomFocusedNodeToLegibleScale(true);
+  settings->setDoubleTapToZoomEnabled(true);
+  settings->setMediaPlaybackRequiresUserGesture(
+      user_gesture_required_for_media_playback);
+  settings->setSupportsMultipleWindows(supports_multiple_windows);
+#endif
 
   WebNetworkStateNotifier::setOnLine(is_online);
 }

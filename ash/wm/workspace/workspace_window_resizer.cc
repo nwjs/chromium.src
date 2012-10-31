@@ -13,8 +13,10 @@
 #include "ash/display/mouse_cursor_event_filter.h"
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
+#include "ash/shell_window_ids.h"
 #include "ash/wm/coordinate_conversion.h"
 #include "ash/wm/cursor_manager.h"
+#include "ash/wm/default_window_resizer.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace/phantom_window_controller.h"
@@ -29,6 +31,33 @@
 #include "ui/gfx/transform.h"
 
 namespace ash {
+
+scoped_ptr<WindowResizer> CreateWindowResizer(aura::Window* window,
+                                              const gfx::Point& point_in_parent,
+                                              int window_component) {
+  DCHECK(window);
+  if (window->parent() &&
+      window->parent()->id() == internal::kShellWindowId_WorkspaceContainer) {
+    // Allow dragging maximized windows if it's not tracked by workspace. This
+    // is set by tab dragging code.
+    if (!wm::IsWindowNormal(window) &&
+        (window_component != HTCAPTION || GetTrackedByWorkspace(window)))
+      return scoped_ptr<WindowResizer>();
+    return make_scoped_ptr<WindowResizer>(
+        internal::WorkspaceWindowResizer::Create(window,
+                                                 point_in_parent,
+                                                 window_component,
+                                                 std::vector<aura::Window*>()));
+  } else if (wm::IsWindowNormal(window)) {
+    return make_scoped_ptr<WindowResizer>(DefaultWindowResizer::Create(
+        window,
+        point_in_parent,
+        window_component));
+  } else {
+    return scoped_ptr<WindowResizer>();
+  }
+}
+
 namespace internal {
 
 namespace {
@@ -284,13 +313,20 @@ void WorkspaceWindowResizer::Drag(const gfx::Point& location_in_parent,
 }
 
 void WorkspaceWindowResizer::CompleteDrag(int event_flags) {
+  wm::SetUserHasChangedWindowPositionOrSize(details_.window, true);
   window()->layer()->SetOpacity(details_.initial_opacity);
   drag_phantom_window_controller_.reset();
   snap_phantom_window_controller_.reset();
   if (!did_move_or_resize_ || details_.window_component != HTCAPTION)
     return;
 
-  if (snap_type_ == SNAP_LEFT_EDGE || snap_type_ == SNAP_RIGHT_EDGE) {
+  // When the window is not in the normal show state, we do not snap thw window.
+  // This happens when the user minimizes or maximizes the window by keyboard
+  // shortcut while dragging it. If the window is the result of dragging a tab
+  // out of a maximized window, it's already in the normal show state when this
+  // is called, so it does not matter.
+  if (wm::IsWindowNormal(window()) &&
+      (snap_type_ == SNAP_LEFT_EDGE || snap_type_ == SNAP_RIGHT_EDGE)) {
     if (!GetRestoreBoundsInScreen(window()))
       SetRestoreBoundsInParent(window(), details_.restore_bounds.IsEmpty() ?
                                          details_.initial_bounds :
@@ -671,8 +707,8 @@ void WorkspaceWindowResizer::UpdateDragPhantomWindow(const gfx::Rect& bounds,
   const gfx::Rect root_bounds_in_screen(another_root->GetBoundsInScreen());
   const gfx::Rect bounds_in_screen =
       ScreenAsh::ConvertRectToScreen(window()->parent(), bounds);
-  const gfx::Rect bounds_in_another_root =
-      root_bounds_in_screen.Intersect(bounds_in_screen);
+  gfx::Rect bounds_in_another_root =
+      gfx::IntersectRects(root_bounds_in_screen, bounds_in_screen);
 
   const float fraction_in_another_window =
       (bounds_in_another_root.width() * bounds_in_another_root.height()) /

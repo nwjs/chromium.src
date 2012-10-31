@@ -96,8 +96,14 @@
       '-omnibox.OmniboxTest.testDifferentTypesOfResults',
       # crbug.com/85600
       '-prefs.PrefsTest.testNavigationStateOnSessionRestore',
+      # crbug.com/157271
+      '-prefs_ui.BasicSettingsUITest.testCancelStartupURLSetting',
+      '-prefs_ui.BasicSettingsUITest.testSetStartupPages',
+      '-prefs_ui.BasicSettingsUITest.testUseCurrentPagesForStartup',
       # crbug.com/112051
       '-prefs_ui.PrefsUITest.testChangeExceptionBehaviorUI',
+      # crbug.com/157271
+      '-prefs_ui.PrefsUITest.testDeleteExceptionUI',
       # crbug.com/88593
       '-sync.SyncTest.testPersonalStuffSyncSection',
       # crbug.com/124913
@@ -416,8 +422,6 @@
       '-special_tabs.SpecialTabsTest.testSpecialURLTabs',
       # crbug.com/145006
       '-about_plugins_ui.ChromeAboutPluginsUITest.testEnableAndDisableFlashPlugin',
-      # crbug.com/151972
-      '-extensions.ExtensionsTest.testGetExtensionPermissions',
       # crbug.com/151973
       '-prefs_ui.PrefsUITest.testInitialLineEntryInIncognitoUI',
     ],
@@ -445,13 +449,15 @@
       # crbug.com/94682
       '-gpu.GpuTest.test2dCanvas',
       # crbug.com/125424
-      '-media.media_basic_playback.MediaConstrainedNetworkPerfTest.testBasicPlaybackMatrix',
+      '-media.media_basic_playback.MediaBasicPlaybackTest.testBasicPlaybackMatrix',
     ],
 
     'mac': [
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
       # ==================================================
+      # crbug.com/157394
+      '-media.media_basic_playback.MediaBasicPlaybackTest.testBasicPlaybackMatrix',
 
       # ===========================
       # Permanently-disabled tests.
@@ -700,6 +706,9 @@
       'media_stream_infobar',
       'webrtc_brutality_test',
       'webrtc_call',
+
+      # crbug.com/158512
+      '-webrtc_brutality_test.WebrtcBrutalityTest.testReloadsAfterGetUserMedia',
     ],
   },
 
@@ -742,7 +751,7 @@
       '-omnibox',
       '-special_tabs',
       '-ntp.NTPTest.testLaunchAppFullScreen',
-      '-media.media_basic_playback.MediaConstrainedNetworkPerfTest.testBasicPlaybackMatrix',
+      '-media.media_basic_playback.MediaBasicPlaybackTest.testBasicPlaybackMatrix',
       '-search_engines.SearchEnginesTest.testDiscoverSearchEngine',
       '-ntp.NTPTest.testUninstallApp',
       '-ntp.NTPTest.testLaunchAppWithDefaultSettings',

@@ -302,18 +302,35 @@ std::string ChromeContentRendererClient::GetDefaultEncoding() {
   return l10n_util::GetStringUTF8(IDS_DEFAULT_ENCODING);
 }
 
+const extensions::Extension* ChromeContentRendererClient::GetExtension(
+    const WebSecurityOrigin& origin) const {
+  if (!EqualsASCII(origin.protocol(), chrome::kExtensionScheme))
+    return NULL;
+
+  const std::string extension_id = origin.host().utf8().data();
+  if (!extension_dispatcher_->IsExtensionActive(extension_id))
+    return NULL;
+
+  return extension_dispatcher_->extensions()->GetByID(extension_id);
+}
+
 bool ChromeContentRendererClient::OverrideCreatePlugin(
     content::RenderView* render_view,
     WebFrame* frame,
     const WebPluginParams& params,
     WebPlugin** plugin) {
   std::string orig_mime_type = params.mimeType.utf8();
-  if ((orig_mime_type == content::kBrowserPluginMimeType &&
-      extensions::ExtensionHelper::Get(render_view)->view_type() ==
-          VIEW_TYPE_APP_SHELL) ||
-      CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableBrowserPluginForAllViewTypes)) {
-    return false;
+  if (orig_mime_type == content::kBrowserPluginMimeType) {
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+        switches::kEnableBrowserPluginForAllViewTypes))
+      return false;
+    WebDocument document = frame->document();
+    const extensions::Extension* extension =
+        GetExtension(document.securityOrigin());
+    if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableWebView) &&
+        extension &&
+        extension->HasAPIPermission(extensions::APIPermission::kWebView))
+      return false;
   }
 
   ChromeViewHostMsg_GetPluginInfo_Output output;
@@ -502,6 +519,16 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
 
         return render_view->CreatePlugin(frame, plugin, params);
       }
+      case ChromeViewHostMsg_GetPluginInfo_Status::kNPAPINotSupported: {
+        RenderThread::Get()->RecordUserMetrics("Plugin_NPAPINotSupported");
+        placeholder = PluginPlaceholder::CreateBlockedPlugin(
+            render_view, frame, params, plugin, identifier, group_name,
+            IDR_BLOCKED_PLUGIN_HTML,
+            l10n_util::GetStringUTF16(IDS_PLUGIN_NOT_SUPPORTED));
+        render_view->Send(new ChromeViewHostMsg_NPAPINotSupported(
+            render_view->GetRoutingID(), identifier));
+        break;
+      }
       case ChromeViewHostMsg_GetPluginInfo_Status::kDisabled: {
         placeholder = PluginPlaceholder::CreateBlockedPlugin(
             render_view, frame, params, plugin, identifier, group_name,
@@ -591,19 +618,6 @@ GURL ChromeContentRendererClient::GetNaClContentHandlerURL(
   return GURL();
 }
 
-// TODO(dschuff): remove this when ARM ABI is stable
-#if defined(__arm__) && defined(OS_CHROMEOS)
-static bool IsWhiteListedARM(const GURL& url) {
-  return
-    // QuickOffice
-    url.host() == "gbkeegbaiigmenfmjfclcdgdpimamgkj" ||
-    // ssh dev
-    url.host() == "okddffdblfhhnmhodogpojmfkjmhinfp" ||
-    // ssh stable
-    url.host() == "pnhechapfaindjhompbnflcldabbghjo";
-}
-#endif
-
 //  static
 bool ChromeContentRendererClient::IsNaClAllowed(
     const GURL& manifest_url,
@@ -623,22 +637,10 @@ bool ChromeContentRendererClient::IsNaClAllowed(
   // Allow Chrome Web Store extensions, built-in extensions, extensions
   // under development, invocations from whitelisted URLs, and all invocations
   // if --enable-nacl is set.
-  bool is_nacl_allowed =
-#if defined(__arm__) && defined(OS_CHROMEOS)
-    // The ARM ABI is not quite stable, so only allow NaCl for
-    // unrestricted extensions (i.e. built-in and under development),
-    // and for certain whitelisted webstore apps.
-    // See http://crbug.com/145694
-    // TODO(dschuff): remove this when the ABI is stable
-    (is_extension_from_webstore &&
-     manifest_url.SchemeIs("chrome-extension") &&
-     IsWhiteListedARM(manifest_url)) ||
-#else
-    is_extension_from_webstore ||
-    is_whitelisted_url ||
-#endif
-    is_extension_unrestricted ||
-    is_nacl_unrestricted;
+  bool is_nacl_allowed = is_extension_from_webstore ||
+                         is_whitelisted_url ||
+                         is_extension_unrestricted ||
+                         is_nacl_unrestricted;
   if (is_nacl_allowed) {
     bool app_can_use_dev_interfaces =
         // NaCl PDF viewer extension

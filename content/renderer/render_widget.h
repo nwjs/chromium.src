@@ -303,6 +303,8 @@ class CONTENT_EXPORT RenderWidget
   // the context is lost.
   virtual bool SupportsAsynchronousSwapBuffers();
 
+  virtual bool ForceCompositingModeEnabled();
+
   // Notifies scheduler that the RenderWidget's subclass has finished or aborted
   // a swap buffers.
   void OnSwapBuffersPosted();
@@ -605,6 +607,9 @@ class CONTENT_EXPORT RenderWidget
   typedef std::map<int, SmoothScrollCompletionCallback>
       PendingSmoothScrollGestureMap;
   PendingSmoothScrollGestureMap pending_smooth_scroll_gestures_;
+
+  // Specified whether the compositor will run in its own thread.
+  bool is_threaded_compositing_enabled_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidget);
 };

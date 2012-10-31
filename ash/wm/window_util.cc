@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "ash/ash_constants.h"
 #include "ash/shell.h"
 #include "ash/wm/activation_controller.h"
 #include "ash/wm/window_properties.h"
@@ -52,6 +53,18 @@ aura::Window* GetActivatableWindow(aura::Window* window) {
   return internal::ActivationController::GetActivatableWindow(window, NULL);
 }
 
+bool IsActiveWindowFullscreen() {
+  aura::Window* window = GetActiveWindow();
+  while (window) {
+    if (window->GetProperty(aura::client::kShowStateKey) ==
+        ui::SHOW_STATE_FULLSCREEN) {
+      return true;
+    }
+    window = window->parent();
+  }
+  return false;
+}
+
 bool CanActivateWindow(aura::Window* window) {
   DCHECK(window);
   if (!window->GetRootWindow())
@@ -61,11 +74,11 @@ bool CanActivateWindow(aura::Window* window) {
   return client && client->CanActivateWindow(window);
 }
 
-bool CanMaximizeWindow(aura::Window* window) {
+bool CanMaximizeWindow(const aura::Window* window) {
   return window->GetProperty(aura::client::kCanMaximizeKey);
 }
 
-bool IsWindowNormal(aura::Window* window) {
+bool IsWindowNormal(const aura::Window* window) {
   return IsWindowStateNormal(window->GetProperty(aura::client::kShowStateKey));
 }
 
@@ -73,17 +86,17 @@ bool IsWindowStateNormal(ui::WindowShowState state) {
   return state == ui::SHOW_STATE_NORMAL || state == ui::SHOW_STATE_DEFAULT;
 }
 
-bool IsWindowMaximized(aura::Window* window) {
+bool IsWindowMaximized(const aura::Window* window) {
   return window->GetProperty(aura::client::kShowStateKey) ==
       ui::SHOW_STATE_MAXIMIZED;
 }
 
-bool IsWindowMinimized(aura::Window* window) {
+bool IsWindowMinimized(const aura::Window* window) {
   return window->GetProperty(aura::client::kShowStateKey) ==
       ui::SHOW_STATE_MINIMIZED;
 }
 
-bool IsWindowFullscreen(aura::Window* window) {
+bool IsWindowFullscreen(const aura::Window* window) {
   return window->GetProperty(aura::client::kShowStateKey) ==
       ui::SHOW_STATE_FULLSCREEN;
 }
@@ -110,7 +123,8 @@ void ToggleMaximizedWindow(aura::Window* window) {
 void CenterWindow(aura::Window* window) {
   const gfx::Display display =
       Shell::GetScreen()->GetDisplayNearestWindow(window);
-  gfx::Rect center = display.work_area().Center(window->bounds().size());
+  gfx::Rect center = display.work_area();
+  center.ClampToCenteredSize(window->bounds().size());
   window->SetBounds(center);
 }
 
@@ -138,6 +152,24 @@ void DeepDeleteLayers(ui::Layer* layer) {
     DeepDeleteLayers(child);
   }
   delete layer;
+}
+
+bool IsWindowPositionManaged(const aura::Window* window) {
+  return window->GetProperty(ash::internal::kWindowPositionManagedKey);
+}
+
+void SetWindowPositionManaged(aura::Window* window, bool managed) {
+  window->SetProperty(ash::internal::kWindowPositionManagedKey, managed);
+}
+
+bool HasUserChangedWindowPositionOrSize(const aura::Window* window) {
+  return window->GetProperty(
+      ash::internal::kUserChangedWindowPositionOrSizeKey);
+}
+
+void SetUserHasChangedWindowPositionOrSize(aura::Window* window, bool changed) {
+  window->SetProperty(ash::internal::kUserChangedWindowPositionOrSizeKey,
+                      changed);
 }
 
 }  // namespace wm

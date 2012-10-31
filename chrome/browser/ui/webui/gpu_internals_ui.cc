@@ -26,12 +26,12 @@
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/compositor_util.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/browser/gpu_data_manager_observer.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_message_handler.h"
-#include "content/public/common/compositor_util.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/gpu_info.h"
 #include "grit/browser_resources.h"
@@ -151,6 +151,8 @@ DictionaryValue* GpuInfoAsDictionaryValue() {
                                              gpu_info.pixel_shader_version));
   basic_info->Append(NewDescriptionValuePair("Vertex shader version",
                                              gpu_info.vertex_shader_version));
+  basic_info->Append(NewDescriptionValuePair("Machine model",
+                                             gpu_info.machine_model));
   basic_info->Append(NewDescriptionValuePair("GL version",
                                              gpu_info.gl_version));
   basic_info->Append(NewDescriptionValuePair("GL_VENDOR",

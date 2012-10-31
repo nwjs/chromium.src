@@ -23,13 +23,13 @@ class Value;
 
 namespace google_apis {
 class DocumentFeed;
+class DriveServiceInterface;
 }
 
 namespace drive {
 
 class DriveCache;
 class DriveFeedLoaderObserver;
-class DriveServiceInterface;
 class DriveWebAppsRegistryInterface;
 struct GetDocumentsUiState;
 struct LoadFeedParams;
@@ -45,6 +45,10 @@ typedef base::Callback<void(scoped_ptr<LoadFeedParams> params,
 // In the case of loading the root feed we use |root_feed_changestamp| as its
 // initial changestamp value since it does not come with that info.
 //
+// Loaded feed may be partial due to size limit on a single feed. In that case,
+// the loaded feed will have next feed url set. Iff |load_subsequent_feeds|
+// parameter is set, feed loader will load all subsequent feeds.
+//
 // When all feeds are loaded, |feed_load_callback| is invoked with the retrieved
 // feeds. Then |load_finished_callback| is invoked with the error code.
 //
@@ -54,8 +58,7 @@ typedef base::Callback<void(scoped_ptr<LoadFeedParams> params,
 // |feed_load_callback| must not be null.
 // |load_finished_callback| may be null.
 struct LoadFeedParams {
-  LoadFeedParams(ContentOrigin initial_origin,
-                 const LoadDocumentFeedCallback& feed_load_callback);
+  explicit LoadFeedParams(const LoadDocumentFeedCallback& feed_load_callback);
 
   ~LoadFeedParams();
 
@@ -63,12 +66,12 @@ struct LoadFeedParams {
   // between two changestamps is proportional equal to number of items in
   // delta feed between them - bigger the difference, more likely bigger
   // number of items in delta feeds.
-  ContentOrigin initial_origin;
   int64 start_changestamp;
   int64 root_feed_changestamp;
   std::string search_query;
   std::string directory_resource_id;
   GURL feed_to_load;
+  bool load_subsequent_feeds;
   const LoadDocumentFeedCallback feed_load_callback;
   FileOperationCallback load_finished_callback;
   ScopedVector<google_apis::DocumentFeed> feed_list;
@@ -77,11 +80,9 @@ struct LoadFeedParams {
 
 // Defines set of parameters sent to callback OnProtoLoaded().
 struct LoadRootFeedParams {
-  LoadRootFeedParams(bool should_load_from_server,
-                     const FileOperationCallback& callback);
+  explicit LoadRootFeedParams(const FileOperationCallback& callback);
   ~LoadRootFeedParams();
 
-  bool should_load_from_server;
   std::string proto;
   DriveFileError load_error;
   base::Time last_modified;
@@ -96,7 +97,7 @@ class DriveFeedLoader {
  public:
   DriveFeedLoader(
       DriveResourceMetadata* resource_metadata,
-      DriveServiceInterface* drive_service,
+      google_apis::DriveServiceInterface* drive_service,
       DriveWebAppsRegistryInterface* webapps_registry,
       DriveCache* cache,
       scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_);
@@ -106,24 +107,15 @@ class DriveFeedLoader {
   void AddObserver(DriveFeedLoaderObserver* observer);
   void RemoveObserver(DriveFeedLoaderObserver* observer);
 
-  // Starts root feed load from the cache. If successful, runs |callback| to
-  // tell the caller that the loading was successful.
-  //
-  // Then, it will initiate retrieval of the root feed from the server unless
-  // |should_load_from_server| is set to false. |should_load_from_server| is
-  // false only for testing. If loading from the server is successful, runs
-  // |callback| if it was not previously run (i.e. loading from the cache was
-  // successful).
-  //
-  // |callback| may be null.
-  void LoadFromCache(bool should_load_from_server,
-                     const FileOperationCallback& callback);
+  // Starts root feed load from the cache, and runs |callback| to tell the
+  // result to the caller.
+  // |callback| must not be null.
+  void LoadFromCache(const FileOperationCallback& callback);
 
   // Starts retrieving feed for a directory specified by |directory_resource_id|
   // from the server. Upon completion, |feed_load_callback| is invoked.
   // |feed_load_callback| must not be null.
   void LoadDirectoryFromServer(
-      ContentOrigin initial_origin,
       const std::string& directory_resource_id,
       const LoadDocumentFeedCallback& feed_load_callback);
 
@@ -132,28 +124,27 @@ class DriveFeedLoader {
   // If |next_feed| is an empty string, the default URL is used.
   // Upon completion, |feed_load_callback| is invoked.
   // |feed_load_callback| must not be null.
-  void SearchFromServer(ContentOrigin initial_origin,
-                        const std::string& search_query,
+  void SearchFromServer(const std::string& search_query,
                         const GURL& next_feed,
                         const LoadDocumentFeedCallback& feed_load_callback);
 
   // Retrieves account metadata and determines from the last change timestamp
   // if the feed content loading from the server needs to be initiated.
-  void ReloadFromServerIfNeeded(
-      ContentOrigin initial_origin,
-      int64 local_changestamp,
-      const FileOperationCallback& callback);
+  // |callback| must not be null.
+  void ReloadFromServerIfNeeded(const FileOperationCallback& callback);
 
   // Updates whole directory structure feeds collected in |feed_list|.
-  // On success, returns PLATFORM_FILE_OK. Record file statistics as UMA
-  // histograms.
+  // Record file statistics as UMA histograms.
   //
   // See comments at DriveFeedProcessor::ApplyFeeds() for
   // |start_changestamp| and |root_feed_changestamp|.
-  DriveFileError UpdateFromFeed(
+  void UpdateFromFeed(
     const ScopedVector<google_apis::DocumentFeed>& feed_list,
     int64 start_changestamp,
     int64 root_feed_changestamp);
+
+  // Indicates whether there is a feed refreshing server request is in flight.
+  bool refreshing() const { return refreshing_; }
 
  private:
   // Starts root feed load from the server, with details specified in |params|.
@@ -162,28 +153,24 @@ class DriveFeedLoader {
   // Callback for handling root directory refresh from the cache.
   void OnProtoLoaded(LoadRootFeedParams* params);
 
-  // Continues handling root directory refresh after the directory service
+  // Continues handling root directory refresh after the resource metadata
   // is fully loaded.
-  void ContinueWithInitializedDirectoryService(LoadRootFeedParams* params,
+  void ContinueWithInitializedResourceMetadata(LoadRootFeedParams* params,
                                                DriveFileError error);
 
   // Helper callback for handling results of metadata retrieval initiated from
-  // ReloadFeedFromServerIfNeeded(). This method makes a decision about fetching
+  // ReloadFromServerIfNeeded(). This method makes a decision about fetching
   // the content of the root feed during the root directory refresh process.
   void OnGetAccountMetadata(
-      ContentOrigin initial_origin,
-      int64 local_changestamp,
       const FileOperationCallback& callback,
       google_apis::GDataErrorCode status,
       scoped_ptr<base::Value> feed_data);
 
   // Helper callback for handling results of account data retrieval initiated
-  // from ReloadFeedFromServerIfNeeded() for Drive V2 API.
+  // from ReloadFromServerIfNeeded() for Drive V2 API.
   // This method makes a decision about fetching the content of the root feed
   // during the root directory refresh process.
   void OnGetAboutResource(
-      ContentOrigin initial_origin,
-      int64 local_changestamp,
       const FileOperationCallback& callback,
       google_apis::GDataErrorCode status,
       scoped_ptr<base::Value> feed_data);
@@ -216,7 +203,7 @@ class DriveFeedLoader {
                    base::TimeTicks start_time,
                    scoped_ptr<google_apis::DocumentFeed>* current_feed);
 
-  // Callback for handling response from |DriveAPIService::GetChanglist|.
+  // Callback for handling response from |DriveAPIService::GetDocuments|.
   // Invokes |callback| when done.
   // |callback| must not be null.
   void OnGetChangelist(scoped_ptr<LoadFeedParams> params,
@@ -232,11 +219,14 @@ class DriveFeedLoader {
       base::WeakPtr<GetDocumentsUiState> ui_state);
 
   DriveResourceMetadata* resource_metadata_;  // Not owned.
-  DriveServiceInterface* drive_service_;  // Not owned.
+  google_apis::DriveServiceInterface* drive_service_;  // Not owned.
   DriveWebAppsRegistryInterface* webapps_registry_;  // Not owned.
   DriveCache* cache_;  // Not owned.
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   ObserverList<DriveFeedLoaderObserver> observers_;
+
+  // Indicates whether there is a feed refreshing server request is in flight.
+  bool refreshing_;
 
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate its weak pointers before any other members are destroyed.

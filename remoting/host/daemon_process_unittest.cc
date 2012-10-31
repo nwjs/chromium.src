@@ -5,9 +5,10 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/memory/ref_counted.h"
-#include "base/single_thread_task_runner.h"
+#include "base/process.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_message_macros.h"
+#include "ipc/ipc_platform_file.h"
 #include "remoting/base/auto_thread_task_runner.h"
 #include "remoting/host/chromoting_messages.h"
 #include "remoting/host/daemon_process.h"
@@ -25,6 +26,7 @@ namespace remoting {
 namespace {
 
 enum Messages {
+  kMessageCrash = ChromotingDaemonNetworkMsg_Crash::ID,
   kMessageConfiguration = ChromotingDaemonNetworkMsg_Configuration::ID,
   kMessageConnectTerminal = ChromotingNetworkHostMsg_ConnectTerminal::ID,
   kMessageDisconnectTerminal = ChromotingNetworkHostMsg_DisconnectTerminal::ID,
@@ -46,8 +48,8 @@ class FakeDesktopSession : public DesktopSession {
 class MockDaemonProcess : public DaemonProcess {
  public:
   MockDaemonProcess(
-      scoped_refptr<base::SingleThreadTaskRunner> caller_task_runner,
-      scoped_refptr<base::SingleThreadTaskRunner> io_task_runner,
+      scoped_refptr<AutoThreadTaskRunner> caller_task_runner,
+      scoped_refptr<AutoThreadTaskRunner> io_task_runner,
       const base::Closure& stopped_callback);
   virtual ~MockDaemonProcess();
 
@@ -59,9 +61,11 @@ class MockDaemonProcess : public DaemonProcess {
   MOCK_METHOD1(Received, void(const IPC::Message&));
   MOCK_METHOD1(Sent, void(const IPC::Message&));
 
+  MOCK_METHOD3(OnDesktopSessionAgentAttached,
+               bool(int, base::ProcessHandle, IPC::PlatformFileForTransit));
+
   MOCK_METHOD1(DoCreateDesktopSessionPtr, DesktopSession*(int));
   MOCK_METHOD0(LaunchNetworkProcess, void());
-  MOCK_METHOD0(RestartNetworkProcess, void());
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockDaemonProcess);
@@ -75,8 +79,8 @@ FakeDesktopSession::~FakeDesktopSession() {
 }
 
 MockDaemonProcess::MockDaemonProcess(
-    scoped_refptr<base::SingleThreadTaskRunner> caller_task_runner,
-    scoped_refptr<base::SingleThreadTaskRunner> io_task_runner,
+    scoped_refptr<AutoThreadTaskRunner> caller_task_runner,
+    scoped_refptr<AutoThreadTaskRunner> io_task_runner,
     const base::Closure& stopped_callback)
     : DaemonProcess(caller_task_runner, io_task_runner, stopped_callback) {
 }
@@ -270,8 +274,9 @@ TEST_F(DaemonProcessTest, InvalidDisconnectTerminal) {
   InSequence s;
   EXPECT_CALL(*daemon_process_, Sent(Message(kMessageConfiguration)));
   EXPECT_CALL(*daemon_process_, Received(Message(kMessageDisconnectTerminal)));
-  EXPECT_CALL(*daemon_process_, RestartNetworkProcess())
-      .WillRepeatedly(Invoke(this, &DaemonProcessTest::LaunchNetworkProcess));
+  EXPECT_CALL(*daemon_process_, Sent(Message(kMessageCrash)))
+      .WillOnce(InvokeWithoutArgs(this,
+                                  &DaemonProcessTest::LaunchNetworkProcess));
   EXPECT_CALL(*daemon_process_, Sent(Message(kMessageConfiguration)));
 
   StartDaemonProcess();
@@ -291,8 +296,9 @@ TEST_F(DaemonProcessTest, InvalidConnectTerminal) {
   EXPECT_CALL(*daemon_process_, Sent(Message(kMessageConfiguration)));
   EXPECT_CALL(*daemon_process_, Received(Message(kMessageConnectTerminal)));
   EXPECT_CALL(*daemon_process_, Received(Message(kMessageConnectTerminal)));
-  EXPECT_CALL(*daemon_process_, RestartNetworkProcess())
-      .WillRepeatedly(Invoke(this, &DaemonProcessTest::LaunchNetworkProcess));
+  EXPECT_CALL(*daemon_process_, Sent(Message(kMessageCrash)))
+      .WillOnce(InvokeWithoutArgs(this,
+                                  &DaemonProcessTest::LaunchNetworkProcess));
   EXPECT_CALL(*daemon_process_, Sent(Message(kMessageConfiguration)));
 
   StartDaemonProcess();

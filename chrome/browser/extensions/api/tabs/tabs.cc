@@ -173,6 +173,7 @@ bool GetWindowFromWindowID(UIThreadExtensionFunction* function,
   }
   return true;
 }
+
 // |error_message| can optionally be passed in and will be set with an
 // appropriate message if the tab cannot be found by id.
 bool GetTabById(int tab_id,
@@ -180,7 +181,7 @@ bool GetTabById(int tab_id,
                 bool include_incognito,
                 Browser** browser,
                 TabStripModel** tab_strip,
-                TabContents** contents,
+                content::WebContents** contents,
                 int* tab_index,
                 std::string* error_message) {
   if (ExtensionTabUtil::GetTabById(tab_id, profile, include_incognito,
@@ -442,12 +443,11 @@ bool CreateWindowFunction::RunImpl() {
       EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kTabIdKey, &tab_id));
 
       // Find the tab and detach it from the original window.
-      Browser* source_browser = NULL;
       TabStripModel* source_tab_strip = NULL;
       int tab_index = -1;
       if (!GetTabById(tab_id, profile(), include_incognito(),
-                      &source_browser, &source_tab_strip, &contents,
-                      &tab_index, &error_))
+                      NULL, &source_tab_strip,
+                      NULL, &tab_index, &error_))
         return false;
       contents = source_tab_strip->DetachTabContentsAt(tab_index);
       if (!contents) {
@@ -805,6 +805,13 @@ bool RemoveWindowFunction::RunImpl() {
   if (!GetWindowFromWindowID(this, window_id, &controller))
     return false;
 
+#if defined(OS_WIN) && !defined(USE_AURA)
+  // In Windows 8 metro mode, an existing Browser instance is reused for
+  // hosting the extension tab. We should not be closing it as we don't own it.
+  if (base::win::IsMetroProcess())
+    return false;
+#endif
+
   WindowController::Reason reason;
   if (!controller->CanClose(&reason)) {
     if (reason == WindowController::REASON_NOT_EDITABLE)
@@ -993,19 +1000,16 @@ bool CreateTabFunction::RunImpl() {
 
   // TODO(jstritar): Add a constant, chrome.tabs.TAB_ID_ACTIVE, that
   // represents the active tab.
-  content::NavigationController* opener = NULL;
+  WebContents* opener = NULL;
   if (args->HasKey(keys::kOpenerTabIdKey)) {
     int opener_id = -1;
     EXTENSION_FUNCTION_VALIDATE(args->GetInteger(
         keys::kOpenerTabIdKey, &opener_id));
 
-    TabContents* opener_contents = NULL;
     if (!ExtensionTabUtil::GetTabById(
             opener_id, profile(), include_incognito(),
-            NULL, NULL, &opener_contents, NULL))
+            NULL, NULL, &opener, NULL))
       return false;
-
-    opener = &opener_contents->web_contents()->GetController();
   }
 
   // TODO(rafaelw): handle setting remaining tab properties:
@@ -1088,7 +1092,7 @@ bool CreateTabFunction::RunImpl() {
   tab_strip = params.browser->tab_strip_model();
   int new_index = tab_strip->GetIndexOfTabContents(params.target_contents);
   if (opener)
-    tab_strip->SetOpenerOfTabContentsAt(new_index, opener);
+    tab_strip->SetOpenerOfWebContentsAt(new_index, opener);
 
   if (active)
     params.target_contents->web_contents()->GetView()->SetInitialFocus();
@@ -1109,10 +1113,9 @@ bool DuplicateTabFunction::RunImpl() {
 
   Browser* browser = NULL;
   TabStripModel* tab_strip = NULL;
-  TabContents* contents = NULL;
   int tab_index = -1;
   if (!GetTabById(tab_id, profile(), include_incognito(),
-                  &browser, &tab_strip, &contents, &tab_index, &error_)) {
+                  &browser, &tab_strip, NULL, &tab_index, &error_)) {
     return false;
   }
 
@@ -1135,13 +1138,13 @@ bool GetTabFunction::RunImpl() {
   EXTENSION_FUNCTION_VALIDATE(args_->GetInteger(0, &tab_id));
 
   TabStripModel* tab_strip = NULL;
-  TabContents* contents = NULL;
+  WebContents* contents = NULL;
   int tab_index = -1;
   if (!GetTabById(tab_id, profile(), include_incognito(),
                   NULL, &tab_strip, &contents, &tab_index, &error_))
     return false;
 
-  SetResult(ExtensionTabUtil::CreateTabValue(contents->web_contents(),
+  SetResult(ExtensionTabUtil::CreateTabValue(contents,
                                              tab_strip,
                                              tab_index,
                                              GetExtension()));
@@ -1215,7 +1218,7 @@ bool HighlightTabsFunction::RunImpl() {
   return true;
 }
 
-UpdateTabFunction::UpdateTabFunction() : tab_contents_(NULL) {
+UpdateTabFunction::UpdateTabFunction() : web_contents_(NULL) {
 }
 
 bool UpdateTabFunction::RunImpl() {
@@ -1228,19 +1231,19 @@ bool UpdateTabFunction::RunImpl() {
   }
 
   int tab_id = -1;
-  TabContents* contents = NULL;
+  WebContents* contents = NULL;
   if (tab_value == NULL || tab_value->IsType(Value::TYPE_NULL)) {
     Browser* browser = GetCurrentBrowser();
     if (!browser) {
       error_ = keys::kNoCurrentWindowError;
       return false;
     }
-    contents = browser->tab_strip_model()->GetActiveTabContents();
+    contents = browser->tab_strip_model()->GetActiveWebContents();
     if (!contents) {
       error_ = keys::kNoSelectedTabError;
       return false;
     }
-    tab_id = SessionID::IdForTab(contents->web_contents());
+    tab_id = SessionID::IdForTab(contents);
   } else {
     EXTENSION_FUNCTION_VALIDATE(tab_value->GetAsInteger(&tab_id));
   }
@@ -1252,7 +1255,7 @@ bool UpdateTabFunction::RunImpl() {
     return false;
   }
 
-  tab_contents_ = contents;
+  web_contents_ = contents;
 
   // TODO(rafaelw): handle setting remaining tab properties:
   // -title
@@ -1278,9 +1281,9 @@ bool UpdateTabFunction::RunImpl() {
   if (active) {
     if (tab_strip->active_index() != tab_index) {
       tab_strip->ActivateTabAt(tab_index, false);
-      DCHECK_EQ(contents, tab_strip->GetActiveTabContents());
+      DCHECK_EQ(contents, tab_strip->GetActiveWebContents());
     }
-    tab_contents_->web_contents()->Focus();
+    web_contents_->Focus();
   }
 
   if (update_props->HasKey(keys::kHighlightedKey)) {
@@ -1298,7 +1301,7 @@ bool UpdateTabFunction::RunImpl() {
     tab_strip->SetTabPinned(tab_index, pinned);
 
     // Update the tab index because it may move when being pinned.
-    tab_index = tab_strip->GetIndexOfTabContents(contents);
+    tab_index = tab_strip->GetIndexOfWebContents(contents);
   }
 
   if (update_props->HasKey(keys::kOpenerTabIdKey)) {
@@ -1306,14 +1309,13 @@ bool UpdateTabFunction::RunImpl() {
     EXTENSION_FUNCTION_VALIDATE(update_props->GetInteger(
         keys::kOpenerTabIdKey, &opener_id));
 
-    TabContents* opener_contents = NULL;
+    WebContents* opener_contents = NULL;
     if (!ExtensionTabUtil::GetTabById(
             opener_id, profile(), include_incognito(),
             NULL, NULL, &opener_contents, NULL))
       return false;
 
-    tab_strip->SetOpenerOfTabContentsAt(
-        tab_index, &opener_contents->web_contents()->GetController());
+    tab_strip->SetOpenerOfWebContentsAt(tab_index, opener_contents);
   }
 
   if (!is_async) {
@@ -1351,15 +1353,15 @@ bool UpdateTabFunction::UpdateURLIfPresent(DictionaryValue* update_props,
   // we need to check host permissions before allowing them.
   if (url.SchemeIs(chrome::kJavaScriptScheme)) {
     if (!GetExtension()->CanExecuteScriptOnPage(
-            tab_contents_->web_contents()->GetURL(),
-            tab_contents_->web_contents()->GetURL(),
+            web_contents_->GetURL(),
+            web_contents_->GetURL(),
             tab_id,
             NULL,
             &error_)) {
       return false;
     }
 
-    extensions::TabHelper::FromWebContents(tab_contents_->web_contents())->
+    extensions::TabHelper::FromWebContents(web_contents_)->
         script_executor()->ExecuteScript(
             extension_id(),
             ScriptExecutor::JAVASCRIPT,
@@ -1373,13 +1375,13 @@ bool UpdateTabFunction::UpdateURLIfPresent(DictionaryValue* update_props,
     return true;
   }
 
-  tab_contents_->web_contents()->GetController().LoadURL(
+  web_contents_->GetController().LoadURL(
       url, content::Referrer(), content::PAGE_TRANSITION_LINK, std::string());
 
   // The URL of a tab contents never actually changes to a JavaScript URL, so
   // this check only makes sense in other cases.
   if (!url.SchemeIs(chrome::kJavaScriptScheme))
-    DCHECK_EQ(url.spec(), tab_contents_->web_contents()->GetURL().spec());
+    DCHECK_EQ(url.spec(), web_contents_->GetURL().spec());
 
   return true;
 }
@@ -1388,8 +1390,7 @@ void UpdateTabFunction::PopulateResult() {
   if (!has_callback())
     return;
 
-  SetResult(ExtensionTabUtil::CreateTabValue(tab_contents_->web_contents(),
-                                             GetExtension()));
+  SetResult(ExtensionTabUtil::CreateTabValue(web_contents_, GetExtension()));
 }
 
 void UpdateTabFunction::OnExecuteCodeFinished(const std::string& error,
@@ -1421,7 +1422,7 @@ bool MoveTabsFunction::RunImpl() {
   for (size_t i = 0; i < tab_ids.size(); ++i) {
     Browser* source_browser = NULL;
     TabStripModel* source_tab_strip = NULL;
-    TabContents* contents = NULL;
+    WebContents* contents = NULL;
     int tab_index = -1;
     if (!GetTabById(tab_ids[i], profile(), include_incognito(),
                     &source_browser, &source_tab_strip, &contents,
@@ -1465,8 +1466,9 @@ bool MoveTabsFunction::RunImpl() {
       if (ExtensionTabUtil::GetWindowId(target_browser) !=
           ExtensionTabUtil::GetWindowId(source_browser)) {
         TabStripModel* target_tab_strip = target_browser->tab_strip_model();
-        contents = source_tab_strip->DetachTabContentsAt(tab_index);
-        if (!contents) {
+        TabContents* tab_contents =
+            source_tab_strip->DetachTabContentsAt(tab_index);
+        if (!tab_contents) {
           error_ = ExtensionErrorUtils::FormatErrorMessage(
               keys::kTabNotFoundError, base::IntToString(tab_ids[i]));
           return false;
@@ -1479,11 +1481,11 @@ bool MoveTabsFunction::RunImpl() {
           new_index = target_tab_strip->count();
 
         target_tab_strip->InsertTabContentsAt(
-            new_index, contents, TabStripModel::ADD_NONE);
+            new_index, tab_contents, TabStripModel::ADD_NONE);
 
         if (has_callback()) {
           tab_values.Append(ExtensionTabUtil::CreateTabValue(
-              contents->web_contents(),
+              tab_contents->web_contents(),
               target_tab_strip,
               new_index,
               GetExtension()));
@@ -1505,8 +1507,7 @@ bool MoveTabsFunction::RunImpl() {
 
     if (has_callback()) {
       tab_values.Append(ExtensionTabUtil::CreateTabValue(
-          contents->web_contents(), source_tab_strip, new_index,
-          GetExtension()));
+          contents, source_tab_strip, new_index, GetExtension()));
     }
   }
 
@@ -1537,7 +1538,7 @@ bool ReloadTabFunction::RunImpl() {
       }
   }
 
-  TabContents* contents = NULL;
+  content::WebContents* web_contents = NULL;
 
   // If |tab_id| is specified, look for it. Otherwise default to selected tab
   // in the current window.
@@ -1552,7 +1553,7 @@ bool ReloadTabFunction::RunImpl() {
       return false;
     }
 
-    if (!ExtensionTabUtil::GetDefaultTab(browser, &contents, NULL))
+    if (!ExtensionTabUtil::GetDefaultTab(browser, &web_contents, NULL))
       return false;
   } else {
     int tab_id = -1;
@@ -1560,11 +1561,10 @@ bool ReloadTabFunction::RunImpl() {
 
     Browser* browser = NULL;
     if (!GetTabById(tab_id, profile(), include_incognito(),
-                    &browser, NULL, &contents, NULL, &error_))
+                    &browser, NULL, &web_contents, NULL, &error_))
     return false;
   }
 
-  WebContents* web_contents = contents->web_contents();
   if (web_contents->ShowingInterstitialPage()) {
     // This does as same as Browser::ReloadInternal.
     NavigationEntry* entry = web_contents->GetController().GetActiveEntry();
@@ -1590,7 +1590,7 @@ bool RemoveTabsFunction::RunImpl() {
 
   for (size_t i = 0; i < tab_ids.size(); ++i) {
     Browser* browser = NULL;
-    TabContents* contents = NULL;
+    WebContents* contents = NULL;
     if (!GetTabById(tab_ids[i], profile(), include_incognito(),
                     &browser, NULL, &contents, NULL, &error_))
       return false;
@@ -1604,7 +1604,7 @@ bool RemoveTabsFunction::RunImpl() {
     // There's a chance that the tab is being dragged, or we're in some other
     // nested event loop. This code path ensures that the tab is safely closed
     // under such circumstances, whereas |chrome::CloseWebContents()| does not.
-    contents->web_contents()->Close();
+    contents->Close();
   }
   return true;
 }
@@ -1799,7 +1799,7 @@ void CaptureVisibleTabFunction::RegisterUserPrefs(PrefService* service) {
 bool DetectTabLanguageFunction::RunImpl() {
   int tab_id = 0;
   Browser* browser = NULL;
-  TabContents* contents = NULL;
+  WebContents* contents = NULL;
 
   // If |tab_id| is specified, look for it. Otherwise default to selected tab
   // in the current window.
@@ -1815,21 +1815,21 @@ bool DetectTabLanguageFunction::RunImpl() {
     browser = GetCurrentBrowser();
     if (!browser)
       return false;
-    contents = browser->tab_strip_model()->GetActiveTabContents();
+    contents = browser->tab_strip_model()->GetActiveWebContents();
     if (!contents)
       return false;
   }
 
-  if (contents->web_contents()->GetController().NeedsReload()) {
+  if (contents->GetController().NeedsReload()) {
     // If the tab hasn't been loaded, don't wait for the tab to load.
     error_ = keys::kCannotDetermineLanguageOfUnloadedTab;
     return false;
   }
 
-  AddRef();  // Balanced in GotLanguage()
+  AddRef();  // Balanced in GotLanguage().
 
   TranslateTabHelper* translate_tab_helper =
-      TranslateTabHelper::FromWebContents(contents->web_contents());
+      TranslateTabHelper::FromWebContents(contents);
   if (!translate_tab_helper->language_state().original_language().empty()) {
     // Delay the callback invocation until after the current JS call has
     // returned.
@@ -1841,15 +1841,13 @@ bool DetectTabLanguageFunction::RunImpl() {
   // The tab contents does not know its language yet.  Let's wait until it
   // receives it, or until the tab is closed/navigates to some other page.
   registrar_.Add(this, chrome::NOTIFICATION_TAB_LANGUAGE_DETERMINED,
-                 content::Source<WebContents>(contents->web_contents()));
+                 content::Source<WebContents>(contents));
   registrar_.Add(
       this, chrome::NOTIFICATION_TAB_CLOSING,
-      content::Source<NavigationController>(
-          &(contents->web_contents()->GetController())));
+      content::Source<NavigationController>(&(contents->GetController())));
   registrar_.Add(
       this, content::NOTIFICATION_NAV_ENTRY_COMMITTED,
-      content::Source<NavigationController>(
-          &(contents->web_contents()->GetController())));
+      content::Source<NavigationController>(&(contents->GetController())));
   return true;
 }
 

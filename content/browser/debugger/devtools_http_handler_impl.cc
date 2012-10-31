@@ -308,8 +308,13 @@ void DevToolsHttpHandlerImpl::OnHttpRequest(
   }
 
   if (info.path == "" || info.path == "/") {
-    std::string response = delegate_->GetDiscoveryPageHTML();
-    server_->Send200(connection_id, response, "text/html; charset=UTF-8");
+    // Discovery page request.
+    BrowserThread::PostTask(
+        BrowserThread::UI,
+        FROM_HERE,
+        base::Bind(&DevToolsHttpHandlerImpl::OnDiscoveryPageRequestUI,
+                   this,
+                   connection_id));
     return;
   }
 
@@ -332,8 +337,7 @@ void DevToolsHttpHandlerImpl::OnHttpRequest(
   if (delegate_->BundlesFrontendResources()) {
     int resource_id = DevToolsHttpHandler::GetFrontendResourceId(filename);
     if (resource_id != -1) {
-      base::StringPiece data =
-          content::GetContentClient()->GetDataResource(
+      base::StringPiece data = GetContentClient()->GetDataResource(
               resource_id, ui::SCALE_FACTOR_NONE);
       server_->Send200(connection_id, data.as_string(), mime_type);
       return;
@@ -508,6 +512,11 @@ void DevToolsHttpHandlerImpl::OnThumbnailRequestUI(
     Send404(connection_id);
 }
 
+void DevToolsHttpHandlerImpl::OnDiscoveryPageRequestUI(int connection_id) {
+  std::string response = delegate_->GetDiscoveryPageHTML();
+  Send200(connection_id, response, "text/html; charset=UTF-8");
+}
+
 void DevToolsHttpHandlerImpl::OnWebSocketRequestUI(
     int connection_id,
     const net::HttpServerRequestInfo& request) {
@@ -586,9 +595,9 @@ DevToolsHttpHandlerImpl::DevToolsHttpHandlerImpl(
   binding_ = default_binding_.get();
 
   registrar_.Add(this, NOTIFICATION_RENDERER_PROCESS_TERMINATED,
-                 content::NotificationService::AllBrowserContextsAndSources());
+                 NotificationService::AllBrowserContextsAndSources());
   registrar_.Add(this, NOTIFICATION_RENDERER_PROCESS_CLOSED,
-                 content::NotificationService::AllBrowserContextsAndSources());
+                 NotificationService::AllBrowserContextsAndSources());
   AddRef();
 }
 
@@ -662,7 +671,7 @@ void DevToolsHttpHandlerImpl::AcceptWebSocket(
 DevToolsHttpHandlerImpl::PageInfo
 DevToolsHttpHandlerImpl::CreatePageInfo(RenderViewHost* rvh)
 {
-  content::RenderViewHostDelegate* host_delegate = rvh->GetDelegate();
+  RenderViewHostDelegate* host_delegate = rvh->GetDelegate();
   DevToolsAgentHost* agent =
       DevToolsAgentHostRegistry::GetDevToolsAgentHost(rvh);
   DevToolsClientHost* client_host = DevToolsManager::GetInstance()->

@@ -1,9 +1,0 @@
-{
-  "name": "Platform App Test: browser tag isolation",
-  "version": "1",
-  "app": {
-    "background": {
-      "scripts": ["test.js"]
-    }
-  }
-}

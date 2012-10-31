@@ -36,6 +36,20 @@
       <structure type="chrome_scaled_image" name="IDR_APP_NOTIFICATION_NUB_MASK" file="nub_mask.png" />
       <structure type="chrome_scaled_image" name="IDR_APP_NOTIFICATION_SMALL_BUBBLE" file="small_bubble.png" />
       <structure type="chrome_scaled_image" name="IDR_ASK_MEDIA" file="ask_media.png" />
+      <if expr="pp_ifdef('toolkit_views')">
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_CLOSE" file="win/app_window_close.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_CLOSE_H" file="win/app_window_close_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_CLOSE_P" file="win/app_window_close_active.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_RESTORE" file="win/app_window_restore.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_RESTORE_H" file="win/app_window_restore_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_RESTORE_P" file="win/app_window_restore_active.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_MAXIMIZE" file="win/app_window_maximize.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_MAXIMIZE_H" file="win/app_window_maximize_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_MAXIMIZE_P" file="win/app_window_maximize_active.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_MINIMIZE" file="win/app_window_minimize.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_MINIMIZE_H" file="win/app_window_minimize_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_APP_WINDOW_MINIMIZE_P" file="win/app_window_minimize_active.png" />
+      </if>
       <if expr="not pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_BACK" file="back.png" />
         <structure type="chrome_scaled_image" name="IDR_BACK_D" file="back_disabled.png" />
@@ -454,6 +468,7 @@
       <structure type="chrome_scaled_image" name="IDR_MOBILE" file="mobile.png" />
       <structure type="chrome_scaled_image" name="IDR_MOBILE_LIT" file="mobile_lit.png" />
       <if expr="pp_ifdef('chromeos')">
+        <structure type="chrome_scaled_image" name="IDR_NETWORK_ADD_CONNECTION" file="cros/network_add_connection.png" />
         <structure type="chrome_scaled_image" name="IDR_NETWORK_HIDE_PASSWORD" file="cros/network_hide_password.png" />
         <structure type="chrome_scaled_image" name="IDR_NETWORK_HIDE_PASSWORD_HOVER" file="cros/network_hide_password_hover.png" />
         <structure type="chrome_scaled_image" name="IDR_NETWORK_SHOW_PASSWORD" file="cros/network_show_password.png" />
@@ -644,7 +659,6 @@
         <structure type="chrome_scaled_image" name="IDR_SETTINGS_APP_ICON_16" file="settings_app_icon_16.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_SETTINGS_FAVICON" file="common/favicon_settings.png" />
-      <structure type="chrome_scaled_image" name="IDR_SIDETABS_NEW_TAB" file="sidetabs_new_tab.png" />
       <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_EMPTY" file="common/speech_input_mic_empty.png" />
       <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_FULL" file="common/speech_input_mic_full.png" />
       <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_MASK" file="common/speech_input_mic_mask.png" />
@@ -806,6 +820,7 @@
       <structure type="chrome_scaled_image" name="IDR_THROBBER_LIGHT" file="throbber_light.png" />
       <structure type="chrome_scaled_image" name="IDR_THROBBER_WAITING" file="throbber_waiting.png" />
       <structure type="chrome_scaled_image" name="IDR_THROBBER_WAITING_LIGHT" file="throbber_waiting_light.png" />
+      <structure type="chrome_scaled_image" name="IDR_TAB_RECORDING" file="tab_recording.png" />
       <if expr="pp_ifdef('use_ash')">
         <structure type="chrome_scaled_image" name="IDR_TOOLBAR_SHADE_BOTTOM" file="common/toolbar_shade_bottom.png" />
         <structure type="chrome_scaled_image" name="IDR_TOOLBAR_SHADE_LEFT" file="common/toolbar_shade_left.png" />

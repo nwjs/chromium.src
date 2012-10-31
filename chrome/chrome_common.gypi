@@ -9,9 +9,7 @@
       'type': 'static_library',
       'variables': {
         'chrome_common_target': 1,
-        # TODO(thakis): Turn this on. Blocked on g_log_function_mapping in
-        # ipc_message_macros.h. http://crbug.com/101600
-        #'enable_wexit_time_destructors': 1,
+        'enable_wexit_time_destructors': 1,
       },
       'include_dirs': [
           '..',
@@ -189,6 +187,8 @@
         'common/extensions/permissions/socket_permission.h',
         'common/extensions/permissions/socket_permission_data.cc',
         'common/extensions/permissions/socket_permission_data.h',
+        'common/extensions/request_media_access_permission_helper.cc',
+        'common/extensions/request_media_access_permission_helper.h',
         'common/extensions/unpacker.cc',
         'common/extensions/unpacker.h',
         'common/extensions/update_manifest.cc',
@@ -216,8 +216,6 @@
         'common/form_field_data_predictions.cc',
         'common/form_field_data_predictions.h',
         'common/icon_messages.h',
-        'common/important_file_writer.cc',
-        'common/important_file_writer.h',
         'common/instant_types.cc',
         'common/instant_types.h',
         'common/json_schema_constants.cc',

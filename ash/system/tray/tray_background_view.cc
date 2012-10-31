@@ -11,11 +11,13 @@
 #include "ash/system/status_area_widget.h"
 #include "ash/system/status_area_widget_delegate.h"
 #include "ash/system/tray/tray_constants.h"
+#include "ash/wm/property_util.h"
+#include "ash/wm/shelf_layout_manager.h"
 #include "ash/wm/window_animations.h"
 #include "ui/aura/event_filter.h"
+#include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/base/accessibility/accessible_view_state.h"
-#include "ui/compositor/layer_animation_observer.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/skia_util.h"
@@ -37,36 +39,32 @@ const int kAnimationDurationForPopupMS = 200;
 
 }  // namespace
 
-using message_center::TrayBubbleView;
+using views::TrayBubbleView;
 
 namespace ash {
 namespace internal {
 
-// Observe the tray layer animation and update the anchor when it changes.
-// TODO(stevenjb): Observe or mirror the actual animation, not just the start
-// and end points.
-class TrayLayerAnimationObserver : public ui::LayerAnimationObserver {
+// Used to track when the anchor widget changes position on screen so that the
+// bubble position can be updated.
+class TrayBackgroundView::TrayWidgetObserver : public views::WidgetObserver {
  public:
-  explicit TrayLayerAnimationObserver(TrayBackgroundView* host)
+  explicit TrayWidgetObserver(TrayBackgroundView* host)
       : host_(host) {
   }
 
-  virtual void OnLayerAnimationEnded(ui::LayerAnimationSequence* sequence) {
+  virtual void OnWidgetMoved(views::Widget* widget) OVERRIDE {
     host_->AnchorUpdated();
   }
 
-  virtual void OnLayerAnimationAborted(ui::LayerAnimationSequence* sequence) {
-    host_->AnchorUpdated();
-  }
-
-  virtual void OnLayerAnimationScheduled(ui::LayerAnimationSequence* sequence) {
+  virtual void OnWidgetVisibilityChanged(views::Widget* widget,
+                                         bool visible) OVERRIDE {
     host_->AnchorUpdated();
   }
 
  private:
   TrayBackgroundView* host_;
 
-  DISALLOW_COPY_AND_ASSIGN(TrayLayerAnimationObserver);
+  DISALLOW_COPY_AND_ASSIGN(TrayWidgetObserver);
 };
 
 class TrayBackground : public views::Background {
@@ -169,8 +167,8 @@ TrayBackgroundView::TrayBackgroundView(
           this, 0, kTrayBackgroundAlpha)),
       ALLOW_THIS_IN_INITIALIZER_LIST(hover_background_animator_(
           this, 0, kTrayBackgroundHoverAlpha - kTrayBackgroundAlpha)),
-      ALLOW_THIS_IN_INITIALIZER_LIST(layer_animation_observer_(
-          new TrayLayerAnimationObserver(this))) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(widget_observer_(
+          new TrayWidgetObserver(this))) {
   set_notify_enter_exit_on_child(true);
 
   // Initially we want to paint the background, but without the hover effect.
@@ -183,15 +181,12 @@ TrayBackgroundView::TrayBackgroundView(
 }
 
 TrayBackgroundView::~TrayBackgroundView() {
-  if (GetWidget()) {
-    GetWidget()->GetNativeView()->layer()->GetAnimator()->RemoveObserver(
-        layer_animation_observer_.get());
-  }
+  if (GetWidget())
+    GetWidget()->RemoveObserver(widget_observer_.get());
 }
 
 void TrayBackgroundView::Initialize() {
-  GetWidget()->GetNativeView()->layer()->GetAnimator()->AddObserver(
-      layer_animation_observer_.get());
+  GetWidget()->AddObserver(widget_observer_.get());
   SetBorder();
 }
 
@@ -366,6 +361,15 @@ TrayBubbleView::AnchorAlignment TrayBackgroundView::GetAnchorAlignment() const {
   }
   NOTREACHED();
   return TrayBubbleView::ANCHOR_ALIGNMENT_BOTTOM;
+}
+
+void TrayBackgroundView::UpdateBubbleViewArrow(
+    views::TrayBubbleView* bubble_view) {
+  aura::RootWindow* root_window =
+      bubble_view->GetWidget()->GetNativeView()->GetRootWindow();
+  ash::internal::ShelfLayoutManager* shelf =
+      ash::GetRootWindowController(root_window)->shelf();
+  bubble_view->SetPaintArrow(shelf->IsVisible());
 }
 
 }  // namespace internal

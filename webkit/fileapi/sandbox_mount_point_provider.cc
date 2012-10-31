@@ -341,7 +341,6 @@ SandboxMountPointProvider::SandboxMountPointProvider(
                       file_task_runner,
                       ALLOW_THIS_IN_INITIALIZER_LIST(this))),
       weak_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
-
   // Set quota observers.
   UpdateObserverList::Source update_observers_src;
   AccessObserverList::Source access_observers_src;
@@ -716,6 +715,17 @@ void SandboxMountPointProvider::AddSyncableFileChangeObserver(
       syncable_change_observers_.source();
   observer_source.AddObserver(observer, task_runner);
   syncable_change_observers_ = ChangeObserverList(observer_source);
+}
+
+LocalFileSystemOperation*
+SandboxMountPointProvider::CreateFileSystemOperationForSync(
+    FileSystemContext* file_system_context) {
+  scoped_ptr<FileSystemOperationContext> operation_context(
+      new FileSystemOperationContext(file_system_context));
+  operation_context->set_update_observers(update_observers_);
+  operation_context->set_access_observers(access_observers_);
+  return new LocalFileSystemOperation(file_system_context,
+                                      operation_context.Pass());
 }
 
 FilePath SandboxMountPointProvider::GetUsageCachePathForOriginAndType(

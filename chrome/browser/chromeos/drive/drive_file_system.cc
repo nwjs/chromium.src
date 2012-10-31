@@ -21,12 +21,12 @@
 #include "chrome/browser/chromeos/drive/drive_file_system_util.h"
 #include "chrome/browser/chromeos/drive/drive_files.h"
 #include "chrome/browser/chromeos/drive/drive_scheduler.h"
-#include "chrome/browser/chromeos/drive/drive_uploader.h"
 #include "chrome/browser/chromeos/drive/file_system/copy_operation.h"
 #include "chrome/browser/chromeos/drive/file_system/move_operation.h"
 #include "chrome/browser/chromeos/drive/file_system/remove_operation.h"
 #include "chrome/browser/google_apis/drive_api_parser.h"
 #include "chrome/browser/google_apis/drive_service_interface.h"
+#include "chrome/browser/google_apis/drive_uploader.h"
 #include "chrome/browser/google_apis/gdata_util.h"
 #include "chrome/browser/google_apis/task_util.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -58,17 +58,13 @@ const int kSlowPollingIntervalInSec = 300;
 // Runs GetFileCallback with pointers dereferenced.
 // Used for PostTaskAndReply().
 void RunGetFileCallbackHelper(const GetFileCallback& callback,
-                              DriveFileError* error,
                               FilePath* file_path,
-                              std::string* mime_type,
-                              DriveFileType* file_type) {
-  DCHECK(error);
+                              const std::string& mime_type,
+                              DriveFileType file_type,
+                              DriveFileError error) {
+  DCHECK(!callback.is_null());
   DCHECK(file_path);
-  DCHECK(mime_type);
-  DCHECK(file_type);
-
-  if (!callback.is_null())
-    callback.Run(*error, *file_path, *mime_type, *file_type);
+  callback.Run(error, *file_path, mime_type, file_type);
 }
 
 // Callback for cache file operations invoked by AddUploadedFileOnUIThread.
@@ -116,9 +112,9 @@ class InitialLoadObserver : public DriveFileSystemObserver {
 };
 
 // The class to wait for the drive service to be ready to start operation.
-class OperationReadinessObserver : public DriveServiceObserver {
+class OperationReadinessObserver : public google_apis::DriveServiceObserver {
  public:
-  OperationReadinessObserver(DriveServiceInterface* drive_service,
+  OperationReadinessObserver(google_apis::DriveServiceInterface* drive_service,
                              const base::Closure& callback)
       : drive_service_(drive_service),
         callback_(callback) {
@@ -134,46 +130,27 @@ class OperationReadinessObserver : public DriveServiceObserver {
   }
 
  private:
-  DriveServiceInterface* drive_service_;
+  google_apis::DriveServiceInterface* drive_service_;
   base::Closure callback_;
 
   DISALLOW_COPY_AND_ASSIGN(OperationReadinessObserver);
 };
 
-// Called when LoadIfNeeded() call from StartInitialFeedFetch() finishes.
+// Called when LoadFeedIfNeeded() call from StartInitialFeedFetch() finishes.
 void OnStartInitialFeedFetchFinished(DriveFileError error) {
   DVLOG(1) << "Loading from StartInitialFeedFetch() finished";
 }
 
-// Gets the file size of |local_file|.
-void GetLocalFileSizeOnBlockingPool(const FilePath& local_file,
-                                    DriveFileError* error,
-                                    int64* file_size) {
-  DCHECK(error);
-  DCHECK(file_size);
-
-  *file_size = 0;
-  *error = file_util::GetFileSize(local_file, file_size) ?
-      DRIVE_FILE_OK :
-      DRIVE_FILE_ERROR_NOT_FOUND;
-}
-
 // Creates a temporary JSON file representing a document with |edit_url|
 // and |resource_id| under |document_dir| on blocking pool.
-void CreateDocumentJsonFileOnBlockingPool(
+DriveFileError CreateDocumentJsonFileOnBlockingPool(
     const FilePath& document_dir,
     const GURL& edit_url,
     const std::string& resource_id,
-    DriveFileError* error,
-    FilePath* temp_file_path,
-    std::string* mime_type,
-    DriveFileType* file_type) {
-  DCHECK(error);
+    FilePath* temp_file_path) {
   DCHECK(temp_file_path);
-  DCHECK(mime_type);
-  DCHECK(file_type);
 
-  *error = DRIVE_FILE_ERROR_FAILED;
+  DriveFileError error = DRIVE_FILE_ERROR_FAILED;
 
   if (file_util::CreateTemporaryFileInDir(document_dir, temp_file_path)) {
     std::string document_content = base::StringPrintf(
@@ -182,22 +159,13 @@ void CreateDocumentJsonFileOnBlockingPool(
     int document_size = static_cast<int>(document_content.size());
     if (file_util::WriteFile(*temp_file_path, document_content.data(),
                              document_size) == document_size) {
-      *error = DRIVE_FILE_OK;
+      error = DRIVE_FILE_OK;
     }
   }
 
-  *mime_type = kMimeTypeJson;
-  *file_type = HOSTED_DOCUMENT;
-  if (*error != DRIVE_FILE_OK)
-      temp_file_path->clear();
-}
-
-// Gets the information of the file at local path |path|. The information is
-// filled in |file_info|, and if it fails |result| will be assigned false.
-void GetFileInfoOnBlockingPool(const FilePath& path,
-                               base::PlatformFileInfo* file_info,
-                               bool* result) {
-  *result = file_util::GetFileInfo(path, file_info);
+  if (error != DRIVE_FILE_OK)
+    temp_file_path->clear();
+  return error;
 }
 
 // Helper function for binding |path| to GetEntryInfoWithFilePathCallback and
@@ -366,8 +334,8 @@ struct DriveFileSystem::UpdateEntryParams {
 DriveFileSystem::DriveFileSystem(
     Profile* profile,
     DriveCache* cache,
-    DriveServiceInterface* drive_service,
-    DriveUploaderInterface* uploader,
+    google_apis::DriveServiceInterface* drive_service,
+    google_apis::DriveUploaderInterface* uploader,
     DriveWebAppsRegistryInterface* webapps_registry,
     base::SequencedTaskRunner* blocking_task_runner)
     : profile_(profile),
@@ -386,18 +354,22 @@ DriveFileSystem::DriveFileSystem(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
 
+void DriveFileSystem::Reload() {
+  InitializeResourceMetadataAndFeedLoader();
+
+  feed_loader_->ReloadFromServerIfNeeded(
+      base::Bind(&DriveFileSystem::NotifyInitialLoadFinishedAndRun,
+                 ui_weak_ptr_,
+                 base::Bind(&DriveFileSystem::OnUpdateChecked,
+                            ui_weak_ptr_)));
+}
+
 void DriveFileSystem::Initialize() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   drive_service_->Initialize(profile_);
 
-  resource_metadata_.reset(new DriveResourceMetadata);
-  feed_loader_.reset(new DriveFeedLoader(resource_metadata_.get(),
-                                         drive_service_,
-                                         webapps_registry_,
-                                         cache_,
-                                         blocking_task_runner_));
-  feed_loader_->AddObserver(this);
+  InitializeResourceMetadataAndFeedLoader();
 
   // Allocate the drive operation handlers.
   drive_operations_.Init(drive_service_,
@@ -416,28 +388,30 @@ void DriveFileSystem::Initialize() {
   InitializePreferenceObserver();
 }
 
+void DriveFileSystem::InitializeResourceMetadataAndFeedLoader() {
+  resource_metadata_.reset(new DriveResourceMetadata);
+  feed_loader_.reset(new DriveFeedLoader(resource_metadata_.get(),
+                                         drive_service_,
+                                         webapps_registry_,
+                                         cache_,
+                                         blocking_task_runner_));
+  feed_loader_->AddObserver(this);
+}
+
 void DriveFileSystem::CheckForUpdates() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DVLOG(1) << "CheckForUpdates";
 
-  ContentOrigin initial_origin = resource_metadata_->origin();
-  if (initial_origin == FROM_SERVER) {
-    resource_metadata_->set_origin(REFRESHING);
+  if (resource_metadata_->origin() == INITIALIZED &&
+      !feed_loader_->refreshing()) {
     feed_loader_->ReloadFromServerIfNeeded(
-        initial_origin,
-        resource_metadata_->largest_changestamp(),
-        base::Bind(&DriveFileSystem::OnUpdateChecked,
-                   ui_weak_ptr_,
-                   initial_origin));
+        base::Bind(&DriveFileSystem::OnUpdateChecked, ui_weak_ptr_));
   }
 }
 
-void DriveFileSystem::OnUpdateChecked(ContentOrigin initial_origin,
-                                      DriveFileError error) {
+void DriveFileSystem::OnUpdateChecked(DriveFileError error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  if (error != DRIVE_FILE_OK)
-    resource_metadata_->set_origin(initial_origin);
+  DVLOG(1) << "CheckForUpdates finished: " << error;
 }
 
 DriveFileSystem::~DriveFileSystem() {
@@ -555,31 +529,29 @@ void DriveFileSystem::LoadFeedIfNeeded(const FileOperationCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
-  if (resource_metadata_->origin() == INITIALIZING) {
+  if (resource_metadata_->origin() == INITIALIZED) {
+    // The feed has already been loaded, so we have nothing to do, but post a
+    // task to the same thread, rather than calling it here, as
+    // LoadFeedIfNeeded() is asynchronous.
+    base::MessageLoopProxy::current()->PostTask(
+        FROM_HERE,
+        base::Bind(callback, DRIVE_FILE_OK));
+    return;
+  }
+
+  if (feed_loader_->refreshing()) {
     // If root feed is not initialized but the initialization process has
     // already started, add an observer to execute the remaining task after
     // the end of the initialization.
     // The observer deletes itself after OnInitialLoadFinished() gets called.
     new InitialLoadObserver(this, callback);
     return;
-  } else if (resource_metadata_->origin() == UNINITIALIZED) {
-    // Load root feed from this disk cache. Upon completion, kick off server
-    // fetching.
-    resource_metadata_->set_origin(INITIALIZING);
-    feed_loader_->LoadFromCache(
-        true,  // should_load_from_server
-        base::Bind(&DriveFileSystem::NotifyInitialLoadFinishedAndRun,
-                   ui_weak_ptr_,
-                   callback));
-    return;
   }
 
-  // The feed has already been loaded, so we have nothing to do, but post a
-  // task to the same thread, rather than calling it here, as
-  // LoadFeedIfNeeded() is asynchronous.
-  base::MessageLoopProxy::current()->PostTask(
-      FROM_HERE,
-      base::Bind(callback, DRIVE_FILE_OK));
+  // Load root feed from the disk cache.
+  feed_loader_->LoadFromCache(base::Bind(&DriveFileSystem::OnFeedCacheLoaded,
+                                         ui_weak_ptr_,
+                                         callback));
 }
 
 void DriveFileSystem::TransferFileFromRemoteToLocal(
@@ -902,12 +874,10 @@ void DriveFileSystem::GetResolvedFileByPath(
   // formats. The JSON file contains the edit URL and resource ID of the
   // document.
   if (entry_proto->file_specific_info().is_hosted_document()) {
-    DriveFileError* error =
-        new DriveFileError(DRIVE_FILE_OK);
     FilePath* temp_file_path = new FilePath;
-    std::string* mime_type = new std::string;
-    DriveFileType* file_type = new DriveFileType(REGULAR_FILE);
-    google_apis::util::PostBlockingPoolSequencedTaskAndReply(
+    const std::string mime_type = kMimeTypeJson;
+    const DriveFileType file_type = HOSTED_DOCUMENT;
+    google_apis::util::PostBlockingPoolSequencedTaskAndReplyWithResult(
         FROM_HERE,
         blocking_task_runner_,
         base::Bind(&CreateDocumentJsonFileOnBlockingPool,
@@ -915,16 +885,12 @@ void DriveFileSystem::GetResolvedFileByPath(
                        DriveCache::CACHE_TYPE_TMP_DOCUMENTS),
                    GURL(entry_proto->file_specific_info().alternate_url()),
                    entry_proto->resource_id(),
-                   error,
-                   temp_file_path,
-                   mime_type,
-                   file_type),
+                   temp_file_path),
         base::Bind(&RunGetFileCallbackHelper,
                    get_file_callback,
-                   base::Owned(error),
                    base::Owned(temp_file_path),
-                   base::Owned(mime_type),
-                   base::Owned(file_type)));
+                   mime_type,
+                   file_type));
     return;
   }
 
@@ -1097,31 +1063,28 @@ void DriveFileSystem::CheckForSpaceBeforeDownload(
     return;
   }
 
-  bool* has_enough_space = new bool(false);
-  google_apis::util::PostBlockingPoolSequencedTaskAndReply(
+  google_apis::util::PostBlockingPoolSequencedTaskAndReplyWithResult(
       FROM_HERE,
       blocking_task_runner_,
       base::Bind(&DriveCache::FreeDiskSpaceIfNeededFor,
                  base::Unretained(cache_),
-                 file_size,
-                 has_enough_space),
+                 file_size),
       base::Bind(&DriveFileSystem::StartDownloadFileIfEnoughSpace,
                  ui_weak_ptr_,
                  params,
                  content_url,
-                 params.cache_file_path,
-                 base::Owned(has_enough_space)));
+                 params.cache_file_path));
 }
 
 void DriveFileSystem::StartDownloadFileIfEnoughSpace(
     const GetFileFromCacheParams& params,
     const GURL& content_url,
     const FilePath& cache_file_path,
-    bool* has_enough_space) {
+    bool has_enough_space) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!params.get_file_callback.is_null());
 
-  if (!*has_enough_space) {
+  if (!has_enough_space) {
     // If no enough space, return PLATFORM_FILE_ERROR_NO_SPACE.
     params.get_file_callback.Run(DRIVE_FILE_ERROR_NO_SPACE,
                                  cache_file_path,
@@ -1303,7 +1266,6 @@ void DriveFileSystem::RequestDirectoryRefreshOnUIThreadAfterGetEntryInfo(
   }
 
   feed_loader_->LoadDirectoryFromServer(
-      resource_metadata_->origin(),
       entry_proto->resource_id(),
       base::Bind(&DriveFileSystem::OnRequestDirectoryRefresh,
                  ui_weak_ptr_,
@@ -1323,24 +1285,17 @@ void DriveFileSystem::OnRequestDirectoryRefresh(
     return;
   }
 
-  int64 unused_delta_feed_changestamp = 0;
-  FeedToFileResourceMapUmaStats unused_uma_stats;
-  FileResourceIdMap file_map;
+  DriveFeedProcessor::DriveEntryProtoMap entry_proto_map;
   DriveFeedProcessor feed_processor(resource_metadata_.get());
-  error = feed_processor.FeedToFileResourceMap(
+  feed_processor.FeedToEntryProtoMap(
       params->feed_list,
-      &file_map,
-      &unused_delta_feed_changestamp,
-      &unused_uma_stats);
-  if (error != DRIVE_FILE_OK) {
-    LOG(ERROR) << "Failed to convert feed: " << directory_path.value()
-               << ": " << error;
-    return;
-  }
+      &entry_proto_map,
+      NULL,
+      NULL);
 
   resource_metadata_->RefreshDirectory(
       params->directory_resource_id,
-      file_map,
+      entry_proto_map,
       base::Bind(&DriveFileSystem::OnDirectoryChangeFileMoveCallback,
                  ui_weak_ptr_,
                  FileOperationCallback()));
@@ -1422,14 +1377,12 @@ void DriveFileSystem::OnGetFileCompleteForUpdateFile(
 
   // Gets the size of the cache file. Since the file is locally modified, the
   // file size information stored in DriveEntry is not correct.
-  DriveFileError* get_size_error = new DriveFileError(DRIVE_FILE_ERROR_FAILED);
-  int64* file_size = new int64(-1);
-  google_apis::util::PostBlockingPoolSequencedTaskAndReply(
+  int64* file_size = new int64(0);
+  google_apis::util::PostBlockingPoolSequencedTaskAndReplyWithResult(
       FROM_HERE,
       blocking_task_runner_,
-      base::Bind(&GetLocalFileSizeOnBlockingPool,
+      base::Bind(&file_util::GetFileSize,
                  cache_file_path,
-                 get_size_error,
                  file_size),
       base::Bind(&DriveFileSystem::OnGetFileSizeCompleteForUpdateFile,
                  ui_weak_ptr_,
@@ -1437,7 +1390,6 @@ void DriveFileSystem::OnGetFileCompleteForUpdateFile(
                  drive_file_path,
                  base::Passed(&entry_proto),
                  cache_file_path,
-                 base::Owned(get_size_error),
                  base::Owned(file_size)));
 }
 
@@ -1446,16 +1398,16 @@ void DriveFileSystem::OnGetFileSizeCompleteForUpdateFile(
     const FilePath& drive_file_path,
     scoped_ptr<DriveEntryProto> entry_proto,
     const FilePath& cache_file_path,
-    DriveFileError* error,
-    int64* file_size) {
+    int64* file_size,
+    bool get_file_size_result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
   // |entry_proto| has been checked in UpdateFileByEntryInfo().
   DCHECK(entry_proto.get());
   DCHECK(!entry_proto->file_info().is_directory());
 
-  if (*error != DRIVE_FILE_OK) {
-    callback.Run(*error);
+  if (!get_file_size_result) {
+    callback.Run(DRIVE_FILE_ERROR_NOT_FOUND);
     return;
   }
 
@@ -1468,20 +1420,20 @@ void DriveFileSystem::OnGetFileSizeCompleteForUpdateFile(
       base::Bind(&DriveFileSystem::OnUpdatedFileUploaded,
                  ui_weak_ptr_,
                  callback),
-      UploaderReadyCallback());
+      google_apis::UploaderReadyCallback());
 }
 
 void DriveFileSystem::OnUpdatedFileUploaded(
     const FileOperationCallback& callback,
-    DriveFileError error,
+    google_apis::DriveUploadError error,
     const FilePath& drive_path,
     const FilePath& file_path,
     scoped_ptr<google_apis::DocumentEntry> document_entry) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (error != DRIVE_FILE_OK) {
+  if (error != google_apis::DRIVE_UPLOAD_OK) {
     if (!callback.is_null())
-      callback.Run(error);
+      callback.Run(DriveUploadErrorToDriveFileError(error));
     return;
   }
 
@@ -1490,7 +1442,8 @@ void DriveFileSystem::OnUpdatedFileUploaded(
                   document_entry.Pass(),
                   file_path,
                   DriveCache::FILE_OPERATION_MOVE,
-                  base::Bind(&OnAddUploadFileCompleted, callback, error));
+                  base::Bind(&OnAddUploadFileCompleted, callback,
+                             DriveUploadErrorToDriveFileError(error)));
 }
 
 void DriveFileSystem::GetAvailableSpace(
@@ -1722,7 +1675,6 @@ void DriveFileSystem::SearchAsyncOnUIThread(
   DCHECK(!callback.is_null());
 
   feed_loader_->SearchFromServer(
-      resource_metadata_->origin(),
       search_query,
       next_feed,
       base::Bind(&DriveFileSystem::OnSearch, ui_weak_ptr_, callback));
@@ -1754,23 +1706,11 @@ void DriveFileSystem::OnFeedFromServerLoaded() {
                     OnFeedFromServerLoaded());
 }
 
-void DriveFileSystem::LoadRootFeedFromCacheForTesting() {
+void DriveFileSystem::LoadRootFeedFromCacheForTesting(
+    const FileOperationCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  feed_loader_->LoadFromCache(
-      false,  // should_load_from_server.
-      FileOperationCallback());
-}
-
-DriveFileError DriveFileSystem::UpdateFromFeedForTesting(
-    const ScopedVector<google_apis::DocumentFeed>& feed_list,
-    int64 start_changestamp,
-    int64 root_feed_changestamp) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  return feed_loader_->UpdateFromFeed(feed_list,
-                                      start_changestamp,
-                                      root_feed_changestamp);
+  feed_loader_->LoadFromCache(callback);
 }
 
 void DriveFileSystem::OnFileDownloaded(
@@ -1801,21 +1741,18 @@ void DriveFileSystem::OnFileDownloaded(
   //
   // If we don't have enough space, we return PLATFORM_FILE_ERROR_NO_SPACE,
   // and try to free up space, even if the file was downloaded successfully.
-  bool* has_enough_space = new bool(false);
-  google_apis::util::PostBlockingPoolSequencedTaskAndReply(
+  google_apis::util::PostBlockingPoolSequencedTaskAndReplyWithResult(
       FROM_HERE,
       blocking_task_runner_,
       base::Bind(&DriveCache::FreeDiskSpaceIfNeededFor,
                  base::Unretained(cache_),
-                 0,
-                 has_enough_space),
+                 0),
       base::Bind(&DriveFileSystem::OnFileDownloadedAndSpaceChecked,
                  ui_weak_ptr_,
                  params,
                  status,
                  content_url,
-                 downloaded_file_path,
-                 base::Owned(has_enough_space)));
+                 downloaded_file_path));
 }
 
 void DriveFileSystem::UnpinIfPinned(
@@ -1835,7 +1772,7 @@ void DriveFileSystem::OnFileDownloadedAndSpaceChecked(
     google_apis::GDataErrorCode status,
     const GURL& content_url,
     const FilePath& downloaded_file_path,
-    bool* has_enough_space) {
+    bool has_enough_space) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!params.get_file_callback.is_null());
 
@@ -1845,7 +1782,7 @@ void DriveFileSystem::OnFileDownloadedAndSpaceChecked(
   // to wait for this operation to finish since the user can already use the
   // downloaded file.
   if (error == DRIVE_FILE_OK) {
-    if (*has_enough_space) {
+    if (has_enough_space) {
       cache_->StoreOnUIThread(
           params.resource_id,
           params.md5,
@@ -1908,14 +1845,32 @@ void DriveFileSystem::NotifyFileSystemToBeUnmounted() {
                     OnFileSystemBeingUnmounted());
 }
 
+void DriveFileSystem::OnFeedCacheLoaded(const FileOperationCallback& callback,
+                                        DriveFileError error) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(!callback.is_null());
+
+  if (error != DRIVE_FILE_OK) {
+    // If cache cannot be loaded, try to load from server directly.
+    feed_loader_->ReloadFromServerIfNeeded(
+        base::Bind(&DriveFileSystem::NotifyInitialLoadFinishedAndRun,
+                   ui_weak_ptr_,
+                   callback));
+    return;
+  }
+
+  // If successfully loaded from the server, notify the success, and check for
+  // the latest feed from the server.
+  DCHECK(resource_metadata_->origin() == INITIALIZED);
+  NotifyInitialLoadFinishedAndRun(callback, DRIVE_FILE_OK);
+  CheckForUpdates();
+}
+
 void DriveFileSystem::NotifyInitialLoadFinishedAndRun(
     const FileOperationCallback& callback,
     DriveFileError error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
-
-  if (error != DRIVE_FILE_OK)
-    resource_metadata_->set_origin(UNINITIALIZED);
 
   // Notify the observers that root directory has been initialized.
   FOR_EACH_OBSERVER(DriveFileSystemObserver,
@@ -2173,6 +2128,9 @@ void DriveFileSystem::UpdateCacheEntryOnUIThread(
 DriveFileSystemMetadata DriveFileSystem::GetMetadata() const {
   DriveFileSystemMetadata metadata;
   metadata.largest_changestamp = resource_metadata_->largest_changestamp();
+  metadata.origin = ContentOriginToString(resource_metadata_->origin());
+  if (feed_loader_->refreshing())
+    metadata.origin += " (refreshing)";
   return metadata;
 }
 
@@ -2511,31 +2469,28 @@ void DriveFileSystem::CheckLocalModificationAndRunAfterGetCacheFile(
 
   // If the cache is dirty, obtain the file info from the cache file itself.
   base::PlatformFileInfo* file_info = new base::PlatformFileInfo;
-  bool* get_file_info_result = new bool(false);
-  google_apis::util::PostBlockingPoolSequencedTaskAndReply(
+  google_apis::util::PostBlockingPoolSequencedTaskAndReplyWithResult(
       FROM_HERE,
       blocking_task_runner_,
-      base::Bind(&GetFileInfoOnBlockingPool,
+      base::Bind(&file_util::GetFileInfo,
                  local_cache_path,
-                 base::Unretained(file_info),
-                 base::Unretained(get_file_info_result)),
+                 base::Unretained(file_info)),
       base::Bind(&DriveFileSystem::CheckLocalModificationAndRunAfterGetFileInfo,
                  ui_weak_ptr_,
                  base::Passed(&entry_proto),
                  callback,
-                 base::Owned(file_info),
-                 base::Owned(get_file_info_result)));
+                 base::Owned(file_info)));
 }
 
 void DriveFileSystem::CheckLocalModificationAndRunAfterGetFileInfo(
     scoped_ptr<DriveEntryProto> entry_proto,
     const GetEntryInfoCallback& callback,
     base::PlatformFileInfo* file_info,
-    bool* get_file_info_result) {
+    bool get_file_info_result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
-  if (!*get_file_info_result) {
+  if (!get_file_info_result) {
     callback.Run(DRIVE_FILE_ERROR_NOT_FOUND, scoped_ptr<DriveEntryProto>());
     return;
   }

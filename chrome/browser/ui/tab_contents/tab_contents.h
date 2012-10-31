@@ -23,13 +23,8 @@ class InstantLoader;
 class OffscreenTabContentsCreator;
 class PanelHost;
 class Profile;
-class TabContentsTestHarness;
 class TabStripModel;
 class TabStripModelContentsCreator;
-class WebDialogGtk;
-class WebDialogWindowControllerTabContentsCreator;
-class WebIntentPickerCocoa;
-class WebIntentPickerGtk;
 
 namespace chromeos {
 class SimpleWebViewDialog;
@@ -84,13 +79,8 @@ class TabContents : public content::WebContentsObserver {
     friend class prerender::PrerenderContents;
     // See crbug.com/153587
     friend class TabAndroid;
-    friend class TabContentsTestHarness;
     friend class TabStripModel;
     friend class TabStripModelContentsCreator;
-    friend class WebDialogGtk;
-    friend class WebDialogWindowControllerTabContentsCreator;
-    friend class WebIntentPickerCocoa;
-    friend class WebIntentPickerGtk;
     FRIEND_TEST_ALL_PREFIXES(SessionRestoreTest, SessionStorageAfterTabReplace);
 
     static TabContents* CreateTabContents(content::WebContents* contents);

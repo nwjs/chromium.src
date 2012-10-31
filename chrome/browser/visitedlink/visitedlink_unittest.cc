@@ -15,6 +15,7 @@
 #include "base/time.h"
 #include "chrome/browser/visitedlink/visitedlink_event_listener.h"
 #include "chrome/browser/visitedlink/visitedlink_master.h"
+#include "chrome/browser/visitedlink/visitedlink_master_factory.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/renderer/visitedlink_slave.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -41,6 +42,12 @@ const int g_test_count = 1000;
 // Returns a test URL for index |i|
 GURL TestURL(int i) {
   return GURL(StringPrintf("%s%d", g_test_prefix, i));
+}
+
+ProfileKeyedService* BuildVisitedLinkMaster(Profile* profile) {
+  VisitedLinkMaster* master = new VisitedLinkMaster(profile);
+  master->Init();
+  return master;
 }
 
 std::vector<VisitedLinkSlave*> g_slaves;
@@ -468,18 +475,7 @@ class VisitCountingProfile : public TestingProfile {
   VisitCountingProfile()
       : add_count_(0),
         add_event_count_(0),
-        reset_event_count_(0),
-        event_listener_(ALLOW_THIS_IN_INITIALIZER_LIST(
-            new VisitedLinkEventListener(this))) {}
-
-  virtual VisitedLinkMaster* GetVisitedLinkMaster() {
-    if (!visited_link_master_.get()) {
-      visited_link_master_.reset(
-          new VisitedLinkMaster(event_listener_.get(), this));
-      visited_link_master_->Init();
-    }
-    return visited_link_master_.get();
-  }
+        reset_event_count_(0) {}
 
   void CountAddEvent(int by) {
     add_count_ += by;
@@ -490,7 +486,6 @@ class VisitCountingProfile : public TestingProfile {
     reset_event_count_++;
   }
 
-  VisitedLinkMaster* master() const { return visited_link_master_.get(); }
   int add_count() const { return add_count_; }
   int add_event_count() const { return add_event_count_; }
   int reset_event_count() const { return reset_event_count_; }
@@ -499,8 +494,6 @@ class VisitCountingProfile : public TestingProfile {
   int add_count_;
   int add_event_count_;
   int reset_event_count_;
-  scoped_ptr<VisitedLinkEventListener> event_listener_;
-  scoped_ptr<VisitedLinkMaster> visited_link_master_;
 };
 
 // Stub out as little as possible, borrowing from RenderProcessHost.
@@ -571,13 +564,21 @@ class VisitedLinkEventsTest : public ChromeRenderViewHostTestHarness {
         file_thread_(BrowserThread::FILE, &message_loop_) {}
   virtual ~VisitedLinkEventsTest() {}
   virtual void SetUp() {
-    SetRenderProcessHostFactory(&vc_rph_factory_);
     browser_context_.reset(new VisitCountingProfile());
+    profile()->CreateHistoryService(true, false);
+    master_ = static_cast<VisitedLinkMaster*>(
+        VisitedLinkMasterFactory::GetInstance()->
+            SetTestingFactoryAndUse(profile(), BuildVisitedLinkMaster));
+    SetRenderProcessHostFactory(&vc_rph_factory_);
     ChromeRenderViewHostTestHarness::SetUp();
   }
 
   VisitCountingProfile* profile() const {
     return static_cast<VisitCountingProfile*>(browser_context_.get());
+  }
+
+  VisitedLinkMaster* master() const {
+    return master_;
   }
 
   void WaitForCoalescense() {
@@ -593,6 +594,7 @@ class VisitedLinkEventsTest : public ChromeRenderViewHostTestHarness {
   VisitedLinkRenderProcessHostFactory vc_rph_factory_;
 
  private:
+  VisitedLinkMaster* master_;
   content::TestBrowserThread ui_thread_;
   content::TestBrowserThread file_thread_;
 
@@ -601,13 +603,12 @@ class VisitedLinkEventsTest : public ChromeRenderViewHostTestHarness {
 
 TEST_F(VisitedLinkEventsTest, Coalescense) {
   // add some URLs to master.
-  VisitedLinkMaster* master = profile()->GetVisitedLinkMaster();
   // Add a few URLs.
-  master->AddURL(GURL("http://acidtests.org/"));
-  master->AddURL(GURL("http://google.com/"));
-  master->AddURL(GURL("http://chromium.org/"));
+  master()->AddURL(GURL("http://acidtests.org/"));
+  master()->AddURL(GURL("http://google.com/"));
+  master()->AddURL(GURL("http://chromium.org/"));
   // Just for kicks, add a duplicate URL. This shouldn't increase the resulting
-  master->AddURL(GURL("http://acidtests.org/"));
+  master()->AddURL(GURL("http://acidtests.org/"));
 
   // Make sure that coalescing actually occurs. There should be no links or
   // events received by the renderer.
@@ -621,9 +622,9 @@ TEST_F(VisitedLinkEventsTest, Coalescense) {
   EXPECT_EQ(1, profile()->add_event_count());
 
   // Test whether the coalescing continues by adding a few more URLs.
-  master->AddURL(GURL("http://google.com/chrome/"));
-  master->AddURL(GURL("http://webkit.org/"));
-  master->AddURL(GURL("http://acid3.acidtests.org/"));
+  master()->AddURL(GURL("http://google.com/chrome/"));
+  master()->AddURL(GURL("http://webkit.org/"));
+  master()->AddURL(GURL("http://acid3.acidtests.org/"));
 
   WaitForCoalescense();
 
@@ -632,7 +633,7 @@ TEST_F(VisitedLinkEventsTest, Coalescense) {
   EXPECT_EQ(2, profile()->add_event_count());
 
   // Test whether duplicate entries produce add events.
-  master->AddURL(GURL("http://acidtests.org/"));
+  master()->AddURL(GURL("http://acidtests.org/"));
 
   WaitForCoalescense();
 
@@ -641,8 +642,8 @@ TEST_F(VisitedLinkEventsTest, Coalescense) {
   EXPECT_EQ(2, profile()->add_event_count());
 
   // Ensure that the coalescing does not resume after resetting.
-  master->AddURL(GURL("http://build.chromium.org/"));
-  master->DeleteAllURLs();
+  master()->AddURL(GURL("http://build.chromium.org/"));
+  master()->DeleteAllURLs();
 
   WaitForCoalescense();
 
@@ -653,17 +654,14 @@ TEST_F(VisitedLinkEventsTest, Coalescense) {
 }
 
 TEST_F(VisitedLinkEventsTest, Basics) {
-  VisitedLinkMaster* master = profile()->GetVisitedLinkMaster();
   rvh_tester()->CreateRenderView(string16(),
                                  MSG_ROUTING_NONE,
-                                 -1,
-                                 std::string(),
                                  -1);
 
   // Add a few URLs.
-  master->AddURL(GURL("http://acidtests.org/"));
-  master->AddURL(GURL("http://google.com/"));
-  master->AddURL(GURL("http://chromium.org/"));
+  master()->AddURL(GURL("http://acidtests.org/"));
+  master()->AddURL(GURL("http://google.com/"));
+  master()->AddURL(GURL("http://chromium.org/"));
 
   WaitForCoalescense();
 
@@ -671,7 +669,7 @@ TEST_F(VisitedLinkEventsTest, Basics) {
   EXPECT_EQ(1, profile()->add_event_count());
   EXPECT_EQ(0, profile()->reset_event_count());
 
-  master->DeleteAllURLs();
+  master()->DeleteAllURLs();
 
   WaitForCoalescense();
 
@@ -681,20 +679,17 @@ TEST_F(VisitedLinkEventsTest, Basics) {
 }
 
 TEST_F(VisitedLinkEventsTest, TabVisibility) {
-  VisitedLinkMaster* master = profile()->GetVisitedLinkMaster();
   rvh_tester()->CreateRenderView(string16(),
                                  MSG_ROUTING_NONE,
-                                 -1,
-                                 std::string(),
                                  -1);
 
   // Simulate tab becoming inactive.
   rvh_tester()->SimulateWasHidden();
 
   // Add a few URLs.
-  master->AddURL(GURL("http://acidtests.org/"));
-  master->AddURL(GURL("http://google.com/"));
-  master->AddURL(GURL("http://chromium.org/"));
+  master()->AddURL(GURL("http://acidtests.org/"));
+  master()->AddURL(GURL("http://google.com/"));
+  master()->AddURL(GURL("http://chromium.org/"));
 
   WaitForCoalescense();
 
@@ -714,7 +709,7 @@ TEST_F(VisitedLinkEventsTest, TabVisibility) {
 
   // Add a bunch of URLs (over 50) to exhaust the link event buffer.
   for (int i = 0; i < 100; i++)
-    master->AddURL(TestURL(i));
+    master()->AddURL(TestURL(i));
 
   WaitForCoalescense();
 

@@ -22,6 +22,10 @@ class BASE_EXPORT SysInfo {
   // Return the number of bytes of physical memory on the current machine.
   static int64 AmountOfPhysicalMemory();
 
+  // Return the number of bytes of current available physical memory on the
+  // machine.
+  static int64 AmountOfAvailablePhysicalMemory();
+
   // Return the number of megabytes of physical memory on the current machine.
   static int AmountOfPhysicalMemoryMB() {
     return static_cast<int>(AmountOfPhysicalMemory() / 1024 / 1024);
@@ -30,6 +34,9 @@ class BASE_EXPORT SysInfo {
   // Return the available disk space in bytes on the volume containing |path|,
   // or -1 on failure.
   static int64 AmountOfFreeDiskSpace(const FilePath& path);
+
+  // Returns system uptime in milliseconds.
+  static int64 Uptime();
 
   // Returns the name of the host operating system.
   static std::string OperatingSystemName();

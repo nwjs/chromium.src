@@ -36,9 +36,10 @@ class ScopedForceDesktopType {
   explicit ScopedForceDesktopType(HostDesktopType type);
   ~ScopedForceDesktopType();
  private:
-  DISALLOW_COPY_AND_ASSIGN(ScopedForceDesktopType);
   HostDesktopType previous_type_;
   bool previous_force_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedForceDesktopType);
 };
 
 HostDesktopType GetHostDesktopTypeForNativeView(gfx::NativeView native_view);
@@ -46,10 +47,7 @@ HostDesktopType GetHostDesktopTypeForNativeWindow(
     gfx::NativeWindow native_window);
 HostDesktopType GetHostDesktopTypeForBrowser(const Browser* browser);
 
-/*
-TODO(beng): implement utilities as needed, e.g.:
 HostDesktopType GetActiveDesktop();
-*/
 
 }  // namespace chrome
 

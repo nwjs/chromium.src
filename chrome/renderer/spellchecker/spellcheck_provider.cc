@@ -64,29 +64,61 @@ void CreateTextCheckingResults(
 
 }  // namespace
 
+SpellCheckProvider::DocumentTag::DocumentTag(IPC::Sender* sender,
+                                             int routing_id)
+    : has_tag_(false),
+      tag_(0),
+      sender_(sender),
+      routing_id_(routing_id) {
+}
+
+#if defined(OS_MACOSX)
+SpellCheckProvider::DocumentTag::~DocumentTag() {
+  // Tell the spellchecker that the document is closed.
+  if (has_tag_) {
+    sender_->Send(new SpellCheckHostMsg_DocumentWithTagClosed(
+        routing_id_, tag_));
+  }
+}
+
+// Gets document tag, initializes |tag| if necessary.
+int SpellCheckProvider::DocumentTag::GetTag() {
+  // TODO(darin): There's actually no reason for this to be here.  We should
+  // have the browser side manage the document tag.
+  if (!has_tag_) {
+    // Make the call to get the tag.
+    sender_->Send(new SpellCheckHostMsg_GetDocumentTag(
+        routing_id_, &tag_));
+    has_tag_ = true;
+  }
+
+  return tag_;
+}
+#else
+SpellCheckProvider::DocumentTag::~DocumentTag() {}
+int SpellCheckProvider::DocumentTag::GetTag() {
+  // Quiet compiler about unused variables.
+  (void)sender_;
+  (void)routing_id_;
+  (void)has_tag_;
+
+  return tag_;
+}
+#endif
+
+
 SpellCheckProvider::SpellCheckProvider(
     content::RenderView* render_view,
     chrome::ChromeContentRendererClient* renderer_client)
     : content::RenderViewObserver(render_view),
-#if defined(OS_MACOSX)
-      has_document_tag_(false),
-#endif
-      document_tag_(0),
+      document_tag_(this, this->routing_id()),
       spelling_panel_visible_(false),
       chrome_content_renderer_client_(renderer_client) {
   if (render_view)  // NULL in unit tests.
     render_view->GetWebView()->setSpellCheckClient(this);
 }
 
-SpellCheckProvider::~SpellCheckProvider() {
-#if defined(OS_MACOSX)
-  // Tell the spellchecker that the document is closed.
-  if (has_document_tag_) {
-    Send(new SpellCheckHostMsg_DocumentWithTagClosed(
-        routing_id(), document_tag_));
-  }
-#endif
-}
+SpellCheckProvider::~SpellCheckProvider() {}
 
 void SpellCheckProvider::RequestTextChecking(
     const WebString& text,
@@ -103,63 +135,29 @@ void SpellCheckProvider::RequestTextChecking(
       document_tag,
       text));
 #else
+  // Ignore invalid requests.
+  // TODO(groby): Should that be applied for OSX, too?
   if (text.isEmpty() || !HasWordCharacters(text, 0)) {
     completion->didCancelCheckingText();
     return;
   }
-  // Cancel this spellcheck request if the cached text is a substring of the
-  // given text and the given text is the middle of a possible word.
-  // TODO(hbono): Move this cache code to a new function and add its unit test.
-  string16 request(text);
-  size_t text_length = request.length();
-  size_t last_length = last_request_.length();
-  if (text_length >= last_length &&
-      !request.compare(0, last_length, last_request_)) {
-    if (text_length == last_length || !HasWordCharacters(text, last_length)) {
-      completion->didCancelCheckingText();
-      return;
-    }
-    int code = 0;
-    int length = static_cast<int>(text_length);
-    U16_PREV(text.data(), 0, length, code);
-    UErrorCode error = U_ZERO_ERROR;
-    if (uscript_getScript(code, &error) != USCRIPT_COMMON) {
-      completion->didCancelCheckingText();
-      return;
-    }
-  }
-  // Create a subset of the cached results and return it if the given text is a
-  // substring of the cached text.
-  if (text_length < last_length &&
-      !last_request_.compare(0, text_length, request)) {
-    size_t result_size = 0;
-    for (size_t i = 0; i < last_results_.size(); ++i) {
-      size_t start = last_results_[i].location;
-      size_t end = start + last_results_[i].length;
-      if (start <= text_length && end <= text_length)
-        ++result_size;
-    }
-    if (result_size > 0) {
-      WebKit::WebVector<WebKit::WebTextCheckingResult> results(result_size);
-      for (size_t i = 0; i < result_size; ++i) {
-        results[i].type = last_results_[i].type;
-        results[i].location = last_results_[i].location;
-        results[i].length = last_results_[i].length;
-        results[i].replacement = last_results_[i].replacement;
-      }
-      completion->didFinishCheckingText(results);
-      return;
-    }
-  }
+
+  // Try to satisfy check from cache.
+  // TODO(groby): Should that be applied to OSX results, too?
+  if (SatisfyRequestFromCache(text, completion))
+    return;
+
   // Send this text to a browser. A browser checks the user profile and send
   // this text to the Spelling service only if a user enables this feature.
   last_request_.clear();
   last_results_.assign(WebKit::WebVector<WebKit::WebTextCheckingResult>());
+
+
   Send(new SpellCheckHostMsg_CallSpellingService(
       routing_id(),
       text_check_completions_.Add(completion),
       0,
-      request));
+      string16(text)));
 #endif  // !OS_MACOSX
 }
 
@@ -205,14 +203,12 @@ void SpellCheckProvider::spellCheck(
     int& offset,
     int& length,
     WebVector<WebString>* optional_suggestions) {
-  EnsureDocumentTag();
-
   string16 word(text);
   // Will be NULL during unit tests.
   if (chrome_content_renderer_client_) {
     std::vector<string16> suggestions;
     chrome_content_renderer_client_->spellcheck()->SpellCheckWord(
-        word.c_str(), word.size(), document_tag_,
+        word.c_str(), word.size(), document_tag_.GetTag(),
         &offset, &length, optional_suggestions ? & suggestions : NULL);
     if (optional_suggestions)
       *optional_suggestions = suggestions;
@@ -237,32 +233,30 @@ void SpellCheckProvider::checkTextOfParagraph(
   if (!(mask & WebKit::WebTextCheckingTypeSpelling))
     return;
 
-  EnsureDocumentTag();
+  document_tag_.GetTag();
 
   // Will be NULL during unit tets.
   if (!chrome_content_renderer_client_)
     return;
 
   chrome_content_renderer_client_->spellcheck()->SpellCheckParagraph(
-      string16(text),
-      results);
+      string16(text), results);
 #endif
 }
 
 void SpellCheckProvider::requestCheckingOfText(
     const WebString& text,
     WebTextCheckingCompletion* completion) {
-  RequestTextChecking(text, document_tag_, completion);
+  RequestTextChecking(text, document_tag_.GetTag(), completion);
 }
 
 WebString SpellCheckProvider::autoCorrectWord(const WebString& word) {
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-  if (command_line.HasSwitch(switches::kExperimentalSpellcheckerFeatures)) {
-    EnsureDocumentTag();
+  if (command_line.HasSwitch(switches::kEnableSpellingAutoCorrect)) {
     // Will be NULL during unit tests.
     if (chrome_content_renderer_client_) {
       return chrome_content_renderer_client_->spellcheck()->
-          GetAutoCorrectionWord(word, document_tag_);
+          GetAutoCorrectionWord(word, document_tag_.GetTag());
     }
   }
   return string16();
@@ -383,14 +377,54 @@ void SpellCheckProvider::OnToggleSpellCheck() {
       !frame->isContinuousSpellCheckingEnabled());
 }
 
-void SpellCheckProvider::EnsureDocumentTag() {
-  // TODO(darin): There's actually no reason for this to be here.  We should
-  // have the browser side manage the document tag.
-#if defined(OS_MACOSX)
-  if (!has_document_tag_) {
-    // Make the call to get the tag.
-    Send(new SpellCheckHostMsg_GetDocumentTag(routing_id(), &document_tag_));
-    has_document_tag_ = true;
+#if !defined(OS_MACOSX)
+bool SpellCheckProvider::SatisfyRequestFromCache(
+    const WebString& text,
+    WebTextCheckingCompletion* completion) {
+  // Cancel this spellcheck request if the cached text is a substring of the
+  // given text and the given text is the middle of a possible word.
+  string16 request(text);
+  size_t text_length = request.length();
+  size_t last_length = last_request_.length();
+  if (text_length >= last_length &&
+      !request.compare(0, last_length, last_request_)) {
+    if (text_length == last_length || !HasWordCharacters(text, last_length)) {
+      completion->didCancelCheckingText();
+      return true;
+    }
+    int code = 0;
+    int length = static_cast<int>(text_length);
+    U16_PREV(text.data(), 0, length, code);
+    UErrorCode error = U_ZERO_ERROR;
+    if (uscript_getScript(code, &error) != USCRIPT_COMMON) {
+      completion->didCancelCheckingText();
+      return true;
+    }
   }
-#endif
+  // Create a subset of the cached results and return it if the given text is a
+  // substring of the cached text.
+  if (text_length < last_length &&
+      !last_request_.compare(0, text_length, request)) {
+    size_t result_size = 0;
+    for (size_t i = 0; i < last_results_.size(); ++i) {
+      size_t start = last_results_[i].location;
+      size_t end = start + last_results_[i].length;
+      if (start <= text_length && end <= text_length)
+        ++result_size;
+    }
+    if (result_size > 0) {
+      WebKit::WebVector<WebKit::WebTextCheckingResult> results(result_size);
+      for (size_t i = 0; i < result_size; ++i) {
+        results[i].type = last_results_[i].type;
+        results[i].location = last_results_[i].location;
+        results[i].length = last_results_[i].length;
+        results[i].replacement = last_results_[i].replacement;
+      }
+      completion->didFinishCheckingText(results);
+      return true;
+    }
+  }
+
+  return false;
 }
+#endif

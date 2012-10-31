@@ -235,6 +235,9 @@ Press Ctrl+Alt+Z to cancel.
       <message name="IDS_ASH_STATUS_TRAY_NETWORK" desc="The label used in the network dialog header.">
         Network
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_VPN" desc="The label used in the VPN detailed view header.">
+        Private Network
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_NETWORK_SETTINGS" desc="The label used in the settings entry in the network dialog.">
         Settings...
       </message>
@@ -247,7 +250,10 @@ Press Ctrl+Alt+Z to cancel.
       <message name="IDS_ASH_STATUS_TRAY_NETWORK_WIFI_DISABLED" desc="The label used in the tray popup to notify that Wi-Fi is turned off.">
         Wi-Fi is turned off.
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_SMS" desc="The label used in the status tray for SMS.">
+      <message name="IDS_ASH_STATUS_TRAY_NETWORK_NO_VPN" desc="The label used in the tray popup to notify no vpn is configured.">
+        VPN is not configured.
+      </message>      
+      <message name="IDS_ASH_STATUS_TRAY_SMS" desc="The label used in the status tray for SMS.">      
         SMS
       </message>
       <message name="IDS_ASH_STATUS_TRAY_SMS_MESSAGES" desc="The label used in the default status tray view for SMS with the number of messages.">
@@ -269,6 +275,9 @@ Press Ctrl+Alt+Z to cancel.
         Disable Wi-Fi
       </message>
       <message name="IDS_ASH_STATUS_TRAY_OTHER_WIFI" desc="The label used for the item to display other Wi-Fi networks.">
+        Join other...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_OTHER_VPN" desc="The label used for the item to configure other private networks.">
         Join other...
       </message>
       <message name="IDS_ASH_STATUS_TRAY_TURN_ON_WIFI" desc="The label used for the item to turn on Wi-Fi networks.">
@@ -383,11 +392,11 @@ Press Search or Shift to cancel.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_IME_TURNED_ON_BUBBLE" desc="The message shown on a bubble when an IME is enabled">
         Your input method has changed to <ph name="INPUT_METHOD_ID">$1<ex>EN</ex></ph>.
-        Press Shift + Alt to switch.
+Press Shift + Alt to switch.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_THIRD_PARTY_IME_TURNED_ON_BUBBLE" desc="The message shown on a bubble when a third party IME is enabled">
         Your input method has changed to <ph name="INPUT_METHOD_ID">$1<ex>EN</ex></ph>*(<ph name="BEGIN_LINK">&lt;a target="_blank" href="$2"&gt;</ph>3rd party<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>).
-        Press Shift + Alt to switch.
+Press Shift + Alt to switch.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_DISABLE_SPOKEN_FEEDBACK" desc="The label used in the tray popup to disable spoken feedback.">
         Disable spoken feedback
@@ -443,21 +452,6 @@ Press Search or Shift to cancel.
       <message name="IDS_ASH_STATUS_TRAY_PREVIOUS_MENU" desc="The accessible text for header entries for detailed versions of status tray items.">
         Previous menu
       </message>
-      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_EXTENSIONS_DISABLE" desc="The menu entry for disabling extensions from a notification.">
-        Disable extension
-      </message>
-      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_SITE_DISABLE" desc="The menu entry for disabling notification from a site.">
-        Disable notifications from <ph name="site">$1<ex>mail.google.com</ex></ph>
-      </message>
-      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_SETTINGS" desc="The menu entry or button for visiting the appropriate settings page.">
-        Settings...
-      </message>
-      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_CLEAR_ALL" desc="The button for clearing all notifications.">
-        Clear All
-      </message>
-      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_NO_MESSAGES" desc="The message displayed in the message center when there are no notifications.">
-        You have no notifications. Relax!
-      </message>
       <message name="IDS_ASH_WEB_NOTIFICATION_TRAY_ACCESSIBLE_NAME" desc="The accessible name of the web notification tray (message center).">
         Message Center
       </message>
@@ -478,6 +472,9 @@ Press Search or Shift to cancel.
       </message>
       <message name="IDS_ASH_DISPLAY_FAILURE_ON_MIRRORING" desc="An error message to show that the system failed to enter the mirroring mode.">
 	Can't duplicate image on attached monitors. No matching resolution found.
+      </message>
+      <message name="IDS_ASH_INTERNAL_DISPLAY_NAME" desc="The name of the internal display which is shown in the display settings.">
+	Internal Display
       </message>
     </messages>
   </release>

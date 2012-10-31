@@ -35,11 +35,10 @@ ConflictResolver::ConflictResolver() {
 ConflictResolver::~ConflictResolver() {
 }
 
-ConflictResolver::ProcessSimpleConflictResult
-ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
-                                        const Id& id,
-                                        const Cryptographer* cryptographer,
-                                        StatusController* status) {
+void ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
+                                             const Id& id,
+                                             const Cryptographer* cryptographer,
+                                             StatusController* status) {
   MutableEntry entry(trans, syncable::GET_BY_ID, id);
   // Must be good as the entry won't have been cleaned up.
   CHECK(entry.good());
@@ -50,7 +49,7 @@ ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
       !entry.Get(syncable::IS_UNSYNCED)) {
     // This is very unusual, but it can happen in tests.  We may be able to
     // assert NOTREACHED() here when those tests are updated.
-    return NO_SYNC_PROGRESS;
+    return;
   }
 
   if (entry.Get(syncable::IS_DEL) && entry.Get(syncable::SERVER_IS_DEL)) {
@@ -60,7 +59,7 @@ ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
     entry.Put(syncable::IS_UNAPPLIED_UPDATE, false);
     // we've made changes, but they won't help syncing progress.
     // METRIC simple conflict resolved by merge.
-    return NO_SYNC_PROGRESS;
+    return;
   }
 
   // This logic determines "client wins" vs. "server wins" strategy picking.
@@ -193,7 +192,7 @@ ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
         !needs_reinsertion) {
       DVLOG(1) << "Resolving simple conflict, everything matches, ignoring "
                << "changes for: " << entry;
-      IgnoreConflict(&entry);
+      conflict_util::IgnoreConflict(&entry);
       UMA_HISTOGRAM_ENUMERATION("Sync.ResolveSimpleConflict",
                                 CHANGES_MATCH,
                                 CONFLICT_RESOLUTION_SIZE);
@@ -201,12 +200,16 @@ ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
       DVLOG(1) << "Resolving simple conflict, ignoring server encryption "
                << " changes for: " << entry;
       status->increment_num_server_overwrites();
-      OverwriteServerChanges(&entry);
+      conflict_util::OverwriteServerChanges(&entry);
       UMA_HISTOGRAM_ENUMERATION("Sync.ResolveSimpleConflict",
                                 IGNORE_ENCRYPTION,
                                 CONFLICT_RESOLUTION_SIZE);
     } else if (entry_deleted || !name_matches || !parent_matches) {
-      OverwriteServerChanges(&entry);
+      // NOTE: The update application logic assumes that conflict resolution
+      // will never result in changes to the local hierarchy.  The entry_deleted
+      // and !parent_matches cases here are critical to maintaining that
+      // assumption.
+      conflict_util::OverwriteServerChanges(&entry);
       status->increment_num_server_overwrites();
       DVLOG(1) << "Resolving simple conflict, overwriting server changes "
                << "for: " << entry;
@@ -216,7 +219,7 @@ ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
     } else {
       DVLOG(1) << "Resolving simple conflict, ignoring local changes for: "
                << entry;
-      IgnoreLocalChanges(&entry);
+      conflict_util::IgnoreLocalChanges(&entry);
       status->increment_num_local_overwrites();
       UMA_HISTOGRAM_ENUMERATION("Sync.ResolveSimpleConflict",
                                 OVERWRITE_LOCAL,
@@ -225,45 +228,36 @@ ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
     // Now that we've resolved the conflict, clear the prev server
     // specifics.
     entry.Put(syncable::BASE_SERVER_SPECIFICS, sync_pb::EntitySpecifics());
-    return SYNC_PROGRESS;
   } else {  // SERVER_IS_DEL is true
-    // If a server deleted folder has local contents it should be a hierarchy
-    // conflict.  Hierarchy conflicts should not be processed by this function.
-    // We could end up here if a change was made since we last tried to detect
-    // conflicts, which was during update application.
     if (entry.Get(syncable::IS_DIR)) {
       Directory::ChildHandles children;
       trans->directory()->GetChildHandlesById(trans,
                                               entry.Get(syncable::ID),
                                               &children);
-      if (0 != children.size()) {
-        DVLOG(1) << "Entry is a server deleted directory with local contents, "
-                 << "should be a hierarchy conflict. (race condition).";
-        return NO_SYNC_PROGRESS;
-      }
+      // If a server deleted folder has local contents it should be a hierarchy
+      // conflict.  Hierarchy conflicts should not be processed by this
+      // function.
+      DCHECK(children.empty());
     }
 
     // The entry is deleted on the server but still exists locally.
     // We undelete it by overwriting the server's tombstone with the local
     // data.
-    OverwriteServerChanges(&entry);
+    conflict_util::OverwriteServerChanges(&entry);
     status->increment_num_server_overwrites();
     DVLOG(1) << "Resolving simple conflict, undeleting server entry: "
              << entry;
     UMA_HISTOGRAM_ENUMERATION("Sync.ResolveSimpleConflict",
                               UNDELETE,
                               CONFLICT_RESOLUTION_SIZE);
-
-    return SYNC_PROGRESS;
   }
 }
 
-bool ConflictResolver::ResolveConflicts(
+void ConflictResolver::ResolveConflicts(
     syncable::WriteTransaction* trans,
     const Cryptographer* cryptographer,
     const std::set<syncable::Id>& simple_conflict_ids,
     sessions::StatusController* status) {
-  bool forward_progress = false;
   // Iterate over simple conflict items.
   set<Id>::const_iterator conflicting_item_it;
   set<Id> processed_items;
@@ -303,17 +297,11 @@ bool ConflictResolver::ResolveConflicts(
     while (!predecessors.empty()) {
       id = predecessors.back();
       predecessors.pop_back();
-      switch (ProcessSimpleConflict(trans, id, cryptographer, status)) {
-        case NO_SYNC_PROGRESS:
-          break;
-        case SYNC_PROGRESS:
-          forward_progress = true;
-          break;
-      }
+      ProcessSimpleConflict(trans, id, cryptographer, status);
       processed_items.insert(id);
     }
   }
-  return forward_progress;
+  return;
 }
 
 }  // namespace syncer

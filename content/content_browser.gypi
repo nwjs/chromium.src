@@ -3,6 +3,17 @@
 # found in the LICENSE file.
 
 {
+  'variables': {
+    'conditions': [
+      ['chromeos==1', {
+        'use_libgps%': 1,
+      }, { # chromeos==0
+        # Do not use libgps on desktop Linux by default,
+        # see http://crbug.com/103751.
+        'use_libgps%': 0,
+      }],
+    ],
+  },
   'dependencies': [
     'browser/speech/proto/speech_proto.gyp:speech_proto',
     '../base/base.gyp:base_static',
@@ -49,6 +60,7 @@
     'public/browser/child_process_data.h',
     'public/browser/child_process_security_policy.h',
     'public/browser/color_chooser.h',
+    'public/browser/compositor_util.h',
     'public/browser/content_browser_client.cc',
     'public/browser/content_browser_client.h',
     'public/browser/content_ipc_logging.h',
@@ -188,6 +200,7 @@
     'browser/accessibility/browser_accessibility_manager_win.cc',
     'browser/accessibility/browser_accessibility_manager_win.h',
     'browser/accessibility/browser_accessibility_state_impl.cc',
+    'browser/accessibility/browser_accessibility_state_impl_win.cc',
     'browser/accessibility/browser_accessibility_state_impl.h',
     'browser/accessibility/browser_accessibility_win.cc',
     'browser/accessibility/browser_accessibility_win.h',
@@ -247,10 +260,6 @@
     'browser/browser_plugin/browser_plugin_guest_helper.cc',
     'browser/browser_plugin/browser_plugin_guest_helper.h',
     'browser/browser_plugin/browser_plugin_host_factory.h',
-    'browser/browser_plugin/old/old_browser_plugin_host.cc',
-    'browser/browser_plugin/old/old_browser_plugin_host.h',
-    'browser/browser_plugin/old/old_browser_plugin_host_helper.cc',
-    'browser/browser_plugin/old/old_browser_plugin_host_helper.h',
     'browser/browser_process_sub_thread.cc',
     'browser/browser_process_sub_thread.h',
     'browser/browser_thread_impl.cc',
@@ -318,6 +327,10 @@
     'browser/dom_storage/session_storage_namespace_impl.h',
     'browser/download/base_file.cc',
     'browser/download/base_file.h',
+    'browser/download/base_file_linux.cc',
+    'browser/download/base_file_mac.cc',
+    'browser/download/base_file_posix.cc',
+    'browser/download/base_file_win.cc',
     'browser/download/byte_stream.cc',
     'browser/download/byte_stream.h',
     'browser/download/download_create_info.cc',
@@ -406,8 +419,6 @@
     'browser/geolocation/geolocation_provider.h',
     'browser/geolocation/gps_location_provider_linux.cc',
     'browser/geolocation/gps_location_provider_linux.h',
-    'browser/geolocation/libgps_wrapper_linux.cc',
-    'browser/geolocation/libgps_wrapper_linux.h',
     'browser/geolocation/location_api_adapter_android.cc',
     'browser/geolocation/location_api_adapter_android.h',
     'browser/geolocation/location_arbitrator.cc',
@@ -438,6 +449,7 @@
     'browser/geolocation/win7_location_provider_win.h',
     'browser/gpu/browser_gpu_channel_host_factory.cc',
     'browser/gpu/browser_gpu_channel_host_factory.h',
+    'browser/gpu/compositor_util.cc',
     'browser/gpu/gpu_blacklist.cc',
     'browser/gpu/gpu_blacklist.h',
     'browser/gpu/gpu_data_manager_impl.cc',
@@ -620,6 +632,8 @@
     'browser/renderer_host/media/video_capture_host.h',
     'browser/renderer_host/media/video_capture_manager.cc',
     'browser/renderer_host/media/video_capture_manager.h',
+    'browser/renderer_host/media/web_contents_video_capture_device.cc',
+    'browser/renderer_host/media/web_contents_video_capture_device.h',
     'browser/renderer_host/native_web_keyboard_event_android.cc',
     'browser/renderer_host/native_web_keyboard_event_aura.cc',
     'browser/renderer_host/native_web_keyboard_event.cc',
@@ -905,9 +919,10 @@
         '../ppapi/ppapi_internal.gyp:ppapi_ipc',
         '../printing/printing.gyp:printing',
         '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
+        '../third_party/libyuv/libyuv.gyp:libyuv',
         '../ui/surface/surface.gyp:surface',
-        '../webkit/support/webkit_support.gyp:dom_storage',
         '../webkit/support/webkit_support.gyp:webkit_resources',
+        '../webkit/support/webkit_support.gyp:webkit_storage',
         '../webkit/support/webkit_support.gyp:webkit_strings',
       ],
     }],
@@ -1103,6 +1118,20 @@
       'sources/': [
         ['exclude', '^browser/speech/'],
       ],
+    }],
+    ['use_libgps==1', {
+      'defines': [
+        'USE_LIBGPS',
+      ],
+      # Because of component build, this .gypi file may be included either
+      # in content_browser target, or content target. To be sure
+      # the USE_LIBGPS setting propagates to the "real" dependent target,
+      # we use all_dependent_settings here.
+      'all_dependent_settings': {
+        'defines': [
+          'USE_LIBGPS',
+        ],
+      },
     }],
   ],
 }

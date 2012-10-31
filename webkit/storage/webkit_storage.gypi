@@ -13,8 +13,12 @@
     ],
   },
   'includes': [
+    '../appcache/webkit_appcache.gypi',
     '../blob/webkit_blob.gypi',
+    '../database/webkit_database.gypi',
+    '../dom_storage/webkit_dom_storage.gypi',
     '../fileapi/webkit_fileapi.gypi',
+    '../quota/webkit_quota.gypi',
   ],
   'targets': [
     {
@@ -27,17 +31,21 @@
         '<(DEPTH)/base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         '<(DEPTH)/build/temp_gyp/googleurl.gyp:googleurl',
         '<(DEPTH)/net/net.gyp:net',
+        '<(DEPTH)/sql/sql.gyp:sql',
         '<(DEPTH)/third_party/leveldatabase/leveldatabase.gyp:leveldatabase',
-        '<(DEPTH)/webkit/support/webkit_support.gyp:quota',
+        '<(DEPTH)/third_party/sqlite/sqlite.gyp:sqlite',
         '<(DEPTH)/webkit/support/webkit_support.gyp:webkit_base',
         '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
       ],
       'defines': ['WEBKIT_STORAGE_IMPLEMENTATION'],
       'sources': [
-        # TODO(hashimoto): Import all storage related modules. crbug.com/155242
         '../storage/webkit_storage_export.h',
+        '<@(webkit_appcache_sources)',
         '<@(webkit_blob_sources)',
+        '<@(webkit_database_sources)',
+        '<@(webkit_dom_storage_sources)',
         '<@(webkit_fileapi_sources)',
+        '<@(webkit_quota_sources)',
       ],
       'conditions': [
         ['inside_chromium_build==0', {

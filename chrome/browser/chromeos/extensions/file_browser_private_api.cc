@@ -5,6 +5,9 @@
 #include "chrome/browser/chromeos/extensions/file_browser_private_api.h"
 
 #include <sys/statvfs.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <utime.h>
 #include <utility>
 
 #include "base/base64.h"
@@ -381,6 +384,16 @@ void LogDefaultTask(const std::set<std::string>& mime_types,
   }
 }
 
+bool GetLocalFilePath(
+    const GURL& file_url, FilePath* local_path, FilePath* virtual_path) {
+  fileapi::FileSystemURL url(file_url);
+  if (!chromeos::CrosMountPointProvider::CanHandleURL(url))
+    return false;
+  *local_path = url.path();
+  *virtual_path = url.virtual_path();
+  return true;
+}
+
 }  // namespace
 
 class RequestLocalFileSystemFunction::LocalFileSystemCallbackDispatcher {
@@ -538,16 +551,6 @@ void RequestLocalFileSystemFunction::RespondFailedOnUIThread(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   error_ = base::StringPrintf(kFileError, static_cast<int>(error_code));
   SendResponse(false);
-}
-
-bool FileWatchBrowserFunctionBase::GetLocalFilePath(
-    const GURL& file_url, FilePath* local_path, FilePath* virtual_path) {
-  fileapi::FileSystemURL url(file_url);
-  if (!chromeos::CrosMountPointProvider::CanHandleURL(url))
-    return false;
-  *local_path = url.path();
-  *virtual_path = url.virtual_path();
-  return true;
 }
 
 void FileWatchBrowserFunctionBase::RespondOnUIThread(bool success) {
@@ -1020,9 +1023,16 @@ bool ExecuteTasksFileBrowserFunction::RunImpl() {
     file_urls.push_back(GURL(origin_file_url));
   }
 
+  WebContents* web_contents =
+      dispatcher()->delegate()->GetAssociatedWebContents();
+  int32 tab_id = 0;
+  if (web_contents)
+    tab_id = ExtensionTabUtil::GetTabId(web_contents);
+
   scoped_refptr<FileTaskExecutor> executor(
       FileTaskExecutor::Create(profile(),
                                source_url(),
+                               tab_id,
                                extension_id,
                                task_type,
                                action_id));
@@ -1484,6 +1494,61 @@ bool GetMountPointsFunction::RunImpl() {
   return true;
 }
 
+SetLastModifiedFunction::SetLastModifiedFunction() {
+}
+
+SetLastModifiedFunction::~SetLastModifiedFunction() {
+}
+
+bool SetLastModifiedFunction::RunImpl() {
+  if (args_->GetSize() != 2) {
+    return false;
+  }
+
+  std::string file_url;
+  if (!args_->GetString(0, &file_url))
+    return false;
+
+  std::string timestamp;
+  if (!args_->GetString(1, &timestamp))
+    return false;
+
+  BrowserThread::PostTask(
+        BrowserThread::FILE, FROM_HERE,
+        base::Bind(
+            &SetLastModifiedFunction::RunOperationOnFileThread,
+            this,
+            file_url,
+            strtoul(timestamp.c_str(), NULL, 0)));
+
+  return true;
+}
+
+void SetLastModifiedFunction::RunOperationOnFileThread(std::string file_url,
+                                                       time_t timestamp) {
+  FilePath local_path, virtual_path;
+  bool succeeded = false;
+  if (GetLocalFilePath(GURL(file_url), &local_path, &virtual_path) &&
+      local_path != FilePath()) {
+    struct stat sb;
+    if (stat(local_path.value().c_str(), &sb) == 0) {
+      struct utimbuf times;
+      times.actime = sb.st_atime;
+      times.modtime = timestamp;
+
+      if (utime(local_path.value().c_str(), &times) == 0)
+        succeeded = true;
+    }
+  }
+
+  BrowserThread::PostTask(
+        BrowserThread::UI, FROM_HERE,
+        base::Bind(
+            &SetLastModifiedFunction::SendResponse,
+            this,
+            succeeded));
+}
+
 GetSizeStatsFunction::GetSizeStatsFunction() {
 }
 
@@ -1758,7 +1823,6 @@ bool FileDialogStringsFunction::RunImpl() {
   SET_STRING(IDS_FILE_BROWSER, MOUNT_ARCHIVE);
   SET_STRING(IDS_FILE_BROWSER, FORMAT_DEVICE_BUTTON_LABEL);
   SET_STRING(IDS_FILE_BROWSER, UNMOUNT_DEVICE_BUTTON_LABEL);
-  SET_STRING(IDS_FILE_BROWSER, IMPORT_PHOTOS_BUTTON_LABEL);
 
   SET_STRING(IDS_FILE_BROWSER, SEARCH_TEXT_LABEL);
 
@@ -1799,6 +1863,7 @@ bool FileDialogStringsFunction::RunImpl() {
   SET_STRING(IDS_FILE_BROWSER, GALLERY_UNSAVED_CHANGES);
   SET_STRING(IDS_FILE_BROWSER, GALLERY_READONLY_WARNING);
   SET_STRING(IDS_FILE_BROWSER, GALLERY_IMAGE_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, GALLERY_IMAGE_TOO_BIG_ERROR);
   SET_STRING(IDS_FILE_BROWSER, GALLERY_VIDEO_ERROR);
   SET_STRING(IDS_FILE_BROWSER, AUDIO_ERROR);
   SET_STRING(IDS_FILE_BROWSER, GALLERY_IMAGE_OFFLINE);
@@ -1838,10 +1903,11 @@ bool FileDialogStringsFunction::RunImpl() {
   SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_IMPORTING);
   SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_IMPORT_COMPLETE);
   SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_CAPTION);
+  SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_ONE_SELECTED);
+  SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_MANY_SELECTED);
+  SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_SELECT_ALL);
+  SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_SELECT_NONE);
   SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_DELETE_AFTER);
-  SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_NOTHING_PICKED);
-  SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_ONE_PICKED);
-  SET_STRING(IDS_FILE_BROWSER, PHOTO_IMPORT_MANY_PICKED);
 
   SET_STRING(IDS_FILE_BROWSER, CONFIRM_OVERWRITE_FILE);
   SET_STRING(IDS_FILE_BROWSER, FILE_ALREADY_EXISTS);
@@ -2173,6 +2239,9 @@ void GetDriveFilePropertiesFunction::OnOperationComplete(
   property_dict->SetString("thumbnailUrl", file_specific_info.thumbnail_url());
   if (!file_specific_info.alternate_url().empty())
     property_dict->SetString("editUrl", file_specific_info.alternate_url());
+
+  if (!file_specific_info.share_url().empty())
+    property_dict->SetString("shareUrl", file_specific_info.share_url());
 
   if (!entry_proto->content_url().empty()) {
     property_dict->SetString("contentUrl", entry_proto->content_url());

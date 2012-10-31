@@ -13,6 +13,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/download_interrupt_reasons.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/file_stream.h"
 #include "net/base/net_errors.h"
@@ -24,6 +25,8 @@ class SecureHash;
 namespace net {
 class FileStream;
 }
+
+namespace content {
 
 // File being downloaded and saved to disk. This is a base class
 // for DownloadFile and SaveFile, which keep more state information.
@@ -41,21 +44,21 @@ class CONTENT_EXPORT BaseFile {
            const net::BoundNetLog& bound_net_log);
   virtual ~BaseFile();
 
-  // Returns net::OK on success, or a network error code on failure.
-  // |default_directory| specifies the directory to create the temporary file in
-  // if |full_path()| is empty. If |default_directory| and |full_path()| are
-  // empty, then a temporary file will be created in the default download
-  // location as determined by ContentBrowserClient.
-  net::Error Initialize(const FilePath& default_directory);
+  // Returns DOWNLOAD_INTERRUPT_REASON_NONE on success, or a
+  // DownloadInterruptReason on failure.  |default_directory| specifies the
+  // directory to create the temporary file in if |full_path()| is empty. If
+  // |default_directory| and |full_path()| are empty, then a temporary file will
+  // be created in the default download location as determined by
+  // ContentBrowserClient.
+  DownloadInterruptReason Initialize(const FilePath& default_directory);
 
-  // Write a new chunk of data to the file.
-  // Returns net::OK on success (all bytes written to the file),
-  // or a network error code on failure.
-  net::Error AppendDataToFile(const char* data, size_t data_len);
+  // Write a new chunk of data to the file. Returns a DownloadInterruptReason
+  // indicating the result of the operation.
+  DownloadInterruptReason AppendDataToFile(const char* data, size_t data_len);
 
-  // Rename the download file.
-  // Returns net::OK on success, or a network error code on failure.
-  virtual net::Error Rename(const FilePath& full_path);
+  // Rename the download file. Returns a DownloadInterruptReason indicating the
+  // result of the operation.
+  virtual DownloadInterruptReason Rename(const FilePath& full_path);
 
   // Detach the file so it is not deleted on destruction.
   virtual void Detach();
@@ -66,8 +69,9 @@ class CONTENT_EXPORT BaseFile {
   // Indicate that the download has finished. No new data will be received.
   void Finish();
 
-  // Informs the OS that this file came from the internet.
-  void AnnotateWithSourceInformation();
+  // Informs the OS that this file came from the internet. Returns a
+  // DownloadInterruptReason indicating the result of the operation.
+  DownloadInterruptReason AnnotateWithSourceInformation();
 
   // Calculate and return the current speed in bytes per second.
   int64 CurrentSpeed() const;
@@ -90,29 +94,50 @@ class CONTENT_EXPORT BaseFile {
 
   virtual std::string DebugString() const;
 
- protected:
-  virtual void CreateFileStream();  // For testing.
-  // Returns net::OK on success, or a network error code on failure.
-  net::Error Open();
-  void Close();
-
-  // Full path to the file including the file name.
-  FilePath full_path_;
-
  private:
   friend class BaseFileTest;
   FRIEND_TEST_ALL_PREFIXES(BaseFileTest, IsEmptyHash);
 
+  // Re-initializes file_stream_ with a newly allocated net::FileStream().
+  void CreateFileStream();
+
+  // Creates and opens the file_stream_ if it is NULL.
+  DownloadInterruptReason Open();
+
+  // Closes and resets file_stream_.
+  void Close();
+
+  // Resets file_stream_.
+  void ClearStream();
+
+  // Platform specific method that moves a file to a new path and adjusts the
+  // security descriptor / permissions on the file to match the defaults for the
+  // new directory.
+  DownloadInterruptReason MoveFileAndAdjustPermissions(
+      const FilePath& new_path);
+
   // Split out from CurrentSpeed to enable testing.
   int64 CurrentSpeedAtTime(base::TimeTicks current_time) const;
 
-  // Resets the current state of the hash to the contents of |hash_state_bytes|.
-  virtual bool SetHashState(const std::string& hash_state_bytes);
+  // Log a TYPE_DOWNLOAD_FILE_ERROR NetLog event with |error| and passes error
+  // on through, converting to a |DownloadInterruptReason|.
+  DownloadInterruptReason LogNetError(const char* operation, net::Error error);
 
-  net::Error ClearStream(net::Error error);
+  // Log the system error in |os_error| and converts it into a
+  // |DownloadInterruptReason|.
+  DownloadInterruptReason LogSystemError(const char* operation, int os_error);
+
+  // Log a TYPE_DOWNLOAD_FILE_ERROR NetLog event with |os_error| and |reason|.
+  // Returns |reason|.
+  DownloadInterruptReason LogInterruptReason(
+      const char* operation, int os_error,
+      DownloadInterruptReason reason);
 
   static const size_t kSha256HashLen = 32;
   static const unsigned char kEmptySha256Hash[kSha256HashLen];
+
+  // Full path to the file including the file name.
+  FilePath full_path_;
 
   // Source URL for the file being downloaded.
   GURL source_url_;
@@ -146,5 +171,7 @@ class CONTENT_EXPORT BaseFile {
 
   DISALLOW_COPY_AND_ASSIGN(BaseFile);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_DOWNLOAD_BASE_FILE_H_

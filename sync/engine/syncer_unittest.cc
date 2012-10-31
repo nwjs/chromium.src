@@ -186,35 +186,24 @@ class SyncerTest : public testing::Test,
         info, workers);
   }
 
-  bool SyncShareAsDelegate(
-      SyncSchedulerImpl::SyncSessionJob::SyncSessionJobPurpose purpose) {
+
+  void SyncShareAsDelegate(SyncSessionJob::Purpose purpose) {
     SyncerStep start;
     SyncerStep end;
-    SyncSchedulerImpl::SetSyncerStepsForPurpose(purpose, &start, &end);
+    SyncSessionJob::GetSyncerStepsForPurpose(purpose, &start, &end);
 
     session_.reset(MakeSession());
-    syncer_->SyncShare(session_.get(), start, end);
-    return session_->HasMoreToSync();
+    EXPECT_TRUE(syncer_->SyncShare(session_.get(), start, end));
   }
 
-  bool SyncShareNudge() {
+  void SyncShareNudge() {
     session_.reset(MakeSession());
-    return SyncShareAsDelegate(SyncSchedulerImpl::SyncSessionJob::NUDGE);
+    SyncShareAsDelegate(SyncSessionJob::NUDGE);
   }
 
-  bool SyncShareConfigure() {
+  void SyncShareConfigure() {
     session_.reset(MakeSession());
-    return SyncShareAsDelegate(
-        SyncSchedulerImpl::SyncSessionJob::CONFIGURATION);
-  }
-
-  void LoopSyncShare() {
-    bool should_loop = false;
-    int loop_iterations = 0;
-    do {
-      ASSERT_LT(++loop_iterations, 100) << "infinite loop detected. please fix";
-      should_loop = SyncShareNudge();
-    } while (should_loop);
+    SyncShareAsDelegate(SyncSessionJob::CONFIGURATION);
   }
 
   virtual void SetUp() {
@@ -414,7 +403,7 @@ class SyncerTest : public testing::Test,
         test++;
       }
     }
-    LoopSyncShare();
+    SyncShareNudge();
     ASSERT_TRUE(expected_positions.size() ==
                 mock_server_->committed_ids().size());
     // If this test starts failing, be aware other sort orders could be valid.
@@ -2030,7 +2019,7 @@ TEST_F(SyncerTest, ConflictMatchingEntryHandlesUnsanitizedNames) {
     B.Put(IS_UNAPPLIED_UPDATE, true);
     B.Put(SERVER_VERSION, 20);
   }
-  LoopSyncShare();
+  SyncShareNudge();
   saw_syncer_event_ = false;
   mock_server_->set_conflict_all_commits(false);
 
@@ -2070,7 +2059,7 @@ TEST_F(SyncerTest, ConflictMatchingEntryHandlesNormalNames) {
     B.Put(IS_UNAPPLIED_UPDATE, true);
     B.Put(SERVER_VERSION, 20);
   }
-  LoopSyncShare();
+  SyncShareNudge();
   saw_syncer_event_ = false;
   mock_server_->set_conflict_all_commits(false);
 
@@ -2097,7 +2086,7 @@ TEST_F(SyncerTest, ReverseFolderOrderingTest) {
   mock_server_->AddUpdateDirectory(5, 4, "gggchild", 10, 10);
   mock_server_->AddUpdateDirectory(2, 1, "child", 10, 10);
   mock_server_->AddUpdateDirectory(1, 0, "parent", 10, 10);
-  LoopSyncShare();
+  SyncShareNudge();
   syncable::ReadTransaction trans(FROM_HERE, directory());
 
   Id child_id = GetOnlyEntryWithName(
@@ -2218,7 +2207,7 @@ TEST_F(SyncerTest, DoublyChangedWithResolver) {
   }
   mock_server_->AddUpdateBookmark(child_id_, parent_id_, "Pete2.htm", 11, 10);
   mock_server_->set_conflict_all_commits(true);
-  LoopSyncShare();
+  SyncShareNudge();
   syncable::Directory::ChildHandles children;
   {
     syncable::ReadTransaction trans(FROM_HERE, directory());
@@ -2520,7 +2509,7 @@ TEST_F(SyncerTest, CommitManyItemsInOneGo_Success) {
   }
   ASSERT_EQ(items_to_commit, directory()->unsynced_entity_count());
 
-  EXPECT_FALSE(SyncShareNudge());
+  SyncShareNudge();
   EXPECT_EQ(num_batches, mock_server_->commit_messages().size());
   EXPECT_EQ(0, directory()->unsynced_entity_count());
 }
@@ -2549,7 +2538,6 @@ TEST_F(SyncerTest, CommitManyItemsInOneGo_PostBufferFail) {
   SyncShareNudge();
 
   EXPECT_EQ(1U, mock_server_->commit_messages().size());
-  EXPECT_FALSE(session_->Succeeded());
   EXPECT_EQ(SYNC_SERVER_ERROR,
             session_->status_controller().model_neutral_state().commit_result);
   EXPECT_EQ(items_to_commit - kDefaultMaxCommitBatchSize,
@@ -2580,7 +2568,7 @@ TEST_F(SyncerTest, CommitManyItemsInOneGo_CommitConflict) {
 
   // We should stop looping at the first sign of trouble.
   EXPECT_EQ(1U, mock_server_->commit_messages().size());
-  EXPECT_FALSE(session_->Succeeded());
+  EXPECT_FALSE(session_->HasMoreToSync());
   EXPECT_EQ(items_to_commit - (kDefaultMaxCommitBatchSize - 1),
             directory()->unsynced_entity_count());
 }
@@ -3065,8 +3053,8 @@ TEST_F(SyncerTest, LongChangelistWithApplicationConflict) {
   mock_server_->AddUpdateDirectory(folder_id,
       TestIdFactory::root(), "folder", 1, 1);
   mock_server_->SetChangesRemaining(0);
-  LoopSyncShare();
-  LoopSyncShare();
+  SyncShareNudge();
+  SyncShareNudge();
   // Check that everything is as expected after the commit.
   {
     syncable::ReadTransaction trans(FROM_HERE, directory());

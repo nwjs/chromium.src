@@ -48,10 +48,6 @@
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
   },
-  "browserTag": {
-    "channel": "dev",
-    "extension_types": ["extension", "platform_app"]
-  },
   "browsingData": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
@@ -252,7 +248,7 @@
     "extension_types": ["extension", "packaged_app"]
   },
   "pushMessaging": {
-    "channel": "dev",
+    "channel": "stable",
     "extension_types": ["extension", "platform_app"]
   },
   "rtcPrivate": {
@@ -298,6 +294,10 @@
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
   },
+  "tabCapture": {
+    "channel": "canary",
+    "extension_types": ["extension", "packaged_app"]
+  },
   "terminalPrivate": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app", "platform_app"],
@@ -323,6 +323,10 @@
     "extension_types": [
       "extension", "packaged_app", "hosted_app", "platform_app"
     ]
+  },
+  "usb": {
+    "channel": "dev",
+    "extension_types": ["platform_app"]
   },
   "videoCapture": {
     "channel": "stable",
@@ -363,5 +367,9 @@
   "webRequestBlocking": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
+  },
+  "webview": {
+    "channel": "stable",
+    "extension_types": ["platform_app"]
   }
 }

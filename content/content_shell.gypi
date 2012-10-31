@@ -71,7 +71,6 @@
         'shell/shell_content_renderer_client.cc',
         'shell/shell_content_renderer_client.h',
         'shell/shell_devtools_delegate.cc',
-        'shell/shell_devtools_delegate_android.cc',
         'shell/shell_devtools_delegate.h',
         'shell/shell_download_manager_delegate.cc',
         'shell/shell_download_manager_delegate.h',
@@ -97,6 +96,8 @@
         'shell/shell_resource_context.h',
         'shell/shell_resource_dispatcher_host_delegate.cc',
         'shell/shell_resource_dispatcher_host_delegate.h',
+        'shell/shell_stacking_client_ash.cc',
+        'shell/shell_stacking_client_ash.h',
         'shell/shell_switches.cc',
         'shell/shell_switches.h',
         'shell/shell_url_request_context_getter.cc',
@@ -153,9 +154,6 @@
           ],
           'include_dirs': [
             '<(SHARED_INTERMEDIATE_DIR)/content/shell',
-          ],
-          'sources!': [
-            'shell/shell_devtools_delegate.cc',
           ],
         }, {  # else: OS!="android"
           'dependencies': [

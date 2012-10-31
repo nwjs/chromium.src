@@ -415,6 +415,14 @@ void ChromeShellDelegate::RecordUserMetricsAction(
     case ash::UMA_LAUNCHER_CLICK_ON_APP:
       content::RecordAction(content::UserMetricsAction("Launcher_ClickOnApp"));
       break;
+    case ash::UMA_ACCEL_KEYBOARD_BRIGHTNESS_DOWN_F6:
+      content::RecordAction(
+          content::UserMetricsAction("Accel_KeyboardBrightnessDown_F6"));
+      break;
+    case ash::UMA_ACCEL_KEYBOARD_BRIGHTNESS_UP_F7:
+      content::RecordAction(
+          content::UserMetricsAction("Accel_KeyboardBrightnessUp_F7"));
+      break;
   }
 }
 
@@ -437,7 +445,7 @@ void ChromeShellDelegate::HandleMediaPrevTrack() {
 }
 
 string16 ChromeShellDelegate::GetTimeRemainingString(base::TimeDelta delta) {
-  return TimeFormat::TimeRemaining(delta);
+  return TimeFormat::TimeRemainingLong(delta);
 }
 
 void ChromeShellDelegate::SaveScreenMagnifierScale(double scale) {

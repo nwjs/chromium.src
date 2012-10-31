@@ -52,7 +52,7 @@ void AutofillExternalDelegate::OnQuery(int query_id,
   display_warning_if_disabled_ = display_warning_if_disabled;
   autofill_query_id_ = query_id;
 
-  OnQueryPlatformSpecific(query_id, form, field, bounds);
+  SetBounds(bounds);
 }
 
 void AutofillExternalDelegate::OnSuggestionsReturned(
@@ -111,9 +111,8 @@ void AutofillExternalDelegate::OnSuggestionsReturned(
     popup_visible_ = true;
     ApplyAutofillSuggestions(values, labels, icons, ids);
 
-    AutofillManager::FromWebContents(web_contents_)->
-        OnDidShowAutofillSuggestions(
-            has_autofill_item && !has_shown_autofill_popup_for_current_edit_);
+    autofill_manager_->OnDidShowAutofillSuggestions(
+        has_autofill_item && !has_shown_autofill_popup_for_current_edit_);
     has_shown_autofill_popup_for_current_edit_ |= has_autofill_item;
   }
 }

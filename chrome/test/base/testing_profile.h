@@ -209,11 +209,7 @@ class TestingProfile : public Profile {
   virtual GAIAInfoUpdateService* GetGAIAInfoUpdateService() OVERRIDE;
   virtual bool HasOffTheRecordProfile() OVERRIDE;
   virtual Profile* GetOriginalProfile() OVERRIDE;
-  virtual VisitedLinkMaster* GetVisitedLinkMaster() OVERRIDE;
   virtual ExtensionService* GetExtensionService() OVERRIDE;
-  virtual extensions::UserScriptMaster* GetUserScriptMaster() OVERRIDE;
-  virtual ExtensionProcessManager* GetExtensionProcessManager() OVERRIDE;
-  virtual extensions::EventRouter* GetExtensionEventRouter() OVERRIDE;
   void SetExtensionSpecialStoragePolicy(
       ExtensionSpecialStoragePolicy* extension_special_storage_policy);
   virtual ExtensionSpecialStoragePolicy*
@@ -248,9 +244,11 @@ class TestingProfile : public Profile {
       GetRequestContextForExtensions() OVERRIDE;
   virtual net::URLRequestContextGetter*
       GetMediaRequestContextForStoragePartition(
-          const std::string& partition_id) OVERRIDE;
+          const FilePath& partition_path,
+          bool in_memory) OVERRIDE;
   virtual net::URLRequestContextGetter* GetRequestContextForStoragePartition(
-      const std::string& partition_id) OVERRIDE;
+      const FilePath& partition_path,
+      bool in_memory) OVERRIDE;
   virtual net::SSLConfigService* GetSSLConfigService() OVERRIDE;
   virtual HostContentSettingsMap* GetHostContentSettingsMap() OVERRIDE;
   virtual std::wstring GetName();

@@ -8,13 +8,15 @@ import os
 import sys
 
 from base_test_runner import BaseTestRunner
+import android_commands
 import debug_info
 import constants
 import perf_tests_helper
 import run_tests_helper
+from android_commands import errors
 from test_package_apk import TestPackageApk
 from test_package_executable import TestPackageExecutable
-from test_result import TestResults
+from test_result import BaseTestResult, TestResults
 
 
 class SingleTestRunner(BaseTestRunner):
@@ -56,21 +58,24 @@ class SingleTestRunner(BaseTestRunner):
           test_suite, timeout, rebaseline, performance_test, cleanup_test_files,
           self.tool, self.dump_debug_info)
     else:
+      # Put a copy into the android out/target directory, to allow stack trace
+      # generation.
+      symbols_dir = os.path.join(constants.CHROME_DIR, 'out', build_type,
+                                 'lib.target')
       self.test_package = TestPackageExecutable(
           self.adb, device,
           test_suite, timeout, rebaseline, performance_test, cleanup_test_files,
-          self.tool, self.dump_debug_info)
+          self.tool, self.dump_debug_info, symbols_dir)
     self._performance_test_setup = None
     if performance_test:
       self._performance_test_setup = perf_tests_helper.PerfTestSetup(self.adb)
 
   def _TestSuiteRequiresMockTestServer(self):
     """Returns True if the test suite requires mock test server."""
-    return False
-  # TODO(yfriedman): Disabled because of flakiness.
-  # (self.test_package.test_suite_basename == 'unit_tests' or
-  #          self.test_package.test_suite_basename == 'net_unittests' or
-  #          False)
+    tests_require_net_test_server = ['unit_tests', 'net_unittests',
+                                     'content_unittests']
+    return (self.test_package.test_suite_basename in
+            tests_require_net_test_server)
 
   def _GetFilterFileName(self):
     """Returns the filename of gtest filter."""
@@ -196,8 +201,14 @@ class SingleTestRunner(BaseTestRunner):
         test_files += glob.glob('third_party/hunspell_dictionaries/*.bdic')
         os.chdir(old_cwd)
       return test_files
+    elif self.test_package.test_suite_basename == 'media_unittests':
+      return [
+          'media/test/data',
+      ]
     elif self.test_package.test_suite_basename == 'net_unittests':
       return [
+          'chrome/test/data/animate1.gif',
+          'chrome/test/data/simple.html',
           'net/data/cache_tests',
           'net/data/filter_unittests',
           'net/data/ftp',
@@ -215,15 +226,6 @@ class SingleTestRunner(BaseTestRunner):
           'chrome/test/perf/sunspider_uitest.js',
           'chrome/test/perf/v8_benchmark_uitest.js',
           ]
-    elif self.test_package.test_suite_basename == 'page_cycler_tests':
-      data = [
-          'tools/page_cycler',
-          'data/page_cycler',
-          ]
-      for d in data:
-        if not os.path.exists(d):
-          raise Exception('Page cycler data not found.')
-      return data
     elif self.test_package.test_suite_basename == 'webkit_unit_tests':
       return [
           'third_party/WebKit/Source/WebKit/chromium/tests/data',
@@ -307,14 +309,28 @@ class SingleTestRunner(BaseTestRunner):
     Returns:
       A TestResults object.
     """
-    if self.test_package.rebaseline:
-      self.RebaselineTests()
-    else:
-      if not self._gtest_filter:
-        self._gtest_filter = ('-' + ':'.join(self.GetDisabledTests()) + ':' +
-                             ':'.join(['*.' + x + '*' for x in
-                                     self.test_package.GetDisabledPrefixes()]))
-      self.RunTestsWithFilter()
+    try:
+      if self.test_package.rebaseline:
+        self.RebaselineTests()
+      else:
+        if not self._gtest_filter:
+          self._gtest_filter = ('-' + ':'.join(self.GetDisabledTests()) + ':' +
+                               ':'.join(['*.' + x + '*' for x in
+                                 self.test_package.GetDisabledPrefixes()]))
+        self.RunTestsWithFilter()
+    except errors.DeviceUnresponsiveError as e:
+      # Make sure this device is not attached
+      if android_commands.IsDeviceAttached(self.device):
+        raise e
+
+      # Wrap the results
+      logging.warning(e)
+      failed_tests = []
+      for t in self._gtest_filter.split(':'):
+        failed_tests += [BaseTestResult(t, '')]
+      self.test_results = TestResults.FromRun(
+          failed=failed_tests, device_exception=self.device)
+
     return self.test_results
 
   def SetUp(self):

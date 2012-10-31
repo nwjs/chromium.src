@@ -21,11 +21,10 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.widget.FrameLayout;
 
-import java.util.ArrayList;
-
-import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.common.TraceEvent;
 import org.chromium.ui.gfx.NativeWindow;
+
+import java.util.ArrayList;
 
 /**
  * The containing view for {@link ContentViewCore} that exists in the Android UI hierarchy and
@@ -42,6 +41,9 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     public static final int PAGE_TRANSITION_TYPED = 1;
     public static final int PAGE_TRANSITION_AUTO_BOOKMARK = 2;
     public static final int PAGE_TRANSITION_START_PAGE = 6;
+    // Flag that should be ORed to the page transition when a navigation is initiated from the
+    // omnibox.
+    public static final int PAGE_TRANSITION_FROM_ADDRESS_BAR = 0x02000000;
 
     // Used when ContentView implements a standalone View.
     public static final int PERSONALITY_VIEW = ContentViewCore.PERSONALITY_VIEW;
@@ -70,8 +72,8 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
      */
     public static interface SurfaceTextureUpdatedListener {
         /**
-         * Called when the {@link SurfaceTexture} of the {@link TextureView} held in this
-         * ContentView has been updated.
+         * Called when the {@link android.graphics.SurfaceTexture} of the
+         * {@link android.view.TextureView} held in this ContentView has been updated.
          *
          * @param view The ContentView that was updated.
          */
@@ -105,7 +107,6 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
      * @param context Context used to obtain the application context.
      * @param maxRendererProcesses Same as ContentView.enableMultiProcess()
      * @return Whether the process actually needed to be initialized (false if already running).
-     * @hide Only used by the platform browser.
      */
     public static boolean initChromiumBrowserProcess(Context context, int maxRendererProcesses) {
         return ContentViewCore.initChromiumBrowserProcess(context, maxRendererProcesses);
@@ -697,6 +698,12 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
         mContentViewCore.onDetachedFromWindow();
     }
 
+    @Override
+    protected void onVisibilityChanged(View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, visibility);
+        mContentViewCore.onVisibilityChanged(changedView, visibility);
+    }
+
     void updateMultiTouchZoomSupport() {
         mContentViewCore.updateMultiTouchZoomSupport();
     }
@@ -738,20 +745,6 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
      */
     public boolean isCrashed() {
         return mContentViewCore.isCrashed();
-    }
-
-    /**
-     * In order to make sure we don't show white when we have a bitmap containing the previously
-     * drawn frame of this ContentView before it was hidden, we want to show the bitmap while we
-     * render the content and then swap them out, so the user perceived latency is shorter.  In
-     * software rendering mode we can just prime the backing store at the native level.  However
-     * for hardware rendering mode we have to show an ImageView in front of the TextureView, but
-     * behind the NTP Toolbar View.
-     *
-     * @param bitmap The bitmap to show while this ContentView is rendering content.
-     */
-    public void usePrimeBitmap(Bitmap bitmap) {
-        // TODO(nileshagrawal): Implement this.
     }
 
     /**

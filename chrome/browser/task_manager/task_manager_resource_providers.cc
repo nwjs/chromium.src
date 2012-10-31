@@ -712,7 +712,8 @@ void TaskManagerPanelResourceProvider::Observe(int type,
       for (PanelResourceMap::iterator iter = resources_.begin();
            iter != resources_.end(); ++iter) {
         Panel* panel = iter->first;
-        if (!panel->GetWebContents()) {
+        WebContents* panel_contents = panel->GetWebContents();
+        if (!panel_contents || panel_contents == web_contents) {
           Remove(panel);
           break;
         }
@@ -1409,12 +1410,22 @@ TaskManager::Resource* TaskManagerExtensionProcessResourceProvider::GetResource(
     int origin_pid,
     int render_process_host_id,
     int routing_id) {
-  std::map<int, TaskManagerExtensionProcessResource*>::iterator iter =
-      pid_to_resources_.find(origin_pid);
-  if (iter != pid_to_resources_.end())
-    return iter->second;
-  else
+  // If an origin PID was specified, the request is from a plugin, not the
+  // render view host process
+  if (origin_pid)
     return NULL;
+
+  for (ExtensionRenderViewHostMap::iterator i = resources_.begin();
+       i != resources_.end(); i++) {
+    if (i->first->GetSiteInstance()->GetProcess()->GetID() ==
+            render_process_host_id &&
+        i->first->GetRoutingID() == routing_id)
+      return i->second;
+  }
+
+  // Can happen if the page went away while a network request was being
+  // performed.
+  return NULL;
 }
 
 void TaskManagerExtensionProcessResourceProvider::StartUpdating() {
@@ -1434,7 +1445,7 @@ void TaskManagerExtensionProcessResourceProvider::StartUpdating() {
 
   for (size_t i = 0; i < profiles.size(); ++i) {
     ExtensionProcessManager* process_manager =
-        profiles[i]->GetExtensionProcessManager();
+        extensions::ExtensionSystem::Get(profiles[i])->process_manager();
     if (process_manager) {
       const ExtensionProcessManager::ViewSet all_views =
           process_manager->GetAllViews();
@@ -1478,7 +1489,6 @@ void TaskManagerExtensionProcessResourceProvider::StopUpdating() {
   STLDeleteContainerPairSecondPointers(resources_.begin(), resources_.end());
 
   resources_.clear();
-  pid_to_resources_.clear();
 }
 
 void TaskManagerExtensionProcessResourceProvider::Observe(
@@ -1531,7 +1541,6 @@ void TaskManagerExtensionProcessResourceProvider::AddToTaskManager(
       new TaskManagerExtensionProcessResource(render_view_host);
   DCHECK(resources_.find(render_view_host) == resources_.end());
   resources_[render_view_host] = resource;
-  pid_to_resources_[resource->process_id()] = resource;
   task_manager_->AddResource(resource);
 }
 
@@ -1550,13 +1559,6 @@ void TaskManagerExtensionProcessResourceProvider::RemoveFromTaskManager(
 
   // Remove it from the provider.
   resources_.erase(iter);
-
-  // Remove it from our pid map.
-  std::map<int, TaskManagerExtensionProcessResource*>::iterator pid_iter =
-      pid_to_resources_.find(resource->process_id());
-  DCHECK(pid_iter != pid_to_resources_.end());
-  if (pid_iter != pid_to_resources_.end())
-    pid_to_resources_.erase(pid_iter);
 
   // Finally, delete the resource.
   delete resource;
@@ -1721,7 +1723,7 @@ TaskManager::Resource::Type TaskManagerGuestResource::GetType() const {
 
 string16 TaskManagerGuestResource::GetTitle() const {
   WebContents* web_contents = GetWebContents();
-  const int message_id = IDS_TASK_MANAGER_BROWSER_TAG_PREFIX;
+  const int message_id = IDS_TASK_MANAGER_WEBVIEW_TAG_PREFIX;
   if (web_contents) {
     string16 title = GetTitleFromWebContents(web_contents);
     return l10n_util::GetStringFUTF16(message_id, title);

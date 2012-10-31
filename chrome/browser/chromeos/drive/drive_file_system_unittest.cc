@@ -21,16 +21,16 @@
 #include "chrome/browser/chromeos/drive/drive.pb.h"
 #include "chrome/browser/chromeos/drive/drive_file_system_util.h"
 #include "chrome/browser/chromeos/drive/drive_test_util.h"
-#include "chrome/browser/chromeos/drive/drive_uploader.h"
 #include "chrome/browser/chromeos/drive/drive_webapps_registry.h"
 #include "chrome/browser/chromeos/drive/file_system/remove_operation.h"
 #include "chrome/browser/chromeos/drive/mock_directory_change_observer.h"
 #include "chrome/browser/chromeos/drive/mock_drive_cache_observer.h"
-#include "chrome/browser/chromeos/drive/mock_drive_service.h"
-#include "chrome/browser/chromeos/drive/mock_drive_uploader.h"
 #include "chrome/browser/chromeos/drive/mock_drive_web_apps_registry.h"
 #include "chrome/browser/chromeos/drive/mock_free_disk_space_getter.h"
 #include "chrome/browser/google_apis/drive_api_parser.h"
+#include "chrome/browser/google_apis/drive_uploader.h"
+#include "chrome/browser/google_apis/mock_drive_service.h"
+#include "chrome/browser/google_apis/mock_drive_uploader.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/browser_thread.h"
@@ -59,11 +59,12 @@ struct SearchResultPair {
 };
 
 // Callback to DriveFileSystem::Search used in ContentSearch tests.
-// Verifies returned vector of results.
+// Verifies returned vector of results and next feed url.
 void DriveSearchCallback(
     MessageLoop* message_loop,
     const SearchResultPair* expected_results,
     size_t expected_results_size,
+    const GURL& expected_next_feed,
     DriveFileError error,
     const GURL& next_feed,
     scoped_ptr<std::vector<SearchResultInfo> > results) {
@@ -76,6 +77,8 @@ void DriveSearchCallback(
     EXPECT_EQ(expected_results[i].is_directory,
               results->at(i).is_directory);
   }
+
+  EXPECT_EQ(expected_next_feed, next_feed);
 
   message_loop->Quit();
 }
@@ -113,7 +116,7 @@ ACTION(MockUploadNewFile) {
 
   base::MessageLoopProxy::current()->PostTask(FROM_HERE,
       base::Bind(arg7,
-                 DRIVE_FILE_OK,
+                 google_apis::DRIVE_UPLOAD_OK,
                  arg1,
                  arg2,
                  base::Passed(&document_entry)));
@@ -128,6 +131,13 @@ ACTION_P2(MockCopyDocument, status, value) {
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
       base::Bind(arg2, status, base::Passed(value)));
+}
+
+ACTION(MockFailingGetDocuments) {
+  base::MessageLoopProxy::current()->PostTask(
+      FROM_HERE,
+      base::Bind(arg4, google_apis::GDATA_NO_CONNECTION,
+                 base::Passed(scoped_ptr<base::Value>())));
 }
 
 // Counts the number of files (not directories) in |entries|.
@@ -169,7 +179,7 @@ class DriveFileSystemTest : public testing::Test {
 
     // Allocate and keep a pointer to the mock, and inject it into the
     // DriveFileSystem object, which will own the mock object.
-    mock_drive_service_ = new StrictMock<MockDriveService>;
+    mock_drive_service_ = new StrictMock<google_apis::MockDriveService>;
 
     EXPECT_CALL(*mock_drive_service_, Initialize(profile_.get())).Times(1);
 
@@ -185,7 +195,7 @@ class DriveFileSystemTest : public testing::Test {
     cache_ = DriveCache::CreateDriveCacheOnUIThread(
         DriveCache::GetCacheRootPath(profile_.get()), blocking_task_runner_);
 
-    mock_uploader_.reset(new StrictMock<MockDriveUploader>);
+    mock_uploader_.reset(new StrictMock<google_apis::MockDriveUploader>);
     mock_webapps_registry_.reset(new StrictMock<MockDriveWebAppsRegistry>);
 
     ASSERT_FALSE(file_system_);
@@ -588,21 +598,31 @@ class DriveFileSystemTest : public testing::Test {
 
   // Loads serialized proto file from GCache, and makes sure the root
   // filesystem has a root at 'drive'
-  void TestLoadMetadataFromCache() {
-    file_system_->LoadRootFeedFromCacheForTesting();
+  bool TestLoadMetadataFromCache() {
+    DriveFileError error = DRIVE_FILE_ERROR_FAILED;
+    file_system_->LoadRootFeedFromCacheForTesting(
+        base::Bind(&test_util::CopyErrorCodeFromFileOperationCallback, &error));
     google_apis::test_util::RunBlockingPoolTask();
+    return error == DRIVE_FILE_OK;
   }
+
+  // Flag for specifying the timestamp of the test filesystem cache.
+  enum SaveTestFileSystemParam {
+    USE_OLD_TIMESTAMP,
+    USE_SERVER_TIMESTAMP,
+  };
 
   // Creates a proto file representing a filesystem with directories:
   // drive, drive/Dir1, drive/Dir1/SubDir2
   // and files
   // drive/File1, drive/Dir1/File2, drive/Dir1/SubDir2/File3.
-  // Sets the changestamp to 654321, equal to that of "account_metadata.json"
-  // test data, indicating the cache is holding the latest file system info.
-  void SaveTestFileSystem() {
+  // If |use_up_to_date_timestamp| is true, sets the changestamp to 654321,
+  // equal to that of "account_metadata.json" test data, indicating the cache is
+  // holding the latest file system info.
+  void SaveTestFileSystem(SaveTestFileSystemParam param) {
     DriveRootDirectoryProto root;
     root.set_version(kProtoVersion);
-    root.set_largest_changestamp(654321);
+    root.set_largest_changestamp(param == USE_SERVER_TIMESTAMP ? 654321 : 1);
     DriveDirectoryProto* root_dir = root.mutable_drive_directory();
     DriveEntryProto* dir_base = root_dir->mutable_drive_entry();
     PlatformFileInfoProto* platform_info = dir_base->mutable_file_info();
@@ -790,9 +810,9 @@ class DriveFileSystemTest : public testing::Test {
   scoped_ptr<TestingProfile> profile_;
   scoped_refptr<CallbackHelper> callback_helper_;
   DriveCache* cache_;
-  scoped_ptr<StrictMock<MockDriveUploader> > mock_uploader_;
+  scoped_ptr<StrictMock<google_apis::MockDriveUploader> > mock_uploader_;
   DriveFileSystem* file_system_;
-  StrictMock<MockDriveService>* mock_drive_service_;
+  StrictMock<google_apis::MockDriveService>* mock_drive_service_;
   scoped_ptr<StrictMock<MockDriveWebAppsRegistry> > mock_webapps_registry_;
   StrictMock<MockFreeDiskSpaceGetter>* mock_free_disk_space_checker_;
   scoped_ptr<StrictMock<MockDriveCacheObserver> > mock_cache_observer_;
@@ -1077,8 +1097,11 @@ TEST_F(DriveFileSystemTest, ChangeFeed_DirectoryMovedFromRootToDirectory) {
   EXPECT_TRUE(EntryExists(FilePath(FILE_PATH_LITERAL(
       "drive/Directory 1/Sub Directory Folder/Sub Sub Directory Folder"))));
 
+  // This will move "Directory 1" from "drive/" to "drive/Directory 2/".
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
       Eq(FilePath(FILE_PATH_LITERAL("drive"))))).Times(1);
+  EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
+      Eq(FilePath(FILE_PATH_LITERAL("drive/Directory 1"))))).Times(1);
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
       Eq(FilePath(FILE_PATH_LITERAL("drive/Directory 2"))))).Times(1);
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
@@ -1159,8 +1182,8 @@ TEST_F(DriveFileSystemTest, ChangeFeed_FileRenamedInDirectory) {
 }
 
 TEST_F(DriveFileSystemTest, CachedFeedLoading) {
-  SaveTestFileSystem();
-  TestLoadMetadataFromCache();
+  SaveTestFileSystem(USE_OLD_TIMESTAMP);
+  ASSERT_TRUE(TestLoadMetadataFromCache());
 
   EXPECT_TRUE(EntryExists(FilePath(FILE_PATH_LITERAL("drive/File1"))));
   EXPECT_TRUE(EntryExists(FilePath(FILE_PATH_LITERAL("drive/Dir1"))));
@@ -1170,14 +1193,12 @@ TEST_F(DriveFileSystemTest, CachedFeedLoading) {
       FilePath(FILE_PATH_LITERAL("drive/Dir1/SubDir2/File3"))));
 }
 
-TEST_F(DriveFileSystemTest, CachedFeadLoadingThenServerFeedLoading) {
-  SaveTestFileSystem();
+TEST_F(DriveFileSystemTest, CachedFeedLoadingThenServerFeedLoading) {
+  SaveTestFileSystem(USE_SERVER_TIMESTAMP);
 
   // SaveTestFileSystem and "account_metadata.json" have the same changestamp,
   // so no request for new feeds (i.e., call to GetDocuments) should happen.
-  mock_drive_service_->set_account_metadata(
-      google_apis::test_util::LoadJSONFile(
-          "gdata/account_metadata.json").release());
+  // Account metadata is already set up in MockDriveService's constructor.
   EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(1);
   EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
   EXPECT_CALL(*mock_drive_service_, GetDocuments(_, _, _, _, _)).Times(0);
@@ -1186,7 +1207,7 @@ TEST_F(DriveFileSystemTest, CachedFeadLoadingThenServerFeedLoading) {
   EXPECT_TRUE(EntryExists(FilePath(FILE_PATH_LITERAL("drive/File1"))));
 
   // Since the file system has verified that it holds the latest snapshot,
-  // it should change its state to FROM_SERVER, which admits periodic refresh.
+  // it should change its state to INITIALIZED, which admits periodic refresh.
   // To test it, call CheckForUpdates and verify it does try to check updates.
   mock_drive_service_->set_account_metadata(
       google_apis::test_util::LoadJSONFile(
@@ -1195,6 +1216,39 @@ TEST_F(DriveFileSystemTest, CachedFeadLoadingThenServerFeedLoading) {
   EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
 
   file_system_->CheckForUpdates();
+  google_apis::test_util::RunBlockingPoolTask();
+}
+
+TEST_F(DriveFileSystemTest, OfflineCachedFeedLoading) {
+  SaveTestFileSystem(USE_OLD_TIMESTAMP);
+
+  // Account metadata is already set up in MockDriveService's constructor.
+  EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
+
+  // Make GetDocuments fail for simulating offline situation. This will leave
+  // the file system "loaded from cache, but not synced with server" state.
+  EXPECT_CALL(*mock_drive_service_, GetDocuments(_, _, _, _, _))
+      .WillOnce(MockFailingGetDocuments());
+
+  // Kicks loading of cached file system and query for server update.
+  EXPECT_TRUE(EntryExists(FilePath(FILE_PATH_LITERAL("drive/File1"))));
+
+  // Since the file system has at least succeeded to load cached snapshot,
+  // the file system should be able to start periodic refresh.
+  // To test it, call CheckForUpdates and verify it does try to check updates.
+  mock_drive_service_->set_account_metadata(
+      google_apis::test_util::LoadJSONFile(
+          "gdata/account_metadata.json").release());
+  EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
+  EXPECT_CALL(*mock_drive_service_, GetDocuments(_, _, _, _, _)).Times(1);
+
+  file_system_->CheckForUpdates();
+  // Expected value from reading gdata/basic_feed.json.
+  // See MockDriveService's |feed_data_|.
+  EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(_)).Times(2);
+
   google_apis::test_util::RunBlockingPoolTask();
 }
 
@@ -2374,7 +2428,7 @@ TEST_F(DriveFileSystemTest, UpdateFileByResourceId_PersistentFile) {
       _,   // Completion callback.
       _))  // Ready callback.
       .WillOnce(MockUploadExistingFile(
-          DRIVE_FILE_OK,
+          google_apis::DRIVE_UPLOAD_OK,
           FilePath::FromUTF8Unsafe("drive/File1"),
           dirty_cache_file_path,
           document_entry));
@@ -2433,6 +2487,8 @@ TEST_F(DriveFileSystemTest, ContentSearch) {
 
   mock_drive_service_->set_search_result("gdata/search_result_feed.json");
 
+  // There should be only one GetDocuments request, even though search result
+  // feed has next feed url.
   EXPECT_CALL(*mock_drive_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
       .Times(1);
 
@@ -2442,7 +2498,9 @@ TEST_F(DriveFileSystemTest, ContentSearch) {
   };
 
   SearchCallback callback = base::Bind(&DriveSearchCallback,
-      &message_loop_, kExpectedResults, ARRAYSIZE_UNSAFE(kExpectedResults));
+      &message_loop_,
+      kExpectedResults, ARRAYSIZE_UNSAFE(kExpectedResults),
+      GURL("https://next_feed"));
 
   file_system_->Search("foo", GURL(), callback);
   message_loop_.Run();  // Wait to get our result.
@@ -2457,6 +2515,8 @@ TEST_F(DriveFileSystemTest, ContentSearchWithNewEntry) {
   mock_drive_service_->set_search_result(
       "gdata/search_result_with_new_entry_feed.json");
 
+  // There should be only one GetDocuments request, even though search result
+  // feed has next feed url.
   EXPECT_CALL(*mock_drive_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
       .Times(1);
 
@@ -2475,7 +2535,9 @@ TEST_F(DriveFileSystemTest, ContentSearchWithNewEntry) {
   EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
 
   SearchCallback callback = base::Bind(&DriveSearchCallback,
-      &message_loop_, kExpectedResults, ARRAYSIZE_UNSAFE(kExpectedResults));
+      &message_loop_,
+      kExpectedResults, ARRAYSIZE_UNSAFE(kExpectedResults),
+      GURL("https://next_feed"));
 
   file_system_->Search("foo", GURL(), callback);
   message_loop_.Run();  // Wait to get our result.
@@ -2492,7 +2554,7 @@ TEST_F(DriveFileSystemTest, ContentSearchEmptyResult) {
   const SearchResultPair* expected_results = NULL;
 
   SearchCallback callback = base::Bind(&DriveSearchCallback,
-      &message_loop_, expected_results, 0u);
+      &message_loop_, expected_results, 0u, GURL());
 
   file_system_->Search("foo", GURL(), callback);
   message_loop_.Run();  // Wait to get our result.

@@ -12,6 +12,7 @@
 #include "content/common/child_process_host_impl.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
+#include "content/public/browser/storage_partition.h"
 
 namespace content {
 
@@ -81,6 +82,10 @@ int MockRenderProcessHost::VisibleWidgetCount() const {
 
 bool MockRenderProcessHost::IsGuest() const {
   return false;
+}
+
+StoragePartition* MockRenderProcessHost::GetStoragePartition() const {
+  return NULL;
 }
 
 void MockRenderProcessHost::AddWord(const string16& word) {
@@ -184,7 +189,7 @@ bool MockRenderProcessHost::SuddenTerminationAllowed() const {
   return true;
 }
 
-content::RenderWidgetHost* MockRenderProcessHost::GetRenderWidgetHostByID(
+RenderWidgetHost* MockRenderProcessHost::GetRenderWidgetHostByID(
     int routing_id) {
   return render_widget_hosts_.Lookup(routing_id);
 }

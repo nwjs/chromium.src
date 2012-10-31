@@ -20,10 +20,6 @@
 #include "googleurl/src/gurl.h"
 #include "ipc/ipc_sender.h"
 
-class BrowserChildProcessHostImpl;
-class ChromeAppCacheService;
-class IndexedDBContextImpl;
-
 namespace fileapi {
 class FileSystemContext;
 }  // namespace fileapi
@@ -33,6 +29,8 @@ class DatabaseTracker;
 }  // namespace webkit_database
 
 namespace content {
+class BrowserChildProcessHostImpl;
+class IndexedDBContextImpl;
 class ResourceContext;
 class WorkerServiceImpl;
 

@@ -84,7 +84,13 @@ are declared in build/common.gypi.
          be 'nb'. -->
     <output filename="generated_resources_nb.pak" type="data_package" lang="no" />
     <output filename="generated_resources_pl.pak" type="data_package" lang="pl" />
-    <output filename="generated_resources_pt-BR.pak" type="data_package" lang="pt-BR" />
+    <if expr="pp_ifdef('ios')">
+      <!-- iOS uses pt for pt-BR -->
+      <output filename="generated_resources_pt.pak" type="data_package" lang="pt-BR" />
+    </if>
+    <if expr="not pp_ifdef('ios')">
+      <output filename="generated_resources_pt-BR.pak" type="data_package" lang="pt-BR" />
+    </if>
     <output filename="generated_resources_pt-PT.pak" type="data_package" lang="pt-PT" />
     <output filename="generated_resources_ro.pak" type="data_package" lang="ro" />
     <output filename="generated_resources_ru.pak" type="data_package" lang="ru" />
@@ -544,6 +550,9 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         <message name="IDS_CONTENT_CONTEXT_RELOAD_PAGE" desc="The name of the Reload Page command in the packaged app content area context menu">
           Reload page
         </message>
+        <message name="IDS_CONTENT_CONTEXT_RESTART_APP" desc="The name of the Restart Packaged App command in the packaged app context menu.">
+          Simulate browser restart
+        </message>
         <message name="IDS_CONTENT_CONTEXT_RELOAD_PACKAGED_APP" desc="The name of the Reload Packaged App command in the packaged app content area context menu">
           Re&amp;load app
         </message>
@@ -755,6 +764,9 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         </message>
         <message name="IDS_CONTENT_CONTEXT_RELOAD_PAGE" desc="In Title Case: The name of the Reload Page command in the packaged app content area context menu">
           Reload Page
+        </message>
+        <message name="IDS_CONTENT_CONTEXT_RESTART_APP" desc="In Title Case: The name of the Restart Packaged App command in the packaged app context menu.">
+          Simulate Browser Restart
         </message>
         <message name="IDS_CONTENT_CONTEXT_RELOAD_PACKAGED_APP" desc="In Title Case: The name of the Reload Packaged App command in the packaged app content area context menu">
           Re&amp;load App
@@ -2059,6 +2071,75 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       </message>
       </if>
 
+      <message name="IDS_TIME_REMAINING_LONG_MINS_DEFAULT"
+               desc="This is necessary for every language. This is the default for all the numbers NOT covered by special cases (singular, dual/two, few, many) some languages need. For CJK, Vietnamese, Turkish and Kannada, this is the only string necessary. For languages with singular-plural distinction, this is the generic plural. For Lithuanian, NUMBER_DEFAULT is 11 .. 19.">
+        <ph name="NUMBER_DEFAULT"><ex>37</ex>#</ph> minutes left
+      </message>
+
+      <if expr="lang not in ['zh-CN', 'zh-TW', 'ko', 'ja', 'vi', 'tr', 'kn']">
+      <message name="IDS_TIME_REMAINING_LONG_MIN_SINGULAR"
+               desc="NUMBER_ONE is one or one-like numbers : 1 (many European and most Indian languages), 1 and 0 (French, Brazilian Portuguese and Hindi), 1,21,31, .. (Russian, Ukrainian, Croatian, Serbian, Latvian, Lithuanian), or 1, 101, 201, .. (Slovenian). Do NOT translate this for CJK, Vietnamese, Turkish and Kannada">
+        <ph name="NUMBER_ONE"><ex>1</ex>#</ph> minute left
+      </message>
+      </if>
+      <if expr="lang in ['zh-CN', 'zh-TW', 'ko', 'ja', 'vi', 'tr', 'kn']">
+      <message translateable="false" name="IDS_TIME_REMAINING_LONG_MIN_SINGULAR"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang in ['ar', 'ro', 'lv']">
+      <message name="IDS_TIME_REMAINING_LONG_MINS_ZERO"
+               desc="NUMBER_ZERO is 0 (Arabic, Latvian) or 0, 2..19, 101..119, ... (Romanian). For other languages, do NOT translate.">
+        <ph name="NUMBER_ZERO"><ex>0</ex>#</ph> minutes left
+      </message>
+      </if>
+      <if expr="lang not in ['ar', 'ro', 'lv']">
+      <message translateable="false" name="IDS_TIME_REMAINING_LONG_MINS_ZERO"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang in ['ga', 'sl', 'ar']">
+      <message name="IDS_TIME_REMAINING_LONG_MINS_TWO"
+               desc="NUMBER_TWO is two or two-like/dual numbers :  2 (Arabic and Irish) or  2, 102, 202 ... (Slovenian). For other languages, do NOT translated.">
+        <ph name="NUMBER_TWO"><ex>2</ex>#</ph> minutes left
+      </message>
+      </if>
+      <if expr="lang not in ['ga', 'sl', 'ar']">
+      <message translateable="false" name="IDS_TIME_REMAINING_LONG_MINS_TWO"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang  in ['ru', 'lt', 'hr', 'uk', 'cs', 'sk', 'pl', 'sl', 'ar']">
+      <message name="IDS_TIME_REMAINING_LONG_MINS_FEW"
+               desc="NUMBER_FEW is few or few-like numbers in Arabic, Russian, Polish, Croatian, Serbian, Ukrainian, Czech, Slovak, Slovenian, Latvian. For other languages, do NOT translate.">
+        <ph name="NUMBER_FEW"><ex>3</ex>#</ph> minutes left
+      </message>
+      </if>
+      <if expr="lang not in ['ru', 'lt', 'hr', 'uk', 'cs', 'sk', 'pl', 'sl', 'ar']">
+      <message translateable="false" name="IDS_TIME_REMAINING_LONG_MINS_FEW"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang == 'ar'">
+      <message name="IDS_TIME_REMAINING_LONG_MINS_MANY"
+               desc="NUMBER_MANY is 11 through 99 in Arabic. For all other languages, do NOT translate.">
+        <ph name="NUMBER_MANY"><ex>23</ex>#</ph> minutes left
+      </message>
+      </if>
+      <if expr="lang != 'ar'">
+      <message translateable="false" name="IDS_TIME_REMAINING_LONG_MINS_MANY"
+               desc="">
+        NA
+      </message>
+      </if>
 
       <message name="IDS_TIME_REMAINING_HOURS_DEFAULT"
                desc="This is necessary for every language. This is the default for all the numbers NOT covered by special cases (singular, dual/two, few, many) some languages need. For CJK, Vietnamese, Turkish and Kannada, this is the only string necessary. For languages with singular-plural distinction, this is the generic plural. For Lithuanian, NUMBER_DEFAULT is 11 .. 19.">
@@ -2559,7 +2640,23 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       </message>
       <message name="IDS_DOWNLOAD_INTERRUPTED_DESCRIPTION_VIRUS"
                desc="Download page message: Virus.">
-        This file was blocked by anti-virus software.
+        Anti-virus software detected a virus.
+      </message>
+      <message name="IDS_DOWNLOAD_INTERRUPTED_STATUS_BLOCKED"
+               desc="The download was blocked due to security policy.">
+        Blocked
+      </message>
+      <message name="IDS_DOWNLOAD_INTERRUPTED_DESCRIPTION_BLOCKED"
+               desc="Download page message: The download was blocked due to security policy on this machine.">
+        Security settings on your computer blocked this file.
+      </message>
+      <message name="IDS_DOWNLOAD_INTERRUPTED_STATUS_SECURITY_CHECK_FAILED"
+               desc="The security check performed on this download failed unexpectedly">
+        Virus Scan Failed
+      </message>
+      <message name="IDS_DOWNLOAD_INTERRUPTED_DESCRIPTION_SECURITY_CHECK_FAILED"
+               desc="Download page message: The security check performed on this download failed unexpectedly">
+        Anti-virus software failed unexpectedly while scanning this file.
       </message>
       <message name="IDS_DOWNLOAD_INTERRUPTED_STATUS_NETWORK_TIMEOUT"
                desc="Network Timeout.">
@@ -4335,12 +4432,55 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_TASK_MANAGER_INSTANT_PREVIEW_PREFIX" desc="The prefix for an Instant preview in the Task Manager">
         Instant: <ph name="INSTANT_PREVIEW_NAME">$1<ex>http://www.google.com/</ex></ph>
       </message>
-      <message name="IDS_TASK_MANAGER_BROWSER_TAG_PREFIX" desc="The prefix for a guest page loaded in browser tag in the Task Manager">
-        Browser Tag: <ph name="BROWSER_TAG_NAME">$1<ex>Google</ex></ph>
+      <message name="IDS_TASK_MANAGER_WEBVIEW_TAG_PREFIX" desc="The prefix for a guest page loaded in webview tag in the Task Manager">
+        Webview: <ph name="WEBVIEW_TAG_NAME">$1<ex>Google</ex></ph>
       </message>
 
       <!-- Performance Monitor page -->
+      <message name="IDS_PERFORMANCE_MONITOR_TITLE" desc="Title for the Performance tab.">
+        Performance
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_FLAG_NOT_ENABLED_WARNING" desc="The warning which indicates that the kPerformanceMonitorGathering flag has not been enabled.">
+        Warning: You do not have the performance monitoring flag enabled! Data displayed will be limited to any data which were gathered previously.
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_ENABLE_FLAG" desc="The text displayed for the link to enable the performance monitor flag.">
+        Enable
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_NO_AGGREGATION_WARNING" desc="The warning which indicates that the page may be slow because the data are not being aggregated.">
+        Warning: The data are not being aggregated! This may cause the page to be slow!
+      </message>
+      <!-- Time Range-Related -->
+      <message name="IDS_PERFORMANCE_MONITOR_TIME_RANGE_SECTION" desc="Text displayed for the header of the section which allows the user to choose the window of time for which to display data.">
+        Time Range
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIME_RESOLUTION_CATEGORY" desc="Text displayed for the category of different time resolutions, allowing the user to choose the granularity of the data.">
+        Time Resolution
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIME_LAST_FIFTEEN_MINUTES" desc="Text displayed for the time option to display data for the most recent fifteen minutes.">
+        Last 15 Minutes
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIME_LAST_HOUR" desc="Text displayed for the time option to display data for the most recent hour.">
+        Last Hour
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIME_LAST_DAY" desc="Text displayed for the time option to display data for the most recent day.">
+        Last Day
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIME_LAST_WEEK" desc="Text displayed for the time option to display data for the most recent week.">
+        Last Week
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIME_LAST_MONTH" desc="Text displayed for the time option to display data for the most recent month.">
+        Last Month
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIME_LAST_QUARTER" desc="Text displayed for the time option to display data for the most recent quarter-year.">
+        Last Quarter
+      </message>
+      <message name="IDS_PERFORMANCE_MONITOR_TIME_RANGE_BUTTON_HEADING" desc="Text displayed above the buttons to adjust the time range.">
+        Shift Time Window
+      </message>
       <!-- Aggregation-Related -->
+      <message name="IDS_PERFORMANCE_MONITOR_AGGREGATION_CATEGORY" desc="Text displayed for the Aggregation category title.">
+        Aggregation Method
+      </message>
       <message name="IDS_PERFORMANCE_MONITOR_AGGREGATION_NONE_NAME" desc="Text displayed for the None aggregation strategy title.">
         None
       </message>
@@ -4360,6 +4500,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         Weight all values equally in performance data
       </message>
       <!-- Event-Related -->
+      <message name="IDS_PERFORMANCE_MONITOR_EVENTS_SECTION" desc="Text displayed for the header of the Events section.">
+        Events to Display
+      </message>
       <message name="IDS_PERFORMANCE_MONITOR_EXTENSIONS_EVENT_CATEGORY" desc="Text displayed for the Extensions events category title.">
         Extensions
       </message>
@@ -4468,6 +4611,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_PERFORMANCE_MONITOR_UNCLEAN_EXIT_EVENT_MOUSEOVER" desc="Text displayed on mouseover of an Unclean Exit event.">
         Unclean Exit
       </message>
+      <message name="IDS_PERFORMANCE_MONITOR_EVENT_TIME_MOUSEOVER" desc="Text displayed for the Time field of an event mouseover.">
+        Time
+      </message>
       <message name="IDS_PERFORMANCE_MONITOR_EXTENSION_ID_MOUSEOVER" desc="Text displayed for the Extension ID field of an event mouseover.">
         Extension ID
       </message>
@@ -4499,6 +4645,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         Profile Name
       </message>
       <!--- Metric-Related -->
+      <message name="IDS_PERFORMANCE_MONITOR_METRICS_SECTION" desc="Text displayed for header of the Metrics section.">
+        Metrics to Display
+      </message>
       <message name="IDS_PERFORMANCE_MONITOR_CPU_METRIC_CATEGORY" desc="Text displayed for the CPU metrics' category title">
         CPU
       </message>
@@ -4807,7 +4956,7 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         Manipulate privacy-related settings
       </message>
       <message name="IDS_EXTENSION_PROMPT_WARNING_USB" desc="Permission string for access to USB devices.">
-        Access your USB peripherals
+        Access USB devices
       </message>
       <message name="IDS_EXTENSION_PROMPT_WARNING_BLUETOOTH" desc="Permission string for access to the Bluetooth API.">
         Access Bluetooth on your system
@@ -5213,9 +5362,6 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       </message>
       <message name="IDS_EXTENSIONS_LOCKED_MANAGED_MODE" desc="The error message (either shown in the extensions UI or logged) informing the user that extensions are controlled by managed mode">
          Extensions cannot be modified in managed mode.
-      </message>
-      <message name="IDS_GET_MORE_EXTENSIONS_DEPRECATED" desc="The link for getting more extensions. Displayed at bottom of extension management page when there is at least one extension installed.">
-        <ph name="BEGIN_LINK">&lt;a target="blank_" href="$1"&gt;</ph>Get more extensions<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
       </message>
       <message name="IDS_GET_MORE_EXTENSIONS" desc="The text for getting more extensions. Displayed at bottom of extension management page when there is at least one extension installed.">
         Get more extensions
@@ -5768,6 +5914,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_SAVE_PAGE_AS_MHTML_DESCRIPTION" desc="Description of the 'Save Page as MHTML' lab.">
         Disables saving pages as HTML-only or HTML Complete; enables saving pages only as MHTML: a single text file containing HTML and all sub-resources.
       </message>
+      <message name="IDS_FLAGS_WEB_INTENTS_INVOCATION_ENABLED_NAME" desc="Name of the lab to enable web intents invocation for web content.">
+        Enable web intents invocation for web content
+      </message>
+      <message name="IDS_FLAGS_WEB_INTENTS_INVOCATION_ENABLED_DESCRIPTION" desc="Description of the lab to enable web intents invocation for web content.">
+        Make it possible for any web page to invoke web intents.
+      </message>
       <message name="IDS_FLAGS_XSS_AUDITOR_NAME" desc="Description of the 'XSS Auditor' lab.">
         XSS Auditor
       </message>
@@ -5815,6 +5967,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_ENABLE_TOUCH_EVENTS_DESCRIPTION" desc="Description of the enable touch-events flag.">
         Enables experimental touch event support regardless of the presence of a physical touch screen capable of generating touch events.
+      </message>
+      <message name="IDS_ENABLE_TAB_CAPTURE_NAME" desc="Title of the enable tab capture flag." >
+        Enable Tab Capture API
+      </message>
+      <message name="IDS_ENABLE_TAB_CAPTURE_DESCRIPTION" desc="Description of the enable tab capture flag.">
+        Enables experimental tab capture API to generate video streams of tab content.
       </message>
       <message name="IDS_ENABLE_BACKLOADER_NAME" desc="Title of the enable background loader flag." >
         Enable background loader component for hosted applications
@@ -6047,6 +6205,18 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_SHOW_AUTOFILL_TYPE_PREDICTIONS_DESCRIPTION" desc="Description for the flag to show Autofill field type predictions for all forms">
         Annotates web forms with Autofill field type predictions as placeholder text.
       </message>
+      <message name="IDS_FLAGS_ENABLE_NEW_AUTOFILL_UI_NAME" desc="Title for the flag to enable the new Autofill UI">
+        Enable new Autofill UI
+      </message>
+      <message name="IDS_FLAGS_ENABLE_NEW_AUTOFILL_UI_DESCRIPTION" desc="Description for the flag to enable the new Autofill UI">
+        Enable the browser process-based implementation of the Autofill UI, as opposed to the renderer process-based one.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_NEW_AUTOFILL_HEURISTICS_NAME" desc="Title for the flag to enable new Autofill heuristics">
+        Enable new Autofill heuristics
+      </message>
+      <message name="IDS_FLAGS_ENABLE_NEW_AUTOFILL_HEURISTICS_DESCRIPTION" desc="Description for the flag to enable new Autofill heuristics">
+        Enable new Autofill heuristics.  This primarily covers detection of additional field types, such as credit card type.
+      </message>
       <message name="IDS_FLAGS_SYNC_SEARCH_ENGINES_NAME" desc="Title for the flag to enable syncing the Search Engines datatype">
         Enable syncing search engines
       </message>
@@ -6156,6 +6326,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_FIXED_POSITION_CREATES_STACKING_CONTEXT_DESCRIPTION" desc="Description for the flag to make fixed position elements create stacking contexts.">
         Enabling this option makes all fixed position elements create new CSS stacking contexts.
       </message>
+      <message name="IDS_FLAGS_ENABLE_DEFERRED_IMAGE_DECODING_NAME" desc="Name of the 'Enable deferred image decoding' lab.">
+        Enable deferred image decoding.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_DEFERRED_IMAGE_DECODING_DESCRIPTION" desc="Description for the flag to defer image decoding in WebKit.">
+        Defer image decoding operations in WebKit until painting.
+      </message>
       <message name="IDS_FLAGS_ENABLE_HTTP_PIPELINING_NAME" desc="Title for the flag to enable HTTP pipelining">
         HTTP Pipelining
       </message>
@@ -6203,6 +6379,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_AURA_GOOGLE_DIALOG_FRAMES_DESCRIPTION" desc="Description for the flag to enable Google-style dialog frames.">
         Enable Google-style dialog frames.
+      </message>
+      <message name="IDS_FLAGS_ASH_AUTO_WINDOW_PLACEMENT_NAME" desc="Name for the option to enable/disable the auto window placement functionality.">
+        Automatic window placement.
+      </message>
+      <message name="IDS_FLAGS_ASH_AUTO_WINDOW_PLACEMENT_DESCRIPTION" desc="Description for the option to enable/disable the auto window placement functionality.">
+        Disable automatic window placement for one and two browser / app windows.
       </message>
       <message name="IDS_FLAGS_AURA_DISABLE_HOLD_MOUSE_MOVES_NAME" desc="Title for the flag to disable throttling the rate of window resize.">
         Throttle the rate of window resize.
@@ -6338,11 +6520,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_DEVTOOLS_EXPERIMENTS_DESCRIPTION" desc="Description for the flag to enable experiments in Developer Tools.">
         Enable Developer Tools experiments. Use Settings panel in Developer Tools to toggle individual experiments.
       </message>
-      <message name="IDS_FLAGS_DISABLE_ASYNCHRONOUS_SPELLCHECKING" desc="Title for the flag to disable asynchronous spellchecking.">
-        Disable Asynchronous Spellchecking
+      <message name="IDS_FLAGS_FORCE_SYNC_SPELLCHECK" desc="Title for the flag to force synchronous spellchecking.">
+        Force Synchronous Spellchecking
       </message>
-      <message name="IDS_FLAGS_DISABLE_ASYNCHRONOUS_SPELLCHECKING_DESCRIPTION" desc="Description for the flag to disable asynchronous spellchecking.">
-        Disable experimental asynchronous spellchecking. It also disallows Chrome to use a web service to get spellchecking results.
+      <message name="IDS_FLAGS_FORCE_SYNC_SPELLCHECK_DESCRIPTION" desc="Description for the flag to force synchronous spellchecking.">
+        Force use of synchronous spellchecking. Enabling this flag will prevent Chrome from using a web service to get spellchecking results.
       </message>
       <message name="IDS_FLAGS_NO_DISCARD_TABS_NAME" desc="Name for the flag to disable the tab discarding feature.">
         Don't discard tabs.
@@ -6420,6 +6602,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
         <message name="IDS_FLAGS_ALLOW_TOUCHPAD_THREE_FINGER_CLICK_DESCRIPTION" desc="Description for the flag to enable touchpad three finger click as middle button.">
           Enables touchpad three-finger-click as middle button.
         </message>
+        <message name="IDS_FLAGS_ALLOW_TOUCHPAD_THREE_FINGER_SWIPE_NAME" desc="Name for the flag to enable touchpad three finger swipe.">
+          Enable touchpad three-finger swipe.
+        </message>
+        <message name="IDS_FLAGS_ALLOW_TOUCHPAD_THREE_FINGER_SWIPE_DESCRIPTION" desc="Description for the flag to enable touchpad three finger swipe.">
+          Enables touchpad three-finger swipe.
+        </message>
         <message name="IDS_FLAGS_DISABLE_HTML5_CAMERA" desc="Name for the flag to disable new camera WebUI.">
           Disable HTML5 camera in WebUI.
         </message>
@@ -6461,6 +6649,21 @@ Keep your key file in a safe place. You will need it to create new versions of y
         </message>
         <message name="IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION3" desc="Description for the option of boot animation function.">
           EASE_OUT_3
+        </message>
+	<message name="IDS_FLAGS_CAPTIVE_PORTAL_DETECTOR_NAME" desc="Name for the flag to set to enable Chrome Captive Portal detector.">
+	  Captive Portal detector.
+	</message>
+	<message name="IDS_FLAGS_CAPTIVE_PORTAL_DETECTOR_DESCRIPTION" desc="Description for the flag to set to enable Chrome's Captive Portal Detector on the sign-in screen.">
+	  Change Captive Portal detector.
+	</message>
+	<message name="IDS_FLAGS_SHILL_CAPTIVE_PORTAL_DETECTOR" desc="Description for the option of Captive Portal detector.">
+          Shill Captive Portal detector
+	</message>
+        <message name="IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS" desc="Name for the flag to switch lock animations.">
+          New lock animations.
+        </message>
+        <message name="IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_DESCRIPTION" desc="Description for the flag to switch lock animations.">
+          Enables new lock animations.
         </message>
       </if>
 
@@ -6517,6 +6720,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_CRASH_ON_GPU_HANG_DESCRIPTION" desc="Description of flag to enable crashing on GPU hang.">
         Crash the GPU process whenever Chrome detects that it has hung.
+      </message>
+      <message name="IDS_FLAGS_PERFORMANCE_MONITOR_GATHERING_NAME" desc="Name for the flag to enable Performance Monitor.">
+        Enable performance monitoring
+      </message>
+      <message name="IDS_FLAGS_PERFORMANCE_MONITOR_GATHERING_DESCRIPTION" desc="Description for the flag to enable Performance Monitor.">
+        Enable passive gathering of performance-related metrics and events and provide the option to view this data in a graphical fashion.
       </message>
 
       <!-- Crashes -->
@@ -6632,6 +6841,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_PLUGIN_UPDATE" desc="The link for updating an outdated plug-in.">
         Update plug-in...
       </message>
+      <message name="IDS_PLUGIN_NOT_SUPPORTED" desc="The placeholder text for a plug-in that can't run in Windows Metro mode.">
+        This plug-in only works on the desktop.
+      </message>
       <message name="IDS_PLUGIN_BLOCKED" desc="The placeholder text for a blocked plug-in.">
         <ph name="PLUGIN_NAME">$1<ex>Flash</ex></ph> is not allowed.
       </message>
@@ -6697,12 +6909,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <!-- Pepper Broker Info bar -->
       <if expr="pp_ifdef('android')">
         <message name="IDS_PEPPER_BROKER_MESSAGE" desc="Mobile: Message shown when a pepper plugin wants to launch its broker. This message is followed by a 'Learn more' link.">
-          <ph name="PEPPER_PLUGIN_NAME">$1<ex>Shockwave Flash</ex></ph> on <ph name="PEPPER_PLUGIN_DOMAIN">$2<ex>example.com</ex></ph> wants to access your mobile device."
+          <ph name="PEPPER_PLUGIN_NAME">$1<ex>Shockwave Flash</ex></ph> on <ph name="PEPPER_PLUGIN_DOMAIN">$2<ex>example.com</ex></ph> wants to access your mobile device.
         </message>
       </if>
       <if expr="not pp_ifdef('android')">
         <message name="IDS_PEPPER_BROKER_MESSAGE" desc="Message shown when a pepper plugin wants to launch its broker. This message is followed by a 'Learn more' link.">
-          <ph name="PEPPER_PLUGIN_NAME">$1<ex>Shockwave Flash</ex></ph> on <ph name="PEPPER_PLUGIN_DOMAIN">$2<ex>example.com</ex></ph> wants to access your computer."
+          <ph name="PEPPER_PLUGIN_NAME">$1<ex>Shockwave Flash</ex></ph> on <ph name="PEPPER_PLUGIN_DOMAIN">$2<ex>example.com</ex></ph> wants to access your computer.
         </message>
       </if>
       <message name="IDS_PEPPER_BROKER_ALLOW_BUTTON" desc="Text for the allow button on the pepper broker launch prompt">
@@ -7536,7 +7748,7 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
         Manage galleries
       </message>
       <message name="IDS_MEDIA_GALLERY_ADD_NEW_BUTTON" desc="The text for the button that opens a dialog to select a new media gallery.">
-        Add gallery
+        Add...
       </message>
 
       <!-- Mac and ChromeOS users do not close their browser. Mac users quit it and ChromeOS users log out. -->
@@ -10173,18 +10385,6 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         Import bookmarks and settings...
       </message>
 
-      <message name="IDS_OPTIONS_POLICY_MANAGED_PREFS" desc="Banner displayed in the settings UI when there are policy-managed options the user won't be able to change.">
-        Some settings are managed by your administrator.
-      </message>
-      <message name="IDS_OPTIONS_EXTENSION_MANAGED_PREFS" desc="Banner displayed in case there are extension-managed options the user won't be able to change.">
-        Some settings are managed by an extension.
-      </message>
-      <message name="IDS_OPTIONS_POLICY_EXTENSION_MANAGED_PREFS" desc="Banner displayed in case there are policy- and extension-managed options the user won't be able to change.">
-        Some settings have been disabled by your administrator and others are managed by an extension.
-      </message>
-      <message name="IDS_OPTIONS_UNMODIFIABLE_PREFS" desc="Banner displayed in case there are options that the user won't be able to change.">
-        Some settings cannot be modified by the user.
-      </message>
       <message name="IDS_OPTIONS_CONTROLLED_SETTING_POLICY" desc="Text displayed in the controlled settings bubble when a setting's value is enforced by policy.">
         This setting is enforced by your administrator.
       </message>
@@ -10223,7 +10423,7 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
       <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_DISABLE_REASON_3RD_PARTY" desc="The text explaining the the installation came from a 3rd party app.">
         Installed by a third party.
       </message>
-      
+
       <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_OVERFLOW" desc="Text in the bubble that describes that more extensions than can be listed were disabled.">
         ... and <ph name="EXTENSION_COUNT">$1<ex>42</ex></ph> more.
       </message>
@@ -10232,14 +10432,14 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
       </message>
       <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_RECOURSE" desc="Text in the bubble that explains what the user can do after the extension has been disabled.">
         You can always enable or disable any extension in the extension settings page.
-      </message>      
+      </message>
       <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_SETTINGS" desc="Text in the button that takes the user to Extension Settings.">
         Extension Settings
       </message>
       <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_DISMISS" desc="Text in the button that acknowledges the change and dismisses the bubble.">
         OK, Great
       </message>
-      
+
       <!-- Options search page strings. -->
       <message name="IDS_OPTIONS_SEARCH_PAGE_TITLE" desc="Title of the settings search page.">
         Search results
@@ -11821,7 +12021,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Unable to open "$1": $2
       </message>
       <message name="IDS_FILE_BROWSER_UNMOUNT_FAILED" desc="Title of the error dialog when device unmount operation failed.">
-        Unable to eject: $1
+       <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Don't remove your device just yet!<ph name="END_BOLD">&lt;/b&gt;</ph>
+       <ph name="LINE_BREAKS">&lt;br/&gt;&lt;br/&gt;</ph>
+       Removing your device while it is in use may cause data loss.  Please wait until the operation is over, then eject the device using the Files app.
       </message>
       <message name="IDS_FILE_BROWSER_MOUNT_ARCHIVE" desc="Title of the action for mounting an archive file to work with its contents.">
         Open
@@ -11831,9 +12033,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_UNMOUNT_DEVICE_BUTTON_LABEL" desc="Title of the action for unmounting removable device.">
         Eject device
-      </message>
-      <message name="IDS_FILE_BROWSER_IMPORT_PHOTOS_BUTTON_LABEL" desc="Title of the action for importing photos.">
-        Import photos
       </message>
 
       <message name="IDS_FILE_BROWSER_NOT_FORMATTED_USB" desc="In the File Manager, message shown for an unformatted USB device.">
@@ -11954,6 +12153,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_GALLERY_IMAGE_ERROR" desc="In the Gallery, message informing that the image failed to load.">
         This file could not be displayed.
       </message>
+      <message name="IDS_FILE_BROWSER_GALLERY_IMAGE_TOO_BIG_ERROR" desc="In the Gallery, message informing that the image is too big to be displayed.">
+        This file is too large to be opened.
+      </message>
       <message name="IDS_FILE_BROWSER_GALLERY_VIDEO_ERROR" desc="In the Gallery, message informing that the video could not be played.">
         This file could not be played.
       </message>
@@ -12031,19 +12233,22 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_IMPORTING_ERROR" desc="In the Photo import, importing error message.">
         Cannot import. An error occured.
       </message>
-      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_CAPTION" desc="In the Photo import, caption inside the dialog.">
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_CAPTION" desc="In the Photo import, caption inside the dialog, with items 'All' and 'None' to select everything and nothing.">
         Select photos to import
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_SELECT_ALL" desc="In the Photo import, link to select all photos.">
+        Select all
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_SELECT_NONE" desc="In the Photo import, link to select no photos.">
+        Select none
       </message>
       <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_DELETE_AFTER" desc="In the Photo import, label of checkbox to remove files after import is done.">
         Delete photos after import
       </message>
-      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_NOTHING_PICKED" desc="In the Photo import, message informing about no photo picked.">
-        Nothing selected
-      </message>
-      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_ONE_PICKED" desc="In the Photo import, message informing about one photo picked.">
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_ONE_SELECTED" desc="In the Photo import, message informing about one photo selected.">
         1 selected
       </message>
-      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_MANY_PICKED" desc="In the Photo import, message informing about multiple photos picked.">
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_MANY_SELECTED" desc="In the Photo import, message informing about multiple photos selected.">
         <ph name="COUNT">$1<ex>42</ex></ph> selected
       </message>
 
@@ -12801,10 +13006,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
         You have chosen to encrypt data using your Google password; you can always change your mind later by changing your sync settings.
       </message>
       <message name="IDS_SYNC_PASSPHRASE_MSG_EXPLICIT" desc="Message when explicit passphrase is selected.">
-        Only someone with your passphrase can read your encrypted data -- the passphrase is not sent to or stored by Google. If you forget your passphrase, you will need to reset sync.
+        Only someone with your passphrase can read your encrypted data. The passphrase is not sent to or stored by Google. If you forget your passphrase, you will need to reset sync.
       </message>
       <message name="IDS_SYNC_PASSPHRASE_MSG_EXPLICIT_PREFIX" desc="Message when explicit passphrase is selected.">
-        Only someone with your passphrase can read your encrypted data -- the passphrase is not sent to or stored by Google. If you forget your passphrase, you will need to
+        Only someone with your passphrase can read your encrypted data. The passphrase is not sent to or stored by Google. If you forget your passphrase, you will need to
       </message>
       <message name="IDS_SYNC_PASSPHRASE_MSG_EXPLICIT_POSTFIX" desc="Postfix of the message show when explicit passphrase is selected.">
         reset sync
@@ -12839,12 +13044,12 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <if expr="pp_ifdef('android')">
         <message name="IDS_SYNC_STOP_SYNCING_EXPLANATION_LABEL" desc="Mobile: The text to display below the 'Stop syncing this account' button on the options pane, explaining what the button does.">
-          By disconnecting your Google Account from <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph>, changes to your data on this mobile device will no longer be synced to your Google Account. Data already stored in your Google Account will remain there until you remove it using <ph name="BEGIN_LINK">&lt;a href="$2" target=&quot;_blank&quot;&gt;<ex>&lt;a href="$2" target=&quot;_blank&quot;&gt;</ex></ph>Google Dashboard<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>.
+          By disconnecting your Google Account from <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph>, your data will remain on this mobile device but changes will no longer be synced to your Google Account. Data already stored in your Google Account will remain there until you remove it using <ph name="BEGIN_LINK">&lt;a href="$2" target=&quot;_blank&quot;&gt;<ex>&lt;a href="$2" target=&quot;_blank&quot;&gt;</ex></ph>Google Dashboard<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>.
         </message>
       </if>
       <if expr="not pp_ifdef('android')">
         <message name="IDS_SYNC_STOP_SYNCING_EXPLANATION_LABEL" desc="The text to display below the 'Stop syncing this account' button on the options pane, explaining what the button does.">
-          By disconnecting your Google Account from <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph>, changes to your data on this computer will no longer be synced to your Google Account. Data already stored in your Google Account will remain there until you remove it using <ph name="BEGIN_LINK">&lt;a href="$2" target=&quot;_blank&quot;&gt;<ex>&lt;a href="$2" target=&quot;_blank&quot;&gt;</ex></ph>Google Dashboard<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>.
+          By disconnecting your Google Account from <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph>, your data will remain on this computer but changes will no longer be synced to your Google Account. Data already stored in your Google Account will remain there until you remove it using <ph name="BEGIN_LINK">&lt;a href="$2" target=&quot;_blank&quot;&gt;<ex>&lt;a href="$2" target=&quot;_blank&quot;&gt;</ex></ph>Google Dashboard<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>.
         </message>
       </if>
       <!-- Sync time strings -->
@@ -13005,20 +13210,20 @@ Some features may be unavailable.  Please check that the profile exists and you 
         For added security, <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> will encrypt your data.
       </message>
       <message name="IDS_SYNC_BASIC_ENCRYPTION_DATA" desc="Text of the radio that when selected enables basic encryption.">
-        Encrypt passwords with my Google credentials
+        Encrypt synced passwords with your Google credentials
       </message>
       <message name="IDS_SYNC_FULL_ENCRYPTION_DATA" desc="Text of the radio that when selected enables full encryption.">
-        Encrypt all synced data with a custom passphrase
+        Encrypt all synced data with your own sync passphrase
       </message>
       <message name="IDS_SYNC_FULL_ENCRYPTION_BODY_CUSTOM" desc="Text of the radio that when selected enables full encryption.">
-        All data was encrypted with a custom passphrase
+        All data is encrypted with your sync passphrase
       </message>
       <message name="IDS_SYNC_FULL_ENCRYPTION_BODY_CUSTOM_WITH_DATE" desc="Text of the radio that when selected enables full encryption.">
-        All data was encrypted with a custom passphrase on
+        All data was encrypted with your sync passphrase on
         <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>
       </message>
       <message name="IDS_SYNC_FULL_ENCRYPTION_BODY_GOOGLE_WITH_DATE" desc="Text of the radio that when selected enables full encryption.">
-        All data was encrypted with your Google password on
+        All data was encrypted with your Google password as of
         <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>
       </message>
 
@@ -13027,16 +13232,16 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Enter your sync passphrase
       </message>
       <message name="IDS_SYNC_ENTER_PASSPHRASE_BODY" desc="Instructions for the dialog where the user enters the passphrase.">
-        You already have data that is encrypted with a passphrase. Please enter it below.
+        Your data is encrypted with your sync passphrase. Please enter it below.
       </message>
       <message name="IDS_SYNC_ENTER_GOOGLE_PASSPHRASE_BODY" desc="Instructions for the dialog where the user needs to enter their previous google passphrase.">
         You already have data that is encrypted using a different version of your Google Account password. Please enter it below.
       </message>
       <message name="IDS_SYNC_ENTER_PASSPHRASE_BODY_WITH_DATE" desc="Instructions for the dialog where the user enters the passphrase.">
-        Your data was encrypted with a custom passphrase on <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>. Please enter it below.
+        Your data was encrypted with your sync passphrase on <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>. Please enter it below.
       </message>
       <message name="IDS_SYNC_ENTER_GOOGLE_PASSPHRASE_BODY_WITH_DATE" desc="Instructions for the dialog where the user needs to enter their previous google passphrase.">
-        Your data was encrypted with your Google password on <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>. Please enter it below.
+        Your data was encrypted with your Google password as of <ph name="TIME">$1<ex>Sept 1, 2012</ex></ph>. Please enter it below.
       </message>
       <message name="IDS_SYNC_PASSPHRASE_LABEL" desc="Label for the passphrase field.">
         Passphrase
@@ -14607,12 +14812,12 @@ Some features may be unavailable.  Please check that the profile exists and you 
       Dark Theme
     </message>
 
-    <message name="IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_NAME" desc="Name of about:flag option to turn on ClientOAuth sign in">
-      Enable ClientOAuth signin
+    <message name="IDS_FLAGS_USE_WEB_BASED_SIGNIN_FLOW_NAME" desc="Name of about:flag option to turn on web-based sign in">
+      Enable GAIA web-based signin
     </message>
-    <message name="IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_DESCRIPTION" desc="Description of about:flag option to turn on ClientOAuth sign in">
-      When enabled, will use ClientOAuth to connect a profile to a Google account.  Otherwise ClientLogin is used.
-      ClientOAuth permits using verification codes instead of ASPs during authentication.
+    <message name="IDS_FLAGS_USE_WEB_BASED_SIGNIN_FLOW_DESCRIPTION" desc="Description of about:flag option to turn on web-based sign in">
+      When enabled, will use a GAIA web-based sign in flow to connect a profile to a Google account.  Otherwise ClientLogin is used.
+      The web-based flow permits using verification codes instead of ASPs during authentication.
     </message>
 
     <!-- Toast experiment. -->
@@ -14645,6 +14850,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
              desc="Info Bar message to let user do something about the missing plugin">
       <ph name="PLUGIN_NAME">$1<ex>Quicktime</ex></ph> is required to display some elements on this page.
     </message>
+    <message name="IDS_METRO_NPAPI_PLUGIN_PROMPT"
+             desc="Infobar message when an NPAPI plugin doesn't run in Metro mode.">
+      <ph name="PLUGIN_NAME">$1<ex>Quicktime</ex></ph> only works on the desktop.
+    </message>
     <message name="IDS_METRO_SWITCH_WHY_LINK"
              desc="Infobar text for link to help center about metro mode issues">
       Why am I seeing this?
@@ -14656,6 +14865,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
     <message name="IDS_METRO_DOWNLOAD_COMPLETE_NOTIFICATION_TITLE"
             desc="Title for notification displayed when a download request is completed">
       Download complete notification
+    </message>
+    <message name="IDS_WIN8_RESTART"
+             desc="Text for the infobar button to restart Chrome in desktop mode. Doesn't explicitly mention 'on the desktop' because the infobar message already says that.">
+      Relaunch Chrome
     </message>
     <message name="IDS_WIN8_DESKTOP_RESTART"
              desc="Text for the menu item to restart chrome in desktop mode. Aplies to Windows 8 only">

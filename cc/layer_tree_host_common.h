@@ -10,7 +10,6 @@
 #include "IntRect.h"
 #include "IntSize.h"
 #include <public/WebTransformationMatrix.h>
-#include <wtf/Vector.h>
 
 namespace cc {
 
@@ -22,8 +21,8 @@ class LayerTreeHostCommon {
 public:
     static IntRect calculateVisibleRect(const IntRect& targetSurfaceRect, const IntRect& layerBoundRect, const WebKit::WebTransformationMatrix&);
 
-    static void calculateDrawTransforms(Layer* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, int maxTextureSize, std::vector<scoped_refptr<Layer> >& renderSurfaceLayerList);
-    static void calculateDrawTransforms(LayerImpl* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, LayerSorter*, int maxTextureSize, std::vector<LayerImpl*>& renderSurfaceLayerList);
+    static void calculateDrawTransforms(Layer* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, float pageScaleFactor, int maxTextureSize, std::vector<scoped_refptr<Layer> >& renderSurfaceLayerList);
+    static void calculateDrawTransforms(LayerImpl* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, float pageScaleFactor, LayerSorter*, int maxTextureSize, std::vector<LayerImpl*>& renderSurfaceLayerList);
 
     // Performs hit testing for a given renderSurfaceLayerList.
     static LayerImpl* findLayerThatIsHitByPoint(const IntPoint& screenSpacePoint, std::vector<LayerImpl*>& renderSurfaceLayerList);
@@ -54,7 +53,7 @@ struct ScrollAndScaleSet {
     ScrollAndScaleSet();
     ~ScrollAndScaleSet();
 
-    Vector<LayerTreeHostCommon::ScrollUpdateInfo> scrolls;
+    std::vector<LayerTreeHostCommon::ScrollUpdateInfo> scrolls;
     float pageScaleDelta;
 };
 
@@ -91,6 +90,6 @@ LayerType* LayerTreeHostCommon::findLayerInSubtree(LayerType* rootLayer, int lay
     return 0;
 }
 
-} // namespace cc
+}  // namespace cc
 
 #endif

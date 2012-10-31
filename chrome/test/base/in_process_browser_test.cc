@@ -36,7 +36,6 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_browser_thread.h"
 #include "content/public/test/test_launcher.h"
@@ -110,7 +109,6 @@ void InProcessBrowserTest::SetUp() {
   // Single-process mode is not set in BrowserMain, so process it explicitly,
   // and set up renderer.
   if (command_line->HasSwitch(switches::kSingleProcess)) {
-    content::RenderProcessHost::set_run_renderer_in_process(true);
     single_process_renderer_client_.reset(
         new chrome::ChromeContentRendererClient);
     content::GetContentClient()->set_renderer_for_testing(
@@ -281,9 +279,9 @@ CommandLine InProcessBrowserTest::GetCommandLineForRelaunch() {
   CommandLine::SwitchMap switches =
       CommandLine::ForCurrentProcess()->GetSwitches();
   switches.erase(switches::kUserDataDir);
-  switches.erase(test_launcher::kSingleProcessTestsFlag);
-  switches.erase(test_launcher::kSingleProcessTestsAndChromeFlag);
-  new_command_line.AppendSwitch(test_launcher::kLaunchAsBrowser);
+  switches.erase(content::kSingleProcessTestsFlag);
+  switches.erase(content::kSingleProcessTestsAndChromeFlag);
+  new_command_line.AppendSwitch(content::kLaunchAsBrowser);
 
 #if defined(USE_AURA)
   // Copy what UITestBase::SetLaunchSwitches() does, and also what

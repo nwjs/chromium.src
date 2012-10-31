@@ -655,7 +655,6 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermission::kAppRuntime);
   skip.insert(APIPermission::kAppWindow);
   skip.insert(APIPermission::kAppCurrentWindowInternal);
-  skip.insert(APIPermission::kBrowserTag);
   skip.insert(APIPermission::kBrowsingData);
   skip.insert(APIPermission::kContextMenus);
   skip.insert(APIPermission::kFontSettings);
@@ -665,6 +664,7 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermission::kUnlimitedStorage);
   skip.insert(APIPermission::kStorage);
   skip.insert(APIPermission::kTts);
+  skip.insert(APIPermission::kWebView);
 
   // TODO(erikkay) add a string for this permission.
   skip.insert(APIPermission::kBackground);
@@ -681,6 +681,7 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermission::kWebRequest);
   skip.insert(APIPermission::kWebRequestBlocking);
   skip.insert(APIPermission::kDeclarativeWebRequest);
+  skip.insert(APIPermission::kTabCapture);
 
   // This permission requires explicit user action (context menu handler)
   // so we won't prompt for it for now.

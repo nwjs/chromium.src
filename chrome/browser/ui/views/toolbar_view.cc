@@ -33,8 +33,10 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/browser_actions_container.h"
 #include "chrome/browser/ui/views/extensions/disabled_extensions_view.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_container.h"
 #include "chrome/browser/ui/views/location_bar/page_action_image_view.h"
+#include "chrome/browser/ui/views/location_bar/star_view.h"
 #include "chrome/browser/ui/views/wrench_menu.h"
 #include "chrome/browser/upgrade_detector.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -71,8 +73,6 @@
 #endif
 
 #if defined(USE_AURA)
-#include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/search/search_view_controller.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
 #endif
@@ -110,9 +110,6 @@ const int kBadgeTopMargin = 2;
 const int kSearchTopButtonSpacing = 3;
 const int kSearchTopLocationBarSpacing = 2;
 const int kSearchToolbarSpacing = 5;
-
-// How often to show the disabled extension (sideload wipeout) bubble.
-const int kShowSideloadWipeoutBubbleMax = 3;
 
 gfx::ImageSkia* kPopupBackgroundEdge = NULL;
 
@@ -225,8 +222,9 @@ ToolbarView::~ToolbarView() {
   // browser.
 }
 
-void ToolbarView::Init(views::View* location_bar_parent,
-                       views::View* popup_parent_view) {
+void ToolbarView::Init(views::View* location_bar_parent) {
+  GetWidget()->AddObserver(this);
+
   back_ = new views::ButtonDropDown(this, new BackForwardMenuModel(
       browser_, BackForwardMenuModel::BACKWARD_MENU));
   back_->set_triggerable_event_flags(ui::EF_LEFT_MOUSE_BUTTON |
@@ -310,27 +308,20 @@ void ToolbarView::Init(views::View* location_bar_parent,
   AddChildView(browser_actions_);
   AddChildView(app_menu_);
 
-  location_bar_->Init(popup_parent_view);
+  location_bar_->Init();
   show_home_button_.Init(prefs::kShowHomeButton,
                          browser_->profile()->GetPrefs(), this);
-  sideload_wipeout_bubble_shown_.Init(
-      prefs::kExtensionsSideloadWipeoutBubbleShown,
-      browser_->profile()->GetPrefs(), NULL);
 
   browser_actions_->Init();
 
   // Accessibility specific tooltip text.
-  if (BrowserAccessibilityState::GetInstance()->IsAccessibleBrowser()) {
+  if (content::BrowserAccessibilityState::GetInstance()->
+          IsAccessibleBrowser()) {
     back_->SetTooltipText(
         l10n_util::GetStringUTF16(IDS_ACCNAME_TOOLTIP_BACK));
     forward_->SetTooltipText(
         l10n_util::GetStringUTF16(IDS_ACCNAME_TOOLTIP_FORWARD));
   }
-
-  int bubble_shown_count = sideload_wipeout_bubble_shown_.GetValue();
-  if (bubble_shown_count < kShowSideloadWipeoutBubbleMax &&
-      DisabledExtensionsView::MaybeShow(browser_, app_menu_))
-    sideload_wipeout_bubble_shown_.SetValue(++bubble_shown_count);
 }
 
 void ToolbarView::Update(WebContents* tab, bool should_restore_state) {
@@ -417,38 +408,11 @@ gfx::ImageSkia ToolbarView::GetAppMenuIcon(
   return gfx::ImageSkia(source, source->size());
 }
 
-void ToolbarView::LayoutForSearch() {
-  if (!(chrome::search::IsInstantExtendedAPIEnabled(browser_->profile()) &&
-        browser_->search_model()->mode().is_ntp()))
-    return;
-
-#if defined(USE_AURA)
-  const BrowserView* browser_view =
-      static_cast<BrowserView*>(browser_->window());
-  if (!browser_view)
-    return;
-
-  gfx::Rect location_container_bounds =
-      browser_view->search_view_controller()->GetNTPOmniboxBounds(
-          location_bar_container_->parent());
-  if (location_container_bounds.width() == 0)
-    return;
-
-  location_bar_container_->SetInToolbar(false);
-  location_container_bounds.set_height(
-      location_bar_container_->GetPreferredSize().height());
-
-  // If bounds of |location_bar_container_| is not contained within its
-  // parent's, adjust the former's to within the latter's.  This will clip its
-  // child |location_bar_view_| within its bounds without resizing it.
-  // Note that parent of |location_bar_container_| i.e. BrowserView can't clip
-  // its children, else it loses the 3D shadows.
-  gfx::Rect parent_rect = location_bar_container_->parent()->GetLocalBounds();
-  gfx::Rect intersect_rect = parent_rect.Intersect(location_container_bounds);
-  // If the two bounds don't intersect, set bounds of |location_bar_container_|
-  // to 0.
-  location_bar_container_->SetBoundsRect(intersect_rect);
-#endif
+views::View* ToolbarView::GetBookmarkBubbleAnchor() {
+  views::View* star_view = location_bar()->star_view();
+  if (star_view && star_view->visible())
+    return star_view;
+  return app_menu_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -549,7 +513,6 @@ void ToolbarView::ModeChanged(const chrome::search::Mode& old_mode,
     location_bar_->Layout();
 
   Layout();
-  LayoutForSearch();
   SchedulePaint();
 }
 
@@ -592,6 +555,14 @@ void ToolbarView::ButtonPressed(views::Button* sender,
     location_bar_->Revert();
   }
   chrome::ExecuteCommandWithDisposition(browser_, command, disposition);
+}
+
+void ToolbarView::OnWidgetVisibilityChanged(views::Widget* widget,
+                                            bool visible) {
+  if (visible) {
+    DisabledExtensionsView::MaybeShow(browser_, app_menu_);
+    GetWidget()->RemoveObserver(this);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

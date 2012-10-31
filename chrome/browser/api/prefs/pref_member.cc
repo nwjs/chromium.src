@@ -5,11 +5,12 @@
 #include "chrome/browser/api/prefs/pref_member.h"
 
 #include "base/bind.h"
+#include "base/location.h"
 #include "base/prefs/public/pref_service_base.h"
 #include "base/value_conversions.h"
 #include "chrome/common/chrome_notification_types.h"
 
-using content::BrowserThread;
+using base::MessageLoopProxy;
 
 namespace subtle {
 
@@ -47,12 +48,13 @@ void PrefMemberBase::Destroy() {
   }
 }
 
-void PrefMemberBase::MoveToThread(BrowserThread::ID thread_id) {
+void PrefMemberBase::MoveToThread(
+    const scoped_refptr<MessageLoopProxy>& message_loop) {
   VerifyValuePrefName();
   // Load the value from preferences if it hasn't been loaded so far.
   if (!internal())
     UpdateValueFromPref();
-  internal()->MoveToThread(thread_id);
+  internal()->MoveToThread(message_loop);
 }
 
 void PrefMemberBase::Observe(int type,
@@ -84,16 +86,14 @@ void PrefMemberBase::VerifyPref() const {
 }
 
 PrefMemberBase::Internal::Internal()
-    : thread_id_(BrowserThread::UI),
+    : thread_loop_(MessageLoopProxy::current()),
       is_managed_(false) {
 }
 PrefMemberBase::Internal::~Internal() { }
 
 bool PrefMemberBase::Internal::IsOnCorrectThread() const {
-  // In unit tests, there may not be a UI thread.
-  return (BrowserThread::CurrentlyOn(thread_id_) ||
-          (thread_id_ == BrowserThread::UI &&
-           !BrowserThread::IsMessageLoopValid(BrowserThread::UI)));
+  // In unit tests, there may not be a message loop.
+  return thread_loop_ == NULL || thread_loop_->BelongsToCurrentThread();
 }
 
 void PrefMemberBase::Internal::UpdateValue(Value* v,
@@ -106,17 +106,37 @@ void PrefMemberBase::Internal::UpdateValue(Value* v,
     is_managed_ = is_managed;
     is_user_modifiable_ = is_user_modifiable;
   } else {
-    bool rv = BrowserThread::PostTask(
-        thread_id_, FROM_HERE,
+    bool may_run = thread_loop_->PostTask(
+        FROM_HERE,
         base::Bind(&PrefMemberBase::Internal::UpdateValue, this,
                    value.release(), is_managed, is_user_modifiable));
-    DCHECK(rv);
+    DCHECK(may_run);
   }
 }
 
-void PrefMemberBase::Internal::MoveToThread(BrowserThread::ID thread_id) {
+void PrefMemberBase::Internal::MoveToThread(
+    const scoped_refptr<MessageLoopProxy>& message_loop) {
   CheckOnCorrectThread();
-  thread_id_ = thread_id;
+  thread_loop_ = message_loop;
+}
+
+bool PrefMemberVectorStringUpdate(const Value& value,
+                                  std::vector<std::string>* string_vector) {
+  if (!value.IsType(Value::TYPE_LIST))
+    return false;
+  const ListValue* list = static_cast<const ListValue*>(&value);
+
+  std::vector<std::string> local_vector;
+  for (ListValue::const_iterator it = list->begin(); it != list->end(); ++it) {
+    std::string string_value;
+    if (!(*it)->GetAsString(&string_value))
+      return false;
+
+    local_vector.push_back(string_value);
+  }
+
+  string_vector->swap(local_vector);
+  return true;
 }
 
 }  // namespace subtle
@@ -172,4 +192,18 @@ template <>
 bool PrefMember<FilePath>::Internal::UpdateValueInternal(const Value& value)
     const {
   return base::GetValueAsFilePath(value, &value_);
+}
+
+template <>
+void PrefMember<std::vector<std::string> >::UpdatePref(
+    const std::vector<std::string>& value) {
+  ListValue list_value;
+  list_value.AppendStrings(value);
+  prefs()->Set(pref_name().c_str(), list_value);
+}
+
+template <>
+bool PrefMember<std::vector<std::string> >::Internal::UpdateValueInternal(
+    const Value& value) const {
+  return subtle::PrefMemberVectorStringUpdate(value, &value_);
 }

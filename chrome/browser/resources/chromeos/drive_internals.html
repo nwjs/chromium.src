@@ -9,12 +9,15 @@
   </head>
   <body>
     <h1>Drive Internals</h1>
-    <div>
-      <a href="#auth-status-section">Authentication Status</a> |
-      <a href="#gcache-contents-section">GCache Contents</a> |
-      <a href="#file-system-contents-section">File System Contents</a> |
-      <a href="#cache-contents-section">Cache Contents</a>
-    </div>
+    <ul id='toc'></ul>
+
+    <h2 id='drive-related-flags-section'>Drive related Flags</h2>
+    <ul id='drive-related-flags'>
+    </ul>
+
+    <h2 id='drive-related-preferences-section'>Drive related Preferences</h2>
+    <ul id='drive-related-preferences'>
+    </ul>
 
     <h2 id='auth-status-contents-section'>Authentication Status</h2>
     <ul>
@@ -31,6 +34,7 @@
       <li>Largest Changestamp (local):
         <span id='account-largest-changestamp-local'></span>
       </li>
+      <li>Origin: <span id='account-metadata-origin'></span></li>
     </ul>
     <table>
       <tbody id='account-installed-apps'>

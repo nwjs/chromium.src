@@ -51,7 +51,7 @@ TabbedLauncherButton::IconView::~IconView() {
 void TabbedLauncherButton::IconView::AnimationEnded(
     const ui::Animation* animation) {
   AnimationProgressed(animation);
-  animating_image_ = SkBitmap();
+  animating_image_ = gfx::ImageSkia();
 }
 
 void TabbedLauncherButton::IconView::AnimationProgressed(
@@ -68,7 +68,9 @@ void TabbedLauncherButton::IconView::SetTabImage(const gfx::ImageSkia& image) {
       animation_parts.push_back(ui::MultiAnimation::Part(500, ui::Tween::ZERO));
       animation_parts.push_back(
           ui::MultiAnimation::Part(200, ui::Tween::EASE_OUT));
-      animation_.reset(new ui::MultiAnimation(animation_parts));
+      animation_.reset(new ui::MultiAnimation(
+          animation_parts,
+          ui::MultiAnimation::GetDefaultTimerInterval()));
       animation_->set_continuous(false);
       animation_->set_delegate(this);
       animation_->Start();

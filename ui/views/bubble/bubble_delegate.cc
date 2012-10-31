@@ -90,6 +90,7 @@ Widget* CreateBorderWidget(BubbleDelegateView* bubble) {
   border_params.parent_widget = bubble->GetWidget();
   border_params.can_activate = bubble->CanActivate();
   border_widget->Init(border_params);
+  border_widget->set_focus_on_creation(false);
   return border_widget;
 }
 #endif
@@ -111,7 +112,7 @@ BubbleDelegateView::BubbleDelegateView()
       anchor_widget_(NULL),
       move_with_anchor_(false),
       arrow_location_(BubbleBorder::TOP_LEFT),
-      shadow_(BubbleBorder::NO_SHADOW),
+      shadow_(BubbleBorder::SMALL_SHADOW),
       color_(kBackgroundColor),
       margins_(kDefaultMargin, kDefaultMargin, kDefaultMargin, kDefaultMargin),
       original_opacity_(255),
@@ -133,7 +134,7 @@ BubbleDelegateView::BubbleDelegateView(
       anchor_widget_(NULL),
       move_with_anchor_(false),
       arrow_location_(arrow_location),
-      shadow_(BubbleBorder::NO_SHADOW),
+      shadow_(BubbleBorder::SMALL_SHADOW),
       color_(kBackgroundColor),
       margins_(kDefaultMargin, kDefaultMargin, kDefaultMargin, kDefaultMargin),
       original_opacity_(255),
@@ -173,10 +174,6 @@ Widget* BubbleDelegateView::CreateBubble(BubbleDelegateView* bubble_delegate) {
   bubble_delegate->SizeToContents();
   bubble_widget->AddObserver(bubble_delegate);
   return bubble_widget;
-}
-
-View* BubbleDelegateView::GetInitiallyFocusedView() {
-  return this;
 }
 
 BubbleDelegateView* BubbleDelegateView::AsBubbleDelegate() {
@@ -222,8 +219,6 @@ void BubbleDelegateView::OnWidgetVisibilityChanged(Widget* widget,
       else
         border_widget_->ShowInactive();
     }
-    if (CanActivate())
-      GetFocusManager()->SetFocusedView(GetInitiallyFocusedView());
     if (anchor_widget() && anchor_widget()->GetTopLevelWidget())
       anchor_widget()->GetTopLevelWidget()->DisableInactiveRendering();
   } else {

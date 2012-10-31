@@ -57,10 +57,12 @@ def DispatchInstrumentationTests(options):
   Returns:
     An integer representing the number of failing tests.
   """
-  # Reset the test port allocation. It's important to do it before starting
-  # to dispatch any tests.
-  if not ports.ResetTestServerPortAllocation():
-    raise Exception('Failed to reset test server port.')
+  if not options.keep_test_server_ports:
+    # Reset the test port allocation. It's important to do it before starting
+    # to dispatch any tests.
+    if not ports.ResetTestServerPortAllocation():
+      raise Exception('Failed to reset test server port.')
+
   start_date = int(time.time() * 1000)
   java_results = TestResults()
   python_results = TestResults()
@@ -94,7 +96,9 @@ def main(argv):
   buildbot_report.PrintNamedStep(
       'Instrumentation tests: %s - %s' % (', '.join(options.annotation),
                                           options.test_apk))
-  return DispatchInstrumentationTests(options)
+  ret = DispatchInstrumentationTests(options)
+  buildbot_report.PrintStepResultIfNeeded(options, ret)
+  return ret
 
 
 if __name__ == '__main__':

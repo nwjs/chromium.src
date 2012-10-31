@@ -40,7 +40,6 @@ void Screen::SetScreenInstance(ScreenType type, Screen* instance) {
 
 // static
 Screen* Screen::GetScreenByType(ScreenType type) {
-  DCHECK(g_screen_[type]);
   return g_screen_[type];
 }
 

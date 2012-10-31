@@ -32,7 +32,6 @@
 #include "webkit/fileapi/file_system_url_request_job_factory.h"
 
 using appcache::AppCacheService;
-using content::BrowserThread;
 using fileapi::FileSystemContext;
 using webkit_blob::BlobStorageController;
 
@@ -214,12 +213,13 @@ StoragePartitionImpl* StoragePartitionImplMap::Get(
   partition->SetURLRequestContext(
       partition_id.empty() ?
       browser_context_->GetRequestContext() :
-      browser_context_->GetRequestContextForStoragePartition(partition_id));
+      browser_context_->GetRequestContextForStoragePartition(
+          partition->GetPath(), false));
   partition->SetMediaURLRequestContext(
       partition_id.empty() ?
       browser_context_->GetMediaRequestContext() :
       browser_context_->GetMediaRequestContextForStoragePartition(
-          partition_id));
+          partition->GetPath(), false));
 
   PostCreateInitialization(partition);
 

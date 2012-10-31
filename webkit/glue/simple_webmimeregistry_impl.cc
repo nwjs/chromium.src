@@ -9,7 +9,7 @@
 #include "base/utf_string_conversions.h"
 #include "net/base/mime_util.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
-#include "webkit/glue/webkit_glue.h"
+#include "webkit/base/file_path_string_conversions.h"
 #include "webkit/media/crypto/key_systems.h"
 
 using WebKit::WebString;
@@ -70,7 +70,8 @@ WebMimeRegistry::SupportsType SimpleWebMimeRegistryImpl::supportsMediaMIMEType(
       return IsNotSupported;
 
     std::vector<std::string> strict_codecs;
-    net::ParseCodecString(ToASCIIOrEmpty(codecs), &strict_codecs, false);
+    bool strip_suffix = !net::IsStrictMediaMimeType(mime_type_ascii);
+    net::ParseCodecString(ToASCIIOrEmpty(codecs), &strict_codecs, strip_suffix);
 
     if (!webkit_media::IsSupportedKeySystemWithMediaMimeType(
             mime_type_ascii, strict_codecs, ToASCIIOrEmpty(key_system)))
@@ -115,8 +116,8 @@ WebMimeRegistry::SupportsType
 WebString SimpleWebMimeRegistryImpl::mimeTypeForExtension(
     const WebString& file_extension) {
   std::string mime_type;
-  net::GetMimeTypeFromExtension(WebStringToFilePathString(file_extension),
-                                &mime_type);
+  net::GetMimeTypeFromExtension(
+      webkit_base::WebStringToFilePathString(file_extension), &mime_type);
   return ASCIIToUTF16(mime_type);
 }
 
@@ -124,14 +125,14 @@ WebString SimpleWebMimeRegistryImpl::wellKnownMimeTypeForExtension(
     const WebString& file_extension) {
   std::string mime_type;
   net::GetWellKnownMimeTypeFromExtension(
-      WebStringToFilePathString(file_extension), &mime_type);
+      webkit_base::WebStringToFilePathString(file_extension), &mime_type);
   return ASCIIToUTF16(mime_type);
 }
 
 WebString SimpleWebMimeRegistryImpl::mimeTypeFromFile(
     const WebString& file_path) {
   std::string mime_type;
-  net::GetMimeTypeFromFile(FilePath(WebStringToFilePathString(file_path)),
+  net::GetMimeTypeFromFile(webkit_base::WebStringToFilePath(file_path),
                            &mime_type);
   return ASCIIToUTF16(mime_type);
 }
@@ -141,7 +142,7 @@ WebString SimpleWebMimeRegistryImpl::preferredExtensionForMIMEType(
   FilePath::StringType file_extension;
   net::GetPreferredExtensionForMimeType(ToASCIIOrEmpty(mime_type),
                                         &file_extension);
-  return FilePathStringToWebString(file_extension);
+  return webkit_base::FilePathStringToWebString(file_extension);
 }
 
 }  // namespace webkit_glue

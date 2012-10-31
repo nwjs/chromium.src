@@ -401,7 +401,8 @@ DirectoryModel.prototype.rescan = function() {
  */
 DirectoryModel.prototype.clearAndScan_ = function(newDirContents,
                                                   opt_callback) {
-  this.currentDirContents_.cancelScan();
+  if (this.currentDirContents_.isScanning())
+    this.currentDirContents_.cancelScan();
   this.currentDirContents_ = newDirContents;
   this.clearRescanTimeout_();
 
@@ -774,8 +775,9 @@ DirectoryModel.prototype.changeDirectoryEntry_ = function(initial, dirEntry,
                                                           opt_callback) {
   if (dirEntry == DirectoryModel.fakeGDataEntry_ &&
       this.volumeManager_.getGDataStatus() ==
-          VolumeManager.GDataStatus.UNMOUNTED)
+          VolumeManager.GDataStatus.UNMOUNTED) {
     this.volumeManager_.mountGData(function() {}, function() {});
+  }
 
   this.clearSearch_();
   var previous = this.currentDirContents_.getDirectoryEntry();
@@ -834,19 +836,13 @@ DirectoryModel.prototype.createDirectoryChangeTracker = function() {
  * file or directory).
  *
  * @param {string} path The root path to use
- * @param {function=} opt_loadedCallback Invoked when the entire directory
- *     has been loaded and any default file selected.  If there are any
- *     errors loading the directory this will not get called (even if the
- *     directory loads OK on retry later). Will NOT be called if another
- *     directory change happened while setupPath was in progress.
  * @param {function=} opt_pathResolveCallback Invoked as soon as the path has
  *     been resolved, and called with the base and leaf portions of the path
  *     name, and a flag indicating if the entry exists. Will be called even
  *     if another directory change happened while setupPath was in progress,
  *     but will pass |false| as |exist| parameter.
  */
-DirectoryModel.prototype.setupPath = function(path, opt_loadedCallback,
-                                              opt_pathResolveCallback) {
+DirectoryModel.prototype.setupPath = function(path, opt_pathResolveCallback) {
   var tracker = this.createDirectoryChangeTracker();
   tracker.start();
 
@@ -910,8 +906,6 @@ DirectoryModel.prototype.setupPath = function(path, opt_loadedCallback,
                              !INITIAL /*HACK*/,
                              function() {
                                self.selectEntry(fileName);
-                               if (opt_loadedCallback)
-                                 opt_loadedCallback();
                              });
         // TODO(kaznacheev): Fix history.replaceState for the File Browser and
         // change !INITIAL to INITIAL. Passing |false| makes things
@@ -926,10 +920,10 @@ DirectoryModel.prototype.setupPath = function(path, opt_loadedCallback,
 };
 
 /**
- * @param {function} opt_callback Callback on done.
+ * Sets up the default path.
  */
-DirectoryModel.prototype.setupDefaultPath = function(opt_callback) {
-  this.setupPath(this.getDefaultDirectory(), opt_callback);
+DirectoryModel.prototype.setupDefaultPath = function() {
+  this.setupPath(this.getDefaultDirectory());
 };
 
 /**

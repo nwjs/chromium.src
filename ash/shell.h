@@ -18,6 +18,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
+#include "ui/base/events/event_target.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/size.h"
@@ -97,7 +98,6 @@ class RootWindowController;
 class RootWindowLayoutManager;
 class ScreenPositionController;
 class ShadowController;
-class ShelfLayoutManager;
 class SlowAnimationEventFilter;
 class StackingController;
 class StatusAreaWidget;
@@ -115,7 +115,8 @@ class WorkspaceController;
 //
 // Upon creation, the Shell sets itself as the RootWindow's delegate, which
 // takes ownership of the Shell.
-class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate{
+class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
+                         public ui::EventTarget {
  public:
   typedef std::vector<aura::RootWindow*> RootWindowList;
   typedef std::vector<internal::RootWindowController*> RootWindowControllerList;
@@ -351,9 +352,9 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate{
   // Dims or undims the screen.
   void SetDimming(bool should_dim);
 
-  // Creates modal background, which is a partially-opaque fullscreen
-  // window, on all displays.
-  void CreateModalBackground();
+  // Creates a modal background (a partially-opaque fullscreen window)
+  // on all displays for |window|.
+  void CreateModalBackground(aura::Window* window);
 
   // Called when a modal window is removed. It will activate
   // another modal window if any, or remove modal screens
@@ -364,6 +365,7 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate{
   WebNotificationTray* GetWebNotificationTray();
 
   // Convenience accessor for members of StatusAreaWidget.
+  internal::StatusAreaWidget* status_area_widget();
   SystemTrayDelegate* tray_delegate();
   SystemTray* system_tray();
 
@@ -424,6 +426,10 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate{
 
   // ash::internal::SystemModalContainerEventFilterDelegate overrides:
   virtual bool CanWindowReceiveEvents(aura::Window* window) OVERRIDE;
+
+  // Overridden from ui::EventTarget:
+  virtual bool CanAcceptEvents() OVERRIDE;
+  virtual EventTarget* GetParentTarget() OVERRIDE;
 
   static Shell* instance_;
 

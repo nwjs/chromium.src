@@ -27,8 +27,6 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
 #include "webkit/glue/window_open_disposition.h"
 
-class ChildProcessSecurityPolicyImpl;
-class SessionStorageNamespaceImpl;
 class SkBitmap;
 class ViewMsg_Navigate;
 struct AccessibilityHostMsg_NotificationParams;
@@ -51,18 +49,21 @@ struct SelectedFileInfo;
 
 namespace content {
 
-#if defined(OS_ANDROID)
-class MediaPlayerManagerAndroid;
-#endif
+class ChildProcessSecurityPolicyImpl;
 class PowerSaveBlocker;
 class RenderViewHostObserver;
 class RenderWidgetHostDelegate;
 class SessionStorageNamespace;
+class SessionStorageNamespaceImpl;
 class TestRenderViewHost;
 struct ContextMenuParams;
 struct FileChooserParams;
 struct Referrer;
 struct ShowDesktopNotificationHostMsgParams;
+
+#if defined(OS_ANDROID)
+class MediaPlayerManagerAndroid;
+#endif
 
 // NotificationObserver used to listen for EXECUTE_JAVASCRIPT_RESULT
 // notifications.
@@ -248,14 +249,9 @@ class CONTENT_EXPORT RenderViewHostImpl
   // The |opener_route_id| parameter indicates which RenderView created this
   // (MSG_ROUTING_NONE if none). If |max_page_id| is larger than -1, the
   // RenderView is told to start issuing page IDs at |max_page_id| + 1.
-  // If this RenderView is a guest, the embedder's process ID is also passed in
-  // so that the RenderView's process can establish a channel with its embedder
-  // if it's not already established.
   virtual bool CreateRenderView(const string16& frame_name,
                                 int opener_route_id,
-                                int32 max_page_id,
-                                const std::string& embedder_channel_name,
-                                int embedder_container_id);
+                                int32 max_page_id);
 
   base::TerminationStatus render_view_termination_status() const {
     return render_view_termination_status_;
@@ -447,7 +443,7 @@ class CONTENT_EXPORT RenderViewHostImpl
   // about:blank.
   // empty_allowed must be set to false for navigations for security reasons.
   static void FilterURL(ChildProcessSecurityPolicyImpl* policy,
-                        int renderer_id,
+                        const RenderProcessHost* process,
                         bool empty_allowed,
                         GURL* url);
 

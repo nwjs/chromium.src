@@ -20,6 +20,7 @@ import android.os.Handler;
 import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.util.Log;
+import android.util.Pair;
 import android.view.ActionMode;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -192,11 +193,7 @@ public class ContentViewCore implements MotionEventDelegate {
     private boolean mHasSelection;
     private String mLastSelectedText;
     private boolean mSelectionEditable;
-    // TODO(http://code.google.com/p/chromium/issues/detail?id=136704): Register
-    // the necessary resources in ContentViewActivity so we can create an action
-    // bar for text editing.
-    // private ActionMode mActionMode;
-    private boolean mActionBarVisible; // Remove this when mActionMode is upstreamed.
+    private ActionMode mActionMode;
 
     // Delegate that will handle GET downloads, and be notified of completion of POST downloads.
     private ContentViewDownloadDelegate mDownloadDelegate;
@@ -278,6 +275,11 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public ContentViewCore(Context context, int personality) {
         mContext = context;
+
+        // All application resources must be registered by the time the content view is created.
+        // This should be omitted in final release builds where assertions are disabled.
+        // TODO(leandrogracia): re-enable this as soon as crbug.com/136704 is fixed.
+        // assert AppResource.verifyResourceRegistration();
 
         WeakContext.initializeWeakContext(context);
         // By default, ContentView will initialize single process mode. The call to
@@ -757,6 +759,30 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     /**
+     * Generates a bitmap of the content that is performance optimized based on capture time.
+     *
+     * <p>
+     * To have a consistent capture time across devices, we will scale down the captured bitmap
+     * where necessary to reduce the time to generate the bitmap.
+     *
+     * @param width The width of the content to be captured.
+     * @param height The height of the content to be captured.
+     * @return A pair of the generated bitmap, and the scale that needs to be applied to return the
+     *         bitmap to it's original size (i.e. if the bitmap is scaled down 50%, this
+     *         will be 2).
+     */
+    public Pair<Bitmap, Float> getScaledPerformanceOptimizedBitmap(int width, int height) {
+        float scale = 1f;
+        // On tablets, always scale down to MDPI for performance reasons.
+        if (DeviceUtils.isTablet(getContext())) {
+            scale = getContext().getResources().getDisplayMetrics().density;
+        }
+        return Pair.create(
+                getBitmap((int) (width / scale), (int) (height / scale)),
+                scale);
+    }
+
+    /**
      * @return Whether the ContentView is covered by an overlay that is more than half
      *         of it's surface. This is used to determine if we need to do a slow bitmap capture or
      *         to show the ContentView without them.
@@ -817,6 +843,20 @@ public class ContentViewCore implements MotionEventDelegate {
     public void reload() {
         mAccessibilityInjector.addOrRemoveAccessibilityApisIfNecessary();
         if (mNativeContentViewCore != 0) nativeReload(mNativeContentViewCore);
+    }
+
+    /**
+     * Cancel the pending reload.
+     */
+    public void cancelPendingReload() {
+        if (mNativeContentViewCore != 0) nativeCancelPendingReload(mNativeContentViewCore);
+    }
+
+    /**
+     * Continue the pending reload.
+     */
+    public void continuePendingReload() {
+        if (mNativeContentViewCore != 0) nativeContinuePendingReload(mNativeContentViewCore);
     }
 
     /**
@@ -944,7 +984,6 @@ public class ContentViewCore implements MotionEventDelegate {
      *
      * @return an id that is passed along in the asynchronous onJavaScriptEvaluationResult callback
      * @throws IllegalStateException If the ContentView has been destroyed.
-     * @hide
      */
     public int evaluateJavaScript(String script) throws IllegalStateException {
         checkIsAlive();
@@ -1016,13 +1055,13 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private void hidePopupDialog() {
         SelectPopupDialog.hide(this);
+        hideHandles();
+        hideSelectActionBar();
     }
 
     void hideSelectActionBar() {
-        if (mActionBarVisible) {
-            mActionBarVisible = false;
-            mImeAdapter.unselect();
-            getContentViewClient().onContextualActionBarHidden();
+        if (mActionMode != null) {
+            mActionMode.finish();
         }
     }
 
@@ -1042,9 +1081,20 @@ public class ContentViewCore implements MotionEventDelegate {
         setAccessibilityState(false);
     }
 
+    /**
+     * @see View#onVisibilityChanged(android.view.View, int)
+     */
+    public void onVisibilityChanged(View changedView, int visibility) {
+      if (visibility != View.VISIBLE) {
+          if (mContentSettings.supportZoom()) {
+              mZoomManager.dismissZoomPicker();
+          }
+      }
+    }
+
     @CalledByNative
     private void onWebPreferencesUpdated() {
-        // TODO(nileshagrawal): Implement this.
+        mContentSettings.syncSettings();
     }
 
     /**
@@ -1364,9 +1414,14 @@ public class ContentViewCore implements MotionEventDelegate {
         }
     }
 
+    @SuppressWarnings("unused")
+    @CalledByNative
+    private void onTabCrash() {
+        getContentViewClient().onTabCrash();
+    }
+
     private void handleTapOrPress(
             long timeMs, int x, int y, boolean isLongPress, boolean showPress) {
-        //TODO(yusufo):Upstream the rest of the bits about handlerControllers.
         if (!mContainerView.isFocused()) mContainerView.requestFocus();
 
         if (!mPopupZoomer.isShowing()) mPopupZoomer.setLastTouch(x, y);
@@ -1381,6 +1436,7 @@ public class ContentViewCore implements MotionEventDelegate {
             if (!showPress && mNativeContentViewCore != 0) {
                 nativeShowPressState(mNativeContentViewCore, timeMs, x, y);
             }
+            if (mSelectionEditable) getInsertionHandleController().allowAutomaticShowing();
             if (mNativeContentViewCore != 0) {
                 nativeSingleTap(mNativeContentViewCore, timeMs, x, y, false);
             }
@@ -1539,14 +1595,6 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     private void showSelectActionBar() {
-        if (!mActionBarVisible) {
-            mActionBarVisible = true;
-            getContentViewClient().onContextualActionBarShown();
-        }
-
-// TODO(http://code.google.com/p/chromium/issues/detail?id=136704): Uncomment
-// this code when we have the resources needed to create the action bar.
-/*
         if (mActionMode != null) {
             mActionMode.invalidate();
             return;
@@ -1601,7 +1649,6 @@ public class ContentViewCore implements MotionEventDelegate {
         } else {
             getContentViewClient().onContextualActionBarShown();
         }
-*/
     }
 
     public boolean getUseDesktopUserAgent() {
@@ -1660,6 +1707,7 @@ public class ContentViewCore implements MotionEventDelegate {
         mNativePageScaleFactor = scale;
 
         mPopupZoomer.hide(true);
+        updateHandleScreenPositions();
 
         mZoomManager.updateZoomControls();
     }
@@ -1683,6 +1731,8 @@ public class ContentViewCore implements MotionEventDelegate {
         text = text.replace('\u00A0', ' ');
 
         mSelectionEditable = (textInputType != ImeAdapter.sTextInputTypeNone);
+
+        if (mActionMode != null) mActionMode.invalidate();
 
         mImeAdapter.attachAndShowIfNeeded(nativeImeAdapterAndroid, textInputType,
                 text, showImeIfNeeded);
@@ -2116,6 +2166,15 @@ public class ContentViewCore implements MotionEventDelegate {
         return history;
     }
 
+    /**
+     * Update of the latest vsync parameters.
+     * @param tickTimeMicros The latest vsync tick time in microseconds.
+     * @param intervalMicros The vsync interval in microseconds.
+     */
+    public void UpdateVSync(long tickTimeMicros, long intervalMicros) {
+        nativeUpdateVSyncParameters(mNativeContentViewCore, tickTimeMicros, intervalMicros);
+    }
+
     private native int nativeInit(boolean hardwareAccelerated, int webContentsPtr,
             int windowAndroidPtr);
 
@@ -2204,6 +2263,10 @@ public class ContentViewCore implements MotionEventDelegate {
     private native void nativeStopLoading(int nativeContentViewCoreImpl);
 
     private native void nativeReload(int nativeContentViewCoreImpl);
+
+    private native void nativeCancelPendingReload(int nativeContentViewCoreImpl);
+
+    private native void nativeContinuePendingReload(int nativeContentViewCoreImpl);
 
     private native void nativeSelectPopupMenuItems(int nativeContentViewCoreImpl, int[] indices);
 

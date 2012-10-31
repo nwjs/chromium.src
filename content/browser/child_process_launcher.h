@@ -12,6 +12,8 @@
 
 class CommandLine;
 
+namespace content {
+
 // Launches a process asynchronously and notifies the client of the process
 // handle when it's available.  It's used to avoid blocking the calling thread
 // on the OS since often it can take > 100 ms to create the process.
@@ -41,6 +43,7 @@ class CONTENT_EXPORT ChildProcessLauncher {
       int ipcfd,
 #endif
       CommandLine* cmd_line,
+      int child_process_id,
       Client* client);
   ~ChildProcessLauncher();
 
@@ -71,5 +74,7 @@ class CONTENT_EXPORT ChildProcessLauncher {
 
   DISALLOW_COPY_AND_ASSIGN(ChildProcessLauncher);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_CHILD_PROCESS_LAUNCHER_H_

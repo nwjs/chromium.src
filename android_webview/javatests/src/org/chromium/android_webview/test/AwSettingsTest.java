@@ -8,12 +8,15 @@ import android.content.Context;
 import android.os.Build;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import org.apache.http.Header;
+import org.apache.http.HttpRequest;
 import org.chromium.android_webview.AndroidProtocolHandler;
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwSettings;
 import org.chromium.android_webview.test.util.CommonResources;
 import org.chromium.android_webview.test.util.ImagePageGenerator;
 import org.chromium.android_webview.test.util.TestWebServer;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.TestFileUtil;
 import org.chromium.base.test.util.UrlUtils;
@@ -796,6 +799,148 @@ public class AwSettingsTest extends AndroidWebViewTestBase {
         private String mTempDir;
     }
 
+    class AwSettingsTextZoomTestHelper extends AwSettingsTestHelper<Integer> {
+        private final int mInitialTextZoom = 100;
+        private final float mInitialActualFontSize;
+
+        AwSettingsTextZoomTestHelper(
+                AwContents awContents,
+                TestAwContentsClient contentViewClient) throws Throwable {
+            super(awContents, contentViewClient, true);
+            // The initial font size can be adjusted by font autosizer depending on the page's
+            // viewport width.
+            mInitialActualFontSize = getActualFontSize();
+        }
+
+        @Override
+        protected Integer getAlteredValue() {
+            return mInitialTextZoom * 2;
+        }
+
+        @Override
+        protected Integer getInitialValue() {
+            return mInitialTextZoom;
+        }
+
+        @Override
+        protected Integer getCurrentValue() {
+            return mContentSettings.getTextZoom();
+        }
+
+        @Override
+        protected void setCurrentValue(Integer value) {
+            mContentSettings.setTextZoom(value);
+        }
+
+        @Override
+        protected void doEnsureSettingHasValue(Integer value) throws Throwable {
+            final float actualFontSize = getActualFontSize();
+            // Ensure that actual vs. initial font size ratio is similar to actual vs. initial
+            // text zoom values ratio.
+            final float ratiosDelta = Math.abs(
+                (actualFontSize / mInitialActualFontSize) -
+                (value / (float)mInitialTextZoom));
+            assertTrue(
+                "|(" + actualFontSize + " / " + mInitialActualFontSize + ") - (" +
+                value + " / " + mInitialTextZoom + ")| = " + ratiosDelta,
+                ratiosDelta <= 0.2f);
+        }
+
+        private float getActualFontSize() throws Throwable {
+            loadDataSync(getData());
+            // Retrieve font size after the native callback has fired, not in body.onload.
+            // The latter can fire prior to Font autosizer adjustments.
+            executeJavaScriptAndWaitForResult(
+                mAwContents, mContentViewClient, "setTitleToActualFontSize()");
+            return Float.parseFloat(getTitleOnUiThread());
+        }
+
+        private String getData() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("<html>" +
+                      "<head><script>" +
+                      "function setTitleToActualFontSize() {" +
+                      // parseFloat is used to trim out the "px" suffix.
+                      "  document.title = parseFloat(getComputedStyle(" +
+                      "    document.getElementById('par')).getPropertyValue('font-size'));" +
+                      "}</script></head>" +
+                      "<body>" +
+                      "<p id=\"par\" style=\"font-size:14px;\">");
+            // Make the paragraph wide enough for being processed by the font autosizer.
+            for (int i = 0; i < 100; i++) {
+                sb.append("Hello, World! ");
+            }
+            sb.append("</p></body></html>");
+            return sb.toString();
+        }
+    }
+
+    class AwSettingsJavaScriptPopupsTestHelper extends AwSettingsTestHelper<Boolean> {
+        static private final String POPUP_ENABLED = "Popup enabled";
+        static private final String POPUP_BLOCKED = "Popup blocked";
+
+        AwSettingsJavaScriptPopupsTestHelper(
+                AwContents awContents,
+                TestAwContentsClient contentViewClient,
+                int index) throws Throwable {
+            super(awContents, contentViewClient, true);
+        }
+
+        @Override
+        protected Boolean getAlteredValue() {
+            return ENABLED;
+        }
+
+        @Override
+        protected Boolean getInitialValue() {
+            return DISABLED;
+        }
+
+        @Override
+        protected Boolean getCurrentValue() {
+            return mContentSettings.getJavaScriptCanOpenWindowsAutomatically();
+        }
+
+        @Override
+        protected void setCurrentValue(Boolean value) {
+            mContentSettings.setJavaScriptCanOpenWindowsAutomatically(value);
+        }
+
+        @Override
+        protected void doEnsureSettingHasValue(Boolean value) throws Throwable {
+            loadDataSync(getData());
+            final boolean expectPopupEnabled = value;
+            assertTrue(CriteriaHelper.pollForCriteria(new Criteria() {
+                @Override
+                public boolean isSatisfied() {
+                    try {
+                        String title = getTitleOnUiThread();
+                        return expectPopupEnabled ? POPUP_ENABLED.equals(title) :
+                                POPUP_BLOCKED.equals(title);
+                    } catch (Throwable t) {
+                        t.printStackTrace();
+                        fail("Failed to getTitleOnUiThread: " + t.toString());
+                        return false;
+                    }
+                }
+            }, TEST_TIMEOUT, CHECK_INTERVAL));
+            assertEquals(value ? POPUP_ENABLED : POPUP_BLOCKED, getTitleOnUiThread());
+        }
+
+        private String getData() {
+            return "<html><head>" +
+                    "<script>" +
+                    "    function tryOpenWindow() {" +
+                    "        var newWindow = window.open(" +
+                    "           'data:text/html;charset=utf-8," +
+                    "           <html><head><title>" + POPUP_ENABLED + "</title></head></html>');" +
+                    "        if (!newWindow) document.title = '" + POPUP_BLOCKED + "';" +
+                    "    }" +
+                    "</script></head>" +
+                    "<body onload='tryOpenWindow()'></body></html>";
+        }
+    }
+
     // The test verifies that JavaScript is disabled upon WebView
     // creation without accessing ContentSettings. If the test passes,
     // it means that WebView-specific web preferences configuration
@@ -1262,6 +1407,41 @@ public class AwSettingsTest extends AndroidWebViewTestBase {
 
     @SmallTest
     @Feature({"Android-WebView", "Preferences"})
+    public void testUserAgentWithTestServer() throws Throwable {
+        final TestAwContentsClient contentClient = new TestAwContentsClient();
+        final AwTestContainerView testContainerView =
+                createAwTestContainerViewOnMainSync(contentClient);
+        AwContents awContents = testContainerView.getAwContents();
+        ContentSettings settings = getContentSettingsOnUiThread(awContents);
+        final String customUserAgentString =
+                "testUserAgentWithTestServerUserAgent";
+
+        TestWebServer webServer = null;
+        String fileName = null;
+        try {
+            webServer = new TestWebServer(false);
+            final String httpPath = "/testUserAgentWithTestServer.html";
+            final String url = webServer.setResponse(httpPath, "foo", null);
+
+            settings.setUserAgentString(customUserAgentString);
+            loadUrlSync(awContents,
+                        contentClient.getOnPageFinishedHelper(),
+                        url);
+
+            assertEquals(1, webServer.getRequestCount(httpPath));
+            HttpRequest request = webServer.getLastRequest(httpPath);
+            Header[] matchingHeaders = request.getHeaders("User-Agent");
+            assertEquals(1, matchingHeaders.length);
+
+            Header header = matchingHeaders[0];
+            assertEquals(customUserAgentString, header.getValue());
+        } finally {
+            if (webServer != null) webServer.shutdown();
+        }
+    }
+
+    @SmallTest
+    @Feature({"Android-WebView", "Preferences"})
     public void testDomStorageEnabledNormal() throws Throwable {
         ViewPair views = createViews(NORMAL_VIEW, NORMAL_VIEW);
         runPerViewSettingsTest(
@@ -1670,6 +1850,66 @@ public class AwSettingsTest extends AndroidWebViewTestBase {
         } finally {
             resetResourceContext();
         }
+    }
+
+    /*
+     * @SmallTest
+     * @Feature({"Android-WebView", "Preferences"})
+     * Blocked on crbug/157563
+     */
+    @DisabledTest
+    public void testTextZoomNormal() throws Throwable {
+        ViewPair views = createViews(NORMAL_VIEW, NORMAL_VIEW);
+        runPerViewSettingsTest(
+            new AwSettingsTextZoomTestHelper(views.getContents0(), views.getClient0()),
+            new AwSettingsTextZoomTestHelper(views.getContents1(), views.getClient1()));
+    }
+
+    /*
+     * @SmallTest
+     * @Feature({"Android-WebView", "Preferences"})
+     * Blocked on crbug/157563
+     */
+    @DisabledTest
+    public void testTextZoomIncognito() throws Throwable {
+        ViewPair views = createViews(INCOGNITO_VIEW, INCOGNITO_VIEW);
+        runPerViewSettingsTest(
+            new AwSettingsTextZoomTestHelper(views.getContents0(), views.getClient0()),
+            new AwSettingsTextZoomTestHelper(views.getContents1(), views.getClient1()));
+    }
+
+    /*
+     * @SmallTest
+     * @Feature({"Android-WebView", "Preferences"})
+     * Blocked on crbug/157563
+     */
+    @DisabledTest
+    public void testTextZoomBoth() throws Throwable {
+        ViewPair views = createViews(NORMAL_VIEW, INCOGNITO_VIEW);
+        runPerViewSettingsTest(
+            new AwSettingsTextZoomTestHelper(views.getContents0(), views.getClient0()),
+            new AwSettingsTextZoomTestHelper(views.getContents1(), views.getClient1()));
+    }
+
+    public void testJavaScriptPopupsNormal() throws Throwable {
+        ViewPair views = createViews(NORMAL_VIEW, NORMAL_VIEW);
+        runPerViewSettingsTest(
+            new AwSettingsJavaScriptPopupsTestHelper(views.getContents0(), views.getClient0(), 0),
+            new AwSettingsJavaScriptPopupsTestHelper(views.getContents1(), views.getClient1(), 1));
+    }
+
+    public void testJavaScriptPopupsIncognito() throws Throwable {
+        ViewPair views = createViews(INCOGNITO_VIEW, INCOGNITO_VIEW);
+        runPerViewSettingsTest(
+            new AwSettingsJavaScriptPopupsTestHelper(views.getContents0(), views.getClient0(), 0),
+            new AwSettingsJavaScriptPopupsTestHelper(views.getContents1(), views.getClient1(), 1));
+    }
+
+    public void testJavaScriptPopupsBoth() throws Throwable {
+        ViewPair views = createViews(NORMAL_VIEW, INCOGNITO_VIEW);
+        runPerViewSettingsTest(
+            new AwSettingsJavaScriptPopupsTestHelper(views.getContents0(), views.getClient0(), 0),
+            new AwSettingsJavaScriptPopupsTestHelper(views.getContents1(), views.getClient1(), 1));
     }
 
     class ViewPair {

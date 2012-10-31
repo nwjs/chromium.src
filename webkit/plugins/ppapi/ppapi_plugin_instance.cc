@@ -17,6 +17,8 @@
 #include "base/utf_string_conversions.h"
 // TODO(xhwang): Move media specific code out of this class.
 #include "media/base/audio_decoder_config.h"
+#include "media/base/channel_layout.h"
+#include "media/base/data_buffer.h"
 #include "media/base/decoder_buffer.h"
 #include "media/base/decryptor_client.h"
 #include "media/base/video_decoder_config.h"
@@ -392,38 +394,142 @@ bool MakeEncryptedBlockInfo(
   return true;
 }
 
-PP_AudioCodec MediaAudioCodecToPpAudioCodec(media::AudioCodec codec) {
-  if (codec == media::kCodecVorbis)
-    return PP_AUDIOCODEC_VORBIS;
+// Deserializes audio data stored in |audio_frames| into individual audio
+// buffers in |frames|. Returns true upon success.
+bool DeserializeAudioFrames(PP_Resource audio_frames,
+                            media::Decryptor::AudioBuffers* frames) {
+  DCHECK(frames);
+  EnterResourceNoLock<PPB_Buffer_API> enter(audio_frames, true);
+  if (!enter.succeeded())
+    return false;
 
-  return PP_AUDIOCODEC_UNKNOWN;
+  BufferAutoMapper mapper(enter.object());
+  if (!mapper.data() || !mapper.size())
+    return false;
+
+  const uint8* cur = static_cast<uint8*>(mapper.data());
+  int bytes_left = mapper.size();
+
+  do {
+    int64 timestamp = 0;
+    int64 frame_size = -1;
+    const int kHeaderSize = sizeof(timestamp) + sizeof(frame_size);
+
+    if (bytes_left < kHeaderSize)
+      return false;
+
+    memcpy(&timestamp, cur, sizeof(timestamp));
+    cur += sizeof(timestamp);
+    bytes_left -= sizeof(timestamp);
+
+    memcpy(&frame_size, cur, sizeof(frame_size));
+    cur += sizeof(frame_size);
+    bytes_left -= sizeof(frame_size);
+
+    // We should *not* have empty frame in the list.
+    if (frame_size <= 0 || bytes_left < frame_size)
+      return false;
+
+    scoped_refptr<media::DataBuffer> frame(new media::DataBuffer(cur,
+                                                                 frame_size));
+    frame->SetTimestamp(base::TimeDelta::FromMicroseconds(timestamp));
+    frames->push_back(frame);
+
+    cur += frame_size;
+    bytes_left -= frame_size;
+  } while (bytes_left > 0);
+
+  return true;
+}
+
+PP_AudioCodec MediaAudioCodecToPpAudioCodec(media::AudioCodec codec) {
+  switch (codec) {
+    case media::kCodecVorbis:
+      return PP_AUDIOCODEC_VORBIS;
+    case media::kCodecAAC:
+      return PP_AUDIOCODEC_AAC;
+    default:
+      return PP_AUDIOCODEC_UNKNOWN;
+  }
 }
 
 PP_VideoCodec MediaVideoCodecToPpVideoCodec(media::VideoCodec codec) {
-  if (codec == media::kCodecVP8)
-    return PP_VIDEOCODEC_VP8;
-
-  return PP_VIDEOCODEC_UNKNOWN;
+  switch (codec) {
+    case media::kCodecVP8:
+      return PP_VIDEOCODEC_VP8;
+    case media::kCodecH264:
+      return PP_VIDEOCODEC_H264;
+    default:
+      return PP_VIDEOCODEC_UNKNOWN;
+  }
 }
 
 PP_VideoCodecProfile MediaVideoCodecProfileToPpVideoCodecProfile(
     media::VideoCodecProfile profile) {
-  if (profile == media::VP8PROFILE_MAIN)
-    return PP_VIDEOCODECPROFILE_VP8_MAIN;
-
-  return PP_VIDEOCODECPROFILE_UNKNOWN;
+  switch (profile) {
+    case media::VP8PROFILE_MAIN:
+      return PP_VIDEOCODECPROFILE_VP8_MAIN;
+    case media::H264PROFILE_BASELINE:
+      return PP_VIDEOCODECPROFILE_H264_BASELINE;
+    case media::H264PROFILE_MAIN:
+      return PP_VIDEOCODECPROFILE_H264_MAIN;
+    case media::H264PROFILE_EXTENDED:
+      return PP_VIDEOCODECPROFILE_H264_EXTENDED;
+    case media::H264PROFILE_HIGH:
+      return PP_VIDEOCODECPROFILE_H264_HIGH;
+    case media::H264PROFILE_HIGH10PROFILE:
+      return PP_VIDEOCODECPROFILE_H264_HIGH_10;
+    case media::H264PROFILE_HIGH422PROFILE:
+      return PP_VIDEOCODECPROFILE_H264_HIGH_422;
+    case media::H264PROFILE_HIGH444PREDICTIVEPROFILE:
+      return PP_VIDEOCODECPROFILE_H264_HIGH_444_PREDICTIVE;
+    default:
+      return PP_VIDEOCODECPROFILE_UNKNOWN;
+  }
 }
 
 PP_DecryptedFrameFormat MediaVideoFormatToPpDecryptedFrameFormat(
     media::VideoFrame::Format format) {
-  if (format == media::VideoFrame::YV12)
-    return PP_DECRYPTEDFRAMEFORMAT_YV12;
-  else if (format == media::VideoFrame::I420)
-    return PP_DECRYPTEDFRAMEFORMAT_I420;
-  else if (format == media::VideoFrame::EMPTY)
-    return PP_DECRYPTEDFRAMEFORMAT_EMPTY;
+  switch (format) {
+    case media::VideoFrame::YV12:
+      return PP_DECRYPTEDFRAMEFORMAT_YV12;
+    case media::VideoFrame::I420:
+      return PP_DECRYPTEDFRAMEFORMAT_I420;
+    default:
+      return PP_DECRYPTEDFRAMEFORMAT_UNKNOWN;
+  }
+}
 
-  return PP_DECRYPTEDFRAMEFORMAT_UNKNOWN;
+media::Decryptor::Status PpDecryptResultToMediaDecryptorStatus(
+    PP_DecryptResult result) {
+  switch (result) {
+    case PP_DECRYPTRESULT_SUCCESS:
+      return media::Decryptor::kSuccess;
+    case PP_DECRYPTRESULT_DECRYPT_NOKEY:
+      return media::Decryptor::kNoKey;
+    case PP_DECRYPTRESULT_NEEDMOREDATA:
+      return media::Decryptor::kNeedMoreData;
+    case PP_DECRYPTRESULT_DECRYPT_ERROR:
+      return media::Decryptor::kError;
+    case PP_DECRYPTRESULT_DECODE_ERROR:
+      return media::Decryptor::kError;
+    default:
+      NOTREACHED();
+      return media::Decryptor::kError;
+  }
+}
+
+PP_DecryptorStreamType MediaDecryptorStreamTypeToPpStreamType(
+    media::Decryptor::StreamType stream_type) {
+  switch (stream_type) {
+    case media::Decryptor::kAudio:
+      return PP_DECRYPTORSTREAMTYPE_AUDIO;
+    case media::Decryptor::kVideo:
+      return PP_DECRYPTORSTREAMTYPE_VIDEO;
+    default:
+      NOTREACHED();
+      return PP_DECRYPTORSTREAMTYPE_VIDEO;
+  }
 }
 
 }  // namespace
@@ -500,8 +606,11 @@ PluginInstance::PluginInstance(
       flash_impl_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       decryptor_client_(NULL),
       next_decryption_request_id_(1),
+      pending_audio_decrypt_request_id_(0),
+      pending_video_decrypt_request_id_(0),
       pending_audio_decoder_init_request_id_(0),
       pending_video_decoder_init_request_id_(0),
+      pending_audio_decode_request_id_(0),
       pending_video_decode_request_id_(0) {
   pp_instance_ = HostGlobals::Get()->AddInstance(this);
 
@@ -1065,11 +1174,12 @@ bool PluginInstance::GetBitmapForOptimizedPluginPaint(
   gfx::Rect pixel_plugin_backing_store_rect(
       0, 0, image_data->width(), image_data->height());
   float scale = GetBoundGraphics2D()->GetScale();
-  gfx::Rect plugin_backing_store_rect =
-    gfx::ToEnclosedRect(pixel_plugin_backing_store_rect.Scale(scale));
+  gfx::Rect plugin_backing_store_rect = gfx::ToEnclosedRect(
+      gfx::ScaleRect(pixel_plugin_backing_store_rect, scale));
 
   gfx::Rect clip_page = PP_ToGfxRect(view_data_.clip_rect);
-  gfx::Rect plugin_paint_rect = plugin_backing_store_rect.Intersect(clip_page);
+  gfx::Rect plugin_paint_rect =
+      gfx::IntersectRects(plugin_backing_store_rect, clip_page);
   if (!plugin_paint_rect.Contains(relative_paint_bounds))
     return false;
 
@@ -1508,11 +1618,11 @@ void PluginInstance::RotateView(WebPlugin::RotationType type) {
 
 void PluginInstance::set_decrypt_client(
     media::DecryptorClient* decryptor_client) {
-  DCHECK(decryptor_client);
   decryptor_client_ = decryptor_client;
 }
 
 bool PluginInstance::GenerateKeyRequest(const std::string& key_system,
+                                        const std::string& type,
                                         const std::string& init_data) {
   if (!LoadContentDecryptorInterface())
     return false;
@@ -1526,6 +1636,7 @@ bool PluginInstance::GenerateKeyRequest(const std::string& key_system,
   plugin_decryption_interface_->GenerateKeyRequest(
       pp_instance(),
       StringVar::StringToPPVar(key_system),
+      StringVar::StringToPPVar(type),
       init_data_array);
   return true;
 }
@@ -1560,10 +1671,13 @@ bool PluginInstance::CancelKeyRequest(const std::string& session_id) {
   return true;
 }
 
+// TODO(xhwang): Remove duplication of code in Decrypt(),
+// DecryptAndDecodeAudio() and DecryptAndDecodeVideo().
 bool PluginInstance::Decrypt(
+    media::Decryptor::StreamType stream_type,
     const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
     const media::Decryptor::DecryptCB& decrypt_cb) {
-  DVLOG(3) << "Decrypt()";
+  DVLOG(3) << "Decrypt() - stream_type: " << stream_type;
   if (!LoadContentDecryptorInterface())
     return false;
 
@@ -1587,8 +1701,25 @@ bool PluginInstance::Decrypt(
     return false;
   }
 
-  DCHECK(!ContainsKey(pending_decryption_cbs_, request_id));
-  pending_decryption_cbs_.insert(std::make_pair(request_id, decrypt_cb));
+  // There is only one pending decrypt request at any time per stream. This is
+  // enforced by the media pipeline.
+  switch (stream_type) {
+    case media::Decryptor::kAudio:
+      DCHECK_EQ(pending_audio_decrypt_request_id_, 0u);
+      DCHECK(pending_audio_decrypt_cb_.is_null());
+      pending_audio_decrypt_request_id_ = request_id;
+      pending_audio_decrypt_cb_ = decrypt_cb;
+      break;
+    case media::Decryptor::kVideo:
+      DCHECK_EQ(pending_video_decrypt_request_id_, 0u);
+      DCHECK(pending_video_decrypt_cb_.is_null());
+      pending_video_decrypt_request_id_ = request_id;
+      pending_video_decrypt_cb_ = decrypt_cb;
+      break;
+    default:
+      NOTREACHED();
+      return false;
+  }
 
   plugin_decryption_interface_->Decrypt(pp_instance(),
                                         encrypted_resource,
@@ -1596,10 +1727,36 @@ bool PluginInstance::Decrypt(
   return true;
 }
 
+bool PluginInstance::CancelDecrypt(media::Decryptor::StreamType stream_type) {
+  DVLOG(3) << "CancelDecrypt() - stream_type: " << stream_type;
+
+  media::Decryptor::DecryptCB decrypt_cb;
+  switch (stream_type) {
+    case media::Decryptor::kAudio:
+      pending_audio_decrypt_request_id_ = 0;
+      decrypt_cb = base::ResetAndReturn(&pending_audio_decrypt_cb_);
+      break;
+    case media::Decryptor::kVideo:
+      pending_video_decrypt_request_id_ = 0;
+      decrypt_cb = base::ResetAndReturn(&pending_video_decrypt_cb_);
+      break;
+    default:
+      NOTREACHED();
+      return false;
+  }
+
+  if (!decrypt_cb.is_null())
+    decrypt_cb.Run(media::Decryptor::kSuccess, NULL);
+
+  return true;
+}
+
 bool PluginInstance::InitializeAudioDecoder(
     const media::AudioDecoderConfig& decoder_config,
     const media::Decryptor::DecoderInitCB& init_cb) {
   PP_AudioDecoderConfig pp_decoder_config;
+  pp_decoder_config.codec =
+      MediaAudioCodecToPpAudioCodec(decoder_config.codec());
   pp_decoder_config.channel_count =
       media::ChannelLayoutToChannelCount(decoder_config.channel_layout());
   pp_decoder_config.bits_per_channel = decoder_config.bits_per_channel();
@@ -1654,32 +1811,96 @@ bool PluginInstance::InitializeVideoDecoder(
   return true;
 }
 
-bool PluginInstance::DeinitializeDecoder() {
+// TODO(xhwang): Try to remove duplicate logic here and in CancelDecrypt().
+void PluginInstance::CancelDecode(media::Decryptor::StreamType stream_type) {
+  switch (stream_type) {
+    case media::Decryptor::kAudio:
+      pending_audio_decode_request_id_ = 0;
+      if (!pending_audio_decode_cb_.is_null())
+        base::ResetAndReturn(&pending_audio_decode_cb_).Run(
+            media::Decryptor::kSuccess, media::Decryptor::AudioBuffers());
+      break;
+    case media::Decryptor::kVideo:
+      pending_video_decode_request_id_ = 0;
+      if (!pending_video_decode_cb_.is_null())
+        base::ResetAndReturn(&pending_video_decode_cb_).Run(
+            media::Decryptor::kSuccess, NULL);
+      break;
+    default:
+      NOTREACHED();
+  }
+}
+
+bool PluginInstance::DeinitializeDecoder(
+    media::Decryptor::StreamType stream_type) {
   if (!LoadContentDecryptorInterface())
     return false;
+
+  CancelDecode(stream_type);
 
   // TODO(tomfinegan): Add decoder deinitialize request tracking, and get
   // stream type from media stack.
   plugin_decryption_interface_->DeinitializeDecoder(
-      pp_instance(),
-      PP_DECRYPTORSTREAMTYPE_VIDEO,
-      0);
+      pp_instance(), MediaDecryptorStreamTypeToPpStreamType(stream_type), 0);
   return true;
 }
 
-bool PluginInstance::ResetDecoder() {
+bool PluginInstance::ResetDecoder(media::Decryptor::StreamType stream_type) {
   if (!LoadContentDecryptorInterface())
     return false;
 
-  // TODO(tomfinegan): Add decoder reset request tracking, and get
-  // stream type from media stack.
-  plugin_decryption_interface_->ResetDecoder(pp_instance(),
-                                             PP_DECRYPTORSTREAMTYPE_VIDEO,
-                                             0);
+  CancelDecode(stream_type);
+
+  // TODO(tomfinegan): Add decoder reset request tracking.
+  plugin_decryption_interface_->ResetDecoder(
+      pp_instance(), MediaDecryptorStreamTypeToPpStreamType(stream_type), 0);
   return true;
 }
 
-bool PluginInstance::DecryptAndDecode(
+bool PluginInstance::DecryptAndDecodeAudio(
+    const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
+    const media::Decryptor::AudioDecodeCB& audio_decode_cb) {
+  if (!LoadContentDecryptorInterface())
+    return false;
+
+  // If |encrypted_buffer| is end-of-stream buffer, GetData() and GetDataSize()
+  // return NULL and 0 respectively. In that case, we'll just create a 0
+  // resource.
+  ScopedPPResource encrypted_resource(
+      ScopedPPResource::PassRef(),
+      MakeBufferResource(pp_instance(),
+                         encrypted_buffer->GetData(),
+                         encrypted_buffer->GetDataSize()));
+  if (!encrypted_buffer->IsEndOfStream() && !encrypted_resource.get())
+    return false;
+
+  const uint32_t request_id = next_decryption_request_id_++;
+  DVLOG(2) << "DecryptAndDecodeAudio() - request_id " << request_id;
+
+  PP_EncryptedBlockInfo block_info;
+  if (!MakeEncryptedBlockInfo(
+      encrypted_buffer->GetDecryptConfig(),
+      encrypted_buffer->GetTimestamp().InMicroseconds(),
+      request_id,
+      &block_info)) {
+    return false;
+  }
+
+  // There is only one pending audio decode request at any time. This is
+  // enforced by the media pipeline.
+  DCHECK_EQ(pending_audio_decode_request_id_, 0u);
+  DCHECK(pending_audio_decode_cb_.is_null());
+  pending_audio_decode_request_id_ = request_id;
+  pending_audio_decode_cb_ = audio_decode_cb;
+
+  plugin_decryption_interface_->DecryptAndDecode(pp_instance(),
+                                                 PP_DECRYPTORSTREAMTYPE_AUDIO,
+                                                 encrypted_resource,
+                                                 &block_info);
+  return true;
+}
+
+bool PluginInstance::DecryptAndDecodeVideo(
     const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
     const media::Decryptor::VideoDecodeCB& video_decode_cb) {
   if (!LoadContentDecryptorInterface())
@@ -1697,7 +1918,7 @@ bool PluginInstance::DecryptAndDecode(
     return false;
 
   const uint32_t request_id = next_decryption_request_id_++;
-  DVLOG(2) << "DecryptAndDecode() - request_id " << request_id;
+  DVLOG(2) << "DecryptAndDecodeVideo() - request_id " << request_id;
 
   PP_EncryptedBlockInfo block_info;
   if (!MakeEncryptedBlockInfo(
@@ -2348,6 +2569,9 @@ void PluginInstance::NeedKey(PP_Instance instance,
 void PluginInstance::KeyAdded(PP_Instance instance,
                               PP_Var key_system_var,
                               PP_Var session_id_var) {
+  if (!decryptor_client_)
+    return;
+
   StringVar* key_system_string = StringVar::FromPPVar(key_system_var);
   StringVar* session_id_string = StringVar::FromPPVar(session_id_var);
   if (!key_system_string || !session_id_string) {
@@ -2355,7 +2579,6 @@ void PluginInstance::KeyAdded(PP_Instance instance,
     return;
   }
 
-  DCHECK(decryptor_client_);
   decryptor_client_->KeyAdded(key_system_string->value(),
                               session_id_string->value());
 }
@@ -2365,6 +2588,9 @@ void PluginInstance::KeyMessage(PP_Instance instance,
                                 PP_Var session_id_var,
                                 PP_Resource message_resource,
                                 PP_Var default_url_var) {
+  if (!decryptor_client_)
+    return;
+
   StringVar* key_system_string = StringVar::FromPPVar(key_system_var);
   StringVar* session_id_string = StringVar::FromPPVar(session_id_var);
   StringVar* default_url_string = StringVar::FromPPVar(default_url_var);
@@ -2388,7 +2614,6 @@ void PluginInstance::KeyMessage(PP_Instance instance,
   if (mapper.data() && mapper.size())
     memcpy(message_array.get(), mapper.data(), mapper.size());
 
-  DCHECK(decryptor_client_);
   decryptor_client_->KeyMessage(key_system_string->value(),
                                 session_id_string->value(),
                                 message_array.Pass(),
@@ -2401,6 +2626,9 @@ void PluginInstance::KeyError(PP_Instance instance,
                               PP_Var session_id_var,
                               int32_t media_error,
                               int32_t system_code) {
+  if (!decryptor_client_)
+    return;
+
   StringVar* key_system_string = StringVar::FromPPVar(key_system_var);
   StringVar* session_id_string = StringVar::FromPPVar(session_id_var);
   if (!key_system_string || !session_id_string) {
@@ -2408,7 +2636,6 @@ void PluginInstance::KeyError(PP_Instance instance,
     return;
   }
 
-  DCHECK(decryptor_client_);
   decryptor_client_->KeyError(
       key_system_string->value(),
       session_id_string->value(),
@@ -2459,23 +2686,34 @@ void PluginInstance::DecoderResetDone(PP_Instance instance,
 void PluginInstance::DeliverBlock(PP_Instance instance,
                                   PP_Resource decrypted_block,
                                   const PP_DecryptedBlockInfo* block_info) {
-  DVLOG(2) << "DeliverBlock() - request_id: "
-           << block_info->tracking_info.request_id;
   DCHECK(block_info);
-  DecryptionCBMap::iterator found = pending_decryption_cbs_.find(
-      block_info->tracking_info.request_id);
-  if (found == pending_decryption_cbs_.end())
-    return;
-  media::Decryptor::DecryptCB decrypt_cb = found->second;
-  pending_decryption_cbs_.erase(found);
+  const uint32_t request_id = block_info->tracking_info.request_id;
+  DVLOG(2) << "DeliverBlock() - request_id: " << request_id;
 
-  if (block_info->result == PP_DECRYPTRESULT_DECRYPT_NOKEY) {
-    decrypt_cb.Run(media::Decryptor::kNoKey, NULL);
+  // If the request ID is not valid or does not match what's saved, do nothing.
+  if (request_id == 0) {
+    DVLOG(1) << "DeliverBlock() - invalid request_id " << request_id;
     return;
   }
 
-  if (block_info->result != PP_DECRYPTRESULT_SUCCESS) {
-    decrypt_cb.Run(media::Decryptor::kError, NULL);
+  media::Decryptor::DecryptCB decrypt_cb;
+  if (request_id == pending_audio_decrypt_request_id_) {
+    DCHECK(!pending_audio_decrypt_cb_.is_null());
+    pending_audio_decrypt_request_id_ = 0;
+    decrypt_cb = base::ResetAndReturn(&pending_audio_decrypt_cb_);
+  } else if (request_id == pending_video_decrypt_request_id_) {
+    DCHECK(!pending_video_decrypt_cb_.is_null());
+    pending_video_decrypt_request_id_ = 0;
+    decrypt_cb = base::ResetAndReturn(&pending_video_decrypt_cb_);
+  } else {
+    DVLOG(1) << "DeliverBlock() - request_id " << request_id << " not found";
+    return;
+  }
+
+  media::Decryptor::Status status =
+      PpDecryptResultToMediaDecryptorStatus(block_info->result);
+  if (status != media::Decryptor::kSuccess) {
+    decrypt_cb.Run(status, NULL);
     return;
   }
 
@@ -2503,15 +2741,13 @@ void PluginInstance::DeliverBlock(PP_Instance instance,
 void PluginInstance::DeliverFrame(PP_Instance instance,
                                   PP_Resource decrypted_frame,
                                   const PP_DecryptedFrameInfo* frame_info) {
-  DVLOG(2) << "DeliverFrame() - request_id: "
-           << frame_info->tracking_info.request_id;
   DCHECK(frame_info);
+  const uint32_t request_id = frame_info->tracking_info.request_id;
+  DVLOG(2) << "DeliverFrame() - request_id: " << request_id;
 
   // If the request ID is not valid or does not match what's saved, do nothing.
-  if (frame_info->tracking_info.request_id == 0 ||
-      frame_info->tracking_info.request_id !=
-          pending_video_decode_request_id_) {
-    DCHECK(pending_video_decode_cb_.is_null());
+  if (request_id == 0 || request_id != pending_video_decode_request_id_) {
+    DVLOG(1) << "DeliverFrame() - request_id " << request_id << " not found";
     return;
   }
 
@@ -2520,19 +2756,10 @@ void PluginInstance::DeliverFrame(PP_Instance instance,
   media::Decryptor::VideoDecodeCB video_decode_cb =
       base::ResetAndReturn(&pending_video_decode_cb_);
 
-  if (frame_info->result == PP_DECRYPTRESULT_DECRYPT_NOKEY) {
-    video_decode_cb.Run(media::Decryptor::kNoKey, NULL);
-    return;
-  }
-
-  if (frame_info->result != PP_DECRYPTRESULT_SUCCESS) {
-    video_decode_cb.Run(media::Decryptor::kError, NULL);
-    return;
-  }
-
-  if (frame_info->format == PP_DECRYPTEDFRAMEFORMAT_EMPTY) {
-    video_decode_cb.Run(media::Decryptor::kSuccess,
-                        media::VideoFrame::CreateEmptyFrame());
+  media::Decryptor::Status status =
+      PpDecryptResultToMediaDecryptorStatus(frame_info->result);
+  if (status != media::Decryptor::kSuccess) {
+    video_decode_cb.Run(status, NULL);
     return;
   }
 
@@ -2585,10 +2812,38 @@ void PluginInstance::DeliverFrame(PP_Instance instance,
 void PluginInstance::DeliverSamples(PP_Instance instance,
                                     PP_Resource audio_frames,
                                     const PP_DecryptedBlockInfo* block_info) {
-  DVLOG(2) << "DeliverSamples() - request_id: "
-           << block_info->tracking_info.request_id;
-  // TODO(tomfinegan): To be implemented after completion of v0.1 of the
-  // EME/CDM work.
+  DCHECK(block_info);
+  const uint32_t request_id = block_info->tracking_info.request_id;
+  DVLOG(2) << "DeliverSamples() - request_id: " << request_id;
+
+  // If the request ID is not valid or does not match what's saved, do nothing.
+  if (request_id == 0 || request_id != pending_audio_decode_request_id_) {
+    DVLOG(1) << "DeliverSamples() - request_id " << request_id << " not found";
+    return;
+  }
+
+  DCHECK(!pending_audio_decode_cb_.is_null());
+  pending_audio_decode_request_id_ = 0;
+  media::Decryptor::AudioDecodeCB audio_decode_cb =
+      base::ResetAndReturn(&pending_audio_decode_cb_);
+
+  const media::Decryptor::AudioBuffers empty_frames;
+
+  media::Decryptor::Status status =
+      PpDecryptResultToMediaDecryptorStatus(block_info->result);
+  if (status != media::Decryptor::kSuccess) {
+    audio_decode_cb.Run(status, empty_frames);
+    return;
+  }
+
+  media::Decryptor::AudioBuffers audio_frame_list;
+  if (!DeserializeAudioFrames(audio_frames, &audio_frame_list)) {
+    NOTREACHED() << "CDM did not serialize the buffer correctly.";
+    audio_decode_cb.Run(media::Decryptor::kError, empty_frames);
+    return;
+  }
+
+  audio_decode_cb.Run(media::Decryptor::kSuccess, audio_frame_list);
 }
 
 void PluginInstance::NumberOfFindResultsChanged(PP_Instance instance,

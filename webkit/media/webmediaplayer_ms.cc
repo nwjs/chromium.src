@@ -19,6 +19,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebSize.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURL.h"
+#include "webkit/media/media_stream_audio_renderer.h"
 #include "webkit/media/media_stream_client.h"
 #include "webkit/media/video_frame_provider.h"
 #include "webkit/media/webmediaplayer_delegate.h"
@@ -45,10 +46,10 @@ WebMediaPlayerMS::WebMediaPlayerMS(
       client_(client),
       delegate_(delegate),
       media_stream_client_(media_stream_client),
-      video_frame_provider_started_(false),
       paused_(true),
       pending_repaint_(false),
-      got_first_frame_(false),
+      received_first_frame_(false),
+      sequence_started_(false),
       total_frame_count_(0),
       dropped_frame_count_(0),
       media_log_(media_log) {
@@ -63,6 +64,10 @@ WebMediaPlayerMS::~WebMediaPlayerMS() {
   DCHECK(thread_checker_.CalledOnValidThread());
   if (video_frame_provider_) {
     video_frame_provider_->Stop();
+  }
+
+  if (audio_renderer_) {
+    audio_renderer_->Stop();
   }
 
   media_log_->AddEvent(
@@ -88,13 +93,14 @@ void WebMediaPlayerMS::load(const WebKit::WebURL& url, CORSMode cors_mode) {
       url,
       base::Bind(&WebMediaPlayerMS::OnSourceError, AsWeakPtr()),
       base::Bind(&WebMediaPlayerMS::OnFrameAvailable, AsWeakPtr()));
-  if (video_frame_provider_) {
+
+  audio_renderer_ = media_stream_client_->GetAudioRenderer(url);
+
+  if (video_frame_provider_ || audio_renderer_) {
     SetNetworkState(WebMediaPlayer::NetworkStateLoaded);
     GetClient()->sourceOpened();
     GetClient()->setOpaque(true);
-    SetReadyState(WebMediaPlayer::ReadyStateHaveMetadata);
-    SetReadyState(WebMediaPlayer::ReadyStateHaveEnoughData);
-    RepaintInternal();
+    video_frame_provider_->Start();
   } else {
     SetNetworkState(WebMediaPlayer::NetworkStateNetworkError);
   }
@@ -108,16 +114,13 @@ void WebMediaPlayerMS::play() {
   DVLOG(1) << "WebMediaPlayerMS::play";
   DCHECK(thread_checker_.CalledOnValidThread());
 
+  if (video_frame_provider_ && paused_)
+    video_frame_provider_->Play();
+
+  if (audio_renderer_ && paused_)
+    audio_renderer_->Play();
+
   paused_ = false;
-  if (video_frame_provider_) {
-    if (video_frame_provider_started_) {
-      video_frame_provider_->Play();
-    } else {
-      video_frame_provider_started_ = true;
-      video_frame_provider_->Start();
-    }
-  }
-  // TODO(wjia): add audio. See crbug.com/142988.
 
   media_log_->AddEvent(media_log_->CreateEvent(media::MediaLogEvent::PLAY));
 
@@ -131,7 +134,10 @@ void WebMediaPlayerMS::pause() {
 
   if (video_frame_provider_)
     video_frame_provider_->Pause();
-  // TODO(wjia): add audio. See crbug.com/142988.
+
+  if (audio_renderer_)
+    audio_renderer_->Pause();
+
   paused_ = true;
 
   media_log_->AddEvent(media_log_->CreateEvent(media::MediaLogEvent::PAUSE));
@@ -164,8 +170,8 @@ void WebMediaPlayerMS::setRate(float rate) {
 
 void WebMediaPlayerMS::setVolume(float volume) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  // TODO(wjia): set audio volume. See crbug.com/142988.
-  NOTIMPLEMENTED();
+  if (audio_renderer_)
+    audio_renderer_->SetVolume(volume);
 }
 
 void WebMediaPlayerMS::setVisible(bool visible) {
@@ -188,8 +194,7 @@ bool WebMediaPlayerMS::hasVideo() const {
 
 bool WebMediaPlayerMS::hasAudio() const {
   DCHECK(thread_checker_.CalledOnValidThread());
-  // TODO(wjia): add audio support. See crbug.com/142988.
-  return false;
+  return (audio_renderer_ != NULL);
 }
 
 WebKit::WebSize WebMediaPlayerMS::naturalSize() const {
@@ -198,7 +203,7 @@ WebKit::WebSize WebMediaPlayerMS::naturalSize() const {
   gfx::Size size;
   if (current_frame_)
     size = current_frame_->natural_size();
-  DVLOG(1) << "WebMediaPlayerMS::naturalSize, " << size.ToString();
+  DVLOG(3) << "WebMediaPlayerMS::naturalSize, " << size.ToString();
   return WebKit::WebSize(size);
 }
 
@@ -273,7 +278,8 @@ void WebMediaPlayerMS::paint(WebCanvas* canvas,
   DVLOG(3) << "WebMediaPlayerMS::paint";
   DCHECK(thread_checker_.CalledOnValidThread());
 
-  video_renderer_.Paint(current_frame_, canvas, rect, alpha);
+  gfx::RectF dest_rect(rect.x, rect.y, rect.width, rect.height);
+  video_renderer_.Paint(current_frame_, canvas, dest_rect, alpha);
 }
 
 bool WebMediaPlayerMS::hasSingleSecurityOrigin() const {
@@ -346,8 +352,20 @@ void WebMediaPlayerMS::OnFrameAvailable(
   DVLOG(3) << "WebMediaPlayerMS::OnFrameAvailable";
   DCHECK(thread_checker_.CalledOnValidThread());
   ++total_frame_count_;
-  if (!got_first_frame_) {
-    got_first_frame_ = true;
+  if (!received_first_frame_) {
+    received_first_frame_ = true;
+    current_frame_ = media::VideoFrame::CreateBlackFrame(frame->natural_size());
+    SetReadyState(WebMediaPlayer::ReadyStateHaveMetadata);
+    SetReadyState(WebMediaPlayer::ReadyStateHaveEnoughData);
+    GetClient()->sizeChanged();
+  }
+
+  // Do not update |current_frame_| when paused.
+  if (paused_)
+    return;
+
+  if (!sequence_started_) {
+    sequence_started_ = true;
     start_time_ = frame->GetTimestamp();
   }
   bool size_changed = !current_frame_ ||

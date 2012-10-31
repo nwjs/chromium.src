@@ -151,7 +151,7 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
                            public NetworkLibrary::NetworkManagerObserver,
                            public NetworkLibrary::NetworkObserver,
                            public NetworkLibrary::CellularDataPlanObserver,
-                           public drive::DriveServiceObserver,
+                           public google_apis::DriveServiceObserver,
                            public content::NotificationObserver,
                            public input_method::InputMethodManager::Observer,
                            public system::TimezoneSettings::Observer,
@@ -474,6 +474,20 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     info->tray_icon_visible = icon->ShouldShowIconInTray();
   }
 
+  virtual void GetVirtualNetworkIcon(ash::NetworkIconInfo* info) OVERRIDE{
+    NetworkLibrary* crosnet = CrosLibrary::Get()->GetNetworkLibrary();
+    if (crosnet->virtual_network_connected()) {
+      NetworkMenuIcon* icon = network_icon_dark_.get();
+      info->image = icon->GetVpnIconAndText(&info->description);
+      info->tray_icon_visible = false;
+    } else {
+      gfx::ImageSkia* image = NetworkMenuIcon::GetVirtualNetworkImage();
+      info->image = *image;
+      info->description = l10n_util::GetStringUTF16(
+          IDS_ASH_STATUS_TRAY_VPN_DISCONNECTED);
+    }
+  }
+
   virtual void GetAvailableNetworks(
       std::vector<ash::NetworkIconInfo>* list) OVERRIDE {
     NetworkLibrary* crosnet = CrosLibrary::Get()->GetNetworkLibrary();
@@ -481,17 +495,9 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     std::set<const Network*> added;
 
     // Add the active network first.
-
-    if (crosnet->active_network()) {
+    if (crosnet->active_network())
       AddNetworkToList(list, &added, crosnet->active_network());
-    }
 
-    // Add connected/connecting network(s) second, by type.
-
-    if (crosnet->virtual_network()
-        && crosnet->virtual_network()->connecting_or_connected()) {
-      AddNetworkToList(list, &added, crosnet->virtual_network());
-    }
     if (crosnet->ethernet_network() &&
         crosnet->ethernet_network()->connecting_or_connected()) {
       AddNetworkToList(list, &added, crosnet->ethernet_network());
@@ -518,15 +524,6 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
         AddNetworkToList(list, &added, ethernet_network);
     }
 
-    // VPN (only if logged in).
-    if (GetUserLoginStatus() != ash::user::LOGGED_IN_NONE &&
-        (crosnet->connected_network() ||
-         crosnet->virtual_network_connected())) {
-      const VirtualNetworkVector& vpns = crosnet->virtual_networks();
-      for (size_t i = 0; i < vpns.size(); ++i)
-        AddNetworkToList(list, &added, vpns[i]);
-    }
-
     // Cellular.
     if (crosnet->cellular_available() && crosnet->cellular_enabled()) {
       const CellularNetworkVector& cell = crosnet->cellular_networks();
@@ -546,6 +543,27 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
       const WifiNetworkVector& wifi = crosnet->wifi_networks();
       for (size_t i = 0; i < wifi.size(); ++i)
         AddNetworkToList(list, &added, wifi[i]);
+    }
+  }
+
+  virtual void GetVirtualNetworks(
+      std::vector<ash::NetworkIconInfo>* list) OVERRIDE {
+    NetworkLibrary* crosnet = CrosLibrary::Get()->GetNetworkLibrary();
+    std::set<const Network*> added;
+
+    // Add connected/connecting vpn first.
+    if (crosnet->virtual_network()
+        && crosnet->virtual_network()->connecting_or_connected()) {
+      AddNetworkToList(list, &added, crosnet->virtual_network());
+    }
+
+    // VPN (only if logged in).
+    if (GetUserLoginStatus() != ash::user::LOGGED_IN_NONE &&
+        (crosnet->connected_network() ||
+         crosnet->virtual_network_connected())) {
+      const VirtualNetworkVector& vpns = crosnet->virtual_networks();
+      for (size_t i = 0; i < vpns.size(); ++i)
+        AddNetworkToList(list, &added, vpns[i]);
     }
   }
 
@@ -615,6 +633,10 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
 
   virtual void ShowOtherWifi() OVERRIDE {
     network_menu_->ShowOtherWifi();
+  }
+
+  virtual void ShowOtherVPN() OVERRIDE {
+    network_menu_->ShowOtherVPN();
   }
 
   virtual void ShowOtherCellular() OVERRIDE {
@@ -716,10 +738,10 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     pref_registrar_.reset(new PrefChangeRegistrar);
     pref_registrar_->Init(profile->GetPrefs());
     pref_registrar_->Add(prefs::kUse24HourClock, this);
-    pref_registrar_->Add(prefs::kLanguageXkbRemapSearchKeyTo, this);
+    pref_registrar_->Add(prefs::kLanguageRemapSearchKeyTo, this);
     UpdateClockType(profile->GetPrefs());
     search_key_mapped_to_ =
-        profile->GetPrefs()->GetInteger(prefs::kLanguageXkbRemapSearchKeyTo);
+        profile->GetPrefs()->GetInteger(prefs::kLanguageRemapSearchKeyTo);
   }
 
   void ObserveGDataUpdates() {
@@ -753,6 +775,14 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
       info.image = network_icon_->GetIconAndText(&info.description);
       info.tray_icon_visible = network_icon_->ShouldShowIconInTray();
       observer->OnNetworkRefresh(info);
+    }
+
+    ash::NetworkObserver* vpn_observer = tray_->vpn_observer();
+    if (vpn_observer) {
+      ash::NetworkIconInfo info;
+      info.image = network_icon_->GetIconAndText(&info.description);
+      info.tray_icon_visible = network_icon_->ShouldShowIconInTray();
+      vpn_observer->OnNetworkRefresh(info);
     }
 
     // Update Accessibility.
@@ -1063,9 +1093,9 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
         PrefService* service = content::Source<PrefService>(source).ptr();
         if (pref == prefs::kUse24HourClock) {
           UpdateClockType(service);
-        } else if (pref == prefs::kLanguageXkbRemapSearchKeyTo) {
+        } else if (pref == prefs::kLanguageRemapSearchKeyTo) {
           search_key_mapped_to_ =
-              service->GetInteger(prefs::kLanguageXkbRemapSearchKeyTo);
+              service->GetInteger(prefs::kLanguageRemapSearchKeyTo);
         } else if (pref == prefs::kSpokenFeedbackEnabled) {
           ash::AccessibilityObserver* observer =
               tray_->accessibility_observer();

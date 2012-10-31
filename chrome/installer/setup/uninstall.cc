@@ -281,27 +281,29 @@ void DeleteChromeShortcuts(const InstallerState& installer_state,
 
   VLOG(1) << "Deleting Desktop shortcut.";
   if (!ShellUtil::RemoveChromeShortcut(
-          ShellUtil::SHORTCUT_DESKTOP, dist, install_level, NULL)) {
+          ShellUtil::SHORTCUT_DESKTOP, dist, chrome_exe, install_level, NULL)) {
     LOG(WARNING) << "Failed to delete Desktop shortcut.";
   }
   // Also try to delete the alternate desktop shortcut. It is not sufficient
   // to do so upon failure of the above call as ERROR_FILE_NOT_FOUND on
   // delete is considered success.
   if (!ShellUtil::RemoveChromeShortcut(
-          ShellUtil::SHORTCUT_DESKTOP, dist, install_level,
+          ShellUtil::SHORTCUT_DESKTOP, dist, chrome_exe, install_level,
           &dist->GetAlternateApplicationName())) {
     LOG(WARNING) << "Failed to delete alternate Desktop shortcut.";
   }
 
   VLOG(1) << "Deleting Quick Launch shortcut.";
   if (!ShellUtil::RemoveChromeShortcut(
-          ShellUtil::SHORTCUT_QUICK_LAUNCH, dist, install_level, NULL)) {
+          ShellUtil::SHORTCUT_QUICK_LAUNCH, dist, chrome_exe, install_level,
+          NULL)) {
     LOG(WARNING) << "Failed to delete Quick Launch shortcut.";
   }
 
   VLOG(1) << "Deleting Start Menu shortcuts.";
   if (!ShellUtil::RemoveChromeShortcut(
-          ShellUtil::SHORTCUT_START_MENU, dist, install_level, NULL)) {
+          ShellUtil::SHORTCUT_START_MENU, dist, chrome_exe, install_level,
+          NULL)) {
     LOG(WARNING) << "Failed to delete Start Menu shortcuts.";
   }
 
@@ -873,7 +875,8 @@ void UninstallActiveSetupEntries(const InstallerState& installer_state,
     return;
   }
 
-  const string16 active_setup_path(GetActiveSetupPath(distribution));
+  const string16 active_setup_path(
+      InstallUtil::GetActiveSetupPath(distribution));
   InstallUtil::DeleteRegistryKey(HKEY_LOCAL_MACHINE, active_setup_path);
 
   // Windows leaves keys behind in HKCU\\Software\\(Wow6432Node\\)?Microsoft\\
@@ -1148,11 +1151,7 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
 
     ProcessOnOsUpgradeWorkItems(installer_state, product);
 
-// TODO(gab): This is only disabled for M22 as the shortcut CL using Active
-// Setup will not make it in M22.
-#if 0
     UninstallActiveSetupEntries(installer_state, product);
-#endif
 
     // Notify the shell that associations have changed since Chrome was likely
     // unregistered.

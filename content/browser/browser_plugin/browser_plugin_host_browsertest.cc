@@ -33,6 +33,7 @@ using WebKit::WebMouseEvent;
 using content::BrowserPluginEmbedder;
 using content::BrowserPluginGuest;
 using content::BrowserPluginHostFactory;
+using content::WebContentsImpl;
 
 namespace {
 
@@ -89,10 +90,14 @@ class TestBrowserPluginHostFactory : public BrowserPluginHostFactory {
   virtual BrowserPluginGuest* CreateBrowserPluginGuest(
       int instance_id,
       WebContentsImpl* web_contents,
-      RenderViewHost* render_view_host) OVERRIDE {
+      RenderViewHost* render_view_host,
+      bool focused,
+      bool visible) OVERRIDE {
     return new TestBrowserPluginGuest(instance_id,
                                       web_contents,
-                                      render_view_host);
+                                      render_view_host,
+                                      focused,
+                                      visible);
   }
 
   // Also keeps track of number of instances created.
@@ -143,10 +148,14 @@ class TestShortHangTimeoutGuestFactory : public TestBrowserPluginHostFactory {
   virtual BrowserPluginGuest* CreateBrowserPluginGuest(
       int instance_id,
       WebContentsImpl* web_contents,
-      RenderViewHost* render_view_host) OVERRIDE {
+      RenderViewHost* render_view_host,
+      bool focused,
+      bool visible) OVERRIDE {
     BrowserPluginGuest* guest = new TestBrowserPluginGuest(instance_id,
                                                          web_contents,
-                                                         render_view_host);
+                                                         render_view_host,
+                                                         focused,
+                                                         visible);
     guest->set_guest_hang_timeout_for_testing(TestTimeouts::tiny_timeout());
     return guest;
   }
@@ -236,6 +245,15 @@ class BrowserPluginHostTest : public ContentBrowserTest {
     command_line->AppendSwitch(switches::kEnableBrowserPluginForAllViewTypes);
   }
 
+  static void SimulateSpaceKeyPress(WebContents* web_contents) {
+    SimulateKeyPress(web_contents,
+                     ui::VKEY_SPACE,
+                     false,   // control.
+                     false,   // shift.
+                     false,   // alt.
+                     false);  // command.
+  }
+
   static void SimulateTabKeyPress(WebContents* web_contents) {
     SimulateKeyPress(web_contents,
                      ui::VKEY_TAB,
@@ -256,8 +274,7 @@ class BrowserPluginHostTest : public ContentBrowserTest {
   // 1. Start the test server and navigate the shell to |embedder_url|.
   // 2. Execute custom pre-navigation |embedder_code| if provided.
   // 3. Navigate the guest to the |guest_url|.
-  // 4. Verify that the guest has been created and has begun painting
-  // pixels.
+  // 4. Verify that the guest has been created and has completed loading.
   void StartBrowserPluginTest(const std::string& embedder_url,
                               const std::string& guest_url,
                               bool is_guest_data_url,
@@ -302,7 +319,7 @@ class BrowserPluginHostTest : public ContentBrowserTest {
         instance_map.begin()->second);
     test_guest_ = static_cast<TestBrowserPluginGuest*>(
         test_guest_web_contents->GetBrowserPluginGuest());
-    test_guest_->WaitForUpdateRectMsg();
+    test_guest_->WaitForLoadStop();
   }
 
   TestBrowserPluginEmbedder* test_embedder() const { return test_embedder_; }
@@ -334,10 +351,11 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, MAYBE_NavigateGuest) {
                         ASCIIToUTF16("StartInfiniteLoop();"));
 
   // Send a mouse event to the guest.
-  SimulateMouseClick(test_embedder()->web_contents());
+  SimulateMouseClick(test_embedder()->web_contents(), 0,
+      WebKit::WebMouseEvent::ButtonLeft);
 
   // Expect the guest to crash.
-  test_guest()->WaitForCrashed();
+  test_guest()->WaitForExit();
 }
 
 // This test ensures that if guest isn't there and we resize the guest (from
@@ -363,7 +381,8 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, AdvanceFocus) {
   const char* kGuestURL = "files/browser_plugin_focus_child.html";
   StartBrowserPluginTest(kEmbedderURL, kGuestURL, false, "");
 
-  SimulateMouseClick(test_embedder()->web_contents());
+  SimulateMouseClick(test_embedder()->web_contents(), 0,
+      WebKit::WebMouseEvent::ButtonLeft);
   BrowserPluginHostTest::SimulateTabKeyPress(test_embedder()->web_contents());
   // Wait until we focus into the guest.
   test_guest()->WaitForFocus();
@@ -672,7 +691,7 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, TerminateGuest) {
       "document.getElementById('plugin').terminate()"));
 
   // Expect the guest to crash.
-  test_guest()->WaitForCrashed();
+  test_guest()->WaitForExit();
 }
 
 // This test verifies that the guest is responsive after crashing and going back
@@ -701,7 +720,7 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, BackAfterTerminateGuest) {
       ASCIIToUTF16("document.getElementById('plugin').terminate()"));
 
   // Expect the guest to report that it crashed.
-  test_guest()->WaitForCrashed();
+  test_guest()->WaitForExit();
   // Go back and verify that we're back at P1.
   {
     const string16 expected_title = ASCIIToUTF16("P1");
@@ -714,7 +733,8 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, BackAfterTerminateGuest) {
     EXPECT_EQ(expected_title, actual_title);
   }
   // Send an input event and verify that the guest receives the input.
-  SimulateMouseClick(test_embedder()->web_contents());
+  SimulateMouseClick(test_embedder()->web_contents(), 0,
+      WebKit::WebMouseEvent::ButtonLeft);
   test_guest()->WaitForInput();
 }
 
@@ -739,19 +759,47 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, LoadAbort) {
   const char kEmbedderURL[] = "files/browser_plugin_embedder.html";
   StartBrowserPluginTest(kEmbedderURL, "about:blank", true, "");
 
-  const string16 expected_title = ASCIIToUTF16("ERR_EMPTY_RESPONSE");
-  content::TitleWatcher title_watcher(test_embedder()->web_contents(),
-                                      expected_title);
+  {
+    // Navigate the guest to "close-socket".
+    const string16 expected_title = ASCIIToUTF16("ERR_EMPTY_RESPONSE");
+    content::TitleWatcher title_watcher(test_embedder()->web_contents(),
+                                        expected_title);
+    RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
+        test_embedder()->web_contents()->GetRenderViewHost());
+    GURL test_url = test_server()->GetURL("close-socket");
+    ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+        StringPrintf("SetSrc('%s');", test_url.spec().c_str())));
+    string16 actual_title = title_watcher.WaitAndGetTitle();
+    EXPECT_EQ(expected_title, actual_title);
+  }
 
-  // Renavigate the guest to "close-socket".
-  RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
-      test_embedder()->web_contents()->GetRenderViewHost());
-  GURL test_url = test_server()->GetURL("close-socket");
-  ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
-      StringPrintf("SetSrc('%s');", test_url.spec().c_str())));
+  {
+    // Navigate the guest to an illegal chrome:// URL.
+    const string16 expected_title = ASCIIToUTF16("ERR_FAILED");
+    content::TitleWatcher title_watcher(test_embedder()->web_contents(),
+                                        expected_title);
+    RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
+        test_embedder()->web_contents()->GetRenderViewHost());
+    GURL test_url("chrome://newtab");
+    ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+        StringPrintf("SetSrc('%s');", test_url.spec().c_str())));
+    string16 actual_title = title_watcher.WaitAndGetTitle();
+    EXPECT_EQ(expected_title, actual_title);
+  }
 
-  string16 actual_title = title_watcher.WaitAndGetTitle();
-  EXPECT_EQ(expected_title, actual_title);
+  {
+    // Navigate the guest to an illegal file:// URL.
+    const string16 expected_title = ASCIIToUTF16("ERR_ABORTED");
+    content::TitleWatcher title_watcher(test_embedder()->web_contents(),
+                                        expected_title);
+    RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
+        test_embedder()->web_contents()->GetRenderViewHost());
+    GURL test_url("file://foo");
+    ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+        StringPrintf("SetSrc('%s');", test_url.spec().c_str())));
+    string16 actual_title = title_watcher.WaitAndGetTitle();
+    EXPECT_EQ(expected_title, actual_title);
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, LoadRedirect) {
@@ -843,7 +891,7 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, AcceptDragEvents) {
 // 5. The guest acks the 'stop' message with a 'stop_ack' message.
 // 6. The embedder changes its title to 'main guest' when it sees the 'stop_ack'
 // message.
-IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, PostMessage) {
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, DISABLED_PostMessage) {
   const char* kTesting = "testing123";
   const char* kEmbedderURL = "files/browser_plugin_embedder.html";
   const char* kGuestURL = "files/browser_plugin_post_message_guest.html";
@@ -960,6 +1008,105 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, LoadCommit) {
   bool top_level_bool = false;
   EXPECT_TRUE(is_top_level->GetAsBoolean(&top_level_bool));
   EXPECT_EQ(true, top_level_bool);
+}
+
+// This test verifies that if a browser plugin is hidden before navigation,
+// the guest starts off hidden.
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, HiddenBeforeNavigation) {
+  const char* kEmbedderURL = "files/browser_plugin_embedder.html";
+  const std::string embedder_code =
+      "document.getElementById('plugin').style.visibility = 'hidden'";
+  StartBrowserPluginTest(
+      kEmbedderURL, kHTMLForGuest, true, embedder_code);
+  EXPECT_FALSE(test_guest()->visible());
+}
+
+// This test verifies that if we lose the guest, and get a new one,
+// the new guest will inherit the visibility state of the old guest.
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, VisibilityPreservation) {
+  const char* kEmbedderURL = "files/browser_plugin_embedder.html";
+  StartBrowserPluginTest(kEmbedderURL, kHTMLForGuest, true, "");
+  RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
+      test_embedder()->web_contents()->GetRenderViewHost());
+  // Hide the BrowserPlugin.
+  ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+      "document.getElementById('plugin').style.visibility = 'hidden';"));
+  test_guest()->WaitUntilHidden();
+  // Kill the current guest.
+  ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+      "document.getElementById('plugin').terminate();"));
+  test_guest()->WaitForExit();
+  // Get a new guest.
+  ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+      "document.getElementById('plugin').reload();"));
+  test_guest()->WaitForLoadStop();
+  // Verify that the guest is told to hide.
+  test_guest()->WaitUntilHidden();
+}
+
+// This test verifies that if a browser plugin is focused before navigation then
+// the guest starts off focused.
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, FocusBeforeNavigation) {
+  const char* kEmbedderURL = "files/browser_plugin_embedder.html";
+  const std::string embedder_code =
+      "document.getElementById('plugin').focus();";
+  StartBrowserPluginTest(
+      kEmbedderURL, kHTMLForGuest, true, embedder_code);
+  RenderViewHostImpl* guest_rvh = static_cast<RenderViewHostImpl*>(
+      test_guest()->web_contents()->GetRenderViewHost());
+  // Verify that the guest is focused.
+  scoped_ptr<base::Value> value(
+      guest_rvh->ExecuteJavascriptAndGetValue(string16(),
+          ASCIIToUTF16("document.hasFocus()")));
+  bool result = false;
+  ASSERT_TRUE(value->GetAsBoolean(&result));
+  EXPECT_TRUE(result);
+}
+
+// This test verifies that if we lose the guest, and get a new one,
+// the new guest will inherit the focus state of the old guest.
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, FocusPreservation) {
+  const char* kEmbedderURL = "files/browser_plugin_embedder.html";
+  StartBrowserPluginTest(kEmbedderURL, kHTMLForGuest, true, "");
+  RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
+      test_embedder()->web_contents()->GetRenderViewHost());
+  RenderViewHostImpl* guest_rvh = static_cast<RenderViewHostImpl*>(
+      test_guest()->web_contents()->GetRenderViewHost());
+  {
+    // Focus the BrowserPlugin. This will have the effect of also focusing the
+    // current guest.
+    ExecuteSyncJSFunction(
+        rvh, ASCIIToUTF16("document.getElementById('plugin').focus();"));
+    // Verify that key presses go to the guest.
+    SimulateSpaceKeyPress(test_embedder()->web_contents());
+    test_guest()->WaitForInput();
+    // Verify that the guest is focused.
+    scoped_ptr<base::Value> value(
+        guest_rvh->ExecuteJavascriptAndGetValue(string16(),
+            ASCIIToUTF16("document.hasFocus()")));
+    bool result = false;
+    ASSERT_TRUE(value->GetAsBoolean(&result));
+    EXPECT_TRUE(result);
+  }
+
+  // Kill the current guest.
+  ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+      "document.getElementById('plugin').terminate();"));
+  test_guest()->WaitForExit();
+
+  {
+    // Get a new guest.
+    ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+        "document.getElementById('plugin').reload();"));
+    test_guest()->WaitForLoadStop();
+    // Verify that the guest is focused.
+    scoped_ptr<base::Value> value(
+        guest_rvh->ExecuteJavascriptAndGetValue(string16(),
+            ASCIIToUTF16("document.hasFocus()")));
+    bool result = false;
+    ASSERT_TRUE(value->GetAsBoolean(&result));
+    EXPECT_TRUE(result);
+  }
 }
 
 }  // namespace content

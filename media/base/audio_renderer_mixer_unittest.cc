@@ -164,7 +164,7 @@ class AudioRendererMixerTest
     EXPECT_TRUE(RenderAndValidateAudioData(0.0f));
 
     // Start() all even numbered mixer inputs and ensure we still get silence.
-    for (size_t i = 0; i < mixer_inputs_.size(); ++i)
+    for (size_t i = 0; i < mixer_inputs_.size(); i += 2)
       mixer_inputs_[i]->Start();
     FillAudioData(1.0f);
     EXPECT_TRUE(RenderAndValidateAudioData(0.0f));
@@ -406,6 +406,18 @@ TEST_P(AudioRendererMixerTest, DelayTest) {
   EXPECT_EQ(static_cast<int>(kAudioDelayMilliseconds / io_ratio),
             fake_callbacks_[0]->last_audio_delay_milliseconds());
   mixer_inputs_[0]->Stop();
+}
+
+// Ensure constructing an AudioRendererMixerInput, but not initializing it does
+// not call RemoveMixer().
+TEST_P(AudioRendererMixerTest, NoInitialize) {
+  EXPECT_CALL(*this, RemoveMixer(testing::_)).Times(0);
+  scoped_refptr<AudioRendererMixerInput> audio_renderer_mixer =
+      new AudioRendererMixerInput(
+          base::Bind(&AudioRendererMixerTest::GetMixer,
+                     base::Unretained(this)),
+          base::Bind(&AudioRendererMixerTest::RemoveMixer,
+                     base::Unretained(this)));
 }
 
 INSTANTIATE_TEST_CASE_P(

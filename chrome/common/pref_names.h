@@ -195,6 +195,7 @@ extern const char kAudioMute[];
 extern const char kAudioVolumePercent[];
 extern const char kTapToClickEnabled[];
 extern const char kEnableTouchpadThreeFingerClick[];
+extern const char kEnableTouchpadThreeFingerSwipe[];
 extern const char kNaturalScroll[];
 extern const char kPrimaryMouseButtonRight[];
 extern const char kMouseSensitivity[];
@@ -256,9 +257,9 @@ extern const char kLanguageMozcUseAutoImeTurnOff[];
 extern const char kLanguageMozcUseHistorySuggest[];
 extern const char kLanguageMozcUseDictionarySuggest[];
 extern const char kLanguageMozcSuggestionsSize[];
-extern const char kLanguageXkbRemapSearchKeyTo[];
-extern const char kLanguageXkbRemapControlKeyTo[];
-extern const char kLanguageXkbRemapAltKeyTo[];
+extern const char kLanguageRemapSearchKeyTo[];
+extern const char kLanguageRemapControlKeyTo[];
+extern const char kLanguageRemapAltKeyTo[];
 extern const char kLanguageXkbAutoRepeatEnabled[];
 extern const char kLanguageXkbAutoRepeatDelay[];
 extern const char kLanguageXkbAutoRepeatInterval[];
@@ -559,7 +560,7 @@ extern const char kDevToolsRemoteEnabled[];
 #endif
 extern const char kDevToolsVSplitLocation[];
 #if defined(OS_ANDROID)
-// Used by Chrome Mobile closed source.
+// Used by Chrome Mobile.
 extern const char kSpdyProxyEnabled[];
 #endif
 extern const char kSyncLastSyncedTime[];
@@ -582,6 +583,7 @@ extern const char kSyncManaged[];
 extern const char kSyncSearchEngines[];
 extern const char kSyncSessions[];
 extern const char kSyncSuppressStart[];
+extern const char kGoogleServicesLastUsername[];
 extern const char kGoogleServicesUsername[];
 extern const char kGoogleServicesUsernamePattern[];
 extern const char kSyncUsingSecondaryPassphrase[];
@@ -639,6 +641,8 @@ extern const char kCloudPrintEnableJobPoll[];
 extern const char kCloudPrintRobotRefreshToken[];
 extern const char kCloudPrintRobotEmail[];
 extern const char kCloudPrintConnectNewPrinters[];
+extern const char kCloudPrintXmppPingEnabled[];
+extern const char kCloudPrintXmppPingTimeout[];
 extern const char kCloudPrintPrinterBlacklist[];
 extern const char kCloudPrintSubmitEnabled[];
 
@@ -713,6 +717,9 @@ extern const char kGSSAPILibraryName[];
 extern const char kSpdyProxyOrigin[];
 extern const char kAllowCrossOriginAuthPrompt[];
 
+extern const char kHttpReceivedContentLength[];
+extern const char kHttpOriginalContentLength[];
+
 extern const char kRegisteredProtocolHandlers[];
 extern const char kIgnoredProtocolHandlers[];
 extern const char kCustomHandlersEnabled[];
@@ -737,7 +744,9 @@ extern const char kMediaGalleriesRememberedGalleries[];
 
 #if defined(USE_AURA)
 extern const char kShelfAlignment[];
+extern const char kShelfAlignmentLocal[];
 extern const char kShelfAutoHideBehavior[];
+extern const char kShelfAutoHideBehaviorLocal[];
 extern const char kUseDefaultPinnedApps[];
 extern const char kPinnedLauncherApps[];
 

@@ -17,6 +17,11 @@
 // silently clamped to those limits (for backwards compatibility with existing
 // code). Best practice is to not exceed the limits.
 
+// Each use of a histogram with the same name will reference the same underlying
+// data, so it is safe to record to the same histogram from multiple locations
+// in the code. It is a runtime error if all uses of the same histogram do not
+// agree exactly in type, bucket size and range.
+
 // For Histogram and LinearHistogram, the maximum for a declared range should
 // always be larger (not equal) than minmal range. Zero and
 // HistogramBase::kSampleType_MAX are implicitly added as first and last ranges,
@@ -149,7 +154,8 @@ class Lock;
       base::subtle::Release_Store(&atomic_histogram_pointer, \
           reinterpret_cast<base::subtle::AtomicWord>(histogram_pointer)); \
     } \
-    DCHECK(histogram_pointer->histogram_name() == constant_histogram_name); \
+    DCHECK_EQ(histogram_pointer->histogram_name(), \
+              std::string(constant_histogram_name)); \
     histogram_pointer->histogram_add_method_invocation; \
   } while (0)
 
@@ -416,8 +422,6 @@ class BASE_EXPORT Histogram : public HistogramBase {
                                      size_t bucket_count,
                                      BucketRanges* ranges);
 
-  virtual void Add(Sample value) OVERRIDE;
-
   // This method is an interface, used only by BooleanHistogram.
   virtual void AddBoolean(bool value);
 
@@ -431,10 +435,6 @@ class BASE_EXPORT Histogram : public HistogramBase {
 
   // This method is an interface, used only by LinearHistogram.
   virtual void SetRangeDescriptions(const DescriptionPair descriptions[]);
-
-  // The following methods provide graphical histogram displays.
-  virtual void WriteHTMLGraph(std::string* output) const OVERRIDE;
-  virtual void WriteAscii(std::string* output) const OVERRIDE;
 
   // Convenience methods for serializing/deserializing the histograms.
   // Histograms from Renderer process are serialized and sent to the browser.
@@ -478,24 +478,6 @@ class BASE_EXPORT Histogram : public HistogramBase {
   virtual size_t bucket_count() const;
   const BucketRanges* bucket_ranges() const { return bucket_ranges_; }
 
-  // Snapshot the current complete set of sample data.
-  // Override with atomic/locked snapshot if needed.
-  virtual scoped_ptr<HistogramSamples> SnapshotSamples() const OVERRIDE;
-
-  virtual bool HasConstructionArguments(Sample minimum,
-                                        Sample maximum,
-                                        size_t bucket_count);
- protected:
-  // |bucket_count| and |ranges| should contain the underflow and overflow
-  // buckets. See top comments for example.
-  Histogram(const std::string& name,
-            Sample minimum,
-            Sample maximum,
-            size_t bucket_count,
-            const BucketRanges* ranges);
-
-  virtual ~Histogram();
-
   // This function validates histogram construction arguments. It returns false
   // if some of the arguments are totally bad.
   // Note. Currently it allow some bad input, e.g. 0 as minimum, but silently
@@ -506,6 +488,26 @@ class BASE_EXPORT Histogram : public HistogramBase {
                                            Sample* minimum,
                                            Sample* maximum,
                                            size_t* bucket_count);
+
+  // HistogramBase implementation:
+  virtual bool HasConstructionArguments(Sample minimum,
+                                        Sample maximum,
+                                        size_t bucket_count) const OVERRIDE;
+  virtual void Add(Sample value) OVERRIDE;
+  virtual scoped_ptr<HistogramSamples> SnapshotSamples() const OVERRIDE;
+  virtual void WriteHTMLGraph(std::string* output) const OVERRIDE;
+  virtual void WriteAscii(std::string* output) const OVERRIDE;
+
+ protected:
+  // |bucket_count| and |ranges| should contain the underflow and overflow
+  // buckets. See top comments for example.
+  Histogram(const std::string& name,
+            Sample minimum,
+            Sample maximum,
+            size_t bucket_count,
+            const BucketRanges* ranges);
+
+  virtual ~Histogram();
 
   // Serialize the histogram's ranges to |*pickle|, returning true on success.
   // Most subclasses can leave this no-op implementation, but some will want to
@@ -530,6 +532,7 @@ class BASE_EXPORT Histogram : public HistogramBase {
   FRIEND_TEST_ALL_PREFIXES(HistogramTest, BucketPlacementTest);
   FRIEND_TEST_ALL_PREFIXES(HistogramTest, CorruptBucketBounds);
   FRIEND_TEST_ALL_PREFIXES(HistogramTest, CorruptSampleCounts);
+  FRIEND_TEST_ALL_PREFIXES(HistogramTest, NameMatchTest);
 
   friend class StatisticsRecorder;  // To allow it to delete duplicates.
   friend class StatisticsRecorderTest;

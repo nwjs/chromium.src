@@ -29,6 +29,8 @@
 #include "media/video/picture.h"
 #include "media/video/video_decode_accelerator.h"
 
+namespace content {
+
 // Class to provide video decode acceleration for Intel systems with hardware
 // support for it, and on which libva is available.
 // Decoding tasks are performed in a separate decoding thread.
@@ -199,7 +201,7 @@ private:
   base::WeakPtr<Client> client_;
 
   base::Thread decoder_thread_;
-  content::VaapiH264Decoder decoder_;
+  VaapiH264Decoder decoder_;
 
   int num_frames_at_client_;
   int num_stream_bufs_at_decoder_;
@@ -208,10 +210,12 @@ private:
   // and put the decoded picture into output buffer. Takes ownership of
   // the queues' memory.
   void SubmitDecode(int32 output_id,
-                    std::queue<VABufferID>* va_bufs,
-                    std::queue<VABufferID>* slice_bufs);
+                    scoped_ptr<std::queue<VABufferID> > va_bufs,
+                    scoped_ptr<std::queue<VABufferID> > slice_bufs);
 
   DISALLOW_COPY_AND_ASSIGN(VaapiVideoDecodeAccelerator);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_COMMON_GPU_MEDIA_VAAPI_VIDEO_DECODE_ACCELERATOR_H_

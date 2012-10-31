@@ -47,13 +47,10 @@ class SBProtocolManagerFactoryImpl : public SBProtocolManagerFactory {
   virtual ~SBProtocolManagerFactoryImpl() { }
   virtual SafeBrowsingProtocolManager* CreateProtocolManager(
       SafeBrowsingService* sb_service,
-      const std::string& client_name,
       net::URLRequestContextGetter* request_context_getter,
-      const std::string& url_prefix,
-      bool disable_auto_update) {
+      const SafeBrowsingProtocolConfig& config) OVERRIDE {
     return new SafeBrowsingProtocolManager(
-        sb_service, client_name, request_context_getter,
-        url_prefix, disable_auto_update);
+        sb_service, request_context_getter, config);
   }
  private:
   DISALLOW_COPY_AND_ASSIGN(SBProtocolManagerFactoryImpl);
@@ -67,24 +64,19 @@ SBProtocolManagerFactory* SafeBrowsingProtocolManager::factory_ = NULL;
 // static
 SafeBrowsingProtocolManager* SafeBrowsingProtocolManager::Create(
     SafeBrowsingService* sb_service,
-    const std::string& client_name,
     net::URLRequestContextGetter* request_context_getter,
-    const std::string& url_prefix,
-    bool disable_auto_update) {
+    const SafeBrowsingProtocolConfig& config) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   if (!factory_)
     factory_ = new SBProtocolManagerFactoryImpl();
-  return factory_->CreateProtocolManager(sb_service, client_name,
-                                         request_context_getter,
-                                         url_prefix, disable_auto_update);
+  return factory_->CreateProtocolManager(
+      sb_service, request_context_getter, config);
 }
 
 SafeBrowsingProtocolManager::SafeBrowsingProtocolManager(
     SafeBrowsingService* sb_service,
-    const std::string& client_name,
     net::URLRequestContextGetter* request_context_getter,
-    const std::string& url_prefix,
-    bool disable_auto_update)
+    const SafeBrowsingProtocolConfig& config)
     : sb_service_(sb_service),
       request_type_(NO_REQUEST),
       update_error_count_(0),
@@ -96,10 +88,10 @@ SafeBrowsingProtocolManager::SafeBrowsingProtocolManager(
       update_state_(FIRST_REQUEST),
       chunk_pending_to_write_(false),
       update_size_(0),
-      client_name_(client_name),
+      client_name_(config.client_name),
       request_context_getter_(request_context_getter),
-      url_prefix_(url_prefix),
-      disable_auto_update_(disable_auto_update) {
+      url_prefix_(config.url_prefix),
+      disable_auto_update_(config.disable_auto_update) {
   DCHECK(!url_prefix_.empty());
 
   // Set the backoff multiplier fuzz to a random value between 0 and 1.
@@ -142,20 +134,21 @@ SafeBrowsingProtocolManager::~SafeBrowsingProtocolManager() {
 // multiple GetHash requests pending since we don't want to serialize them and
 // slow down the user.
 void SafeBrowsingProtocolManager::GetFullHash(
-    SafeBrowsingService::SafeBrowsingCheck* check,
-    const std::vector<SBPrefix>& prefixes) {
+    const std::vector<SBPrefix>& prefixes,
+    FullHashCallback callback,
+    bool is_download) {
   // If we are in GetHash backoff, we need to check if we're past the next
   // allowed time. If we are, we can proceed with the request. If not, we are
   // required to return empty results (i.e. treat the page as safe).
   if (gethash_error_count_ && Time::Now() <= next_gethash_time_) {
     std::vector<SBFullHashResult> full_hashes;
-    sb_service_->HandleGetHashResults(check, full_hashes, false);
+    callback.Run(full_hashes, false);
     return;
   }
   GURL gethash_url = GetHashUrl();
   net::URLFetcher* fetcher = net::URLFetcher::Create(
       gethash_url, net::URLFetcher::POST, this);
-  hash_requests_[fetcher] = check;
+  hash_requests_[fetcher] = FullHashDetails(callback, is_download);
 
   std::string get_hash;
   SafeBrowsingProtocolParser parser;
@@ -203,7 +196,7 @@ void SafeBrowsingProtocolManager::OnURLFetchComplete(
   if (it != hash_requests_.end()) {
     // GetHash response.
     fetcher.reset(it->first);
-    SafeBrowsingService::SafeBrowsingCheck* check = it->second;
+    const FullHashDetails& details = it->second;
     std::vector<SBFullHashResult> full_hashes;
     bool can_cache = false;
     if (source->GetStatus().is_success() &&
@@ -212,9 +205,9 @@ void SafeBrowsingProtocolManager::OnURLFetchComplete(
       // For tracking our GetHash false positive (204) rate, compared to real
       // (200) responses.
       if (source->GetResponseCode() == 200)
-        RecordGetHashResult(check->is_download, GET_HASH_STATUS_200);
+        RecordGetHashResult(details.is_download, GET_HASH_STATUS_200);
       else
-        RecordGetHashResult(check->is_download, GET_HASH_STATUS_204);
+        RecordGetHashResult(details.is_download, GET_HASH_STATUS_204);
       can_cache = true;
       gethash_error_count_ = 0;
       gethash_back_off_mult_ = 1;
@@ -245,7 +238,7 @@ void SafeBrowsingProtocolManager::OnURLFetchComplete(
     // Call back the SafeBrowsingService with full_hashes, even if there was a
     // parse error or an error response code (in which case full_hashes will be
     // empty). We can't block the user regardless of the error status.
-    sb_service_->HandleGetHashResults(check, full_hashes, can_cache);
+    details.callback.Run(full_hashes, can_cache);
 
     hash_requests_.erase(it);
   } else {
@@ -750,4 +743,18 @@ GURL SafeBrowsingProtocolManager::NextChunkUrl(const std::string& url) const {
     next_url.append(additional_query_);
   }
   return GURL(next_url);
+}
+
+SafeBrowsingProtocolManager::FullHashDetails::FullHashDetails()
+    : callback(),
+      is_download(false) {
+}
+
+SafeBrowsingProtocolManager::FullHashDetails::FullHashDetails(
+    FullHashCallback callback, bool is_download)
+    : callback(callback),
+      is_download(is_download) {
+}
+
+SafeBrowsingProtocolManager::FullHashDetails::~FullHashDetails() {
 }

@@ -30,30 +30,61 @@
 #include "ui/aura/env.h"
 #endif
 
+#if defined(OS_WIN) || defined(USE_AURA)
+#include "content/browser/renderer_host/ui_events_helper.h"
+#include "ui/base/events/event.h"
+#endif
+
 using base::TimeDelta;
-using content::BackingStore;
-using content::BrowserThread;
-using content::BrowserThreadImpl;
-using content::GestureEventFilter;
-using content::MockRenderProcessHost;
-using content::NativeWebKeyboardEvent;
-using content::RenderWidgetHost;
-using content::RenderWidgetHostImpl;
 using WebKit::WebGestureEvent;
 using WebKit::WebInputEvent;
 using WebKit::WebMouseWheelEvent;
 using WebKit::WebTouchEvent;
 using WebKit::WebTouchPoint;
 
-namespace gfx {
-class Size;
+namespace content {
+
+#if defined(OS_WIN) || defined(USE_AURA)
+bool TouchEventsAreEquivalent(const ui::TouchEvent& first,
+                              const ui::TouchEvent& second) {
+  EXPECT_EQ(second.type(), first.type());
+  if (first.type() != second.type())
+    return false;
+  EXPECT_EQ(second.location().ToString(), first.location().ToString());
+  if (first.location() != second.location())
+    return false;
+  EXPECT_EQ(second.touch_id(), first.touch_id());
+  if (first.touch_id() != second.touch_id())
+    return false;
+  EXPECT_EQ(second.time_stamp().InSeconds(), first.time_stamp().InSeconds());
+  if (second.time_stamp().InSeconds() != first.time_stamp().InSeconds())
+    return false;
+  return true;
 }
+
+bool EventListIsSubset(const ScopedVector<ui::TouchEvent>& subset,
+                       const ScopedVector<ui::TouchEvent>& set) {
+  EXPECT_LE(subset.size(), set.size());
+  if (subset.size() > set.size())
+    return false;
+  for (size_t i = 0; i < subset.size(); ++i) {
+    const ui::TouchEvent* first = subset[i];
+    const ui::TouchEvent* second = set[i];
+    bool equivalent = TouchEventsAreEquivalent(*first, *second);
+    EXPECT_TRUE(equivalent);
+    if (!equivalent)
+      return false;
+  }
+
+  return true;
+}
+#endif  // defined(OS_WIN) || defined(USE_AURA)
 
 // RenderWidgetHostProcess -----------------------------------------------------
 
 class RenderWidgetHostProcess : public MockRenderProcessHost {
  public:
-  explicit RenderWidgetHostProcess(content::BrowserContext* browser_context)
+  explicit RenderWidgetHostProcess(BrowserContext* browser_context)
       : MockRenderProcessHost(browser_context),
         current_update_buf_(NULL),
         update_msg_should_reply_(false),
@@ -132,10 +163,11 @@ bool RenderWidgetHostProcess::WaitForBackingStoreMsg(
 
 // This test view allows us to specify the size, and keep track of acked
 // touch-events.
-class TestView : public content::TestRenderWidgetHostView {
+class TestView : public TestRenderWidgetHostView {
  public:
   explicit TestView(RenderWidgetHostImpl* rwh)
-      : content::TestRenderWidgetHostView(rwh) {
+      : TestRenderWidgetHostView(rwh),
+        acked_event_count_(0) {
   }
 
   // Sets the bounds returned by GetViewBounds.
@@ -144,29 +176,33 @@ class TestView : public content::TestRenderWidgetHostView {
   }
 
   const WebTouchEvent& acked_event() const { return acked_event_; }
+  int acked_event_count() const { return acked_event_count_; }
   void ClearAckedEvent() {
     acked_event_.type = WebKit::WebInputEvent::Undefined;
+    acked_event_count_ = 0;
   }
 
   // RenderWidgetHostView override.
   virtual gfx::Rect GetViewBounds() const OVERRIDE {
     return bounds_;
   }
-
   virtual void ProcessAckedTouchEvent(const WebTouchEvent& touch,
                                       bool processed) OVERRIDE {
     acked_event_ = touch;
+    ++acked_event_count_;
   }
 
  protected:
   WebTouchEvent acked_event_;
+  int acked_event_count_;
   gfx::Rect bounds_;
+
   DISALLOW_COPY_AND_ASSIGN(TestView);
 };
 
 // MockRenderWidgetHostDelegate --------------------------------------------
 
-class MockRenderWidgetHostDelegate : public content::RenderWidgetHostDelegate {
+class MockRenderWidgetHostDelegate : public RenderWidgetHostDelegate {
  public:
   MockRenderWidgetHostDelegate()
       : prehandle_keyboard_event_(false),
@@ -227,8 +263,8 @@ class MockRenderWidgetHostDelegate : public content::RenderWidgetHostDelegate {
 class MockRenderWidgetHost : public RenderWidgetHostImpl {
  public:
   MockRenderWidgetHost(
-      content::RenderWidgetHostDelegate* delegate,
-      content::RenderProcessHost* process,
+      RenderWidgetHostDelegate* delegate,
+      RenderProcessHost* process,
       int routing_id)
       : RenderWidgetHostImpl(delegate, process, routing_id),
         unresponsive_timer_fired_(false) {
@@ -285,11 +321,11 @@ class MockRenderWidgetHost : public RenderWidgetHostImpl {
   }
 
   size_t TouchEventQueueSize() {
-    return touch_event_queue_->touch_queue_.size();
+    return touch_event_queue_->GetQueueSize();
   }
 
   const WebTouchEvent& latest_event() const {
-    return touch_event_queue_->touch_queue_.back();
+    return touch_event_queue_->GetLatestEvent();
   }
 
  protected:
@@ -303,7 +339,7 @@ class MockRenderWidgetHost : public RenderWidgetHostImpl {
 
 // MockPaintingObserver --------------------------------------------------------
 
-class MockPaintingObserver : public content::NotificationObserver {
+class MockPaintingObserver : public NotificationObserver {
  public:
   void WidgetDidReceivePaintAtSizeAck(RenderWidgetHostImpl* host,
                                       int tag,
@@ -314,15 +350,13 @@ class MockPaintingObserver : public content::NotificationObserver {
   }
 
   void Observe(int type,
-               const content::NotificationSource& source,
-               const content::NotificationDetails& details) {
-    if (type ==
-        content::NOTIFICATION_RENDER_WIDGET_HOST_DID_RECEIVE_PAINT_AT_SIZE_ACK) {
+               const NotificationSource& source,
+               const NotificationDetails& details) {
+    if (type == NOTIFICATION_RENDER_WIDGET_HOST_DID_RECEIVE_PAINT_AT_SIZE_ACK) {
       std::pair<int, gfx::Size>* size_ack_details =
-          content::Details<std::pair<int, gfx::Size> >(details).ptr();
+          Details<std::pair<int, gfx::Size> >(details).ptr();
       WidgetDidReceivePaintAtSizeAck(
-          RenderWidgetHostImpl::From(
-              content::Source<RenderWidgetHost>(source).ptr()),
+          RenderWidgetHostImpl::From(Source<RenderWidgetHost>(source).ptr()),
           size_ack_details->first,
           size_ack_details->second);
     }
@@ -351,7 +385,7 @@ class RenderWidgetHostTest : public testing::Test {
  protected:
   // testing::Test
   void SetUp() {
-    browser_context_.reset(new content::TestBrowserContext());
+    browser_context_.reset(new TestBrowserContext());
     delegate_.reset(new MockRenderWidgetHostDelegate());
     process_ = new RenderWidgetHostProcess(browser_context_.get());
     host_.reset(
@@ -422,6 +456,11 @@ class RenderWidgetHostTest : public testing::Test {
     host_->ForwardGestureEvent(gesture_event);
   }
 
+  // Set the timestamp for the touch-event.
+  void SetTouchTimestamp(base::TimeDelta timestamp) {
+    touch_event_.timeStampSeconds = timestamp.InSecondsF();
+  }
+
   // Sends a touch event (irrespective of whether the page has a touch-event
   // handler or not).
   void SendTouchEvent() {
@@ -475,7 +514,7 @@ class RenderWidgetHostTest : public testing::Test {
 
   MessageLoopForUI message_loop_;
 
-  scoped_ptr<content::TestBrowserContext> browser_context_;
+  scoped_ptr<TestBrowserContext> browser_context_;
   RenderWidgetHostProcess* process_;  // Deleted automatically by the widget.
   scoped_ptr<MockRenderWidgetHostDelegate> delegate_;
   scoped_ptr<MockRenderWidgetHost> host_;
@@ -603,8 +642,8 @@ TEST_F(RenderWidgetHostTest, ResizeThenCrash) {
 // Tests setting custom background
 TEST_F(RenderWidgetHostTest, Background) {
 #if !defined(OS_MACOSX)
-  scoped_ptr<content::RenderWidgetHostView> view(
-      content::RenderWidgetHostView::CreateViewForWidget(host_.get()));
+  scoped_ptr<RenderWidgetHostView> view(
+      RenderWidgetHostView::CreateViewForWidget(host_.get()));
 #if defined(OS_LINUX) || defined(USE_AURA)
   // TODO(derat): Call this on all platforms: http://crbug.com/102450.
   // InitAsChild doesn't seem to work if NULL parent is passed on Windows,
@@ -654,7 +693,7 @@ TEST_F(RenderWidgetHostTest, Background) {
 #if defined(OS_LINUX) || defined(USE_AURA)
   // See the comment above |InitAsChild(NULL)|.
   host_->SetView(NULL);
-  static_cast<content::RenderWidgetHostViewPort*>(view.release())->Destroy();
+  static_cast<RenderWidgetHostViewPort*>(view.release())->Destroy();
 #endif
 
 #else
@@ -770,12 +809,12 @@ TEST_F(RenderWidgetHostTest, PaintAtSize) {
   EXPECT_TRUE(
       process_->sink().GetUniqueMessageMatching(ViewMsg_PaintAtSize::ID));
 
-  content::NotificationRegistrar registrar;
+  NotificationRegistrar registrar;
   MockPaintingObserver observer;
   registrar.Add(
       &observer,
-      content::NOTIFICATION_RENDER_WIDGET_HOST_DID_RECEIVE_PAINT_AT_SIZE_ACK,
-      content::Source<RenderWidgetHost>(host_.get()));
+      NOTIFICATION_RENDER_WIDGET_HOST_DID_RECEIVE_PAINT_AT_SIZE_ACK,
+      Source<RenderWidgetHost>(host_.get()));
 
   host_->OnMsgPaintAtSizeAck(kPaintAtSizeTag, gfx::Size(20, 30));
   EXPECT_EQ(host_.get(), observer.host());
@@ -1336,12 +1375,15 @@ TEST_F(RenderWidgetHostTest, TouchEventQueue) {
   SendInputEventACK(WebInputEvent::TouchStart, true);
   EXPECT_EQ(1U, host_->TouchEventQueueSize());
   EXPECT_EQ(WebKit::WebInputEvent::TouchStart, view_->acked_event().type);
+  EXPECT_EQ(1, view_->acked_event_count());
   EXPECT_EQ(1U, process_->sink().message_count());
   process_->sink().ClearMessages();
+  view_->ClearAckedEvent();
 
   SendInputEventACK(WebInputEvent::TouchMove, true);
   EXPECT_EQ(0U, host_->TouchEventQueueSize());
   EXPECT_EQ(WebKit::WebInputEvent::TouchMove, view_->acked_event().type);
+  EXPECT_EQ(1, view_->acked_event_count());
   EXPECT_EQ(0U, process_->sink().message_count());
 }
 
@@ -1382,8 +1424,10 @@ TEST_F(RenderWidgetHostTest, TouchEventQueueFlush) {
   SendInputEventACK(WebInputEvent::TouchStart, true);
   EXPECT_EQ(31U, host_->TouchEventQueueSize());
   EXPECT_EQ(WebKit::WebInputEvent::TouchStart, view_->acked_event().type);
+  EXPECT_EQ(1, view_->acked_event_count());
   EXPECT_EQ(1U, process_->sink().message_count());
   process_->sink().ClearMessages();
+  view_->ClearAckedEvent();
 
   // The page stops listening for touch-events. The touch-event queue should now
   // be emptied, but none of the queued touch-events should be sent to the
@@ -1419,6 +1463,31 @@ TEST_F(RenderWidgetHostTest, TouchEventQueueCoalesce) {
   SendTouchEvent();
   EXPECT_EQ(0U, process_->sink().message_count());
   EXPECT_EQ(3U, host_->TouchEventQueueSize());
+
+  // ACK the press.
+  SendInputEventACK(WebInputEvent::TouchStart, true);
+  EXPECT_EQ(1U, process_->sink().message_count());
+  EXPECT_EQ(2U, host_->TouchEventQueueSize());
+  EXPECT_EQ(WebKit::WebInputEvent::TouchStart, view_->acked_event().type);
+  EXPECT_EQ(1, view_->acked_event_count());
+  process_->sink().ClearMessages();
+  view_->ClearAckedEvent();
+
+  // ACK the moves.
+  SendInputEventACK(WebInputEvent::TouchMove, true);
+  EXPECT_EQ(1U, process_->sink().message_count());
+  EXPECT_EQ(1U, host_->TouchEventQueueSize());
+  EXPECT_EQ(WebKit::WebInputEvent::TouchMove, view_->acked_event().type);
+  EXPECT_EQ(10, view_->acked_event_count());
+  process_->sink().ClearMessages();
+  view_->ClearAckedEvent();
+
+  // ACK the release.
+  SendInputEventACK(WebInputEvent::TouchEnd, true);
+  EXPECT_EQ(0U, process_->sink().message_count());
+  EXPECT_EQ(0U, host_->TouchEventQueueSize());
+  EXPECT_EQ(WebKit::WebInputEvent::TouchEnd, view_->acked_event().type);
+  EXPECT_EQ(1, view_->acked_event_count());
 }
 
 // Tests that an event that has already been sent but hasn't been ack'ed yet
@@ -1452,8 +1521,12 @@ TEST_F(RenderWidgetHostTest, SentTouchEventDoesNotCoalesce) {
   process_->sink().ClearMessages();
 
   // The coalesced touch-move event has been sent to the renderer. Any new
-  // touch-move event should not be coalesced at this point.
+  // touch-move event should not be coalesced with the sent event.
   MoveTouchPoint(0, 5, 5);
+  SendTouchEvent();
+  EXPECT_EQ(2U, host_->TouchEventQueueSize());
+
+  MoveTouchPoint(0, 7, 7);
   SendTouchEvent();
   EXPECT_EQ(2U, host_->TouchEventQueueSize());
 }
@@ -1505,6 +1578,88 @@ TEST_F(RenderWidgetHostTest, TouchEventQueueMultiTouch) {
   EXPECT_EQ(WebTouchPoint::StateMoved, event.touches[0].state);
   EXPECT_EQ(WebTouchPoint::StateMoved, event.touches[1].state);
 }
+
+#if defined(OS_WIN) || defined(USE_AURA)
+// Tests that the acked events have correct state. (ui::Events are used only on
+// windows and aura)
+TEST_F(RenderWidgetHostTest, AckedTouchEventState) {
+  process_->sink().ClearMessages();
+  host_->OnMessageReceived(ViewHostMsg_HasTouchEventHandlers(0, true));
+  EXPECT_EQ(0U, process_->sink().message_count());
+  EXPECT_EQ(0U, host_->TouchEventQueueSize());
+  EXPECT_TRUE(host_->ShouldForwardTouchEvent());
+
+  // Send a bunch of events, and make sure the ACKed events are correct.
+  ScopedVector<ui::TouchEvent> expected_events;
+
+  // Use a custom timestamp for all the events to test that the acked events
+  // have the same timestamp;
+  base::TimeDelta timestamp = base::Time::NowFromSystemTime() - base::Time();
+  timestamp -= base::TimeDelta::FromSeconds(600);
+
+  // Press the first finger.
+  PressTouchPoint(1, 1);
+  SetTouchTimestamp(timestamp);
+  SendTouchEvent();
+  EXPECT_EQ(1U, process_->sink().message_count());
+  process_->sink().ClearMessages();
+  expected_events.push_back(new ui::TouchEvent(ui::ET_TOUCH_PRESSED,
+      gfx::Point(1, 1), 0, timestamp));
+
+  // Move the finger.
+  timestamp += base::TimeDelta::FromSeconds(10);
+  MoveTouchPoint(0, 5, 5);
+  SetTouchTimestamp(timestamp);
+  SendTouchEvent();
+  EXPECT_EQ(2U, host_->TouchEventQueueSize());
+  expected_events.push_back(new ui::TouchEvent(ui::ET_TOUCH_MOVED,
+      gfx::Point(5, 5), 0, timestamp));
+
+  // Now press a second finger.
+  timestamp += base::TimeDelta::FromSeconds(10);
+  PressTouchPoint(2, 2);
+  SetTouchTimestamp(timestamp);
+  SendTouchEvent();
+  EXPECT_EQ(3U, host_->TouchEventQueueSize());
+  expected_events.push_back(new ui::TouchEvent(ui::ET_TOUCH_PRESSED,
+      gfx::Point(2, 2), 1, timestamp));
+
+  // Move both fingers.
+  timestamp += base::TimeDelta::FromSeconds(10);
+  MoveTouchPoint(0, 10, 10);
+  MoveTouchPoint(1, 20, 20);
+  SetTouchTimestamp(timestamp);
+  SendTouchEvent();
+  EXPECT_EQ(4U, host_->TouchEventQueueSize());
+  expected_events.push_back(new ui::TouchEvent(ui::ET_TOUCH_MOVED,
+      gfx::Point(10, 10), 0, timestamp));
+  expected_events.push_back(new ui::TouchEvent(ui::ET_TOUCH_MOVED,
+      gfx::Point(20, 20), 1, timestamp));
+
+  // Receive the ACKs and make sure the generated events from the acked events
+  // are correct.
+  WebInputEvent::Type acks[] = { WebInputEvent::TouchStart,
+                                 WebInputEvent::TouchMove,
+                                 WebInputEvent::TouchStart,
+                                 WebInputEvent::TouchMove };
+
+  for (size_t i = 0; i < arraysize(acks); ++i) {
+    SendInputEventACK(acks[i], false);
+    EXPECT_EQ(acks[i], view_->acked_event().type);
+    ScopedVector<ui::TouchEvent> acked;
+
+    MakeUITouchEventsFromWebTouchEvents(view_->acked_event(), &acked);
+    bool success = EventListIsSubset(acked, expected_events);
+    EXPECT_TRUE(success) << "Failed on step: " << i;
+    if (!success)
+      break;
+    expected_events.erase(expected_events.begin(),
+                          expected_events.begin() + acked.size());
+  }
+
+  EXPECT_EQ(0U, expected_events.size());
+}
+#endif  // defined(OS_WIN) || defined(USE_AURA)
 
 // Test that the hang monitor timer expires properly if a new timer is started
 // while one is in progress (see crbug.com/11007).
@@ -1591,3 +1746,5 @@ TEST_F(RenderWidgetHostTest, IncorrectBitmapScaleFactor) {
   EXPECT_EQ(1, process_->bad_msg_count());
 }
 #endif
+
+}  // namespace content

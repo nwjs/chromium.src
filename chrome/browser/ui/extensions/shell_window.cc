@@ -28,6 +28,7 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_messages.h"
+#include "chrome/common/extensions/request_media_access_permission_helper.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/navigation_entry.h"
@@ -52,6 +53,7 @@ using content::ResourceDispatcherHost;
 using content::SiteInstance;
 using content::WebContents;
 using extensions::APIPermission;
+using extensions::RequestMediaAccessPermissionHelper;
 
 namespace {
 const int kDefaultWidth = 512;
@@ -71,7 +73,7 @@ ShellWindow::CreateParams::CreateParams()
   : frame(ShellWindow::CreateParams::FRAME_CHROME),
     bounds(-1, -1, kDefaultWidth, kDefaultHeight),
     restore_position(true), restore_size(true),
-    creator_process_id(0) {
+    creator_process_id(0), hidden(false) {
 }
 
 ShellWindow::CreateParams::~CreateParams() {
@@ -114,6 +116,9 @@ void ShellWindow::Init(const GURL& url,
   web_contents_->GetRenderViewHost()->SyncRendererPrefs();
 
   native_window_.reset(NativeShellWindow::Create(this, params));
+
+  if (!params.hidden)
+    GetBaseWindow()->Show();
 
   if (!params.window_key.empty()) {
     window_key_ = params.window_key;
@@ -193,31 +198,8 @@ void ShellWindow::RequestMediaAccessPermission(
     content::WebContents* web_contents,
     const content::MediaStreamRequest* request,
     const content::MediaResponseCallback& callback) {
-  content::MediaStreamDevices devices;
-
-  // Auto-accept the first audio device and the first video device from the
-  // request when the appropriate API permissions exist.
-  bool accepted_an_audio_device = false;
-  bool accepted_a_video_device = false;
-  for (content::MediaStreamDeviceMap::const_iterator it =
-           request->devices.begin();
-       it != request->devices.end(); ++it) {
-    if (!accepted_an_audio_device &&
-        content::IsAudioMediaType(it->first) &&
-        extension()->HasAPIPermission(APIPermission::kAudioCapture) &&
-        !it->second.empty()) {
-      devices.push_back(it->second.front());
-      accepted_an_audio_device = true;
-    } else if (!accepted_a_video_device &&
-               content::IsVideoMediaType(it->first) &&
-               extension()->HasAPIPermission(APIPermission::kVideoCapture) &&
-               !it->second.empty()) {
-      devices.push_back(it->second.front());
-      accepted_a_video_device = true;
-    }
-  }
-
-  callback.Run(devices);
+  RequestMediaAccessPermissionHelper::AuthorizeRequest(
+      request, callback, extension(), true);
 }
 
 WebContents* ShellWindow::OpenURLFromTab(WebContents* source,
@@ -345,10 +327,10 @@ void ShellWindow::UpdateExtensionAppIcon() {
   app_icon_loader_.reset(new ImageLoadingTracker(this));
   app_icon_loader_->LoadImage(
       extension(),
-      extension()->GetIconResource(extension_misc::EXTENSION_ICON_SMALLISH,
+      extension()->GetIconResource(extension_misc::EXTENSION_ICON_SMALL,
                                    ExtensionIconSet::MATCH_BIGGER),
-      gfx::Size(extension_misc::EXTENSION_ICON_SMALLISH,
-                extension_misc::EXTENSION_ICON_SMALLISH),
+      gfx::Size(extension_misc::EXTENSION_ICON_SMALL,
+                extension_misc::EXTENSION_ICON_SMALL),
       ImageLoadingTracker::CACHE);
 }
 
@@ -423,6 +405,10 @@ void ShellWindow::Observe(int type,
           host_details(details);
       if (host_details->first)
         SuspendRenderViewHost(host_details->second);
+      // TODO(jianli): once http://crbug.com/123007 is fixed, we'll no longer
+      // need to make the native window (ShellWindowViews specially) update
+      // the clickthrough region for the new RVH.
+      native_window_->RenderViewHostChanged();
       break;
     }
     case chrome::NOTIFICATION_EXTENSION_UNLOADED: {

@@ -34,11 +34,11 @@
 #include "content/common/view_messages.h"
 #include "content/port/browser/render_widget_host_view_port.h"
 #include "content/port/browser/smooth_scroll_gesture.h"
+#include "content/public/browser/compositor_util.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/user_metrics.h"
-#include "content/public/common/compositor_util.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/result_codes.h"
@@ -1390,6 +1390,7 @@ void RenderWidgetHostImpl::OnCompositorSurfaceBuffersSwapped(
   if (!view_) {
     RenderWidgetHostImpl::AcknowledgeBufferPresent(route_id,
                                                    gpu_process_host_id,
+                                                   false,
                                                    0);
     return;
   }
@@ -1590,6 +1591,12 @@ void RenderWidgetHostImpl::OnMsgInputEventAck(WebInputEvent::Type event_type,
   if (decrement_in_flight_event_count() == 0)
     StopHangMonitorTimeout();
 
+  // If an input ack is pending, then hold off ticking the gesture
+  // until we get an input ack.
+  if (in_process_event_types_.empty() &&
+      !active_smooth_scroll_gestures_.empty())
+    TickActiveSmoothScrollGesture();
+
   int type = static_cast<int>(event_type);
   if (type < WebInputEvent::Undefined) {
     RecordAction(UserMetricsAction("BadMessageTerminate_RWH2"));
@@ -1612,11 +1619,7 @@ void RenderWidgetHostImpl::OnMsgInputEventAck(WebInputEvent::Type event_type,
     ProcessGestureAck(processed, type);
   }
 
-  // If an input ack is pending, then hold off ticking the gesture
-  // until we get an input ack.
-  if (in_process_event_types_.size() == 0 &&
-      !active_smooth_scroll_gestures_.empty())
-    TickActiveSmoothScrollGesture();
+  // WARNING: |this| may be deleted at this point.
 
   // This is used only for testing, and the other end does not use the
   // source object.  On linux, specifying
@@ -2127,10 +2130,11 @@ bool RenderWidgetHostImpl::GotResponseToLockMouseRequest(bool allowed) {
 
 // static
 void RenderWidgetHostImpl::AcknowledgeBufferPresent(
-    int32 route_id, int gpu_host_id, uint32 sync_point) {
+    int32 route_id, int gpu_host_id, bool presented, uint32 sync_point) {
   GpuProcessHostUIShim* ui_shim = GpuProcessHostUIShim::FromID(gpu_host_id);
   if (ui_shim)
     ui_shim->Send(new AcceleratedSurfaceMsg_BufferPresented(route_id,
+                                                            presented,
                                                             sync_point));
 }
 

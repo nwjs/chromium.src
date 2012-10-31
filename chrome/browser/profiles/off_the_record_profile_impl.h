@@ -38,11 +38,7 @@ class OffTheRecordProfileImpl : public Profile,
   virtual void DestroyOffTheRecordProfile() OVERRIDE;
   virtual bool HasOffTheRecordProfile() OVERRIDE;
   virtual Profile* GetOriginalProfile() OVERRIDE;
-  virtual VisitedLinkMaster* GetVisitedLinkMaster() OVERRIDE;
   virtual ExtensionService* GetExtensionService() OVERRIDE;
-  virtual extensions::UserScriptMaster* GetUserScriptMaster() OVERRIDE;
-  virtual ExtensionProcessManager* GetExtensionProcessManager() OVERRIDE;
-  virtual extensions::EventRouter* GetExtensionEventRouter() OVERRIDE;
   virtual ExtensionSpecialStoragePolicy*
       GetExtensionSpecialStoragePolicy() OVERRIDE;
   virtual GAIAInfoUpdateService* GetGAIAInfoUpdateService() OVERRIDE;
@@ -55,7 +51,8 @@ class OffTheRecordProfileImpl : public Profile,
   virtual net::URLRequestContextGetter*
       GetRequestContextForExtensions() OVERRIDE;
   virtual net::URLRequestContextGetter* GetRequestContextForStoragePartition(
-      const std::string& partition_id) OVERRIDE;
+      const FilePath& partition_path,
+      bool in_memory) OVERRIDE;
   virtual net::SSLConfigService* GetSSLConfigService() OVERRIDE;
   virtual HostContentSettingsMap* GetHostContentSettingsMap() OVERRIDE;
   virtual ProtocolHandlerRegistry* GetProtocolHandlerRegistry() OVERRIDE;
@@ -98,7 +95,8 @@ class OffTheRecordProfileImpl : public Profile,
       int renderer_child_id) OVERRIDE;
   virtual net::URLRequestContextGetter*
       GetMediaRequestContextForStoragePartition(
-          const std::string& partition_id) OVERRIDE;
+          const FilePath& partition_path,
+          bool in_memory) OVERRIDE;
   virtual content::ResourceContext* GetResourceContext() OVERRIDE;
   virtual content::GeolocationPermissionContext*
       GetGeolocationPermissionContext() OVERRIDE;

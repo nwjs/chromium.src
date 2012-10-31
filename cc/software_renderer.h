@@ -6,8 +6,11 @@
 #define CCRendererSoftware_h
 
 #include "base/basictypes.h"
-#include "CCDirectRenderer.h"
-#include <public/WebCompositorSoftwareOutputDevice.h>
+#include "cc/direct_renderer.h"
+
+namespace WebKit {
+class WebCompositorSoftwareOutputDevice;
+}
 
 namespace cc {
 
@@ -35,6 +38,8 @@ public:
     virtual void getFramebufferPixels(void *pixels, const IntRect&) OVERRIDE;
 
     virtual void setVisible(bool) OVERRIDE;
+
+    virtual void sendManagedMemoryStats(size_t bytesVisible, size_t bytesVisibleAndNearby, size_t bytesAllocated) OVERRIDE  { }
 
 protected:
     virtual void bindFramebufferToOutputSurface(DrawingFrame&) OVERRIDE;

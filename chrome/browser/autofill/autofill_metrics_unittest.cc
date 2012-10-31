@@ -16,12 +16,12 @@
 #include "chrome/browser/autofill/autofill_metrics.h"
 #include "chrome/browser/autofill/personal_data_manager.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
+#include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/ui/autofill/tab_autofill_manager_delegate.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
-#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/browser/webdata/web_data_service.h"
 #include "chrome/common/form_data.h"
 #include "chrome/common/form_field_data.h"
+#include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -41,6 +41,8 @@ class MockAutofillMetrics : public AutofillMetrics {
  public:
   MockAutofillMetrics() {}
   MOCK_CONST_METHOD1(LogCreditCardInfoBarMetric, void(InfoBarMetric metric));
+  MOCK_CONST_METHOD1(LogDeveloperEngagementMetric,
+                     void(DeveloperEngagementMetric metric));
   MOCK_CONST_METHOD3(LogHeuristicTypePrediction,
                      void(FieldTypeQualityMetric metric,
                           AutofillFieldType field_type,
@@ -255,7 +257,7 @@ class TestAutofillManager : public AutofillManager {
 
 }  // namespace
 
-class AutofillMetricsTest : public TabContentsTestHarness {
+class AutofillMetricsTest : public ChromeRenderViewHostTestHarness {
  public:
   AutofillMetricsTest();
   virtual ~AutofillMetricsTest();
@@ -274,11 +276,13 @@ class AutofillMetricsTest : public TabContentsTestHarness {
   TestPersonalDataManager personal_data_;
 
  private:
+  std::string default_gmock_verbosity_level_;
+
   DISALLOW_COPY_AND_ASSIGN(AutofillMetricsTest);
 };
 
 AutofillMetricsTest::AutofillMetricsTest()
-  : TabContentsTestHarness(),
+  : ChromeRenderViewHostTestHarness(),
     ui_thread_(BrowserThread::UI, &message_loop_),
     file_thread_(BrowserThread::FILE) {
 }
@@ -292,10 +296,9 @@ AutofillMetricsTest::~AutofillMetricsTest() {
 void AutofillMetricsTest::SetUp() {
   Profile* profile = new TestingProfile();
   browser_context_.reset(profile);
-  PersonalDataManagerFactory::GetInstance()->SetTestingFactory(
-      profile, NULL);
+  PersonalDataManagerFactory::GetInstance()->SetTestingFactory(profile, NULL);
 
-  TabContentsTestHarness::SetUp();
+  ChromeRenderViewHostTestHarness::SetUp();
   TabAutofillManagerDelegate::CreateForWebContents(web_contents());
   autofill_manager_ = new TestAutofillManager(
       web_contents(),
@@ -303,16 +306,28 @@ void AutofillMetricsTest::SetUp() {
       &personal_data_);
 
   file_thread_.Start();
+
+  // Ignore any metrics that we haven't explicitly set expectations for.
+  // If we don't override the verbosity level, we'll get lots of log spew from
+  // mocked functions that aren't relevant to a test but happen to be called
+  // during the test's execution.
+  // CAUTION: This is a global variable.  So as to not affect other tests, this
+  // _must_ be restored to its original value at the end of the test.
+  default_gmock_verbosity_level_ = ::testing::FLAGS_gmock_verbose;
+  ::testing::FLAGS_gmock_verbose = "error";
 }
 
 void AutofillMetricsTest::TearDown() {
+  // Restore the global Gmock verbosity level to its default value.
+  ::testing::FLAGS_gmock_verbose = default_gmock_verbosity_level_;
+
   // Order of destruction is important as AutofillManager relies on
   // PersonalDataManager to be around when it gets destroyed. Also, a real
   // AutofillManager is tied to the lifetime of the WebContents, so it must
   // be destroyed at the destruction of the WebContents.
   autofill_manager_ = NULL;
   file_thread_.Stop();
-  TabContentsTestHarness::TearDown();
+  ChromeRenderViewHostTestHarness::TearDown();
 }
 
 AutofillCCInfoBarDelegate* AutofillMetricsTest::CreateDelegate(
@@ -574,7 +589,6 @@ TEST_F(AutofillMetricsTest, QualityMetricsForFailure) {
 
 
   // Establish our expectations.
-  ::testing::FLAGS_gmock_verbose = "error";
   ::testing::InSequence dummy;
   EXPECT_CALL(*autofill_manager_->metric_logger(),
               LogServerExperimentIdForUpload(std::string()));
@@ -754,6 +768,84 @@ TEST_F(AutofillMetricsTest, SaneMetricsWithCacheMismatch) {
   // Simulate form submission.
   EXPECT_NO_FATAL_FAILURE(autofill_manager_->FormSubmitted(form,
                                                            TimeTicks::Now()));
+}
+
+// Verify that we correctly log metrics regarding developer engagement.
+TEST_F(AutofillMetricsTest, DeveloperEngagement) {
+  // Start with a non-fillable form.
+  FormData form;
+  form.name = ASCIIToUTF16("TestForm");
+  form.method = ASCIIToUTF16("POST");
+  form.origin = GURL("http://example.com/form.html");
+  form.action = GURL("http://example.com/submit.html");
+
+  FormFieldData field;
+  autofill_test::CreateTestFormField("Name", "name", "", "text", &field);
+  form.fields.push_back(field);
+  autofill_test::CreateTestFormField("Email", "email", "", "text", &field);
+  form.fields.push_back(field);
+
+  std::vector<FormData> forms(1, form);
+
+  // Ensure no metrics are logged when loading a non-fillable form.
+  {
+    EXPECT_CALL(*autofill_manager_->metric_logger(),
+                LogDeveloperEngagementMetric(_)).Times(0);
+    autofill_manager_->OnFormsSeen(forms, TimeTicks());
+    autofill_manager_->Reset();
+    Mock::VerifyAndClearExpectations(autofill_manager_->metric_logger());
+  }
+
+  // Add another field to the form, so that it becomes fillable.
+  autofill_test::CreateTestFormField("Phone", "phone", "", "text", &field);
+  forms.back().fields.push_back(field);
+
+  // Expect only the "form parsed" metric to be logged; no metrics about
+  // author-specified field type hints.
+  {
+    EXPECT_CALL(
+        *autofill_manager_->metric_logger(),
+        LogDeveloperEngagementMetric(
+            AutofillMetrics::FILLABLE_FORM_PARSED)).Times(1);
+    EXPECT_CALL(
+        *autofill_manager_->metric_logger(),
+        LogDeveloperEngagementMetric(
+            AutofillMetrics::FILLABLE_FORM_CONTAINS_TYPE_HINTS)).Times(0);
+    autofill_manager_->OnFormsSeen(forms, TimeTicks());
+    autofill_manager_->Reset();
+    Mock::VerifyAndClearExpectations(autofill_manager_->metric_logger());
+  }
+
+  // Add some fields with an author-specified field type to the form.
+  // We need to add at least three fields, because a form must have at least
+  // three fillable fields to be considered to be autofillable; and if at least
+  // one field specifies an explicit type hint, we don't apply any of our usual
+  // local heuristics to detect field types in the rest of the form.
+  autofill_test::CreateTestFormField("", "", "", "text", &field);
+  field.autocomplete_attribute = "given-name";
+  forms.back().fields.push_back(field);
+  autofill_test::CreateTestFormField("", "", "", "text", &field);
+  field.autocomplete_attribute = "email";
+  forms.back().fields.push_back(field);
+  autofill_test::CreateTestFormField("", "", "", "text", &field);
+  field.autocomplete_attribute = "street-address";
+  forms.back().fields.push_back(field);
+
+  // Expect both the "form parsed" metric and the author-specified field type
+  // hints metric to be logged.
+  {
+    EXPECT_CALL(
+        *autofill_manager_->metric_logger(),
+        LogDeveloperEngagementMetric(
+            AutofillMetrics::FILLABLE_FORM_PARSED)).Times(1);
+    EXPECT_CALL(
+        *autofill_manager_->metric_logger(),
+        LogDeveloperEngagementMetric(
+            AutofillMetrics::FILLABLE_FORM_CONTAINS_TYPE_HINTS)).Times(1);
+    autofill_manager_->OnFormsSeen(forms, TimeTicks());
+    autofill_manager_->Reset();
+    Mock::VerifyAndClearExpectations(autofill_manager_->metric_logger());
+  }
 }
 
 // Test that we don't log quality metrics for non-autofillable forms.
@@ -977,7 +1069,6 @@ TEST_F(AutofillMetricsTest, AddressSuggestionsCount) {
                                  std::string());
 
   // Establish our expectations.
-  ::testing::FLAGS_gmock_verbose = "error";
   ::testing::InSequence dummy;
   EXPECT_CALL(*autofill_manager_->metric_logger(),
               LogAddressSuggestionsCount(2)).Times(1);
@@ -1023,7 +1114,6 @@ TEST_F(AutofillMetricsTest, AddressSuggestionsCount) {
 // Test that we log whether Autofill is enabled when filling a form.
 TEST_F(AutofillMetricsTest, AutofillIsEnabledAtPageLoad) {
   // Establish our expectations.
-  ::testing::FLAGS_gmock_verbose = "error";
   ::testing::InSequence dummy;
   EXPECT_CALL(*autofill_manager_->metric_logger(),
               LogIsAutofillEnabledAtPageLoad(true)).Times(1);
@@ -1044,6 +1134,8 @@ TEST_F(AutofillMetricsTest, AutofillIsEnabledAtPageLoad) {
 
 // Test that credit card infobar metrics are logged correctly.
 TEST_F(AutofillMetricsTest, CreditCardInfoBar) {
+  InfoBarTabHelper::CreateForWebContents(web_contents());
+
   MockAutofillMetrics metric_logger;
   ::testing::InSequence dummy;
 
@@ -1387,11 +1479,6 @@ TEST_F(AutofillMetricsTest, FormFillDuration) {
   form.fields[1].value = ASCIIToUTF16("theking@gmail.com");
   form.fields[2].value = ASCIIToUTF16("12345678901");
 
-  // Ignore any non-timing metrics.
-  // CAUTION: This is a global variable.  So as to not affect other tests, this
-  // _must_ be restored to "warning" at the end of the test.
-  ::testing::FLAGS_gmock_verbose = "error";
-
   // Expect only form load metrics to be logged if the form is submitted without
   // user interaction.
   {
@@ -1474,7 +1561,4 @@ TEST_F(AutofillMetricsTest, FormFillDuration) {
     autofill_manager_->Reset();
     Mock::VerifyAndClearExpectations(autofill_manager_->metric_logger());
   }
-
-  // Restore the global Gmock verbosity level to its default value.
-  ::testing::FLAGS_gmock_verbose = "warning";
 }

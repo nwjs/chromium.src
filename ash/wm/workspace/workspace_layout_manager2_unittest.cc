@@ -136,6 +136,23 @@ TEST_F(WorkspaceLayoutManager2Test, WindowShouldBeOnScreenWhenAdded) {
   EXPECT_TRUE(out_window->bounds().Intersects(root_window_bounds));
 }
 
-}  // namespace
+// Verifies the size of a window is enforced to be smaller than the work area.
+TEST_F(WorkspaceLayoutManager2Test, SizeToWorkArea) {
+  // Normal window bounds shouldn't be changed.
+  gfx::Size work_area(
+      gfx::Screen::GetNativeScreen()->GetPrimaryDisplay().work_area().size());
+  const gfx::Rect window_bounds(
+      100, 101, work_area.width() + 1, work_area.height() + 2);
+  scoped_ptr<aura::Window> window(CreateTestWindow(window_bounds));
+  EXPECT_EQ(gfx::Rect(gfx::Point(100, 101), work_area).ToString(),
+      window->bounds().ToString());
 
+  // Directly setting the bounds triggers a slightly different code path. Verify
+  // that too.
+  window->SetBounds(window_bounds);
+  EXPECT_EQ(gfx::Rect(gfx::Point(100, 101), work_area).ToString(),
+      window->bounds().ToString());
+}
+
+}  // namespace
 }  // namespace ash

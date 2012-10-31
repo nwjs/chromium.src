@@ -34,6 +34,8 @@ class DriveFile;
 class ResourceMetadataDB;
 
 typedef std::vector<DriveEntryProto> DriveEntryProtoVector;
+typedef std::map<std::string /* resource_id */, DriveEntryProto>
+    DriveEntryProtoMap;
 
 // File type on the drive file system can be either a regular file or
 // a hosted document.
@@ -45,15 +47,12 @@ enum DriveFileType {
 // The root directory content origin.
 enum ContentOrigin {
   UNINITIALIZED,
-  // Content is currently loading from somewhere.  Needs to wait.
-  INITIALIZING,
-  // Content is initialized, but during refreshing.
-  REFRESHING,
-  // Content is initialized from disk cache.
-  FROM_CACHE,
-  // Content is initialized from the direct server response.
-  FROM_SERVER,
+  // Content is initialized.
+  INITIALIZED,
 };
+
+// Converts a ContentOrigin constant to a string of its name.
+std::string ContentOriginToString(ContentOrigin origin);
 
 // The root directory name used for the Google Drive file system tree. The
 // name is used in URLs for the file manager, hence user-visible.
@@ -151,10 +150,6 @@ class DriveResourceMetadata {
   ContentOrigin origin() const { return origin_; }
   void set_origin(ContentOrigin value) { origin_ = value; }
 
-  // Creates a DriveEntry from a google_apis::DocumentEntry.
-  scoped_ptr<DriveEntry> FromDocumentEntry(
-      const google_apis::DocumentEntry& doc);
-
   // Creates a DriveFile instance.
   scoped_ptr<DriveFile> CreateDriveFile();
 
@@ -245,10 +240,11 @@ class DriveResourceMetadata {
   void RefreshFile(scoped_ptr<google_apis::DocumentEntry> doc_entry,
                    const GetEntryInfoWithFilePathCallback& callback);
 
-  // Removes all child files of |directory| and replace with file_map.
-  // |callback| is called with the directory path. |callback| must not be null.
+  // Removes all child files of |directory| and replaces them with
+  // |entry_proto_map|. |callback| is called with the directory path.
+  // |callback| must not be null.
   void RefreshDirectory(const std::string& directory_resource_id,
-                        const ResourceMap& file_map,
+                        const DriveEntryProtoMap& entry_proto_map,
                         const FileMoveCallback& callback);
 
   // Serializes/Parses to/from string via proto classes.
@@ -262,6 +258,10 @@ class DriveResourceMetadata {
                   const FileOperationCallback& callback);
   void SaveToDB();
 
+  // Creates DriveEntry from proto.
+  scoped_ptr<DriveEntry> CreateDriveEntryFromProto(
+      const DriveEntryProto& entry_proto);
+
  private:
   // Initializes the resource map using serialized_resources fetched from the
   // database.
@@ -273,7 +273,7 @@ class DriveResourceMetadata {
   void ClearRoot();
 
   // Creates DriveEntry from serialized string.
-  scoped_ptr<DriveEntry> FromProtoString(
+  scoped_ptr<DriveEntry> CreateDriveEntryFromProtoString(
       const std::string& serialized_proto);
 
   // Continues with GetEntryInfoPairByPaths after the first DriveEntry has been

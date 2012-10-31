@@ -45,42 +45,6 @@ bool PpapiCommandBufferProxy::Echo(const base::Closure& callback) {
   return false;
 }
 
-bool PpapiCommandBufferProxy::SetSurfaceVisible(bool visible) {
-  NOTIMPLEMENTED();
-  return true;
-}
-
-bool PpapiCommandBufferProxy::DiscardBackbuffer() {
-  NOTIMPLEMENTED();
-  return true;
-}
-
-bool PpapiCommandBufferProxy::EnsureBackbuffer() {
-  NOTIMPLEMENTED();
-  return true;
-}
-
-uint32 PpapiCommandBufferProxy::InsertSyncPoint() {
-  NOTIMPLEMENTED();
-  return 0;
-}
-
-void PpapiCommandBufferProxy::WaitSyncPoint(uint32 sync_point) {
-  NOTIMPLEMENTED();
-}
-
-bool PpapiCommandBufferProxy::SignalSyncPoint(uint32 sync_point,
-                                              const base::Closure& callback) {
-  NOTIMPLEMENTED();
-  return false;
-}
-
-void PpapiCommandBufferProxy::SetMemoryAllocationChangedCallback(
-    const base::Callback<void(
-      const content::GpuMemoryAllocationForRenderer&)>& callback) {
-  NOTIMPLEMENTED();
-}
-
 bool PpapiCommandBufferProxy::SetParent(
     CommandBufferProxy* parent_command_buffer,
     uint32 parent_texture_id) {
@@ -93,16 +57,6 @@ bool PpapiCommandBufferProxy::SetParent(
 void PpapiCommandBufferProxy::SetChannelErrorCallback(
     const base::Closure& callback) {
   channel_error_callback_ = callback;
-}
-
-void PpapiCommandBufferProxy::SetNotifyRepaintTask(
-    const base::Closure& callback) {
-  NOTIMPLEMENTED();
-}
-
-void PpapiCommandBufferProxy::SetOnConsoleMessageCallback(
-    const GpuConsoleMessageCallback& callback) {
-  NOTIMPLEMENTED();
 }
 
 bool PpapiCommandBufferProxy::Initialize() {
@@ -203,12 +157,13 @@ void PpapiCommandBufferProxy::DestroyTransferBuffer(int32 id) {
 
   // Remove the transfer buffer from the client side4 cache.
   TransferBufferMap::iterator it = transfer_buffers_.find(id);
-  DCHECK(it != transfer_buffers_.end());
 
-  // Delete the shared memory object, closing the handle in this process.
-  delete it->second.shared_memory;
+  if (it != transfer_buffers_.end()) {
+    // Delete the shared memory object, closing the handle in this process.
+    delete it->second.shared_memory;
 
-  transfer_buffers_.erase(it);
+    transfer_buffers_.erase(it);
+  }
 
   Send(new PpapiHostMsg_PPBGraphics3D_DestroyTransferBuffer(
       ppapi::API_ID_PPB_GRAPHICS_3D, resource_, id));

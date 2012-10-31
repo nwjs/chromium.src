@@ -30,16 +30,9 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBTransaction.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebVector.h"
+#include "webkit/base/file_path_string_conversions.h"
 #include "webkit/database/database_util.h"
-#include "webkit/glue/webkit_glue.h"
 
-using content::BrowserMessageFilter;
-using content::BrowserThread;
-using content::IndexedDBKey;
-using content::IndexedDBKeyPath;
-using content::IndexedDBKeyRange;
-using content::UserMetricsAction;
-using content::SerializedScriptValue;
 using webkit_database::DatabaseUtil;
 using WebKit::WebDOMStringList;
 using WebKit::WebExceptionCode;
@@ -55,6 +48,7 @@ using WebKit::WebSecurityOrigin;
 using WebKit::WebSerializedScriptValue;
 using WebKit::WebVector;
 
+namespace content {
 namespace {
 
 template <class T>
@@ -219,7 +213,7 @@ void IndexedDBDispatcherHost::OnIDBFactoryGetDatabaseNames(
   Context()->GetIDBFactory()->getDatabaseNames(
       new IndexedDBCallbacks<WebDOMStringList>(this, params.thread_id,
       params.response_id), origin, NULL,
-      webkit_glue::FilePathToWebString(indexed_db_path));
+      webkit_base::FilePathToWebString(indexed_db_path));
 }
 
 void IndexedDBDispatcherHost::OnIDBFactoryOpen(
@@ -242,7 +236,7 @@ void IndexedDBDispatcherHost::OnIDBFactoryOpen(
                                      params.response_id, origin_url),
       new IndexedDBDatabaseCallbacks(this, params.thread_id,
                                      params.database_response_id),
-      origin, NULL, webkit_glue::FilePathToWebString(indexed_db_path));
+      origin, NULL, webkit_base::FilePathToWebString(indexed_db_path));
 }
 
 void IndexedDBDispatcherHost::OnIDBFactoryDeleteDatabase(
@@ -256,7 +250,7 @@ void IndexedDBDispatcherHost::OnIDBFactoryDeleteDatabase(
                                                        params.thread_id,
                                                        params.response_id),
       WebSecurityOrigin::createFromDatabaseIdentifier(params.origin), NULL,
-      webkit_glue::FilePathToWebString(indexed_db_path));
+      webkit_base::FilePathToWebString(indexed_db_path));
 }
 
 void IndexedDBDispatcherHost::TransactionComplete(int32 transaction_id) {
@@ -275,7 +269,7 @@ ObjectType* IndexedDBDispatcherHost::GetOrTerminateProcess(
   ObjectType* return_object = map->Lookup(return_object_id);
   if (!return_object) {
     NOTREACHED() << "Uh oh, couldn't find object with id " << return_object_id;
-    content::RecordAction(UserMetricsAction("BadMessageTerminate_IDBMF"));
+    RecordAction(UserMetricsAction("BadMessageTerminate_IDBMF"));
     BadMessageReceived();
   }
   return return_object;
@@ -342,6 +336,7 @@ void IndexedDBDispatcherHost::DatabaseDispatcherHost::OnMetadata(
     return;
 
   WebIDBMetadata web_metadata = idb_database->metadata();
+  metadata->id = web_metadata.id;
   metadata->name = web_metadata.name;
   metadata->version = web_metadata.version;
   metadata->int_version = web_metadata.intVersion;
@@ -351,6 +346,7 @@ void IndexedDBDispatcherHost::DatabaseDispatcherHost::OnMetadata(
     const WebIDBMetadata::ObjectStore& web_store_metadata =
         web_metadata.objectStores[i];
     IndexedDBObjectStoreMetadata idb_store_metadata;
+    idb_store_metadata.id = web_store_metadata.id;
     idb_store_metadata.name = web_store_metadata.name;
     idb_store_metadata.keyPath = IndexedDBKeyPath(web_store_metadata.keyPath);
     idb_store_metadata.autoIncrement = web_store_metadata.autoIncrement;
@@ -360,6 +356,7 @@ void IndexedDBDispatcherHost::DatabaseDispatcherHost::OnMetadata(
       const WebIDBMetadata::Index& web_index_metadata =
           web_store_metadata.indexes[j];
       IndexedDBIndexMetadata idb_index_metadata;
+      idb_index_metadata.id = web_index_metadata.id;
       idb_index_metadata.name = web_index_metadata.name;
       idb_index_metadata.keyPath = IndexedDBKeyPath(web_index_metadata.keyPath);
       idb_index_metadata.unique = web_index_metadata.unique;
@@ -709,9 +706,9 @@ void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnPut(
 
 void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnSetIndexKeys(
     int32 idb_object_store_id,
-    const content::IndexedDBKey& primary_key,
+    const IndexedDBKey& primary_key,
     const std::vector<string16>& index_names,
-    const std::vector<std::vector<content::IndexedDBKey> >& index_keys,
+    const std::vector<std::vector<IndexedDBKey> >& index_keys,
     int32 transaction_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::WEBKIT_DEPRECATED));
   WebIDBObjectStore* idb_object_store = parent_->GetOrTerminateProcess(
@@ -720,7 +717,8 @@ void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnSetIndexKeys(
       &parent_->transaction_dispatcher_host_->map_, transaction_id);
   if (!idb_transaction || !idb_object_store)
     return;
-  idb_object_store->setIndexKeys(primary_key, index_names,
+  idb_object_store->setIndexKeys(primary_key,
+                                 WebVector<WebKit::WebString>(index_names),
                                  index_keys, *idb_transaction);
 }
 
@@ -736,7 +734,8 @@ void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnSetIndexesReady(
   if (!idb_transaction || !idb_object_store)
     return;
 
-  idb_object_store->setIndexesReady(index_names, *idb_transaction);
+  idb_object_store->setIndexesReady(WebVector<WebKit::WebString>(index_names),
+                                    *idb_transaction);
 }
 
 void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnDelete(
@@ -1108,3 +1107,5 @@ void IndexedDBDispatcherHost::TransactionDispatcherHost::OnDestroyed(
   transaction_url_map_.erase(object_id);
   parent_->DestroyObject(&map_, object_id);
 }
+
+}  // namespace content

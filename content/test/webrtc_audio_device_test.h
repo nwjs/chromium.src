@@ -18,15 +18,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/webrtc/common_types.h"
 
-class AudioInputRendererHost;
-class AudioRendererHost;
-
 namespace media {
 class AudioManager;
-}
-
-namespace media_stream {
-class MediaStreamManager;
 }
 
 namespace net {
@@ -46,7 +39,11 @@ class ScopedCOMInitializer;
 #endif
 
 namespace content {
+
+class AudioInputRendererHost;
+class AudioRendererHost;
 class ContentRendererClient;
+class MediaStreamManager;
 class MockResourceContext;
 class RenderThreadImpl;
 class ResourceContext;
@@ -162,14 +159,14 @@ class WebRTCAudioDeviceTest : public ::testing::Test, public IPC::Listener {
 
   scoped_ptr<ReplaceContentClientRenderer> saved_content_renderer_;
   MessageLoopForUI message_loop_;
-  content::ContentRendererClient content_renderer_client_;
+  ContentRendererClient content_renderer_client_;
   RenderThreadImpl* render_thread_;  // Owned by mock_process_.
   scoped_ptr<WebRTCMockRenderProcess> mock_process_;
   scoped_ptr<MockMediaObserver> media_observer_;
-  scoped_ptr<media_stream::MediaStreamManager> media_stream_manager_;
+  scoped_ptr<MediaStreamManager> media_stream_manager_;
   scoped_ptr<media::AudioManager> audio_manager_;
   scoped_ptr<net::URLRequestContext> test_request_context_;
-  scoped_ptr<content::ResourceContext> resource_context_;
+  scoped_ptr<ResourceContext> resource_context_;
   scoped_ptr<IPC::Channel> channel_;
   scoped_refptr<AudioRendererHost> audio_render_host_;
   scoped_refptr<AudioInputRendererHost> audio_input_renderer_host_;
@@ -177,9 +174,9 @@ class WebRTCAudioDeviceTest : public ::testing::Test, public IPC::Listener {
   AudioUtilInterface* audio_util_callback_;  // Weak reference.
 
   // Initialized on the main test thread that we mark as the UI thread.
-  scoped_ptr<content::TestBrowserThread> ui_thread_;
+  scoped_ptr<TestBrowserThread> ui_thread_;
   // Initialized on our IO thread to satisfy BrowserThread::IO checks.
-  scoped_ptr<content::TestBrowserThread> io_thread_;
+  scoped_ptr<TestBrowserThread> io_thread_;
 
 #if defined(OS_WIN)
   // COM initialization on the IO thread.

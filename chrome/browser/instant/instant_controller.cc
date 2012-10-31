@@ -15,13 +15,14 @@
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/history_tab_helper.h"
-#include "chrome/browser/instant/instant_controller_delegate.h"
 #include "chrome/browser/instant/instant_loader.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/ui/browser_instant_controller.h"
 #include "chrome/browser/ui/search/search.h"
+#include "chrome/browser/ui/search/search_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -67,9 +68,6 @@ std::string ModeToString(InstantController::Mode mode) {
   switch (mode) {
     case InstantController::EXTENDED: return "_Extended";
     case InstantController::INSTANT:  return "_Instant";
-    case InstantController::SUGGEST:  return "_Suggest";
-    case InstantController::HIDDEN:   return "_Hidden";
-    case InstantController::SILENT:   return "_Silent";
     case InstantController::DISABLED: return "_Disabled";
   }
 
@@ -160,9 +158,9 @@ InstantController::~InstantController() {
 // static
 InstantController* InstantController::CreateInstant(
     Profile* profile,
-    InstantControllerDelegate* delegate) {
+    chrome::BrowserInstantController* browser) {
   const Mode mode = GetModeForProfile(profile);
-  return mode == DISABLED ? NULL : new InstantController(delegate, mode);
+  return mode == DISABLED ? NULL : new InstantController(browser, mode);
 }
 
 // static
@@ -177,12 +175,6 @@ bool InstantController::IsInstantEnabled(Profile* profile) {
 }
 
 // static
-bool InstantController::IsSuggestEnabled(Profile* profile) {
-  const Mode mode = GetModeForProfile(profile);
-  return mode == EXTENDED || mode == INSTANT || mode == SUGGEST;
-}
-
-// static
 void InstantController::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterBooleanPref(prefs::kInstantConfirmDialogShown, false,
                              PrefService::SYNCABLE_PREF);
@@ -194,7 +186,7 @@ bool InstantController::Update(const AutocompleteMatch& match,
                                const string16& user_text,
                                const string16& full_text,
                                bool verbatim) {
-  const TabContents* active_tab = delegate_->GetActiveTabContents();
+  const TabContents* active_tab = browser_->GetActiveTabContents();
 
   // We could get here with no active tab if the Browser is closing.
   if (!active_tab) {
@@ -209,7 +201,8 @@ bool InstantController::Update(const AutocompleteMatch& match,
   // not valid, it's likely a URL; in EXTENDED mode, try using the default
   // search engine's TemplateURL instead.
   const GURL& tab_url = active_tab->web_contents()->GetURL();
-  if (GetInstantURL(match.GetTemplateURL(profile), tab_url, &instant_url)) {
+  if (GetInstantURL(match.GetTemplateURL(profile, false), tab_url,
+                    &instant_url)) {
     ResetLoader(instant_url, active_tab);
   } else if (mode_ != EXTENDED || !CreateDefaultLoader()) {
     Hide();
@@ -238,7 +231,7 @@ bool InstantController::Update(const AutocompleteMatch& match,
   // Don't send an update to the loader if the query text hasn't changed.
   if (query_text == last_query_text && verbatim == last_verbatim_) {
     // Reuse the last suggestion, as it's still valid.
-    delegate_->SetInstantSuggestion(last_suggestion_);
+    browser_->SetInstantSuggestion(last_suggestion_);
 
     // We need to call Show() here because of this:
     // 1. User has typed a query (say Q). Instant overlay is showing results.
@@ -246,8 +239,7 @@ bool InstantController::Update(const AutocompleteMatch& match,
     //    these cause the overlay to Hide().
     // 3. User arrows-up to Q or types Q again. The last text we processed is
     //    still Q, so we don't Update() the loader, but we do need to Show().
-    if (loader_processed_last_update_ &&
-        (mode_ == INSTANT || mode_ == EXTENDED))
+    if (loader_processed_last_update_)
       Show(100, INSTANT_SIZE_PERCENT);
     return true;
   }
@@ -256,17 +248,15 @@ bool InstantController::Update(const AutocompleteMatch& match,
   loader_processed_last_update_ = false;
   last_suggestion_ = InstantSuggestion();
 
-  if (mode_ != SILENT) {
-    loader_->Update(query_text, verbatim);
+  loader_->Update(query_text, verbatim);
 
-    content::NotificationService::current()->Notify(
-        chrome::NOTIFICATION_INSTANT_CONTROLLER_UPDATED,
-        content::Source<InstantController>(this),
-        content::NotificationService::NoDetails());
-  }
+  content::NotificationService::current()->Notify(
+      chrome::NOTIFICATION_INSTANT_CONTROLLER_UPDATED,
+      content::Source<InstantController>(this),
+      content::NotificationService::NoDetails());
 
   // We don't have suggestions yet, but need to reset any existing "gray text".
-  delegate_->SetInstantSuggestion(InstantSuggestion());
+  browser_->SetInstantSuggestion(InstantSuggestion());
 
   // Though we may have handled a URL match above, we return false here, so that
   // omnibox prerendering can kick in. TODO(sreeram): Remove this (and always
@@ -277,7 +267,7 @@ bool InstantController::Update(const AutocompleteMatch& match,
 // TODO(tonyg): This method only fires when the omnibox bounds change. It also
 // needs to fire when the preview bounds change (e.g.: open/close info bar).
 void InstantController::SetOmniboxBounds(const gfx::Rect& bounds) {
-  if (omnibox_bounds_ == bounds || (mode_ != INSTANT && mode_ != EXTENDED))
+  if (omnibox_bounds_ == bounds)
     return;
 
   omnibox_bounds_ = bounds;
@@ -328,7 +318,14 @@ TabContents* InstantController::GetPreviewContents() const {
 
 void InstantController::Hide() {
   last_active_tab_ = NULL;
-  model_.SetDisplayState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
+
+  // The only time when the model is not already in the desired NOT_READY state
+  // and GetPreviewContents() returns NULL is when we are in the commit path.
+  // In that case, don't change the state just yet; otherwise we may cause the
+  // preview to hide unnecessarily. Instead, the state will be set correctly
+  // after the commit is done.
+  if (GetPreviewContents())
+    model_.SetDisplayState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
 
   if (GetPreviewContents() && !last_full_text_.empty()) {
     // Send a blank query to ask the preview to clear out old results.
@@ -367,6 +364,8 @@ void InstantController::CommitCurrentPreview(InstantCommitType type) {
       entry->SetVirtualURL(GURL(
           url + "#q=" +
           net::EscapeQueryParamValue(UTF16ToUTF8(last_full_text_), true)));
+      chrome::search::SearchTabHelper::FromWebContents(
+          preview->web_contents())->NavigationEntryUpdated();
     }
   }
 
@@ -399,31 +398,26 @@ void InstantController::CommitCurrentPreview(InstantCommitType type) {
   }
 
   AddPreviewUsageForHistogram(mode_, PREVIEW_COMMITTED);
-
-  // We may have gotten here from CommitInstant(), which means the loader may
-  // still be on the stack. So, schedule a destruction for later.
-  MessageLoop::current()->DeleteSoon(FROM_HERE, loader_.release());
-
-  // This call is here to reset view state. It won't actually delete |loader_|
-  // because it was just released to DeleteSoon().
   DeleteLoader();
 
   preview->web_contents()->GetController().PruneAllButActive();
 
   if (type != INSTANT_COMMIT_PRESSED_ALT_ENTER) {
-    const TabContents* active_tab = delegate_->GetActiveTabContents();
+    const TabContents* active_tab = browser_->GetActiveTabContents();
     AddSessionStorageHistogram(mode_, active_tab, preview);
     preview->web_contents()->GetController().CopyStateFromAndPrune(
         &active_tab->web_contents()->GetController());
   }
 
-  // Delegate takes ownership of the preview.
-  delegate_->CommitInstant(preview, type == INSTANT_COMMIT_PRESSED_ALT_ENTER);
+  // Browser takes ownership of the preview.
+  browser_->CommitInstant(preview, type == INSTANT_COMMIT_PRESSED_ALT_ENTER);
 
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_INSTANT_COMMITTED,
       content::Source<content::WebContents>(preview->web_contents()),
       content::NotificationService::NoDetails());
+
+  model_.SetDisplayState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
 
   // Try to create another loader immediately so that it is ready for the next
   // user interaction.
@@ -535,7 +529,7 @@ bool InstantController::commit_on_pointer_release() const {
 void InstantController::SetSuggestions(
     InstantLoader* loader,
     const std::vector<InstantSuggestion>& suggestions) {
-  if (loader_ != loader || IsOutOfDate() || mode_ == SILENT || mode_ == HIDDEN)
+  if (loader_ != loader || IsOutOfDate())
     return;
 
   loader_processed_last_update_ = true;
@@ -554,7 +548,7 @@ void InstantController::SetSuggestions(
     last_verbatim_ = true;
     last_suggestion_ = InstantSuggestion();
     last_match_was_search_ = suggestion.type == INSTANT_SUGGESTION_SEARCH;
-    delegate_->SetInstantSuggestion(suggestion);
+    browser_->SetInstantSuggestion(suggestion);
   } else {
     // Suggestion text should be a full URL for URL suggestions, or the
     // completion of a query for query suggestions.
@@ -580,11 +574,10 @@ void InstantController::SetSuggestions(
     // INSTANT_COMPLETE_NEVER irrespective of verbatim because in this case
     // the suggested text does not get committed if the user presses enter.
     if (suggestion.behavior == INSTANT_COMPLETE_NEVER || !last_verbatim_)
-      delegate_->SetInstantSuggestion(suggestion);
+      browser_->SetInstantSuggestion(suggestion);
   }
 
-  if (mode_ != SUGGEST)
-    Show(100, INSTANT_SIZE_PERCENT);
+  Show(100, INSTANT_SIZE_PERCENT);
 }
 
 void InstantController::CommitInstantLoader(InstantLoader* loader) {
@@ -618,14 +611,8 @@ void InstantController::InstantSupportDetermined(InstantLoader* loader,
     blacklisted_urls_.erase(loader->instant_url());
   } else {
     ++blacklisted_urls_[loader->instant_url()];
-    if (loader_ == loader) {
-      if (GetPreviewContents())
-        AddPreviewUsageForHistogram(mode_, PREVIEW_DELETED);
-
-      // Because of the state of the stack, we can't destroy the loader now.
-      MessageLoop::current()->DeleteSoon(FROM_HERE, loader_.release());
+    if (loader_ == loader)
       DeleteLoader();
-    }
   }
 
   content::NotificationService::current()->Notify(
@@ -644,13 +631,13 @@ void InstantController::InstantLoaderContentsFocused(InstantLoader* loader) {
   // On aura the omnibox only receives a focus lost if we initiate the focus
   // change. This does that.
   if (model_.is_ready() && !IsOutOfDate())
-    delegate_->InstantPreviewFocused();
+    browser_->InstantPreviewFocused();
 #endif
 }
 
-InstantController::InstantController(InstantControllerDelegate* delegate,
+InstantController::InstantController(chrome::BrowserInstantController* browser,
                                      Mode mode)
-    : delegate_(delegate),
+    : browser_(browser),
       model_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       mode_(mode),
       last_active_tab_(NULL),
@@ -670,12 +657,14 @@ void InstantController::ResetLoader(const std::string& instant_url,
   if (!GetPreviewContents()) {
     loader_.reset(new InstantLoader(this, instant_url, active_tab));
     loader_->Init();
+
     // Ensure the searchbox API has the correct focus state and context.
     if (is_omnibox_focused_)
       loader_->OnAutocompleteGotFocus();
     else
       loader_->OnAutocompleteLostFocus();
     loader_->OnActiveTabModeChanged(active_tab_is_ntp_);
+
     AddPreviewUsageForHistogram(mode_, PREVIEW_CREATED);
 
     // Reset the loader timer.
@@ -688,7 +677,7 @@ void InstantController::ResetLoader(const std::string& instant_url,
 }
 
 bool InstantController::CreateDefaultLoader() {
-  const TabContents* active_tab = delegate_->GetActiveTabContents();
+  const TabContents* active_tab = browser_->GetActiveTabContents();
 
   // We could get here with no active tab if the Browser is closing.
   if (!active_tab)
@@ -728,13 +717,18 @@ void InstantController::DeleteLoader() {
   last_verbatim_ = false;
   last_suggestion_ = InstantSuggestion();
   last_match_was_search_ = false;
-  model_.SetDisplayState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
   loader_processed_last_update_ = false;
   last_omnibox_bounds_ = gfx::Rect();
   url_for_history_ = GURL();
-  if (GetPreviewContents())
+  if (GetPreviewContents()) {
     AddPreviewUsageForHistogram(mode_, PREVIEW_DELETED);
-  loader_.reset();
+    model_.SetDisplayState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
+  }
+  // Schedule the deletion for later, since we may have gotten here from a call
+  // within a |loader_| method (i.e., it's still on the stack). If we deleted
+  // the loader immediately, things would still be fine so long as the caller
+  // doesn't access any instance members after we return, but why rely on that?
+  MessageLoop::current()->DeleteSoon(FROM_HERE, loader_.release());
 }
 
 void InstantController::Show(int height, InstantSizeUnits units) {
@@ -750,8 +744,8 @@ void InstantController::SendBoundsToPage() {
     return;
 
   last_omnibox_bounds_ = omnibox_bounds_;
-  gfx::Rect preview_bounds = delegate_->GetInstantBounds();
-  gfx::Rect intersection = omnibox_bounds_.Intersect(preview_bounds);
+  gfx::Rect preview_bounds = browser_->GetInstantBounds();
+  gfx::Rect intersection = gfx::IntersectRects(omnibox_bounds_, preview_bounds);
 
   // Translate into window coordinates.
   if (!intersection.IsEmpty()) {
@@ -826,5 +820,5 @@ bool InstantController::GetInstantURL(const TemplateURL* template_url,
 
 bool InstantController::IsOutOfDate() const {
   return !last_active_tab_ ||
-         last_active_tab_ != delegate_->GetActiveTabContents();
+         last_active_tab_ != browser_->GetActiveTabContents();
 }

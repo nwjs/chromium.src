@@ -18,7 +18,8 @@ namespace syncer {
 // it makes refactoring easier.
 enum SyncerError {
   UNSET = 0,       // Default value.
-  DIRECTORY_LOOKUP_FAILED, // Local directory lookup failure.
+  DIRECTORY_LOOKUP_FAILED,  // Local directory lookup failure.
+  CANNOT_DO_WORK,  // A model worker could not process a work item.
 
   NETWORK_CONNECTION_UNAVAILABLE,  // Connectivity failure.
   NETWORK_IO_ERROR,                // Response buffer read error.
@@ -27,6 +28,8 @@ enum SyncerError {
 
   // Based on values returned by server.  Most are defined in sync.proto.
   SERVER_RETURN_INVALID_CREDENTIAL,
+  FIRST_SERVER_RETURN_VALUE = SERVER_RETURN_INVALID_CREDENTIAL,
+
   SERVER_RETURN_UNKNOWN_ERROR,
   SERVER_RETURN_THROTTLED,
   SERVER_RETURN_TRANSIENT_ERROR,

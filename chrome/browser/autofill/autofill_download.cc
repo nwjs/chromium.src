@@ -13,6 +13,7 @@
 #include "base/rand_util.h"
 #include "base/stl_util.h"
 #include "base/string_util.h"
+#include "chrome/browser/autofill/autofill_download_url.h"
 #include "chrome/browser/autofill/autofill_metrics.h"
 #include "chrome/browser/autofill/autofill_xml_parser.h"
 #include "chrome/browser/autofill/form_structure.h"
@@ -27,17 +28,7 @@
 using content::BrowserContext;
 
 namespace {
-const char kAutofillQueryServerRequestUrl[] =
-    "https://clients1.google.com/tbproxy/af/query?client=";
-const char kAutofillUploadServerRequestUrl[] =
-    "https://clients1.google.com/tbproxy/af/upload?client=";
 const char kAutofillQueryServerNameStartInHeader[] = "GFE/";
-
-#if defined(GOOGLE_CHROME_BUILD)
-const char kClientName[] = "Google Chrome";
-#else
-const char kClientName[] = "Chromium";
-#endif  // defined(GOOGLE_CHROME_BUILD)
 
 const size_t kMaxFormCacheSize = 16;
 
@@ -112,6 +103,13 @@ bool AutofillDownloadManager::StartUploadRequest(
     const FormStructure& form,
     bool form_was_autofilled,
     const FieldTypeSet& available_field_types) {
+  std::string form_xml;
+  if (!form.EncodeUploadRequest(available_field_types, form_was_autofilled,
+                                &form_xml))
+    return false;
+
+  LogUploadRequest(form.source_url(), form.FormSignature(), form_xml);
+
   if (next_upload_request_ > base::Time::Now()) {
     // We are in back-off mode: do not do the request.
     DVLOG(1) << "AutofillDownloadManager: Upload request is throttled.";
@@ -128,13 +126,6 @@ bool AutofillDownloadManager::StartUploadRequest(
     // If we ever need notification that upload was skipped, add it here.
     return false;
   }
-
-  std::string form_xml;
-  if (!form.EncodeUploadRequest(available_field_types, form_was_autofilled,
-                                &form_xml))
-    return false;
-
-  LogUploadRequest(form.source_url(), form.FormSignature(), form_xml);
 
   FormRequestData request_data;
   request_data.form_signatures.push_back(form.FormSignature());
@@ -179,17 +170,16 @@ bool AutofillDownloadManager::StartRequest(
   net::URLRequestContextGetter* request_context =
       browser_context_->GetRequestContext();
   DCHECK(request_context);
-  std::string request_url;
+  GURL request_url;
   if (request_data.request_type == AutofillDownloadManager::REQUEST_QUERY)
-    request_url = kAutofillQueryServerRequestUrl;
+    request_url = autofill::GetAutofillQueryUrl();
   else
-    request_url = kAutofillUploadServerRequestUrl;
-  request_url += kClientName;
+    request_url = autofill::GetAutofillUploadUrl();
 
   // Id is ignored for regular chrome, in unit test id's for fake fetcher
   // factory will be 0, 1, 2, ...
   net::URLFetcher* fetcher = net::URLFetcher::Create(
-      fetcher_id_for_unittest_++, GURL(request_url), net::URLFetcher::POST,
+      fetcher_id_for_unittest_++, request_url, net::URLFetcher::POST,
       this);
   url_fetchers_[fetcher] = request_data;
   fetcher->SetAutomaticallyRetryOn5xx(false);

@@ -66,7 +66,7 @@ std::string GetExtensionID(RenderViewHost* render_view_host) {
 class IncognitoExtensionProcessManager : public ExtensionProcessManager {
  public:
   explicit IncognitoExtensionProcessManager(Profile* profile);
-  virtual ~IncognitoExtensionProcessManager() {}
+  virtual ~IncognitoExtensionProcessManager();
   virtual ExtensionHost* CreateViewHost(
       const Extension* extension,
       const GURL& url,
@@ -186,6 +186,17 @@ ExtensionProcessManager::ExtensionProcessManager(Profile* profile)
 ExtensionProcessManager::~ExtensionProcessManager() {
   CloseBackgroundHosts();
   DCHECK(background_hosts_.empty());
+}
+
+const ExtensionProcessManager::ViewSet
+ExtensionProcessManager::GetAllViews() const {
+  ViewSet result;
+  for (ExtensionRenderViews::const_iterator iter =
+           all_extension_views_.begin();
+       iter != all_extension_views_.end(); ++iter) {
+    result.insert(iter->first);
+  }
+  return result;
 }
 
 void ExtensionProcessManager::EnsureBrowserWhenRequired(
@@ -726,23 +737,21 @@ void ExtensionProcessManager::ClearBackgroundPageData(
 IncognitoExtensionProcessManager::IncognitoExtensionProcessManager(
     Profile* profile)
     : ExtensionProcessManager(profile),
-      original_manager_(profile->GetOriginalProfile()->
-                            GetExtensionProcessManager()) {
+      original_manager_(extensions::ExtensionSystem::Get(
+          profile->GetOriginalProfile())->process_manager()) {
   DCHECK(profile->IsOffTheRecord());
 
   registrar_.Add(this, chrome::NOTIFICATION_BROWSER_WINDOW_READY,
                  content::NotificationService::AllSources());
 }
 
-const ExtensionProcessManager::ViewSet
-ExtensionProcessManager::GetAllViews() const {
-  ViewSet result;
-  for (ExtensionRenderViews::const_iterator iter =
-           all_extension_views_.begin();
-       iter != all_extension_views_.end(); ++iter) {
-    result.insert(iter->first);
-  }
-  return result;
+IncognitoExtensionProcessManager::~IncognitoExtensionProcessManager() {
+  // TODO(yoz): This cleanup code belongs in the MenuManager.
+  // Remove "incognito" "split" mode context menu items.
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(GetProfile())->extension_service();
+  if (service)
+    service->menu_manager()->RemoveAllIncognitoContextItems();
 }
 
 ExtensionHost* IncognitoExtensionProcessManager::CreateViewHost(

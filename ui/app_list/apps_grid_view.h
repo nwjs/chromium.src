@@ -97,6 +97,9 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
     bool operator==(const Index& other) const {
       return page == other.page && slot == other.slot;
     }
+    bool operator!=(const Index& other) const {
+      return page != other.page || slot != other.slot;
+    }
 
     int page;  // Which page an item view is on.
     int slot;  // Which slot in the page an item view is in.
@@ -127,9 +130,13 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // different rows. To avoid moving diagonally, |view| would be put into a
   // slot prior |target| and fade in while moving to |target|. In the meanwhile,
   // a layer copy of |view| would start at |current| and fade out while moving
-  // to succeeding slot of |current|.
+  // to succeeding slot of |current|. |animate_current| controls whether to run
+  // fading out animation from |current|. |animate_target| controls whether to
+  // run fading in animation to |target|.
   void AnimationBetweenRows(views::View* view,
+                            bool animate_current,
                             const gfx::Rect& current,
+                            bool animate_target,
                             const gfx::Rect& target);
 
   // Calculates |drop_target_| based on |drag_point|. |drag_point| is in the

@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_CHROMEOS_DRIVE_DRIVE_FILE_ERROR_H_
 
 #include "base/platform_file.h"
+#include "chrome/browser/google_apis/drive_upload_error.h"
 
 namespace drive {
 
@@ -30,8 +31,15 @@ enum DriveFileError {
   DRIVE_FILE_ERROR_THROTTLED = -17,
 };
 
+// Returns a string representation of DriveFileError.
+std::string DriveFileErrorToString(DriveFileError error);
+
 // Returns a PlatformFileError that corresponds to the DriveFileError provided.
 base::PlatformFileError DriveFileErrorToPlatformError(DriveFileError error);
+
+// Returns a DriveFileError that corresponds to the DriveUploadError provided.
+DriveFileError DriveUploadErrorToDriveFileError(
+    google_apis::DriveUploadError error);
 
 }  // namespace drive
 

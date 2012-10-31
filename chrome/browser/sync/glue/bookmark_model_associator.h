@@ -110,11 +110,6 @@ class BookmarkModelAssociator
   // Persists all dirty associations.
   void PersistAssociations();
 
-  // Loads the persisted associations into in-memory maps.
-  // If the persisted associations are out-of-date due to some reason, returns
-  // false; otherwise returns true.
-  bool LoadAssociations();
-
   // Matches up the bookmark model and the sync model to build model
   // associations.
   syncer::SyncError BuildAssociations();
@@ -132,6 +127,10 @@ class BookmarkModelAssociator
   // Compare the properties of a pair of nodes from either domain.
   bool NodesMatch(const BookmarkNode* bookmark,
                   const syncer::BaseNode* sync_node) const;
+
+  // Check whether bookmark model and sync model are synced by comparing
+  // their transaction versions.
+  void CheckModelSyncState() const;
 
   BookmarkModel* bookmark_model_;
   syncer::UserShare* user_share_;

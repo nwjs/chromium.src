@@ -2743,10 +2743,12 @@ bool Extension::LoadIncognitoMode(string16* error) {
 }
 
 bool Extension::LoadContentSecurityPolicy(string16* error) {
-  if (manifest_->HasKey(keys::kContentSecurityPolicy)) {
+  const std::string& key = is_platform_app() ?
+      keys::kPlatformAppContentSecurityPolicy : keys::kContentSecurityPolicy;
+
+  if (manifest_->HasPath(key)) {
     std::string content_security_policy;
-    if (!manifest_->GetString(keys::kContentSecurityPolicy,
-                              &content_security_policy)) {
+    if (!manifest_->GetString(key, &content_security_policy)) {
       *error = ASCIIToUTF16(errors::kInvalidContentSecurityPolicy);
       return false;
     }
@@ -3927,6 +3929,11 @@ bool Extension::CheckPlatformAppFeatures(std::string* utf8_error) const {
 
   if (!has_background_page()) {
     *utf8_error = errors::kBackgroundRequiredForPlatformApps;
+    return false;
+  }
+
+  if (!incognito_split_mode_) {
+    *utf8_error = errors::kInvalidIncognitoModeForPlatformApp;
     return false;
   }
 

@@ -336,7 +336,7 @@ gfx::Rect View::GetVisibleBounds() const {
     const View* ancestor = view->parent_;
     if (ancestor != NULL) {
       ancestor_bounds.SetRect(0, 0, ancestor->width(), ancestor->height());
-      vis_bounds = vis_bounds.Intersect(ancestor_bounds);
+      vis_bounds.Intersect(ancestor_bounds);
     } else if (!view->GetWidget()) {
       // If the view has no Widget, we're not visible. Return an empty rect.
       return gfx::Rect();
@@ -1909,7 +1909,8 @@ void View::DestroyLayer() {
 
 // Input -----------------------------------------------------------------------
 
-bool View::ProcessMousePressed(const ui::MouseEvent& event, DragInfo* drag_info) {
+bool View::ProcessMousePressed(const ui::MouseEvent& event,
+                               DragInfo* drag_info) {
   int drag_operations =
       (enabled_ && event.IsOnlyLeftMouseButton() &&
        HitTestPoint(event.location())) ?
@@ -1931,7 +1932,8 @@ bool View::ProcessMousePressed(const ui::MouseEvent& event, DragInfo* drag_info)
   return !!context_menu_controller || result;
 }
 
-bool View::ProcessMouseDragged(const ui::MouseEvent& event, DragInfo* drag_info) {
+bool View::ProcessMouseDragged(const ui::MouseEvent& event,
+                               DragInfo* drag_info) {
   // Copy the field, that way if we're deleted after drag and drop no harm is
   // done.
   ContextMenuController* context_menu_controller = context_menu_controller_;
@@ -1975,6 +1977,10 @@ ui::TouchStatus View::ProcessTouchEvent(const ui::TouchEvent& event) {
 }
 
 ui::EventResult View::ProcessGestureEvent(const ui::GestureEvent& event) {
+  ui::EventResult status = OnGestureEvent(event);
+  if (status != ui::ER_UNHANDLED)
+    return status;
+
   if (context_menu_controller_ &&
       (event.type() == ui::ET_GESTURE_LONG_PRESS ||
        event.type() == ui::ET_GESTURE_TWO_FINGER_TAP)) {
@@ -1983,7 +1989,7 @@ ui::EventResult View::ProcessGestureEvent(const ui::GestureEvent& event) {
     ShowContextMenu(location, true);
     return ui::ER_CONSUMED;
   }
-  return OnGestureEvent(event);
+  return status;
 }
 
 // Accelerators ----------------------------------------------------------------

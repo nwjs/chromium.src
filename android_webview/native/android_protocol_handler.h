@@ -6,37 +6,9 @@
 #define ANDROID_WEBVIEW_NATIVE_ANDROID_PROTOCOL_HANDLER_H_
 
 #include "base/android/jni_android.h"
-#include "net/url_request/url_request.h"
 
-namespace net {
-
-class URLRequestContextGetter;
-
-}
-
-// This class adds support for Android WebView-specific protocol schemes:
-//
-//  - "content:" scheme is used for accessing data from Android content
-//    providers, see http://developer.android.com/guide/topics/providers/
-//      content-provider-basics.html#ContentURIs
-//
-//  - "file:" scheme extension for accessing application assets and resources
-//    (file:///android_asset/ and file:///android_res/), see
-//    http://developer.android.com/reference/android/webkit/
-//      WebSettings.html#setAllowFileAccess(boolean)
-//
-class AndroidProtocolHandler {
- public:
-  static net::URLRequest::ProtocolFactory Factory;
-
-  // Register handlers for all supported Android protocol schemes.
-  static void RegisterProtocols(
-      net::URLRequestContextGetter* context_getter);
-
- private:
-  DISALLOW_IMPLICIT_CONSTRUCTORS(AndroidProtocolHandler);
-};
-
+namespace android_webview {
 bool RegisterAndroidProtocolHandler(JNIEnv* env);
+}  // namespace android_webview
 
 #endif  // ANDROID_WEBVIEW_NATIVE_ANDROID_PROTOCOL_HANDLER_H_

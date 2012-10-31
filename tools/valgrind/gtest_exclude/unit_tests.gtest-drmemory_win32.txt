@@ -53,3 +53,7 @@ TemplateURLFetcherTest.*
 GAIAInfoUpdateServiceTest.*
 ProfileManagerTest.*
 ProfileInfoCacheTest.*
+
+# Unit tests crash under drmemory, disable them all for now.
+# http://crbug.com/157682
+*

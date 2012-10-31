@@ -9,7 +9,6 @@
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/test/test_suite.h"
-#include "content/browser/renderer_host/media/media_stream_manager.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/content_test_suite_base.h"
 #include "content/shell/shell_content_browser_client.h"
@@ -80,7 +79,7 @@ class ContentBrowserTestSuite : public ContentTestSuiteBase {
   DISALLOW_COPY_AND_ASSIGN(ContentBrowserTestSuite);
 };
 
-class ContentTestLauncherDelegate : public test_launcher::TestLauncherDelegate {
+class ContentTestLauncherDelegate : public TestLauncherDelegate {
  public:
   ContentTestLauncherDelegate() {}
   virtual ~ContentTestLauncherDelegate() {}
@@ -97,11 +96,12 @@ class ContentTestLauncherDelegate : public test_launcher::TestLauncherDelegate {
       CommandLine* command_line, const FilePath& temp_data_dir) OVERRIDE {
     command_line->AppendSwitchPath(switches::kContentShellDataPath,
                                    temp_data_dir);
+    command_line->AppendSwitch(switches::kUseFakeDeviceForMediaStream);
     return true;
   }
 
  protected:
-  virtual content::ContentMainDelegate* CreateContentMainDelegate() OVERRIDE {
+  virtual ContentMainDelegate* CreateContentMainDelegate() OVERRIDE {
     return new ShellMainDelegate();
   }
 
@@ -112,10 +112,6 @@ class ContentTestLauncherDelegate : public test_launcher::TestLauncherDelegate {
 }  // namespace content
 
 int main(int argc, char** argv) {
-  // Always use fake WebRTC devices in this binary since we want to be able
-  // to test WebRTC even if we don't have any devices on the system.
-  media_stream::MediaStreamManager::AlwaysUseFakeDevice();
-
   content::ContentTestLauncherDelegate launcher_delegate;
-  return test_launcher::LaunchTests(&launcher_delegate, argc, argv);
+  return LaunchTests(&launcher_delegate, argc, argv);
 }

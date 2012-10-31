@@ -55,6 +55,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
+using content::URLRequestFailedJob;
+using content::URLRequestMockHTTPJob;
 
 namespace captive_portal {
 
@@ -1000,7 +1002,7 @@ bool CaptivePortalBrowserTest::CheckPending(Browser* browser) {
   CaptivePortalService* captive_portal_service =
       CaptivePortalServiceFactory::GetForProfile(browser->profile());
 
-  return captive_portal_service->FetchingURL() ||
+  return captive_portal_service->DetectionInProgress() ||
       captive_portal_service->TimerRunning();
 }
 
@@ -1936,7 +1938,8 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, GoBack) {
 }
 
 // Checks that navigating back to a timeout triggers captive portal detection.
-IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, GoBackToTimeout) {
+// Disabling since very flakey: http://crbug.com/157467 .
+IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, DISABLED_GoBackToTimeout) {
   // Disable captive portal detection so the first navigation doesn't open a
   // login tab.
   EnableCaptivePortalDetection(browser()->profile(), false);

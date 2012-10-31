@@ -81,7 +81,9 @@ void BrowserPluginEmbedder::AddGuest(int instance_id,
 void BrowserPluginEmbedder::CreateGuest(RenderViewHost* render_view_host,
                                         int instance_id,
                                         std::string storage_partition_id,
-                                        bool persist_storage) {
+                                        bool persist_storage,
+                                        bool focused,
+                                        bool visible) {
   WebContentsImpl* guest_web_contents = NULL;
   BrowserPluginGuest* guest = GetGuestByInstanceID(instance_id);
   CHECK(!guest);
@@ -91,10 +93,13 @@ void BrowserPluginEmbedder::CreateGuest(RenderViewHost* render_view_host,
   guest_web_contents = WebContentsImpl::CreateGuest(
       web_contents()->GetBrowserContext(),
       host,
-      instance_id);
+      instance_id,
+      focused,
+      visible);
 
   guest = guest_web_contents->GetBrowserPluginGuest();
-  guest->set_embedder_web_contents(web_contents());
+  guest->set_embedder_web_contents(
+      static_cast<WebContentsImpl*>(web_contents()));
 
   RendererPreferences* guest_renderer_prefs =
       guest_web_contents->GetMutableRendererPrefs();
@@ -139,7 +144,10 @@ void BrowserPluginEmbedder::NavigateGuest(
   // should never be sent to BrowserPluginEmbedder (browser process).
   DCHECK(!src.empty());
   if (!src.empty()) {
-    // TODO(creis): Check the validity of the URL: http://crbug.com/139397.
+    // Because guests do not swap processes on navigation, only navigations to
+    // normal web URLs are supported.  No protocol handlers are installed for
+    // other schemes (e.g., WebUI or extensions), and no permissions or bindings
+    // can be granted to the guest process.
     guest_web_contents->GetController().LoadURL(url,
                                                 Referrer(),
                                                 PAGE_TRANSITION_AUTO_TOPLEVEL,

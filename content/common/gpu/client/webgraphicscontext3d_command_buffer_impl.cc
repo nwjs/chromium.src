@@ -26,7 +26,6 @@
 #include "content/common/gpu/gpu_memory_allocation.h"
 #include "content/common/gpu/client/gpu_channel_host.h"
 #include "content/common/gpu/gpu_process_launch_causes.h"
-#include "content/public/common/compositor_util.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
 #include "gpu/command_buffer/client/gles2_cmd_helper.h"
@@ -152,7 +151,9 @@ WebGraphicsContext3DCommandBufferImpl::WebGraphicsContext3DCommandBufferImpl(
       use_echo_for_swap_ack_(true) {
 #if defined(OS_MACOSX) || defined(OS_WIN)
   // Get ViewMsg_SwapBuffers_ACK from browser for single-threaded path.
-  use_echo_for_swap_ack_ = IsThreadedCompositingEnabled();
+  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  use_echo_for_swap_ack_ =
+      command_line.HasSwitch(switches::kEnableThreadedCompositing);
 #endif
 }
 
@@ -170,7 +171,7 @@ WebGraphicsContext3DCommandBufferImpl::
 }
 
 void WebGraphicsContext3DCommandBufferImpl::InitializeWithCommandBuffer(
-    CommandBufferProxy* command_buffer,
+    CommandBufferProxyImpl* command_buffer,
     const WebGraphicsContext3D::Attributes& attributes,
     bool bind_generates_resources) {
   DCHECK(command_buffer);
@@ -278,7 +279,7 @@ bool WebGraphicsContext3DCommandBufferImpl::InitializeCommandBuffer(
   // for our share group isn't deleted.
   // (There's also a lock in our destructor.)
   base::AutoLock lock(g_all_shared_contexts_lock.Get());
-  CommandBufferProxy* share_group = NULL;
+  CommandBufferProxyImpl* share_group = NULL;
   if (attributes_.shareResources) {
     WebGraphicsContext3DCommandBufferImpl* share_group_context =
         g_all_shared_contexts.Pointer()->empty() ?
@@ -689,6 +690,17 @@ void WebGraphicsContext3DCommandBufferImpl::discardFramebufferEXT(
 void WebGraphicsContext3DCommandBufferImpl::ensureFramebufferCHROMIUM() {
   gl_->Flush();
   command_buffer_->EnsureBackbuffer();
+}
+
+void WebGraphicsContext3DCommandBufferImpl::sendManagedMemoryStatsCHROMIUM(
+    const WebGraphicsManagedMemoryStats* stats)
+{
+  CHECK(command_buffer_);
+  command_buffer_->SendManagedMemoryStats(GpuManagedMemoryStats(
+      stats->bytesVisible,
+      stats->bytesVisibleAndNearby,
+      stats->bytesAllocated,
+      stats->backbufferRequested));
 }
 
 void WebGraphicsContext3DCommandBufferImpl::
@@ -1408,13 +1420,51 @@ void WebGraphicsContext3DCommandBufferImpl::OnSwapBuffersComplete() {
     swapbuffers_complete_callback_->onSwapBuffersComplete();
 }
 
+WebGraphicsMemoryAllocation::PriorityCutoff
+    WebGraphicsContext3DCommandBufferImpl::WebkitPriorityCutoff(
+        GpuMemoryAllocationForRenderer::PriorityCutoff priorityCutoff) {
+  switch (priorityCutoff) {
+  case GpuMemoryAllocationForRenderer::kPriorityCutoffAllowNothing:
+    return WebGraphicsMemoryAllocation::PriorityCutoffAllowNothing;
+  case GpuMemoryAllocationForRenderer::kPriorityCutoffAllowOnlyRequired:
+    return WebGraphicsMemoryAllocation::PriorityCutoffAllowVisibleOnly;
+  case GpuMemoryAllocationForRenderer::kPriorityCutoffAllowNiceToHave:
+    return WebGraphicsMemoryAllocation::PriorityCutoffAllowVisibleAndNearby;
+  case GpuMemoryAllocationForRenderer::kPriorityCutoffAllowEverything:
+    return WebGraphicsMemoryAllocation::PriorityCutoffAllowEverything;
+  }
+  NOTREACHED();
+  return WebGraphicsMemoryAllocation::PriorityCutoffAllowEverything;
+}
+
 void WebGraphicsContext3DCommandBufferImpl::OnMemoryAllocationChanged(
     const GpuMemoryAllocationForRenderer& allocation) {
+
+  // Convert the gpu structure to the WebKit structure.
+  WebGraphicsMemoryAllocation web_allocation;
+  web_allocation.bytesLimitWhenVisible =
+      allocation.bytes_limit_when_visible;
+  web_allocation.priorityCutoffWhenVisible =
+      WebkitPriorityCutoff(allocation.priority_cutoff_when_visible);
+  web_allocation.bytesLimitWhenNotVisible =
+      allocation.bytes_limit_when_not_visible;
+  web_allocation.priorityCutoffWhenNotVisible =
+      WebkitPriorityCutoff(allocation.priority_cutoff_when_not_visible);
+  web_allocation.haveBackbufferWhenNotVisible =
+      allocation.have_backbuffer_when_not_visible;
+  web_allocation.enforceButDoNotKeepAsPolicy =
+      allocation.enforce_but_do_not_keep_as_policy;
+
+  // Populate deprecated WebKit fields. These may be removed when references to
+  // them in WebKit are removed.
+  web_allocation.gpuResourceSizeInBytes =
+      allocation.bytes_limit_when_visible;
+  web_allocation.suggestHaveBackbuffer =
+      allocation.have_backbuffer_when_not_visible;
+
   if (memory_allocation_changed_callback_)
     memory_allocation_changed_callback_->onMemoryAllocationChanged(
-        WebKit::WebGraphicsMemoryAllocation(
-            allocation.gpu_resource_size_in_bytes,
-            allocation.suggest_have_backbuffer));
+        web_allocation);
 }
 
 void WebGraphicsContext3DCommandBufferImpl::setErrorMessageCallback(

@@ -6,12 +6,13 @@
 
 #include "cc/layer.h"
 
-#include "CCActiveAnimation.h"
-#include "CCAnimationEvents.h"
+#include "cc/active_animation.h"
+#include "cc/animation_events.h"
 #include "cc/layer_animation_controller.h"
 #include "cc/layer_impl.h"
 #include "cc/layer_tree_host.h"
 #include "cc/settings.h"
+#include "third_party/skia/include/core/SkImageFilter.h"
 #include <public/WebAnimationDelegate.h>
 #include <public/WebLayerScrollClient.h>
 #include <public/WebSize.h>
@@ -44,6 +45,7 @@ Layer::Layer()
     , m_debugBorderColor(0)
     , m_debugBorderWidth(0)
     , m_opacity(1.0)
+    , m_filter(0)
     , m_anchorPointZ(0)
     , m_isContainerForFixedPositionLayers(false)
     , m_fixedToContainerLayer(false)
@@ -63,6 +65,8 @@ Layer::Layer()
     , m_drawTransformIsAnimating(false)
     , m_screenSpaceTransformIsAnimating(false)
     , m_contentsScale(1.0)
+    , m_rasterScale(1.0)
+    , m_automaticallyComputeRasterScale(false)
     , m_boundsContainPageScale(false)
     , m_layerAnimationDelegate(0)
     , m_layerScrollClient(0)
@@ -81,6 +85,8 @@ Layer::~Layer()
 
     // Remove the parent reference from all children.
     removeAllChildren();
+
+    SkSafeUnref(m_filter);
 }
 
 void Layer::setUseLCDText(bool useLCDText)
@@ -128,6 +134,8 @@ void Layer::setParent(Layer* layer)
     DCHECK(!layer || !layer->hasAncestor(this));
     m_parent = layer;
     setLayerTreeHost(m_parent ? m_parent->layerTreeHost() : 0);
+
+    forceAutomaticRasterScaleToBeRecomputed();
 }
 
 bool Layer::hasAncestor(Layer* ancestor) const
@@ -317,9 +325,21 @@ void Layer::setFilters(const WebKit::WebFilterOperations& filters)
 {
     if (m_filters == filters)
         return;
+    DCHECK(!m_filter);
     m_filters = filters;
     setNeedsCommit();
     if (!filters.isEmpty())
+        LayerTreeHost::setNeedsFilterContext(true);
+}
+
+void Layer::setFilter(SkImageFilter* filter)
+{
+    if (m_filter == filter)
+        return;
+    DCHECK(m_filters.isEmpty());
+    SkRefCnt_SafeAssign(m_filter, filter);
+    setNeedsCommit();
+    if (filter)
         LayerTreeHost::setNeedsFilterContext(true);
 }
 
@@ -495,7 +515,8 @@ void Layer::setNeedsDisplayRect(const FloatRect& dirtyRect)
     if (!dirtyRect.isEmpty())
         m_needsDisplay = true;
 
-    setNeedsCommit();
+    if (drawsContent())
+        setNeedsCommit();
 }
 
 bool Layer::descendantIsFixedToContainerLayer() const
@@ -544,6 +565,7 @@ void Layer::pushPropertiesTo(LayerImpl* layer)
     layer->setForceRenderSurface(m_forceRenderSurface);
     layer->setDrawsContent(drawsContent());
     layer->setFilters(filters());
+    layer->setFilter(filter());
     layer->setBackgroundFilters(backgroundFilters());
     layer->setUseLCDText(m_useLCDText);
     layer->setMasksToBounds(m_masksToBounds);
@@ -637,6 +659,37 @@ void Layer::setContentsScale(float contentsScale)
         return;
     m_contentsScale = contentsScale;
 
+    setNeedsDisplay();
+}
+
+void Layer::setRasterScale(float scale)
+{
+    if (m_rasterScale == scale)
+        return;
+    m_rasterScale = scale;
+
+    if (!m_automaticallyComputeRasterScale)
+        return;
+    setNeedsDisplay();
+}
+
+void Layer::setAutomaticallyComputeRasterScale(bool automatic)
+{
+    if (m_automaticallyComputeRasterScale == automatic)
+        return;
+    m_automaticallyComputeRasterScale = automatic;
+
+    if (m_automaticallyComputeRasterScale)
+        forceAutomaticRasterScaleToBeRecomputed();
+    else
+        setRasterScale(1);
+}
+
+void Layer::forceAutomaticRasterScaleToBeRecomputed()
+{
+    if (!m_automaticallyComputeRasterScale)
+        return;
+    m_rasterScale = 0;
     setNeedsDisplay();
 }
 

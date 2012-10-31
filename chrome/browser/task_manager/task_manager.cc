@@ -10,6 +10,7 @@
 #include "base/i18n/rtl.h"
 #include "base/process_util.h"
 #include "base/rand_util.h"
+#include "base/stl_util.h"
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/threading/thread.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/task_manager/task_manager_resource_providers.h"
@@ -880,18 +882,10 @@ void TaskManagerModel::Clear() {
     resources_.clear();
 
     // Clear the groups.
-    for (GroupMap::iterator iter = group_map_.begin();
-         iter != group_map_.end(); ++iter) {
-      delete iter->second;
-    }
-    group_map_.clear();
+    STLDeleteValues(&group_map_);
 
     // Clear the process related info.
-    for (MetricsMap::iterator iter = metrics_map_.begin();
-         iter != metrics_map_.end(); ++iter) {
-      delete iter->second;
-    }
-    metrics_map_.clear();
+    STLDeleteValues(&metrics_map_);
     cpu_usage_map_.clear();
 
     // Clear the network maps.
@@ -953,7 +947,6 @@ void TaskManagerModel::NotifyV8HeapStats(base::ProcessId renderer_id,
 class TaskManagerModelGpuDataManagerObserver
     : public content::GpuDataManagerObserver {
  public:
-
   TaskManagerModelGpuDataManagerObserver() {
     content::GpuDataManager::GetInstance()->AddObserver(this);
   }
@@ -985,8 +978,7 @@ class TaskManagerModelGpuDataManagerObserver
   }
 };
 
-void TaskManagerModel::RefreshVideoMemoryUsageStats()
-{
+void TaskManagerModel::RefreshVideoMemoryUsageStats() {
   if (pending_video_memory_usage_stats_update_) return;
   if (!video_memory_usage_stats_observer_.get()) {
     video_memory_usage_stats_observer_.reset(
@@ -1290,8 +1282,8 @@ void TaskManager::OpenAboutMemory() {
   // TODO(robertshield): FTB - Merge MAD's TaskManager change.
   Browser* browser = browser::FindOrCreateTabbedBrowser(
       ProfileManager::GetDefaultProfileOrOffTheRecord());
- chrome::NavigateParams params(browser, GURL(chrome::kChromeUIMemoryURL),
-                               content::PAGE_TRANSITION_LINK);
+  chrome::NavigateParams params(browser, GURL(chrome::kChromeUIMemoryURL),
+                                content::PAGE_TRANSITION_LINK);
   params.disposition = NEW_FOREGROUND_TAB;
   chrome::Navigate(&params);
 }
@@ -1314,7 +1306,8 @@ namespace {
 // Counts the number of extension background pages associated with this profile.
 int CountExtensionBackgroundPagesForProfile(Profile* profile) {
   int count = 0;
-  ExtensionProcessManager* manager = profile->GetExtensionProcessManager();
+  ExtensionProcessManager* manager =
+      extensions::ExtensionSystem::Get(profile)->process_manager();
   if (!manager)
     return count;
 

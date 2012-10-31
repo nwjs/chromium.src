@@ -7,6 +7,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "base/time.h"
 #include <public/WebCompositorOutputSurface.h>
 
 namespace cc {
@@ -35,7 +36,7 @@ public:
 
     virtual bool compositeAndReadback(void *pixels, const IntRect&) = 0;
 
-    virtual void startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, double durationSec) = 0;
+    virtual void startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, base::TimeDelta duration) = 0;
 
     virtual void finishAllRendering() = 0;
 
@@ -64,6 +65,10 @@ public:
     virtual void setNeedsAnimate() = 0;
     virtual void setNeedsCommit() = 0;
     virtual void setNeedsRedraw() = 0;
+
+    // Defers commits until it is reset. It is only supported when in threaded mode. It's an error to make a sync call
+    // like compositeAndReadback while commits are deferred.
+    virtual void setDeferCommits(bool) = 0;
 
     virtual void didAddAnimation() = 0;
 

@@ -155,9 +155,11 @@ def JavaParamToJni(param):
       'Landroid/graphics/SurfaceTexture',
       'Lcom/google/android/apps/chrome/ChromeContextMenuInfo',
       'Lcom/google/android/apps/chrome/ChromeWindow',
+      'Lcom/google/android/apps/chrome/GoogleLocationSettingsHelperImpl',
       'Lcom/google/android/apps/chrome/OmniboxSuggestion',
       'Lcom/google/android/apps/chrome/PageInfoViewer',
       'Lcom/google/android/apps/chrome/Tab',
+      'Lcom/google/android/apps/chrome/infobar/AutoLogin',
       'Lcom/google/android/apps/chrome/infobar/InfoBarContainer',
       'Lcom/google/android/apps/chrome/infobar/InfoBarContainer$NativeInfoBar',
       ('Lcom/google/android/apps/chrome/preferences/ChromeNativePreferences$'
@@ -179,6 +181,8 @@ def JavaParamToJni(param):
       'Lorg/chromium/chrome/browser/ChromeWebContentsDelegateAndroid',
       'Lorg/chromium/chrome/browser/FindMatchRectsDetails',
       'Lorg/chromium/chrome/browser/FindNotificationDetails',
+      'Lorg/chromium/chrome/browser/GoogleLocationSettingsHelper',
+      'Lorg/chromium/chrome/browser/GoogleLocationSettingsHelperStub',
       'Lorg/chromium/chrome/browser/JavascriptAppModalDialog',
       'Lorg/chromium/chrome/browser/ProcessUtils',
       ('Lorg/chromium/chrome/browser/component/navigation_interception/'

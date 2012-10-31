@@ -7,8 +7,8 @@
 
 #include <limits>
 
-#include "CCAnimationEvents.h"
 #include "base/time.h"
+#include "cc/animation_events.h"
 #include "cc/layer_tree_host_impl.h"
 #include "cc/proxy.h"
 
@@ -23,7 +23,7 @@ public:
 
     // Proxy implementation
     virtual bool compositeAndReadback(void *pixels, const IntRect&) OVERRIDE;
-    virtual void startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, double duration) OVERRIDE;
+    virtual void startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, base::TimeDelta duration) OVERRIDE;
     virtual void finishAllRendering() OVERRIDE;
     virtual bool isStarted() const OVERRIDE;
     virtual bool initializeContext() OVERRIDE;
@@ -37,6 +37,7 @@ public:
     virtual void setNeedsAnimate() OVERRIDE;
     virtual void setNeedsCommit() OVERRIDE;
     virtual void setNeedsRedraw() OVERRIDE;
+    virtual void setDeferCommits(bool) OVERRIDE;
     virtual bool commitRequested() const OVERRIDE;
     virtual void didAddAnimation() OVERRIDE;
     virtual void start() OVERRIDE;
@@ -48,12 +49,13 @@ public:
     // LayerTreeHostImplClient implementation
     virtual void didLoseContextOnImplThread() OVERRIDE { }
     virtual void onSwapBuffersCompleteOnImplThread() OVERRIDE;
-    virtual void onVSyncParametersChanged(double monotonicTimebase, double intervalInSeconds) OVERRIDE { }
+    virtual void onVSyncParametersChanged(base::TimeTicks timebase, base::TimeDelta interval) OVERRIDE { }
     virtual void onCanDrawStateChanged(bool canDraw) OVERRIDE { }
     virtual void setNeedsRedrawOnImplThread() OVERRIDE;
     virtual void setNeedsCommitOnImplThread() OVERRIDE;
-    virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector>, double wallClockTime) OVERRIDE;
+    virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector>, base::Time wallClockTime) OVERRIDE;
     virtual bool reduceContentsTextureMemoryOnImplThread(size_t limitBytes, int priorityCutoff) OVERRIDE;
+    virtual void sendManagedMemoryStats() OVERRIDE;
 
     // Called by the legacy path where RenderWidget does the scheduling.
     void compositeImmediately();
@@ -62,7 +64,7 @@ private:
     explicit SingleThreadProxy(LayerTreeHost*);
 
     bool commitAndComposite();
-    void doCommit(scoped_ptr<TextureUpdateQueue>);
+    void doCommit(scoped_ptr<ResourceUpdateQueue>);
     bool doComposite();
     void didSwapFrame();
 

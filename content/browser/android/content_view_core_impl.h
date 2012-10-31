@@ -147,6 +147,8 @@ class ContentViewCoreImpl : public ContentViewCore,
   void GoToOffset(JNIEnv* env, jobject obj, jint offset);
   void StopLoading(JNIEnv* env, jobject obj);
   void Reload(JNIEnv* env, jobject obj);
+  void CancelPendingReload(JNIEnv* env, jobject obj);
+  void ContinuePendingReload(JNIEnv* env, jobject obj);
   jboolean NeedsReload(JNIEnv* env, jobject obj);
   void ClearHistory(JNIEnv* env, jobject obj);
   jint EvaluateJavaScript(JNIEnv* env, jobject obj, jstring script);
@@ -192,7 +194,7 @@ class ContentViewCoreImpl : public ContentViewCore,
                            int selected_item,
                            bool multiple);
 
-  void OnTabCrashed(const base::ProcessHandle handle);
+  void OnTabCrashed();
   void UpdateContentSize(int width, int height);
   void UpdateScrollOffsetAndPageScaleFactor(int x, int y, float scale);
   void UpdatePageScaleLimits(float minimum_scale, float maximum_scale);

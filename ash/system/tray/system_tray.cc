@@ -50,9 +50,10 @@
 #if defined(OS_CHROMEOS)
 #include "ash/system/chromeos/network/tray_network.h"
 #include "ash/system/chromeos/network/tray_sms.h"
+#include "ash/system/chromeos/network/tray_vpn.h"
 #endif
 
-using message_center::TrayBubbleView;
+using views::TrayBubbleView;
 
 namespace ash {
 
@@ -89,6 +90,8 @@ class SystemBubbleWrapper {
  private:
   scoped_ptr<internal::SystemTrayBubble> bubble_;
   scoped_ptr<internal::TrayBubbleWrapper> bubble_wrapper_;
+
+  DISALLOW_COPY_AND_ASSIGN(SystemBubbleWrapper);
 };
 
 }  // namespace internal
@@ -111,6 +114,7 @@ SystemTray::SystemTray(internal::StatusAreaWidget* status_area_widget)
       locale_observer_(NULL),
 #if defined(OS_CHROMEOS)
       network_observer_(NULL),
+      vpn_observer_(NULL),
       sms_observer_(NULL),
 #endif
       update_observer_(NULL),
@@ -164,8 +168,10 @@ void SystemTray::CreateItems() {
 #if defined(OS_CHROMEOS)
   internal::TrayDisplay* tray_display = new internal::TrayDisplay;
   internal::TrayNetwork* tray_network = new internal::TrayNetwork;
+  internal::TrayVPN* tray_vpn = new internal::TrayVPN;
   internal::TraySms* tray_sms = new internal::TraySms();
   network_observer_ = tray_network;
+  vpn_observer_ = tray_vpn;
   sms_observer_ = tray_sms;
 #endif
 
@@ -173,6 +179,7 @@ void SystemTray::CreateItems() {
   AddTrayItem(tray_power);
 #if defined(OS_CHROMEOS)
   AddTrayItem(tray_network);
+  AddTrayItem(tray_vpn);
   AddTrayItem(tray_sms);
 #endif
   AddTrayItem(tray_bluetooth);
@@ -282,6 +289,10 @@ void SystemTray::SetHideNotifications(bool hide_notifications) {
   if (notification_bubble_.get())
     notification_bubble_->bubble()->SetVisible(!hide_notifications);
   hide_notifications_ = hide_notifications;
+}
+
+bool SystemTray::ShouldShowLauncher() const {
+  return system_bubble_.get() && system_bubble_->bubble()->ShouldShowLauncher();
 }
 
 bool SystemTray::HasSystemBubble() const {
@@ -494,9 +505,12 @@ void SystemTray::AnchorUpdated() {
     notification_bubble_->bubble_view()->UpdateBubble();
     // Ensure that the notification buble is above the launcher/status area.
     notification_bubble_->bubble_view()->GetWidget()->StackAtTop();
+    UpdateBubbleViewArrow(notification_bubble_->bubble_view());
   }
-  if (system_bubble_.get())
+  if (system_bubble_.get()) {
     system_bubble_->bubble_view()->UpdateBubble();
+    UpdateBubbleViewArrow(system_bubble_->bubble_view());
+  }
 }
 
 string16 SystemTray::GetAccessibleNameForTray() {

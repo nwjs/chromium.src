@@ -19,7 +19,7 @@
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/instant/instant_controller.h"
-#include "chrome/browser/managed_mode.h"
+#include "chrome/browser/managed_mode/managed_mode.h"
 #include "chrome/browser/native_window_notification_source.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -136,7 +136,6 @@
 
 #if defined(USE_AURA)
 #include "chrome/browser/ui/views/accelerator_table.h"
-#include "chrome/browser/ui/views/search/search_view_controller.h"
 #include "chrome/browser/ui/webui/task_manager/task_manager_dialog.h"
 #include "ui/aura/window.h"
 #include "ui/gfx/screen.h"
@@ -160,12 +159,6 @@ const int kStatusBubbleHeight = 20;
 // The name of a key to store on the window handle so that other code can
 // locate this object using just the handle.
 const char* const kBrowserViewKey = "__BROWSER_VIEW__";
-
-// Minimal height of devtools pane or content pane when devtools are docked
-// to the browser window.
-const int kMinDevToolsHeight = 50;
-const int kMinDevToolsWidth = 150;
-const int kMinContentsSize = 50;
 
 // The number of milliseconds between loading animation frames.
 const int kLoadingAnimationFrameTimeMs = 30;
@@ -229,6 +222,16 @@ BookmarkExtensionBackground::BookmarkExtensionBackground(
 
 void BookmarkExtensionBackground::Paint(gfx::Canvas* canvas,
                                         views::View* view) const {
+  // If search mode is |NTP|, bookmark bar is detached and floating on top of
+  // the content view (in z-order) and below the "Most Visited" thumbnails (in
+  // the y-direction).  It's visually nicer without the bookmark background, so
+  // utilize the existing background of content view, giving the impression that
+  // each bookmark button is part of the content view.
+  const chrome::search::Mode& search_mode =
+      browser_view_->browser()->search_model()->mode();
+  if (search_mode.is_ntp())
+    return;
+
   ui::ThemeProvider* tp = host_view_->GetThemeProvider();
   int toolbar_overlap = host_view_->GetToolbarOverlap();
   // The client edge is drawn below the toolbar bounds.
@@ -270,17 +273,17 @@ void BookmarkExtensionBackground::Paint(gfx::Canvas* canvas,
     Profile* profile = browser_view_->browser()->profile();
     bool is_instant_extended_api_enabled =
         chrome::search::IsInstantExtendedAPIEnabled(profile);
-    chrome::search::Mode::Type search_mode =
-        browser_view_->browser()->search_model()->mode().mode;
     bool use_ntp_background_theme = false;
     DetachableToolbarView::PaintBackgroundAttachedMode(canvas, host_view_,
         browser_view_->OffsetPointForToolbarBackgroundImage(
             gfx::Point(host_view_->GetMirroredX(), host_view_->y())),
-        chrome::search::GetToolbarBackgroundColor(profile, search_mode),
+        chrome::search::GetToolbarBackgroundColor(profile, search_mode.mode),
         chrome::search::GetTopChromeBackgroundImage(tp,
-            is_instant_extended_api_enabled, search_mode,
+            is_instant_extended_api_enabled, search_mode.mode,
             InstantUI::ShouldShowWhiteNTP(profile), &use_ntp_background_theme));
-    if (host_view_->height() >= toolbar_overlap)
+    // For instant extended API, only draw bookmark separator for |MODE_DFEAULT|
+    // mode.
+    if (host_view_->height() >= toolbar_overlap && search_mode.is_default())
       DetachableToolbarView::PaintHorizontalBorder(canvas, host_view_);
   }
 }
@@ -352,6 +355,7 @@ BrowserView::BrowserView(Browser* browser)
       contents_(NULL),
       contents_split_(NULL),
       devtools_dock_side_(DEVTOOLS_DOCK_SIDE_BOTTOM),
+      devtools_window_(NULL),
       initialized_(false),
       ignore_layout_(true),
 #if defined(OS_WIN) && !defined(USE_AURA)
@@ -362,7 +366,6 @@ BrowserView::BrowserView(Browser* browser)
       ALLOW_THIS_IN_INITIALIZER_LIST(color_change_listener_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(activate_modal_dialog_factory_(this)) {
   browser_->tab_strip_model()->AddObserver(this);
-  browser_->search_model()->AddObserver(this);
 }
 
 BrowserView::~BrowserView() {
@@ -372,15 +375,9 @@ BrowserView::~BrowserView() {
   launcher_item_controller_.reset();
 #endif
 
-  // Destroy SearchViewController before the Browser.
-#if defined(USE_AURA)
-  search_view_controller_.reset(NULL);
-#endif
-
   preview_controller_.reset(NULL);
 
   browser_->tab_strip_model()->RemoveObserver(this);
-  browser_->search_model()->RemoveObserver(this);
 
 #if defined(OS_WIN) && !defined(USE_AURA)
   // Stop hung plugin monitoring.
@@ -620,6 +617,10 @@ void BrowserView::ShowInactive() {
   frame_->ShowInactive();
 }
 
+void BrowserView::Hide() {
+  // Not implemented.
+}
+
 void BrowserView::SetBounds(const gfx::Rect& bounds) {
   ExitFullscreen();
   GetWidget()->SetBounds(bounds);
@@ -677,9 +678,10 @@ void BrowserView::BookmarkBarStateChanged(
     BookmarkBar::AnimateChangeType change_type) {
   if (bookmark_bar_view_.get()) {
     bookmark_bar_view_->SetBookmarkBarState(
-        browser_->bookmark_bar_state(), change_type);
+        browser_->bookmark_bar_state(), change_type,
+        browser_->search_model()->mode());
   }
-  if (MaybeShowBookmarkBar(chrome::GetActiveTabContents(browser_.get())))
+  if (MaybeShowBookmarkBar(GetActiveTabContents()))
     Layout();
 }
 
@@ -688,18 +690,6 @@ void BrowserView::UpdateDevTools() {
   Layout();
 }
 
-
-void BrowserView::SetDevToolsDockSide(DevToolsDockSide side) {
-  if (devtools_dock_side_ == side)
-    return;
-
-  if (devtools_container_->visible()) {
-    HideDevToolsContainer();
-    ShowDevToolsContainer(side);
-  } else {
-    devtools_dock_side_ = side;
-  }
-}
 
 void BrowserView::UpdateLoadingAnimations(bool should_animate) {
   if (should_animate) {
@@ -851,7 +841,7 @@ void BrowserView::ToolbarSizeChanged(bool is_animating) {
       is_animating || (call_state == REENTRANT_FORCE_FAST_RESIZE);
   if (use_fast_resize)
     contents_container_->SetFastResize(true);
-  UpdateUIForContents(chrome::GetActiveTabContents(browser_.get()));
+  UpdateUIForContents(GetActiveTabContents());
   if (use_fast_resize)
     contents_container_->SetFastResize(false);
 
@@ -879,7 +869,7 @@ void BrowserView::ToolbarSizeChanged(bool is_animating) {
   }
 
   // When transitioning from animating to not animating we need to make sure the
-  // contents_container_ gets layed out. If we don't do this and the bounds
+  // contents_container_ gets laid out. If we don't do this and the bounds
   // haven't changed contents_container_ won't get a Layout out and we'll end up
   // with a gray rect because the clip wasn't updated.  Note that a reentrant
   // call never needs to do this, because after it returns, the normal call
@@ -888,6 +878,18 @@ void BrowserView::ToolbarSizeChanged(bool is_animating) {
     contents_container_->InvalidateLayout();
     contents_split_->Layout();
   }
+}
+
+gfx::Size BrowserView::GetNTPBackgroundFillSize() const {
+  if (!chrome::search::IsInstantExtendedAPIEnabled(browser()->profile()))
+    return gfx::Size();
+  // Convert bounds of content view relatve to browser view.
+  // Fill size is right and bottom of content view.
+  gfx::Rect content_bounds = contents_container_->bounds();
+  gfx::Point origin(content_bounds.origin());
+  View::ConvertPointToTarget(contents_container_->parent(), this, &origin);
+  content_bounds.set_origin(origin);
+  return gfx::Size(content_bounds.right(), content_bounds.bottom());
 }
 
 LocationBar* BrowserView::GetLocationBar() const {
@@ -1113,7 +1115,8 @@ void BrowserView::ShowBackgroundPages() {
 }
 
 void BrowserView::ShowBookmarkBubble(const GURL& url, bool already_bookmarked) {
-  GetLocationBarView()->ShowStarBubble(url, !already_bookmarked);
+  chrome::ShowBookmarkBubbleView(GetToolbarView()->GetBookmarkBubbleAnchor(),
+                                 browser_->profile(), url, !already_bookmarked);
 }
 
 void BrowserView::ShowChromeToMobileBubble() {
@@ -1246,7 +1249,7 @@ bool BrowserView::PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
   // - If the |browser_| is not for an app, and the |accelerator| is not
   //   associated with the browser (e.g. an Ash shortcut), process it.
   // - If the |browser_| is not for an app, and the |accelerator| is associated
-  //   with the browser, and it is a reserved one (e.g. Ctrl-t), process it.
+  //   with the browser, and it is a reserved one (e.g. Ctrl+w), process it.
   // - If the |browser_| is not for an app, and the |accelerator| is associated
   //   with the browser, and it is not a reserved one, do nothing.
 
@@ -1280,11 +1283,11 @@ bool BrowserView::PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
   }
 
   if (id != -1) {
-    // |accelerator| is a non-reserved browser shortcut (e.g. Ctrl+t).
+    // |accelerator| is a non-reserved browser shortcut (e.g. Ctrl+f).
     if (event.type == WebKit::WebInputEvent::RawKeyDown)
       *is_keyboard_shortcut = true;
   } else if (processed) {
-    // |accelerator| is a non-browser shortcut (e.g. F5-F10 on Ash).
+    // |accelerator| is a non-browser shortcut (e.g. F4-F10 on Ash).
     return true;
   }
 
@@ -1391,10 +1394,6 @@ void BrowserView::TabDetachedAt(TabContents* contents, int index) {
     contents_container_->SetWebContents(NULL);
     infobar_container_->ChangeTabContents(NULL);
     UpdateDevToolsForContents(NULL);
-#if defined(USE_AURA)
-    if (search_view_controller_.get())
-      search_view_controller_->SetTabContents(NULL);
-#endif
   }
 }
 
@@ -1410,31 +1409,67 @@ void BrowserView::ActiveTabChanged(TabContents* old_contents,
                                    TabContents* new_contents,
                                    int index,
                                    bool user_gesture) {
-  ProcessTabSelected(new_contents);
-}
+  DCHECK(new_contents);
 
-void BrowserView::TabReplacedAt(TabStripModel* tab_strip_model,
-                                TabContents* old_contents,
-                                TabContents* new_contents,
-                                int index) {
-  if (index != browser_->tab_strip_model()->active_index())
-    return;
-
+  // See if the Instant preview is being activated (committed).
   if (contents_->preview_web_contents() == new_contents->web_contents()) {
-#if defined(USE_AURA)
-    if (search_view_controller_.get())
-      search_view_controller_->WillCommitInstant();
-#endif
-    // If 'preview' is becoming active, swap the 'active' and 'preview' and
-    // delete what was the active.
     contents_->MakePreviewContentsActiveContents();
     views::WebView* old_container = contents_container_;
     contents_container_ = preview_controller_->release_preview_container();
     old_container->SetWebContents(NULL);
     delete old_container;
   }
-  // Update the UI for the new contents.
-  ProcessTabSelected(new_contents);
+
+  // If |contents_container_| already has the correct WebContents, we can save
+  // some work.  This also prevents extra events from being reported by the
+  // Visibility API under Windows, as ChangeWebContents will briefly hide
+  // the WebContents window.
+  bool change_tab_contents =
+      contents_container_->web_contents() != new_contents->web_contents();
+
+  // Update various elements that are interested in knowing the current
+  // WebContents.
+
+  // When we toggle the NTP floating bookmarks bar and/or the info bar,
+  // we don't want any WebContents to be attached, so that we
+  // avoid an unnecessary resize and re-layout of a WebContents.
+  if (change_tab_contents)
+    contents_container_->SetWebContents(NULL);
+  InfoBarTabHelper* new_infobar_tab_helper =
+      InfoBarTabHelper::FromWebContents(new_contents->web_contents());
+  infobar_container_->ChangeTabContents(new_infobar_tab_helper);
+  if (bookmark_bar_view_.get()) {
+    bookmark_bar_view_->SetBookmarkBarState(
+        browser_->bookmark_bar_state(),
+        BookmarkBar::DONT_ANIMATE_STATE_CHANGE,
+        browser_->search_model()->mode());
+  }
+  UpdateUIForContents(new_contents);
+
+  // Layout for DevTools _before_ setting the main WebContents to avoid
+  // toggling the size of the main WebContents.
+  UpdateDevToolsForContents(new_contents);
+
+  if (change_tab_contents)
+    contents_container_->SetWebContents(new_contents->web_contents());
+
+  if (!browser_->tab_strip_model()->closing_all() && GetWidget()->IsActive() &&
+      GetWidget()->IsVisible()) {
+    // We only restore focus if our window is visible, to avoid invoking blur
+    // handlers when we are eventually shown.
+    new_contents->web_contents()->GetView()->RestoreFocus();
+  }
+
+  // Update all the UI bits.
+  UpdateTitleBar();
+
+  // Restacking needs to happen after other UI updates. This restores special
+  // "widget" stacking that governs the SearchViewController's NTP "content"
+  // area.
+  RestackLocationBarContainer();
+
+  // No need to update Toolbar because it's already updated in
+  // browser.cc.
 }
 
 void BrowserView::TabStripEmpty() {
@@ -1514,7 +1549,7 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
     extensions::TabHelper* extensions_tab_helper =
         contents ? extensions::TabHelper::FromWebContents(contents) : NULL;
     if (extensions_tab_helper && extensions_tab_helper->GetExtensionAppIcon())
-      return *extensions_tab_helper->GetExtensionAppIcon();
+      return gfx::ImageSkia(*extensions_tab_helper->GetExtensionAppIcon());
   }
 
   return GetWindowIcon();
@@ -1910,7 +1945,8 @@ void BrowserView::Init() {
   AddChildView(tabstrip_);
   tabstrip_controller->InitFromModel(tabstrip_);
 
-  infobar_container_ = new InfoBarContainerView(this);
+  infobar_container_ = new InfoBarContainerView(this,
+                                                browser()->search_model());
   AddChildView(infobar_container_);
 
   contents_container_ = new views::WebView(browser_->profile());
@@ -1920,26 +1956,7 @@ void BrowserView::Init() {
   toolbar_ = new ToolbarView(browser_.get());
   AddChildView(toolbar_);
 
-  views::View* omnibox_popup_parent = NULL;
-  // SearchViewController doesn't work on windows yet.
-#if defined(USE_AURA)
-  Profile* profile = browser_->profile();
-  if (chrome::search::IsInstantExtendedAPIEnabled(profile)) {
-    search_view_controller_.reset(new SearchViewController(profile, contents_,
-        &browser()->search_delegate()->toolbar_search_animator(), this));
-    omnibox_popup_parent =
-        search_view_controller_->omnibox_popup_parent();
-  }
-#endif
-
-  toolbar_->Init(this, omnibox_popup_parent);
-
-#if defined(USE_AURA)
-  if (search_view_controller_.get()) {
-    search_view_controller_->set_location_bar_container(
-        toolbar_->location_bar_container());
-  }
-#endif
+  toolbar_->Init(this);
 
   preview_controller_.reset(
       new InstantPreviewControllerViews(browser(), this, contents_));
@@ -2042,7 +2059,8 @@ bool BrowserView::MaybeShowBookmarkBar(TabContents* contents) {
                                           browser_.get()));
       bookmark_bar_view_->SetBookmarkBarState(
           browser_->bookmark_bar_state(),
-          BookmarkBar::DONT_ANIMATE_STATE_CHANGE);
+          BookmarkBar::DONT_ANIMATE_STATE_CHANGE,
+          browser_->search_model()->mode());
     }
     bookmark_bar_view_->SetPageNavigator(contents->web_contents());
     new_bookmark_bar_view = bookmark_bar_view_.get();
@@ -2058,35 +2076,54 @@ bool BrowserView::MaybeShowInfoBar(TabContents* contents) {
 }
 
 void BrowserView::UpdateDevToolsForContents(TabContents* tab_contents) {
-  DevToolsWindow* devtools_window = tab_contents ?
+  DevToolsWindow* new_devtools_window = tab_contents ?
       DevToolsWindow::GetDockedInstanceForInspectedTab(
           tab_contents->web_contents()) : NULL;
-  TabContents* devtools_tab_contents =
-      devtools_window ? devtools_window->tab_contents() : NULL;
-  WebContents* devtools_contents = devtools_tab_contents ?
-      devtools_tab_contents->web_contents() : NULL;
-
-  if (devtools_contents == devtools_container_->web_contents()) {
-    if (devtools_contents &&
-        devtools_window->dock_side() != devtools_dock_side_)
-      SetDevToolsDockSide(devtools_window->dock_side());
-    return;
+  // Fast return in case of the same window having same orientation.
+  if (devtools_window_ == new_devtools_window) {
+    if (!new_devtools_window ||
+        (new_devtools_window->dock_side() == devtools_dock_side_)) {
+      return;
+    }
   }
 
-  bool should_show = devtools_contents && !devtools_container_->visible();
-  bool should_hide = !devtools_contents && devtools_container_->visible();
+  // Replace tab contents.
+  if (devtools_window_ != new_devtools_window) {
+    devtools_container_->SetWebContents(new_devtools_window ?
+        new_devtools_window->tab_contents()->web_contents() : NULL);
+  }
 
-  devtools_container_->SetWebContents(devtools_contents);
-  RestackLocationBarContainer();
+  // Store last used position.
+  if (devtools_window_) {
+    if (devtools_dock_side_ == DEVTOOLS_DOCK_SIDE_RIGHT) {
+      devtools_window_->SetWidth(
+          contents_split_->width() - contents_split_->divider_offset());
+    } else {
+      devtools_window_->SetHeight(
+          contents_split_->height() - contents_split_->divider_offset());
+    }
+  }
 
-  if (should_show)
-    ShowDevToolsContainer(devtools_window->dock_side());
-  else if (should_hide)
+  // Show / hide container if necessary. Changing dock orientation is
+  // hide + show.
+  bool should_hide = devtools_window_ && (!new_devtools_window ||
+      devtools_dock_side_ != new_devtools_window->dock_side());
+  bool should_show = new_devtools_window && (!devtools_window_ || should_hide);
+
+  if (should_hide)
     HideDevToolsContainer();
+
+  devtools_window_ = new_devtools_window;
+
+  if (should_show) {
+    devtools_dock_side_ = new_devtools_window->dock_side();
+    ShowDevToolsContainer();
+  } else if (new_devtools_window) {
+    UpdateDevToolsSplitPosition();
+  }
 }
 
-void BrowserView::ShowDevToolsContainer(DevToolsDockSide dock_side) {
-  devtools_dock_side_ = dock_side;
+void BrowserView::ShowDevToolsContainer() {
   if (!devtools_focus_tracker_.get()) {
     // Install devtools focus tracker when dev tools window is shown for the
     // first time.
@@ -2094,53 +2131,45 @@ void BrowserView::ShowDevToolsContainer(DevToolsDockSide dock_side) {
         new views::ExternalFocusTracker(devtools_container_,
                                         GetFocusManager()));
   }
-
-  bool dock_to_right = devtools_dock_side_ == DEVTOOLS_DOCK_SIDE_RIGHT;
-
-  int contents_size = dock_to_right ? contents_split_->width() :
-      contents_split_->height();
-  int min_size = dock_to_right ? kMinDevToolsWidth : kMinDevToolsHeight;
-
-  // Restore split offset.
-  int split_offset = browser_->profile()->GetPrefs()->
-      GetInteger(dock_to_right ? prefs::kDevToolsVSplitLocation :
-                                 prefs::kDevToolsHSplitLocation);
-
-  if (split_offset == -1)
-    split_offset = contents_size * 1 / 3;
-
-  // Make sure user can see both panes.
-  split_offset = std::max(min_size, split_offset);
-  split_offset = std::min(contents_size - kMinContentsSize, split_offset);
-  if (split_offset < 0)
-    split_offset = contents_size * 1 / 3;
-  contents_split_->set_divider_offset(contents_size - split_offset);
-
   devtools_container_->SetVisible(true);
+  devtools_dock_side_ = devtools_window_->dock_side();
+  bool dock_to_right = devtools_dock_side_ == DEVTOOLS_DOCK_SIDE_RIGHT;
   contents_split_->set_orientation(
       dock_to_right ? views::SingleSplitView::HORIZONTAL_SPLIT
                     : views::SingleSplitView::VERTICAL_SPLIT);
+  UpdateDevToolsSplitPosition();
   contents_split_->InvalidateLayout();
   Layout();
+  // In NTP search mode, schedule a repaint of toolbar and tabstrip.
+  if (browser()->search_model()->mode().is_ntp()) {
+    toolbar_->SchedulePaint();
+    tabstrip_->SchedulePaint();
+  }
 }
 
 void BrowserView::HideDevToolsContainer() {
-  // Store split offset when hiding devtools window only.
-  bool dock_to_right = devtools_dock_side_ == DEVTOOLS_DOCK_SIDE_RIGHT;
-  int contents_size = dock_to_right ? contents_split_->width() :
-      contents_split_->height();
-
-  browser_->profile()->GetPrefs()->SetInteger(
-      dock_to_right ? prefs::kDevToolsVSplitLocation :
-                      prefs::kDevToolsHSplitLocation,
-      contents_size - contents_split_->divider_offset());
-
   // Restore focus to the last focused view when hiding devtools window.
   devtools_focus_tracker_->FocusLastFocusedExternalView();
-
   devtools_container_->SetVisible(false);
   contents_split_->InvalidateLayout();
   Layout();
+  // In NTP search mode, schedule a repaint of toolbar and tabstrip.
+  if (browser()->search_model()->mode().is_ntp()) {
+    toolbar_->SchedulePaint();
+    tabstrip_->SchedulePaint();
+  }
+}
+
+void BrowserView::UpdateDevToolsSplitPosition() {
+  if (devtools_window_->dock_side() == DEVTOOLS_DOCK_SIDE_RIGHT) {
+    int split_offset = contents_split_->width() -
+        devtools_window_->GetWidth(contents_split_->width());
+    contents_split_->set_divider_offset(split_offset);
+  } else {
+    int split_offset = contents_split_->height() -
+        devtools_window_->GetHeight(contents_split_->height());
+    contents_split_->set_divider_offset(split_offset);
+  }
 }
 
 void BrowserView::UpdateUIForContents(TabContents* contents) {
@@ -2444,88 +2473,8 @@ void BrowserView::UpdateAcceleratorMetrics(
 #endif
 }
 
-void BrowserView::ProcessTabSelected(TabContents* new_contents) {
-  // If |contents_container_| already has the correct WebContents, we can save
-  // some work.  This also prevents extra events from being reported by the
-  // Visibility API under Windows, as ChangeWebContents will briefly hide
-  // the WebContents window.
-  DCHECK(new_contents);
-  bool change_tab_contents =
-      contents_container_->web_contents() != new_contents->web_contents();
-
-  // Update various elements that are interested in knowing the current
-  // WebContents.
-
-  // When we toggle the NTP floating bookmarks bar and/or the info bar,
-  // we don't want any WebContents to be attached, so that we
-  // avoid an unnecessary resize and re-layout of a WebContents.
-  // This also applies to the |search_view_controller_| logic, as it can
-  // reparent the |contents_container_|.
-  if (change_tab_contents)
-    contents_container_->SetWebContents(NULL);
-  InfoBarTabHelper* new_infobar_tab_helper =
-      InfoBarTabHelper::FromWebContents(new_contents->web_contents());
-  // Hide infobars when showing Instant Extended suggestions.
-  infobar_container_->ChangeTabContents(
-      (chrome::search::IsInstantExtendedAPIEnabled(browser()->profile()) &&
-          browser()->search_model()->mode().is_search_suggestions()) ?
-          NULL : new_infobar_tab_helper);
-  if (bookmark_bar_view_.get()) {
-    bookmark_bar_view_->SetBookmarkBarState(
-        browser_->bookmark_bar_state(),
-        BookmarkBar::DONT_ANIMATE_STATE_CHANGE);
-  }
-  UpdateUIForContents(new_contents);
-
-#if defined(USE_AURA)
-  // |change_tab_contents| can mean same WebContents but different TabContents,
-  // so let SearchViewController decide how it would handle |new_contents|.
-  if (search_view_controller_.get())
-    search_view_controller_->SetTabContents(new_contents);
-#endif
-
-  // Layout for DevTools _before_ setting the main WebContents to avoid
-  // toggling the size of the main WebContents.
-  UpdateDevToolsForContents(new_contents);
-
-  if (change_tab_contents)
-    contents_container_->SetWebContents(new_contents->web_contents());
-
-  if (!browser_->tab_strip_model()->closing_all() && GetWidget()->IsActive() &&
-      GetWidget()->IsVisible()) {
-    // We only restore focus if our window is visible, to avoid invoking blur
-    // handlers when we are eventually shown.
-    new_contents->web_contents()->GetView()->RestoreFocus();
-  }
-
-  // Update all the UI bits.
-  UpdateTitleBar();
-
-  // Restacking needs to happen after other UI updates. This restores special
-  // "widget" stacking that governs the SearchViewController's NTP "content"
-  // area.
-  RestackLocationBarContainer();
-
-  // No need to update Toolbar because it's already updated in
-  // browser.cc.
-}
-
 gfx::Size BrowserView::GetResizeCornerSize() const {
   return ResizeCorner::GetSize();
-}
-
-void BrowserView::ModeChanged(const chrome::search::Mode& old_mode,
-                              const chrome::search::Mode& new_mode) {
-  // Hide infobars when showing Instant Extended suggestions and when moving
-  // from SUGGESTIONS to DEFAULT which happens when a URL is selected or typed
-  // from the NTP. Moving to DEFAULT will replace the infobars with those of the
-  // new tab contents, therefore we avoid the showing the current infobars for
-  // a brief moment.
-  bool hide_infobars = new_mode.is_search_suggestions() ||
-      (old_mode.is_search_suggestions() && new_mode.is_default());
-  infobar_container_->ChangeTabContents(
-      hide_infobars
-          ? NULL : InfoBarTabHelper::FromWebContents(GetActiveWebContents()));
 }
 
 void BrowserView::CreateLauncherIcon() {
@@ -2535,7 +2484,7 @@ void BrowserView::CreateLauncherIcon() {
     launcher_item_controller_.reset(
         BrowserLauncherItemController::Create(browser_.get()));
   }
-#endif  // defined(USE_AURA)
+#endif  // defined(USE_ASH)
 }
 
 // static
@@ -2599,19 +2548,20 @@ void BrowserView::ShowPasswordGenerationBubble(
 }
 
 void BrowserView::RestackLocationBarContainer() {
-#if defined(USE_AURA)
-  if (search_view_controller_.get())
-    search_view_controller_->StackAtTop();
   if (preview_controller_ && preview_controller_->preview_container() &&
       preview_controller_->preview_container()->web_contents()) {
+#if defined(USE_AURA)
     // Keep the preview on top so that a doodle can be shown on the NTP in
     // InstantExtended mode.
     ui::Layer* native_view_layer =
         preview_controller_->preview_container()->web_contents()->
             GetNativeView()->layer();
     native_view_layer->parent()->StackAtTop(native_view_layer);
-  }
+#else
+  // TODO(mad): http://crbug.com/156866 Properly stack views.
 #endif
+  }
+
   toolbar_->location_bar_container()->StackAtTop();
   infobar_container_->StackAtTop();
 }

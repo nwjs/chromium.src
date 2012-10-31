@@ -19,7 +19,7 @@ class GestureEvent;
 
 namespace ash {
 
-class DefaultWindowResizer;
+class WindowResizer;
 
 namespace internal {
 
@@ -42,7 +42,9 @@ class TwoFingerDragHandler : public aura::WindowObserver {
                                          bool visible) OVERRIDE;
   virtual void OnWindowDestroying(aura::Window* window) OVERRIDE;
 
-  scoped_ptr<DefaultWindowResizer> window_resizer_;
+  int first_finger_hittest_;
+
+  scoped_ptr<WindowResizer> window_resizer_;
 
   DISALLOW_COPY_AND_ASSIGN(TwoFingerDragHandler);
 };

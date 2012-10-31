@@ -4,6 +4,8 @@
 
 #include "content/test/layout_browsertest.h"
 
+namespace content {
+
 class IndexedDBLayoutTest : public InProcessBrowserLayoutTest {
  public:
   IndexedDBLayoutTest() : InProcessBrowserLayoutTest(
@@ -34,6 +36,7 @@ static const char* kComplexTests[] = {
   "prefetch-bugfix-108071.html",
   // Flaky: http://crbug.com/123685
   // "pending-version-change-stuck-works-with-terminate.html",
+  "pending-version-change-on-exit.html",
   NULL
 };
 
@@ -131,3 +134,5 @@ IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, IntVersionTests) {
 IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, RegressionTests) {
   RunLayoutTests(kRegressionTests);
 }
+
+}  // namespace content

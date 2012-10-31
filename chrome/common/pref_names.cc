@@ -540,6 +540,10 @@ const char kTapToClickEnabled[] = "settings.touchpad.enable_tap_to_click";
 const char kEnableTouchpadThreeFingerClick[] =
     "settings.touchpad.enable_three_finger_click";
 
+// A boolean pref set to true if touchpad three-finger swipe is enabled.
+const char kEnableTouchpadThreeFingerSwipe[] =
+    "settings.touchpad.enable_three_finger_swipe";
+
 // A boolean pref set to true if touchpad natural scrolling is enabled.
 const char kNaturalScroll[] = "settings.touchpad.natural_scroll";
 
@@ -700,14 +704,16 @@ const char kLanguageMozcUseDictionarySuggest[] =
 const char kLanguageMozcSuggestionsSize[] =
     "settings.language.mozc_suggestions_size";
 
-// A integer prefs which determine how we remap modifier keys (e.g. swap Alt-L
-// and Control-L.) Possible values for these prefs are 0-4. See ModifierKey enum
-// in src/chrome/browser/chromeos/input_method/xkeyboard.h
-const char kLanguageXkbRemapSearchKeyTo[] =
+// A integer prefs which determine how we remap modifier keys (e.g. swap Alt and
+// Control.) Possible values for these prefs are 0-4. See ModifierKey enum in
+// src/chrome/browser/chromeos/input_method/xkeyboard.h
+const char kLanguageRemapSearchKeyTo[] =
+    // Note: we no longer use XKB for remapping these keys, but we can't change
+    // the pref names since the names are already synced with the cloud.
     "settings.language.xkb_remap_search_key_to";
-const char kLanguageXkbRemapControlKeyTo[] =
+const char kLanguageRemapControlKeyTo[] =
     "settings.language.xkb_remap_control_key_to";
-const char kLanguageXkbRemapAltKeyTo[] =
+const char kLanguageRemapAltKeyTo[] =
     "settings.language.xkb_remap_alt_key_to";
 
 // A boolean pref which determines whether key repeat is enabled.
@@ -1669,7 +1675,14 @@ const char kSyncKeystoreEncryptionBootstrapToken[] =
 // passphrase.
 const char kSyncUsingSecondaryPassphrase[] = "sync.using_secondary_passphrase";
 
-// String that identifies the user logged into sync and other google services.
+// String the identifies the last user that logged into sync and other
+// google services. As opposed to kGoogleServicesUsername, this value is not
+// cleared on signout, but while the user is signed in the two values will
+// be the same.
+const char kGoogleServicesLastUsername[] = "google.services.last_username";
+
+// String that identifies the current user logged into sync and other google
+// services.
 const char kGoogleServicesUsername[] = "google.services.username";
 
 // Local state pref containing a string regex that restricts which accounts
@@ -1803,6 +1816,14 @@ const char kSpdyProxyOrigin[] = "auth.spdyproxy.origin";
 // domain sub-content requests.
 const char kAllowCrossOriginAuthPrompt[] = "auth.allow_cross_origin_prompt";
 
+// An int64 pref that contains the total size of all HTTP content that has been
+// received from the network.
+const char kHttpReceivedContentLength[] = "http_received_content_length";
+
+// An int64 pref that contains the total original size of all HTTP content that
+// was received over the network.
+const char kHttpOriginalContentLength[] = "http_original_content_length";
+
 #if defined(OS_CHROMEOS)
 // Dictionary for transient storage of settings that should go into device
 // settings storage before owner has been assigned.
@@ -1919,6 +1940,10 @@ const char kCloudPrintRobotRefreshToken[] = "cloud_print.robot_refresh_token";
 const char kCloudPrintRobotEmail[] = "cloud_print.robot_email";
 // A boolean indicating whether we should connect to cloud print new printers.
 const char kCloudPrintConnectNewPrinters[] = "cloud_print.connect_new_printers";
+// A boolean indicating whether we should ping XMPP connection.
+const char kCloudPrintXmppPingEnabled[] = "cloud_print.xmpp_ping_enabled";
+// An int value indicating the average timeout between xmpp pings.
+const char kCloudPrintXmppPingTimeout[] = "cloud_print.xmpp_ping_timeout_sec";
 // List of printers which should not be connected.
 const char kCloudPrintPrinterBlacklist[] = "cloud_print.printer_blacklist";
 // A boolean indicating whether submitting jobs to Google Cloud Print is
@@ -2028,11 +2053,17 @@ const char kMediaGalleriesRememberedGalleries[] =
     "media_galleries.remembered_galleries";
 
 #if defined(USE_AURA)
+// |kShelfAlignment| and |kShelfAutoHideBehavior| have a local variant. The
+// local variant is not synced and is used if set. If the local variant is not
+// set its value is set from the synced value (once prefs have been
+// synced). This gives a per-machine setting that is initialized from the last
+// set value.
 // String value corresponding to ash::Shell::ShelfAlignment.
 const char kShelfAlignment[] = "shelf_alignment";
+const char kShelfAlignmentLocal[] = "shelf_alignment_local";
 // String value corresponding to ash::Shell::ShelfAutoHideBehavior.
-const char kShelfAutoHideBehavior[] =
-    "auto_hide_behavior";
+const char kShelfAutoHideBehavior[] = "auto_hide_behavior";
+const char kShelfAutoHideBehaviorLocal[] = "auto_hide_behavior_local";
 // Boolean value indicating whether to use default pinned apps.
 const char kUseDefaultPinnedApps[] = "use_default_pinned_apps";
 const char kPinnedLauncherApps[] =

@@ -29,7 +29,7 @@ ListValue* GetOrCreateList(DictionaryValue* dictionary,
   ListValue* list = NULL;
   if (!dictionary->GetList(key, &list)) {
     list = new ListValue();
-    dictionary->Set(key, list);
+    dictionary->SetWithoutPathExpansion(key, list);
   }
   return list;
 }
@@ -37,6 +37,16 @@ ListValue* GetOrCreateList(DictionaryValue* dictionary,
 }  // namespace
 
 namespace extensions {
+
+namespace subtle {
+
+void AppendKeyValuePair(const char* key, Value* value, ListValue* list) {
+  DictionaryValue* dictionary = new DictionaryValue;
+  dictionary->SetWithoutPathExpansion(key, value);
+  list->Append(dictionary);
+}
+
+}  // namespace subtle
 
 // Implementation of UploadDataPresenter.
 
@@ -76,33 +86,27 @@ scoped_ptr<Value> RawDataPresenter::Result() {
   return list_.PassAs<Value>();
 }
 
-// static
-void RawDataPresenter::AppendResultWithKey(
-    ListValue* list, const char* key, Value* value) {
-  DictionaryValue* dictionary = new DictionaryValue;
-  dictionary->Set(key, value);
-  list->Append(dictionary);
-}
-
 void RawDataPresenter::Abort() {
   success_ = false;
   list_.reset();
 }
 
 void RawDataPresenter::FeedNextBytes(const char* bytes, size_t size) {
-  AppendResultWithKey(list_.get(), keys::kRequestBodyRawBytesKey,
-                      BinaryValue::CreateWithCopiedBuffer(bytes, size));
+  subtle::AppendKeyValuePair(keys::kRequestBodyRawBytesKey,
+                             BinaryValue::CreateWithCopiedBuffer(bytes, size),
+                             list_.get());
 }
 
 void RawDataPresenter::FeedNextFile(const std::string& filename) {
   // Insert the file path instead of the contents, which may be too large.
-  AppendResultWithKey(list_.get(), keys::kRequestBodyRawFileKey,
-                      Value::CreateStringValue(filename));
+  subtle::AppendKeyValuePair(keys::kRequestBodyRawFileKey,
+                             Value::CreateStringValue(filename),
+                             list_.get());
 }
 
 // Implementation of ParsedDataPresenter.
 
-ParsedDataPresenter::ParsedDataPresenter(const net::URLRequest* request)
+ParsedDataPresenter::ParsedDataPresenter(const net::URLRequest& request)
   : parser_(FormDataParser::Create(request)),
     success_(parser_.get() != NULL),
     dictionary_(success_ ? new DictionaryValue() : NULL) {
@@ -141,6 +145,18 @@ scoped_ptr<Value> ParsedDataPresenter::Result() {
     return scoped_ptr<Value>();
 
   return dictionary_.PassAs<Value>();
+}
+
+// static
+scoped_ptr<ParsedDataPresenter> ParsedDataPresenter::CreateForTests() {
+  const std::string form_type("application/x-www-form-urlencoded");
+  return scoped_ptr<ParsedDataPresenter>(new ParsedDataPresenter(form_type));
+}
+
+ParsedDataPresenter::ParsedDataPresenter(const std::string& form_type)
+  : parser_(FormDataParser::CreateFromContentTypeHeader(&form_type)),
+    success_(parser_.get() != NULL),
+    dictionary_(success_ ? new DictionaryValue() : NULL) {
 }
 
 void ParsedDataPresenter::Abort() {

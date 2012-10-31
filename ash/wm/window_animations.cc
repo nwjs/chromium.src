@@ -41,6 +41,7 @@ DECLARE_WINDOW_PROPERTY_TYPE(int)
 DECLARE_WINDOW_PROPERTY_TYPE(ash::WindowVisibilityAnimationType)
 DECLARE_WINDOW_PROPERTY_TYPE(ash::WindowVisibilityAnimationTransition)
 DECLARE_WINDOW_PROPERTY_TYPE(float)
+DECLARE_EXPORTED_WINDOW_PROPERTY_TYPE(ASH_EXPORT, bool)
 
 using aura::Window;
 using base::TimeDelta;
@@ -86,6 +87,13 @@ const float kWindowAnimation_TranslateFactor = 0.025f;
 const float kWindowAnimation_ScaleFactor = .95f;
 // TODO(sky): if we end up sticking with 0, nuke the code doing the rotation.
 const float kWindowAnimation_MinimizeRotate = 0.f;
+
+const int kWindowAnimation_Rotate_DurationMS = 180;
+const int kWindowAnimation_Rotate_OpacityDurationPercent = 90;
+const float kWindowAnimation_Rotate_TranslateY = -20.f;
+const float kWindowAnimation_Rotate_PerspectiveDepth = 500.f;
+const float kWindowAnimation_Rotate_DegreesX = 5.f;
+const float kWindowAnimation_Rotate_ScaleFactor = .99f;
 
 // Tween type when cross fading a workspace window.
 const ui::Tween::Type kCrossFadeTweenType = ui::Tween::EASE_IN_OUT;
@@ -495,6 +503,74 @@ void AnimateHideWindow_BrightnessGrayscale(aura::Window* window) {
   AnimateShowHideWindowCommon_BrightnessGrayscale(window, false);
 }
 
+void AddLayerAnimationsForRotate(aura::Window* window, bool show) {
+  window->layer()->set_delegate(window);
+  if (show)
+    window->layer()->SetOpacity(kWindowAnimation_HideOpacity);
+
+  base::TimeDelta duration = base::TimeDelta::FromMilliseconds(
+      kWindowAnimation_Rotate_DurationMS);
+
+  if (!show) {
+    new HidingWindowAnimationObserver(window);
+    window->layer()->GetAnimator()->SchedulePauseForProperties(
+        duration * (100 - kWindowAnimation_Rotate_OpacityDurationPercent) / 100,
+        ui::LayerAnimationElement::OPACITY,
+        -1);
+  }
+  scoped_ptr<ui::LayerAnimationElement> opacity(
+      ui::LayerAnimationElement::CreateOpacityElement(
+          show ? kWindowAnimation_ShowOpacity : kWindowAnimation_HideOpacity,
+          duration * kWindowAnimation_Rotate_OpacityDurationPercent / 100));
+  opacity->set_tween_type(ui::Tween::EASE_IN_OUT);
+  window->layer()->GetAnimator()->ScheduleAnimation(
+      new ui::LayerAnimationSequence(opacity.release()));
+
+  float xcenter = window->bounds().width() * 0.5;
+
+  gfx::Transform transform;
+  transform.ConcatTranslate(-xcenter, 0);
+  transform.ConcatPerspectiveDepth(kWindowAnimation_Rotate_PerspectiveDepth);
+  transform.ConcatTranslate(xcenter, 0);
+  scoped_ptr<ui::InterpolatedTransform> perspective(
+      new ui::InterpolatedConstantTransform(transform));
+
+  scoped_ptr<ui::InterpolatedTransform> scale(
+      new ui::InterpolatedScale(1, kWindowAnimation_Rotate_ScaleFactor));
+  scoped_ptr<ui::InterpolatedTransform> scale_about_pivot(
+      new ui::InterpolatedTransformAboutPivot(
+          gfx::Point(xcenter, kWindowAnimation_Rotate_TranslateY),
+          scale.release()));
+
+  scoped_ptr<ui::InterpolatedTransform> translation(
+      new ui::InterpolatedTranslation(gfx::Point(), gfx::Point(
+          0, kWindowAnimation_Rotate_TranslateY)));
+
+  scoped_ptr<ui::InterpolatedTransform> rotation(
+      new ui::InterpolatedAxisAngleRotation(
+          gfx::Point3f(1, 0, 0), 0, kWindowAnimation_Rotate_DegreesX));
+
+  scale_about_pivot->SetChild(perspective.release());
+  translation->SetChild(scale_about_pivot.release());
+  rotation->SetChild(translation.release());
+  rotation->SetReversed(show);
+
+  scoped_ptr<ui::LayerAnimationElement> transition(
+      ui::LayerAnimationElement::CreateInterpolatedTransformElement(
+          rotation.release(), duration));
+
+  window->layer()->GetAnimator()->ScheduleAnimation(
+      new ui::LayerAnimationSequence(transition.release()));
+}
+
+void AnimateShowWindow_Rotate(aura::Window* window) {
+  AddLayerAnimationsForRotate(window, true);
+}
+
+void AnimateHideWindow_Rotate(aura::Window* window) {
+  AddLayerAnimationsForRotate(window, false);
+}
+
 bool AnimateShowWindow(aura::Window* window) {
   if (!HasWindowVisibilityAnimationTransition(window, ANIMATE_SHOW))
     return false;
@@ -514,6 +590,9 @@ bool AnimateShowWindow(aura::Window* window) {
       return true;
     case WINDOW_VISIBILITY_ANIMATION_TYPE_BRIGHTNESS_GRAYSCALE:
       AnimateShowWindow_BrightnessGrayscale(window);
+      return true;
+    case WINDOW_VISIBILITY_ANIMATION_TYPE_ROTATE:
+      AnimateShowWindow_Rotate(window);
       return true;
     default:
       NOTREACHED();
@@ -540,6 +619,9 @@ bool AnimateHideWindow(aura::Window* window) {
       return true;
     case WINDOW_VISIBILITY_ANIMATION_TYPE_BRIGHTNESS_GRAYSCALE:
       AnimateHideWindow_BrightnessGrayscale(window);
+      return true;
+    case WINDOW_VISIBILITY_ANIMATION_TYPE_ROTATE:
+      AnimateHideWindow_Rotate(window);
       return true;
     default:
       NOTREACHED();
@@ -573,8 +655,6 @@ class CrossFadeObserver : public ui::CompositorObserver,
   // ui::CompositorObserver overrides:
   virtual void OnCompositingDidCommit(ui::Compositor* compositor) OVERRIDE {
   }
-  virtual void OnCompositingWillStart(ui::Compositor* compositor) OVERRIDE {
-  }
   virtual void OnCompositingStarted(ui::Compositor* compositor) OVERRIDE {
   }
   virtual void OnCompositingEnded(ui::Compositor* compositor) OVERRIDE {
@@ -582,6 +662,9 @@ class CrossFadeObserver : public ui::CompositorObserver,
   virtual void OnCompositingAborted(ui::Compositor* compositor) OVERRIDE {
     // Triggers OnImplicitAnimationsCompleted() to be called and deletes us.
     layer_->GetAnimator()->StopAnimating();
+  }
+  virtual void OnCompositingLockStateChanged(
+      ui::Compositor* compositor) OVERRIDE {
   }
 
   // aura::WindowObserver overrides:

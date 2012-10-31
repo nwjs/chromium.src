@@ -9,6 +9,7 @@
   'variables': {
     'enabled_libjingle_device_manager%': 0,
     'libjingle_source%': "source",
+    'libjingle_peerconnection_additional_deps%': [],
   },
   'target_defaults': {
     'defines': [
@@ -137,7 +138,7 @@
     'conditions': [
       ['use_openssl!=1', {
         'defines': [
-          'SSL_USE_NSS',
+          'SSL_USE_NSS_RNG',
         ],
         'conditions': [
           ['os_posix == 1 and OS != "mac" and OS != "ios" and '
@@ -275,6 +276,10 @@
         '<@(libjingle_source)/talk/base/network.cc',
         '<@(libjingle_source)/talk/base/network.h',
         '<@(libjingle_source)/talk/base/nullsocketserver.h',
+        '<@(libjingle_source)/talk/base/nssidentity.cc',
+        '<@(libjingle_source)/talk/base/nssidentity.h',
+        '<@(libjingle_source)/talk/base/nssstreamadapter.cc',
+        '<@(libjingle_source)/talk/base/nssstreamadapter.h',
         '<@(libjingle_source)/talk/base/pathutils.cc',
         '<@(libjingle_source)/talk/base/pathutils.h',
         '<@(libjingle_source)/talk/base/physicalsocketserver.cc',
@@ -315,6 +320,8 @@
         '<@(libjingle_source)/talk/base/sslsocketfactory.h',
         '<@(libjingle_source)/talk/base/sslstreamadapter.cc',
         '<@(libjingle_source)/talk/base/sslstreamadapter.h',
+        '<@(libjingle_source)/talk/base/sslstreamadapterhelper.cc',
+        '<@(libjingle_source)/talk/base/sslstreamadapterhelper.h',
         '<@(libjingle_source)/talk/base/stream.cc',
         '<@(libjingle_source)/talk/base/stream.h',
         '<@(libjingle_source)/talk/base/stringencode.cc',
@@ -507,8 +514,8 @@
         '<@(libjingle_source)/talk/p2p/base/transportchannelproxy.h',
         '<@(libjingle_source)/talk/p2p/base/transportdescriptionfactory.cc',
         '<@(libjingle_source)/talk/p2p/base/transportdescriptionfactory.h',
-        '<@(libjingle_source)/talk/p2p/base/udpport.cc',
-        '<@(libjingle_source)/talk/p2p/base/udpport.h',
+        '<@(libjingle_source)/talk/p2p/base/turnport.cc',
+        '<@(libjingle_source)/talk/p2p/base/turnport.h',
         '<@(libjingle_source)/talk/p2p/client/basicportallocator.cc',
         '<@(libjingle_source)/talk/p2p/client/basicportallocator.h',
         '<@(libjingle_source)/talk/p2p/client/httpportallocator.cc',
@@ -537,6 +544,8 @@
         '<@(libjingle_source)/talk/app/webrtc/jsepicecandidate.h',
         '<@(libjingle_source)/talk/app/webrtc/jsepsessiondescription.cc',
         '<@(libjingle_source)/talk/app/webrtc/jsepsessiondescription.h',
+        '<@(libjingle_source)/talk/app/webrtc/localvideosource.cc',
+        '<@(libjingle_source)/talk/app/webrtc/localvideosource.h',
         '<@(libjingle_source)/talk/app/webrtc/mediastream.cc',
         '<@(libjingle_source)/talk/app/webrtc/mediastream.h',
         '<@(libjingle_source)/talk/app/webrtc/mediastreamhandler.cc',
@@ -561,6 +570,9 @@
         '<@(libjingle_source)/talk/app/webrtc/portallocatorfactory.cc',
         '<@(libjingle_source)/talk/app/webrtc/portallocatorfactory.h',
         '<@(libjingle_source)/talk/app/webrtc/streamcollection.h',
+        '<@(libjingle_source)/talk/app/webrtc/videosourceinterface.h',
+        '<@(libjingle_source)/talk/app/webrtc/videosourceproxy.h',
+        '<@(libjingle_source)/talk/app/webrtc/videosourceproxy.cc',
         '<@(libjingle_source)/talk/app/webrtc/videotrackrenderers.cc',
         '<@(libjingle_source)/talk/app/webrtc/videotrackrenderers.h',
         '<@(libjingle_source)/talk/app/webrtc/videotrack.cc',
@@ -724,6 +736,7 @@
             '<(DEPTH)/third_party/webrtc/video_engine/video_engine.gyp:video_engine_core',
             '<(DEPTH)/third_party/webrtc/voice_engine/voice_engine.gyp:voice_engine_core',
             '<(DEPTH)/third_party/webrtc/system_wrappers/source/system_wrappers.gyp:system_wrappers',
+            '<@(libjingle_peerconnection_additional_deps)',
             'libjingle',
             'libjingle_p2p',
           ],

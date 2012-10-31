@@ -13,13 +13,13 @@
 #include "chrome/browser/chromeos/drive/drive_file_system_util.h"
 #include "chrome/browser/chromeos/drive/drive_prefetcher.h"
 #include "chrome/browser/chromeos/drive/drive_sync_client.h"
-#include "chrome/browser/chromeos/drive/drive_uploader.h"
 #include "chrome/browser/chromeos/drive/drive_webapps_registry.h"
 #include "chrome/browser/chromeos/drive/file_write_helper.h"
 #include "chrome/browser/chromeos/drive/stale_cache_files_remover.h"
 #include "chrome/browser/download/download_service.h"
 #include "chrome/browser/download/download_service_factory.h"
 #include "chrome/browser/download/download_util.h"
+#include "chrome/browser/google_apis/drive_uploader.h"
 #include "chrome/browser/google_apis/gdata_util.h"
 #include "chrome/browser/google_apis/gdata_wapi_service.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -41,7 +41,7 @@ namespace drive {
 namespace {
 
 // Used in test to setup system service.
-DriveServiceInterface* g_test_drive_service = NULL;
+google_apis::DriveServiceInterface* g_test_drive_service = NULL;
 const std::string* g_test_cache_root = NULL;
 
 // Returns true if Drive is enabled for the given Profile.
@@ -88,7 +88,7 @@ DriveSystemService::~DriveSystemService() {
 }
 
 void DriveSystemService::Initialize(
-    DriveServiceInterface* drive_service,
+    google_apis::DriveServiceInterface* drive_service,
     const FilePath& cache_root) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
@@ -96,7 +96,7 @@ void DriveSystemService::Initialize(
   cache_ = DriveCache::CreateDriveCacheOnUIThread(
       cache_root,
       blocking_task_runner_);
-  uploader_.reset(new DriveUploader(drive_service_.get()));
+  uploader_.reset(new google_apis::DriveUploader(drive_service_.get()));
   webapps_registry_.reset(new DriveWebAppsRegistry);
   file_system_.reset(new DriveFileSystem(profile_,
                                          cache(),
@@ -205,6 +205,18 @@ void DriveSystemService::AddBackDriveMountPoint(
 
   if (!callback.is_null())
     callback.Run(error == DRIVE_FILE_OK);
+}
+
+void DriveSystemService::ReloadAndRemountFileSystem() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  RemoveDriveMountPoint();
+  drive_service()->CancelAll();
+  file_system_->Reload();
+
+  // Reload() is asynchronous. But we can add back the mount point right away
+  // because every operation waits until loading is complete.
+  AddDriveMountPoint();
 }
 
 void DriveSystemService::AddDriveMountPoint() {
@@ -331,7 +343,7 @@ DriveSystemServiceFactory::~DriveSystemServiceFactory() {
 
 // static
 void DriveSystemServiceFactory::set_drive_service_for_test(
-    DriveServiceInterface* drive_service) {
+    google_apis::DriveServiceInterface* drive_service) {
   if (g_test_drive_service)
     delete g_test_drive_service;
   g_test_drive_service = drive_service;
@@ -347,18 +359,15 @@ void DriveSystemServiceFactory::set_cache_root_for_test(
 
 ProfileKeyedService* DriveSystemServiceFactory::BuildServiceInstanceFor(
     Profile* profile) const {
-  if (!IsDriveEnabledForProfile(profile))
-    return NULL;
-
   DriveSystemService* service = new DriveSystemService(profile);
 
-  DriveServiceInterface* drive_service = g_test_drive_service;
+  google_apis::DriveServiceInterface* drive_service = g_test_drive_service;
   g_test_drive_service = NULL;
   if (!drive_service) {
     if (google_apis::util::IsDriveV2ApiEnabled())
       drive_service = new DriveAPIService();
     else
-      drive_service = new GDataWapiService();
+      drive_service = new google_apis::GDataWapiService();
   }
 
   FilePath cache_root =

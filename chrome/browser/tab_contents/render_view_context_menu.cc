@@ -404,6 +404,9 @@ void RenderViewContextMenu::InitMenu() {
   } else if (view_type == chrome::VIEW_TYPE_EXTENSION_POPUP) {
     AppendPopupExtensionItems();
     return;
+  } else if (view_type == chrome::VIEW_TYPE_PANEL) {
+    AppendPanelItems();
+    return;
   }
 
   bool has_link = !params_.unfiltered_link_url.is_empty();
@@ -541,6 +544,8 @@ void RenderViewContextMenu::AppendPlatformAppItems() {
                                     IDS_CONTENT_CONTEXT_RELOAD_PAGE);
     menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_RELOAD_PACKAGED_APP,
                                     IDS_CONTENT_CONTEXT_RELOAD_PACKAGED_APP);
+    menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_RESTART_PACKAGED_APP,
+                                    IDS_CONTENT_CONTEXT_RESTART_APP);
     AppendDeveloperItems();
     menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE,
                                     IDS_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE);
@@ -560,6 +565,22 @@ void RenderViewContextMenu::AppendPopupExtensionItems() {
 
   AppendAllExtensionItems();
   AppendDeveloperItems();
+}
+
+void RenderViewContextMenu::AppendPanelItems() {
+  const Extension* extension = GetExtension();
+
+  bool has_selection = !params_.selection_text.empty();
+
+  if (params_.is_editable)
+    AppendEditableItems();
+  else if (has_selection)
+    AppendCopyItem();
+
+  // Only add extension items from this extension.
+  int index = 0;
+  extension_items_.AppendExtensionItems(extension->id(),
+                                        PrintableSelectionText(), &index);
 }
 
 void RenderViewContextMenu::AddMenuItem(int command_id,
@@ -997,6 +1018,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
     case IDC_CONTENT_CONTEXT_INSPECTELEMENT:
     case IDC_CONTENT_CONTEXT_INSPECTBACKGROUNDPAGE:
     case IDC_CONTENT_CONTEXT_RELOAD_PACKAGED_APP:
+    case IDC_CONTENT_CONTEXT_RESTART_PACKAGED_APP:
       return IsDevCommandEnabled(id);
 
     case IDC_CONTENT_CONTEXT_VIEWPAGEINFO:
@@ -1515,6 +1537,16 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
 
       extensions::ExtensionSystem::Get(profile_)->extension_service()->
           ReloadExtension(platform_app->id());
+      break;
+    }
+
+    case IDC_CONTENT_CONTEXT_RESTART_PACKAGED_APP: {
+      const Extension* platform_app = GetExtension();
+      DCHECK(platform_app);
+      DCHECK(platform_app->is_platform_app());
+
+      extensions::ExtensionSystem::Get(profile_)->extension_service()->
+          RestartExtension(platform_app->id());
       break;
     }
 

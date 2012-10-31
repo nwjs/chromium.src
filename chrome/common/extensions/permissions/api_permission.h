@@ -48,7 +48,6 @@ class APIPermission {
     kBluetooth,
     kBookmark,
     kBookmarkManagerPrivate,
-    kBrowserTag,
     kBrowsingData,
     kChromeosInfoPrivate,
     kClipboardRead,
@@ -96,11 +95,13 @@ class APIPermission {
     kSyncFileSystem,
     kSystemPrivate,
     kTab,
+    kTabCapture,
     kTerminalPrivate,
     kTopSites,
     kTts,
     kTtsEngine,
     kUnlimitedStorage,
+    kUsb,
     kVideoCapture,
     kWallpaperPrivate,
     kWebNavigation,
@@ -109,6 +110,7 @@ class APIPermission {
     kWebRequestInternal,
     kWebSocketProxyPrivate,
     kWebstorePrivate,
+    kWebView,
     kEnumBoundary
   };
 

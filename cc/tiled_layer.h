@@ -6,7 +6,7 @@
 #define TiledLayerChromium_h
 
 #include "cc/layer.h"
-#include "cc/layer_texture_updater.h"
+#include "cc/layer_updater.h"
 #include "cc/layer_tiling_data.h"
 
 namespace cc {
@@ -35,7 +35,7 @@ public:
 
     virtual Region visibleContentOpaqueRegion() const OVERRIDE;
 
-    virtual void update(TextureUpdateQueue&, const OcclusionTracker*, RenderingStats&) OVERRIDE;
+    virtual void update(ResourceUpdateQueue&, const OcclusionTracker*, RenderingStats&) OVERRIDE;
 
 protected:
     TiledLayer();
@@ -50,8 +50,8 @@ protected:
     void setBorderTexelOption(LayerTilingData::BorderTexelOption);
     size_t numPaintedTiles() { return m_tiler->tiles().size(); }
 
-    virtual LayerTextureUpdater* textureUpdater() const = 0;
-    virtual void createTextureUpdaterIfNeeded() = 0;
+    virtual LayerUpdater* updater() const = 0;
+    virtual void createUpdaterIfNeeded() = 0;
 
     // Set invalidations to be potentially repainted during update().
     void invalidateContentRect(const IntRect& contentRect);
@@ -79,10 +79,11 @@ private:
 
     void markOcclusionsAndRequestTextures(int left, int top, int right, int bottom, const OcclusionTracker*);
 
-    bool updateTiles(int left, int top, int right, int bottom, TextureUpdateQueue&, const OcclusionTracker*, RenderingStats&, bool& didPaint);
+    bool updateTiles(int left, int top, int right, int bottom, ResourceUpdateQueue&, const OcclusionTracker*, RenderingStats&, bool& didPaint);
     bool haveTexturesForTiles(int left, int top, int right, int bottom, bool ignoreOcclusions);
     IntRect markTilesForUpdate(int left, int top, int right, int bottom, bool ignoreOcclusions);
-    void updateTileTextures(const IntRect& paintRect, int left, int top, int right, int bottom, TextureUpdateQueue&, const OcclusionTracker*, RenderingStats&);
+    void updateTileTextures(const IntRect& paintRect, int left, int top, int right, int bottom, ResourceUpdateQueue&, const OcclusionTracker*, RenderingStats&);
+    void updateScrollPrediction();
 
     UpdatableTile* tileAt(int, int) const;
     UpdatableTile* createTile(int, int);
@@ -90,6 +91,12 @@ private:
     GLenum m_textureFormat;
     bool m_skipsDraw;
     bool m_failedUpdate;
+
+    // Used for predictive painting.
+    IntSize m_predictedScroll;
+    IntRect m_predictedVisibleRect;
+    IntRect m_previousVisibleRect;
+    IntSize m_previousContentBounds;
 
     TilingOption m_tilingOption;
     scoped_ptr<LayerTilingData> m_tiler;

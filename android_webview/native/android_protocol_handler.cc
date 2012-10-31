@@ -4,6 +4,7 @@
 
 // URL request job for reading from resources and assets.
 
+#include "android_webview/browser/net/register_android_protocols.h"
 #include "android_webview/native/android_protocol_handler.h"
 
 #include "android_webview/common/url_constants.h"
@@ -20,10 +21,10 @@
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
 #include "net/http/http_util.h"
+#include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/url_request/url_request_job_factory.h"
-#include "net/url_request/url_request_job_manager.h"
 
 using base::android::AttachCurrentThread;
 using base::android::ClearException;
@@ -89,81 +90,23 @@ class AssetFileProtocolInterceptor :
   const std::string resource_prefix_;
 };
 
-} // namespace
+// Protocol handler for content:// scheme requests.
+class ContentSchemeProtocolHandler :
+    public net::URLRequestJobFactory::ProtocolHandler {
+ public:
+  ContentSchemeProtocolHandler() {}
 
-// static
-net::URLRequestJob* AndroidProtocolHandler::Factory(
-    net::URLRequest* request,
-    net::NetworkDelegate* network_delegate,
-    const std::string& scheme) {
-  DCHECK(scheme == android_webview::kContentScheme);
+  virtual net::URLRequestJob* MaybeCreateJob(
+      net::URLRequest* request,
+      net::NetworkDelegate* network_delegate) const OVERRIDE {
+  DCHECK(request->url().SchemeIs(android_webview::kContentScheme));
   return new AndroidStreamReaderURLRequestJob(
       request,
       network_delegate,
       scoped_ptr<AndroidStreamReaderURLRequestJob::Delegate>(
           new AndroidStreamReaderURLRequestJobDelegateImpl()));
-}
-
-static void AddFileSchemeInterceptorOnIOThread(
-    net::URLRequestContextGetter* context_getter) {
-  // The job factory takes ownership of the interceptor.
-  const_cast<net::URLRequestJobFactory*>(
-      context_getter->GetURLRequestContext()->job_factory())->AddInterceptor(
-          new AssetFileProtocolInterceptor());
-}
-
-bool RegisterAndroidProtocolHandler(JNIEnv* env) {
-  return RegisterNativesImpl(env);
-}
-
-// static
-void AndroidProtocolHandler::RegisterProtocols(
-    net::URLRequestContextGetter* context_getter) {
-  // Register content://. Note that even though a scheme is
-  // registered here, it cannot be used by child processes until access to it is
-  // granted via ChildProcessSecurityPolicy::GrantScheme(). This is done in
-  // AwContentBrowserClient.
-  // TODO(mnaganov): Convert into a ProtocolHandler.
-  net::URLRequestJobManager* job_manager =
-      net::URLRequestJobManager::GetInstance();
-  job_manager->RegisterProtocolFactory(android_webview::kContentScheme,
-      &AndroidProtocolHandler::Factory);
-
-  // Register a file: scheme interceptor for application assets.
-  context_getter->GetNetworkTaskRunner()->PostTask(
-      FROM_HERE,
-      base::Bind(&AddFileSchemeInterceptorOnIOThread,
-                 make_scoped_refptr(context_getter)));
-  // TODO(mnaganov): Add an interceptor for the incognito profile?
-}
-
-// Set a context object to be used for resolving resource queries. This can
-// be used to override the default application context and redirect all
-// resource queries to a specific context object, e.g., for the purposes of
-// testing.
-//
-// |context| should be a android.content.Context instance or NULL to enable
-// the use of the standard application context.
-static void SetResourceContextForTesting(JNIEnv* env, jclass /*clazz*/,
-                                         jobject context) {
-  if (context) {
-    ResetResourceContext(new JavaObjectWeakGlobalRef(env, context));
-  } else {
-    ResetResourceContext(NULL);
   }
-}
-
-static jstring GetAndroidAssetPath(JNIEnv* env, jclass /*clazz*/) {
-  // OK to release, JNI binding.
-  return ConvertUTF8ToJavaString(
-      env, android_webview::kAndroidAssetPath).Release();
-}
-
-static jstring GetAndroidResourcePath(JNIEnv* env, jclass /*clazz*/) {
-  // OK to release, JNI binding.
-  return ConvertUTF8ToJavaString(
-      env, android_webview::kAndroidResourcePath).Release();
-}
+};
 
 static ScopedJavaLocalRef<jobject> GetResourceContext(JNIEnv* env) {
   if (g_resource_context)
@@ -193,10 +136,11 @@ AndroidStreamReaderURLRequestJobDelegateImpl::OpenInputStream(
   // Open the input stream.
   ScopedJavaLocalRef<jstring> url =
       ConvertUTF8ToJavaString(env, request->url().spec());
-  ScopedJavaLocalRef<jobject> stream = Java_AndroidProtocolHandler_open(
-      env,
-      GetResourceContext(env).obj(),
-      url.obj());
+  ScopedJavaLocalRef<jobject> stream =
+      android_webview::Java_AndroidProtocolHandler_open(
+          env,
+          GetResourceContext(env).obj(),
+          url.obj());
 
   // Check and clear pending exceptions.
   if (ClearException(env) || stream.is_null()) {
@@ -223,9 +167,10 @@ bool AndroidStreamReaderURLRequestJobDelegateImpl::GetMimeType(
   ScopedJavaLocalRef<jstring> url =
       ConvertUTF8ToJavaString(env, request->url().spec());
   ScopedJavaLocalRef<jstring> returned_type =
-      Java_AndroidProtocolHandler_getMimeType(env,
-                                              GetResourceContext(env).obj(),
-                                              stream, url.obj());
+      android_webview::Java_AndroidProtocolHandler_getMimeType(
+          env,
+          GetResourceContext(env).obj(),
+          stream, url.obj());
   if (ClearException(env) || returned_type.is_null())
     return false;
 
@@ -283,3 +228,55 @@ net::URLRequestJob* AssetFileProtocolInterceptor::MaybeInterceptResponse(
     net::NetworkDelegate* network_delegate) const {
   return NULL;
 }
+
+}  // namespace
+
+namespace android_webview {
+
+bool RegisterAndroidProtocolHandler(JNIEnv* env) {
+  return RegisterNativesImpl(env);
+}
+
+// static
+void RegisterAndroidProtocolsOnIOThread(
+    net::URLRequestJobFactory* job_factory) {
+  // Register content://. Note that even though a scheme is
+  // registered here, it cannot be used by child processes until access to it is
+  // granted via ChildProcessSecurityPolicy::GrantScheme(). This is done in
+  // AwContentBrowserClient.
+  // The job factory takes ownership of the handler.
+  job_factory->SetProtocolHandler(android_webview::kContentScheme,
+                                  new ContentSchemeProtocolHandler());
+  // The job factory takes ownership of the interceptor.
+  job_factory->AddInterceptor(new AssetFileProtocolInterceptor());
+}
+
+// Set a context object to be used for resolving resource queries. This can
+// be used to override the default application context and redirect all
+// resource queries to a specific context object, e.g., for the purposes of
+// testing.
+//
+// |context| should be a android.content.Context instance or NULL to enable
+// the use of the standard application context.
+static void SetResourceContextForTesting(JNIEnv* env, jclass /*clazz*/,
+                                         jobject context) {
+  if (context) {
+    ResetResourceContext(new JavaObjectWeakGlobalRef(env, context));
+  } else {
+    ResetResourceContext(NULL);
+  }
+}
+
+static jstring GetAndroidAssetPath(JNIEnv* env, jclass /*clazz*/) {
+  // OK to release, JNI binding.
+  return ConvertUTF8ToJavaString(
+      env, android_webview::kAndroidAssetPath).Release();
+}
+
+static jstring GetAndroidResourcePath(JNIEnv* env, jclass /*clazz*/) {
+  // OK to release, JNI binding.
+  return ConvertUTF8ToJavaString(
+      env, android_webview::kAndroidResourcePath).Release();
+}
+
+}  // namespace android_webview

@@ -12,10 +12,13 @@
 #include "base/file_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
+#include "base/prefs/json_pref_store.h"
 #include "base/string_number_conversions.h"
 #include "base/string_tokenizer.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "base/synchronization/waitable_event.h"
+#include "base/threading/sequenced_worker_pool.h"
 #include "base/utf_string_conversions.h"
 #include "base/version.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
@@ -30,15 +33,12 @@
 #include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/download/download_service.h"
 #include "chrome/browser/download/download_service_factory.h"
-#include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_pref_store.h"
 #include "chrome/browser/extensions/extension_pref_value_map.h"
 #include "chrome/browser/extensions/extension_pref_value_map_factory.h"
-#include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_special_storage_policy.h"
 #include "chrome/browser/extensions/extension_system.h"
-#include "chrome/browser/extensions/user_script_master.h"
 #include "chrome/browser/geolocation/chrome_geolocation_permission_context.h"
 #include "chrome/browser/geolocation/chrome_geolocation_permission_context_factory.h"
 #include "chrome/browser/history/shortcuts_backend.h"
@@ -67,8 +67,6 @@
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/browser/user_style_sheet_watcher.h"
-#include "chrome/browser/visitedlink/visitedlink_event_listener.h"
-#include "chrome/browser/visitedlink/visitedlink_master.h"
 #include "chrome/browser/web_resource/promo_resource_service.h"
 #include "chrome/browser/webdata/web_data_service.h"
 #include "chrome/common/chrome_constants.h"
@@ -121,7 +119,8 @@ namespace {
 
 // Constrict us to a very specific platform and architecture to make sure
 // ifdefs don't cause problems with the check.
-#if defined(OS_LINUX) && defined(TOOLKIT_GTK) && defined(ARCH_CPU_X86_64)
+#if defined(OS_LINUX) && defined(TOOLKIT_GTK) && defined(ARCH_CPU_X86_64) && \
+  !defined(_GLIBCXX_DEBUG)
 // Make sure that the ProfileImpl doesn't grow. We're currently trying to drive
 // the number of services that are included in ProfileImpl (instead of using
 // ProfileKeyedServiceFactory) to zero.
@@ -155,8 +154,33 @@ const char* const kPrefExitTypeSessionEnded = "SessionEnded";
 // Helper method needed because PostTask cannot currently take a Callback
 // function with non-void return type.
 // TODO(jhawkins): Remove once IgnoreResult is fixed.
-void CreateDirectoryNoResult(const FilePath& path) {
+void CreateDirectoryAndSignal(const FilePath& path,
+                              base::WaitableEvent* done_creating) {
   file_util::CreateDirectory(path);
+  done_creating->Signal();
+}
+
+// Task that blocks the FILE thread until CreateDirectoryAndSignal() finishes on
+// blocking I/O pool.
+void BlockFileThreadOnDirectoryCreate(base::WaitableEvent* done_creating) {
+  done_creating->Wait();
+}
+
+// Initiates creation of profile directory on |sequenced_task_runner| and
+// ensures that FILE thread is blocked until that operation finishes.
+void CreateProfileDirectory(base::SequencedTaskRunner* sequenced_task_runner,
+                            const FilePath& path) {
+  base::WaitableEvent* done_creating = new base::WaitableEvent(false, false);
+  sequenced_task_runner->PostTask(FROM_HERE,
+                                  base::Bind(&CreateDirectoryAndSignal,
+                                             path,
+                                             done_creating));
+  // Block the FILE thread until directory is created on I/O pool to make sure
+  // that we don't attempt any operation until that part completes.
+  BrowserThread::PostTask(
+      BrowserThread::FILE, FROM_HERE,
+      base::Bind(&BlockFileThreadOnDirectoryCreate,
+                 base::Owned(done_creating)));
 }
 
 FilePath GetCachePath(const FilePath& base) {
@@ -209,12 +233,15 @@ std::string ExitTypeToSessionTypePrefValue(Profile::ExitType type) {
 Profile* Profile::CreateProfile(const FilePath& path,
                                 Delegate* delegate,
                                 CreateMode create_mode) {
+  // Get sequenced task runner for making sure that file operations of
+  // this profile (defined by |path|) are executed in expected order
+  // (what was previously assured by the FILE thread).
+  scoped_refptr<base::SequencedTaskRunner> sequenced_task_runner =
+      JsonPrefStore::GetTaskRunnerForFile(path,
+                                          BrowserThread::GetBlockingPool());
   if (create_mode == CREATE_MODE_ASYNCHRONOUS) {
     DCHECK(delegate);
-    // This is safe while all file operations are done on the FILE thread.
-    BrowserThread::PostTask(
-        BrowserThread::FILE, FROM_HERE,
-        base::Bind(&CreateDirectoryNoResult, path));
+    CreateProfileDirectory(sequenced_task_runner, path);
   } else if (create_mode == CREATE_MODE_SYNCHRONOUS) {
     if (!file_util::PathExists(path)) {
       // TODO(tc): http://b/1094718 Bad things happen if we can't write to the
@@ -227,7 +254,7 @@ Profile* Profile::CreateProfile(const FilePath& path,
     NOTREACHED();
   }
 
-  return new ProfileImpl(path, delegate, create_mode);
+  return new ProfileImpl(path, delegate, create_mode, sequenced_task_runner);
 }
 
 // static
@@ -280,12 +307,12 @@ void ProfileImpl::RegisterUserPrefs(PrefService* prefs) {
                              PrefService::SYNCABLE_PREF);
 }
 
-ProfileImpl::ProfileImpl(const FilePath& path,
-                         Delegate* delegate,
-                         CreateMode create_mode)
+ProfileImpl::ProfileImpl(
+    const FilePath& path,
+    Delegate* delegate,
+    CreateMode create_mode,
+    base::SequencedTaskRunner* sequenced_task_runner)
     : path_(path),
-      ALLOW_THIS_IN_INITIALIZER_LIST(visited_link_event_listener_(
-          new VisitedLinkEventListener(this))),
       ALLOW_THIS_IN_INITIALIZER_LIST(io_data_(this)),
       host_content_settings_map_(NULL),
       last_session_exit_type_(EXIT_NORMAL),
@@ -329,6 +356,7 @@ ProfileImpl::ProfileImpl(const FilePath& path,
   if (create_mode == CREATE_MODE_ASYNCHRONOUS) {
     prefs_.reset(PrefService::CreatePrefService(
         GetPrefFilePath(),
+        sequenced_task_runner,
         policy_service_.get(),
         new ExtensionPrefStore(
             ExtensionPrefValueMapFactory::GetForProfile(this), false),
@@ -341,6 +369,7 @@ ProfileImpl::ProfileImpl(const FilePath& path,
     // Load prefs synchronously.
     prefs_.reset(PrefService::CreatePrefService(
         GetPrefFilePath(),
+        sequenced_task_runner,
         policy_service_.get(),
         new ExtensionPrefStore(
             ExtensionPrefValueMapFactory::GetForProfile(this), false),
@@ -364,9 +393,10 @@ void ProfileImpl::DoFinalInit(bool is_new_profile) {
   // to PathService.
   chrome::GetUserCacheDirectory(path_, &base_cache_path_);
   // Always create the cache directory asynchronously.
-  BrowserThread::PostTask(
-      BrowserThread::FILE, FROM_HERE,
-      base::Bind(&CreateDirectoryNoResult, base_cache_path_));
+  scoped_refptr<base::SequencedTaskRunner> sequenced_task_runner =
+      JsonPrefStore::GetTaskRunnerForFile(base_cache_path_,
+                                          BrowserThread::GetBlockingPool());
+  CreateProfileDirectory(sequenced_task_runner, base_cache_path_);
 
   // Now that the profile is hooked up to receive pref change notifications to
   // kGoogleServicesUsername, initialize components that depend on it to reflect
@@ -602,32 +632,8 @@ Profile* ProfileImpl::GetOriginalProfile() {
   return this;
 }
 
-VisitedLinkMaster* ProfileImpl::GetVisitedLinkMaster() {
-  if (!visited_link_master_.get()) {
-    scoped_ptr<VisitedLinkMaster> visited_links(
-      new VisitedLinkMaster(visited_link_event_listener_.get(), this));
-    if (!visited_links->Init())
-      return NULL;
-    visited_link_master_.swap(visited_links);
-  }
-
-  return visited_link_master_.get();
-}
-
 ExtensionService* ProfileImpl::GetExtensionService() {
   return extensions::ExtensionSystem::Get(this)->extension_service();
-}
-
-extensions::UserScriptMaster* ProfileImpl::GetUserScriptMaster() {
-  return extensions::ExtensionSystem::Get(this)->user_script_master();
-}
-
-ExtensionProcessManager* ProfileImpl::GetExtensionProcessManager() {
-  return extensions::ExtensionSystem::Get(this)->process_manager();
-}
-
-extensions::EventRouter* ProfileImpl::GetExtensionEventRouter() {
-  return extensions::ExtensionSystem::Get(this)->event_router();
 }
 
 ExtensionSpecialStoragePolicy*
@@ -693,10 +699,14 @@ bool ProfileImpl::WasCreatedByVersionOrLater(const std::string& version) {
 }
 
 void ProfileImpl::SetExitType(ExitType exit_type) {
-  DCHECK(exit_type == EXIT_NORMAL || exit_type == EXIT_SESSION_ENDED);
-  // This may be invoked multiple times. Only persist the value first passed in.
-  if (prefs_.get() && (SessionTypePrefValueToExitType(prefs_->GetString(
-                       prefs::kSessionExitType)) == EXIT_CRASHED)) {
+  if (!prefs_)
+    return;
+  ExitType current_exit_type = SessionTypePrefValueToExitType(
+      prefs_->GetString(prefs::kSessionExitType));
+  // This may be invoked multiple times during shutdown. Only persist the value
+  // first passed in (unless it's a reset to the crash state, which happens when
+  // foregrounding the app on mobile).
+  if (exit_type == EXIT_CRASHED || current_exit_type == EXIT_CRASHED) {
     prefs_->SetString(prefs::kSessionExitType,
                       ExitTypeToSessionTypePrefValue(exit_type));
 
@@ -762,28 +772,20 @@ net::URLRequestContextGetter* ProfileImpl::GetRequestContext() {
 
 net::URLRequestContextGetter* ProfileImpl::GetRequestContextForRenderProcess(
     int renderer_child_id) {
-  ExtensionService* extension_service =
-      extensions::ExtensionSystem::Get(this)->extension_service();
-  if (extension_service) {
-    const extensions::Extension* extension =
-        extension_service->GetIsolatedAppForRenderer(renderer_child_id);
-    if (extension)
-      return GetRequestContextForStoragePartition(extension->id());
-  }
-
   content::RenderProcessHost* rph = content::RenderProcessHost::FromID(
       renderer_child_id);
-  if (rph && rph->IsGuest()) {
-    // For guest processes (used by the browser tag), we need to isolate the
-    // storage.
-    // TODO(nasko): Until we have proper storage partitions, create a
-    // non-persistent context using the RPH's id.
-    std::string id("guest-");
-    id.append(base::IntToString(renderer_child_id));
-    return GetRequestContextForStoragePartition(id);
+  content::StoragePartition* storage_partition = rph->GetStoragePartition();
+
+  // TODO(nasko): Remove this conditional, once webview tag creates a proper
+  // storage partition.
+  if (rph->IsGuest()) {
+    // For guest processes, we only allow in-memory partitions for now, so
+    // hardcode the parameter here.
+    return GetRequestContextForStoragePartition(
+        storage_partition->GetPath(), true);
   }
 
-  return GetRequestContext();
+  return storage_partition->GetURLRequestContext();
 }
 
 net::URLRequestContextGetter* ProfileImpl::GetMediaRequestContext() {
@@ -794,34 +796,28 @@ net::URLRequestContextGetter* ProfileImpl::GetMediaRequestContext() {
 net::URLRequestContextGetter*
 ProfileImpl::GetMediaRequestContextForRenderProcess(
     int renderer_child_id) {
-  ExtensionService* extension_service =
-      extensions::ExtensionSystem::Get(this)->extension_service();
-  if (extension_service) {
-    const extensions::Extension* extension =
-        extension_service->GetIsolatedAppForRenderer(renderer_child_id);
-    if (extension)
-      return io_data_.GetIsolatedMediaRequestContextGetter(extension->id());
-  }
-
   content::RenderProcessHost* rph = content::RenderProcessHost::FromID(
       renderer_child_id);
-  if (rph && rph->IsGuest()) {
-    // For guest processes (used by the browser tag), we need to isolate the
-    // storage.
-    // TODO(nasko): Until we have proper storage partitions, create a
-    // non-persistent context using the RPH's id.
-    std::string id("guest-");
-    id.append(base::IntToString(renderer_child_id));
-    return io_data_.GetIsolatedMediaRequestContextGetter(id);
+  content::StoragePartition* storage_partition = rph->GetStoragePartition();
+
+  // TODO(nasko): Remove this conditional, once webview tag creates a proper
+  // storage partition.
+  if (rph->IsGuest()) {
+    // For guest processes, we only allow in-memory partitions for now, so
+    // hardcode the parameter here.
+    return GetMediaRequestContextForStoragePartition(
+        storage_partition->GetPath(), true);
   }
 
-  return io_data_.GetMediaRequestContextGetter();
+  return storage_partition->GetMediaURLRequestContext();
 }
 
 net::URLRequestContextGetter*
 ProfileImpl::GetMediaRequestContextForStoragePartition(
-    const std::string& partition_id) {
-  return io_data_.GetIsolatedMediaRequestContextGetter(partition_id);
+    const FilePath& partition_path,
+    bool in_memory) {
+  return io_data_.GetIsolatedMediaRequestContextGetter(partition_path,
+                                                       in_memory);
 }
 
 content::ResourceContext* ProfileImpl::GetResourceContext() {
@@ -833,8 +829,9 @@ net::URLRequestContextGetter* ProfileImpl::GetRequestContextForExtensions() {
 }
 
 net::URLRequestContextGetter* ProfileImpl::GetRequestContextForStoragePartition(
-    const std::string& partition_id) {
-  return io_data_.GetIsolatedAppRequestContextGetter(partition_id);
+    const FilePath& partition_path,
+    bool in_memory) {
+  return io_data_.GetIsolatedAppRequestContextGetter(partition_path, in_memory);
 }
 
 net::SSLConfigService* ProfileImpl::GetSSLConfigService() {

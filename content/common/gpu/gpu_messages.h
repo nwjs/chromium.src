@@ -150,6 +150,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::GPUInfo)
   IPC_STRUCT_TRAITS_MEMBER(driver_date)
   IPC_STRUCT_TRAITS_MEMBER(pixel_shader_version)
   IPC_STRUCT_TRAITS_MEMBER(vertex_shader_version)
+  IPC_STRUCT_TRAITS_MEMBER(machine_model)
   IPC_STRUCT_TRAITS_MEMBER(gl_version)
   IPC_STRUCT_TRAITS_MEMBER(gl_version_string)
   IPC_STRUCT_TRAITS_MEMBER(gl_vendor)
@@ -175,8 +176,20 @@ IPC_STRUCT_TRAITS_BEGIN(content::GPUVideoMemoryUsageStats)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::GpuMemoryAllocationForRenderer)
-  IPC_STRUCT_TRAITS_MEMBER(gpu_resource_size_in_bytes)
-  IPC_STRUCT_TRAITS_MEMBER(suggest_have_backbuffer)
+  IPC_STRUCT_TRAITS_MEMBER(bytes_limit_when_visible)
+  IPC_STRUCT_TRAITS_MEMBER(priority_cutoff_when_visible)
+  IPC_STRUCT_TRAITS_MEMBER(bytes_limit_when_not_visible)
+  IPC_STRUCT_TRAITS_MEMBER(priority_cutoff_when_not_visible)
+  IPC_STRUCT_TRAITS_MEMBER(have_backbuffer_when_not_visible)
+  IPC_STRUCT_TRAITS_MEMBER(enforce_but_do_not_keep_as_policy)
+IPC_STRUCT_TRAITS_END()
+IPC_ENUM_TRAITS(content::GpuMemoryAllocationForRenderer::PriorityCutoff)
+
+IPC_STRUCT_TRAITS_BEGIN(content::GpuManagedMemoryStats)
+  IPC_STRUCT_TRAITS_MEMBER(bytes_required)
+  IPC_STRUCT_TRAITS_MEMBER(bytes_nice_to_have)
+  IPC_STRUCT_TRAITS_MEMBER(bytes_allocated)
+  IPC_STRUCT_TRAITS_MEMBER(backbuffer_requested)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(gfx::GLSurfaceHandle)
@@ -275,7 +288,8 @@ IPC_MESSAGE_ROUTED2(AcceleratedSurfaceMsg_SetFrontSurfaceIsProtected,
 // Tells the GPU process that the browser process has handled the swap
 // buffers or post sub-buffer request. A non-zero sync point means
 // that we should wait for the sync point.
-IPC_MESSAGE_ROUTED1(AcceleratedSurfaceMsg_BufferPresented,
+IPC_MESSAGE_ROUTED2(AcceleratedSurfaceMsg_BufferPresented,
+                    bool /* presented */,
                     uint32 /* sync_point */)
 
 // Tells the GPU process to remove all contexts.
@@ -555,6 +569,12 @@ IPC_MESSAGE_ROUTED0(GpuCommandBufferMsg_EnsureBackbuffer)
 // Sent to proxy when the gpu memory manager changes its memory allocation.
 IPC_MESSAGE_ROUTED1(GpuCommandBufferMsg_SetMemoryAllocation,
                     content::GpuMemoryAllocationForRenderer /* allocation */)
+
+// Sent to stub from the proxy with statistics on managed memory usage and
+// requirements.
+IPC_MESSAGE_ROUTED1(
+    GpuCommandBufferMsg_SendClientManagedMemoryStats,
+    content::GpuManagedMemoryStats /* stats */)
 
 // Sent to stub when proxy is assigned a memory allocation changed callback.
 IPC_MESSAGE_ROUTED1(

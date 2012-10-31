@@ -7,6 +7,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/process_util.h"
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
@@ -16,13 +17,11 @@
 #include "content/public/common/renderer_preferences.h"
 #include "googleurl/src/gurl.h"
 
-class WebContentsImpl;
-
 namespace content {
 class NavigationEntry;
 class RenderViewHostImpl;
 class WebContentsView;
-}
+class WebContentsImpl;
 
 enum ResourceRequestAction {
   BLOCK,
@@ -31,10 +30,10 @@ enum ResourceRequestAction {
 };
 
 class CONTENT_EXPORT InterstitialPageImpl
-    : public NON_EXPORTED_BASE(content::InterstitialPage),
-      public content::NotificationObserver,
-      public content::RenderViewHostDelegate,
-      public content::RenderWidgetHostDelegate {
+    : public NON_EXPORTED_BASE(InterstitialPage),
+      public NotificationObserver,
+      public RenderViewHostDelegate,
+      public RenderWidgetHostDelegate {
  public:
   // The different state of actions the user can take in an interstitial.
   enum ActionState {
@@ -43,10 +42,10 @@ class CONTENT_EXPORT InterstitialPageImpl
     DONT_PROCEED_ACTION  // "Don't proceed" was selected.
   };
 
-  InterstitialPageImpl(content::WebContents* web_contents,
+  InterstitialPageImpl(WebContents* web_contents,
                        bool new_navigation,
                        const GURL& url,
-                       content::InterstitialPageDelegate* delegate);
+                       InterstitialPageDelegate* delegate);
   virtual ~InterstitialPageImpl();
 
   // InterstitialPage implementation:
@@ -54,8 +53,8 @@ class CONTENT_EXPORT InterstitialPageImpl
   virtual void Hide() OVERRIDE;
   virtual void DontProceed() OVERRIDE;
   virtual void Proceed() OVERRIDE;
-  virtual content::RenderViewHost* GetRenderViewHostForTesting() const OVERRIDE;
-  virtual content::InterstitialPageDelegate* GetDelegateForTesting() OVERRIDE;
+  virtual RenderViewHost* GetRenderViewHostForTesting() const OVERRIDE;
+  virtual InterstitialPageDelegate* GetDelegateForTesting() OVERRIDE;
   virtual void DontCreateViewForTesting() OVERRIDE;
   virtual void SetSize(const gfx::Size& size) OVERRIDE;
   virtual void Focus() OVERRIDE;
@@ -76,32 +75,32 @@ class CONTENT_EXPORT InterstitialPageImpl
   bool reload_on_dont_proceed() const { return reload_on_dont_proceed_; }
 
  protected:
-  // content::NotificationObserver method:
+  // NotificationObserver method:
   virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+                       const NotificationSource& source,
+                       const NotificationDetails& details) OVERRIDE;
 
   // RenderViewHostDelegate implementation:
-  virtual content::RenderViewHostDelegateView* GetDelegateView() OVERRIDE;
+  virtual RenderViewHostDelegateView* GetDelegateView() OVERRIDE;
   virtual const GURL& GetURL() const OVERRIDE;
-  virtual void RenderViewGone(content::RenderViewHost* render_view_host,
+  virtual void RenderViewGone(RenderViewHost* render_view_host,
                               base::TerminationStatus status,
                               int error_code) OVERRIDE;
   virtual void DidNavigate(
-      content::RenderViewHost* render_view_host,
+      RenderViewHost* render_view_host,
       const ViewHostMsg_FrameNavigate_Params& params) OVERRIDE;
-  virtual void UpdateTitle(content::RenderViewHost* render_view_host,
+  virtual void UpdateTitle(RenderViewHost* render_view_host,
                            int32 page_id,
                            const string16& title,
                            base::i18n::TextDirection title_direction) OVERRIDE;
-  virtual content::RendererPreferences GetRendererPrefs(
-      content::BrowserContext* browser_context) const OVERRIDE;
+  virtual RendererPreferences GetRendererPrefs(
+      BrowserContext* browser_context) const OVERRIDE;
   virtual webkit_glue::WebPreferences GetWebkitPrefs() OVERRIDE;
   virtual gfx::Rect GetRootWindowResizerRect() const OVERRIDE;
   virtual void CreateNewWindow(
       int route_id,
       const ViewHostMsg_CreateWindow_Params& params,
-      content::SessionStorageNamespace* session_storage_namespace) OVERRIDE;
+      SessionStorageNamespace* session_storage_namespace) OVERRIDE;
   virtual void CreateNewWidget(int route_id,
                                WebKit::WebPopupType popup_type) OVERRIDE;
   virtual void CreateNewFullscreenWidget(int route_id) OVERRIDE;
@@ -113,30 +112,32 @@ class CONTENT_EXPORT InterstitialPageImpl
                                  const gfx::Rect& initial_pos) OVERRIDE;
   virtual void ShowCreatedFullscreenWidget(int route_id) OVERRIDE;
   virtual void ShowContextMenu(
-      const content::ContextMenuParams& params,
-      content::ContextMenuSourceType type) OVERRIDE;
+      const ContextMenuParams& params,
+      ContextMenuSourceType type) OVERRIDE;
 
   // RenderWidgetHostDelegate implementation:
+  virtual void RenderWidgetDeleted(
+      content::RenderWidgetHostImpl* render_widget_host) OVERRIDE;
   virtual bool PreHandleKeyboardEvent(
-      const content::NativeWebKeyboardEvent& event,
+      const NativeWebKeyboardEvent& event,
       bool* is_keyboard_shortcut) OVERRIDE;
   virtual void HandleKeyboardEvent(
-      const content::NativeWebKeyboardEvent& event) OVERRIDE;
+      const NativeWebKeyboardEvent& event) OVERRIDE;
 
   bool enabled() const { return enabled_; }
-  content::WebContents* web_contents() const;
+  WebContents* web_contents() const;
   const GURL& url() const { return url_; }
 
   // Creates the RenderViewHost containing the interstitial content.
   // Overriden in unit tests.
-  virtual content::RenderViewHost* CreateRenderViewHost();
+  virtual RenderViewHost* CreateRenderViewHost();
 
   // Creates the WebContentsView that shows the interstitial RVH.
   // Overriden in unit tests.
-  virtual content::WebContentsView* CreateWebContentsView();
+  virtual WebContentsView* CreateWebContentsView();
 
   // Notification magic.
-  content::NotificationRegistrar notification_registrar_;
+  NotificationRegistrar notification_registrar_;
 
  private:
   class InterstitialPageRVHDelegateView;
@@ -145,6 +146,9 @@ class CONTENT_EXPORT InterstitialPageImpl
   // - if it is not yet showing, then it won't be shown.
   // - any command sent by the RenderViewHost will be ignored.
   void Disable();
+
+  // Shutdown the RVH.  We will be deleted by the time this method returns.
+  void Shutdown(content::RenderViewHostImpl* render_view_host);
 
   // Executes the passed action on the ResourceDispatcher (on the IO thread).
   // Used to block/resume/cancel requests for the RenderViewHost hidden by this
@@ -180,7 +184,7 @@ class CONTENT_EXPORT InterstitialPageImpl
   ActionState action_taken_;
 
   // The RenderViewHost displaying the interstitial contents.
-  content::RenderViewHostImpl* render_view_host_;
+  RenderViewHostImpl* render_view_host_;
 
   // The IDs for the Render[View|Process]Host hidden by this interstitial.
   int original_child_id_;
@@ -206,13 +210,17 @@ class CONTENT_EXPORT InterstitialPageImpl
   scoped_ptr<InterstitialPageRVHDelegateView> rvh_delegate_view_;
 
   // Settings passed to the renderer.
-  mutable content::RendererPreferences renderer_preferences_;
+  mutable RendererPreferences renderer_preferences_;
 
   bool create_view_;
 
-  scoped_ptr<content::InterstitialPageDelegate> delegate_;
+  scoped_ptr<InterstitialPageDelegate> delegate_;
+
+  base::WeakPtrFactory<InterstitialPageImpl> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(InterstitialPageImpl);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_WEB_CONTENTS_INTERSTITIAL_PAGE_IMPL_H_

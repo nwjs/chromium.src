@@ -12,8 +12,6 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/alternate_nav_url_fetcher.h"
-#include "chrome/browser/chrome_to_mobile_service.h"
-#include "chrome/browser/chrome_to_mobile_service_factory.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -49,7 +47,6 @@
 #include "chrome/browser/ui/views/location_bar/page_action_with_badge_view.h"
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
 #include "chrome/browser/ui/views/location_bar/star_view.h"
-#include "chrome/browser/ui/views/location_bar/suggested_text_view.h"
 #include "chrome/browser/ui/views/location_bar/web_intents_button_view.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 #include "chrome/browser/ui/views/location_bar/zoom_view.h"
@@ -247,7 +244,7 @@ LocationBarView::~LocationBarView() {
     search_model_->RemoveObserver(this);
 }
 
-void LocationBarView::Init(views::View* popup_parent_view) {
+void LocationBarView::Init() {
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   if (mode_ == POPUP) {
     font_ = rb.GetFont(ui::ResourceBundle::BaseFont);
@@ -277,7 +274,7 @@ void LocationBarView::Init(views::View* popup_parent_view) {
   // URL edit field.
   // View container for URL edit field.
   location_entry_.reset(CreateOmniboxView(this, model_, profile_,
-      command_updater_, mode_ == POPUP, this, popup_parent_view));
+      command_updater_, mode_ == POPUP, this));
   SetLocationEntryFocusable(true);
 
   location_entry_view_ = location_entry_->AddToView(this);
@@ -467,12 +464,6 @@ void LocationBarView::Update(const WebContents* tab_for_state_restoring) {
   if (star_view_ && !extensions::FeatureSwitch::action_box()->IsEnabled())
     star_view_->SetVisible(star_enabled);
 
-  ChromeToMobileService* chrome_to_mobile_service =
-      ChromeToMobileServiceFactory::GetForProfile(profile_);
-  command_updater_->UpdateCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE,
-      !model_->GetInputInProgress() && chrome_to_mobile_service &&
-          chrome_to_mobile_service->HasMobiles());
-
   // Don't Update in app launcher mode so that the location entry does not show
   // a URL or security background.
   if (mode_ != APP_LAUNCHER)
@@ -582,10 +573,6 @@ void LocationBarView::SetStarToggled(bool on) {
   }
 }
 
-void LocationBarView::ShowStarBubble(const GURL& url, bool newly_bookmarked) {
-  chrome::ShowBookmarkBubbleView(star_view_, profile_, url, newly_bookmarked);
-}
-
 void LocationBarView::ZoomChangedForActiveTab(bool can_show_bubble) {
   DCHECK(zoom_view_);
   RefreshZoomView();
@@ -624,21 +611,22 @@ gfx::Point LocationBarView::GetLocationEntryOrigin() const {
   return origin;
 }
 
-void LocationBarView::SetInstantSuggestion(const string16& text,
-                                           bool animate_to_complete) {
+void LocationBarView::SetInstantSuggestion(const string16& text) {
   // Don't show the suggested text if inline autocomplete is prevented.
   if (!text.empty()) {
     if (!suggested_text_view_) {
-      suggested_text_view_ = new SuggestedTextView(
-          location_entry_->model(), instant_extended_api_enabled_);
+      suggested_text_view_ = new views::Label();
+      suggested_text_view_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+      suggested_text_view_->SetAutoColorReadabilityEnabled(false);
+      suggested_text_view_->SetEnabledColor(LocationBarView::GetColor(
+          instant_extended_api_enabled_, ToolbarModel::NONE,
+          LocationBarView::DEEMPHASIZED_TEXT));
       suggested_text_view_->SetText(text);
       suggested_text_view_->SetFont(location_entry_->GetFont());
       AddChildView(suggested_text_view_);
     } else if (suggested_text_view_->text() != text) {
       suggested_text_view_->SetText(text);
     }
-    if (animate_to_complete && !location_entry_->IsImeComposing())
-      suggested_text_view_->StartAnimation();
   } else if (suggested_text_view_) {
     delete suggested_text_view_;
     suggested_text_view_ = NULL;
@@ -1163,8 +1151,6 @@ void LocationBarView::OnChanged() {
 }
 
 void LocationBarView::OnSelectionBoundsChanged() {
-  if (suggested_text_view_)
-    suggested_text_view_->StopAnimation();
 }
 
 void LocationBarView::OnInputInProgress(bool in_progress) {

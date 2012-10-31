@@ -13,6 +13,7 @@
 #include "base/logging.h"
 #include "build/build_config.h"
 #include "ui/base/ui_base_switches.h"
+#include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
 
 #if defined(OS_MACOSX) && !defined(OS_IOS)
@@ -26,7 +27,7 @@
 
 namespace {
 
-#if defined(OS_WIN) || defined(USE_ASH)
+#if defined(OS_WIN)
 // Helper function that determines whether we want to optimize the UI for touch.
 bool UseTouchOptimizedUI() {
   // If --touch-optimized-ui is specified and not set to "auto", then override
@@ -48,15 +49,10 @@ bool UseTouchOptimizedUI() {
     }
   }
 
-#if defined(OS_WIN)
-  // On Windows, we use the touch layout only when we are running in
-  // Metro mode.
+  // We use the touch layout only when we are running in Metro mode.
   return base::win::IsMetroProcess() && base::win::IsTouchEnabled();
-#else
-  return false;
-#endif
 }
-#endif  // defined(OS_WIN) || defined(USE_ASH)
+#endif  // defined(OS_WIN)
 
 const float kScaleFactorScales[] = {1.0f, 1.4f, 1.8f, 2.0f};
 COMPILE_ASSERT(ui::NUM_SCALE_FACTORS == arraysize(kScaleFactorScales),
@@ -67,20 +63,29 @@ std::vector<ui::ScaleFactor>& GetSupportedScaleFactorsInternal() {
   static std::vector<ui::ScaleFactor>* supported_scale_factors =
       new std::vector<ui::ScaleFactor>();
   if (supported_scale_factors->empty()) {
-      supported_scale_factors->push_back(ui::SCALE_FACTOR_100P);
-// TODO(rohitrao): Set the appropriate scale factors for iOS.  Ideally set
-// either 100P or 200P but not both, since a given device will only ever use one
-// scale factor.
-#if defined(OS_MACOSX) && !defined(OS_IOS) && defined(ENABLE_HIDPI)
-      if (base::mac::IsOSLionOrLater())
-        supported_scale_factors->push_back(ui::SCALE_FACTOR_200P);
-#elif defined(OS_WIN) && defined(ENABLE_HIDPI)
-      if (base::win::IsMetroProcess() && base::win::IsTouchEnabled()) {
-        supported_scale_factors->push_back(ui::SCALE_FACTOR_140P);
-        supported_scale_factors->push_back(ui::SCALE_FACTOR_180P);
-      }
-#elif defined(USE_ASH)
+#if !defined(OS_IOS)
+    // On platforms other than iOS, 100P is always a supported scale factor.
+    supported_scale_factors->push_back(ui::SCALE_FACTOR_100P);
+#endif
+
+#if defined(OS_IOS)
+    gfx::Display display = gfx::Screen::GetNativeScreen()->GetPrimaryDisplay();
+    if (display.device_scale_factor() > 1.0) {
+      DCHECK_EQ(2.0, display.device_scale_factor());
       supported_scale_factors->push_back(ui::SCALE_FACTOR_200P);
+    } else {
+      supported_scale_factors->push_back(ui::SCALE_FACTOR_100P);
+    }
+#elif defined(OS_MACOSX)
+    if (base::mac::IsOSLionOrLater())
+      supported_scale_factors->push_back(ui::SCALE_FACTOR_200P);
+#elif defined(OS_WIN) && defined(ENABLE_HIDPI)
+    if (base::win::IsMetroProcess() && base::win::IsTouchEnabled()) {
+      supported_scale_factors->push_back(ui::SCALE_FACTOR_140P);
+      supported_scale_factors->push_back(ui::SCALE_FACTOR_180P);
+    }
+#elif defined(USE_ASH)
+    supported_scale_factors->push_back(ui::SCALE_FACTOR_200P);
 #endif
   }
   return *supported_scale_factors;
@@ -92,11 +97,9 @@ namespace ui {
 
 // Note that this function should be extended to select
 // LAYOUT_TOUCH when appropriate on more platforms than just
-// Windows and Ash.
+// Windows.
 DisplayLayout GetDisplayLayout() {
 #if defined(USE_ASH)
-  if (UseTouchOptimizedUI())
-    return LAYOUT_TOUCH;
   return LAYOUT_ASH;
 #elif defined(OS_WIN)
   if (UseTouchOptimizedUI())

@@ -200,8 +200,10 @@ VolumeManager.prototype.onMountCompleted_ = function(event) {
   if (event.mountType == 'gdata') {
     if (event.status == 'success') {
       if (event.eventType == 'mount') {
-        this.waitGDataLoaded_(event.mountPath,
-            this.setGDataStatus_.bind(this, VolumeManager.GDataStatus.MOUNTED));
+        this.waitGDataLoaded_(event.mountPath, function(success) {
+          this.setGDataStatus_(success ? VolumeManager.GDataStatus.MOUNTED :
+                                         VolumeManager.GDataStatus.ERROR);
+        }.bind(this));
       } else if (event.eventType == 'unmount') {
         this.setGDataStatus_(VolumeManager.GDataStatus.UNMOUNTED);
       }
@@ -215,12 +217,15 @@ VolumeManager.prototype.onMountCompleted_ = function(event) {
  * drive ready to operate.
  *
  * @param {string} mountPath GData mount path.
- * @param {function()} callback To be called when waiting finish.
+ * @param {function(boolean, FileError=)} callback To be called when waiting
+ *     finishes. If the case of error, there may be a FileError parameter.
  * @private
  */
 VolumeManager.prototype.waitGDataLoaded_ = function(mountPath, callback) {
   chrome.fileBrowserPrivate.requestLocalFileSystem(function(filesystem) {
-    filesystem.root.getDirectory(mountPath, {}, function() { callback(); });
+    filesystem.root.getDirectory(mountPath, {},
+        callback.bind(null, true),
+        callback.bind(null, false));
   });
 };
 
@@ -278,7 +283,13 @@ VolumeManager.prototype.mountGData = function(successCallback, errorCallback) {
     timeout = null;
   }, VolumeManager.MOUNTING_DELAY);
   this.mount_('', 'gdata', function(mountPath) {
-    successCallback(mountPath);
+    this.waitGDataLoaded_(mountPath, function(success, error) {
+      if (success) {
+        successCallback(mountPath);
+      } else {
+        errorCallback(error);
+      }
+    });
   }, function(error) {
     if (self.getGDataStatus() != VolumeManager.GDataStatus.MOUNTED)
       self.setGDataStatus_(VolumeManager.GDataStatus.ERROR);

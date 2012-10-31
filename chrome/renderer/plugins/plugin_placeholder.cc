@@ -234,6 +234,9 @@ PluginPlaceholder::PluginPlaceholder(content::RenderView* render_view,
 
 PluginPlaceholder::~PluginPlaceholder() {
   RenderThread::Get()->RemoveObserver(this);
+  if (context_menu_request_id_)
+    render_view()->CancelContextMenu(context_menu_request_id_);
+
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   if (placeholder_routing_id_ == MSG_ROUTING_NONE)
     return;
@@ -244,8 +247,6 @@ PluginPlaceholder::~PluginPlaceholder() {
             routing_id(), placeholder_routing_id_));
   }
 #endif
-  if (context_menu_request_id_)
-    render_view()->CancelContextMenu(context_menu_request_id_);
 }
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
@@ -322,12 +323,22 @@ void PluginPlaceholder::ReplacePlugin(WebPlugin* new_plugin) {
     return;
   }
 
-  // Set the new plug-in on the container before initializing it.
   WebPluginContainer* container = plugin_->container();
+  // Set the new plug-in on the container before initializing it.
   container->setPlugin(new_plugin);
+  // Save the element in case the plug-in is removed from the page during
+  // initialization.
+  WebElement element = container->element();
   if (!new_plugin->initialize(container)) {
     // We couldn't initialize the new plug-in. Restore the old one and abort.
     container->setPlugin(plugin_);
+    return;
+  }
+
+  // The plug-in has been removed from the page. Destroy the old plug-in
+  // (which will destroy us).
+  if (element.parentNode().isNull()) {
+    plugin_->destroy();
     return;
   }
 
@@ -455,6 +466,7 @@ void PluginPlaceholder::PluginListChanged() {
 }
 
 void PluginPlaceholder::OnMenuAction(int request_id, unsigned action) {
+  DCHECK_EQ(context_menu_request_id_, request_id);
   if (g_last_active_menu != this)
     return;
   switch (action) {
@@ -474,7 +486,7 @@ void PluginPlaceholder::OnMenuAction(int request_id, unsigned action) {
 }
 
 void PluginPlaceholder::OnMenuClosed(int request_id) {
-  DCHECK(request_id == context_menu_request_id_);
+  DCHECK_EQ(context_menu_request_id_, request_id);
   context_menu_request_id_ = 0;
 }
 

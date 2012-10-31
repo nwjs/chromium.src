@@ -26,7 +26,7 @@ using content::SurfaceTexturePeerBrowserImpl;
 namespace {
 base::android::RegistrationMethod kContentRegisteredMethods[] = {
   { "AndroidLocationApiAdapter",
-    AndroidLocationApiAdapter::RegisterGeolocationService },
+    content::AndroidLocationApiAdapter::RegisterGeolocationService },
   { "AndroidBrowserProcess", content::RegisterAndroidBrowserProcess },
   { "BrowserProcessSurfaceTexture",
     SurfaceTexturePeerBrowserImpl::RegisterBrowserProcessSurfaceTexture },
@@ -36,7 +36,7 @@ base::android::RegistrationMethod kContentRegisteredMethods[] = {
   { "DownloadControllerAndroidImpl",
     content::DownloadControllerAndroidImpl::RegisterDownloadController },
   { "RegisterImeAdapter", content::RegisterImeAdapter },
-  { "JavaBoundObject", JavaBoundObject::RegisterJavaBoundObject },
+  { "JavaBoundObject", content::JavaBoundObject::RegisterJavaBoundObject },
   { "LoadUrlParams", content::RegisterLoadUrlParams },
   { "SandboxedProcessLauncher", content::RegisterSandboxedProcessLauncher },
   { "TouchPoint", content::RegisterTouchPoint },

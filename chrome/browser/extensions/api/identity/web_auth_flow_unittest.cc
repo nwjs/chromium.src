@@ -7,10 +7,7 @@
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/notification_details.h"
-#include "content/public/browser/notification_service.h"
-#include "content/public/browser/notification_source.h"
-#include "content/public/browser/notification_types.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/test/test_browser_thread.h"
 #include "content/public/test/web_contents_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -65,11 +62,9 @@ class MockWebAuthFlow : public WebAuthFlow {
     return window_shown_;
   }
 
-  void NotifyWebContentsDestroyed() {
-    content::NotificationService::current()->Notify(
-        content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
-        content::Source<WebContents>(web_contents_),
-        content::NotificationService::NoDetails());
+  void DestroyWebContents() {
+    CHECK(web_contents_);
+    delete web_contents_;
   }
 
   virtual ~MockWebAuthFlow() { }
@@ -198,7 +193,7 @@ TEST_F(WebAuthFlowTest, UIClosedByUser) {
   flow_->Start();
   CallAfterUrlLoaded();
   EXPECT_TRUE(flow_->HasWindow());
-  flow_->NotifyWebContentsDestroyed();
+  flow_->DestroyWebContents();
 }
 
 TEST_F(WebAuthFlowTest, IsValidRedirectUrl) {

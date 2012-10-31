@@ -11,6 +11,7 @@
 #include "base/string_number_conversions.h"
 #include "base/sequenced_task_runner.h"
 #include "base/tracked_objects.h"
+#include "chrome/browser/chromeos/drive/document_entry_conversion.h"
 #include "chrome/browser/chromeos/drive/drive.pb.h"
 #include "chrome/browser/chromeos/drive/drive_files.h"
 #include "chrome/browser/google_apis/gdata_util.h"
@@ -47,6 +48,15 @@ void PostGetEntryInfoWithFilePathCallbackError(
 }
 
 }  // namespace
+
+std::string ContentOriginToString(ContentOrigin origin) {
+  switch (origin) {
+    case UNINITIALIZED: return "UNINITIALIZED";
+    case INITIALIZED: return "INITIALIZED";
+  };
+  NOTREACHED();
+  return "(unknown content origin)";
+}
 
 EntryInfoResult::EntryInfoResult() : error(DRIVE_FILE_ERROR_FAILED) {
 }
@@ -199,19 +209,6 @@ DriveResourceMetadata::~DriveResourceMetadata() {
                                       resource_metadata_db_.release());
 }
 
-scoped_ptr<DriveEntry> DriveResourceMetadata::FromDocumentEntry(
-    const google_apis::DocumentEntry& doc) {
-  scoped_ptr<DriveEntry> entry;
-  if (doc.is_folder())
-    entry = CreateDriveDirectory().Pass();
-  else if (doc.is_hosted_document() || doc.is_file())
-    entry = CreateDriveFile().Pass();
-
-  if (entry.get())
-    entry->InitFromDocumentEntry(doc);
-  return entry.Pass();
-}
-
 scoped_ptr<DriveFile> DriveResourceMetadata::CreateDriveFile() {
   return scoped_ptr<DriveFile>(new DriveFile(this));
 }
@@ -253,7 +250,8 @@ void DriveResourceMetadata::AddEntryToDirectory(
     return;
   }
 
-  scoped_ptr<DriveEntry> new_entry = FromDocumentEntry(*doc_entry);
+  scoped_ptr<DriveEntry> new_entry = CreateDriveEntryFromProto(
+      ConvertDocumentEntryToDriveEntryProto(*doc_entry));
   if (!new_entry.get()) {
     PostFileMoveCallbackError(callback, DRIVE_FILE_ERROR_FAILED);
     return;
@@ -524,7 +522,8 @@ void DriveResourceMetadata::RefreshFile(
     return;
   }
 
-  scoped_ptr<DriveEntry> drive_entry(FromDocumentEntry(*doc_entry));
+  scoped_ptr<DriveEntry> drive_entry = CreateDriveEntryFromProto(
+      ConvertDocumentEntryToDriveEntryProto(*doc_entry));
   if (!drive_entry.get()) {
     PostGetEntryInfoWithFilePathCallbackError(
         callback, DRIVE_FILE_ERROR_FAILED);
@@ -569,7 +568,7 @@ void DriveResourceMetadata::RefreshFile(
 
 void DriveResourceMetadata::RefreshDirectory(
     const std::string& directory_resource_id,
-    const ResourceMap& file_map,
+    const DriveEntryProtoMap& entry_proto_map,
     const FileMoveCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
@@ -588,14 +587,13 @@ void DriveResourceMetadata::RefreshDirectory(
   }
 
   directory->RemoveChildFiles();
-  // Add files from file_map.
-  for (ResourceMap::const_iterator it = file_map.begin();
-       it != file_map.end(); ++it) {
-    scoped_ptr<DriveEntry> entry(it->second);
-    // Skip if it's not a file (i.e. directory).
-    if (!entry->AsDriveFile())
-      continue;
-    directory->AddEntry(entry.release());
+  // Add files from entry_proto_map.
+  for (DriveEntryProtoMap::const_iterator it = entry_proto_map.begin();
+      it != entry_proto_map.end(); ++it) {
+    const DriveEntryProto& entry_proto = it->second;
+    // Only refresh files.
+    if (!entry_proto.file_info().is_directory())
+      directory->AddEntry(CreateDriveEntryFromProto(entry_proto).release());
   }
 
   base::MessageLoopProxy::current()->PostTask(
@@ -645,7 +643,6 @@ void DriveResourceMetadata::InitResourceMap(
   SerializedMap* serialized_resources = &create_params->serialized_resources;
   resource_metadata_db_ = create_params->db.Pass();
   if (serialized_resources->empty()) {
-    origin_ = INITIALIZING;
     callback.Run(DRIVE_FILE_ERROR_NOT_FOUND);
     return;
   }
@@ -685,7 +682,8 @@ void DriveResourceMetadata::InitResourceMap(
 
     const std::string resource_id =
         iter->first.substr(strlen(kDBKeyResourceIdPrefix));
-    scoped_ptr<DriveEntry> entry = FromProtoString(iter->second);
+    scoped_ptr<DriveEntry> entry =
+        CreateDriveEntryFromProtoString(iter->second);
     if (entry.get()) {
       DVLOG(1) << "Inserting resource " << resource_id
                << " into resource_map";
@@ -728,7 +726,7 @@ void DriveResourceMetadata::InitResourceMap(
   DCHECK_EQ(resource_map.size(), resource_map_.size());
   DCHECK_EQ(resource_map.size(), serialized_resources->size());
 
-  origin_ = FROM_CACHE;
+  origin_ = INITIALIZED;
 
   callback.Run(DRIVE_FILE_OK);
 }
@@ -797,18 +795,14 @@ bool DriveResourceMetadata::ParseFromString(
 
   root_->FromProto(proto.drive_directory());
 
-  origin_ = FROM_CACHE;
+  origin_ = INITIALIZED;
   largest_changestamp_ = proto.largest_changestamp();
 
   return true;
 }
 
-scoped_ptr<DriveEntry> DriveResourceMetadata::FromProtoString(
-    const std::string& serialized_proto) {
-  DriveEntryProto entry_proto;
-  if (!entry_proto.ParseFromString(serialized_proto))
-    return scoped_ptr<DriveEntry>();
-
+scoped_ptr<DriveEntry> DriveResourceMetadata::CreateDriveEntryFromProto(
+    const DriveEntryProto& entry_proto) {
   scoped_ptr<DriveEntry> entry;
   if (entry_proto.file_info().is_directory()) {
     entry = CreateDriveDirectory().Pass();
@@ -822,6 +816,15 @@ scoped_ptr<DriveEntry> DriveResourceMetadata::FromProtoString(
     entry.reset(file.release());
   }
   return entry.Pass();
+}
+
+scoped_ptr<DriveEntry> DriveResourceMetadata::CreateDriveEntryFromProtoString(
+    const std::string& serialized_proto) {
+  DriveEntryProto entry_proto;
+  if (!entry_proto.ParseFromString(serialized_proto))
+    return scoped_ptr<DriveEntry>();
+
+  return CreateDriveEntryFromProto(entry_proto).Pass();
 }
 
 void DriveResourceMetadata::GetEntryInfoPairByPathsAfterGetFirst(

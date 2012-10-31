@@ -27,6 +27,7 @@
 #include "chrome/browser/prefs/command_line_pref_store.h"
 #include "chrome/browser/prefs/pref_model_associator.h"
 #include "chrome/browser/prefs/pref_notifier_impl.h"
+#include "chrome/browser/prefs/pref_service_observer.h"
 #include "chrome/browser/prefs/pref_value_store.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
@@ -122,6 +123,7 @@ PrefServiceBase* PrefServiceBase::FromBrowserContext(BrowserContext* context) {
 // static
 PrefService* PrefService::CreatePrefService(
     const FilePath& pref_filename,
+    base::SequencedTaskRunner* pref_io_task_runner,
     policy::PolicyService* policy_service,
     PrefStore* extension_prefs,
     bool async) {
@@ -155,8 +157,7 @@ PrefService* PrefService::CreatePrefService(
   CommandLinePrefStore* command_line =
       new CommandLinePrefStore(CommandLine::ForCurrentProcess());
   JsonPrefStore* user = new JsonPrefStore(
-      pref_filename,
-      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::FILE));
+      pref_filename, pref_io_task_runner);
   DefaultPrefStore* default_pref_store = new DefaultPrefStore();
 
   PrefNotifierImpl* pref_notifier = new PrefNotifierImpl();
@@ -223,8 +224,6 @@ PrefService::PrefService(PrefNotifierImpl* pref_notifier,
 
 PrefService::~PrefService() {
   DCHECK(CalledOnValidThread());
-  STLDeleteContainerPointers(prefs_.begin(), prefs_.end());
-  prefs_.clear();
 
   // Reset pointers so accesses after destruction reliably crash.
   pref_value_store_.reset();
@@ -256,6 +255,23 @@ bool PrefService::ReloadPersistentPrefs() {
 void PrefService::CommitPendingWrite() {
   DCHECK(CalledOnValidThread());
   user_pref_store_->CommitPendingWrite();
+}
+
+void PrefService::AddObserver(PrefServiceObserver* observer) {
+  observer_list_.AddObserver(observer);
+}
+
+void PrefService::RemoveObserver(PrefServiceObserver* observer) {
+  observer_list_.RemoveObserver(observer);
+}
+
+bool PrefService::IsSyncing() {
+  return pref_sync_associator_.get() &&
+      pref_sync_associator_->models_associated();
+}
+
+void PrefService::OnIsSyncingChanged() {
+  FOR_EACH_OBSERVER(PrefServiceObserver, observer_list_, OnIsSyncingChanged());
 }
 
 namespace {
@@ -647,16 +663,15 @@ DictionaryValue* PrefService::GetPreferenceValues() const {
 const PrefService::Preference* PrefService::FindPreference(
     const char* pref_name) const {
   DCHECK(CalledOnValidThread());
-  Preference p(this, pref_name, Value::TYPE_NULL);
-  PreferenceSet::const_iterator it = prefs_.find(&p);
-  if (it != prefs_.end())
-    return *it;
+  PreferenceMap::iterator it = prefs_map_.find(pref_name);
+  if (it != prefs_map_.end())
+    return &(it->second);
   const base::Value::Type type = default_store_->GetType(pref_name);
   if (type == Value::TYPE_NULL)
     return NULL;
-  Preference* new_pref = new Preference(this, pref_name, type);
-  prefs_.insert(new_pref);
-  return new_pref;
+  it = prefs_map_.insert(
+      std::make_pair(pref_name, Preference(this, pref_name, type))).first;
+  return &(it->second);
 }
 
 bool PrefService::ReadOnly() const {
@@ -809,15 +824,13 @@ void PrefService::RegisterPreference(const char* path,
 void PrefService::UnregisterPreference(const char* path) {
   DCHECK(CalledOnValidThread());
 
-  Preference p(this, path, Value::TYPE_NULL);
-  PreferenceSet::iterator it = prefs_.find(&p);
-  if (it == prefs_.end()) {
+  PreferenceMap::iterator it = prefs_map_.find(path);
+  if (it == prefs_map_.end()) {
     NOTREACHED() << "Trying to unregister an unregistered pref: " << path;
     return;
   }
 
-  delete *it;
-  prefs_.erase(it);
+  prefs_map_.erase(it);
   default_store_->RemoveDefaultValue(path);
   if (pref_sync_associator_.get() &&
       pref_sync_associator_->IsPrefRegistered(path)) {

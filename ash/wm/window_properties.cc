@@ -11,8 +11,6 @@
 #include "ui/aura/window_property.h"
 #include "ui/ui_controls/ui_controls_aura.h"
 
-// Property type for bool and ui::WindowShowState are
-// defined in aura.
 DECLARE_WINDOW_PROPERTY_TYPE(ash::internal::AlwaysOnTopController*);
 DECLARE_WINDOW_PROPERTY_TYPE(ash::internal::ShadowType);
 DECLARE_EXPORTED_WINDOW_PROPERTY_TYPE(ASH_EXPORT, ash::FramePainter*);
@@ -40,9 +38,11 @@ DEFINE_OWNED_WINDOW_PROPERTY_KEY(ui_controls::UIControlsAura,
                                  kUIControlsKey,
                                  NULL);
 DEFINE_WINDOW_PROPERTY_KEY(bool, kUsesScreenCoordinatesKey, false);
+DEFINE_WINDOW_PROPERTY_KEY(bool, kUserChangedWindowPositionOrSizeKey, false);
 DEFINE_WINDOW_PROPERTY_KEY(ash::WindowPersistsAcrossAllWorkspacesType,
                            kWindowPersistsAcrossAllWorkspacesKey,
                            WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_DEFAULT);
+DEFINE_WINDOW_PROPERTY_KEY(bool, kWindowPositionManagedKey, false);
 DEFINE_WINDOW_PROPERTY_KEY(bool, kWindowTrackedByWorkspaceKey, true);
 
 }  // namespace internal

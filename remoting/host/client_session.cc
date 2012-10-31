@@ -8,6 +8,7 @@
 
 #include "base/message_loop_proxy.h"
 #include "remoting/codec/audio_encoder.h"
+#include "remoting/codec/audio_encoder_opus.h"
 #include "remoting/codec/audio_encoder_speex.h"
 #include "remoting/codec/audio_encoder_verbatim.h"
 #include "remoting/codec/video_encoder.h"
@@ -17,8 +18,8 @@
 #include "remoting/host/desktop_environment.h"
 #include "remoting/host/desktop_environment_factory.h"
 #include "remoting/host/event_executor.h"
-#include "remoting/host/screen_recorder.h"
 #include "remoting/host/video_frame_capturer.h"
+#include "remoting/host/video_scheduler.h"
 #include "remoting/proto/control.pb.h"
 #include "remoting/proto/event.pb.h"
 #include "remoting/protocol/client_stub.h"
@@ -81,11 +82,12 @@ void ClientSession::NotifyClientDimensions(
 }
 
 void ClientSession::ControlVideo(const protocol::VideoControl& video_control) {
-  // TODO(wez): Pause/resume video updates, being careful not to let clients
-  // override any host-initiated pause of the video channel.
   if (video_control.has_enable()) {
     VLOG(1) << "Received VideoControl (enable="
             << video_control.enable() << ")";
+    if (video_scheduler_.get()) {
+      video_scheduler_->Pause(!video_control.enable());
+    }
   }
 }
 
@@ -125,16 +127,21 @@ void ClientSession::OnConnectionChannelsConnected(
   DCHECK_EQ(connection_.get(), connection);
   SetDisableInputs(false);
 
-  // Create a ScreenRecorder, passing the message loops that it should run on.
-  VideoEncoder* video_encoder =
+  // Create a VideoEncoder based on the session's video channel configuration.
+  scoped_ptr<VideoEncoder> video_encoder =
       CreateVideoEncoder(connection_->session()->config());
-  video_recorder_ = new ScreenRecorder(capture_task_runner_,
-                                       encode_task_runner_,
-                                       network_task_runner_,
-                                       desktop_environment_->video_capturer(),
-                                       video_encoder);
+
+  // Create a VideoScheduler to pump frames from the capturer to the client.
+  video_scheduler_ = new VideoScheduler(capture_task_runner_,
+                                        encode_task_runner_,
+                                        network_task_runner_,
+                                        desktop_environment_->video_capturer(),
+                                        video_encoder.Pass(),
+                                        connection_->client_stub(),
+                                        connection_->video_stub());
   ++active_recorders_;
 
+  // Create an AudioScheduler if audio is enabled, to pump audio samples.
   if (connection_->session()->config().is_audio_enabled()) {
     scoped_ptr<AudioEncoder> audio_encoder =
         CreateAudioEncoder(connection_->session()->config());
@@ -147,11 +154,10 @@ void ClientSession::OnConnectionChannelsConnected(
     ++active_recorders_;
   }
 
-  // Start the session.
-  video_recorder_->AddConnection(connection_.get());
-  video_recorder_->Start();
+  // Let the desktop environment notify us of local clipboard changes.
   desktop_environment_->Start(CreateClipboardProxy());
 
+  // Notify the event handler that all our channels are now connected.
   event_handler_->OnSessionChannelsConnected(this);
 }
 
@@ -182,8 +188,8 @@ void ClientSession::OnSequenceNumberUpdated(
   DCHECK(CalledOnValidThread());
   DCHECK_EQ(connection_.get(), connection);
 
-  if (video_recorder_.get())
-    video_recorder_->UpdateSequenceNumber(sequence_number);
+  if (video_scheduler_.get())
+    video_scheduler_->UpdateSequenceNumber(sequence_number);
 
   event_handler_->OnSessionSequenceNumber(this, sequence_number);
 }
@@ -217,10 +223,9 @@ void ClientSession::Stop(const base::Closure& done_task) {
     audio_scheduler_ = NULL;
   }
 
-  if (video_recorder_.get()) {
-    video_recorder_->RemoveConnection(connection_.get());
-    video_recorder_->Stop(base::Bind(&ClientSession::OnRecorderStopped, this));
-    video_recorder_ = NULL;
+  if (video_scheduler_.get()) {
+    video_scheduler_->Stop(base::Bind(&ClientSession::OnRecorderStopped, this));
+    video_scheduler_ = NULL;
   }
 
   if (!active_recorders_) {
@@ -247,7 +252,7 @@ void ClientSession::SetDisableInputs(bool disable_inputs) {
 ClientSession::~ClientSession() {
   DCHECK(!active_recorders_);
   DCHECK(audio_scheduler_.get() == NULL);
-  DCHECK(video_recorder_.get() == NULL);
+  DCHECK(video_scheduler_.get() == NULL);
 }
 
 scoped_ptr<protocol::ClipboardStub> ClientSession::CreateClipboardProxy() {
@@ -279,18 +284,18 @@ void ClientSession::OnRecorderStopped() {
 
 // TODO(sergeyu): Move this to SessionManager?
 // static
-VideoEncoder* ClientSession::CreateVideoEncoder(
+scoped_ptr<VideoEncoder> ClientSession::CreateVideoEncoder(
     const protocol::SessionConfig& config) {
   const protocol::ChannelConfig& video_config = config.video_config();
 
   if (video_config.codec == protocol::ChannelConfig::CODEC_VERBATIM) {
-    return new remoting::VideoEncoderVerbatim();
+    return scoped_ptr<VideoEncoder>(new remoting::VideoEncoderVerbatim());
   } else if (video_config.codec == protocol::ChannelConfig::CODEC_VP8) {
-    return new remoting::VideoEncoderVp8();
+    return scoped_ptr<VideoEncoder>(new remoting::VideoEncoderVp8());
   }
 
   NOTIMPLEMENTED();
-  return NULL;
+  return scoped_ptr<VideoEncoder>(NULL);
 }
 
 // static
@@ -302,6 +307,8 @@ scoped_ptr<AudioEncoder> ClientSession::CreateAudioEncoder(
     return scoped_ptr<AudioEncoder>(new AudioEncoderVerbatim());
   } else if (audio_config.codec == protocol::ChannelConfig::CODEC_SPEEX) {
     return scoped_ptr<AudioEncoder>(new AudioEncoderSpeex());
+  } else if (audio_config.codec == protocol::ChannelConfig::CODEC_OPUS) {
+    return scoped_ptr<AudioEncoder>(new AudioEncoderOpus());
   }
 
   NOTIMPLEMENTED();

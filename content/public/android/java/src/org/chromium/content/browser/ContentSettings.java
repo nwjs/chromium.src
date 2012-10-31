@@ -54,6 +54,7 @@ public class ContentSettings {
     //
     // TODO(mnaganov): populate with the complete set of legacy WebView settings.
 
+    private int mTextSizePercent = 100;
     private String mStandardFontFamily = "sans-serif";
     private String mFixedFontFamily = "monospace";
     private String mSansSerifFontFamily = "sans-serif";
@@ -73,6 +74,7 @@ public class ContentSettings {
     private boolean mAllowUniversalAccessFromFileURLs = false;
     private boolean mAllowFileAccessFromFileURLs = false;
     private boolean mJavaScriptCanOpenWindowsAutomatically = false;
+    private boolean mSupportMultipleWindows = false;
     private PluginState mPluginState = PluginState.OFF;
     private boolean mDomStorageEnabled = false;
 
@@ -344,6 +346,33 @@ public class ContentSettings {
 
     boolean shouldDisplayZoomControls() {
         return supportsMultiTouchZoom() && mDisplayZoomControls;
+    }
+
+    /**
+     * Sets the text zoom of the page in percent. Default is 100.
+     *
+     * @param textZoom the percent value for increasing or decreasing the text
+     */
+    public void setTextZoom(int textZoom) {
+        assert mCanModifySettings;
+        synchronized (mContentSettingsLock) {
+            if (mTextSizePercent != textZoom) {
+                mTextSizePercent = textZoom;
+                mEventHandler.syncSettingsLocked();
+            }
+        }
+    }
+
+    /**
+     * Gets the text zoom of the page in percent.
+     *
+     * @return a percent value describing the text zoom
+     * @see #setTextSizeZoom
+     */
+    public int getTextZoom() {
+        synchronized (mContentSettingsLock) {
+            return mTextSizePercent;
+        }
     }
 
     /**
@@ -855,6 +884,34 @@ public class ContentSettings {
     public boolean getJavaScriptCanOpenWindowsAutomatically() {
         synchronized (mContentSettingsLock) {
             return mJavaScriptCanOpenWindowsAutomatically;
+        }
+    }
+
+    /**
+     * Tells the WebView whether it supports multiple windows. True means
+     * that {@link WebChromeClient#onCreateWindow(WebView, boolean,
+     * boolean, Message)} is implemented by the host application.
+     */
+    public void setSupportMultipleWindows(boolean support) {
+        assert mCanModifySettings;
+        synchronized (mContentSettingsLock) {
+            if (mSupportMultipleWindows != support) {
+                mSupportMultipleWindows = support;
+                mEventHandler.syncSettingsLocked();
+            }
+        }
+    }
+
+    /**
+     * Gets whether the WebView is supporting multiple windows.
+     *
+     * @return true if the WebView is supporting multiple windows. This means
+     *         that {@link WebChromeClient#onCreateWindow(WebView, boolean,
+     *         boolean, Message)} is implemented by the host application.
+     */
+    public boolean supportMultipleWindows() {
+        synchronized (mContentSettingsLock) {
+            return mSupportMultipleWindows;
         }
     }
 

@@ -6,13 +6,11 @@
 
 #include "cc/single_thread_proxy.h"
 
-#include "CCDrawQuad.h"
-#include "CCGraphicsContext.h"
 #include "base/debug/trace_event.h"
+#include "cc/draw_quad.h"
+#include "cc/graphics_context.h"
 #include "cc/layer_tree_host.h"
-#include "cc/texture_update_controller.h"
-#include "cc/timer.h"
-#include <wtf/CurrentTime.h>
+#include "cc/resource_update_controller.h"
 
 namespace cc {
 
@@ -64,9 +62,9 @@ bool SingleThreadProxy::compositeAndReadback(void *pixels, const IntRect& rect)
     return true;
 }
 
-void SingleThreadProxy::startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, double duration)
+void SingleThreadProxy::startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, base::TimeDelta duration)
 {
-    m_layerTreeHostImpl->startPageScaleAnimation(targetPosition, useAnchor, scale, monotonicallyIncreasingTime(), duration);
+    m_layerTreeHostImpl->startPageScaleAnimation(targetPosition, useAnchor, scale, base::TimeTicks::Now(), duration);
 }
 
 void SingleThreadProxy::finishAllRendering()
@@ -176,7 +174,7 @@ void SingleThreadProxy::setNeedsAnimate()
     NOTREACHED();
 }
 
-void SingleThreadProxy::doCommit(scoped_ptr<TextureUpdateQueue> queue)
+void SingleThreadProxy::doCommit(scoped_ptr<ResourceUpdateQueue> queue)
 {
     DCHECK(Proxy::isMainThread());
     // Commit immediately
@@ -190,8 +188,8 @@ void SingleThreadProxy::doCommit(scoped_ptr<TextureUpdateQueue> queue)
         m_layerTreeHost->contentsTextureManager()->pushTexturePrioritiesToBackings();
         m_layerTreeHost->beginCommitOnImplThread(m_layerTreeHostImpl.get());
 
-        scoped_ptr<TextureUpdateController> updateController =
-            TextureUpdateController::create(
+        scoped_ptr<ResourceUpdateController> updateController =
+            ResourceUpdateController::create(
                 NULL,
                 Proxy::mainThread(),
                 queue.Pass(),
@@ -229,6 +227,12 @@ void SingleThreadProxy::setNeedsRedraw()
     // treat redraw requests more efficiently than commitAndRedraw requests.
     m_layerTreeHostImpl->setFullRootLayerDamage();
     setNeedsCommit();
+}
+
+void SingleThreadProxy::setDeferCommits(bool deferCommits)
+{
+    // Thread-only feature.
+    NOTREACHED();
 }
 
 bool SingleThreadProxy::commitRequested() const
@@ -270,7 +274,7 @@ void SingleThreadProxy::setNeedsCommitOnImplThread()
     m_layerTreeHost->scheduleComposite();
 }
 
-void SingleThreadProxy::postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector> events, double wallClockTime)
+void SingleThreadProxy::postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector> events, base::Time wallClockTime)
 {
     DCHECK(Proxy::isImplThread());
     DebugScopedSetMainThread main;
@@ -284,6 +288,22 @@ bool SingleThreadProxy::reduceContentsTextureMemoryOnImplThread(size_t limitByte
         return false;
 
     return m_layerTreeHost->contentsTextureManager()->reduceMemoryOnImplThread(limitBytes, priorityCutoff, m_layerTreeHostImpl->resourceProvider());
+}
+
+void SingleThreadProxy::sendManagedMemoryStats()
+{
+    DCHECK(Proxy::isImplThread());
+    if (!m_layerTreeHostImpl.get())
+        return;
+    if (!m_layerTreeHostImpl->renderer())
+        return;
+    if (!m_layerTreeHost->contentsTextureManager())
+        return;
+
+    m_layerTreeHostImpl->renderer()->sendManagedMemoryStats(
+        m_layerTreeHost->contentsTextureManager()->memoryVisibleBytes(),
+        m_layerTreeHost->contentsTextureManager()->memoryVisibleAndNearbyBytes(),
+        m_layerTreeHost->contentsTextureManager()->memoryUseBytes());
 }
 
 // Called by the legacy scheduling path (e.g. where render_widget does the scheduling)
@@ -324,7 +344,7 @@ bool SingleThreadProxy::commitAndComposite()
     }
     m_layerTreeHost->contentsTextureManager()->unlinkEvictedBackings(evictedContentsTexturesBackings);
 
-    scoped_ptr<TextureUpdateQueue> queue = make_scoped_ptr(new TextureUpdateQueue);
+    scoped_ptr<ResourceUpdateQueue> queue = make_scoped_ptr(new ResourceUpdateQueue);
     m_layerTreeHost->updateLayers(*(queue.get()), m_layerTreeHostImpl->memoryAllocationLimitBytes());
 
     if (m_layerTreeHostImpl->contentsTexturesPurged())
@@ -346,9 +366,7 @@ bool SingleThreadProxy::doComposite()
         if (!m_layerTreeHostImpl->visible())
             return false;
 
-        double monotonicTime = monotonicallyIncreasingTime();
-        double wallClockTime = currentTime();
-        m_layerTreeHostImpl->animate(monotonicTime, wallClockTime);
+        m_layerTreeHostImpl->animate(base::TimeTicks::Now(), base::Time::Now());
 
         // We guard prepareToDraw() with canDraw() because it always returns a valid frame, so can only
         // be used when such a frame is possible. Since drawLayers() depends on the result of

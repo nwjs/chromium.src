@@ -492,6 +492,8 @@ class Browser : public TabStripModelObserver,
   FRIEND_TEST_ALL_PREFIXES(BrowserTest, ConvertTabToAppShortcut);
   FRIEND_TEST_ALL_PREFIXES(BrowserTest, OpenAppWindowLikeNtp);
   FRIEND_TEST_ALL_PREFIXES(BrowserTest, AppIdSwitch);
+  FRIEND_TEST_ALL_PREFIXES(BrowserWithTestWindowTest,
+                           IsReservedCommandOrKeyIsApp);
   FRIEND_TEST_ALL_PREFIXES(FullscreenControllerTest,
                            TabEntersPresentationModeFromWindowed);
   FRIEND_TEST_ALL_PREFIXES(FullscreenExitBubbleControllerTest,
@@ -661,7 +663,7 @@ class Browser : public TabStripModelObserver,
   // Overridden from ConstrainedWindowTabHelperDelegate:
   virtual void SetTabContentBlocked(content::WebContents* web_contents,
                                     bool blocked) OVERRIDE;
-  virtual BrowserWindow* GetBrowserWindow() OVERRIDE;
+  virtual bool GetConstrainedWindowTopCenter(gfx::Point* point) OVERRIDE;
 
   // Overridden from BlockedContentTabHelperDelegate:
   virtual content::WebContents* GetConstrainingWebContents(

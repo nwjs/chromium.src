@@ -96,3 +96,129 @@ BlockedAppApiTest.*
 ExtensionApiTest.*
 # DrM-i#1052-c#13
 InProcessBrowserTest.*
+
+# Timeout tests from debug build
+# DrM-i#1052-c#15
+PrintPreviewWebUITest.*
+PrintPreviewWebUITest.*
+PPAPINaClTestDisallowedSockets.*
+PPAPIBrokerInfoBarTest.*
+LoadtimesExtensionBindingsTest.*
+GeolocationBrowserTest.*
+AutofillTest.*
+HostRulesTest.*
+UnloadTest.*
+DoNotTrackTest.*
+# DrM-i#1052-c#16
+SavePageBrowserTest.*
+SavePageAsMHTMLBrowserTest.*
+ClickModifierTest.*
+FindInPageControllerTest.*
+ContextMenuBrowserTest.*
+WebUIBrowserAsyncGenTest.*
+BrowserEncodingTest.*
+ShowModalDialogTest.*
+NaClGdbTest.*
+# DrM-i#1052-c#17
+AutomationTabHelperBrowserTest.*
+PageCyclerBrowserTest.*
+PrerenderBrowserTestWithExtensions.*
+NotificationsPermissionTest.*
+# DrM-i#1052-c#18
+PrefetchBrowserTest.*
+LoadTimingObserverTest.*
+LazyBackgroundPageApiTest.*
+AppBackgroundPageApiTest.*
+WebViewTest.*
+PageCyclerBrowserTest.*
+ExtensionContextMenuBrowserTest.*
+ChromeAppAPITest.*
+CommandsApiTest.*
+# DrM-i#1052-c#19
+PlatformAppBrowserTest.*
+ProcessManagementTest.*
+AllUrlsApiTest.*
+ExtensionCrashRecoveryTest.*
+WindowOpenPanelTest.*
+CalculatorBrowserTest.*
+ExtensionWebstorePrivateApiTest.*
+ExtensionFromWebAppTest.*
+ExtensionsStartupTest.*
+ExtensionSettingsApiTest.*
+HistoryBrowserTest.*
+PrerenderBrowserTestWithNaCl.*
+PrefetchBrowserTestNoPrefetching.*
+PageActionApiTest.*
+PageAsBrowserActionApiTest.*
+WebNavigationApiTest.*
+ScriptBadgeApiTest.*
+BrowsingDataRemoverBrowserTest.*
+BrowserActionApiTest.*
+# DrM-i#1052-c#20
+ExtensionWebstorePrivateBundleTest.*
+DeviceManagementServiceIntegrationTestInstance*
+ExtensionPageCaptureApiTest.*
+# DrM-i#1052-c#22
+WebUIAssertionsTest.*
+WebUIBrowserAsyncGenDeferredTest.*
+# DrM-i#1052-c#29
+ExtensionManagementApiBrowserTest.*
+RestoreOnStartupPolicyTestInstance*
+# DrM-i#1052-c#30
+CollectedCookiesTest.*
+InfoBarsTest.*
+CookiePolicyBrowserTest.*
+ExtensionIconSourceTest.*
+WebstoreStandaloneInstallUnpackFailureTest.*
+ExtensionManagementApiTest.*
+FastShutdown.*
+IPBTP/InProcessBrowserTestP.*
+FormStructureBrowserTest.*
+AutomationMiscBrowserTest.*
+
+# Failed tests from debug build
+# DrM-i#1052-c#21
+PrintWebViewHelperTest.*
+PrintWebViewHelperPreviewTest.*
+PrintWebViewHelperKioskTest.*
+TranslateHelperTest.*
+ChromeRenderViewTest.*
+PhishingDOMFeatureExtractorTest.*
+ThumbnailerTest.*
+PhishingClassifierDelegateTest.*
+PasswordGenerationManagerTest.*
+PasswordAutofillManagerTest.*
+FormAutocompleteTest.*
+FormAutofillTest.*
+AutomationRendererHelperTest.*
+ContentSettingsTest.*
+BrowserActionsContainerTest.*
+SessionRestoreTest.*
+ExtensionsLoadTest.*
+PageClickTrackerTest.*
+PhishingDOMFeatureExtractorTest.*
+SSLUITestBlock.*
+ExtensionInstallUIBrowserTest.*
+# DrM-i#1052-c#23
+WebCacheManagerBrowserTest.*
+SafeBrowsingServiceTest.*
+PerformanceMonitorBrowserTest.*
+ProxySettingsApiTest.*
+# DrM-i#1052-c#24
+PhishingClassifierTest.*
+ExtensionToolbarModelTest.*
+WebstoreStandaloneInstallTest.*
+# DrM-i#1052-c#25
+MetricsServiceTest.*
+PrintPreviewTabControllerBrowserTest.*
+# DrM-i#1052-c#26
+MalwareDOMDetailsTest.*
+ExtensionsLoadMultipleTest.*
+NaClExtensionTest.*
+PolicyStatisticsCollectorTest.*
+HistoryExtensionApiTest.*
+# DrM-i#1052-c#27
+SystemInfoStorageApiTest.*
+# DrM-i#1052-c#28
+PanelExtensionBrowserTest.*
+ToolbarViewTest.*

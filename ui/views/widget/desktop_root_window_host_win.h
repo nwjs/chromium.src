@@ -39,6 +39,9 @@ class VIEWS_EXPORT DesktopRootWindowHostWin
       const gfx::Rect& initial_bounds);
   virtual ~DesktopRootWindowHostWin();
 
+  // A way of converting an HWND into a content window.
+  static aura::Window* GetContentWindowForHWND(HWND hwnd);
+
  protected:
   // Overridden from DesktopRootWindowHost:
   virtual aura::RootWindow* Init(aura::Window* content_window,
@@ -112,6 +115,9 @@ class VIEWS_EXPORT DesktopRootWindowHostWin
   virtual void UnConfineCursor() OVERRIDE;
   virtual void MoveCursorTo(const gfx::Point& location) OVERRIDE;
   virtual void SetFocusWhenShown(bool focus_when_shown) OVERRIDE;
+  virtual bool CopyAreaToSkCanvas(const gfx::Rect& source_bounds,
+                                  const gfx::Point& dest_offset,
+                                  SkCanvas* canvas) OVERRIDE;
   virtual bool GrabSnapshot(
       const gfx::Rect& snapshot_bounds,
       std::vector<unsigned char>* png_representation) OVERRIDE;

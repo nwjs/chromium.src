@@ -24,8 +24,10 @@
 #include "base/string_number_conversions.h"
 #include "base/string_piece.h"
 #include "base/string_split.h"
+#include "base/sys_info.h"
 #include "base/sys_string_conversions.h"
 #include "base/threading/platform_thread.h"
+#include "base/threading/sequenced_worker_pool.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
@@ -45,7 +47,7 @@
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/jankometer.h"
 #include "chrome/browser/language_usage_metrics.h"
-#include "chrome/browser/managed_mode.h"
+#include "chrome/browser/managed_mode/managed_mode.h"
 #include "chrome/browser/metrics/field_trial_synchronizer.h"
 #include "chrome/browser/metrics/metrics_log.h"
 #include "chrome/browser/metrics/metrics_service.h"
@@ -96,9 +98,9 @@
 #include "chrome/common/net/net_resource_provider.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/profiling.h"
+#include "chrome/common/startup_metric_utils.h"
 #include "chrome/installer/util/google_update_settings.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/main_function_params.h"
 #include "grit/app_locale_settings.h"
@@ -272,8 +274,11 @@ void InitializeNetworkOptions(const CommandLine& parsed_command_line,
 }
 
 // Returns the new local state object, guaranteed non-NULL.
-PrefService* InitializeLocalState(const CommandLine& parsed_command_line,
-                                  bool is_first_run) {
+// |local_state_task_runner| must be a shutdown-blocking task runner.
+PrefService* InitializeLocalState(
+    base::SequencedTaskRunner* local_state_task_runner,
+    const CommandLine& parsed_command_line,
+    bool is_first_run) {
   FilePath local_state_path;
   PathService::Get(chrome::FILE_LOCAL_STATE, &local_state_path);
   bool local_state_file_exists = file_util::PathExists(local_state_path);
@@ -327,7 +332,7 @@ PrefService* InitializeLocalState(const CommandLine& parsed_command_line,
     FilePath parent_profile =
         parsed_command_line.GetSwitchValuePath(switches::kParentProfile);
     scoped_ptr<PrefService> parent_local_state(
-        PrefService::CreatePrefService(parent_profile,
+        PrefService::CreatePrefService(parent_profile, local_state_task_runner,
                                        g_browser_process->policy_service(),
                                        NULL, false));
     parent_local_state->RegisterStringPref(prefs::kApplicationLocale,
@@ -593,7 +598,7 @@ void ChromeBrowserMainParts::StartMetricsRecording() {
       parsed_command_line_.HasSwitch(switches::kEnableBenchmarking)) {
     // If we're testing then we don't care what the user preference is, we turn
     // on recording, but not reporting, otherwise tests fail.
-    metrics->StartRecordingOnly();
+    metrics->StartRecordingForTests();
     return;
   }
 
@@ -648,13 +653,6 @@ DLLEXPORT void __cdecl RelaunchChromeBrowserWithNewCommandLineIfNeeded() {
 // content::BrowserMainParts implementation ------------------------------------
 
 void ChromeBrowserMainParts::PreEarlyInitialization() {
-  // Single-process is an unsupported and not fully tested mode, so
-  // don't enable it for official Chrome builds (except on Android).
-#if defined(GOOGLE_CHROME_BUILD) && !defined(OS_ANDROID)
-  if (content::RenderProcessHost::run_renderer_in_process())
-    content::RenderProcessHost::set_run_renderer_in_process(false);
-#endif
-
   for (size_t i = 0; i < chrome_extra_parts_.size(); ++i)
     chrome_extra_parts_[i]->PreEarlyInitialization();
 }
@@ -715,7 +713,14 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
           parsed_command_line().HasSwitch(switches::kFirstRun)) &&
       !HasImportSwitch(parsed_command_line());
 #endif
-  browser_process_.reset(new BrowserProcessImpl(parsed_command_line()));
+
+  FilePath local_state_path;
+  CHECK(PathService::Get(chrome::FILE_LOCAL_STATE, &local_state_path));
+  scoped_refptr<base::SequencedTaskRunner> local_state_task_runner =
+      JsonPrefStore::GetTaskRunnerForFile(local_state_path,
+                                          BrowserThread::GetBlockingPool());
+  browser_process_.reset(new BrowserProcessImpl(local_state_task_runner,
+                                                parsed_command_line()));
 
   if (parsed_command_line().HasSwitch(switches::kEnableProfiling)) {
     // User wants to override default tracking status.
@@ -737,7 +742,9 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
             switches::kProfilingOutputFile));
   }
 
-  local_state_ = InitializeLocalState(parsed_command_line(), is_first_run_);
+  local_state_ = InitializeLocalState(local_state_task_runner,
+                                      parsed_command_line(),
+                                      is_first_run_);
 
   // These members must be initialized before returning from this function.
   master_prefs_.reset(new first_run::MasterPrefs);
@@ -1172,6 +1179,21 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // preferences are registered, since some of the code that the importer
   // touches reads preferences.
   if (is_first_run_) {
+#if defined(OS_WIN)
+    // On Windows, trigger the Active Setup command in some scenarios to finish
+    // configuring this user's install (e.g. per-user shortcuts on system-level
+    // installs).
+    // Delay the task slightly to give Chrome launch I/O priority while also
+    // making sure shortcuts are created promptly to avoid annoying the user by
+    // re-creating shortcuts he previously deleted.
+    // TODO(gab): Add a first run section to ChromeBrowserMainParts and remove
+    // OS specific sections below.
+    static const int64 kTiggerActiveSetupDelaySeconds = 5;
+    BrowserThread::GetBlockingPool()->PostDelayedTask(
+        FROM_HERE,
+        base::Bind(&InstallUtil::TriggerActiveSetupCommandIfNeeded),
+        base::TimeDelta::FromSeconds(kTiggerActiveSetupDelaySeconds));
+#endif  // OS_WIN
     if (!first_run_ui_bypass_) {
       first_run::AutoImport(profile_,
                             master_prefs_->homepage_defined,
@@ -1615,6 +1637,11 @@ void ChromeBrowserMainParts::AddParts(ChromeBrowserMainExtraParts* parts) {
 // Misc ------------------------------------------------------------------------
 
 void RecordBrowserStartupTime() {
+  // Don't record any metrics if UI was displayed before this point e.g.
+  // warning dialogs.
+  if (startup_metric_utils::WasNonBrowserUIDisplayed())
+    return;
+
 // CurrentProcessInfo::CreationTime() is currently only implemented on Mac and
 // Windows.
 #if defined(OS_MACOSX) || defined(OS_WIN)
@@ -1625,6 +1652,23 @@ void RecordBrowserStartupTime() {
     RecordPreReadExperimentTime("Startup.BrowserMessageLoopStartTime",
         base::Time::Now() - *process_creation_time);
 #endif // OS_MACOSX || OS_WIN
+
+  // Startup.BrowserMessageLoopStartTime exhibits instability in the field
+  // which limits its usefullness in all scenarios except when we have a very
+  // large sample size.
+  // Attempt to mitigate this with a new metric:
+  // * Measure time from main entry rather than the OS' notion of process start
+  //   time.
+  // * Only measure launches that occur 7 minutes after boot to try to avoid
+  //   cases where Chrome is auto-started and IO is heavily loaded.
+  const int64 kSevenMinutesInMilliseconds =
+      base::TimeDelta::FromMinutes(7).InMilliseconds();
+  if (base::SysInfo::Uptime() < kSevenMinutesInMilliseconds)
+    return;
+
+  RecordPreReadExperimentTime(
+      "Startup.BrowserMessageLoopStartTimeFromMainEntry",
+      base::Time::Now() - startup_metric_utils::MainEntryStartTime());
 }
 
 // This code is specific to the Windows-only PreReadExperiment field-trial.

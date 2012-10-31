@@ -15,7 +15,6 @@
 
 namespace content {
 struct NativeWebKeyboardEvent;
-}
 
 // This class is a convenience class for handling editor key bindings defined
 // in gtk keyboard theme.
@@ -44,7 +43,7 @@ class CONTENT_EXPORT GtkKeyBindingsHandler {
   // Matches a key event against predefined gtk key bindings, false will be
   // returned if the key event doesn't correspond to a predefined key binding.
   // Edit commands matched with |wke| will be stored in |edit_commands|.
-  bool Match(const content::NativeWebKeyboardEvent& wke,
+  bool Match(const NativeWebKeyboardEvent& wke,
              EditCommands* edit_commands);
 
  private:
@@ -127,5 +126,7 @@ class CONTENT_EXPORT GtkKeyBindingsHandler {
   // Buffer to store the match results.
   EditCommands edit_commands_;
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_RENDERER_HOST_GTK_KEY_BINDINGS_HANDLER_H_

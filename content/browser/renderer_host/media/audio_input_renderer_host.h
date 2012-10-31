@@ -68,42 +68,20 @@ class AudioManager;
 class AudioParameters;
 }
 
-namespace media_stream {
+namespace content {
 class MediaStreamManager;
-}
 
 class CONTENT_EXPORT AudioInputRendererHost
-    : public content::BrowserMessageFilter,
+    : public BrowserMessageFilter,
       public media::AudioInputController::EventHandler,
-      public media_stream::AudioInputDeviceManagerEventHandler {
+      public AudioInputDeviceManagerEventHandler {
  public:
-  struct AudioEntry {
-    AudioEntry();
-    ~AudioEntry();
-
-    // The AudioInputController that manages the audio input stream.
-    scoped_refptr<media::AudioInputController> controller;
-
-    // The audio input stream ID in the render view.
-    int stream_id;
-
-    // Shared memory for transmission of the audio data.
-    base::SharedMemory shared_memory;
-
-    // The synchronous writer to be used by the controller. We have the
-    // ownership of the writer.
-    scoped_ptr<media::AudioInputController::SyncWriter> writer;
-
-    // Set to true after we called Close() for the controller.
-    bool pending_close;
-  };
-
   // Called from UI thread from the owner of this object.
   AudioInputRendererHost(
       media::AudioManager* audio_manager,
-      media_stream::MediaStreamManager* media_stream_manager);
+      MediaStreamManager* media_stream_manager);
 
-  // content::BrowserMessageFilter implementation.
+  // BrowserMessageFilter implementation.
   virtual void OnChannelClosing() OVERRIDE;
   virtual void OnDestruct() const OVERRIDE;
   virtual bool OnMessageReceived(const IPC::Message& message,
@@ -118,15 +96,19 @@ class CONTENT_EXPORT AudioInputRendererHost
                       const uint8* data,
                       uint32 size) OVERRIDE;
 
-  // media_stream::AudioInputDeviceManagerEventHandler implementation.
+  // AudioInputDeviceManagerEventHandler implementation.
   virtual void OnDeviceStarted(int session_id,
                                const std::string& device_id) OVERRIDE;
   virtual void OnDeviceStopped(int session_id) OVERRIDE;
 
  private:
   // TODO(henrika): extend test suite (compare AudioRenderHost)
-  friend class content::BrowserThread;
+  friend class BrowserThread;
   friend class base::DeleteHelper<AudioInputRendererHost>;
+
+  struct AudioEntry;
+  typedef std::map<int, AudioEntry*> AudioEntryMap;
+  typedef std::map<int, int> SessionEntryMap;
 
   virtual ~AudioInputRendererHost();
 
@@ -200,17 +182,17 @@ class CONTENT_EXPORT AudioInputRendererHost
   media::AudioManager* audio_manager_;
 
   // Used to access to AudioInputDeviceManager.
-  media_stream::MediaStreamManager* media_stream_manager_;
+  MediaStreamManager* media_stream_manager_;
 
   // A map of stream IDs to audio sources.
-  typedef std::map<int, AudioEntry*> AudioEntryMap;
   AudioEntryMap audio_entries_;
 
   // A map of session IDs to audio session sources.
-  typedef std::map<int, int> SessionEntryMap;
   SessionEntryMap session_entries_;
 
   DISALLOW_COPY_AND_ASSIGN(AudioInputRendererHost);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_RENDERER_HOST_MEDIA_AUDIO_INPUT_RENDERER_HOST_H_

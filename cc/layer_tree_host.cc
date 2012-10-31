@@ -6,10 +6,11 @@
 
 #include "cc/layer_tree_host.h"
 
-#include "CCFontAtlas.h"
-#include "CCGraphicsContext.h"
 #include "Region.h"
 #include "base/debug/trace_event.h"
+#include "base/message_loop.h"
+#include "cc/font_atlas.h"
+#include "cc/graphics_context.h"
 #include "cc/heads_up_display_layer.h"
 #include "cc/heads_up_display_layer_impl.h"
 #include "cc/layer.h"
@@ -222,11 +223,11 @@ void LayerTreeHost::acquireLayerTextures()
     m_proxy->acquireLayerTextures();
 }
 
-void LayerTreeHost::updateAnimations(double monotonicFrameBeginTime)
+void LayerTreeHost::updateAnimations(base::TimeTicks frameBeginTime)
 {
     m_animating = true;
-    m_client->animate(monotonicFrameBeginTime);
-    animateLayers(monotonicFrameBeginTime);
+    m_client->animate((frameBeginTime - base::TimeTicks()).InSecondsF());
+    animateLayers(frameBeginTime);
     m_animating = false;
 
     m_renderingStats.numAnimationFrames++;
@@ -253,7 +254,9 @@ void LayerTreeHost::finishCommitOnImplThread(LayerTreeHostImpl* hostImpl)
     DCHECK(Proxy::isImplThread());
 
     m_contentsTextureManager->updateBackingsInDrawingImplTree();
+    ResourceProvider::debugNotifyEnterZone(0xA000000);
     m_contentsTextureManager->reduceMemory(hostImpl->resourceProvider());
+    ResourceProvider::debugNotifyLeaveZone();
 
     hostImpl->setRootLayer(TreeSynchronizer::synchronizeTrees(rootLayer(), hostImpl->detachLayerTree(), hostImpl));
 
@@ -300,7 +303,6 @@ void LayerTreeHost::willCommit()
 
 void LayerTreeHost::commitComplete()
 {
-    m_deleteTextureAfterCommitList.clear();
     m_client->didCommit();
 }
 
@@ -343,6 +345,15 @@ void LayerTreeHost::finishAllRendering()
     m_proxy->finishAllRendering();
 }
 
+void LayerTreeHost::setDeferCommits(bool deferCommits)
+{
+    m_proxy->setDeferCommits(deferCommits);
+}
+
+void LayerTreeHost::didDeferCommit()
+{
+}
+
 void LayerTreeHost::renderingStats(RenderingStats* stats) const
 {
     *stats = m_renderingStats;
@@ -362,6 +373,10 @@ void LayerTreeHost::setNeedsAnimate()
 
 void LayerTreeHost::setNeedsCommit()
 {
+    if (!m_prepaintCallback.IsCancelled()) {
+        TRACE_EVENT_INSTANT0("cc", "LayerTreeHost::setNeedsCommit::cancel prepaint");
+        m_prepaintCallback.Cancel();
+    }
     m_proxy->setNeedsCommit();
 }
 
@@ -377,7 +392,7 @@ bool LayerTreeHost::commitRequested() const
     return m_proxy->commitRequested();
 }
 
-void LayerTreeHost::setAnimationEvents(scoped_ptr<AnimationEventsVector> events, double wallClockTime)
+void LayerTreeHost::setAnimationEvents(scoped_ptr<AnimationEventsVector> events, base::Time wallClockTime)
 {
     DCHECK(ThreadProxy::isMainThread());
     setAnimationEventsRecursive(*events.get(), m_rootLayer.get(), wallClockTime);
@@ -436,9 +451,9 @@ void LayerTreeHost::setVisible(bool visible)
     m_proxy->setVisible(visible);
 }
 
-void LayerTreeHost::startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, double durationSec)
+void LayerTreeHost::startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, base::TimeDelta duration)
 {
-    m_proxy->startPageScaleAnimation(targetPosition, useAnchor, scale, durationSec);
+    m_proxy->startPageScaleAnimation(targetPosition, useAnchor, scale, duration);
 }
 
 void LayerTreeHost::loseContext(int numTimes)
@@ -479,7 +494,7 @@ bool LayerTreeHost::initializeRendererIfNeeded()
     return true;
 }
 
-void LayerTreeHost::updateLayers(TextureUpdateQueue& queue, size_t memoryAllocationLimitBytes)
+void LayerTreeHost::updateLayers(ResourceUpdateQueue& queue, size_t memoryAllocationLimitBytes)
 {
     DCHECK(m_rendererInitialized);
     DCHECK(memoryAllocationLimitBytes);
@@ -493,14 +508,6 @@ void LayerTreeHost::updateLayers(TextureUpdateQueue& queue, size_t memoryAllocat
     m_contentsTextureManager->setMaxMemoryLimitBytes(memoryAllocationLimitBytes);
 
     updateLayers(rootLayer(), queue);
-}
-
-static void setScale(Layer* layer, float deviceScaleFactor, float pageScaleFactor)
-{
-    if (layer->boundsContainPageScale())
-        layer->setContentsScale(deviceScaleFactor);
-    else
-        layer->setContentsScale(deviceScaleFactor * pageScaleFactor);
 }
 
 static Layer* findFirstScrollableLayer(Layer* layer)
@@ -520,28 +527,9 @@ static Layer* findFirstScrollableLayer(Layer* layer)
     return 0;
 }
 
-static void updateLayerScale(Layer* layer, float deviceScaleFactor, float pageScaleFactor)
-{
-    setScale(layer, deviceScaleFactor, pageScaleFactor);
-
-    Layer* maskLayer = layer->maskLayer();
-    if (maskLayer)
-        setScale(maskLayer, deviceScaleFactor, pageScaleFactor);
-
-    Layer* replicaMaskLayer = layer->replicaLayer() ? layer->replicaLayer()->maskLayer() : 0;
-    if (replicaMaskLayer)
-        setScale(replicaMaskLayer, deviceScaleFactor, pageScaleFactor);
-
-    const std::vector<scoped_refptr<Layer> >& children = layer->children();
-    for (unsigned int i = 0; i < children.size(); ++i)
-        updateLayerScale(children[i].get(), deviceScaleFactor, pageScaleFactor);
-}
-
-void LayerTreeHost::updateLayers(Layer* rootLayer, TextureUpdateQueue& queue)
+void LayerTreeHost::updateLayers(Layer* rootLayer, ResourceUpdateQueue& queue)
 {
     TRACE_EVENT0("cc", "LayerTreeHost::updateLayers");
-
-    updateLayerScale(rootLayer, m_deviceScaleFactor, m_pageScaleFactor);
 
     LayerList updateList;
 
@@ -553,18 +541,29 @@ void LayerTreeHost::updateLayers(Layer* rootLayer, TextureUpdateQueue& queue)
         }
 
         TRACE_EVENT0("cc", "LayerTreeHost::updateLayers::calcDrawEtc");
-        LayerTreeHostCommon::calculateDrawTransforms(rootLayer, deviceViewportSize(), m_deviceScaleFactor, rendererCapabilities().maxTextureSize, updateList);
+        LayerTreeHostCommon::calculateDrawTransforms(rootLayer, deviceViewportSize(), m_deviceScaleFactor, m_pageScaleFactor, rendererCapabilities().maxTextureSize, updateList);
     }
 
     // Reset partial texture update requests.
     m_partialTextureUpdateRequests = 0;
 
     bool needMoreUpdates = paintLayerContents(updateList, queue);
-    if (m_triggerIdleUpdates && needMoreUpdates)
-        setNeedsCommit();
+    if (m_triggerIdleUpdates && needMoreUpdates) {
+        TRACE_EVENT0("cc", "LayerTreeHost::updateLayers::posting prepaint task");
+        m_prepaintCallback.Reset(base::Bind(&LayerTreeHost::triggerPrepaint, base::Unretained(this)));
+        static base::TimeDelta prepaintDelay = base::TimeDelta::FromMilliseconds(100);
+        MessageLoop::current()->PostDelayedTask(FROM_HERE, m_prepaintCallback.callback(), prepaintDelay);
+    }
 
     for (size_t i = 0; i < updateList.size(); ++i)
         updateList[i]->clearRenderSurface();
+}
+
+void LayerTreeHost::triggerPrepaint()
+{
+    m_prepaintCallback.Cancel();
+    TRACE_EVENT0("cc", "LayerTreeHost::triggerPrepaint");
+    setNeedsCommit();
 }
 
 void LayerTreeHost::setPrioritiesForSurfaces(size_t surfaceMemoryBytes)
@@ -635,7 +634,7 @@ size_t LayerTreeHost::calculateMemoryForRenderSurfaces(const LayerList& updateLi
     return readbackBytes + maxBackgroundTextureBytes + contentsTextureBytes;
 }
 
-bool LayerTreeHost::paintMasksForRenderSurface(Layer* renderSurfaceLayer, TextureUpdateQueue& queue)
+bool LayerTreeHost::paintMasksForRenderSurface(Layer* renderSurfaceLayer, ResourceUpdateQueue& queue)
 {
     // Note: Masks and replicas only exist for layers that own render surfaces. If we reach this point
     // in code, we already know that at least something will be drawn into this render surface, so the
@@ -656,7 +655,7 @@ bool LayerTreeHost::paintMasksForRenderSurface(Layer* renderSurfaceLayer, Textur
     return needMoreUpdates;
 }
 
-bool LayerTreeHost::paintLayerContents(const LayerList& renderSurfaceLayerList, TextureUpdateQueue& queue)
+bool LayerTreeHost::paintLayerContents(const LayerList& renderSurfaceLayerList, ResourceUpdateQueue& queue)
 {
     // Use FrontToBack to allow for testing occlusion and performing culling during the tree walk.
     typedef LayerIterator<Layer, LayerList, RenderSurface, LayerIteratorActions::FrontToBack> LayerIteratorType;
@@ -761,11 +760,6 @@ bool LayerTreeHost::requestPartialTextureUpdate()
     return true;
 }
 
-void LayerTreeHost::deleteTextureAfterCommit(scoped_ptr<PrioritizedTexture> texture)
-{
-    m_deleteTextureAfterCommitList.append(texture.Pass());
-}
-
 void LayerTreeHost::setDeviceScaleFactor(float deviceScaleFactor)
 {
     if (deviceScaleFactor ==  m_deviceScaleFactor)
@@ -775,22 +769,23 @@ void LayerTreeHost::setDeviceScaleFactor(float deviceScaleFactor)
     setNeedsCommit();
 }
 
-void LayerTreeHost::animateLayers(double monotonicTime)
+void LayerTreeHost::animateLayers(base::TimeTicks time)
 {
     if (!Settings::acceleratedAnimationEnabled() || !m_needsAnimateLayers)
         return;
 
     TRACE_EVENT0("cc", "LayerTreeHostImpl::animateLayers");
-    m_needsAnimateLayers = animateLayersRecursive(m_rootLayer.get(), monotonicTime);
+    m_needsAnimateLayers = animateLayersRecursive(m_rootLayer.get(), time);
 }
 
-bool LayerTreeHost::animateLayersRecursive(Layer* current, double monotonicTime)
+bool LayerTreeHost::animateLayersRecursive(Layer* current, base::TimeTicks time)
 {
     if (!current)
         return false;
 
     bool subtreeNeedsAnimateLayers = false;
     LayerAnimationController* currentController = current->layerAnimationController();
+    double monotonicTime = (time - base::TimeTicks()).InSecondsF();
     currentController->animate(monotonicTime, 0);
 
     // If the current controller still has an active animation, we must continue animating layers.
@@ -798,14 +793,14 @@ bool LayerTreeHost::animateLayersRecursive(Layer* current, double monotonicTime)
          subtreeNeedsAnimateLayers = true;
 
     for (size_t i = 0; i < current->children().size(); ++i) {
-        if (animateLayersRecursive(current->children()[i].get(), monotonicTime))
+        if (animateLayersRecursive(current->children()[i].get(), time))
             subtreeNeedsAnimateLayers = true;
     }
 
     return subtreeNeedsAnimateLayers;
 }
 
-void LayerTreeHost::setAnimationEventsRecursive(const AnimationEventsVector& events, Layer* layer, double wallClockTime)
+void LayerTreeHost::setAnimationEventsRecursive(const AnimationEventsVector& events, Layer* layer, base::Time wallClockTime)
 {
     if (!layer)
         return;
@@ -813,9 +808,9 @@ void LayerTreeHost::setAnimationEventsRecursive(const AnimationEventsVector& eve
     for (size_t eventIndex = 0; eventIndex < events.size(); ++eventIndex) {
         if (layer->id() == events[eventIndex].layerId) {
             if (events[eventIndex].type == AnimationEvent::Started)
-                layer->notifyAnimationStarted(events[eventIndex], wallClockTime);
+                layer->notifyAnimationStarted(events[eventIndex], wallClockTime.ToDoubleT());
             else
-                layer->notifyAnimationFinished(wallClockTime);
+                layer->notifyAnimationFinished(wallClockTime.ToDoubleT());
         }
     }
 

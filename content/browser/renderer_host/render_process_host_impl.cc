@@ -507,6 +507,7 @@ bool RenderProcessHostImpl::Init() {
         channel_->TakeClientFileDescriptor(),
 #endif
         cmd_line,
+        GetID(),
         this));
 
     fast_shutdown_started_ = false;
@@ -541,7 +542,7 @@ void RenderProcessHostImpl::CreateMessageFilters() {
 
   channel_->AddFilter(resource_message_filter);
   media::AudioManager* audio_manager = BrowserMainLoop::GetAudioManager();
-  media_stream::MediaStreamManager* media_stream_manager =
+  MediaStreamManager* media_stream_manager =
       BrowserMainLoop::GetMediaStreamManager();
   channel_->AddFilter(new AudioInputRendererHost(audio_manager,
                                                  media_stream_manager));
@@ -564,7 +565,7 @@ void RenderProcessHostImpl::CreateMessageFilters() {
   gpu_message_filter_ = new GpuMessageFilter(GetID(), widget_helper_.get());
   channel_->AddFilter(gpu_message_filter_);
 #if defined(ENABLE_WEBRTC)
-  channel_->AddFilter(new media_stream::MediaStreamDispatcherHost(GetID()));
+  channel_->AddFilter(new MediaStreamDispatcherHost(GetID()));
 #endif
   channel_->AddFilter(
       GetContentClient()->browser()->AllowPepperPrivateFileAPI() ?
@@ -575,10 +576,10 @@ void RenderProcessHostImpl::CreateMessageFilters() {
   channel_->AddFilter(new PepperMessageFilter(PepperMessageFilter::RENDERER,
                                               GetID(), browser_context));
 #if defined(ENABLE_INPUT_SPEECH)
-  channel_->AddFilter(new speech::InputTagSpeechDispatcherHost(
+  channel_->AddFilter(new InputTagSpeechDispatcherHost(
       GetID(), storage_partition_impl_->GetURLRequestContext(),
       browser_context->GetSpeechRecognitionPreferences()));
-  channel_->AddFilter(new speech::SpeechRecognitionDispatcherHost(
+  channel_->AddFilter(new SpeechRecognitionDispatcherHost(
       GetID(), storage_partition_impl_->GetURLRequestContext(),
       browser_context->GetSpeechRecognitionPreferences()));
 #endif
@@ -701,6 +702,10 @@ bool RenderProcessHostImpl::IsGuest() const {
   return is_guest_;
 }
 
+StoragePartition* RenderProcessHostImpl::GetStoragePartition() const {
+  return storage_partition_impl_;
+}
+
 void RenderProcessHostImpl::AppendRendererCommandLine(
     CommandLine* command_line) const {
   // Pass the process type first, so it shows first in process listings.
@@ -785,11 +790,12 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kDomAutomationController,
     switches::kEnableAccessibilityLogging,
     switches::kEnableBrowserPluginForAllViewTypes,
-    switches::kEnableBrowserPluginOldImplementation,
+    switches::kEnableDeprecatedPeerConnection,
     switches::kEnableDCHECK,
     switches::kEnableEncryptedMedia,
     switches::kEnableExperimentalWebKitFeatures,
     switches::kEnableFixedLayout,
+    switches::kEnableDeferredImageDecoding,
     switches::kEnableGPUServiceLogging,
     switches::kEnableGPUClientLogging,
     switches::kEnableGpuBenchmarking,
@@ -1149,6 +1155,7 @@ void RenderProcessHostImpl::Release(int routing_id) {
 void RenderProcessHostImpl::Cleanup() {
   // When no other owners of this object, we can delete ourselves
   if (render_widget_hosts_.IsEmpty()) {
+    DCHECK_EQ(0, pending_views_);
     NotificationService::current()->Notify(
         NOTIFICATION_RENDERER_PROCESS_TERMINATED,
         Source<RenderProcessHost>(this),
@@ -1290,8 +1297,18 @@ bool RenderProcessHost::run_renderer_in_process() {
   return g_run_renderer_in_process_;
 }
 
-void RenderProcessHost::set_run_renderer_in_process(bool value) {
+// static
+void RenderProcessHost::SetRunRendererInProcess(bool value) {
   g_run_renderer_in_process_ = value;
+
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (value && !command_line->HasSwitch(switches::kLang)) {
+    // Modify the current process' command line to include the browser locale,
+    // as the renderer expects this flag to be set.
+    const std::string locale =
+        GetContentClient()->browser()->GetApplicationLocale();
+    command_line->AppendSwitchASCII(switches::kLang, locale);
+  }
 }
 
 RenderProcessHost::iterator RenderProcessHost::AllHostsIterator() {
@@ -1583,6 +1600,7 @@ void RenderProcessHostImpl::OnCompositorSurfaceBuffersSwappedNoHost(
                "RenderWidgetHostImpl::OnCompositorSurfaceBuffersSwappedNoHost");
   RenderWidgetHostImpl::AcknowledgeBufferPresent(route_id,
                                                  gpu_process_host_id,
+                                                 false,
                                                  0);
 }
 

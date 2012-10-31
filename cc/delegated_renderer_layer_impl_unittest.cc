@@ -4,9 +4,9 @@
 
 #include "config.h"
 
-#include "CCDelegatedRendererLayerImpl.h"
+#include "cc/delegated_renderer_layer_impl.h"
 
-#include "CCAppendQuadsData.h"
+#include "cc/append_quads_data.h"
 #include "cc/layer_tree_host_impl.h"
 #include "cc/quad_sink.h"
 #include "cc/render_pass_draw_quad.h"
@@ -46,12 +46,13 @@ public:
     // LayerTreeHostImplClient implementation.
     virtual void didLoseContextOnImplThread() OVERRIDE { }
     virtual void onSwapBuffersCompleteOnImplThread() OVERRIDE { }
-    virtual void onVSyncParametersChanged(double, double) OVERRIDE { }
+    virtual void onVSyncParametersChanged(base::TimeTicks, base::TimeDelta) OVERRIDE { }
     virtual void onCanDrawStateChanged(bool) OVERRIDE { }
     virtual void setNeedsRedrawOnImplThread() OVERRIDE { }
     virtual void setNeedsCommitOnImplThread() OVERRIDE { }
-    virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector>, double wallClockTime) OVERRIDE { }
+    virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector>, base::Time wallClockTime) OVERRIDE { }
     virtual bool reduceContentsTextureMemoryOnImplThread(size_t limitBytes, int priorityCutoff) OVERRIDE { return true; }
+    virtual void sendManagedMemoryStats() OVERRIDE { }
 
 protected:
     scoped_ptr<GraphicsContext> createContext()
@@ -67,10 +68,10 @@ protected:
 
 static TestRenderPass* addRenderPass(ScopedPtrVector<RenderPass>& passList, RenderPass::Id id, IntRect outputRect, WebTransformationMatrix rootTransform)
 {
-    scoped_ptr<RenderPass> pass(RenderPass::create(id, outputRect, rootTransform));
-    TestRenderPass* testPass = static_cast<TestRenderPass*>(pass.get());
-    passList.append(pass.Pass());
-    return testPass;
+    scoped_ptr<TestRenderPass> pass(TestRenderPass::create(id, outputRect, rootTransform));
+    TestRenderPass* saved = pass.get();
+    passList.append(pass.PassAs<RenderPass>());
+    return saved;
 }
 
 static SolidColorDrawQuad* addQuad(TestRenderPass* pass, IntRect rect, SkColor color)

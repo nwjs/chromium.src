@@ -34,6 +34,8 @@
     'branding_path': '../remoting/branding_<(branding)',
     'copyright_info': '<!(python <(version_py_path) -f <(branding_path) -t "@COPYRIGHT@")',
 
+    'webapp_locale_dir': '<(SHARED_INTERMEDIATE_DIR)/remoting/webapp/_locales',
+
     # Use consistent strings across all platforms.
     # These values must match host/plugin/constants.h
     'host_plugin_mime_type': 'application/vnd.chromium.remoting-host',
@@ -72,52 +74,52 @@
 
       ['branding=="Chrome"', {
         'remoting_webapp_locale_files': [
-          'webapp/_locales.official/ar/messages.json',
-          'webapp/_locales.official/bg/messages.json',
-          'webapp/_locales.official/ca/messages.json',
-          'webapp/_locales.official/cs/messages.json',
-          'webapp/_locales.official/da/messages.json',
-          'webapp/_locales.official/de/messages.json',
-          'webapp/_locales.official/el/messages.json',
-          'webapp/_locales.official/en/messages.json',
-          'webapp/_locales.official/en_GB/messages.json',
-          'webapp/_locales.official/es/messages.json',
-          'webapp/_locales.official/es_419/messages.json',
-          'webapp/_locales.official/et/messages.json',
-          'webapp/_locales.official/fi/messages.json',
-          'webapp/_locales.official/fil/messages.json',
-          'webapp/_locales.official/fr/messages.json',
-          'webapp/_locales.official/he/messages.json',
-          'webapp/_locales.official/hi/messages.json',
-          'webapp/_locales.official/hr/messages.json',
-          'webapp/_locales.official/hu/messages.json',
-          'webapp/_locales.official/id/messages.json',
-          'webapp/_locales.official/it/messages.json',
-          'webapp/_locales.official/ja/messages.json',
-          'webapp/_locales.official/ko/messages.json',
-          'webapp/_locales.official/lt/messages.json',
-          'webapp/_locales.official/lv/messages.json',
-          'webapp/_locales.official/nb/messages.json',
-          'webapp/_locales.official/nl/messages.json',
-          'webapp/_locales.official/pl/messages.json',
-          'webapp/_locales.official/pt_BR/messages.json',
-          'webapp/_locales.official/pt_PT/messages.json',
-          'webapp/_locales.official/ro/messages.json',
-          'webapp/_locales.official/ru/messages.json',
-          'webapp/_locales.official/sk/messages.json',
-          'webapp/_locales.official/sl/messages.json',
-          'webapp/_locales.official/sr/messages.json',
-          'webapp/_locales.official/sv/messages.json',
-          'webapp/_locales.official/th/messages.json',
-          'webapp/_locales.official/tr/messages.json',
-          'webapp/_locales.official/uk/messages.json',
-          'webapp/_locales.official/vi/messages.json',
-          'webapp/_locales.official/zh_CN/messages.json',
-          'webapp/_locales.official/zh_TW/messages.json',
+          '<(webapp_locale_dir)/ar/messages.json',
+          '<(webapp_locale_dir)/bg/messages.json',
+          '<(webapp_locale_dir)/ca/messages.json',
+          '<(webapp_locale_dir)/cs/messages.json',
+          '<(webapp_locale_dir)/da/messages.json',
+          '<(webapp_locale_dir)/de/messages.json',
+          '<(webapp_locale_dir)/el/messages.json',
+          '<(webapp_locale_dir)/en/messages.json',
+          '<(webapp_locale_dir)/en_GB/messages.json',
+          '<(webapp_locale_dir)/es/messages.json',
+          '<(webapp_locale_dir)/es_419/messages.json',
+          '<(webapp_locale_dir)/et/messages.json',
+          '<(webapp_locale_dir)/fi/messages.json',
+          '<(webapp_locale_dir)/fil/messages.json',
+          '<(webapp_locale_dir)/fr/messages.json',
+          '<(webapp_locale_dir)/he/messages.json',
+          '<(webapp_locale_dir)/hi/messages.json',
+          '<(webapp_locale_dir)/hr/messages.json',
+          '<(webapp_locale_dir)/hu/messages.json',
+          '<(webapp_locale_dir)/id/messages.json',
+          '<(webapp_locale_dir)/it/messages.json',
+          '<(webapp_locale_dir)/ja/messages.json',
+          '<(webapp_locale_dir)/ko/messages.json',
+          '<(webapp_locale_dir)/lt/messages.json',
+          '<(webapp_locale_dir)/lv/messages.json',
+          '<(webapp_locale_dir)/nb/messages.json',
+          '<(webapp_locale_dir)/nl/messages.json',
+          '<(webapp_locale_dir)/pl/messages.json',
+          '<(webapp_locale_dir)/pt_BR/messages.json',
+          '<(webapp_locale_dir)/pt_PT/messages.json',
+          '<(webapp_locale_dir)/ro/messages.json',
+          '<(webapp_locale_dir)/ru/messages.json',
+          '<(webapp_locale_dir)/sk/messages.json',
+          '<(webapp_locale_dir)/sl/messages.json',
+          '<(webapp_locale_dir)/sr/messages.json',
+          '<(webapp_locale_dir)/sv/messages.json',
+          '<(webapp_locale_dir)/th/messages.json',
+          '<(webapp_locale_dir)/tr/messages.json',
+          '<(webapp_locale_dir)/uk/messages.json',
+          '<(webapp_locale_dir)/vi/messages.json',
+          '<(webapp_locale_dir)/zh_CN/messages.json',
+          '<(webapp_locale_dir)/zh_TW/messages.json',
         ],
       }, {  # else: branding!="Chrome"
         'remoting_webapp_locale_files': [
-          'webapp/_locales/en/messages.json',
+          '<(webapp_locale_dir)/en/messages.json',
         ],
       }],
       ['OS=="win"', {
@@ -597,6 +599,7 @@
             '../base/base.gyp:base',
             'remoting_breakpad',
             'remoting_elevated_controller',
+            'remoting_host',
             'remoting_host_logging',
             'remoting_protocol',
             'remoting_version_resources',
@@ -605,8 +608,6 @@
             '<(SHARED_INTERMEDIATE_DIR)/remoting/remoting_controller_version.rc',
             'host/pin_hash.cc',
             'host/pin_hash.h',
-            'host/usage_stats_consent.h',
-            'host/usage_stats_consent_win.cc',
             'host/verify_config_window_win.cc',
             'host/verify_config_window_win.h',
             'host/win/elevated_controller.cc',
@@ -647,6 +648,7 @@
             '../net/net.gyp:net',
             'remoting_base',
             'remoting_breakpad',
+            'remoting_host',
             'remoting_host_logging',
             'remoting_version_resources',
           ],
@@ -667,14 +669,10 @@
             'host/host_exit_codes.h',
             'host/ipc_consts.cc',
             'host/ipc_consts.h',
-            'host/usage_stats_consent.h',
-            'host/usage_stats_consent_win.cc',
             'host/win/host_service.cc',
             'host/win/host_service.h',
             'host/win/host_service.rc',
             'host/win/host_service_resource.h',
-            'host/win/launch_process_with_token.cc',
-            'host/win/launch_process_with_token.h',
             'host/win/omaha.cc',
             'host/win/omaha.h',
             'host/win/unprivileged_process_delegate.cc',
@@ -912,59 +910,6 @@
       ],  # end of 'targets'
     }],  # '<(wix_path) != ""'
 
-    ['remoting_multi_process != 0', {
-      'targets': [
-        {
-          'target_name': 'remoting_desktop',
-          'type': 'executable',
-          'variables': { 'enable_wexit_time_destructors': 1, },
-          'dependencies': [
-            'remoting_base',
-            'remoting_breakpad',
-            'remoting_host',
-            'remoting_host_logging',
-            'remoting_version_resources',
-            '../base/base.gyp:base',
-            '../ipc/ipc.gyp:ipc',
-          ],
-          'sources': [
-            'host/desktop_process.cc',
-            'host/desktop_process.h',
-            'host/host_ui.rc',
-            'host/usage_stats_consent.h',
-            'host/usage_stats_consent_win.cc',
-            '<(SHARED_INTERMEDIATE_DIR)/remoting/remoting_desktop_version.rc',
-          ],
-          'link_settings': {
-            'libraries': [
-              '-lcomctl32.lib',
-            ],
-          },
-          'msvs_settings': {
-            'VCLinkerTool': {
-              'AdditionalOptions': [
-                "\"/manifestdependency:type='win32' "
-                    "name='Microsoft.Windows.Common-Controls' "
-                    "version='6.0.0.0' "
-                    "processorArchitecture='*' "
-                    "publicKeyToken='6595b64144ccf1df' language='*'\"",
-              ],
-              'conditions': [
-                ['buildtype == "Official" and remoting_multi_process != 0', {
-                  'AdditionalOptions': [
-                    "\"/MANIFESTUAC:level='requireAdministrator' "
-                        "uiAccess='true'\"",
-                  ],
-                }],
-              ],
-              # 2 == /SUBSYSTEM:WINDOWS
-              'SubSystem': '2',
-            },
-          },
-        },  # end of target 'remoting_desktop'
-      ],
-    }],  # 'remoting_multi_process != 0'
-
   ],  # end of 'conditions'
 
   'targets': [
@@ -1033,6 +978,69 @@
         'client/plugin/pepper_xmpp_proxy.h',
       ],
     },  # end of target 'remoting_client_plugin'
+
+    {
+      'target_name': 'remoting_desktop',
+      'type': 'executable',
+      'variables': { 'enable_wexit_time_destructors': 1, },
+      'defines': [
+        'REMOTING_MULTI_PROCESS',
+      ],
+      'dependencies': [
+        'remoting_base',
+        'remoting_breakpad',
+        'remoting_host',
+        'remoting_host_logging',
+        '../base/base.gyp:base',
+        '../ipc/ipc.gyp:ipc',
+      ],
+      'sources': [
+        'host/desktop_process.cc',
+        'host/desktop_process.h',
+        'host/desktop_process_main.cc',
+        'host/desktop_session_agent.cc',
+        'host/desktop_session_agent.h',
+        'host/desktop_session_agent_posix.cc',
+        'host/desktop_session_agent_win.cc',
+      ],
+      'conditions': [
+        ['OS=="win"', {
+          'dependencies': [
+            'remoting_version_resources',
+          ],
+          'sources': [
+            'host/host_ui.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/remoting/remoting_desktop_version.rc',
+          ],
+          'link_settings': {
+            'libraries': [
+              '-lcomctl32.lib',
+            ],
+          },
+          'msvs_settings': {
+            'VCLinkerTool': {
+              'AdditionalOptions': [
+                "\"/manifestdependency:type='win32' "
+                    "name='Microsoft.Windows.Common-Controls' "
+                    "version='6.0.0.0' "
+                    "processorArchitecture='*' "
+                    "publicKeyToken='6595b64144ccf1df' language='*'\"",
+              ],
+              'conditions': [
+                ['buildtype == "Official"', {
+                  'AdditionalOptions': [
+                    "\"/MANIFESTUAC:level='requireAdministrator' "
+                        "uiAccess='true'\"",
+                  ],
+                }],
+              ],
+              # 2 == /SUBSYSTEM:WINDOWS
+              'SubSystem': '2',
+            },
+          },
+        }],
+      ],
+    },  # end of target 'remoting_desktop'
 
     {
       'target_name': 'remoting_host_event_logger',
@@ -1202,6 +1210,7 @@
       'target_name': 'remoting_webapp',
       'type': 'none',
       'dependencies': [
+        'remoting_resources',
         'remoting_host_plugin',
       ],
       'sources': [
@@ -1223,7 +1232,7 @@
           'action_name': 'Verify Remoting WebApp i18n',
           'inputs': [
             'host/plugin/host_script_object.cc',
-            'webapp/_locales/en/messages.json',
+            '<(webapp_locale_dir)/en/messages.json',
             'webapp/client_screen.js',
             'webapp/host_controller.js',
             'webapp/host_table_entry.js',
@@ -1240,7 +1249,7 @@
             'python',
             'webapp/verify-webapp.py',
             '<(PRODUCT_DIR)/remoting/webapp_verified.stamp',
-            'webapp/_locales/en/messages.json',
+            '<(webapp_locale_dir)/en/messages.json',
             'webapp/client_screen.js',
             'webapp/host_controller.js',
             'webapp/host_table_entry.js',
@@ -1350,9 +1359,58 @@
         # Copy results to the product directory.
         {
           'destination': '<(PRODUCT_DIR)/remoting_locales',
-          'files': [
-            '<(grit_out_dir)/remoting/resources/en-US.pak',
-          ]
+          'conditions': [
+            ['branding=="Chrome"', {
+              'files': [
+                '<(grit_out_dir)/remoting/resources/ar.pak',
+                '<(grit_out_dir)/remoting/resources/bg.pak',
+                '<(grit_out_dir)/remoting/resources/ca.pak',
+                '<(grit_out_dir)/remoting/resources/cs.pak',
+                '<(grit_out_dir)/remoting/resources/da.pak',
+                '<(grit_out_dir)/remoting/resources/de.pak',
+                '<(grit_out_dir)/remoting/resources/el.pak',
+                '<(grit_out_dir)/remoting/resources/en-US.pak',
+                '<(grit_out_dir)/remoting/resources/en-GB.pak',
+                '<(grit_out_dir)/remoting/resources/es.pak',
+                '<(grit_out_dir)/remoting/resources/es-419.pak',
+                '<(grit_out_dir)/remoting/resources/et.pak',
+                '<(grit_out_dir)/remoting/resources/fi.pak',
+                '<(grit_out_dir)/remoting/resources/fil.pak',
+                '<(grit_out_dir)/remoting/resources/fr.pak',
+                '<(grit_out_dir)/remoting/resources/he.pak',
+                '<(grit_out_dir)/remoting/resources/hi.pak',
+                '<(grit_out_dir)/remoting/resources/hr.pak',
+                '<(grit_out_dir)/remoting/resources/hu.pak',
+                '<(grit_out_dir)/remoting/resources/id.pak',
+                '<(grit_out_dir)/remoting/resources/it.pak',
+                '<(grit_out_dir)/remoting/resources/ja.pak',
+                '<(grit_out_dir)/remoting/resources/ko.pak',
+                '<(grit_out_dir)/remoting/resources/lt.pak',
+                '<(grit_out_dir)/remoting/resources/lv.pak',
+                '<(grit_out_dir)/remoting/resources/nb.pak',
+                '<(grit_out_dir)/remoting/resources/nl.pak',
+                '<(grit_out_dir)/remoting/resources/pl.pak',
+                '<(grit_out_dir)/remoting/resources/pt-BR.pak',
+                '<(grit_out_dir)/remoting/resources/pt-PT.pak',
+                '<(grit_out_dir)/remoting/resources/ro.pak',
+                '<(grit_out_dir)/remoting/resources/ru.pak',
+                '<(grit_out_dir)/remoting/resources/sk.pak',
+                '<(grit_out_dir)/remoting/resources/sl.pak',
+                '<(grit_out_dir)/remoting/resources/sr.pak',
+                '<(grit_out_dir)/remoting/resources/sv.pak',
+                '<(grit_out_dir)/remoting/resources/th.pak',
+                '<(grit_out_dir)/remoting/resources/tr.pak',
+                '<(grit_out_dir)/remoting/resources/uk.pak',
+                '<(grit_out_dir)/remoting/resources/vi.pak',
+                '<(grit_out_dir)/remoting/resources/zh-CN.pak',
+                '<(grit_out_dir)/remoting/resources/zh-TW.pak',
+              ],
+            }, {  # else: branding!="Chrome"
+              'files': [
+                '<(grit_out_dir)/remoting/resources/en-US.pak',
+              ]
+            }]
+          ],
         },
         {
           'destination': '<(PRODUCT_DIR)',
@@ -1375,8 +1433,11 @@
         '../net/net.gyp:net',
         '../skia/skia.gyp:skia',
         '../third_party/libvpx/libvpx.gyp:libvpx',
+        '../third_party/opus/opus.gyp:opus',
         '../third_party/protobuf/protobuf.gyp:protobuf_lite',
         '../third_party/speex/speex.gyp:libspeex',
+        '../media/media.gyp:media',
+        '../media/media.gyp:shared_memory_support',
         '../media/media.gyp:yuv_convert',
         'remoting_jingle_glue',
         'remoting_resources',
@@ -1419,11 +1480,15 @@
         'base/util.h',
         'codec/audio_decoder.cc',
         'codec/audio_decoder.h',
+        'codec/audio_decoder_opus.cc',
+        'codec/audio_decoder_opus.h',
         'codec/audio_decoder_speex.cc',
         'codec/audio_decoder_speex.h',
         'codec/audio_decoder_verbatim.cc',
         'codec/audio_decoder_verbatim.h',
         'codec/audio_encoder.h',
+        'codec/audio_encoder_opus.cc',
+        'codec/audio_encoder_opus.h',
         'codec/audio_encoder_speex.cc',
         'codec/audio_encoder_speex.h',
         'codec/audio_encoder_verbatim.cc',
@@ -1451,6 +1516,7 @@
         'remoting_protocol',
         'differ_block',
         '../crypto/crypto.gyp:crypto',
+        '../google_apis/google_apis.gyp:google_apis',
         '../ipc/ipc.gyp:ipc',
       ],
       'defines': [
@@ -1494,6 +1560,7 @@
         'host/desktop_resizer_linux.cc',
         'host/desktop_resizer_win.cc',
         'host/desktop_resizer_mac.cc',
+        'host/desktop_session_connector.h',
         'host/differ.cc',
         'host/differ.h',
         'host/disconnect_window.h',
@@ -1509,10 +1576,6 @@
         'host/event_executor_linux.cc',
         'host/event_executor_mac.cc',
         'host/event_executor_win.cc',
-        'host/gaia_oauth_client.cc',
-        'host/gaia_oauth_client.h',
-        'host/gaia_user_email_fetcher.cc',
-        'host/gaia_user_email_fetcher.h',
         'host/heartbeat_sender.cc',
         'host/heartbeat_sender.h',
         'host/host_config.cc',
@@ -1531,6 +1594,10 @@
         'host/in_memory_host_config.h',
         'host/ipc_consts.cc',
         'host/ipc_consts.h',
+        'host/ipc_desktop_environment_factory.cc',
+        'host/ipc_desktop_environment_factory.h',
+        'host/ipc_desktop_environment.cc',
+        'host/ipc_desktop_environment.h',
         'host/it2me_host_user_interface.cc',
         'host/it2me_host_user_interface.h',
         'host/json_host_config.cc',
@@ -1557,6 +1624,8 @@
         'host/mouse_clamping_filter.h',
         'host/mouse_move_observer.h',
         'host/network_settings.h',
+        'host/pam_authorization_factory_posix.cc',
+        'host/pam_authorization_factory_posix.h',
         'host/pin_hash.cc',
         'host/pin_hash.h',
         'host/policy_hack/policy_watcher.h',
@@ -1572,8 +1641,6 @@
         'host/resizing_host_observer.h',
         'host/sas_injector.h',
         'host/sas_injector_win.cc',
-        'host/screen_recorder.cc',
-        'host/screen_recorder.h',
         'host/server_log_entry.cc',
         'host/server_log_entry.h',
         'host/service_client.cc',
@@ -1586,6 +1653,8 @@
         'host/ui_strings.h',
         'host/url_request_context.cc',
         'host/url_request_context.h',
+        'host/usage_stats_consent.h',
+        'host/usage_stats_consent_win.cc',
         'host/user_authenticator.h',
         'host/user_authenticator_linux.cc',
         'host/user_authenticator_mac.cc',
@@ -1598,10 +1667,14 @@
         'host/video_frame_capturer_linux.cc',
         'host/video_frame_capturer_mac.mm',
         'host/video_frame_capturer_win.cc',
+        'host/video_scheduler.cc',
+        'host/video_scheduler.h',
         'host/vlog_net_log.cc',
         'host/vlog_net_log.h',
         'host/win/desktop.cc',
         'host/win/desktop.h',
+        'host/win/launch_process_with_token.cc',
+        'host/win/launch_process_with_token.h',
         'host/win/omaha.cc',
         'host/win/omaha.h',
         'host/win/scoped_thread_desktop.cc',
@@ -1618,6 +1691,7 @@
               '-lX11',
               '-lXdamage',
               '-lXfixes',
+              '-lpam',
               '-lXtst',
               '-lXext',
               '-lXi'
@@ -1708,25 +1782,6 @@
     },  # end of target 'remoting_client'
 
     {
-      'target_name': 'remoting_simple_host',
-      'type': 'executable',
-      'variables': { 'enable_wexit_time_destructors': 1, },
-      'dependencies': [
-        'remoting_base',
-        'remoting_host',
-        'remoting_host_logging',
-        'remoting_jingle_glue',
-        '../base/base.gyp:base',
-        '../base/base.gyp:base_i18n',
-        '../media/media.gyp:media',
-        '../net/net.gyp:net',
-      ],
-      'sources': [
-        'host/simple_host_process.cc',
-      ],
-    },  # end of target 'remoting_simple_host'
-
-    {
       'target_name': 'remoting_me2me_host',
       'type': 'executable',
       'variables': { 'enable_wexit_time_destructors': 1, },
@@ -1739,7 +1794,6 @@
         'remoting_jingle_glue',
         '../base/base.gyp:base',
         '../base/base.gyp:base_i18n',
-        '../google_apis/google_apis.gyp:google_apis',
         '../media/media.gyp:media',
         '../net/net.gyp:net',
       ],
@@ -1758,8 +1812,6 @@
         'host/posix/signal_handler.cc',
         'host/posix/signal_handler.h',
         'host/remoting_me2me_host.cc',
-        'host/usage_stats_consent.h',
-        'host/usage_stats_consent_win.cc',
       ],
       'conditions': [
         ['os_posix != 1', {
@@ -1785,6 +1837,14 @@
           'mac_bundle_resources!': [
             'host/remoting_me2me_host-Info.plist',
           ],
+          'conditions': [
+            ['mac_breakpad==1', {
+              'variables': {
+                # A real .dSYM is needed for dump_syms to operate on.
+                'mac_real_dsym': 1,
+              },
+            }],
+          ],  # conditions
         }],
         ['OS=="win"', {
           'product_name': 'remoting_host',
@@ -1794,12 +1854,7 @@
           'sources': [
             '<(SHARED_INTERMEDIATE_DIR)/remoting/host/remoting_host_messages.rc',
             '<(SHARED_INTERMEDIATE_DIR)/remoting/remoting_host_me2me_version.rc',
-            'host/desktop_session_connector.h',
             'host/host_ui.rc',
-            'host/ipc_desktop_environment_factory.cc',
-            'host/ipc_desktop_environment_factory.h',
-            'host/ipc_desktop_environment.cc',
-            'host/ipc_desktop_environment.h',
           ],
           'link_settings': {
             'libraries': [
@@ -2064,6 +2119,7 @@
         'client/audio_player_unittest.cc',
         'client/key_event_mapper_unittest.cc',
         'client/plugin/mac_key_event_processor_unittest.cc',
+        'codec/audio_encoder_opus_unittest.cc',
         'codec/codec_test.cc',
         'codec/codec_test.h',
         'codec/video_decoder_vp8_unittest.cc',
@@ -2080,8 +2136,15 @@
         'host/daemon_process.cc',
         'host/daemon_process.h',
         'host/daemon_process_unittest.cc',
+        'host/desktop_process.cc',
+        'host/desktop_process.h',
+        'host/desktop_process_unittest.cc',
         'host/desktop_session.cc',
         'host/desktop_session.h',
+        'host/desktop_session_agent.cc',
+        'host/desktop_session_agent.h',
+        'host/desktop_session_agent_posix.cc',
+        'host/desktop_session_agent_win.cc',
         'host/differ_block_unittest.cc',
         'host/differ_unittest.cc',
         'host/heartbeat_sender_unittest.cc',
@@ -2100,7 +2163,6 @@
         'host/register_support_host_request_unittest.cc',
         'host/remote_input_filter_unittest.cc',
         'host/resizing_host_observer_unittest.cc',
-        'host/screen_recorder_unittest.cc',
         'host/server_log_entry_unittest.cc',
         'host/setup/oauth_helper_unittest.cc',
         'host/setup/pin_validator_unittest.cc',
@@ -2108,6 +2170,7 @@
         'host/video_frame_capturer_helper_unittest.cc',
         'host/video_frame_capturer_mac_unittest.cc',
         'host/video_frame_capturer_unittest.cc',
+        'host/video_scheduler_unittest.cc',
         'host/win/launch_process_with_token.cc',
         'host/win/launch_process_with_token.h',
         'host/win/worker_process_launcher.cc',

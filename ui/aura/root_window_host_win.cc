@@ -178,6 +178,13 @@ bool RootWindowHostWin::ConfineCursorToRootWindow() {
   return ClipCursor(&window_rect) != 0;
 }
 
+bool RootWindowHostWin::CopyAreaToSkCanvas(const gfx::Rect& source_bounds,
+                                           const gfx::Point& dest_offset,
+                                           SkCanvas* canvas) {
+  NOTIMPLEMENTED();
+  return false;
+}
+
 bool RootWindowHostWin::GrabSnapshot(
     const gfx::Rect& snapshot_bounds,
     std::vector<unsigned char>* png_representation) {
@@ -245,7 +252,7 @@ LRESULT RootWindowHostWin::OnCaptureChanged(UINT message,
                                             LPARAM l_param) {
   if (has_capture_) {
     has_capture_ = false;
-    delegate_->OnHostLostCapture();
+    delegate_->OnHostLostWindowCapture();
   }
   return 0;
 }

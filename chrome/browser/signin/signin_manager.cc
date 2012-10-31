@@ -43,9 +43,47 @@ const char kGoogleAccountsUrl[] = "https://accounts.google.com";
 bool SigninManager::AreSigninCookiesAllowed(Profile* profile) {
   CookieSettings* cookie_settings =
       CookieSettings::Factory::GetForProfile(profile);
+  return AreSigninCookiesAllowed(cookie_settings);
+}
+
+// static
+bool SigninManager::AreSigninCookiesAllowed(CookieSettings* cookie_settings) {
   return cookie_settings &&
       cookie_settings->IsSettingCookieAllowed(GURL(kGoogleAccountsUrl),
                                               GURL(kGoogleAccountsUrl));
+}
+
+// static
+bool SigninManager::IsAllowedUsername(const std::string& username,
+                                      const std::string& policy) {
+  if (policy.empty())
+    return true;
+
+  // Patterns like "*@foo.com" are not accepted by our regex engine (since they
+  // are not valid regular expressions - they should instead be ".*@foo.com").
+  // For convenience, detect these patterns and insert a "." character at the
+  // front.
+  string16 pattern = UTF8ToUTF16(policy);
+  if (pattern[0] == L'*')
+    pattern.insert(pattern.begin(), L'.');
+
+  // See if the username matches the policy-provided pattern.
+  UErrorCode status = U_ZERO_ERROR;
+  const icu::UnicodeString icu_pattern(pattern.data(), pattern.length());
+  icu::RegexMatcher matcher(icu_pattern, UREGEX_CASE_INSENSITIVE, status);
+  if (!U_SUCCESS(status)) {
+    LOG(ERROR) << "Invalid login regex: " << pattern << ", status: " << status;
+    // If an invalid pattern is provided, then prohibit *all* logins (better to
+    // break signin than to quietly allow users to sign in).
+    return false;
+  }
+  string16 username16 = UTF8ToUTF16(username);
+  icu::UnicodeString icu_input(username16.data(), username16.length());
+  matcher.reset(icu_input);
+  status = U_ZERO_ERROR;
+  UBool match = matcher.matches(status);
+  DCHECK(U_SUCCESS(status));
+  return !!match;  // !! == convert from UBool to bool.
 }
 
 SigninManager::SigninManager()
@@ -105,34 +143,7 @@ bool SigninManager::IsAllowedUsername(const std::string& username) const {
 
   std::string pattern = local_state->GetString(
       prefs::kGoogleServicesUsernamePattern);
-  if (pattern.empty())
-    return true;
-
-  // Patterns like "*@foo.com" are not accepted by our regex engine (since they
-  // are not valid regular expressions - they should instead be ".*@foo.com").
-  // For convenience, detect these patterns and insert a "." character at the
-  // front.
-  if (pattern[0] == '*')
-    pattern.insert(0, ".");
-
-  // See if the username matches the policy-provided pattern.
-  UErrorCode status = U_ZERO_ERROR;
-  string16 pattern16 = UTF8ToUTF16(pattern);
-  const icu::UnicodeString icu_pattern(pattern16.data(), pattern16.length());
-  icu::RegexMatcher matcher(icu_pattern, UREGEX_CASE_INSENSITIVE, status);
-  if (!U_SUCCESS(status)) {
-    LOG(ERROR) << "Invalid login regex: " << pattern << ", status: " << status;
-    // If an invalid pattern is provided, then prohibit *all* logins (better to
-    // break signin than to quietly allow users to sign in).
-    return false;
-  }
-  string16 username16 = UTF8ToUTF16(username);
-  icu::UnicodeString icu_input(username16.data(), username16.length());
-  matcher.reset(icu_input);
-  status = U_ZERO_ERROR;
-  UBool match = matcher.matches(status);
-  DCHECK(U_SUCCESS(status));
-  return !!match;  // !! == convert from UBool to bool.
+  return IsAllowedUsername(username, pattern);
 }
 
 void SigninManager::CleanupNotificationRegistration() {
@@ -317,6 +328,7 @@ void SigninManager::ClearTransientSigninData() {
   password_.clear();
   had_two_factor_error_ = false;
   type_ = SIGNIN_TYPE_NONE;
+  temp_oauth_login_tokens_ = ClientOAuthResult();
 }
 
 void SigninManager::HandleAuthError(const GoogleServiceAuthError& error,
@@ -398,6 +410,7 @@ void SigninManager::OnClientOAuthSuccess(const ClientOAuthResult& result) {
   switch (type_) {
     case SIGNIN_TYPE_CLIENT_OAUTH:
     case SIGNIN_TYPE_WITH_CREDENTIALS:
+      temp_oauth_login_tokens_ = result;
       client_login_->StartOAuthLogin(result.access_token,
                                      GaiaConstants::kGaiaService);
       break;
@@ -443,6 +456,10 @@ void SigninManager::OnGetUserInfoSuccess(const UserInfoMap& data) {
     profile_->GetPrefs()->SetString(prefs::kGoogleServicesUsername,
                                     authenticated_username_);
 
+    // Also overwrite the last username at this point.
+    profile_->GetPrefs()->SetString(prefs::kGoogleServicesLastUsername,
+                                    authenticated_username_);
+
   }
   UserInfoMap::const_iterator service_iter = data.find(kGetInfoServicesKey);
   if (service_iter == data.end()) {
@@ -470,6 +487,13 @@ void SigninManager::OnGetUserInfoSuccess(const UserInfoMap& data) {
   token_service->UpdateCredentials(last_result_);
   DCHECK(token_service->AreCredentialsValid());
   token_service->StartFetchingTokens();
+
+  // If we have oauth2 tokens, tell token service about them so it does not
+  // need to fetch them again.
+  if (!temp_oauth_login_tokens_.refresh_token.empty()) {
+    token_service->OnClientOAuthSuccess(temp_oauth_login_tokens_);
+    temp_oauth_login_tokens_ = ClientOAuthResult();
+  }
 }
 
 void SigninManager::OnGetUserInfoFailure(const GoogleServiceAuthError& error) {

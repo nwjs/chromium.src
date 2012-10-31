@@ -386,28 +386,29 @@ class ContentViewGestureHandler implements LongPressDelegate {
                         // want to trigger the tap event at UP. So we override
                         // onSingleTapUp() in this case. This assumes singleTapUp
                         // gets always called before singleTapConfirmed.
-                        if (!mIgnoreSingleTap && !mLongPressDetector.isInLongPress() &&
-                                (e.getEventTime() - e.getDownTime() > DOUBLE_TAP_TIMEOUT)) {
-                            float x = e.getX();
-                            float y = e.getY();
-                            if (mMotionEventDelegate.sendGesture(GESTURE_SINGLE_TAP_UP,
-                                    e.getEventTime(), (int) x, (int) y, null)) {
-                                mIgnoreSingleTap = true;
+                        if (!mIgnoreSingleTap && !mLongPressDetector.isInLongPress()) {
+                            if (e.getEventTime() - e.getDownTime() > DOUBLE_TAP_TIMEOUT) {
+                                float x = e.getX();
+                                float y = e.getY();
+                                if (mMotionEventDelegate.sendGesture(GESTURE_SINGLE_TAP_UP,
+                                        e.getEventTime(), (int) x, (int) y, null)) {
+                                    mIgnoreSingleTap = true;
+                                }
+                                setClickXAndY((int) x, (int) y);
+                                return true;
+                            } else if (mMotionEventDelegate.hasFixedPageScale()) {
+                                // If page is not user scalable, we don't need to wait
+                                // for double tap timeout.
+                                float x = e.getX();
+                                float y = e.getY();
+                                mExtraParamBundle.clear();
+                                mExtraParamBundle.putBoolean(SHOW_PRESS, mShowPressIsCalled);
+                                if (mMotionEventDelegate.sendGesture(GESTURE_SINGLE_TAP_CONFIRMED,
+                                        e.getEventTime(), (int) x, (int) y, mExtraParamBundle)) {
+                                    mIgnoreSingleTap = true;
+                                }
+                                setClickXAndY((int) x, (int) y);
                             }
-                            setClickXAndY((int) x, (int) y);
-                            return true;
-                        } else if (mMotionEventDelegate.hasFixedPageScale()) {
-                            // If page is not user scalable, we don't need to wait
-                            // for double tap timeout.
-                            float x = e.getX();
-                            float y = e.getY();
-                            mExtraParamBundle.clear();
-                            mExtraParamBundle.putBoolean(SHOW_PRESS, mShowPressIsCalled);
-                            if (mMotionEventDelegate.sendGesture(GESTURE_SINGLE_TAP_CONFIRMED,
-                                    e.getEventTime(), (int) x, (int) y, mExtraParamBundle)) {
-                                mIgnoreSingleTap = true;
-                            }
-                            setClickXAndY((int) x, (int) y);
                         }
                         return false;
                     }
@@ -599,25 +600,28 @@ class ContentViewGestureHandler implements LongPressDelegate {
      * @return Whether the event was handled.
      */
     boolean onTouchEvent(MotionEvent event) {
-        TraceEvent.begin("onTouchEvent");
-        mLongPressDetector.cancelLongPressIfNeeded(event);
-        // Notify native that scrolling has stopped whenever a down action is processed prior to
-        // passing the event to native as it will drop them as an optimization if scrolling is
-        // enabled.  Ending the fling ensures scrolling has stopped as well as terminating the
-        // current fling if applicable.
-        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-            endFling(event.getEventTime());
-        }
+        try {
+            TraceEvent.begin("onTouchEvent");
+            mLongPressDetector.cancelLongPressIfNeeded(event);
+            // Notify native that scrolling has stopped whenever a down action is processed prior to
+            // passing the event to native as it will drop them as an optimization if scrolling is
+            // enabled.  Ending the fling ensures scrolling has stopped as well as terminating the
+            // current fling if applicable.
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                endFling(event.getEventTime());
+            }
 
-        if (offerTouchEventToJavaScript(event)) {
-            // offerTouchEventToJavaScript returns true to indicate the event was sent
-            // to the render process. If it is not subsequently handled, it will
-            // be returned via confirmTouchEvent(false) and eventually passed to
-            // processTouchEvent asynchronously.
+            if (offerTouchEventToJavaScript(event)) {
+                // offerTouchEventToJavaScript returns true to indicate the event was sent
+                // to the render process. If it is not subsequently handled, it will
+                // be returned via confirmTouchEvent(false) and eventually passed to
+                // processTouchEvent asynchronously.
+                return true;
+            }
+            return processTouchEvent(event);
+        } finally {
             TraceEvent.end("onTouchEvent");
-            return true;
         }
-        return processTouchEvent(event);
     }
 
     /**

@@ -11,6 +11,7 @@
 #include "base/message_loop_proxy.h"
 #include "base/scoped_temp_dir.h"
 #include "base/values.h"
+#include "chrome/service/cloud_print/cloud_print_consts.h"
 #include "chrome/service/service_process_prefs.h"
 
 #include "testing/gmock/include/gmock/gmock.h"
@@ -28,6 +29,8 @@ const char kServiceStateContent[] =
     "      'service_url': 'http://cp.google.com',"
     "      'xmpp_auth_token': 'xmp token',"
     "      'connect_new_printers': false,"
+    "      'xmpp_ping_enabled': true,"
+    "      'xmpp_ping_timeout_sec': 256,"
     "      'printer_blacklist': ["
     "         'prn1',"
     "         'prn2'"
@@ -41,7 +44,7 @@ const char kServiceStateContent[] =
 
 class ConnectorSettingsTest : public testing::Test {
  protected:
-  virtual void SetUp() {
+  virtual void SetUp() OVERRIDE {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     message_loop_proxy_ = base::MessageLoopProxy::current();
   }
@@ -55,7 +58,7 @@ class ConnectorSettingsTest : public testing::Test {
       file_util::WriteFile(file_name, content.c_str(), content.size());
     }
     ServiceProcessPrefs* prefs =
-        new ServiceProcessPrefs(file_name, message_loop_proxy_.get());
+        new ServiceProcessPrefs(file_name, message_loop_proxy_);
     prefs->ReadPrefs();
     return prefs;
   }
@@ -83,6 +86,7 @@ TEST_F(ConnectorSettingsTest, InitFromEmpty) {
     EXPECT_FALSE(settings.delete_on_enum_fail());
     EXPECT_EQ(NULL, settings.print_system_settings());
     EXPECT_TRUE(settings.connect_new_printers());
+    EXPECT_FALSE(settings.xmpp_ping_enabled());
     EXPECT_FALSE(settings.IsPrinterBlacklisted("prn1"));
   }
 }
@@ -97,6 +101,8 @@ TEST_F(ConnectorSettingsTest, InitFromFile) {
   EXPECT_TRUE(settings.delete_on_enum_fail());
   EXPECT_TRUE(settings.print_system_settings());
   EXPECT_FALSE(settings.connect_new_printers());
+  EXPECT_TRUE(settings.xmpp_ping_enabled());
+  EXPECT_EQ(settings.xmpp_ping_timeout_sec(), 256);
   EXPECT_FALSE(settings.IsPrinterBlacklisted("prn0"));
   EXPECT_TRUE(settings.IsPrinterBlacklisted("prn1"));
 }
@@ -115,6 +121,25 @@ TEST_F(ConnectorSettingsTest, CopyFrom) {
   EXPECT_EQ(settings1.print_system_settings()->size(),
             settings2.print_system_settings()->size());
   EXPECT_EQ(settings1.connect_new_printers(), settings2.connect_new_printers());
+  EXPECT_EQ(settings1.xmpp_ping_enabled(), settings2.xmpp_ping_enabled());
+  EXPECT_EQ(settings1.xmpp_ping_timeout_sec(),
+            settings2.xmpp_ping_timeout_sec());
   EXPECT_TRUE(settings2.IsPrinterBlacklisted("prn1"));
 }
 
+TEST_F(ConnectorSettingsTest, SettersTest) {
+  scoped_ptr<ServiceProcessPrefs> prefs(CreateTestFile("{}"));
+  ConnectorSettings settings;
+  settings.InitFrom(prefs.get());
+  EXPECT_FALSE(settings.xmpp_ping_enabled());
+
+  // Set and check valid settings.
+  settings.set_xmpp_ping_enabled(true);
+  settings.SetXmppPingTimeoutSec(256);
+  EXPECT_TRUE(settings.xmpp_ping_enabled());
+  EXPECT_EQ(settings.xmpp_ping_timeout_sec(), 256);
+
+  // Set invalid settings, and check correct defaults.
+  settings.SetXmppPingTimeoutSec(1);
+  EXPECT_EQ(settings.xmpp_ping_timeout_sec(), kMinimumXmppPingTimeoutSecs);
+}

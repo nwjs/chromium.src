@@ -190,7 +190,6 @@ void APIPermissionInfo::RegisterAllPermissions(
     { APIPermission::kBookmark, "bookmarks", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_BOOKMARKS,
       PermissionMessage::kBookmarks },
-    { APIPermission::kBrowserTag, "browserTag", kFlagCannotBeOptional },
     { APIPermission::kBrowsingData, "browsingData" },
     { APIPermission::kContentSettings, "contentSettings", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_CONTENT_SETTINGS,
@@ -231,6 +230,7 @@ void APIPermissionInfo::RegisterAllPermissions(
       IDS_EXTENSION_PROMPT_WARNING_TABS, PermissionMessage::kTabs },
     { APIPermission::kWebRequest, "webRequest" },
     { APIPermission::kWebRequestBlocking, "webRequestBlocking" },
+    { APIPermission::kWebView, "webview", kFlagCannotBeOptional },
 
     // Register private permissions.
     { APIPermission::kBookmarkManagerPrivate, "bookmarkManagerPrivate",
@@ -275,6 +275,8 @@ void APIPermissionInfo::RegisterAllPermissions(
     { APIPermission::kDevtools, "devtools",
       kFlagImpliesFullURLAccess | kFlagCannotBeOptional },
     { APIPermission::kPageCapture, "pageCapture",
+      kFlagImpliesFullURLAccess },
+    { APIPermission::kTabCapture, "tabCapture",
       kFlagImpliesFullURLAccess },
     { APIPermission::kPlugin, "plugin",
       kFlagImpliesFullURLAccess | kFlagImpliesFullAccess |
@@ -321,6 +323,9 @@ void APIPermissionInfo::RegisterAllPermissions(
     { APIPermission::kBluetooth, "bluetooth", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_BLUETOOTH,
       PermissionMessage::kBluetooth },
+    { APIPermission::kUsb, "usb", kFlagNone,
+      IDS_EXTENSION_PROMPT_WARNING_USB,
+      PermissionMessage::kUsb },
   };
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(PermissionsToRegister); ++i) {

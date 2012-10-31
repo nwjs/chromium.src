@@ -17,12 +17,13 @@
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "gpu/command_buffer/service/vertex_attrib_manager.h"
 #include "gpu/command_buffer/service/vertex_array_manager.h"
+#include "gpu/gpu_export.h"
 
 namespace gpu {
 namespace gles2 {
 
 // State associated with each texture unit.
-struct TextureUnit {
+struct GPU_EXPORT TextureUnit {
   TextureUnit();
   ~TextureUnit();
 
@@ -76,9 +77,18 @@ struct TextureUnit {
 };
 
 
-struct ContextState {
+struct GPU_EXPORT ContextState {
   ContextState();
   ~ContextState();
+
+  void Initialize();
+
+  void InitCapabilities();
+  void InitState();
+
+  #include "gpu/command_buffer/service/context_state_autogen.h"
+
+  EnableFlags enable_flags;
 
   // pack alignment as last set by glPixelStorei
   GLint pack_alignment;
@@ -91,32 +101,7 @@ struct ContextState {
   // be 2.
   GLuint active_texture_unit;
 
-  GLfloat color_clear_red;
-  GLfloat color_clear_green;
-  GLfloat color_clear_blue;
-  GLfloat color_clear_alpha;
-  GLboolean color_mask_red;
-  GLboolean color_mask_green;
-  GLboolean color_mask_blue;
-  GLboolean color_mask_alpha;
-
-  GLint stencil_clear;
-  GLuint stencil_mask_front;
-  GLuint stencil_mask_back;
-  GLclampf depth_clear;
-  GLboolean depth_mask;
-
-  bool enable_blend;
-  bool enable_cull_face;
-  bool enable_scissor_test;
-  bool enable_depth_test;
-  bool enable_stencil_test;
-
   // Cached values of the currently assigned viewport dimensions.
-  GLint viewport_x;
-  GLint viewport_y;
-  GLsizei viewport_width;
-  GLsizei viewport_height;
   GLsizei viewport_max_width;
   GLsizei viewport_max_height;
 
@@ -142,52 +127,8 @@ struct ContextState {
 
   QueryManager::Query::Ref current_query;
 
-  GLenum cull_mode;
-  GLenum front_face;
-  GLenum depth_func;
-  GLenum source_blend_rgb;
-  GLenum dest_blend_rgb;
-  GLenum source_blend_alpha;
-  GLenum dest_blend_alpha;
-  GLenum blend_equation_rgb;
-  GLenum blend_equation_alpha;
-  GLfloat blend_color_red;
-  GLfloat blend_color_green;
-  GLfloat blend_color_blue;
-  GLfloat blend_color_alpha;
-  GLenum stencil_func;
-  GLint stencil_ref;
-  GLenum stencil_fail;
-  GLenum stencil_pass_depth_fail;
-  GLenum stencil_pass_depth_pass;
-  GLuint stencil_writemask;
-  GLenum stencil_back_func;
-  GLint stencil_back_ref;
-  GLenum stencil_back_fail;
-  GLenum stencil_back_pass_depth_fail;
-  GLenum stencil_back_pass_depth_pass;
-  GLuint stencil_back_writemask;
-  bool polygon_offset_fill;
-  GLfloat polygon_offset_factor;
-  GLfloat polygon_offset_units;
-  bool sample_alpha_to_coverage;
-  bool sample_coverage;
-  GLclampf sample_coverage_value;
-  bool sample_coverage_invert;
-  bool dither;
-
-  GLfloat line_width;
-
-  GLenum generate_mipmap_hint;
-  GLenum fragment_shader_derivative_hint;
-
-  float z_near;
-  float z_far;
-
-  GLint scissor_x;
-  GLint scissor_y;
-  GLsizei scissor_width;
-  GLsizei scissor_height;
+  GLenum hint_generate_mipmap;
+  GLenum hint_fragment_shader_derivative;
 
   bool pack_reverse_row_order;
 };

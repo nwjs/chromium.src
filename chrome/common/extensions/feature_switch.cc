@@ -18,7 +18,7 @@ class CommonSwitches {
   CommonSwitches()
       : action_box(
             switches::kActionBox,
-            FeatureSwitch::DEFAULT_ENABLED),
+            FeatureSwitch::DEFAULT_DISABLED),
         easy_off_store_install(
             switches::kEasyOffStoreExtensionInstall,
             FeatureSwitch::DEFAULT_DISABLED),
@@ -31,12 +31,16 @@ class CommonSwitches {
         script_bubble(
             switches::kScriptBubble,
             FeatureSwitch::DEFAULT_DISABLED),
+        // TODO(finnur): When enabling this, only enable for OS_WIN.
         sideload_wipeout(
             switches::kSideloadWipeout,
             FeatureSwitch::DEFAULT_DISABLED),
         prompt_for_external_extensions(
             switches::kPromptForExternalExtensions,
-            FeatureSwitch::DEFAULT_ENABLED)
+            FeatureSwitch::DEFAULT_DISABLED),
+        tab_capture(
+            switches::kTabCapture,
+            FeatureSwitch::DEFAULT_DISABLED)
   {
 // Disabling easy off-store installation is not yet implemented for Aura. Not
 // sure what the Aura equivalent for this UI is.
@@ -57,6 +61,7 @@ class CommonSwitches {
   FeatureSwitch script_bubble;
   FeatureSwitch sideload_wipeout;
   FeatureSwitch prompt_for_external_extensions;
+  FeatureSwitch tab_capture;
 };
 
 base::LazyInstance<CommonSwitches> g_common_switches =
@@ -85,6 +90,9 @@ FeatureSwitch* FeatureSwitch::sideload_wipeout() {
 }
 FeatureSwitch* FeatureSwitch::prompt_for_external_extensions() {
   return &g_common_switches.Get().prompt_for_external_extensions;
+}
+FeatureSwitch* FeatureSwitch::tab_capture() {
+  return &g_common_switches.Get().tab_capture;
 }
 
 

@@ -915,6 +915,42 @@ TEST_F(WorkspaceWindowResizerTest, ResizeWindowOutsideBottomWorkArea) {
             window_->bounds().ToString());
 }
 
+// Verifies that 'outside' check of the resizer take into account the extended
+// desktop in case of repositions.
+TEST_F(WorkspaceWindowResizerTest, DragWindowOutsideRightToSecondaryDisplay) {
+  // Only primary display.  Changes the window position to fit within the
+  // display.
+  Shell::GetInstance()->SetDisplayWorkAreaInsets(
+      Shell::GetPrimaryRootWindow(), gfx::Insets(0, 0, 50, 0));
+  int right = ScreenAsh::GetDisplayWorkAreaBoundsInParent(
+      window_.get()).right();
+  int pixels_to_right_border = 50;
+  int window_width = 300;
+  int window_x = right - pixels_to_right_border;
+  window_->SetBounds(gfx::Rect(window_x, 100, window_width, 380));
+  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+      window_.get(), gfx::Point(window_x, 0), HTCAPTION,
+      empty_windows()));
+  ASSERT_TRUE(resizer.get());
+  resizer->Drag(CalculateDragPoint(*resizer, window_width, 0), 0);
+  EXPECT_EQ(base::IntToString(right - kMinimumOnScreenArea) +
+            ",100 " +
+            base::IntToString(window_width) +
+            "x380", window_->bounds().ToString());
+
+  // With secondary display.  Operation itself is same but doesn't change
+  // the position because the window is still within the secondary display.
+  UpdateDisplay("1000x600,600x400");
+  Shell::GetInstance()->SetDisplayWorkAreaInsets(
+      Shell::GetPrimaryRootWindow(), gfx::Insets(0, 0, 50, 0));
+  window_->SetBounds(gfx::Rect(window_x, 100, window_width, 380));
+  resizer->Drag(CalculateDragPoint(*resizer, window_width, 0), 0);
+  EXPECT_EQ(base::IntToString(window_x + window_width) +
+            ",100 " +
+            base::IntToString(window_width) +
+            "x380", window_->bounds().ToString());
+}
+
 // Verifies snapping to edges works.
 TEST_F(WorkspaceWindowResizerTest, SnapToEdge) {
   Shell::GetPrimaryRootWindowController()->
@@ -1026,19 +1062,6 @@ TEST_F(WorkspaceWindowResizerTest, SnapToWorkArea_BOTTOMLEFT) {
   EXPECT_EQ(work_area.bottom() - 200, window_->bounds().height());
 }
 
-// Verifies a window taller than work area height doesn't snap above the top of
-// the work area.
-TEST_F(WorkspaceWindowResizerTest, TallWindow) {
-  aura::RootWindow* root = Shell::GetPrimaryRootWindow();
-  Shell::GetInstance()->SetDisplayWorkAreaInsets(
-      root, gfx::Insets(0, 0, 50, 0));
-  window_->SetBounds(gfx::Rect(0, 0, 320, 560));
-  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
-      window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
-  resizer->Drag(CalculateDragPoint(*resizer, 0, 9), 0);
-  EXPECT_EQ("0,9 320x560", window_->bounds().ToString());
-}
-
 TEST_F(WorkspaceWindowResizerTest, CtrlDragResizeToExactPosition) {
   window_->SetBounds(gfx::Rect(96, 112, 320, 160));
   scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
@@ -1108,7 +1131,8 @@ TEST_F(WorkspaceWindowResizerTest, RestoreToPreMaximizeCoordinates) {
 
 // Verifies that a dragged window will restore to its pre-maximized size.
 TEST_F(WorkspaceWindowResizerTest, RevertResizeOperation) {
-  window_->SetBounds(gfx::Rect(0, 0, 1000, 1000));
+  const gfx::Rect initial_bounds(0, 0, 200, 400);
+  window_->SetBounds(initial_bounds);
   SetRestoreBoundsInScreen(window_.get(), gfx::Rect(96, 112, 320, 160));
   scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
       window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
@@ -1117,7 +1141,7 @@ TEST_F(WorkspaceWindowResizerTest, RevertResizeOperation) {
   // the window should get restored.
   resizer->Drag(CalculateDragPoint(*resizer, 180, 16), 0);
   resizer->RevertDrag();
-  EXPECT_EQ("0,0 1000x1000", window_->bounds().ToString());
+  EXPECT_EQ(initial_bounds.ToString(), window_->bounds().ToString());
   EXPECT_EQ("96,112 320x160",
       GetRestoreBoundsInScreen(window_.get())->ToString());
 }

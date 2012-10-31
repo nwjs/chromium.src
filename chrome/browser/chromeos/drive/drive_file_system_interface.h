@@ -40,10 +40,11 @@ struct SearchResultInfo {
 
 // Metadata of DriveFileSystem. Used by DriveFileSystem::GetMetadata().
 struct DriveFileSystemMetadata {
-  DriveFileSystemMetadata() : largest_changestamp(0) {}
+  DriveFileSystemMetadata() : largest_changestamp(0), origin("?") {}
   ~DriveFileSystemMetadata() {}
 
   int64 largest_changestamp;
+  std::string origin;
 };
 
 // Used to get files from the file system.
@@ -359,8 +360,12 @@ class DriveFileSystemInterface {
                                const FilePath& file_content_path,
                                const base::Closure& callback) = 0;
 
-  // Returns metadata of the file system.
+  // Returns miscellaneous metadata of the file system like the largest
+  // timestamp. Used in chrome:drive-internals.
   virtual DriveFileSystemMetadata GetMetadata() const = 0;
+
+  // Reloads the file system feeds from the server.
+  virtual void Reload() = 0;
 };
 
 }  // namespace drive

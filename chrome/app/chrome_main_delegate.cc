@@ -25,6 +25,7 @@
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/profiling.h"
+#include "chrome/common/startup_metric_utils.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/plugin/chrome_content_plugin_client.h"
 #include "chrome/renderer/chrome_content_renderer_client.h"
@@ -376,6 +377,7 @@ struct MainFunction {
 }  // namespace
 
 ChromeMainDelegate::ChromeMainDelegate() {
+  startup_metric_utils::RecordMainEntryPointTime();
 }
 
 ChromeMainDelegate::~ChromeMainDelegate() {
@@ -557,9 +559,9 @@ void ChromeMainDelegate::PreSandboxStartup() {
         chrome::ProcessNeedsProfileDir(process_type)));
   }
 
-  base::StatsCounterTimer stats_counter_timer("Chrome.Init");
+  stats_counter_timer_.reset(new base::StatsCounterTimer("Chrome.Init"));
   startup_timer_.reset(new base::StatsScope<base::StatsCounterTimer>
-                       (stats_counter_timer));
+                       (*stats_counter_timer_));
 
   // Enable the heap profiler as early as possible!
   EnableHeapProfiler(command_line);
@@ -641,8 +643,22 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // Needs to be called after we have chrome::DIR_USER_DATA.  BrowserMain
   // sets this up for the browser process in a different manner. Zygotes
   // need to call InitCrashReporter() in RunZygote().
-  if (!process_type.empty() && process_type != switches::kZygoteProcess)
+  if (!process_type.empty() && process_type != switches::kZygoteProcess) {
+#if defined(OS_ANDROID)
+    // On Android we need to provide a FD to the file where the minidump is
+    // generated as the renderer and browser run with different UIDs
+    // (preventing the browser from inspecting the renderer process).
+    int minidump_fd = base::GlobalDescriptors::GetInstance()->
+        MaybeGet(kAndroidMinidumpDescriptor);
+    if (minidump_fd == base::kInvalidPlatformFileValue) {
+      NOTREACHED() << "Could not find minidump FD, crash reporting disabled.";
+    } else {
+      InitNonBrowserCrashReporterForAndroid(minidump_fd);
+    }
+#else
     InitCrashReporter();
+#endif
+  }
 #endif
 
 #if defined(OS_CHROMEOS)

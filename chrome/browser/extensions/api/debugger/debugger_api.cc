@@ -19,11 +19,11 @@
 #include "chrome/browser/api/infobars/confirm_infobar_delegate.h"
 #include "chrome/browser/extensions/api/debugger/debugger_api_constants.h"
 #include "chrome/browser/extensions/event_router.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/infobars/infobar.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/api/debugger.h"
@@ -286,13 +286,15 @@ void ExtensionDevToolsClientHost::MarkAsDismissed() {
 void ExtensionDevToolsClientHost::SendDetachedEvent() {
   Profile* profile =
       Profile::FromBrowserContext(web_contents_->GetBrowserContext());
-  if (profile != NULL && profile->GetExtensionEventRouter()) {
+  if (profile != NULL &&
+      extensions::ExtensionSystem::Get(profile)->event_router()) {
     Debuggee debuggee;
     debuggee.tab_id = tab_id_;
     scoped_ptr<base::ListValue> args(OnDetach::Create(debuggee,
                                                       detach_reason_));
-    profile->GetExtensionEventRouter()->DispatchEventToExtension(
-        extension_id_, keys::kOnDetach, args.Pass(), profile, GURL());
+    extensions::ExtensionSystem::Get(profile)->event_router()->
+        DispatchEventToExtension(extension_id_, keys::kOnDetach, args.Pass(),
+                                 profile, GURL());
   }
 }
 
@@ -321,7 +323,8 @@ void ExtensionDevToolsClientHost::DispatchOnInspectorFrontend(
     const std::string& message) {
   Profile* profile =
       Profile::FromBrowserContext(web_contents_->GetBrowserContext());
-  if (profile == NULL || !profile->GetExtensionEventRouter())
+  if (profile == NULL ||
+      !extensions::ExtensionSystem::Get(profile)->event_router())
     return;
 
   scoped_ptr<Value> result(base::JSONReader::Read(message));
@@ -344,8 +347,9 @@ void ExtensionDevToolsClientHost::DispatchOnInspectorFrontend(
       params.additional_properties.Swap(params_value);
 
     scoped_ptr<ListValue> args(OnEvent::Create(debuggee, method_name, params));
-    profile->GetExtensionEventRouter()->DispatchEventToExtension(
-        extension_id_, keys::kOnEvent, args.Pass(), profile, GURL());
+    extensions::ExtensionSystem::Get(profile)->event_router()->
+        DispatchEventToExtension(extension_id_, keys::kOnEvent, args.Pass(),
+                                 profile, GURL());
   } else {
     SendCommandDebuggerFunction* function = pending_requests_[id];
     if (!function)
@@ -407,19 +411,19 @@ DebuggerFunction::DebuggerFunction()
       client_host_(0) {
 }
 
-bool DebuggerFunction::InitTabContents() {
-  // Find the TabContents that contains this tab id.
+bool DebuggerFunction::InitWebContents() {
+  // Find the WebContents that contains this tab id.
   contents_ = NULL;
-  TabContents* tab_contents = NULL;
+  WebContents* web_contents = NULL;
   bool result = ExtensionTabUtil::GetTabById(
-      tab_id_, profile(), include_incognito(), NULL, NULL, &tab_contents, NULL);
-  if (!result || !tab_contents) {
+      tab_id_, profile(), include_incognito(), NULL, NULL, &web_contents, NULL);
+  if (!result || !web_contents) {
     error_ = ExtensionErrorUtils::FormatErrorMessage(
         keys::kNoTabError,
         base::IntToString(tab_id_));
     return false;
   }
-  contents_ = tab_contents->web_contents();
+  contents_ = web_contents;
 
   if (content::GetContentClient()->HasWebUIScheme(
           contents_->GetURL())) {
@@ -433,7 +437,7 @@ bool DebuggerFunction::InitTabContents() {
 }
 
 bool DebuggerFunction::InitClientHost() {
-  if (!InitTabContents())
+  if (!InitWebContents())
     return false;
 
   // Don't fetch rvh from the contents since it'll be wrong upon navigation.
@@ -459,7 +463,7 @@ bool AttachDebuggerFunction::RunImpl() {
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
   tab_id_ = params->target.tab_id;
-  if (!InitTabContents())
+  if (!InitWebContents())
     return false;
 
   if (!webkit_glue::IsInspectorProtocolVersionSupported(

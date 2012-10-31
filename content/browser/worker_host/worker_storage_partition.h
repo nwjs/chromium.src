@@ -7,9 +7,6 @@
 
 #include "base/memory/ref_counted.h"
 
-class ChromeAppCacheService;
-class IndexedDBContextImpl;
-
 namespace fileapi {
 class FileSystemContext;
 }  // namespace fileapi
@@ -21,6 +18,10 @@ class URLRequestContextGetter;
 namespace webkit_database {
 class DatabaseTracker;
 }  // namespace webkit_database
+
+namespace content {
+class ChromeAppCacheService;
+class IndexedDBContextImpl;
 
 // Contains the data from StoragePartition for use by Worker APIs.
 //
@@ -87,5 +88,7 @@ class WorkerStoragePartition {
   scoped_refptr<webkit_database::DatabaseTracker> database_tracker_;
   scoped_refptr<IndexedDBContextImpl> indexed_db_context_;
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_WORKER_HOST_WORKER_STORAGE_PARTITION_H_

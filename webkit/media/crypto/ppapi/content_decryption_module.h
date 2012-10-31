@@ -16,26 +16,38 @@ typedef __int64 int64_t;
 
 #include "webkit/media/crypto/ppapi/cdm_export.h"
 
+// The version number must be rolled when this file is updated!
+// If the CDM and the plugin use different versions of this file, the plugin
+// will fail to load or crash!
+#define INITIALIZE_CDM_MODULE InitializeCdmModule_1
+
 namespace cdm {
 class Allocator;
-class Buffer;
 class CdmHost;
 class ContentDecryptionModule;
-class DecryptedBlock;
-class KeyMessage;
-class VideoFrame;
 }
 
 extern "C" {
+CDM_EXPORT void INITIALIZE_CDM_MODULE();
+CDM_EXPORT void DeInitializeCdmModule();
 // Caller retains ownership of arguments, which must outlive the call to
 // DestroyCdmInstance below.
 CDM_EXPORT cdm::ContentDecryptionModule* CreateCdmInstance(
-    cdm::Allocator* allocator, cdm::CdmHost* host);
+    const char* key_system,
+    int key_system_size,
+    cdm::Allocator* allocator,
+    cdm::CdmHost* host);
 CDM_EXPORT void DestroyCdmInstance(cdm::ContentDecryptionModule* instance);
 CDM_EXPORT const char* GetCdmVersion();
 }
 
 namespace cdm {
+
+class AudioFrames;
+class Buffer;
+class DecryptedBlock;
+class KeyMessage;
+class VideoFrame;
 
 enum Status {
   kSuccess = 0,
@@ -111,7 +123,8 @@ struct InputBuffer {
 struct AudioDecoderConfig {
   enum AudioCodec {
     kUnknownAudioCodec = 0,
-    kCodecVorbis
+    kCodecVorbis,
+    kCodecAac
   };
 
   AudioDecoderConfig()
@@ -137,7 +150,6 @@ struct AudioDecoderConfig {
 // http://www.fourcc.org/yuv.php
 enum VideoFormat {
   kUnknownVideoFormat = 0,  // Unknown format value.  Used for error reporting.
-  kEmptyVideoFrame,  // An empty frame.
   kYv12,  // 12bpp YVU planar 1x1 Y, 2x2 VU samples.
   kI420  // 12bpp YVU planar 1x1 Y, 2x2 UV samples.
 };
@@ -153,12 +165,20 @@ struct Size {
 struct VideoDecoderConfig {
   enum VideoCodec {
     kUnknownVideoCodec = 0,
-    kCodecVP8
+    kCodecVp8,
+    kCodecH264
   };
 
   enum VideoCodecProfile {
     kUnknownVideoCodecProfile = 0,
-    kVp8ProfileMain
+    kVp8ProfileMain,
+    kH264ProfileBaseline,
+    kH264ProfileMain,
+    kH264ProfileExtended,
+    kH264ProfileHigh,
+    kH264ProfileHigh10,
+    kH264ProfileHigh422,
+    kH264ProfileHigh444Predictive
   };
 
   VideoDecoderConfig()
@@ -166,7 +186,7 @@ struct VideoDecoderConfig {
         profile(kUnknownVideoCodecProfile),
         format(kUnknownVideoFormat),
         extra_data(NULL),
-        extra_data_size() {}
+        extra_data_size(0) {}
 
   VideoCodec codec;
   VideoCodecProfile profile;
@@ -194,7 +214,7 @@ enum StreamType {
 // when a Buffer is created that will never be returned to the caller.
 class ContentDecryptionModule {
  public:
-  // Generates a |key_request| given the |init_data|.
+  // Generates a |key_request| given |type| and |init_data|.
   //
   // Returns kSuccess if the key request was successfully generated,
   // in which case the callee should have allocated memory for the output
@@ -202,32 +222,26 @@ class ContentDecryptionModule {
   // to the caller.
   // Returns kSessionError if any error happened, in which case the
   // |key_request| should not be used by the caller.
-  //
-  // TODO(xhwang): It's not safe to pass the ownership of the dynamically
-  // allocated memory over library boundaries. Fix it after related PPAPI change
-  // and sample CDM are landed.
-  virtual Status GenerateKeyRequest(const uint8_t* init_data,
-                                    int init_data_size,
-                                    KeyMessage* key_request) = 0;
+  virtual Status GenerateKeyRequest(
+      const char* type, int type_size,
+      const uint8_t* init_data, int init_data_size,
+      KeyMessage* key_request) = 0;
 
   // Adds the |key| to the CDM to be associated with |key_id|.
   //
   // Returns kSuccess if the key was successfully added, kSessionError
   // otherwise.
-  virtual Status AddKey(const char* session_id,
-                        int session_id_size,
-                        const uint8_t* key,
-                        int key_size,
-                        const uint8_t* key_id,
-                        int key_id_size) = 0;
+  virtual Status AddKey(const char* session_id, int session_id_size,
+                        const uint8_t* key, int key_size,
+                        const uint8_t* key_id, int key_id_size) = 0;
 
   // Cancels any pending key request made to the CDM for |session_id|.
   //
   // Returns kSuccess if all pending key requests for |session_id| were
   // successfully canceled or there was no key request to be canceled,
   // kSessionError otherwise.
-  virtual Status CancelKeyRequest(const char* session_id,
-                                  int session_id_size) = 0;
+  virtual Status CancelKeyRequest(
+      const char* session_id, int session_id_size) = 0;
 
   // Optionally populates |*msg| and indicates so in |*populated|.
   virtual void TimerExpired(KeyMessage* msg, bool* populated) = 0;
@@ -292,7 +306,7 @@ class ContentDecryptionModule {
   // Returns kNoKey if the CDM did not have the necessary decryption key
   // to decrypt.
   // Returns kNeedMoreData if more data was needed by the decoder to generate
-  // a decoded frame (e.g. during initialization).
+  // a decoded frame (e.g. during initialization and end-of-stream).
   // Returns kDecryptError if any decryption error happened.
   // Returns kDecodeError if any decoding error happened.
   // If the return value is not kSuccess, |video_frame| should be ignored by
@@ -311,25 +325,13 @@ class ContentDecryptionModule {
   // Returns kNoKey if the CDM did not have the necessary decryption key
   // to decrypt.
   // Returns kNeedMoreData if more data was needed by the decoder to generate
-  // audio samples (e.g. during initialization).
+  // audio samples (e.g. during initialization and end-of-stream).
   // Returns kDecryptError if any decryption error happened.
   // Returns kDecodeError if any decoding error happened.
-  // If the return value is not kSuccess, |sample_buffer| should be ignored by
+  // If the return value is not kSuccess, |audio_frames| should be ignored by
   // the caller.
-  //
-  // |audio_frames| can contain multiple audio output buffers. Each buffer must
-  // be serialized in this format:
-  //
-  // |<------------------- serialized audio buffer ------------------->|
-  // | int64_t timestamp | int64_t length | length bytes of audio data |
-  //
-  // For example, with three audio output buffers, |audio_frames| will look
-  // like this:
-  //
-  // |<---------------- audio_frames ------------------>|
-  // | audio buffer 0 | audio buffer 1 | audio buffer 2 |
   virtual Status DecryptAndDecodeSamples(const InputBuffer& encrypted_buffer,
-                                         Buffer* audio_frames) = 0;
+                                         AudioFrames* audio_frames) = 0;
 
   virtual ~ContentDecryptionModule() {}
 };
@@ -378,22 +380,6 @@ class CdmHost {
   virtual double GetCurrentWallTimeMs() = 0;
 };
 
-// Represents a decrypted block that has not been decoded.
-class DecryptedBlock {
- public:
-  virtual void set_buffer(Buffer* buffer) = 0;
-  virtual Buffer* buffer() = 0;
-
-  // TODO(tomfinegan): Figure out if timestamp is really needed. If it is not,
-  // we can just pass Buffer pointers around.
-  virtual void set_timestamp(int64_t timestamp) = 0;
-  virtual int64_t timestamp() const = 0;
-
- protected:
-  DecryptedBlock() {}
-  virtual ~DecryptedBlock() {}
-};
-
 // Represents a key message sent by the CDM.
 class KeyMessage {
  public:
@@ -413,13 +399,29 @@ class KeyMessage {
   virtual ~KeyMessage() {}
 };
 
+// Represents a decrypted block that has not been decoded.
+class DecryptedBlock {
+ public:
+  virtual void set_buffer(Buffer* buffer) = 0;
+  virtual Buffer* buffer() = 0;
+
+  // TODO(tomfinegan): Figure out if timestamp is really needed. If it is not,
+  // we can just pass Buffer pointers around.
+  virtual void set_timestamp(int64_t timestamp) = 0;
+  virtual int64_t timestamp() const = 0;
+
+ protected:
+  DecryptedBlock() {}
+  virtual ~DecryptedBlock() {}
+};
+
 class VideoFrame {
  public:
   enum VideoPlane {
-   kYPlane = 0,
-   kUPlane = 1,
-   kVPlane = 2,
-   kMaxPlanes = 3,
+    kYPlane = 0,
+    kUPlane = 1,
+    kVPlane = 2,
+    kMaxPlanes = 3,
   };
 
   virtual void set_format(VideoFormat format) = 0;
@@ -441,8 +443,29 @@ class VideoFrame {
   virtual int64_t timestamp() const = 0;
 
  protected:
-   VideoFrame() {}
-   virtual ~VideoFrame() {}
+  VideoFrame() {}
+  virtual ~VideoFrame() {}
+};
+
+// Represents decrypted and decoded audio frames. AudioFrames can contain
+// multiple audio output buffers, which are serialized into this format:
+//
+// |<------------------- serialized audio buffer ------------------->|
+// | int64_t timestamp | int64_t length | length bytes of audio data |
+//
+// For example, with three audio output buffers, the AudioFrames will look
+// like this:
+//
+// |<----------------- AudioFrames ------------------>|
+// | audio buffer 0 | audio buffer 1 | audio buffer 2 |
+class AudioFrames {
+ public:
+  virtual void set_buffer(Buffer* buffer) = 0;
+  virtual Buffer* buffer() = 0;
+
+ protected:
+  AudioFrames() {}
+  virtual ~AudioFrames() {}
 };
 
 }  // namespace cdm

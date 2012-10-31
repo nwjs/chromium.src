@@ -18,21 +18,10 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "ui/gfx/rect.h"
+#include "ui/gfx/rect_conversions.h"
 #include "ui/gfx/size_conversions.h"
 #include "ui/gfx/scoped_cg_context_save_gstate_mac.h"
 #include "ui/surface/transport_dib.h"
-
-namespace {
-
-// Returns a Rect obtained by flooring the values of the given RectF.
-gfx::Rect ToFlooredRect(const gfx::RectF& rect) {
-  return gfx::Rect(static_cast<int>(std::floor(rect.x())),
-                   static_cast<int>(std::floor(rect.y())),
-                   static_cast<int>(std::floor(rect.width())),
-                   static_cast<int>(std::floor(rect.height())));
-}
-
-} // namespace
 
 namespace content {
 
@@ -101,8 +90,8 @@ void BackingStoreMac::PaintToBackingStore(
 
   gfx::Size pixel_size = gfx::ToFlooredSize(
       size().Scale(device_scale_factor_));
-  gfx::Rect pixel_bitmap_rect =
-      ToFlooredRect(bitmap_rect.Scale(scale_factor));
+  gfx::Rect pixel_bitmap_rect = ToFlooredRectDeprecated(
+      gfx::ScaleRect(bitmap_rect, scale_factor));
 
   size_t bitmap_byte_count =
       pixel_bitmap_rect.width() * pixel_bitmap_rect.height() * 4;
@@ -121,8 +110,8 @@ void BackingStoreMac::PaintToBackingStore(
 
   for (size_t i = 0; i < copy_rects.size(); i++) {
     const gfx::Rect& copy_rect = copy_rects[i];
-    gfx::Rect pixel_copy_rect =
-        ToFlooredRect(copy_rect.Scale(scale_factor));
+    gfx::Rect pixel_copy_rect = ToFlooredRectDeprecated(
+        gfx::ScaleRect(copy_rect, scale_factor));
 
     // Only the subpixels given by copy_rect have pixels to copy.
     base::mac::ScopedCFTypeRef<CGImageRef> image(

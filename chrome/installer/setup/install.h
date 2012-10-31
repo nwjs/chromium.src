@@ -26,13 +26,25 @@ class InstallerState;
 class MasterPreferences;
 
 enum InstallShortcutOperation {
-  // Create mandatory shortcuts (Start menu and taskbar pin).
-  INSTALL_SHORTCUT_CREATE_MANDATORY = 0,
-  // Create mandatory shortcuts and desktop + quick launch shortcuts.
+  // Create all shortcuts (potentially skipping those explicitly stated not to
+  // be installed in the InstallShortcutPreferences).
   INSTALL_SHORTCUT_CREATE_ALL,
+  // Create each per-user shortcut (potentially skipping those explicitly stated
+  // not to be installed in the InstallShortcutPreferences), but only if the
+  // system-level equivalent of that shortcut is not present on the system.
+  INSTALL_SHORTCUT_CREATE_EACH_IF_NO_SYSTEM_LEVEL,
   // Replace all shortcuts that still exist with the most recent version of
   // each individual shortcut.
   INSTALL_SHORTCUT_REPLACE_EXISTING,
+};
+
+enum InstallShortcutLevel {
+  // Install shortcuts for the current user only.
+  CURRENT_USER,
+  // Install global shortcuts visible to all users. This is no longer used on
+  // install and should only be used to update existing shortcuts on legacy
+  // installs.
+  ALL_USERS,
 };
 
 // Escape |att_value| as per the XML AttValue production
@@ -46,18 +58,24 @@ void EscapeXmlAttributeValueInSingleQuotes(string16* att_value);
 bool CreateVisualElementsManifest(const FilePath& src_path,
                                   const Version& version);
 
-// Overwrites shortcuts (desktop, quick launch, start menu, and uninstall link)
-// if they are present on the system.
+// Overwrites shortcuts (desktop, quick launch, and start menu) if they are
+// present on the system.
+// |prefs| can affect the behavior of this method through
+// kDoNotCreateDesktopShortcut, kDoNotCreateQuickLaunchShortcut, and
+// kAltShortcutText.
+// |install_level| specifies whether to install per-user shortcuts or shortcuts
+// for all users on the system (this should only be used to update legacy
+// system-level installs).
 // If |install_operation| is a creation command, appropriate shortcuts will be
 // created even if they don't exist.
-// The uninstall link is only created if this is not an MSI install.
 // If creating the Start menu shortcut is successful, it is also pinned to the
 // taskbar.
-void CreateOrUpdateShortcuts(const InstallerState& installer_state,
-                             const FilePath& setup_exe,
-                             const Product& product,
-                             InstallShortcutOperation install_operation,
-                             bool alternate_desktop_shortcut);
+void CreateOrUpdateShortcuts(
+    const FilePath& chrome_exe,
+    const Product& product,
+    const MasterPreferences& prefs,
+    InstallShortcutLevel install_level,
+    InstallShortcutOperation install_operation);
 
 // Registers Chrome on this machine.
 // If |make_chrome_default|, also attempts to make Chrome default (potentially
@@ -78,6 +96,7 @@ void RegisterChromeOnMachine(const InstallerState& installer_state,
 // install_temp_path: working directory used during install/update. It should
 //                    also has a sub dir source that contains a complete
 //                    and unpacked Chrome package.
+// src_path: the unpacked Chrome package (inside |install_temp_path|).
 // prefs: master preferences. See chrome/installer/util/master_preferences.h.
 // new_version: new Chrome version that needs to be installed
 // package: Represents the target installation folder and all distributions
@@ -91,14 +110,26 @@ InstallStatus InstallOrUpdateProduct(
     const FilePath& setup_path,
     const FilePath& archive_path,
     const FilePath& install_temp_path,
+    const FilePath& src_path,
     const FilePath& prefs_path,
     const installer::MasterPreferences& prefs,
     const Version& new_version);
 
 // Performs installation-related tasks following an OS upgrade.
+// |chrome| The installed product (must be a browser).
 void HandleOsUpgradeForBrowser(const InstallerState& installer_state,
-                               const Product& chrome,
-                               const FilePath& setup_exe);
+                               const Product& chrome);
+
+// Performs per-user installation-related tasks on Active Setup (ran on first
+// login for each user post system-level Chrome install).
+// |installation_root|: The root of this install (i.e. the directory in which
+// chrome.exe is installed).
+// Shortcut creation is skipped if the First Run beacon is present (unless
+// |force| is set to true).
+// |chrome| The installed product (must be a browser).
+void HandleActiveSetupForBrowser(const FilePath& installation_root,
+                                 const Product& chrome,
+                                 bool force);
 
 }  // namespace installer
 

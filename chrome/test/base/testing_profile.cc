@@ -41,6 +41,7 @@
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
+#include "chrome/browser/profiles/storage_partition_descriptor.h"
 #include "chrome/browser/protector/protector_service_factory.h"
 #include "chrome/browser/search_engines/template_url_fetcher_factory.h"
 #include "chrome/browser/speech/chrome_speech_recognition_preferences.h"
@@ -56,6 +57,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/test/mock_resource_context.h"
 #include "content/public/test/test_utils.h"
@@ -516,24 +518,8 @@ Profile* TestingProfile::GetOriginalProfile() {
   return this;
 }
 
-VisitedLinkMaster* TestingProfile::GetVisitedLinkMaster() {
-  return NULL;
-}
-
 ExtensionService* TestingProfile::GetExtensionService() {
   return extensions::ExtensionSystem::Get(this)->extension_service();
-}
-
-extensions::UserScriptMaster* TestingProfile::GetUserScriptMaster() {
-  return extensions::ExtensionSystem::Get(this)->user_script_master();
-}
-
-ExtensionProcessManager* TestingProfile::GetExtensionProcessManager() {
-  return extensions::ExtensionSystem::Get(this)->process_manager();
-}
-
-extensions::EventRouter* TestingProfile::GetExtensionEventRouter() {
-  return extensions::ExtensionSystem::Get(this)->event_router();
 }
 
 void TestingProfile::SetExtensionSpecialStoragePolicy(
@@ -621,28 +607,18 @@ net::URLRequestContextGetter* TestingProfile::GetRequestContext() {
 
 net::URLRequestContextGetter* TestingProfile::GetRequestContextForRenderProcess(
     int renderer_child_id) {
-  ExtensionService* extension_service =
-      extensions::ExtensionSystem::Get(this)->extension_service();
-  if (extension_service) {
-    const extensions::Extension* extension =
-        extension_service->GetIsolatedAppForRenderer(renderer_child_id);
-    if (extension)
-      return GetRequestContextForStoragePartition(extension->id());
-  }
-
   content::RenderProcessHost* rph = content::RenderProcessHost::FromID(
       renderer_child_id);
-  if (rph && rph->IsGuest()) {
-    // For guest processes (used by the browser tag), we need to isolate the
-    // storage.
-    // TODO(nasko): Until we have proper storage partitions, create a
-    // non-persistent context using the RPH's id.
-    std::string id("guest-");
-    id.append(base::IntToString(renderer_child_id));
-    return GetRequestContextForStoragePartition(id);
+  content::StoragePartition* storage_partition = rph->GetStoragePartition();
+
+  // TODO(nasko): Remove this conditional, once webview tag creates a proper
+  // storage partition.
+  if (rph->IsGuest()) {
+    return GetRequestContextForStoragePartition(
+        storage_partition->GetPath(), true);
   }
 
-  return GetRequestContext();
+  return storage_partition->GetURLRequestContext();
 }
 
 void TestingProfile::CreateRequestContext() {
@@ -672,7 +648,8 @@ TestingProfile::GetMediaRequestContextForRenderProcess(
 
 net::URLRequestContextGetter*
 TestingProfile::GetMediaRequestContextForStoragePartition(
-    const std::string& partition_id) {
+    const FilePath& partition_path,
+    bool in_memory) {
   return NULL;
 }
 
@@ -688,7 +665,8 @@ net::SSLConfigService* TestingProfile::GetSSLConfigService() {
 
 net::URLRequestContextGetter*
 TestingProfile::GetRequestContextForStoragePartition(
-    const std::string& partition_id) {
+    const FilePath& partition_path,
+    bool in_memory) {
   // We don't test storage partitions here yet, so returning the same dummy
   // context is sufficient for now.
   return GetRequestContext();

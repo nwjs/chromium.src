@@ -245,6 +245,7 @@ class WebMediaPlayerImpl
                     int message_length,
                     const std::string& default_url);
   void OnNeedKey(const std::string& key_system,
+                 const std::string& type,
                  const std::string& session_id,
                  scoped_array<uint8> init_data,
                  int init_data_size);
@@ -273,6 +274,22 @@ class WebMediaPlayerImpl
 
   // Lets V8 know that player uses extra resources not managed by V8.
   void IncrementExternallyAllocatedMemory();
+
+  // Actually do the work for generateKeyRequest/addKey so they can easily
+  // report results to UMA.
+  MediaKeyException GenerateKeyRequestInternal(
+      const WebKit::WebString& key_system,
+      const unsigned char* init_data,
+      unsigned init_data_length);
+  MediaKeyException AddKeyInternal(const WebKit::WebString& key_system,
+                                   const unsigned char* key,
+                                   unsigned key_length,
+                                   const unsigned char* init_data,
+                                   unsigned init_data_length,
+                                   const WebKit::WebString& session_id);
+  MediaKeyException CancelKeyRequestInternal(
+      const WebKit::WebString& key_system,
+      const WebKit::WebString& session_id);
 
   WebKit::WebFrame* frame_;
 
@@ -347,6 +364,10 @@ class WebMediaPlayerImpl
   bool starting_;
 
   scoped_refptr<media::ChunkDemuxer> chunk_demuxer_;
+
+  // Temporary for EME v0.1. In the future the init data type should be passed
+  // through GenerateKeyRequest() directly from WebKit.
+  std::string init_data_type_;
 
   DISALLOW_COPY_AND_ASSIGN(WebMediaPlayerImpl);
 };

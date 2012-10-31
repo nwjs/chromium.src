@@ -12,17 +12,39 @@
         {
           'target_name': 'opus',
           'type': 'static_library',
+          'defines': [
+            'OPUS_BUILD',
+            'OPUS_EXPORT=',
+            'WORDS_BIGENDIAN',
+          ],
+          'conditions': [
+            ['OS!="win"', {
+              'defines': [
+                'HAVE_LRINT',
+                'HAVE_LRINTF',
+                'VAR_ARRAYS',
+              ],
+            }, {
+              'defines': [
+                'USE_ALLOCA',
+                'inline=__inline',
+              ],
+              'msvs_disabled_warnings': [
+                4305,  # Disable truncation warning in celt/pitch.c .
+              ],
+            }],
+          ],
           'include_dirs': [
             'src/celt',
             'src/include',
             'src/silk',
             'src/silk/float',
           ],
-          'defines': [
-            'OPUS_BUILD',
-            'VAR_ARRAYS',
-            'WORDS_BIGENDIAN',
-          ],
+          'direct_dependent_settings': {
+            'include_dirs': [
+              'src/include',
+            ],
+          },
           'sources': [
             'src/celt/_kiss_fft_guts.h',
             'src/celt/arch.h',
@@ -129,8 +151,6 @@
             'src/silk/float/scale_vector_FLP.c',
             'src/silk/float/schur_FLP.c',
             'src/silk/float/SigProc_FLP.h',
-            'src/silk/float/silk_float.vcxproj',
-            'src/silk/float/silk_float.vcxproj.filters',
             'src/silk/float/solve_LS_FLP.c',
             'src/silk/float/sort_FLP.c',
             'src/silk/float/structs_FLP.h',
@@ -209,14 +229,6 @@
             'src/src/opus_encoder.c',
             'src/src/opus_multistream.c',
             'src/src/repacketizer.c',
-          ],
-          'conditions': [
-            ['os_posix == 1', {
-              'defines': [
-                'HAVE_LRINT',
-                'HAVE_LRINTF',
-              ],
-            }],
           ],
         },  # target opus
       ]

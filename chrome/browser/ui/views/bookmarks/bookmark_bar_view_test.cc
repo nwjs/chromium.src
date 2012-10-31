@@ -821,7 +821,10 @@ class BookmarkBarViewTest8 : public BookmarkBarViewEventTestBase {
   GURL url_dragging_;
 };
 
-#if defined(OS_WIN)
+// TODO(ananta)
+// This test has been disabled for AURA. Please look here for more information.
+// http://code.google.com/p/chromium/issues/detail?id=158564&thanks=158564
+#if defined(OS_WIN) || defined(USE_AURA)
 #define MAYBE_DNDBackToOriginatingMenu DISABLED_DNDBackToOriginatingMenu
 #else
 #define MAYBE_DNDBackToOriginatingMenu DNDBackToOriginatingMenu
@@ -1497,7 +1500,8 @@ class BookmarkBarViewTest17 : public BookmarkBarViewEventTestBase {
     // sure the click is always on the child menu.
     gfx::Rect context_rect = context_menu->GetSubmenu()->GetBoundsInScreen();
     gfx::Rect child_menu_rect = child_menu->GetBoundsInScreen();
-    gfx::Rect clickable_rect = child_menu_rect.Subtract(context_rect);
+    gfx::Rect clickable_rect =
+        gfx::SubtractRects(child_menu_rect, context_rect);
     ASSERT_FALSE(clickable_rect.IsEmpty());
     observer_.set_task(CreateEventTask(this, &BookmarkBarViewTest17::Step4));
     MoveMouseAndPress(clickable_rect.CenterPoint(), ui_controls::RIGHT,

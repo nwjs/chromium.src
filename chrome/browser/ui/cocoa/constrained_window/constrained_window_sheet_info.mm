@@ -30,29 +30,12 @@
   return overlayWindow_;
 }
 
-- (void)setAnimation:(NSAnimation*)animation {
-  animation_.reset([animation retain]);
-}
-
-- (NSAnimation*)animation {
-  return animation_;
-}
-
 - (void)hideSheet {
-  // Stop any pending animations.
-  [animation_ stopAnimation];
-  animation_.reset();
-
   // Hide the sheet by setting alpha to 0 and sizing it to 1x1. This is better
   // than calling orderOut: because that could cause Spaces activation or
   // window ordering changes.
   [sheet_ setAlphaValue:0.0];
-  oldSheetAutoresizesSubviews_ = [[sheet_ contentView] autoresizesSubviews];
   [[sheet_ contentView] setAutoresizesSubviews:NO];
-  NSRect overlayFrame = [overlayWindow_ frame];
-  oldSheetFrame_ = NSOffsetRect(
-      [sheet_ frame], -overlayFrame.origin.x, -overlayFrame.origin.y);
-  [sheet_ setFrame:ui::kWindowSizeDeterminedLater display:NO];
 
   // Overlay window is already invisible so just stop accepting mouse events.
   [overlayWindow_ setIgnoresMouseEvents:YES];
@@ -63,14 +46,7 @@
 
 - (void)showSheet {
   [overlayWindow_ setIgnoresMouseEvents:NO];
-
-  NSRect overlayFrame = [overlayWindow_ frame];
-  NSRect newSheetFrame = NSOffsetRect(
-      oldSheetFrame_, overlayFrame.origin.x, overlayFrame.origin.y);
-  [sheet_ setFrame:newSheetFrame display:NO];
-  [[sheet_ contentView] setAutoresizesSubviews:oldSheetAutoresizesSubviews_];
   [sheet_ setAlphaValue:1.0];
-
   [overlayWindow_ makeKeyWindow];
 }
 

@@ -6,6 +6,7 @@
 
 #include <cmath>
 
+#include "ash/ash_constants.h"
 #include "ash/shell.h"
 #include "ash/system/tray/system_tray_delegate.h"
 #include "ash/system/tray/tray_constants.h"
@@ -245,6 +246,10 @@ void TrayVolume::DestroyDefaultView() {
 void TrayVolume::DestroyDetailedView() {
   if (!is_default_view_)
     volume_view_ = NULL;
+}
+
+bool TrayVolume::ShouldShowLauncher() const {
+  return false;
 }
 
 void TrayVolume::OnVolumeChanged(float percent) {

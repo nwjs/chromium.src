@@ -31,9 +31,12 @@
 using WebKit::WebDragOperation;
 using WebKit::WebDragOperationsMask;
 using content::PopupMenuHelper;
+using content::RenderViewHostFactory;
 using content::RenderWidgetHostView;
 using content::RenderWidgetHostViewMac;
 using content::WebContents;
+using content::WebContentsImpl;
+using content::WebContentsViewMac;
 
 // Ensure that the WebKit::WebDragOperation enum values stay in sync with
 // NSDragOperation constants, since the code below static_casts between 'em.
@@ -72,11 +75,9 @@ WebContentsView* CreateWebContentsView(
   *render_view_host_delegate_view = rv;
   return rv;
 }
-}
 
-WebContentsViewMac::WebContentsViewMac(
-    WebContentsImpl* web_contents,
-    content::WebContentsViewDelegate* delegate)
+WebContentsViewMac::WebContentsViewMac(WebContentsImpl* web_contents,
+                                       WebContentsViewDelegate* delegate)
     : web_contents_(web_contents),
       delegate_(delegate) {
 }
@@ -97,7 +98,7 @@ void WebContentsViewMac::CreateView(const gfx::Size& initial_size) {
 }
 
 RenderWidgetHostView* WebContentsViewMac::CreateViewForWidget(
-    content::RenderWidgetHost* render_widget_host) {
+    RenderWidgetHost* render_widget_host) {
   if (render_widget_host->GetView()) {
     // During testing, the view will already be set up in most cases to the
     // test view, so we don't want to clobber it with a real one. To verify that
@@ -192,7 +193,7 @@ void WebContentsViewMac::StartDragging(
                               offset:offset];
 }
 
-void WebContentsViewMac::RenderViewCreated(content::RenderViewHost* host) {
+void WebContentsViewMac::RenderViewCreated(RenderViewHost* host) {
   // We want updates whenever the intrinsic width of the webpage changes.
   // Put the RenderView into that mode. The preferred width is used for example
   // when the "zoom" button in the browser window is clicked.
@@ -278,9 +279,8 @@ void WebContentsViewMac::TakeFocus(bool reverse) {
   }
 }
 
-void WebContentsViewMac::ShowContextMenu(
-    const content::ContextMenuParams& params,
-    content::ContextMenuSourceType type) {
+void WebContentsViewMac::ShowContextMenu(const ContextMenuParams& params,
+                                         ContextMenuSourceType type) {
   // Allow delegates to handle the context menu operation first.
   if (web_contents_->GetDelegate() &&
       web_contents_->GetDelegate()->HandleContextMenu(params)) {
@@ -332,6 +332,8 @@ gfx::Rect WebContentsViewMac::GetViewBounds() const {
 void WebContentsViewMac::CloseTab() {
   web_contents_->Close(web_contents_->GetRenderViewHost());
 }
+
+}  // namespace content
 
 @implementation WebContentsViewCocoa
 

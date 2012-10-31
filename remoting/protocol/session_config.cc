@@ -39,7 +39,7 @@ SessionConfig::SessionConfig() {
 }
 
 // static
-SessionConfig SessionConfig::GetDefault() {
+SessionConfig SessionConfig::ForTest() {
   SessionConfig result;
   result.set_control_config(ChannelConfig(ChannelConfig::TRANSPORT_STREAM,
                                           kDefaultStreamVersion,
@@ -195,6 +195,10 @@ scoped_ptr<CandidateSessionConfig> CandidateSessionConfig::CreateDefault() {
                     ChannelConfig::CODEC_VP8));
 
   // Audio channel.
+  result->mutable_audio_configs()->push_back(
+      ChannelConfig(ChannelConfig::TRANSPORT_MUX_STREAM,
+                    kDefaultStreamVersion,
+                    ChannelConfig::CODEC_OPUS));
   result->mutable_audio_configs()->push_back(
       ChannelConfig(ChannelConfig::TRANSPORT_MUX_STREAM,
                     kDefaultStreamVersion,

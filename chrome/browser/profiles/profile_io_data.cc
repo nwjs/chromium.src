@@ -66,9 +66,10 @@
 #include "net/url_request/file_protocol_handler.h"
 #include "net/url_request/ftp_protocol_handler.h"
 #include "net/url_request/url_request.h"
+#include "net/url_request/url_request_job_factory_impl.h"
 
 #if !defined(OS_ANDROID)
-#include "chrome/browser/managed_mode.h"
+#include "chrome/browser/managed_mode/managed_mode.h"
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -151,20 +152,6 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
   params->accept_charset =
       net::HttpUtil::GenerateAcceptCharsetHeader(default_charset);
 
-  // At this point, we don't know the charset of the referring page
-  // where a url request originates from. This is used to get a suggested
-  // filename from Content-Disposition header made of raw 8bit characters.
-  // Down the road, it can be overriden if it becomes known (for instance,
-  // when download request is made through the context menu in a web page).
-  // At the moment, it'll remain 'undeterministic' when a user
-  // types a URL in the omnibar or click on a download link in a page.
-  // For the latter, we need a change on the webkit-side.
-  // We initialize it to the default charset here and a user will
-  // have an *arguably* better default charset for interpreting a raw 8bit
-  // C-D header field.  It means the native OS codepage fallback in
-  // net_util::GetSuggestedFilename is unlikely to be taken.
-  params->referrer_charset = default_charset;
-
   params->io_thread = g_browser_process->io_thread();
 
   params->cookie_settings = CookieSettings::Factory::GetForProfile(profile);
@@ -214,7 +201,8 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
 
 #if defined(ENABLE_PRINTING)
   printing_enabled_.Init(prefs::kPrintingEnabled, pref_service, NULL);
-  printing_enabled_.MoveToThread(BrowserThread::IO);
+  printing_enabled_.MoveToThread(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO));
 #endif
 
   // The URLBlacklistManager has to be created on the UI thread to register
@@ -385,17 +373,18 @@ ProfileIOData::GetExtensionsRequestContext() const {
 ChromeURLRequestContext*
 ProfileIOData::GetIsolatedAppRequestContext(
     ChromeURLRequestContext* main_context,
-    const std::string& app_id,
+    const StoragePartitionDescriptor& partition_descriptor,
     scoped_ptr<net::URLRequestJobFactory::Interceptor>
         protocol_handler_interceptor) const {
   LazyInitialize();
   ChromeURLRequestContext* context = NULL;
-  if (ContainsKey(app_request_context_map_, app_id)) {
-    context = app_request_context_map_[app_id];
+  if (ContainsKey(app_request_context_map_, partition_descriptor)) {
+    context = app_request_context_map_[partition_descriptor];
   } else {
     context = AcquireIsolatedAppRequestContext(
-        main_context, app_id, protocol_handler_interceptor.Pass());
-    app_request_context_map_[app_id] = context;
+        main_context, partition_descriptor,
+        protocol_handler_interceptor.Pass());
+    app_request_context_map_[partition_descriptor] = context;
   }
   DCHECK(context);
   return context;
@@ -404,14 +393,15 @@ ProfileIOData::GetIsolatedAppRequestContext(
 ChromeURLRequestContext*
 ProfileIOData::GetIsolatedMediaRequestContext(
     ChromeURLRequestContext* app_context,
-    const std::string& app_id) const {
+    const StoragePartitionDescriptor& partition_descriptor) const {
   LazyInitialize();
   ChromeURLRequestContext* context = NULL;
-  if (ContainsKey(isolated_media_request_context_map_, app_id)) {
-    context = isolated_media_request_context_map_[app_id];
+  if (ContainsKey(isolated_media_request_context_map_, partition_descriptor)) {
+    context = isolated_media_request_context_map_[partition_descriptor];
   } else {
-    context = AcquireIsolatedMediaRequestContext(app_context, app_id);
-    isolated_media_request_context_map_[app_id] = context;
+    context = AcquireIsolatedMediaRequestContext(app_context,
+                                                 partition_descriptor);
+    isolated_media_request_context_map_[partition_descriptor] = context;
   }
   DCHECK(context);
   return context;
@@ -447,7 +437,8 @@ void ProfileIOData::InitializeMetricsEnabledStateOnUIThread() {
   enable_metrics_.Init(prefs::kMetricsReportingEnabled,
                        g_browser_process->local_state(),
                        NULL);
-  enable_metrics_.MoveToThread(BrowserThread::IO);
+  enable_metrics_.MoveToThread(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO));
 #endif  // defined(OS_CHROMEOS)
 }
 
@@ -594,12 +585,11 @@ void ProfileIOData::ApplyProfileParamsToContext(
   context->set_is_incognito(is_incognito());
   context->set_accept_language(profile_params_->accept_language);
   context->set_accept_charset(profile_params_->accept_charset);
-  context->set_referrer_charset(profile_params_->referrer_charset);
   context->set_ssl_config_service(profile_params_->ssl_config_service);
 }
 
 void ProfileIOData::SetUpJobFactoryDefaults(
-    net::URLRequestJobFactory* job_factory,
+    net::URLRequestJobFactoryImpl* job_factory,
     scoped_ptr<net::URLRequestJobFactory::Interceptor>
         protocol_handler_interceptor,
     net::NetworkDelegate* network_delegate,

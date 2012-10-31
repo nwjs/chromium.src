@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 public class AndroidWebViewTestBase
         extends ActivityInstrumentationTestCase2<AndroidWebViewTestRunnerActivity> {
     protected static int WAIT_TIMEOUT_SECONDS = 15;
+    private static final int CHECK_INTERVAL = 100;
     protected static final boolean NORMAL_VIEW = false;
     protected static final boolean INCOGNITO_VIEW = true;
 
@@ -121,6 +122,37 @@ public class AndroidWebViewTestBase
                 awContents.loadUrl(new LoadUrlParams(url));
             }
         });
+    }
+
+    /**
+     * Posts url on the UI thread and blocks until onPageFinished is called.
+     */
+    protected void postUrlSync(final AwContents awContents,
+            CallbackHelper onPageFinishedHelper, final String url,
+            byte[] postData) throws Throwable {
+        int currentCallCount = onPageFinishedHelper.getCallCount();
+        postUrlAsync(awContents, url, postData);
+        onPageFinishedHelper.waitForCallback(currentCallCount, 1, WAIT_TIMEOUT_SECONDS,
+                TimeUnit.SECONDS);
+    }
+
+    /**
+     * Loads url on the UI thread but does not block.
+     */
+    protected void postUrlAsync(final AwContents awContents,
+            final String url, byte[] postData) throws Throwable {
+        class PostUrl implements Runnable {
+            byte[] mPostData;
+            public PostUrl(byte[] postData) {
+                mPostData = postData;
+            }
+            @Override
+            public void run() {
+                awContents.loadUrl(LoadUrlParams.createLoadHttpPostParams(url,
+                        mPostData));
+            }
+        }
+        runTestOnUiThread(new PostUrl(postData));
     }
 
     /**

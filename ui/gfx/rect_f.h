@@ -27,14 +27,15 @@ class UI_EXPORT RectF : public RectBase<RectF, PointF, SizeF, InsetsF, float> {
   ~RectF();
 
   /// Scales the rectangle by |scale|.
-  RectF Scale(float scale) const WARN_UNUSED_RESULT {
-    return Scale(scale, scale);
+  void Scale(float scale) {
+    Scale(scale, scale);
   }
 
-  RectF Scale(float x_scale, float y_scale) const WARN_UNUSED_RESULT {
+  void Scale(float x_scale, float y_scale) {
     SizeF newSize = size().Scale(x_scale, y_scale);
     newSize.ClampToNonNegative();
-    return RectF(origin().Scale(x_scale, y_scale), newSize);
+    set_origin(origin().Scale(x_scale, y_scale));
+    set_size(newSize);
   }
 
   std::string ToString() const;
@@ -46,6 +47,15 @@ inline bool operator==(const RectF& lhs, const RectF& rhs) {
 
 inline bool operator!=(const RectF& lhs, const RectF& rhs) {
   return !(lhs == rhs);
+}
+
+UI_EXPORT RectF IntersectRects(const RectF& a, const RectF& b);
+UI_EXPORT RectF UnionRects(const RectF& a, const RectF& b);
+UI_EXPORT RectF SubtractRects(const RectF& a, const RectF& b);
+UI_EXPORT RectF ScaleRect(const RectF& r, float x_scale, float y_scale);
+
+inline RectF ScaleRect(const RectF& r, float scale) {
+  return ScaleRect(r, scale, scale);
 }
 
 #if !defined(COMPILER_MSVC)

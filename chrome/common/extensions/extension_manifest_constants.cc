@@ -89,6 +89,7 @@ const char kPermissions[] = "permissions";
 const char kPlatformAppBackground[] = "app.background";
 const char kPlatformAppBackgroundPage[] = "app.background.page";
 const char kPlatformAppBackgroundScripts[] = "app.background.scripts";
+const char kPlatformAppContentSecurityPolicy[] = "app.content_security_policy";
 const char kPlugins[] = "plugins";
 const char kPluginsPath[] = "path";
 const char kPluginsPublic[] = "public";
@@ -255,6 +256,9 @@ const char kInvalidIcons[] =
     "Invalid value for 'icons'.";
 const char kInvalidIncognitoBehavior[] =
     "Invalid value for 'incognito'.";
+const char kInvalidIncognitoModeForPlatformApp[] =
+    "Invalid value for 'incognito'. Packaged apps must use split incognito "
+    "mode.";
 const char kInvalidInputComponents[] =
     "Invalid value for 'input_components'";
 const char kInvalidInputComponentDescription[] =

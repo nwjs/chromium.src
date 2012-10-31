@@ -51,6 +51,7 @@ using content::BrowserThread;
 using content::DownloadItem;
 using content::DownloadManager;
 using content::DownloadPersistentStoreInfo;
+using content::URLRequestMockHTTPJob;
 using content::WebContents;
 
 const FilePath::CharType kTestDir[] = FILE_PATH_LITERAL("save_page");
@@ -423,7 +424,9 @@ IN_PROC_BROWSER_TEST_F(SavePageBrowserTest, SaveHTMLOnlyCancel) {
       full_file_name));
 }
 
-IN_PROC_BROWSER_TEST_F(SavePageBrowserTest, SaveHTMLOnlyTabDestroy) {
+// SavePageBrowserTest.SaveHTMLOnlyTabDestroy is flaky.
+// See http://crbug.com/144751.
+IN_PROC_BROWSER_TEST_F(SavePageBrowserTest, DISABLED_SaveHTMLOnlyTabDestroy) {
   GURL url = NavigateToMockURL("a");
   DownloadManager* manager(GetDownloadManager());
   std::vector<DownloadItem*> downloads;

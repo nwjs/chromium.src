@@ -6,9 +6,10 @@
 
 #include "cc/layer_tree_host_impl.h"
 
-#include "CCDelegatedRendererLayerImpl.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/hash_tables.h"
+#include "cc/delegated_renderer_layer_impl.h"
 #include "cc/gl_renderer.h"
 #include "cc/heads_up_display_layer_impl.h"
 #include "cc/io_surface_layer_impl.h"
@@ -34,6 +35,8 @@
 #include "cc/tile_draw_quad.h"
 #include "cc/tiled_layer_impl.h"
 #include "cc/video_layer_impl.h"
+#include "media/base/media.h"
+#include "media/base/video_frame.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebVideoFrame.h>
@@ -44,6 +47,7 @@ using namespace LayerTestCommon;
 using namespace WebKit;
 using namespace WebKitTests;
 
+using media::VideoFrame;
 using ::testing::Mock;
 using ::testing::Return;
 using ::testing::AnyNumber;
@@ -63,6 +67,7 @@ public:
         , m_didRequestRedraw(false)
         , m_reduceMemoryResult(true)
     {
+        media::InitializeMediaLibraryForTesting();
     }
 
     virtual void SetUp()
@@ -82,12 +87,13 @@ public:
 
     virtual void didLoseContextOnImplThread() OVERRIDE { }
     virtual void onSwapBuffersCompleteOnImplThread() OVERRIDE { }
-    virtual void onVSyncParametersChanged(double, double) OVERRIDE { }
+    virtual void onVSyncParametersChanged(base::TimeTicks, base::TimeDelta) OVERRIDE { }
     virtual void onCanDrawStateChanged(bool canDraw) OVERRIDE { m_onCanDrawStateChangedCalled = true; }
     virtual void setNeedsRedrawOnImplThread() OVERRIDE { m_didRequestRedraw = true; }
     virtual void setNeedsCommitOnImplThread() OVERRIDE { m_didRequestCommit = true; }
-    virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector>, double wallClockTime) OVERRIDE { }
+    virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector>, base::Time wallClockTime) OVERRIDE { }
     virtual bool reduceContentsTextureMemoryOnImplThread(size_t limitBytes, int priorityCutoff) OVERRIDE { return m_reduceMemoryResult; }
+    virtual void sendManagedMemoryStats() OVERRIDE { }
 
     void setReduceMemoryResult(bool reduceMemoryResult) { m_reduceMemoryResult = reduceMemoryResult; }
 
@@ -600,7 +606,7 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
             // Pushed to (0,0) via clamping against contents layer size.
             expectContains(*scrollInfo, scrollLayer->id(), IntSize(-50, -50));
         } else {
-            EXPECT_TRUE(scrollInfo->scrolls.isEmpty());
+            EXPECT_TRUE(scrollInfo->scrolls.empty());
         }
     }
 
@@ -634,10 +640,10 @@ TEST_P(LayerTreeHostImplTest, pageScaleAnimation)
 
     const float minPageScale = Settings::pageScalePinchZoomEnabled() ? 1 : 0.5;
     const float maxPageScale = 4;
-    const double startTime = 1;
-    const double duration = 0.1;
-    const double halfwayThroughAnimation = startTime + duration / 2;
-    const double endTime = startTime + duration;
+    const base::TimeTicks startTime = base::TimeTicks() + base::TimeDelta::FromSeconds(1);
+    const base::TimeDelta duration = base::TimeDelta::FromMilliseconds(100);
+    const base::TimeTicks halfwayThroughAnimation = startTime + duration / 2;
+    const base::TimeTicks endTime = startTime + duration;
     const WebTransformationMatrix identityScaleTransform;
 
     // Non-anchor zoom-in
@@ -647,9 +653,9 @@ TEST_P(LayerTreeHostImplTest, pageScaleAnimation)
         scrollLayer->setScrollPosition(IntPoint(50, 50));
 
         m_hostImpl->startPageScaleAnimation(IntSize(0, 0), false, 2, startTime, duration);
-        m_hostImpl->animate(halfwayThroughAnimation, halfwayThroughAnimation);
+        m_hostImpl->animate(halfwayThroughAnimation, base::Time());
         EXPECT_TRUE(m_didRequestRedraw);
-        m_hostImpl->animate(endTime, endTime);
+        m_hostImpl->animate(endTime, base::Time());
         EXPECT_TRUE(m_didRequestCommit);
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
@@ -664,7 +670,7 @@ TEST_P(LayerTreeHostImplTest, pageScaleAnimation)
         scrollLayer->setScrollPosition(IntPoint(50, 50));
 
         m_hostImpl->startPageScaleAnimation(IntSize(25, 25), true, minPageScale, startTime, duration);
-        m_hostImpl->animate(endTime, endTime);
+        m_hostImpl->animate(endTime, base::Time());
         EXPECT_TRUE(m_didRequestRedraw);
         EXPECT_TRUE(m_didRequestCommit);
 
@@ -708,7 +714,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
         if (!Settings::pageScalePinchZoomEnabled()) {
             expectContains(*scrollInfo, scrollLayer->id(), IntSize(25, 25));
         } else {
-            EXPECT_TRUE(scrollInfo->scrolls.isEmpty());
+            EXPECT_TRUE(scrollInfo->scrolls.empty());
         }
     }
 
@@ -728,7 +734,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
             expectContains(*scrollInfo, scrollLayer->id(), IntSize(0, 0));
         } else {
             EXPECT_EQ(scrollInfo->pageScaleDelta, 1);
-            EXPECT_TRUE(scrollInfo->scrolls.isEmpty());
+            EXPECT_TRUE(scrollInfo->scrolls.empty());
         }
 
         // Once the gesture ends, we get the final scroll and page scale values.
@@ -755,11 +761,10 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhileAnimatingPage
 
     const float minPageScale = Settings::pageScalePinchZoomEnabled() ? 1 : 0.5;
     const float maxPageScale = 4;
-    const double startTime = 1;
-    const double duration = 0.1;
-    const double halfwayThroughAnimation = startTime + duration / 2;
-    const double endTime = startTime + duration;
-
+    const base::TimeTicks startTime = base::TimeTicks() + base::TimeDelta::FromSeconds(1);
+    const base::TimeDelta duration = base::TimeDelta::FromMilliseconds(100);
+    const base::TimeTicks halfwayThroughAnimation = startTime + duration / 2;
+    const base::TimeTicks endTime = startTime + duration;
     // Start a page scale animation.
     const float pageScaleDelta = 2;
     m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
@@ -767,7 +772,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhileAnimatingPage
 
     // We should immediately get the final zoom and scroll values for the
     // animation.
-    m_hostImpl->animate(halfwayThroughAnimation, halfwayThroughAnimation);
+    m_hostImpl->animate(halfwayThroughAnimation, base::Time());
     scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
 
     if (!Settings::pageScalePinchZoomEnabled()) {
@@ -775,7 +780,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhileAnimatingPage
         expectContains(*scrollInfo, scrollLayer->id(), IntSize(25, 25));
     } else {
         EXPECT_EQ(scrollInfo->pageScaleDelta, 1);
-        EXPECT_TRUE(scrollInfo->scrolls.isEmpty());
+        EXPECT_TRUE(scrollInfo->scrolls.empty());
     }
 
     // Scrolling during the animation is ignored.
@@ -786,7 +791,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhileAnimatingPage
 
     // The final page scale and scroll deltas should match what we got
     // earlier.
-    m_hostImpl->animate(endTime, endTime);
+    m_hostImpl->animate(endTime, base::Time());
     scrollInfo = m_hostImpl->processScrollDeltas();
     EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
     expectContains(*scrollInfo, scrollLayer->id(), IntSize(25, 25));
@@ -1786,19 +1791,20 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
     IntSize viewportSize(1000, 1000);
     m_hostImpl->setViewportSize(viewportSize, viewportSize);
 
-    m_hostImpl->setRootLayer(BlendStateCheckLayer::create(1, m_hostImpl->resourceProvider()));
-    BlendStateCheckLayer* root = static_cast<BlendStateCheckLayer*>(m_hostImpl->rootLayer());
-    root->setExpectation(false, true);
-    root->setContentsOpaque(true);
+    m_hostImpl->setRootLayer(LayerImpl::create(1));
+    m_hostImpl->rootLayer()->addChild(BlendStateCheckLayer::create(2, m_hostImpl->resourceProvider()));
+    BlendStateCheckLayer* child = static_cast<BlendStateCheckLayer*>(m_hostImpl->rootLayer()->children()[0]);
+    child->setExpectation(false, false);
+    child->setContentsOpaque(true);
 
     // No gutter rects
     {
         IntRect layerRect(0, 0, 1000, 1000);
-        root->setPosition(layerRect.location());
-        root->setBounds(layerRect.size());
-        root->setContentBounds(layerRect.size());
-        root->setQuadRect(IntRect(IntPoint(), layerRect.size()));
-        root->setQuadVisibleRect(IntRect(IntPoint(), layerRect.size()));
+        child->setPosition(layerRect.location());
+        child->setBounds(layerRect.size());
+        child->setContentBounds(layerRect.size());
+        child->setQuadRect(IntRect(IntPoint(), layerRect.size()));
+        child->setQuadVisibleRect(IntRect(IntPoint(), layerRect.size()));
 
         LayerTreeHostImpl::FrameData frame;
         EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
@@ -1810,18 +1816,18 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
         EXPECT_EQ(0u, numGutterQuads);
         EXPECT_EQ(1u, frame.renderPasses[0]->quadList().size());
 
-        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), IntRect(-layerRect.location(), viewportSize));
+        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), IntRect(IntPoint::zero(), viewportSize));
         m_hostImpl->didDrawAllLayers(frame);
     }
 
     // Empty visible content area (fullscreen gutter rect)
     {
         IntRect layerRect(0, 0, 0, 0);
-        root->setPosition(layerRect.location());
-        root->setBounds(layerRect.size());
-        root->setContentBounds(layerRect.size());
-        root->setQuadRect(IntRect(IntPoint(), layerRect.size()));
-        root->setQuadVisibleRect(IntRect(IntPoint(), layerRect.size()));
+        child->setPosition(layerRect.location());
+        child->setBounds(layerRect.size());
+        child->setContentBounds(layerRect.size());
+        child->setQuadRect(IntRect(IntPoint(), layerRect.size()));
+        child->setQuadVisibleRect(IntRect(IntPoint(), layerRect.size()));
 
         LayerTreeHostImpl::FrameData frame;
         EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
@@ -1834,18 +1840,18 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
         EXPECT_EQ(1u, numGutterQuads);
         EXPECT_EQ(1u, frame.renderPasses[0]->quadList().size());
 
-        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), IntRect(-layerRect.location(), viewportSize));
+        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), IntRect(IntPoint::zero(), viewportSize));
         m_hostImpl->didDrawAllLayers(frame);
     }
 
     // Content area in middle of clip rect (four surrounding gutter rects)
     {
         IntRect layerRect(500, 500, 200, 200);
-        root->setPosition(layerRect.location());
-        root->setBounds(layerRect.size());
-        root->setContentBounds(layerRect.size());
-        root->setQuadRect(IntRect(IntPoint(), layerRect.size()));
-        root->setQuadVisibleRect(IntRect(IntPoint(), layerRect.size()));
+        child->setPosition(layerRect.location());
+        child->setBounds(layerRect.size());
+        child->setContentBounds(layerRect.size());
+        child->setQuadRect(IntRect(IntPoint(), layerRect.size()));
+        child->setQuadVisibleRect(IntRect(IntPoint(), layerRect.size()));
 
         LayerTreeHostImpl::FrameData frame;
         EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
@@ -1857,7 +1863,7 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
         EXPECT_EQ(4u, numGutterQuads);
         EXPECT_EQ(5u, frame.renderPasses[0]->quadList().size());
 
-        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), IntRect(-layerRect.location(), viewportSize));
+        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), IntRect(IntPoint::zero(), viewportSize));
         m_hostImpl->didDrawAllLayers(frame);
     }
 
@@ -2532,25 +2538,31 @@ private:
     base::hash_set<unsigned> m_allocatedTextureIds;
 };
 
-// Fake video frame that represents a 4x4 YUV video frame.
+// Fake WebVideoFrame wrapper of media::VideoFrame.
 class FakeVideoFrame: public WebVideoFrame {
 public:
-    FakeVideoFrame() : m_textureId(0) { memset(m_data, 0x80, sizeof(m_data)); }
+    explicit FakeVideoFrame(const scoped_refptr<VideoFrame>& frame) : m_frame(frame) { }
     virtual ~FakeVideoFrame() { }
-    virtual Format format() const { return m_textureId ? FormatNativeTexture : FormatYV12; }
-    virtual unsigned width() const { return 4; }
-    virtual unsigned height() const { return 4; }
-    virtual unsigned planes() const { return 3; }
-    virtual int stride(unsigned plane) const { return 4; }
-    virtual const void* data(unsigned plane) const { return m_data; }
-    virtual unsigned textureId() const { return m_textureId; }
-    virtual unsigned textureTarget() const { return m_textureId ? GL_TEXTURE_2D : 0; }
 
-    void setTextureId(unsigned id) { m_textureId = id; }
+    virtual Format format() const { NOTREACHED(); return FormatInvalid; }
+    virtual unsigned width() const { NOTREACHED(); return 0; }
+    virtual unsigned height() const { NOTREACHED(); return 0; }
+    virtual unsigned planes() const { NOTREACHED(); return 0; }
+    virtual int stride(unsigned plane) const { NOTREACHED(); return 0; }
+    virtual const void* data(unsigned plane) const { NOTREACHED(); return NULL; }
+    virtual unsigned textureId() const { NOTREACHED(); return 0; }
+    virtual unsigned textureTarget() const { NOTREACHED(); return 0; }
+
+    static VideoFrame* toVideoFrame(WebVideoFrame* web_video_frame) {
+        FakeVideoFrame* wrapped_frame =
+            static_cast<FakeVideoFrame*>(web_video_frame);
+        if (wrapped_frame)
+            return wrapped_frame->m_frame.get();
+        return NULL;
+    }
 
 private:
-    char m_data[16];
-    unsigned m_textureId;
+    scoped_refptr<VideoFrame> m_frame;
 };
 
 // Fake video frame provider that always provides the same FakeVideoFrame.
@@ -2639,14 +2651,14 @@ static inline scoped_ptr<RenderPass> createRenderPassWithResource(ResourceProvid
 {
     ResourceProvider::ResourceId resourceId = provider->createResource(0, IntSize(1, 1), GL_RGBA, ResourceProvider::TextureUsageAny);
 
-    scoped_ptr<RenderPass> pass = RenderPass::create(RenderPass::Id(1, 1), IntRect(0, 0, 1, 1), WebTransformationMatrix());
+    scoped_ptr<TestRenderPass> pass = TestRenderPass::create(RenderPass::Id(1, 1), IntRect(0, 0, 1, 1), WebTransformationMatrix());
     scoped_ptr<SharedQuadState> sharedState = SharedQuadState::create(WebTransformationMatrix(), IntRect(0, 0, 1, 1), IntRect(0, 0, 1, 1), 1, false);
     scoped_ptr<TextureDrawQuad> quad = TextureDrawQuad::create(sharedState.get(), IntRect(0, 0, 1, 1), resourceId, false, FloatRect(0, 0, 1, 1), false);
 
-    static_cast<TestRenderPass*>(pass.get())->appendSharedQuadState(sharedState.Pass());
-    static_cast<TestRenderPass*>(pass.get())->appendQuad(quad.PassAs<DrawQuad>());
+    pass->appendSharedQuadState(sharedState.Pass());
+    pass->appendQuad(quad.PassAs<DrawQuad>());
 
-    return pass.Pass();
+    return pass.PassAs<RenderPass>();
 }
 
 TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
@@ -2695,10 +2707,15 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     textureLayerWithMask->setMaskLayer(maskLayer.PassAs<LayerImpl>());
     rootLayer->addChild(textureLayerWithMask.PassAs<LayerImpl>());
 
-    FakeVideoFrame videoFrame;
+    FakeVideoFrame videoFrame(VideoFrame::CreateColorFrame(gfx::Size(4, 4),
+                                                           0x80, 0x80, 0x80,
+                                                           base::TimeDelta()));
+    VideoLayerImpl::FrameUnwrapper unwrapper =
+        base::Bind(FakeVideoFrame::toVideoFrame);
     FakeVideoFrameProvider provider;
     provider.setFrame(&videoFrame);
-    scoped_ptr<VideoLayerImpl> videoLayer = VideoLayerImpl::create(layerId++, &provider);
+    scoped_ptr<VideoLayerImpl> videoLayer =
+        VideoLayerImpl::create(layerId++, &provider, unwrapper);
     videoLayer->setBounds(IntSize(10, 10));
     videoLayer->setAnchorPoint(FloatPoint(0, 0));
     videoLayer->setContentBounds(IntSize(10, 10));
@@ -2706,10 +2723,9 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     videoLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(videoLayer.PassAs<LayerImpl>());
 
-    FakeVideoFrame hwVideoFrame;
     FakeVideoFrameProvider hwProvider;
-    hwProvider.setFrame(&hwVideoFrame);
-    scoped_ptr<VideoLayerImpl> hwVideoLayer = VideoLayerImpl::create(layerId++, &hwProvider);
+    scoped_ptr<VideoLayerImpl> hwVideoLayer =
+        VideoLayerImpl::create(layerId++, &hwProvider, unwrapper);
     hwVideoLayer->setBounds(IntSize(10, 10));
     hwVideoLayer->setAnchorPoint(FloatPoint(0, 0));
     hwVideoLayer->setContentBounds(IntSize(10, 10));
@@ -2756,7 +2772,13 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     // Use a context that supports IOSurfaces
     m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new FakeWebGraphicsContext3DWithIOSurface)).PassAs<GraphicsContext>());
 
-    hwVideoFrame.setTextureId(m_hostImpl->resourceProvider()->graphicsContext3D()->createTexture());
+    FakeVideoFrame hwVideoFrame(
+        VideoFrame::WrapNativeTexture(
+            m_hostImpl->resourceProvider()->graphicsContext3D()->createTexture(),
+            GL_TEXTURE_2D,
+            gfx::Size(4, 4), gfx::Size(4, 4), base::TimeDelta(),
+            VideoFrame::ReadPixelsCB(), base::Closure()));
+    hwProvider.setFrame(&hwVideoFrame);
 
     m_hostImpl->setRootLayer(rootLayer.Pass());
 
@@ -2786,8 +2808,13 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     m_hostImpl->didDrawAllLayers(frame);
     m_hostImpl->swapBuffers();
 
-    hwVideoFrame.setTextureId(m_hostImpl->resourceProvider()->graphicsContext3D()->createTexture());
-    hwProvider.setFrame(&hwVideoFrame);
+    FakeVideoFrame hwVideoFrame2(
+        VideoFrame::WrapNativeTexture(
+            m_hostImpl->resourceProvider()->graphicsContext3D()->createTexture(),
+            GL_TEXTURE_2D,
+            gfx::Size(4, 4), gfx::Size(4, 4), base::TimeDelta(),
+            VideoFrame::ReadPixelsCB(), base::Closure()));
+    hwProvider.setFrame(&hwVideoFrame2);
 
     EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
     m_hostImpl->drawLayers(frame);
@@ -2862,8 +2889,11 @@ TEST_P(LayerTreeHostImplTest, layersFreeTextures)
     textureLayer->setTextureId(1);
     rootLayer->addChild(textureLayer.PassAs<LayerImpl>());
 
+    VideoLayerImpl::FrameUnwrapper unwrapper =
+        base::Bind(FakeVideoFrame::toVideoFrame);
     FakeVideoFrameProvider provider;
-    scoped_ptr<VideoLayerImpl> videoLayer = VideoLayerImpl::create(4, &provider);
+    scoped_ptr<VideoLayerImpl> videoLayer =
+        VideoLayerImpl::create(4, &provider, unwrapper);
     videoLayer->setBounds(IntSize(10, 10));
     videoLayer->setAnchorPoint(FloatPoint(0, 0));
     videoLayer->setContentBounds(IntSize(10, 10));
@@ -3837,9 +3867,9 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
         myHostImpl->didDrawAllLayers(frame);
     }
 
-    // Change opacity on the intermediate layer
+    // Change location of the intermediate layer
     WebTransformationMatrix transform = intermediateLayerPtr->transform();
-    transform.setM11(1.0001);
+    transform.setM41(1.0001);
     intermediateLayerPtr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -4000,9 +4030,9 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
         myHostImpl->didDrawAllLayers(frame);
     }
 
-    // Change opacity on the intermediate layer
+    // Change location of the intermediate layer
     WebTransformationMatrix transform = intermediateLayerPtr->transform();
-    transform.setM11(1.0001);
+    transform.setM41(1.0001);
     intermediateLayerPtr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -4051,7 +4081,7 @@ TEST_P(LayerTreeHostImplTest, releaseContentsTextureShouldTriggerCommit)
 }
 
 struct RenderPassRemovalTestData : public LayerTreeHostImpl::FrameData {
-    ScopedPtrHashMap<RenderPass::Id, RenderPass> renderPassCache;
+    ScopedPtrHashMap<RenderPass::Id, TestRenderPass> renderPassCache;
     scoped_ptr<SharedQuadState> sharedQuadState;
 };
 
@@ -4100,7 +4130,7 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
 
     // Pre-create root pass
     RenderPass::Id rootRenderPassId = RenderPass::Id(testScript[0], testScript[1]);
-    testData.renderPassCache.add(rootRenderPassId, RenderPass::create(rootRenderPassId, IntRect(), WebTransformationMatrix()));
+    testData.renderPassCache.add(rootRenderPassId, TestRenderPass::create(rootRenderPassId, IntRect(), WebTransformationMatrix()));
     while (*currentChar) {
         int layerId = *currentChar;
         currentChar++;
@@ -4114,7 +4144,7 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
         if (!testData.renderPassCache.contains(renderPassId))
             isReplica = true;
 
-        scoped_ptr<RenderPass> renderPass = testData.renderPassCache.take(renderPassId);
+        scoped_ptr<TestRenderPass> renderPass = testData.renderPassCache.take(renderPassId);
 
         // Cycle through quad data and create all quads
         while (*currentChar && *currentChar != '\n') {
@@ -4122,7 +4152,7 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
                 // Solid color draw quad
                 scoped_ptr<SolidColorDrawQuad> quad = SolidColorDrawQuad::create(testData.sharedQuadState.get(), IntRect(0, 0, 10, 10), SK_ColorWHITE);
                 
-                static_cast<TestRenderPass*>(renderPass.get())->appendQuad(quad.PassAs<DrawQuad>());
+                renderPass->appendQuad(quad.PassAs<DrawQuad>());
                 currentChar++;
             } else if ((*currentChar >= 'A') && (*currentChar <= 'Z')) {
                 // RenderPass draw quad
@@ -4163,11 +4193,11 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
                 IntRect quadRect = IntRect(0, 0, 1, 1);
                 IntRect contentsChangedRect = contentsChanged ? quadRect : IntRect();
                 scoped_ptr<RenderPassDrawQuad> quad = RenderPassDrawQuad::create(testData.sharedQuadState.get(), quadRect, newRenderPassId, isReplica, 1, contentsChangedRect, 1, 1, 0, 0);
-                static_cast<TestRenderPass*>(renderPass.get())->appendQuad(quad.PassAs<DrawQuad>());
+                renderPass->appendQuad(quad.PassAs<DrawQuad>());
             }
         }
         testData.renderPasses.insert(testData.renderPasses.begin(), renderPass.get());
-        testData.renderPassesById.add(renderPassId, renderPass.Pass());
+        testData.renderPassesById.add(renderPassId, renderPass.PassAs<RenderPass>());
         if (*currentChar)
             currentChar++;
     }

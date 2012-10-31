@@ -455,16 +455,16 @@ void WebPluginDelegateImpl::WindowlessPaint(gfx::NativeDrawingContext context,
   base::StatsRate plugin_paint("Plugin.Paint");
   base::StatsScope<base::StatsRate> scope(plugin_paint);
 
-  gfx::Rect paint_rect;
+  gfx::Rect paint_rect = damage_rect;
   if (use_buffer_context_) {
     // Plugin invalidates trigger asynchronous paints with the original
     // invalidation rect; the plugin may be resized before the paint is handled,
     // so we need to ensure that the damage rect is still sane.
-    paint_rect = damage_rect.Intersect(
+    paint_rect.Intersect(
         gfx::Rect(0, 0, window_rect_.width(), window_rect_.height()));
   } else {
     // Use the actual window region when drawing directly to the window context.
-    paint_rect = damage_rect.Intersect(window_rect_);
+    paint_rect.Intersect(window_rect_);
   }
 
   ScopedActiveDelegate active_delegate(this);
@@ -644,16 +644,6 @@ void WebPluginDelegateImpl::ImeCompositionCompleted(const string16& text) {
     instance()->NPP_HandleEvent(&text_event);
   }
 }
-
-#ifndef NP_NO_CARBON
-void WebPluginDelegateImpl::SetThemeCursor(ThemeCursor cursor) {
-  current_windowless_cursor_.InitFromThemeCursor(cursor);
-}
-
-void WebPluginDelegateImpl::SetCarbonCursor(const Cursor* cursor) {
-  current_windowless_cursor_.InitFromCursor(cursor);
-}
-#endif
 
 void WebPluginDelegateImpl::SetNSCursor(NSCursor* cursor) {
   current_windowless_cursor_.InitFromNSCursor(cursor);

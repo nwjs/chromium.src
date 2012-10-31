@@ -10,9 +10,9 @@
 #include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/autofill/test_autofill_external_delegate.h"
 #include "chrome/browser/ui/autofill/tab_autofill_manager_delegate.h"
-#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/common/form_data.h"
 #include "chrome/common/form_field_data.h"
+#include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -45,15 +45,11 @@ class MockAutofillExternalDelegate : public TestAutofillExternalDelegate {
       const std::vector<string16>& autofill_icons,
       const std::vector<int>& autofill_unique_ids));
 
-  MOCK_METHOD4(OnQueryPlatformSpecific,
-               void(int query_id,
-                    const FormData& form,
-                    const FormFieldData& field,
-                    const gfx::Rect& bounds));
-
   MOCK_METHOD0(ClearPreviewedForm, void());
 
   MOCK_METHOD0(HideAutofillPopup, void());
+
+  MOCK_METHOD1(SetBounds, void(const gfx::Rect& bounds));
 
  private:
   virtual void HideAutofillPopupInternal() {};
@@ -80,7 +76,8 @@ class MockAutofillManager : public AutofillManager {
 
 }  // namespace
 
-class AutofillExternalDelegateUnitTest : public TabContentsTestHarness {
+class AutofillExternalDelegateUnitTest
+    : public ChromeRenderViewHostTestHarness {
  public:
   AutofillExternalDelegateUnitTest()
       : ui_thread_(BrowserThread::UI, &message_loop_) {}
@@ -96,10 +93,7 @@ class AutofillExternalDelegateUnitTest : public TabContentsTestHarness {
     field.should_autocomplete = true;
     const gfx::Rect bounds;
 
-    EXPECT_CALL(*external_delegate_,
-                OnQueryPlatformSpecific(query_id, form, field, bounds));
-
-    // This should call OnQueryPlatform specific.
+    EXPECT_CALL(*external_delegate_, SetBounds(bounds));
     external_delegate_->OnQuery(query_id, form, field, bounds, false);
   }
 
@@ -108,7 +102,7 @@ class AutofillExternalDelegateUnitTest : public TabContentsTestHarness {
 
  private:
   virtual void SetUp() OVERRIDE {
-    TabContentsTestHarness::SetUp();
+    ChromeRenderViewHostTestHarness::SetUp();
     TabAutofillManagerDelegate::CreateForWebContents(web_contents());
     autofill_manager_ = new MockAutofillManager(
         web_contents(),
@@ -124,7 +118,7 @@ class AutofillExternalDelegateUnitTest : public TabContentsTestHarness {
     // AutofillManager is tied to the lifetime of the WebContents, so it must
     // be destroyed at the destruction of the WebContents.
     autofill_manager_ = NULL;
-    TabContentsTestHarness::TearDown();
+    ChromeRenderViewHostTestHarness::TearDown();
   }
 
   content::TestBrowserThread ui_thread_;

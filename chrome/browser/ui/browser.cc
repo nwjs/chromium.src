@@ -329,9 +329,8 @@ Browser::Browser(const CreateParams& params)
       ALLOW_THIS_IN_INITIALIZER_LIST(
           tab_strip_model_delegate_(
             new chrome::BrowserTabStripModelDelegate(this))),
-      ALLOW_THIS_IN_INITIALIZER_LIST(
-          tab_strip_model_(new TabStripModel(tab_strip_model_delegate_.get(),
-                                             params.profile))),
+      tab_strip_model_(new TabStripModel(tab_strip_model_delegate_.get(),
+                                         params.profile)),
       app_name_(params.app_name),
       app_type_(params.app_type),
       chrome_updater_factory_(this),
@@ -481,7 +480,7 @@ Browser::~Browser() {
     tab_restore_service->BrowserClosed(tab_restore_service_delegate());
 
 #if !defined(OS_MACOSX)
-  if (!browser::GetBrowserCount(profile_)) {
+  if (!chrome::GetBrowserCount(profile_)) {
     // We're the last browser window with this profile. We need to nuke the
     // TabRestoreService, which will start the shutdown of the
     // NavigationControllers and allow for proper shutdown. If we don't do this
@@ -1654,8 +1653,41 @@ void Browser::WebIntentDispatch(
     content::WebIntentsDispatcher* intents_dispatcher) {
   if (!web_intents::IsWebIntentsEnabledForProfile(profile_)) {
     web_intents::RecordIntentsDispatchDisabled();
+    delete intents_dispatcher;
     return;
   }
+
+  // Make sure the requester is coming from an extension/app page.
+  // Internal dispatches set |web_contents| to NULL.
+#if !defined(OS_CHROMEOS)
+  if (web_contents &&
+      !CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kWebIntentsInvocationEnabled)) {
+    ExtensionService* extensions_service = profile_->GetExtensionService();
+    if (!extensions_service ||
+        extensions_service->extensions()->GetExtensionOrAppByURL(
+            ExtensionURLInfo(web_contents->GetURL())) == NULL) {
+      web_intents::RecordIntentsDispatchDisabled();
+      intents_dispatcher->SendReplyMessage(
+          webkit_glue::WEB_INTENT_REPLY_FAILURE,
+          ASCIIToUTF16("Intents may only be invoked from extensions/apps."));
+      return;
+    }
+  }
+#else
+  // ChromeOS currently uses a couple specific intent actions.
+  // TODO(gbillock): delete this when we find good alternatives for those uses.
+  if (intents_dispatcher->GetIntent().action !=
+      ASCIIToUTF16(web_intents::kActionCrosEcho) &&
+      intents_dispatcher->GetIntent().action !=
+      ASCIIToUTF16(web_intents::kActionView)) {
+    web_intents::RecordIntentsDispatchDisabled();
+    intents_dispatcher->SendReplyMessage(
+        webkit_glue::WEB_INTENT_REPLY_FAILURE,
+        ASCIIToUTF16("Intents may only be invoked from extensions/apps."));
+    return;
+  }
+#endif
 
   web_intents::RecordIntentDispatchRequested();
 
@@ -1754,8 +1786,14 @@ void Browser::SetTabContentBlocked(content::WebContents* web_contents,
     web_contents->Focus();
 }
 
-BrowserWindow* Browser::GetBrowserWindow() {
-  return window();
+bool Browser::GetConstrainedWindowTopCenter(gfx::Point* point) {
+  int y = 0;
+  if (window_->GetConstrainedWindowTopY(&y)) {
+    *point = gfx::Point(window_->GetBounds().width() / 2, y);
+    return true;
+  }
+
+  return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2201,7 +2239,9 @@ void Browser::UpdateBookmarkBarState(BookmarkBarStateChangeReason reason) {
   if (browser_defaults::bookmarks_enabled &&
       profile_->GetPrefs()->GetBoolean(prefs::kShowBookmarkBar) &&
       (!window_ || !window_->IsFullscreen())) {
-    state = BookmarkBar::SHOW;
+    // Always show detached mode if search mode is |NTP|.
+    state = search_model_->mode().is_ntp() ?
+        BookmarkBar::DETACHED : BookmarkBar::SHOW;
   } else {
     WebContents* web_contents = chrome::GetActiveWebContents(this);
     BookmarkTabHelper* bookmark_tab_helper =
@@ -2212,8 +2252,8 @@ void Browser::UpdateBookmarkBarState(BookmarkBarStateChangeReason reason) {
       state = BookmarkBar::HIDDEN;
   }
 
-  // Only allow the bookmark bar to be shown in default mode.
-  if (!search_model_->mode().is_default())
+  // Don't allow the bookmark bar to be shown in suggestions mode.
+  if (search_model_->mode().is_search_suggestions())
     state = BookmarkBar::HIDDEN;
 
   if (state == bookmark_bar_state_)

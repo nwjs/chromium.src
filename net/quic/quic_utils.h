@@ -7,13 +7,12 @@
 #ifndef NET_QUIC_QUIC_UTILS_H_
 #define NET_QUIC_QUIC_UTILS_H_
 
-#include <string>
-
 #include "net/base/net_export.h"
 #include "net/quic/quic_protocol.h"
 #include "net/quic/uint128.h"
 
-class SocketAddress;
+class IPAddress;
+class IPEndPoint;
 
 namespace gfe2 {
   class BalsaHeaders;
@@ -25,7 +24,7 @@ class NET_EXPORT_PRIVATE QuicUtils {
  public:
   // The overhead the quic framing will add for a packet with num_frames
   // frames.
-  static int StreamFramePacketOverhead(int num_frames);
+  static size_t StreamFramePacketOverhead(int num_frames);
 
   // returns the 128 bit FNV1a hash of the data.  See
   // http://www.isthe.com/chongo/tech/comp/fnv/index.html#FNV-param

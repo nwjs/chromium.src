@@ -252,10 +252,6 @@ const char kEnableAccessibilityLogging[]    = "enable-accessibility-logging";
 const char kEnableBrowserPluginForAllViewTypes[] =
     "enable-browser-plugin-for-all-view-types";
 
-// Enables old implementation path for browser plugin instead of current one.
-const char kEnableBrowserPluginOldImplementation[] =
-    "enable-browser-plugin-old-implementation";
-
 // Enables the creation of compositing layers for fixed position elements.
 const char kEnableCompositingForFixedPosition[] =
      "enable-fixed-position-compositing";
@@ -309,6 +305,9 @@ const char kDisableWebMediaPlayerMS[]       = "disable-web-media-player-ms";
 // Enables the deprecated PeerConnection functionality.
 const char kEnableDeprecatedPeerConnection[] =
     "enable-deprecated-peer-connection";
+
+// Use fake device for MediaStream to replace actual camera and microphone.
+const char kUseFakeDeviceForMediaStream[] = "use-fake-device-for-media-stream";
 
 // On Windows, converts the page to the currently-installed monitor profile.
 // This does NOT enable color management for images. The source is still
@@ -741,5 +740,8 @@ const char kEnableFixedPositionCreatesStackingContext[]
     = "enable-fixed-position-creates-stacking-context";
 const char kDisableFixedPositionCreatesStackingContext[]
     = "disable-fixed-position-creates-stacking-context";
+
+// Defer image decoding in WebKit until painting.
+const char kEnableDeferredImageDecoding[] = "enable-deferred-image-decoding";
 
 }  // namespace switches

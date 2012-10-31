@@ -454,13 +454,11 @@ OmniboxViewWin::OmniboxViewWin(OmniboxEditController* controller,
                                LocationBarView* parent_view,
                                CommandUpdater* command_updater,
                                bool popup_window_mode,
-                               views::View* location_bar,
-                               views::View* popup_parent_view)
+                               views::View* location_bar)
     : OmniboxView(parent_view->profile(), controller, toolbar_model,
           command_updater),
       popup_view_(OmniboxPopupContentsView::Create(
-          parent_view->font(), this, model(), location_bar,
-          popup_parent_view)),
+          parent_view->font(), this, model(), location_bar)),
       parent_view_(parent_view),
       popup_window_mode_(popup_window_mode),
       force_hidden_(false),
@@ -480,7 +478,10 @@ OmniboxViewWin::OmniboxViewWin(OmniboxEditController* controller,
           chrome::search::IsInstantExtendedAPIEnabled(parent_view_->profile()),
           ToolbarModel::NONE, LocationBarView::BACKGROUND))),
       security_level_(ToolbarModel::NONE),
-      text_object_model_(NULL) {
+      text_object_model_(NULL),
+      ALLOW_THIS_IN_INITIALIZER_LIST(
+          tsf_event_router_(base::win::IsTsfAwareRequired() ?
+              new ui::TsfEventRouter(this) : NULL)) {
   if (!loaded_library_module_)
     loaded_library_module_ = LoadLibrary(kRichEditDLLName);
 
@@ -541,9 +542,6 @@ OmniboxViewWin::OmniboxViewWin(OmniboxEditController* controller,
     // the edit control will invoke RevokeDragDrop when it's being destroyed, so
     // we don't have to do so.
     scoped_refptr<EditDropTarget> drop_target(new EditDropTarget(this));
-
-    if (base::win::IsTsfAwareRequired())
-      tsf_event_router_ = ui::TsfEventRouter::Create();
   }
 }
 
@@ -554,9 +552,6 @@ OmniboxViewWin::~OmniboxViewWin() {
   // initialized, it may still be null.
   if (text_object_model_)
     text_object_model_->Release();
-
-  if (tsf_event_router_)
-    tsf_event_router_->SetManager(NULL, NULL);
 
   // We balance our reference count and unpatch when the last instance has
   // been destroyed.  This prevents us from relying on the AtExit or static
@@ -922,17 +917,6 @@ bool OmniboxViewWin::OnAfterPossibleChangeInternal(bool force_text_changed) {
   return something_changed;
 }
 
-void OmniboxViewWin::OnTextUpdated() {
-  if (ignore_ime_messages_)
-    return;
-  OnAfterPossibleChangeInternal(true);
-  // Call OnBeforePossibleChange function here to get correct diff in next IME
-  // update. The Text Services Framework does not provide any notification
-  // before entering edit session, therefore we don't have good place to call
-  // OnBeforePossibleChange.
-  OnBeforePossibleChange();
-}
-
 void OmniboxViewWin::OnCandidateWindowCountChanged(size_t window_count) {
   ime_candidate_window_open_ = (window_count != 0);
   if (ime_candidate_window_open_) {
@@ -943,6 +927,17 @@ void OmniboxViewWin::OnCandidateWindowCountChanged(size_t window_count) {
     // text.
     UpdatePopup();
   }
+}
+
+void OmniboxViewWin::OnTextUpdated(const ui::Range& /*composition_range*/) {
+  if (ignore_ime_messages_)
+    return;
+  OnAfterPossibleChangeInternal(true);
+  // Call OnBeforePossibleChange function here to get correct diff in next IME
+  // update. The Text Services Framework does not provide any notification
+  // before entering edit session, therefore we don't have good place to call
+  // OnBeforePossibleChange.
+  OnBeforePossibleChange();
 }
 
 gfx::NativeView OmniboxViewWin::GetNativeView() const {
@@ -966,9 +961,8 @@ gfx::NativeView OmniboxViewWin::GetRelativeWindowForPopup() const {
   return GetRelativeWindowForNativeView(GetNativeView());
 }
 
-void OmniboxViewWin::SetInstantSuggestion(const string16& suggestion,
-                                          bool animate_to_complete) {
-  parent_view_->SetInstantSuggestion(suggestion, animate_to_complete);
+void OmniboxViewWin::SetInstantSuggestion(const string16& suggestion) {
+  parent_view_->SetInstantSuggestion(suggestion);
 }
 
 int OmniboxViewWin::TextWidth() const {
@@ -1626,7 +1620,7 @@ void OmniboxViewWin::OnKillFocus(HWND focus_wnd) {
   PlaceCaretAt(0);
 
   if (tsf_event_router_)
-    tsf_event_router_->SetManager(NULL, NULL);
+    tsf_event_router_->SetManager(NULL);
 }
 
 void OmniboxViewWin::OnLButtonDblClk(UINT keys, const CPoint& point) {
@@ -1961,8 +1955,7 @@ void OmniboxViewWin::OnSetFocus(HWND focus_wnd) {
     // Document manager created by RichEdit can be obtained only after
     // WM_SETFOCUS event is handled.
     tsf_event_router_->SetManager(
-        ui::TsfBridge::GetInstance()->GetThreadManager(),
-        this);
+        ui::TsfBridge::GetInstance()->GetThreadManager());
     SetMsgHandled(true);
   }
 }

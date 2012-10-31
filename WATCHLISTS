@@ -170,6 +170,10 @@
                   '|chrome/browser/ui/cocoa/download/' \
                   '|chrome/browser/ui/gtk/download/'
     },
+    'drive': {
+      'filepath': 'chrome/browser/chromeos/drive/' \
+                  '|chrome/browser/google_apis/'
+    },
     'extension': {
       'filepath': 'extension',
     },
@@ -187,9 +191,6 @@
     },
     'fullscreen_controller': {
       'filepath': 'fullscreen_controller',
-    },
-    'gdata': {
-      'filepath': 'gdata'
     },
     'gfx_image': {
       'filepath': 'ui/gfx/image/',
@@ -308,6 +309,9 @@
     'plugin': {
       'filepath': 'chrome/browser/plugin|chrome/plugin/|'\
         'chrome/common/plugin|webkit/glue/webplugin|webkit/glue/plugins/',
+    },
+    'predictors': {
+      'filepath': 'predictors',
     },
     'prerender': {
       'filepath': 'prerender'
@@ -518,13 +522,13 @@
     'dns': ['mmenke@chromium.org'],
     'download': ['rdsmith+dwatch@chromium.org'],
     'downloads_ui': ['asanka@chromium.org', 'rdsmith@chromium.org'],
+    'drive': ['achuith+watch@chromium.org'],
     'extension': ['aa@chromium.org',
                   'chromium-apps-reviews@chromium.org'],
     'fileapi': ['kinuko+watch@chromium.org', 'tzik+watch@chromium.org'],
     'filebrowse': ['rginda+watch@chromium.org'],
     'ftp': ['phajdan.jr@chromium.org'],
     'fullscreen_controller': ['scheib+watch@chromium.org'],
-    'gdata': ['achuith+watch@chromium.org'],
     'gfx_geometry': ['cc-bugs@chromium.org'],
     'gfx_image': ['rsesek+watch@chromium.org'],
     'gpu': ['apatrick@chromium.org'],
@@ -535,8 +539,8 @@
     'installer': ['grt+watch@chromium.org'],
     'instant': ['sreeram@chromium.org', 'gideonwald@chromium.org',
                 'dcblack@chromium.org', 'jered@chromium.org',
-                'shishir@chromium.org', 'dominich@chromium.org',
-                'samarth@chromium.org'],
+                'dominich@chromium.org', 'samarth@chromium.org',
+                'melevin@chromium.org'],
     'ipc': ['jam@chromium.org', 'darin-cc@chromium.org'],
     'labs': ['thakis@chromium.org'],
     'linux-sandboxing': ['agl@chromium.org', 'jln+watch@chromium.org'],
@@ -559,9 +563,10 @@
                'dcheng@chromium.org', 'jianli@chromium.org'],
     'pepper_api': ['piman+watch@chromium.org', 'darin-cc@chromium.org',
                    'ihf+watch@chromium.org', 'yzshen+watch@chromium.org',
-                   'yusukes+watch@chromium.org'],
+                   'yusukes+watch@chromium.org', 'raymes+watch@chromium.org'],
     'plugin': ['darin-cc@chromium.org', 'jam@chromium.org',
                'stuartmorgan+watch@chromium.org'],
+    'predictors': ['dominich+watch@chromium.org', 'shishir+watch@chromium.org'],
     'prerender': ['cbentzel+watch@chromium.org', 'tburkard+watch@chromium.org',
                   'dominich+watch@chromium.org', 'mmenke@chromium.org',
                   'gavinp+prer@chromium.org'],
@@ -585,7 +590,6 @@
     'sessions': ['marja+watch@chromium.org'],
     'shell_window': ['jeremya+watch@chromium.org'],
     'site_instance': ['creis+watch@chromium.org', 'ajwong+watch@chromium.org'],
-    'speech': ['satish@chromium.org'],
     'spellcheck': ['groby+spellwatch@chromium.org',
                    'rlp@chromium.org'],
     'sync': ['akalin@chromium.org',

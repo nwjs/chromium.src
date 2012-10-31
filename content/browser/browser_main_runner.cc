@@ -14,7 +14,6 @@
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/notification_service_impl.h"
 #include "content/common/child_process.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
 
@@ -30,11 +29,9 @@
 
 bool g_exited_main_message_loop = false;
 
-using content::ChildProcess;
+namespace content {
 
-namespace {
-
-class BrowserMainRunnerImpl : public content::BrowserMainRunner {
+class BrowserMainRunnerImpl : public BrowserMainRunner {
  public:
   BrowserMainRunnerImpl()
       : is_initialized_(false),
@@ -47,7 +44,7 @@ class BrowserMainRunnerImpl : public content::BrowserMainRunner {
       Shutdown();
   }
 
-  virtual int Initialize(const content::MainFunctionParams& parameters)
+  virtual int Initialize(const MainFunctionParams& parameters)
       OVERRIDE {
     is_initialized_ = true;
 
@@ -57,9 +54,6 @@ class BrowserMainRunnerImpl : public content::BrowserMainRunner {
     // child process (e.g. when launched by PyAuto).
     if (parameters.command_line.HasSwitch(switches::kWaitForDebugger))
       ChildProcess::WaitForDebugger("Browser");
-
-    if (parameters.command_line.HasSwitch(switches::kSingleProcess))
-      content::RenderProcessHost::set_run_renderer_in_process(true);
 #endif  // !defined(OS_IOS)
 
 #if defined(OS_WIN)
@@ -73,7 +67,7 @@ class BrowserMainRunnerImpl : public content::BrowserMainRunner {
 
     notification_service_.reset(new NotificationServiceImpl);
 
-    main_loop_.reset(new content::BrowserMainLoop(parameters));
+    main_loop_.reset(new BrowserMainLoop(parameters));
 
     main_loop_->Init();
 
@@ -102,10 +96,9 @@ class BrowserMainRunnerImpl : public content::BrowserMainRunner {
 #endif  // OS_WIN
 
 #if defined(OS_ANDROID)
-    content::SurfaceTexturePeer::InitInstance(
-        new content::SurfaceTexturePeerBrowserImpl(
-            parameters.command_line.HasSwitch(
-                switches::kMediaPlayerInRenderProcess)));
+    SurfaceTexturePeer::InitInstance(new SurfaceTexturePeerBrowserImpl(
+        parameters.command_line.HasSwitch(
+            switches::kMediaPlayerInRenderProcess)));
 #endif
 
     main_loop_->CreateThreads();
@@ -157,17 +150,13 @@ class BrowserMainRunnerImpl : public content::BrowserMainRunner {
   bool created_threads_;
 
   scoped_ptr<NotificationServiceImpl> notification_service_;
-  scoped_ptr<content::BrowserMainLoop> main_loop_;
+  scoped_ptr<BrowserMainLoop> main_loop_;
 #if defined(OS_WIN)
   scoped_ptr<ui::ScopedOleInitializer> ole_initializer_;
 #endif
 
   DISALLOW_COPY_AND_ASSIGN(BrowserMainRunnerImpl);
 };
-
-}  // namespace
-
-namespace content {
 
 // static
 BrowserMainRunner* BrowserMainRunner::Create() {

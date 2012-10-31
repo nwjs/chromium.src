@@ -46,7 +46,6 @@ class PageActionImageView;
 class Profile;
 class SelectedKeywordView;
 class StarView;
-class SuggestedTextView;
 class TabContents;
 class TemplateURLService;
 class WebIntentsButtonView;
@@ -60,6 +59,7 @@ class SearchModel;
 
 namespace views {
 class BubbleDelegateView;
+class Label;
 class Widget;
 }
 
@@ -161,9 +161,8 @@ class LocationBarView : public LocationBar,
 
   virtual ~LocationBarView();
 
-  // Initializes the LocationBarView. See ToolbarView::Init() for a description
-  // of |popup_parent_view|.
-  void Init(views::View* popup_parent_view);
+  // Initializes the LocationBarView.
+  void Init();
 
   // True if this instance has been initialized by calling Init, which can only
   // be called when the receiving instance is attached to a view container.
@@ -203,8 +202,8 @@ class LocationBarView : public LocationBar,
   // Toggles the star on or off.
   void SetStarToggled(bool on);
 
-  // Shows the bookmark bubble.
-  void ShowStarBubble(const GURL& url, bool newly_bookmarked);
+  // Returns the star view. It may not be visible.
+  StarView* star_view() { return star_view_; }
 
   // Shows the Chrome To Mobile bubble.
   void ShowChromeToMobileBubble();
@@ -214,8 +213,7 @@ class LocationBarView : public LocationBar,
   gfx::Point GetLocationEntryOrigin() const;
 
   // Invoked from OmniboxViewWin to show the instant suggestion.
-  void SetInstantSuggestion(const string16& text,
-                            bool animate_to_complete);
+  void SetInstantSuggestion(const string16& text);
 
   // Returns the current instant suggestion text.
   string16 GetInstantSuggestion() const;
@@ -515,7 +513,7 @@ class LocationBarView : public LocationBar,
 
   // View responsible for showing suggested text. This is NULL when there is no
   // suggested text.
-  SuggestedTextView* suggested_text_view_;
+  views::Label* suggested_text_view_;
 
   // Shown if the selected url has a corresponding keyword.
   KeywordHintView* keyword_hint_view_;

@@ -111,7 +111,8 @@ RenderWidget::RenderWidget(WebKit::WebPopupType popup_type,
       screen_info_(screen_info),
       device_scale_factor_(1),
       throttle_input_events_(true),
-      next_smooth_scroll_gesture_id_(0) {
+      next_smooth_scroll_gesture_id_(0),
+      is_threaded_compositing_enabled_(false) {
   if (!swapped_out)
     RenderProcess::current()->AddRefProcess();
   DCHECK(RenderThread::Get());
@@ -126,6 +127,9 @@ RenderWidget::RenderWidget(WebKit::WebPopupType popup_type,
     device_scale_factor_ = static_cast<int>(device_scale_factor_);
   device_scale_factor_ = std::max(1.0f, device_scale_factor_);
 #endif
+  is_threaded_compositing_enabled_ =
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableThreadedCompositing);
 }
 
 RenderWidget::~RenderWidget() {
@@ -206,10 +210,11 @@ void RenderWidget::CompleteInit(gfx::NativeViewId parent_hwnd) {
   host_window_ = parent_hwnd;
   host_window_set_ = true;
 
-#if WEBWIDGET_HAS_SETCOMPOSITORSURFACEREADY
-  if (webwidget_)
-      webwidget_->setCompositorSurfaceReady();
-#endif
+  if (webwidget_) {
+    webwidget_->setCompositorSurfaceReady();
+    if (is_threaded_compositing_enabled_)
+      webwidget_->enterForceCompositingMode(true);
+  }
   DoDeferredUpdate();
 
   Send(new ViewHostMsg_RenderViewReady(routing_id_));
@@ -373,11 +378,11 @@ void RenderWidget::OnChangeResizeRect(const gfx::Rect& resizer_rect) {
   if (resizer_rect_ != resizer_rect) {
     gfx::Rect view_rect(size_);
 
-    gfx::Rect old_damage_rect = view_rect.Intersect(resizer_rect_);
+    gfx::Rect old_damage_rect = gfx::IntersectRects(view_rect, resizer_rect_);
     if (!old_damage_rect.IsEmpty())
       paint_aggregator_.InvalidateRect(old_damage_rect);
 
-    gfx::Rect new_damage_rect = view_rect.Intersect(resizer_rect);
+    gfx::Rect new_damage_rect = gfx::IntersectRects(view_rect, resizer_rect);
     if (!new_damage_rect.IsEmpty())
       paint_aggregator_.InvalidateRect(new_damage_rect);
 
@@ -461,6 +466,10 @@ void RenderWidget::OnUpdateRectAck() {
 }
 
 bool RenderWidget::SupportsAsynchronousSwapBuffers() {
+  return false;
+}
+
+bool RenderWidget::ForceCompositingModeEnabled() {
   return false;
 }
 
@@ -901,6 +910,12 @@ void RenderWidget::DoDeferredUpdate() {
     return;
   }
 
+  if (!is_accelerated_compositing_active_ &&
+      !is_threaded_compositing_enabled_ &&
+      ForceCompositingModeEnabled()) {
+    webwidget_->enterForceCompositingMode(true);
+  }
+
   if (!last_do_deferred_update_time_.is_null()) {
     base::TimeDelta delay = frame_begin_ticks - last_do_deferred_update_time_;
     if (is_accelerated_compositing_active_) {
@@ -935,7 +950,7 @@ void RenderWidget::DoDeferredUpdate() {
   paint_aggregator_.PopPendingUpdate(&update);
 
   gfx::Rect scroll_damage = update.GetScrollDamage();
-  gfx::Rect bounds = update.GetPaintBounds().Union(scroll_damage);
+  gfx::Rect bounds = gfx::UnionRects(update.GetPaintBounds(), scroll_damage);
 
   // Notify derived classes that we're about to initiate a paint.
   WillInitiatePaint();
@@ -974,15 +989,15 @@ void RenderWidget::DoDeferredUpdate() {
                                        &optimized_copy_rect,
                                        &dib_scale_factor)) {
     // Only update the part of the plugin that actually changed.
-    optimized_copy_rect = optimized_copy_rect.Intersect(bounds);
+    optimized_copy_rect.Intersect(bounds);
     pending_update_params_->bitmap = dib->id();
     pending_update_params_->bitmap_rect = optimized_copy_location;
     pending_update_params_->copy_rects.push_back(optimized_copy_rect);
     pending_update_params_->scale_factor = dib_scale_factor;
   } else if (!is_accelerated_compositing_active_) {
     // Compute a buffer for painting and cache it.
-    gfx::Rect pixel_bounds =
-        gfx::ToEnclosingRect(bounds.Scale(device_scale_factor_));
+    gfx::Rect pixel_bounds = gfx::ToFlooredRectDeprecated(
+        gfx::ScaleRect(bounds, device_scale_factor_));
     scoped_ptr<skia::PlatformCanvas> canvas(
         RenderProcess::current()->GetDrawingCanvas(&current_paint_buf_,
                                                    pixel_bounds));
@@ -1058,9 +1073,11 @@ void RenderWidget::DoDeferredUpdate() {
 // WebWidgetClient
 
 void RenderWidget::didInvalidateRect(const WebRect& rect) {
+  TRACE_EVENT2("renderer", "RenderWidget::didInvalidateRect",
+               "width", rect.width, "height", rect.height);
   // The invalidated rect might be outside the bounds of the view.
   gfx::Rect view_rect(size_);
-  gfx::Rect damaged_rect = view_rect.Intersect(rect);
+  gfx::Rect damaged_rect = gfx::IntersectRects(view_rect, rect);
   if (damaged_rect.IsEmpty())
     return;
 
@@ -1100,7 +1117,7 @@ void RenderWidget::didScrollRect(int dx, int dy, const WebRect& clip_rect) {
 
   // The scrolled rect might be outside the bounds of the view.
   gfx::Rect view_rect(size_);
-  gfx::Rect damaged_rect = view_rect.Intersect(clip_rect);
+  gfx::Rect damaged_rect = gfx::IntersectRects(view_rect, clip_rect);
   if (damaged_rect.IsEmpty())
     return;
 
@@ -1171,6 +1188,13 @@ void RenderWidget::didDeactivateCompositor() {
 
   if (using_asynchronous_swapbuffers_)
     using_asynchronous_swapbuffers_ = false;
+
+  // In single-threaded mode, we exit force compositing mode and re-enter in
+  // DoDeferredUpdate() if appropriate. In threaded compositing mode,
+  // DoDeferredUpdate() is bypassed and WebKit is responsible for exiting and
+  // entering force compositing mode at the appropriate times.
+  if (!is_threaded_compositing_enabled_)
+    webwidget_->enterForceCompositingMode(false);
 }
 
 void RenderWidget::willBeginCompositorFrame() {
@@ -1231,6 +1255,7 @@ void RenderWidget::didCompleteSwapBuffers() {
 }
 
 void RenderWidget::scheduleComposite() {
+  TRACE_EVENT0("gpu", "RenderWidget::scheduleComposite");
   if (WebWidgetHandlesCompositorScheduling()) {
     webwidget_->composite(false);
   } else {

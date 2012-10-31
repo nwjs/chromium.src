@@ -16,7 +16,6 @@ struct gps_data_t;
 
 namespace content {
 struct Geoposition;
-}
 
 class CONTENT_EXPORT LibGps {
  public:
@@ -27,7 +26,7 @@ class CONTENT_EXPORT LibGps {
 
   bool Start();
   void Stop();
-  bool Read(content::Geoposition* position);
+  bool Read(Geoposition* position);
 
  protected:
   typedef int (*gps_open_fn)(const char*, const char*, struct gps_data_t*);
@@ -40,7 +39,7 @@ class CONTENT_EXPORT LibGps {
                   gps_read_fn gps_read);
 
   // Returns false if there is not fix available.
-  virtual bool GetPositionIfFixed(content::Geoposition* position);
+  virtual bool GetPositionIfFixed(Geoposition* position);
 
  private:
   void* dl_handle_;
@@ -53,5 +52,7 @@ class CONTENT_EXPORT LibGps {
 
   DISALLOW_COPY_AND_ASSIGN(LibGps);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_GEOLOCATION_LIBGPS_WRAPPER_LINUX_H_

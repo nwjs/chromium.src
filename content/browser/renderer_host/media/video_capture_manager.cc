@@ -11,14 +11,13 @@
 #include "base/stl_util.h"
 #include "content/browser/renderer_host/media/video_capture_controller.h"
 #include "content/browser/renderer_host/media/video_capture_controller_event_handler.h"
+#include "content/browser/renderer_host/media/web_contents_video_capture_device.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/media_stream_request.h"
 #include "media/video/capture/fake_video_capture_device.h"
 #include "media/video/capture/video_capture_device.h"
 
-using content::BrowserThread;
-
-namespace media_stream {
+namespace content {
 
 // Starting id for the first capture session.
 // VideoCaptureManager::kStartOpenSessionId is used as default id without
@@ -132,8 +131,7 @@ void VideoCaptureManager::OnEnumerateDevices() {
     bool opened = DeviceOpened(*it);
     // NOTE: Only support enumeration of the MEDIA_DEVICE_VIDEO_CAPTURE type.
     devices.push_back(StreamDeviceInfo(
-        content::MEDIA_DEVICE_VIDEO_CAPTURE, it->device_name,
-        it->unique_id, opened));
+        MEDIA_DEVICE_VIDEO_CAPTURE, it->device_name, it->unique_id, opened));
   }
 
   PostOnDevicesEnumerated(devices);
@@ -166,17 +164,13 @@ void VideoCaptureManager::OnOpen(int capture_session_id,
         media::FakeVideoCaptureDevice::Create(vc_device_name);
   } else {
     switch (device.stream_type) {
-      case content::MEDIA_DEVICE_VIDEO_CAPTURE:
+      case MEDIA_DEVICE_VIDEO_CAPTURE:
         video_capture_device =
             media::VideoCaptureDevice::Create(vc_device_name);
         break;
-      case content::MEDIA_TAB_VIDEO_CAPTURE:
-        // TODO(miu): Replace this stub with the actual implementation in a
-        // later change.
-        // TODO(justinlin): This is so we don't get a null device. Remove later.
-        vc_device_name.unique_id = "/dev/video1";
-        video_capture_device =
-            media::FakeVideoCaptureDevice::Create(vc_device_name);
+      case MEDIA_TAB_VIDEO_CAPTURE:
+        video_capture_device = WebContentsVideoCaptureDevice::Create(
+            vc_device_name.unique_id);
         break;
       default:
         NOTIMPLEMENTED();
@@ -292,7 +286,7 @@ void VideoCaptureManager::OnStop(
   }
 }
 
-void VideoCaptureManager::OnOpened(content::MediaStreamDeviceType stream_type,
+void VideoCaptureManager::OnOpened(MediaStreamDeviceType stream_type,
                                    int capture_session_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   if (!listener_) {
@@ -302,7 +296,7 @@ void VideoCaptureManager::OnOpened(content::MediaStreamDeviceType stream_type,
   listener_->Opened(stream_type, capture_session_id);
 }
 
-void VideoCaptureManager::OnClosed(content::MediaStreamDeviceType stream_type,
+void VideoCaptureManager::OnClosed(MediaStreamDeviceType stream_type,
                                    int capture_session_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   if (!listener_) {
@@ -320,10 +314,10 @@ void VideoCaptureManager::OnDevicesEnumerated(
     return;
   }
   // NOTE: Only support enumeration of the MEDIA_DEVICE_VIDEO_CAPTURE type.
-  listener_->DevicesEnumerated(content::MEDIA_DEVICE_VIDEO_CAPTURE, devices);
+  listener_->DevicesEnumerated(MEDIA_DEVICE_VIDEO_CAPTURE, devices);
 }
 
-void VideoCaptureManager::OnError(content::MediaStreamDeviceType stream_type,
+void VideoCaptureManager::OnError(MediaStreamDeviceType stream_type,
                                   int capture_session_id,
                                   MediaStreamProviderError error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
@@ -335,7 +329,7 @@ void VideoCaptureManager::OnError(content::MediaStreamDeviceType stream_type,
 }
 
 void VideoCaptureManager::PostOnOpened(
-    content::MediaStreamDeviceType stream_type, int capture_session_id) {
+    MediaStreamDeviceType stream_type, int capture_session_id) {
   DCHECK(IsOnDeviceThread());
   BrowserThread::PostTask(BrowserThread::IO,
                           FROM_HERE,
@@ -344,7 +338,7 @@ void VideoCaptureManager::PostOnOpened(
 }
 
 void VideoCaptureManager::PostOnClosed(
-    content::MediaStreamDeviceType stream_type, int capture_session_id) {
+    MediaStreamDeviceType stream_type, int capture_session_id) {
   DCHECK(IsOnDeviceThread());
   BrowserThread::PostTask(BrowserThread::IO,
                           FROM_HERE,
@@ -364,8 +358,7 @@ void VideoCaptureManager::PostOnDevicesEnumerated(
 void VideoCaptureManager::PostOnError(int capture_session_id,
                                       MediaStreamProviderError error) {
   DCHECK(IsOnDeviceThread());
-  content::MediaStreamDeviceType stream_type =
-      content::MEDIA_DEVICE_VIDEO_CAPTURE;
+  MediaStreamDeviceType stream_type = MEDIA_DEVICE_VIDEO_CAPTURE;
   VideoCaptureDevices::const_iterator it = devices_.find(capture_session_id);
   if (it != devices_.end())
     stream_type = it->second.stream_type;
@@ -519,7 +512,7 @@ media::VideoCaptureDevice* VideoCaptureManager::GetDeviceInternal(
       return NULL;
     }
     // NOTE: Only support enumeration of the MEDIA_DEVICE_VIDEO_CAPTURE type.
-    StreamDeviceInfo device(content::MEDIA_DEVICE_VIDEO_CAPTURE,
+    StreamDeviceInfo device(MEDIA_DEVICE_VIDEO_CAPTURE,
                             device_names.front().device_name,
                             device_names.front().unique_id, false);
 
@@ -534,4 +527,4 @@ media::VideoCaptureDevice* VideoCaptureManager::GetDeviceInternal(
   return NULL;
 }
 
-}  // namespace media_stream
+}  // namespace content

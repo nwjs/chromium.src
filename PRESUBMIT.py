@@ -16,7 +16,8 @@ import sys
 
 _EXCLUDED_PATHS = (
     r"^breakpad[\\\/].*",
-    r"^native_client_sdk[\\\/].*",
+    r"^native_client_sdk[\\\/]src[\\\/]build_tools[\\\/]make_rules.py",
+    r"^native_client_sdk[\\\/]src[\\\/]build_tools[\\\/]make_simple.py",
     r"^net[\\\/]tools[\\\/]spdyshark[\\\/].*",
     r"^skia[\\\/].*",
     r"^v8[\\\/].*",
@@ -193,7 +194,7 @@ def _CheckNoProductionCodeUsingTestOnlyFunctions(input_api, output_api):
   source_extensions = r'\.(cc|cpp|cxx|mm)$'
   file_inclusion_pattern = r'.+%s' % source_extensions
   file_exclusion_patterns = (
-      r'.*[/\\](test_|mock_).+%s' % source_extensions,
+      r'.*[/\\](fake_|test_|mock_).+%s' % source_extensions,
       r'.+_test_(base|support|util)%s' % source_extensions,
       r'.+_(api|browser|perf|unit|ui)?test%s%s' % (platform_specifiers,
                                                    source_extensions),
@@ -466,8 +467,28 @@ def _CheckFilePermissions(input_api, output_api):
 
   results = []
   if errors:
-    results.append(output_api.PreSubmitError('checkperms.py failed.',
+    results.append(output_api.PresubmitError('checkperms.py failed.',
                                              errors))
+  return results
+
+
+def _CheckNoAuraWindowPropertyHInHeaders(input_api, output_api):
+  """Makes sure we don't include ui/aura/window_property.h
+  in header files.
+  """
+  pattern = input_api.re.compile(r'^#include\s*"ui/aura/window_property.h"')
+  errors = []
+  for f in input_api.AffectedFiles():
+    if not f.LocalPath().endswith('.h'):
+      continue
+    for line_num, line in f.ChangedContents():
+      if pattern.match(line):
+        errors.append('    %s:%d' % (f.LocalPath(), line_num))
+
+  results = []
+  if errors:
+    results.append(output_api.PresubmitError(
+      'Header files should not include ui/aura/window_property.h', errors))
   return results
 
 
@@ -488,6 +509,7 @@ def _CommonChecks(input_api, output_api):
   results.extend(_CheckNoTrinaryTrueFalse(input_api, output_api))
   results.extend(_CheckUnwantedDependencies(input_api, output_api))
   results.extend(_CheckFilePermissions(input_api, output_api))
+  results.extend(_CheckNoAuraWindowPropertyHInHeaders(input_api, output_api))
   return results
 
 

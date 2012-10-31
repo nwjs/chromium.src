@@ -19,14 +19,11 @@ namespace remoting {
 
 HostStarter::HostStarter(
     scoped_ptr<gaia::GaiaOAuthClient> oauth_client,
-    scoped_ptr<remoting::GaiaUserEmailFetcher> user_email_fetcher,
     scoped_ptr<remoting::ServiceClient> service_client,
     scoped_ptr<remoting::DaemonController> daemon_controller)
     : oauth_client_(oauth_client.Pass()),
-      user_email_fetcher_(user_email_fetcher.Pass()),
       service_client_(service_client.Pass()),
       daemon_controller_(daemon_controller.Pass()),
-      in_progress_(false),
       consent_to_data_collection_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)),
       weak_ptr_(weak_ptr_factory_.GetWeakPtr()) {
@@ -41,15 +38,13 @@ scoped_ptr<HostStarter> HostStarter::Create(
   scoped_ptr<gaia::GaiaOAuthClient> oauth_client(
       new gaia::GaiaOAuthClient(gaia::kGaiaOAuth2Url,
                                 url_request_context_getter));
-  scoped_ptr<remoting::GaiaUserEmailFetcher> user_email_fetcher(
-      new remoting::GaiaUserEmailFetcher(url_request_context_getter));
   scoped_ptr<remoting::ServiceClient> service_client(
       new remoting::ServiceClient(url_request_context_getter));
   scoped_ptr<remoting::DaemonController> daemon_controller(
       remoting::DaemonController::Create());
   return scoped_ptr<HostStarter>(
-      new HostStarter(oauth_client.Pass(), user_email_fetcher.Pass(),
-                      service_client.Pass(), daemon_controller.Pass()));
+      new HostStarter(oauth_client.Pass(), service_client.Pass(),
+                      daemon_controller.Pass()));
 }
 
 void HostStarter::StartHost(
@@ -60,11 +55,8 @@ void HostStarter::StartHost(
     const std::string& redirect_url,
     CompletionCallback on_done) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-  if (in_progress_) {
-    on_done.Run(START_IN_PROGRESS);
-    return;
-  }
-  in_progress_ = true;
+  DCHECK(on_done_.is_null());
+
   host_name_ = host_name;
   host_pin_ = host_pin;
   consent_to_data_collection_ = consent_to_data_collection;
@@ -92,13 +84,20 @@ void HostStarter::OnGetTokensResponse(
   refresh_token_ = refresh_token;
   access_token_ = access_token;
   // Get the email corresponding to the access token.
-  user_email_fetcher_->GetUserEmail(access_token_, this);
+  oauth_client_->GetUserInfo(access_token_, 1, this);
 }
 
-void HostStarter::OnGetUserEmailResponse(const std::string& user_email) {
+void HostStarter::OnRefreshTokenResponse(
+    const std::string& access_token,
+    int expires_in_seconds) {
+  // We never request a refresh token, so this call is not expected.
+  NOTREACHED();
+}
+
+void HostStarter::OnGetUserInfoResponse(const std::string& user_email) {
   if (!main_task_runner_->BelongsToCurrentThread()) {
     main_task_runner_->PostTask(FROM_HERE, base::Bind(
-        &HostStarter::OnGetUserEmailResponse, weak_ptr_, user_email));
+        &HostStarter::OnGetUserInfoResponse, weak_ptr_, user_email));
     return;
   }
   user_email_ = user_email;
@@ -135,12 +134,15 @@ void HostStarter::OnHostStarted(DaemonController::AsyncResult result) {
         &HostStarter::OnHostStarted, weak_ptr_, result));
     return;
   }
-  Result done_result = START_ERROR;
-  if (result == DaemonController::RESULT_OK)
-    done_result = START_COMPLETE;
-  on_done_.Run(done_result);
-  // TODO(simonmorris): Unregister the host if we didn't start it.
-  in_progress_ = false;
+  if (result != DaemonController::RESULT_OK) {
+    service_client_->UnregisterHost(host_id_, access_token_, this);
+    return;
+  }
+  Result done_result = (result == DaemonController::RESULT_OK) ?
+      START_COMPLETE : START_ERROR;
+  CompletionCallback cb = on_done_;
+  on_done_.Reset();
+  cb.Run(done_result);
 }
 
 void HostStarter::OnOAuthError() {
@@ -149,8 +151,9 @@ void HostStarter::OnOAuthError() {
         &HostStarter::OnOAuthError, weak_ptr_));
     return;
   }
-  on_done_.Run(OAUTH_ERROR);
-  in_progress_ = false;
+  CompletionCallback cb = on_done_;
+  on_done_.Reset();
+  cb.Run(OAUTH_ERROR);
 }
 
 void HostStarter::OnNetworkError(int response_code) {
@@ -159,22 +162,20 @@ void HostStarter::OnNetworkError(int response_code) {
         &HostStarter::OnNetworkError, weak_ptr_, response_code));
     return;
   }
-  on_done_.Run(NETWORK_ERROR);
-  in_progress_ = false;
+  CompletionCallback cb = on_done_;
+  on_done_.Reset();
+  cb.Run(NETWORK_ERROR);
 }
 
-void HostStarter::OnRefreshTokenResponse(
-    const std::string& access_token,
-    int expires_in_seconds) {
-  NOTREACHED();
+void HostStarter::OnHostUnregistered() {
   if (!main_task_runner_->BelongsToCurrentThread()) {
     main_task_runner_->PostTask(FROM_HERE, base::Bind(
-        &HostStarter::OnRefreshTokenResponse, weak_ptr_,
-        access_token, expires_in_seconds));
+        &HostStarter::OnHostUnregistered, weak_ptr_));
     return;
   }
-  on_done_.Run(OAUTH_ERROR);
-  in_progress_ = false;
+  CompletionCallback cb = on_done_;
+  on_done_.Reset();
+  cb.Run(START_ERROR);
 }
 
 }  // namespace remoting

@@ -1,0 +1,3 @@
+# TSan seems to timeout after AudioBusTest.CopyTo
+# crbug.com/157793
+AudioBusTest.*

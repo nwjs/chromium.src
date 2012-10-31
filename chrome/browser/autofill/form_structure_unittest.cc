@@ -2,10 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/autofill/form_structure.h"
+
 #include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/autofill/form_structure.h"
+#include "chrome/browser/autofill/autofill_metrics.h"
 #include "chrome/common/form_data.h"
 #include "chrome/common/form_field_data.h"
 #include "googleurl/src/gurl.h"
@@ -13,6 +15,20 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputElement.h"
 
 using WebKit::WebInputElement;
+
+namespace {
+
+// Unlike the base AutofillMetrics, exposes copy and assignment constructors,
+// which are handy for briefer test code.  The AutofillMetrics class is
+// stateless, so this is safe.
+class TestAutofillMetrics : public AutofillMetrics {
+ public:
+  TestAutofillMetrics() {}
+  virtual ~TestAutofillMetrics() {}
+};
+
+}  // anonymous namespace
+
 
 namespace content {
 
@@ -52,17 +68,17 @@ TEST(FormStructureTest, FieldCount) {
   FormFieldData field;
   field.label = ASCIIToUTF16("username");
   field.name = ASCIIToUTF16("username");
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
   form.fields.push_back(field);
 
   field.label = ASCIIToUTF16("password");
   field.name = ASCIIToUTF16("password");
-  field.form_control_type = ASCIIToUTF16("password");
+  field.form_control_type = "password";
   form.fields.push_back(field);
 
   field.label = string16();
   field.name = ASCIIToUTF16("Submit");
-  field.form_control_type = ASCIIToUTF16("submit");
+  field.form_control_type = "submit";
   form.fields.push_back(field);
 
   FormStructure form_structure(form);
@@ -78,26 +94,26 @@ TEST(FormStructureTest, AutofillCount) {
   FormFieldData field;
   field.label = ASCIIToUTF16("username");
   field.name = ASCIIToUTF16("username");
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
   form.fields.push_back(field);
 
   field.label = ASCIIToUTF16("password");
   field.name = ASCIIToUTF16("password");
-  field.form_control_type = ASCIIToUTF16("password");
+  field.form_control_type = "password";
   form.fields.push_back(field);
 
   field.label = ASCIIToUTF16("state");
   field.name = ASCIIToUTF16("state");
-  field.form_control_type = ASCIIToUTF16("select-one");
+  field.form_control_type = "select-one";
   form.fields.push_back(field);
 
   field.label = string16();
   field.name = ASCIIToUTF16("Submit");
-  field.form_control_type = ASCIIToUTF16("submit");
+  field.form_control_type = "submit";
   form.fields.push_back(field);
 
   FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes();
+  form_structure.DetermineHeuristicTypes(TestAutofillMetrics());
 
   // Only text and select fields that are heuristically matched are counted.
   EXPECT_EQ(1U, form_structure.autofill_count());
@@ -122,53 +138,53 @@ TEST(FormStructureTest, IsAutofillable) {
   FormFieldData field;
   field.label = ASCIIToUTF16("username");
   field.name = ASCIIToUTF16("username");
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
   form.fields.push_back(field);
 
   field.label = ASCIIToUTF16("password");
   field.name = ASCIIToUTF16("password");
-  field.form_control_type = ASCIIToUTF16("password");
+  field.form_control_type = "password";
   form.fields.push_back(field);
 
   field.label = string16();
   field.name = ASCIIToUTF16("Submit");
-  field.form_control_type = ASCIIToUTF16("submit");
+  field.form_control_type = "submit";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_FALSE(form_structure->IsAutofillable(true));
 
   // We now have three text fields, but only two auto-fillable fields.
   field.label = ASCIIToUTF16("First Name");
   field.name = ASCIIToUTF16("firstname");
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
   form.fields.push_back(field);
 
   field.label = ASCIIToUTF16("Last Name");
   field.name = ASCIIToUTF16("lastname");
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_FALSE(form_structure->IsAutofillable(true));
 
   // We now have three auto-fillable fields.
   field.label = ASCIIToUTF16("Email");
   field.name = ASCIIToUTF16("email");
-  field.form_control_type = ASCIIToUTF16("email");
+  field.form_control_type = "email";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
 
   // The method must be 'post', though we can intentionally ignore this
   // criterion for the sake of providing a helpful warning message to the user.
   form.method = ASCIIToUTF16("get");
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_FALSE(form_structure->IsAutofillable(true));
   EXPECT_TRUE(form_structure->IsAutofillable(false));
 
@@ -176,13 +192,13 @@ TEST(FormStructureTest, IsAutofillable) {
   form.method = ASCIIToUTF16("post");
   form.action = GURL("http://google.com/search?q=hello");
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_FALSE(form_structure->IsAutofillable(true));
 
   // But search can be in the URL.
   form.action = GURL("http://search.com/?q=hello");
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
 }
 
@@ -196,7 +212,7 @@ TEST(FormStructureTest, ShouldBeParsed) {
   FormFieldData field;
   field.label = ASCIIToUTF16("username");
   field.name = ASCIIToUTF16("username");
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
@@ -205,12 +221,12 @@ TEST(FormStructureTest, ShouldBeParsed) {
   // We now have three text fields, though only two are auto-fillable.
   field.label = ASCIIToUTF16("First Name");
   field.name = ASCIIToUTF16("firstname");
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
   form.fields.push_back(field);
 
   field.label = ASCIIToUTF16("Last Name");
   field.name = ASCIIToUTF16("lastname");
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
@@ -240,23 +256,23 @@ TEST(FormStructureTest, ShouldBeParsed) {
 
   field.label = ASCIIToUTF16("Email");
   field.name = ASCIIToUTF16("email");
-  field.form_control_type = ASCIIToUTF16("email");
+  field.form_control_type = "email";
   form.fields.push_back(field);
 
   field.label = ASCIIToUTF16("State");
   field.name = ASCIIToUTF16("state");
-  field.form_control_type = ASCIIToUTF16("select-one");
+  field.form_control_type = "select-one";
   form.fields.push_back(field);
 
   field.label = ASCIIToUTF16("Country");
   field.name = ASCIIToUTF16("country");
-  field.form_control_type = ASCIIToUTF16("select-one");
+  field.form_control_type = "select-one";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
   EXPECT_TRUE(form_structure->ShouldBeParsed(true));
 
-  form.fields[0].form_control_type = ASCIIToUTF16("select-one");
+  form.fields[0].form_control_type = "select-one";
   form_structure.reset(new FormStructure(form));
   EXPECT_FALSE(form_structure->ShouldBeParsed(true));
 }
@@ -267,7 +283,7 @@ TEST(FormStructureTest, HeuristicsContactInfo) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("First Name");
   field.name = ASCIIToUTF16("firstname");
@@ -299,11 +315,11 @@ TEST(FormStructureTest, HeuristicsContactInfo) {
 
   field.label = string16();
   field.name = ASCIIToUTF16("Submit");
-  field.form_control_type = ASCIIToUTF16("submit");
+  field.form_control_type = "submit";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
 
   // Expect the correct number of fields.
@@ -329,32 +345,32 @@ TEST(FormStructureTest, HeuristicsContactInfo) {
   EXPECT_EQ(UNKNOWN_TYPE, form_structure->field(7)->heuristic_type());
 }
 
-// Verify that we can correctly process the |autocompletetype| attribute.
-TEST(FormStructureTest, HeuristicsAutocompletetype) {
+// Verify that we can correctly process the |autocomplete| attribute.
+TEST(FormStructureTest, HeuristicsAutocompleteAttribute) {
   scoped_ptr<FormStructure> form_structure;
   FormData form;
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = string16();
   field.name = ASCIIToUTF16("field1");
-  field.autocomplete_type = ASCIIToUTF16("given-name");
+  field.autocomplete_attribute = "given-name";
   form.fields.push_back(field);
 
   field.label = string16();
   field.name = ASCIIToUTF16("field2");
-  field.autocomplete_type = ASCIIToUTF16("surname");
+  field.autocomplete_attribute = "family-name";
   form.fields.push_back(field);
 
   field.label = string16();
   field.name = ASCIIToUTF16("field3");
-  field.autocomplete_type = ASCIIToUTF16("email");
+  field.autocomplete_attribute = "email";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
 
   // Expect the correct number of fields.
@@ -366,33 +382,33 @@ TEST(FormStructureTest, HeuristicsAutocompletetype) {
   EXPECT_EQ(EMAIL_ADDRESS, form_structure->field(2)->heuristic_type());
 }
 
-// Verify that we can correctly process the |autocompletetype| attribute for
-// phone number types (especially phone prefixes and suffixes).
-TEST(FormStructureTest, HeuristicsAutocompletetypePhones) {
+// Verify that we can correctly process the 'autocomplete' attribute for phone
+// number types (especially phone prefixes and suffixes).
+TEST(FormStructureTest, HeuristicsAutocompleteAttributePhoneTypes) {
   scoped_ptr<FormStructure> form_structure;
   FormData form;
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = string16();
   field.name = ASCIIToUTF16("field1");
-  field.autocomplete_type = ASCIIToUTF16("phone-local");
+  field.autocomplete_attribute = "tel-local";
   form.fields.push_back(field);
 
   field.label = string16();
   field.name = ASCIIToUTF16("field2");
-  field.autocomplete_type = ASCIIToUTF16("phone-local-prefix");
+  field.autocomplete_attribute = "tel-local-prefix";
   form.fields.push_back(field);
 
   field.label = string16();
   field.name = ASCIIToUTF16("field3");
-  field.autocomplete_type = ASCIIToUTF16("phone-local-suffix");
+  field.autocomplete_attribute = "tel-local-suffix";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
 
   // Expect the correct number of fields.
@@ -409,16 +425,16 @@ TEST(FormStructureTest, HeuristicsAutocompletetypePhones) {
             form_structure->field(2)->phone_part());
 }
 
-// If at least one field includes the |autocompletetype| attribute, we should
-// not try to apply any other heuristics.
-TEST(FormStructureTest, AutocompletetypeOverridesOtherHeuristics) {
+// If at least one field includes type hints in the 'autocomplete' attribute, we
+// should not try to apply any other heuristics.
+TEST(FormStructureTest, AutocompleteAttributeOverridesOtherHeuristics) {
   scoped_ptr<FormStructure> form_structure;
   FormData form;
   form.method = ASCIIToUTF16("post");
 
   // Start with a regular contact form.
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("First Name");
   field.name = ASCIIToUTF16("firstname");
@@ -433,7 +449,7 @@ TEST(FormStructureTest, AutocompletetypeOverridesOtherHeuristics) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   EXPECT_TRUE(form_structure->ShouldBeCrowdsourced());
 
@@ -444,10 +460,10 @@ TEST(FormStructureTest, AutocompletetypeOverridesOtherHeuristics) {
   EXPECT_EQ(NAME_LAST, form_structure->field(1)->heuristic_type());
   EXPECT_EQ(EMAIL_ADDRESS, form_structure->field(2)->heuristic_type());
 
-  // Now update the first form field to include an 'autocompletetype' attribute.
-  form.fields.front().autocomplete_type = ASCIIToUTF16("x-other");
+  // Now update the first form field to include an 'autocomplete' attribute.
+  form.fields.front().autocomplete_attribute = "x-other";
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_FALSE(form_structure->IsAutofillable(true));
   EXPECT_FALSE(form_structure->ShouldBeCrowdsourced());
 
@@ -461,124 +477,178 @@ TEST(FormStructureTest, AutocompletetypeOverridesOtherHeuristics) {
 
 // Verify that we can correctly process sections listed in the |autocomplete|
 // attribute.
-TEST(FormStructureTest, HeuristicsAutocompletetypeWithSections) {
-  scoped_ptr<FormStructure> form_structure;
+TEST(FormStructureTest, HeuristicsAutocompleteAttributeWithSections) {
   FormData form;
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
-  // We expect "shipping" and "billing" to be the most common sections.
-  field.label = string16();
-  field.name = ASCIIToUTF16("field1");
-  field.autocomplete_type = ASCIIToUTF16("section-shipping given-name");
-  form.fields.push_back(field);
-
-  // Some field will have no section specified.  These fall into the default
-  // section, with an empty name.
-  field.label = string16();
-  field.name = ASCIIToUTF16("field2");
-  field.autocomplete_type = ASCIIToUTF16("surname");
+  // Some fields will have no section specified.  These fall into the default
+  // section.
+  field.autocomplete_attribute = "email";
   form.fields.push_back(field);
 
   // We allow arbitrary section names.
-  field.label = string16();
-  field.name = ASCIIToUTF16("field3");
-  field.autocomplete_type = ASCIIToUTF16("section-foo address-line1");
+  field.autocomplete_attribute = "section-foo email";
   form.fields.push_back(field);
 
-  // Specifying "section-" is equivalent to not specifying a section.
-  field.label = string16();
-  field.name = ASCIIToUTF16("field4");
-  field.autocomplete_type = ASCIIToUTF16("section- address-line2");
+  // "shipping" and "billing" are special section tokens that don't require the
+  // "section-" prefix.
+  field.autocomplete_attribute = "shipping email";
+  form.fields.push_back(field);
+  field.autocomplete_attribute = "billing email";
+  form.fields.push_back(field);
+
+  // "shipping" and "billing" can be combined with other section names.
+  field.autocomplete_attribute = "section-foo shipping email";
+  form.fields.push_back(field);
+  field.autocomplete_attribute = "section-foo billing email";
   form.fields.push_back(field);
 
   // We don't do anything clever to try to coalesce sections; it's up to site
   // authors to avoid typos.
-  field.label = string16();
-  field.name = ASCIIToUTF16("field5");
-  field.autocomplete_type = ASCIIToUTF16("section--shipping locality");
+  field.autocomplete_attribute = "section--foo email";
+  form.fields.push_back(field);
+
+  // "shipping email" and "section--shipping" email should be parsed as
+  // different sections.  This is only an interesting test due to how we
+  // implement implicit section names from attributes like "shipping email"; see
+  // the implementation for more details.
+  field.autocomplete_attribute = "section--shipping email";
   form.fields.push_back(field);
 
   // Credit card fields are implicitly in a separate section from other fields.
-  field.label = string16();
-  field.name = ASCIIToUTF16("field6");
-  field.autocomplete_type = ASCIIToUTF16("section-shipping cc-number");
+  field.autocomplete_attribute = "section-foo cc-number";
   form.fields.push_back(field);
 
-  form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
-  EXPECT_TRUE(form_structure->IsAutofillable(true));
+  FormStructure form_structure(form);
+  form_structure.DetermineHeuristicTypes(TestAutofillMetrics());
+  EXPECT_TRUE(form_structure.IsAutofillable(true));
 
   // Expect the correct number of fields.
-  ASSERT_EQ(6U, form_structure->field_count());
-  ASSERT_EQ(6U, form_structure->autofill_count());
+  ASSERT_EQ(9U, form_structure.field_count());
+  EXPECT_EQ(9U, form_structure.autofill_count());
 
-  EXPECT_EQ(NAME_FIRST, form_structure->field(0)->heuristic_type());
-  EXPECT_EQ(ASCIIToUTF16("shipping-default"),
-            form_structure->field(0)->section());
-  EXPECT_EQ(NAME_LAST, form_structure->field(1)->heuristic_type());
-  EXPECT_EQ(ASCIIToUTF16("-default"), form_structure->field(1)->section());
-  EXPECT_EQ(ADDRESS_HOME_LINE1, form_structure->field(2)->heuristic_type());
-  EXPECT_EQ(ASCIIToUTF16("foo-default"), form_structure->field(2)->section());
-  EXPECT_EQ(ADDRESS_HOME_LINE2, form_structure->field(3)->heuristic_type());
-  EXPECT_EQ(ASCIIToUTF16("-default"), form_structure->field(3)->section());
-  EXPECT_EQ(ADDRESS_HOME_CITY, form_structure->field(4)->heuristic_type());
-  EXPECT_EQ(ASCIIToUTF16("-shipping-default"),
-            form_structure->field(4)->section());
-  EXPECT_EQ(CREDIT_CARD_NUMBER, form_structure->field(5)->heuristic_type());
-  EXPECT_EQ(ASCIIToUTF16("shipping-cc"), form_structure->field(5)->section());
+  // All of the fields in this form should be parsed as belonging to different
+  // sections.
+  std::set<std::string> section_names;
+  for (size_t i = 0; i < 9; ++i) {
+    section_names.insert(form_structure.field(i)->section());
+  }
+  EXPECT_EQ(9U, section_names.size());
 }
 
-// Verify that we can correctly process fallback types listed in the
-// |autocompletetype| attribute.
-TEST(FormStructureTest, HeuristicsAutocompletetypeWithFallbacks) {
-  scoped_ptr<FormStructure> form_structure;
+// Verify that we can correctly process a degenerate section listed in the
+// |autocomplete| attribute.
+TEST(FormStructureTest, HeuristicsAutocompleteAttributeWithSectionsDegenerate) {
   FormData form;
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
-  // Skip over any sections and "x"-prefixed types.
-  field.label = string16();
-  field.name = ASCIIToUTF16("field1");
-  field.autocomplete_type =
-      ASCIIToUTF16("section-full-name x-given-name-initial given-name");
+  // Some fields will have no section specified.  These fall into the default
+  // section.
+  field.autocomplete_attribute = "email";
   form.fields.push_back(field);
 
-  // Stop processing once we see a known type.
-  field.label = string16();
-  field.name = ASCIIToUTF16("field2");
-  field.autocomplete_type = ASCIIToUTF16("section-full-name surname full-name");
+  // Specifying "section-" is equivalent to not specifying a section.
+  field.autocomplete_attribute = "section- email";
   form.fields.push_back(field);
 
-  // Skip over unknown types even if they are not prefixed with "x-".
-  field.label = string16();
-  field.name = ASCIIToUTF16("field3");
-  field.autocomplete_type =
-      ASCIIToUTF16("section-shipping mobile-phone-full phone-full");
+  // Invalid tokens should prevent us from setting a section name.
+  field.autocomplete_attribute = "garbage section-foo email";
+  form.fields.push_back(field);
+  field.autocomplete_attribute = "garbage section-bar email";
+  form.fields.push_back(field);
+  field.autocomplete_attribute = "garbage shipping email";
+  form.fields.push_back(field);
+  field.autocomplete_attribute = "garbage billing email";
   form.fields.push_back(field);
 
-  form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
-  EXPECT_TRUE(form_structure->IsAutofillable(true));
+  FormStructure form_structure(form);
+  form_structure.DetermineHeuristicTypes(TestAutofillMetrics());
 
   // Expect the correct number of fields.
-  ASSERT_EQ(3U, form_structure->field_count());
-  ASSERT_EQ(3U, form_structure->autofill_count());
+  ASSERT_EQ(6U, form_structure.field_count());
+  EXPECT_EQ(2U, form_structure.autofill_count());
 
-  EXPECT_EQ(NAME_FIRST, form_structure->field(0)->heuristic_type());
-  EXPECT_EQ(ASCIIToUTF16("full-name-default"),
-            form_structure->field(0)->section());
-  EXPECT_EQ(NAME_LAST, form_structure->field(1)->heuristic_type());
-  EXPECT_EQ(ASCIIToUTF16("full-name-default"),
-            form_structure->field(1)->section());
-  EXPECT_EQ(PHONE_HOME_WHOLE_NUMBER,
-            form_structure->field(2)->heuristic_type());
-  EXPECT_EQ(ASCIIToUTF16("shipping-default"),
-            form_structure->field(2)->section());
+  // All of the fields in this form should be parsed as belonging to the same
+  // section.
+  std::set<std::string> section_names;
+  for (size_t i = 0; i < 6; ++i) {
+    section_names.insert(form_structure.field(i)->section());
+  }
+  EXPECT_EQ(1U, section_names.size());
+}
+
+// Verify that we can correctly process repeated sections listed in the
+// |autocomplete| attribute.
+TEST(FormStructureTest, HeuristicsAutocompleteAttributeWithSectionsRepeated) {
+  FormData form;
+  form.method = ASCIIToUTF16("post");
+
+  FormFieldData field;
+  field.form_control_type = "text";
+
+  field.autocomplete_attribute = "section-foo email";
+  form.fields.push_back(field);
+  field.autocomplete_attribute = "section-foo street-address";
+  form.fields.push_back(field);
+
+  FormStructure form_structure(form);
+  form_structure.DetermineHeuristicTypes(TestAutofillMetrics());
+
+  // Expect the correct number of fields.
+  ASSERT_EQ(2U, form_structure.field_count());
+  EXPECT_EQ(2U, form_structure.autofill_count());
+
+  // All of the fields in this form should be parsed as belonging to the same
+  // section.
+  std::set<std::string> section_names;
+  for (size_t i = 0; i < 2; ++i) {
+    section_names.insert(form_structure.field(i)->section());
+  }
+  EXPECT_EQ(1U, section_names.size());
+}
+
+// Verify that we do not override the author-specified sections from a form with
+// local heuristics.
+TEST(FormStructureTest, HeuristicsDontOverrideAutocompleteAttributeSections) {
+  FormData form;
+  form.method = ASCIIToUTF16("post");
+
+  FormFieldData field;
+  field.form_control_type = "text";
+
+  field.name = ASCIIToUTF16("one");
+  field.autocomplete_attribute = "street-address";
+  form.fields.push_back(field);
+  field.name = string16();
+  field.autocomplete_attribute = "section-foo email";
+  form.fields.push_back(field);
+  field.name = string16();
+  field.autocomplete_attribute = "name";
+  form.fields.push_back(field);
+  field.name = ASCIIToUTF16("two");
+  field.autocomplete_attribute = "street-address";
+  form.fields.push_back(field);
+
+  FormStructure form_structure(form);
+  form_structure.DetermineHeuristicTypes(TestAutofillMetrics());
+
+  // Expect the correct number of fields.
+  ASSERT_EQ(4U, form_structure.field_count());
+  EXPECT_EQ(4U, form_structure.autofill_count());
+
+  // Normally, the two separate address fields would cause us to detect two
+  // separate sections; but because there is an author-specified section in this
+  // form, we do not apply these usual heuristics.
+  EXPECT_EQ(ASCIIToUTF16("one"), form_structure.field(0)->name);
+  EXPECT_EQ(ASCIIToUTF16("two"), form_structure.field(3)->name);
+  EXPECT_EQ(form_structure.field(0)->section(),
+            form_structure.field(3)->section());
 }
 
 TEST(FormStructureTest, HeuristicsSample8) {
@@ -587,7 +657,7 @@ TEST(FormStructureTest, HeuristicsSample8) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Your First Name:");
   field.name = ASCIIToUTF16("bill.first");
@@ -627,11 +697,11 @@ TEST(FormStructureTest, HeuristicsSample8) {
 
   field.label = string16();
   field.name = ASCIIToUTF16("Submit");
-  field.form_control_type = ASCIIToUTF16("submit");
+  field.form_control_type = "submit";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(10U, form_structure->field_count());
   ASSERT_EQ(9U, form_structure->autofill_count());
@@ -666,7 +736,7 @@ TEST(FormStructureTest, HeuristicsSample6) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("E-mail address");
   field.name = ASCIIToUTF16("email");
@@ -695,11 +765,11 @@ TEST(FormStructureTest, HeuristicsSample6) {
   field.label = string16();
   field.name = ASCIIToUTF16("Submit");
   field.value = ASCIIToUTF16("continue");
-  field.form_control_type = ASCIIToUTF16("submit");
+  field.form_control_type = "submit";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(7U, form_structure->field_count());
   ASSERT_EQ(6U, form_structure->autofill_count());
@@ -729,7 +799,7 @@ TEST(FormStructureTest, HeuristicsLabelsOnly) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("First Name");
   field.name = string16();
@@ -761,11 +831,11 @@ TEST(FormStructureTest, HeuristicsLabelsOnly) {
 
   field.label = string16();
   field.name = ASCIIToUTF16("Submit");
-  field.form_control_type = ASCIIToUTF16("submit");
+  field.form_control_type = "submit";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(8U, form_structure->field_count());
   ASSERT_EQ(7U, form_structure->autofill_count());
@@ -795,7 +865,7 @@ TEST(FormStructureTest, HeuristicsCreditCardInfo) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Name on Card");
   field.name = ASCIIToUTF16("name_on_card");
@@ -819,11 +889,11 @@ TEST(FormStructureTest, HeuristicsCreditCardInfo) {
 
   field.label = string16();
   field.name = ASCIIToUTF16("Submit");
-  field.form_control_type = ASCIIToUTF16("submit");
+  field.form_control_type = "submit";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(6U, form_structure->field_count());
   ASSERT_EQ(4U, form_structure->autofill_count());
@@ -849,7 +919,7 @@ TEST(FormStructureTest, HeuristicsCreditCardInfoWithUnknownCardField) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Name on Card");
   field.name = ASCIIToUTF16("name_on_card");
@@ -857,8 +927,8 @@ TEST(FormStructureTest, HeuristicsCreditCardInfoWithUnknownCardField) {
 
   // This is not a field we know how to process.  But we should skip over it
   // and process the other fields in the card block.
-  field.label = ASCIIToUTF16("Card Type");
-  field.name = ASCIIToUTF16("card_type");
+  field.label = ASCIIToUTF16("Card image");
+  field.name = ASCIIToUTF16("card_image");
   form.fields.push_back(field);
 
   field.label = ASCIIToUTF16("Card Number");
@@ -879,11 +949,11 @@ TEST(FormStructureTest, HeuristicsCreditCardInfoWithUnknownCardField) {
 
   field.label = string16();
   field.name = ASCIIToUTF16("Submit");
-  field.form_control_type = ASCIIToUTF16("submit");
+  field.form_control_type = "submit";
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(7U, form_structure->field_count());
   ASSERT_EQ(4U, form_structure->autofill_count());
@@ -911,7 +981,7 @@ TEST(FormStructureTest, ThreeAddressLines) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Address Line1");
   field.name = ASCIIToUTF16("Address");
@@ -930,7 +1000,7 @@ TEST(FormStructureTest, ThreeAddressLines) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(4U, form_structure->field_count());
   ASSERT_EQ(3U, form_structure->autofill_count());
@@ -953,7 +1023,7 @@ TEST(FormStructureTest, BillingAndShippingAddresses) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Address Line1");
   field.name = ASCIIToUTF16("shipping.address.addressLine1");
@@ -972,7 +1042,7 @@ TEST(FormStructureTest, BillingAndShippingAddresses) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(4U, form_structure->field_count());
   ASSERT_EQ(4U, form_structure->autofill_count());
@@ -999,7 +1069,7 @@ TEST(FormStructureTest, ThreeAddressLinesExpedia) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Street:");
   field.name = ASCIIToUTF16("FOPIH_RgWebCC_0_IHAddress_ads1");
@@ -1018,7 +1088,7 @@ TEST(FormStructureTest, ThreeAddressLinesExpedia) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(4U, form_structure->field_count());
   EXPECT_EQ(3U, form_structure->autofill_count());
@@ -1042,7 +1112,7 @@ TEST(FormStructureTest, TwoAddressLinesEbay) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Address Line1");
   field.name = ASCIIToUTF16("address1");
@@ -1057,7 +1127,7 @@ TEST(FormStructureTest, TwoAddressLinesEbay) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(3U, form_structure->field_count());
   ASSERT_EQ(3U, form_structure->autofill_count());
@@ -1076,7 +1146,7 @@ TEST(FormStructureTest, HeuristicsStateWithProvince) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Address Line1");
   field.name = ASCIIToUTF16("Address");
@@ -1091,7 +1161,7 @@ TEST(FormStructureTest, HeuristicsStateWithProvince) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(3U, form_structure->field_count());
   ASSERT_EQ(3U, form_structure->autofill_count());
@@ -1111,7 +1181,7 @@ TEST(FormStructureTest, HeuristicsWithBilling) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("First Name*:");
   field.name = ASCIIToUTF16("editBillingAddress$firstNameBox");
@@ -1158,7 +1228,7 @@ TEST(FormStructureTest, HeuristicsWithBilling) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(11U, form_structure->field_count());
   ASSERT_EQ(11U, form_structure->autofill_count());
@@ -1184,7 +1254,7 @@ TEST(FormStructureTest, ThreePartPhoneNumber) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Phone:");
   field.name = ASCIIToUTF16("dayphone1");
@@ -1209,7 +1279,7 @@ TEST(FormStructureTest, ThreePartPhoneNumber) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
   ASSERT_EQ(4U, form_structure->field_count());
   ASSERT_EQ(3U, form_structure->autofill_count());
@@ -1232,7 +1302,7 @@ TEST(FormStructureTest, HeuristicsInfernoCC) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Name on Card");
   field.name = ASCIIToUTF16("name_on_card");
@@ -1255,7 +1325,7 @@ TEST(FormStructureTest, HeuristicsInfernoCC) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
 
   // Expect the correct number of fields.
@@ -1281,7 +1351,7 @@ TEST(FormStructureTest, CVCCodeClash) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Card number");
   field.name = ASCIIToUTF16("ccnumber");
@@ -1308,7 +1378,7 @@ TEST(FormStructureTest, CVCCodeClash) {
   form.fields.push_back(field);
 
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
   EXPECT_TRUE(form_structure->IsAutofillable(true));
 
   // Expect the correct number of fields.
@@ -1335,7 +1405,7 @@ TEST(FormStructureTest, EncodeQueryRequest) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("Name on Card");
   field.name = ASCIIToUTF16("name_on_card");
@@ -1447,10 +1517,10 @@ TEST(FormStructureTest, EncodeUploadRequest) {
   FormData form;
   form.method = ASCIIToUTF16("post");
   form_structure.reset(new FormStructure(form));
-  form_structure->DetermineHeuristicTypes();
+  form_structure->DetermineHeuristicTypes(TestAutofillMetrics());
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("First Name");
   field.name = ASCIIToUTF16("firstname");
@@ -1466,21 +1536,21 @@ TEST(FormStructureTest, EncodeUploadRequest) {
 
   field.label = ASCIIToUTF16("Email");
   field.name = ASCIIToUTF16("email");
-  field.form_control_type = ASCIIToUTF16("email");
+  field.form_control_type = "email";
   form.fields.push_back(field);
   possible_field_types.push_back(FieldTypeSet());
   possible_field_types.back().insert(EMAIL_ADDRESS);
 
   field.label = ASCIIToUTF16("Phone");
   field.name = ASCIIToUTF16("phone");
-  field.form_control_type = ASCIIToUTF16("number");
+  field.form_control_type = "number";
   form.fields.push_back(field);
   possible_field_types.push_back(FieldTypeSet());
   possible_field_types.back().insert(PHONE_HOME_WHOLE_NUMBER);
 
   field.label = ASCIIToUTF16("Country");
   field.name = ASCIIToUTF16("country");
-  field.form_control_type = ASCIIToUTF16("select-one");
+  field.form_control_type = "select-one";
   form.fields.push_back(field);
   possible_field_types.push_back(FieldTypeSet());
   possible_field_types.back().insert(ADDRESS_HOME_COUNTRY);
@@ -1533,7 +1603,7 @@ TEST(FormStructureTest, EncodeUploadRequest) {
   for (size_t i = 0; i < 2; ++i) {
     field.label = ASCIIToUTF16("Address");
     field.name = ASCIIToUTF16("address");
-    field.form_control_type = ASCIIToUTF16("text");
+    field.form_control_type = "text";
     form.fields.push_back(field);
     possible_field_types.push_back(FieldTypeSet());
     possible_field_types.back().insert(ADDRESS_HOME_LINE1);
@@ -1573,7 +1643,7 @@ TEST(FormStructureTest, EncodeUploadRequest) {
   for (size_t i = 0; i < 50; ++i) {
     field.label = ASCIIToUTF16("Address");
     field.name = ASCIIToUTF16("address");
-    field.form_control_type = ASCIIToUTF16("text");
+    field.form_control_type = "text";
     form.fields.push_back(field);
     possible_field_types.push_back(FieldTypeSet());
     possible_field_types.back().insert(ADDRESS_HOME_LINE1);
@@ -1596,7 +1666,7 @@ TEST(FormStructureTest, CheckDataPresence) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("First Name");
   field.name = ASCIIToUTF16("first");
@@ -1850,7 +1920,7 @@ TEST(FormStructureTest, CheckMultipleTypes) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("email");
   field.name = ASCIIToUTF16("email");
@@ -1956,7 +2026,7 @@ TEST(FormStructureTest, CheckFormSignature) {
   form.method = ASCIIToUTF16("post");
 
   FormFieldData field;
-  field.form_control_type = ASCIIToUTF16("text");
+  field.form_control_type = "text";
 
   field.label = ASCIIToUTF16("email");
   field.name = ASCIIToUTF16("email");

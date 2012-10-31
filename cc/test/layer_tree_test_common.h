@@ -5,20 +5,22 @@
 #ifndef CC_TEST_LAYER_TREE_TEST_COMMON_H_
 #define CC_TEST_LAYER_TREE_TEST_COMMON_H_
 
-#include "cc/layer_tree_host.h"
 #include "base/hash_tables.h"
+#include "base/memory/ref_counted.h"
+#include "base/threading/thread.h"
+#include "cc/layer_tree_host.h"
 #include "cc/layer_tree_host_impl.h"
 #include "cc/scoped_thread_proxy.h"
 #include "cc/test/compositor_fake_web_graphics_context_3d.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebAnimationDelegate.h>
-#include <public/WebThread.h>
 
 namespace cc {
 class LayerImpl;
 class LayerTreeHost;
 class LayerTreeHostClient;
 class LayerTreeHostImpl;
+class Thread;
 }
 
 namespace WebKitTests {
@@ -30,16 +32,17 @@ public:
     virtual void commitCompleteOnThread(cc::LayerTreeHostImpl*) { }
     virtual bool prepareToDrawOnThread(cc::LayerTreeHostImpl*);
     virtual void drawLayersOnThread(cc::LayerTreeHostImpl*) { }
-    virtual void animateLayers(cc::LayerTreeHostImpl*, double monotonicTime) { }
-    virtual void willAnimateLayers(cc::LayerTreeHostImpl*, double monotonicTime) { }
+    virtual void animateLayers(cc::LayerTreeHostImpl*, base::TimeTicks monotonicTime) { }
+    virtual void willAnimateLayers(cc::LayerTreeHostImpl*, base::TimeTicks monotonicTime) { }
     virtual void applyScrollAndScale(const cc::IntSize&, float) { }
-    virtual void animate(double monotonicTime) { }
+    virtual void animate(base::TimeTicks monotonicTime) { }
     virtual void layout() { }
     virtual void didRecreateOutputSurface(bool succeeded) { }
     virtual void didAddAnimation() { }
     virtual void didCommit() { }
     virtual void didCommitAndDrawFrame() { }
     virtual void scheduleComposite() { }
+    virtual void didDeferCommit() { }
 
     // Implementation of WebAnimationDelegate
     virtual void notifyAnimationStarted(double time) OVERRIDE { }
@@ -75,7 +78,7 @@ public:
     void endTestAfterDelay(int delayMilliseconds);
 
     void postSetNeedsAnimateToMainThread();
-    void postAddAnimationToMainThread();
+    void postAddAnimationToMainThread(cc::Layer*);
     void postAddInstantAnimationToMainThread();
     void postSetNeedsCommitToMainThread();
     void postAcquireLayerTextures();
@@ -86,8 +89,6 @@ public:
 
     void doBeginTest();
     void timeout();
-
-    void clearTimeout() { m_timeoutTask = 0; }
 
     cc::LayerTreeHost* layerTreeHost() { return m_layerTreeHost.get(); }
 
@@ -102,7 +103,7 @@ protected:
 
     void dispatchSetNeedsAnimate();
     void dispatchAddInstantAnimation();
-    void dispatchAddAnimation();
+    void dispatchAddAnimation(cc::Layer*);
     void dispatchSetNeedsAnimateAndCommit();
     void dispatchSetNeedsCommit();
     void dispatchAcquireLayerTextures();
@@ -112,14 +113,15 @@ protected:
     void dispatchDidAddAnimation();
 
     virtual void runTest(bool threaded);
-    WebKit::WebThread* webThread() const { return m_webThread.get(); }
+
+    cc::Thread* implThread() { return m_implCCThread.get(); }
 
     cc::LayerTreeSettings m_settings;
     scoped_ptr<MockLayerImplTreeHostClient> m_client;
     scoped_ptr<cc::LayerTreeHost> m_layerTreeHost;
 
 protected:
-    RefPtr<cc::ScopedThreadProxy> m_mainThreadProxy;
+    scoped_refptr<cc::ScopedThreadProxy> m_mainThreadProxy;
 
 private:
     bool m_beginning;
@@ -129,9 +131,10 @@ private:
     bool m_scheduled;
     bool m_started;
 
-    scoped_ptr<WebKit::WebThread> m_webThread;
-    TimeoutTask* m_timeoutTask;
-    BeginTask* m_beginTask;
+    scoped_ptr<cc::Thread> m_mainCCThread;
+    scoped_ptr<cc::Thread> m_implCCThread;
+    scoped_ptr<base::Thread> m_implThread;
+    base::CancelableClosure m_timeout;
 };
 
 class ThreadedTestThreadOnly : public ThreadedTest {
@@ -157,7 +160,7 @@ public:
     using LayerTreeHostImpl::calculateRenderSurfaceLayerList;
 
 protected:
-    virtual void animateLayers(double monotonicTime, double wallClockTime) OVERRIDE;
+    virtual void animateLayers(base::TimeTicks monotonicTime, base::Time wallClockTime) OVERRIDE;
     virtual base::TimeDelta lowFrequencyAnimationInterval() const OVERRIDE;
 
 private:
@@ -188,7 +191,7 @@ public:
 private:
     explicit CompositorFakeWebGraphicsContext3DWithTextureTracking(Attributes attrs);
 
-    Vector<WebKit::WebGLId> m_textures;
+    std::vector<WebKit::WebGLId> m_textures;
     base::hash_set<WebKit::WebGLId> m_usedTextures;
 };
 

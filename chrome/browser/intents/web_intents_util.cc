@@ -51,8 +51,11 @@ const char kActionSave[] = "http://webintents.org/save";
 const char kActionShare[] = "http://webintents.org/share";
 const char kActionSubscribe[] = "http://webintents.org/subscribe";
 const char kActionView[] = "http://webintents.org/view";
+const char kActionCrosEcho[] = "https://crosecho.com/startEcho";
 const char kQuickOfficeViewerServiceURL[] =
     "chrome-extension://gbkeegbaiigmenfmjfclcdgdpimamgkj/views/appViewer.html";
+const char kQuickOfficeViewerDevServiceURL[] =
+    "chrome-extension://ionpfmkccalenbmnddpbmocokhaknphg/views/appEditor.html";
 
 void RegisterUserPrefs(PrefService* user_prefs) {
   user_prefs->RegisterBooleanPref(prefs::kWebIntentsEnabled, true,

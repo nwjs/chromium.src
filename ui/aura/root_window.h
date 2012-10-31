@@ -27,6 +27,8 @@
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/point.h"
 
+class SkCanvas;
+
 namespace gfx {
 class Size;
 class Transform;
@@ -49,31 +51,6 @@ class FocusManager;
 class RootWindow;
 class RootWindowHost;
 class RootWindowObserver;
-
-// This class represents a lock on the compositor, that can be used to prevent a
-// compositing pass from happening while we're waiting for an asynchronous
-// event. The typical use case is when waiting for a renderer to produce a frame
-// at the right size. The caller keeps a reference on this object, and drops the
-// reference once it desires to release the lock.
-// Note however that the lock is canceled after a short timeout to ensure
-// responsiveness of the UI, so the compositor tree should be kept in a
-// "reasonable" state while the lock is held.
-// Don't instantiate this class directly, use RootWindow::GetCompositorLock.
-class AURA_EXPORT CompositorLock
-    : public base::RefCounted<CompositorLock>,
-      public base::SupportsWeakPtr<CompositorLock> {
- private:
-  friend class base::RefCounted<CompositorLock>;
-  friend class RootWindow;
-
-  explicit CompositorLock(RootWindow* root_window);
-  ~CompositorLock();
-
-  void CancelLock();
-
-  RootWindow* root_window_;
-  DISALLOW_COPY_AND_ASSIGN(CompositorLock);
-};
 
 // RootWindow is responsible for hosting a set of windows.
 class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
@@ -235,13 +212,17 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   void HoldMouseMoves();
   void ReleaseMouseMoves();
 
-  // Creates a compositor lock.
-  scoped_refptr<CompositorLock> GetCompositorLock();
-
   // Sets if the window should be focused when shown.
   void SetFocusWhenShown(bool focus_when_shown);
 
-  // Grabs the snapshot of the root window by using the platform-dependent APIs.
+  // Copies |source_bounds| from the root window (as displayed on the host
+  // machine) to |canvas| at offset |dest_offset|.
+  bool CopyAreaToSkCanvas(const gfx::Rect& source_bounds,
+                          const gfx::Point& dest_offset,
+                          SkCanvas* canvas);
+
+  // Grabs a snapshot of the root window using platform-specific APIs, encodes
+  // it in PNG format, and saves it to |png_representation|.
   bool GrabSnapshot(const gfx::Rect& snapshot_bounds,
                     std::vector<unsigned char>* png_representation);
 
@@ -262,10 +243,10 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
 
   // Overridden from ui::CompositorObserver:
   virtual void OnCompositingDidCommit(ui::Compositor*) OVERRIDE;
-  virtual void OnCompositingWillStart(ui::Compositor*) OVERRIDE;
   virtual void OnCompositingStarted(ui::Compositor*) OVERRIDE;
   virtual void OnCompositingEnded(ui::Compositor*) OVERRIDE;
   virtual void OnCompositingAborted(ui::Compositor*) OVERRIDE;
+  virtual void OnCompositingLockStateChanged(ui::Compositor*) OVERRIDE;
 
   // Overridden from ui::LayerDelegate:
   virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
@@ -285,7 +266,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
 
  private:
   friend class Window;
-  friend class CompositorLock;
 
   // Called whenever the mouse moves, tracks the current |mouse_moved_handler_|,
   // sending exited and entered events as its value changes.
@@ -331,7 +311,8 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   virtual bool OnHostMouseEvent(ui::MouseEvent* event) OVERRIDE;
   virtual bool OnHostScrollEvent(ui::ScrollEvent* event) OVERRIDE;
   virtual bool OnHostTouchEvent(ui::TouchEvent* event) OVERRIDE;
-  virtual void OnHostLostCapture() OVERRIDE;
+  virtual void OnHostLostWindowCapture() OVERRIDE;
+  virtual void OnHostLostMouseGrab() OVERRIDE;
   virtual void OnHostPaint() OVERRIDE;
   virtual void OnHostMoved(const gfx::Point& origin) OVERRIDE;
   virtual void OnHostResized(const gfx::Size& size) OVERRIDE;
@@ -359,9 +340,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   // Creates and dispatches synthesized mouse move event using the
   // current mouse location.
   void SynthesizeMouseMoveEvent();
-
-  // Called by CompositorLock.
-  void UnlockCompositor();
 
   scoped_ptr<ui::Compositor> compositor_;
 
@@ -408,9 +386,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   base::WeakPtrFactory<RootWindow> held_mouse_event_factory_;
 
   scoped_ptr<ui::ViewProp> prop_;
-
-  CompositorLock* compositor_lock_;
-  bool draw_on_compositor_unlock_;
 
   DISALLOW_COPY_AND_ASSIGN(RootWindow);
 };

@@ -15,16 +15,13 @@
 #include "content/common/child_process.h"
 #include "content/common/child_thread.h"
 #include "content/common/content_export.h"
-#include "content/common/css_colors.h"
 #include "content/common/gpu/client/gpu_channel_host.h"
 #include "content/common/gpu/gpu_process_launch_causes.h"
 #include "content/public/renderer/render_thread.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "ui/gfx/native_widget_types.h"
 
-class DBMessageFilter;
 class SkBitmap;
-class WebDatabaseObserverImpl;
 struct ViewMsg_New_Params;
 
 namespace WebKit {
@@ -58,6 +55,7 @@ class AudioInputMessageFilter;
 class AudioMessageFilter;
 class AudioRendererMixerManager;
 class CompositorThread;
+class DBMessageFilter;
 class DevToolsAgentFilter;
 class DomStorageDispatcher;
 class GpuChannelHost;
@@ -68,12 +66,8 @@ class P2PSocketDispatcher;
 class RendererWebKitPlatformSupportImpl;
 class RenderProcessObserver;
 class VideoCaptureImplManager;
+class WebDatabaseObserverImpl;
 class WebGraphicsContext3DCommandBufferImpl;
-
-namespace old {
-class BrowserPluginChannelManager;
-class BrowserPluginRegistry;
-}
 
 // The RenderThreadImpl class represents a background thread where RenderView
 // instances live.  The RenderThread supports an API that is used by its
@@ -179,14 +173,6 @@ class CONTENT_EXPORT RenderThreadImpl : public RenderThread,
   // Will be NULL if threaded compositing has not been enabled.
   CompositorThread* compositor_thread() const {
     return compositor_thread_.get();
-  }
-
-  old::BrowserPluginRegistry* browser_plugin_registry() const {
-    return browser_plugin_registry_.get();
-  }
-
-  old::BrowserPluginChannelManager* browser_plugin_channel_manager() const {
-    return browser_plugin_channel_manager_.get();
   }
 
   AppCacheDispatcher* appcache_dispatcher() const {
@@ -305,7 +291,6 @@ class CONTENT_EXPORT RenderThreadImpl : public RenderThread,
   void Init();
 
   void OnSetZoomLevelForCurrentURL(const std::string& host, double zoom_level);
-  void OnSetCSSColors(const std::vector<CSSColors::CSSColorMapping>& colors);
   void OnCreateNewView(const ViewMsg_New_Params& params);
   void OnTransferBitmap(const SkBitmap& bitmap, int resource_id);
   void OnPurgePluginListCache(bool reload_pages);
@@ -320,7 +305,6 @@ class CONTENT_EXPORT RenderThreadImpl : public RenderThread,
   scoped_ptr<DomStorageDispatcher> dom_storage_dispatcher_;
   scoped_ptr<IndexedDBDispatcher> main_thread_indexed_db_dispatcher_;
   scoped_ptr<RendererWebKitPlatformSupportImpl> webkit_platform_support_;
-  scoped_ptr<old::BrowserPluginChannelManager> browser_plugin_channel_manager_;
 
   // Used on the render thread and deleted by WebKit at shutdown.
   MediaStreamCenter* media_stream_center_;
@@ -374,8 +358,6 @@ class CONTENT_EXPORT RenderThreadImpl : public RenderThread,
   bool compositor_initialized_;
   scoped_ptr<CompositorThread> compositor_thread_;
   scoped_refptr<IPC::ForwardingMessageFilter> compositor_output_surface_filter_;
-
-  scoped_ptr<old::BrowserPluginRegistry> browser_plugin_registry_;
 
   ObserverList<RenderProcessObserver> observers_;
 

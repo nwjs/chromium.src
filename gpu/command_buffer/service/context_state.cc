@@ -4,8 +4,22 @@
 
 #include "gpu/command_buffer/service/context_state.h"
 
+#include "gpu/command_buffer/common/gles2_cmd_utils.h"
+
 namespace gpu {
 namespace gles2 {
+
+namespace {
+
+void EnableDisable(GLenum pname, bool enable) {
+  if (enable) {
+    glEnable(pname);
+  } else {
+    glDisable(pname);
+  }
+}
+
+}  // anonymous namespace.
 
 TextureUnit::TextureUnit()
     : bind_target(GL_TEXTURE_2D) {
@@ -18,34 +32,21 @@ ContextState::ContextState()
     : pack_alignment(4),
       unpack_alignment(4),
       active_texture_unit(0),
-      color_clear_red(0),
-      color_clear_green(0),
-      color_clear_blue(0),
-      color_clear_alpha(0),
-      color_mask_red(true),
-      color_mask_green(true),
-      color_mask_blue(true),
-      color_mask_alpha(true),
-      stencil_clear(0),
-      stencil_mask_front(-1),
-      stencil_mask_back(-1),
-      depth_clear(1.0f),
-      depth_mask(true),
-      enable_blend(false),
-      enable_cull_face(false),
-      enable_scissor_test(false),
-      enable_depth_test(false),
-      enable_stencil_test(false),
-      viewport_x(0),
-      viewport_y(0),
-      viewport_width(0),
-      viewport_height(0),
       viewport_max_width(0),
-      viewport_max_height(0) {
+      viewport_max_height(0),
+      hint_generate_mipmap(GL_DONT_CARE),
+      hint_fragment_shader_derivative(GL_DONT_CARE),
+      pack_reverse_row_order(false) {
+  Initialize();
 }
 
 ContextState::~ContextState() {
 }
+
+// Include the auto-generated part of this file. We split this because it means
+// we can easily edit the non-auto generated parts right here in this file
+// instead of having to edit some template or the code generator.
+#include "gpu/command_buffer/service/context_state_impl_autogen.h"
 
 }  // namespace gles2
 }  // namespace gpu

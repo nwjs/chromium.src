@@ -15,6 +15,7 @@
 #include "cc/math_util.h"
 #include "cc/render_surface.h"
 #include "cc/render_surface_impl.h"
+#include <algorithm>
 #include <public/WebTransformationMatrix.h>
 
 using WebKit::WebTransformationMatrix;
@@ -52,6 +53,12 @@ IntRect LayerTreeHostCommon::calculateVisibleRect(const IntRect& targetSurfaceRe
     return layerRect;
 }
 
+template <typename LayerType>
+static inline bool isRootLayer(LayerType* layer)
+{
+    return !layer->parent();
+}
+
 template<typename LayerType>
 static inline bool layerIsInExisting3DRenderingContext(LayerType* layer)
 {
@@ -61,7 +68,7 @@ static inline bool layerIsInExisting3DRenderingContext(LayerType* layer)
 }
 
 template<typename LayerType>
-static bool layerIsRootOfNewRenderingContext(LayerType* layer)
+static bool isRootLayerOfNewRenderingContext(LayerType* layer)
 {
     // According to current W3C spec on CSS transforms (Section 6.1), a layer is the
     // beginning of 3d rendering context if its parent does not have transform-style:
@@ -94,7 +101,7 @@ static bool isSurfaceBackFaceVisible(LayerType* layer, const WebTransformationMa
     if (layerIsInExisting3DRenderingContext(layer))
         return drawTransform.isBackFaceVisible();
 
-    if (layerIsRootOfNewRenderingContext(layer))
+    if (isRootLayerOfNewRenderingContext(layer))
         return layer->transform().isBackFaceVisible();
 
     // If the renderSurface is not part of a new or existing rendering context, then the
@@ -217,17 +224,13 @@ static inline bool subtreeShouldBeSkipped(Layer* layer)
 template<typename LayerType>
 static bool subtreeShouldRenderToSeparateSurface(LayerType* layer, bool axisAlignedWithRespectToParent)
 {
-    // The root layer has a special render surface that is set up externally, so
-    // it shouldn't be treated as a surface in this code.
-    if (!layer->parent())
-        return false;
-
-    // Cache this value, because otherwise it walks the entire subtree several times.
-    bool descendantDrawsContent = layer->descendantDrawsContent();
-
     //
     // A layer and its descendants should render onto a new RenderSurfaceImpl if any of these rules hold:
     //
+
+    // The root layer should always have a renderSurface.
+    if (isRootLayer(layer))
+        return true;
 
     // If we force it.
     if (layer->forceRenderSurface())
@@ -242,8 +245,11 @@ static bool subtreeShouldRenderToSeparateSurface(LayerType* layer, bool axisAlig
         return true;
 
     // If the layer uses a CSS filter.
-    if (!layer->filters().isEmpty() || !layer->backgroundFilters().isEmpty())
+    if (!layer->filters().isEmpty() || !layer->backgroundFilters().isEmpty() || layer->filter())
         return true;
+
+    // Cache this value, because otherwise it walks the entire subtree several times.
+    bool descendantDrawsContent = layer->descendantDrawsContent();
 
     // If the layer flattens its subtree (i.e. the layer doesn't preserve-3d), but it is
     // treated as a 3D object by its parent (i.e. parent does preserve-3d).
@@ -306,8 +312,8 @@ WebTransformationMatrix computeScrollCompensationMatrixForChildren(LayerImpl* la
     //    it is fixed to an ancestor, and is a container for any fixed-position descendants.
     //  - A layer that is a fixed-position container and has a renderSurface should behave the same as a container
     //    without a renderSurface, the renderSurface is irrelevant in that case.
-    //  - A layer that does not have an explicit container is simply fixed to the viewport
-    //    (i.e. the root renderSurface, and it would still compensate for root layer's scrollDelta).
+    //  - A layer that does not have an explicit container is simply fixed to the viewport.
+    //    (i.e. the root renderSurface.)
     //  - If the fixed-position layer has its own renderSurface, then the renderSurface is
     //    the one who gets fixed.
     //
@@ -343,28 +349,47 @@ WebTransformationMatrix computeScrollCompensationMatrixForChildren(LayerImpl* la
     return nextScrollCompensationMatrix;
 }
 
-// Should be called just before the recursive calculateDrawTransformsInternal().
-template<typename LayerType, typename LayerList>
-void setupRootLayerAndSurfaceForRecursion(LayerType* rootLayer, LayerList& renderSurfaceLayerList, const IntSize& deviceViewportSize)
+// There is no contentsScale on impl thread.
+static inline void updateLayerContentsScale(LayerImpl*, const WebTransformationMatrix&, float, float) { }
+
+static inline void updateLayerContentsScale(Layer* layer, const WebTransformationMatrix& combinedTransform, float deviceScaleFactor, float pageScaleFactor)
 {
-    if (!rootLayer->renderSurface())
-        rootLayer->createRenderSurface();
+    float rasterScale = layer->rasterScale();
+    if (!rasterScale) {
+        rasterScale = 1;
 
-    rootLayer->renderSurface()->setContentRect(IntRect(IntPoint::zero(), deviceViewportSize));
-    rootLayer->renderSurface()->clearLayerLists();
+        if (layer->automaticallyComputeRasterScale()) {
+            FloatPoint transformScale = MathUtil::computeTransform2dScaleComponents(combinedTransform);
+            float combinedScale = std::max(transformScale.x(), transformScale.y());
+            rasterScale = combinedScale / deviceScaleFactor;
+            if (!layer->boundsContainPageScale())
+                rasterScale /= pageScaleFactor;
+            layer->setRasterScale(rasterScale);
+        }
+    }
 
-    DCHECK(renderSurfaceLayerList.empty());
-    renderSurfaceLayerList.push_back(rootLayer);
+    float contentsScale = rasterScale * deviceScaleFactor;
+    if (!layer->boundsContainPageScale())
+        contentsScale *= pageScaleFactor;
+    layer->setContentsScale(contentsScale);
+
+    Layer* maskLayer = layer->maskLayer();
+    if (maskLayer)
+        maskLayer->setContentsScale(contentsScale);
+
+    Layer* replicaMaskLayer = layer->replicaLayer() ? layer->replicaLayer()->maskLayer() : 0;
+    if (replicaMaskLayer)
+        replicaMaskLayer->setContentsScale(contentsScale);
 }
 
 // Recursively walks the layer tree starting at the given node and computes all the
 // necessary transformations, clipRects, render surfaces, etc.
 template<typename LayerType, typename LayerList, typename RenderSurfaceType, typename LayerSorter>
-static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLayer, const WebTransformationMatrix& parentMatrix,
+static void calculateDrawTransformsInternal(LayerType* layer, const WebTransformationMatrix& parentMatrix,
     const WebTransformationMatrix& fullHierarchyMatrix, const WebTransformationMatrix& currentScrollCompensationMatrix,
     const IntRect& clipRectFromAncestor, bool ancestorClipsSubtree,
     RenderSurfaceType* nearestAncestorThatMovesPixels, LayerList& renderSurfaceLayerList, LayerList& layerList,
-    LayerSorter* layerSorter, int maxTextureSize, float deviceScaleFactor, IntRect& drawableContentRectOfSubtree)
+    LayerSorter* layerSorter, int maxTextureSize, float deviceScaleFactor, float pageScaleFactor, IntRect& drawableContentRectOfSubtree)
 {
     // This function computes the new matrix transformations recursively for this
     // layer and all its descendants. It also computes the appropriate render surfaces.
@@ -451,7 +476,8 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     // If we early-exit anywhere in this function, the drawableContentRect of this subtree should be considered empty.
     drawableContentRectOfSubtree = IntRect();
 
-    if (subtreeShouldBeSkipped(layer))
+    // The root layer cannot skip calcDrawTransforms.
+    if (!isRootLayer(layer) && subtreeShouldBeSkipped(layer))
         return;
 
     IntRect clipRectForSubtree;
@@ -469,17 +495,23 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     FloatPoint position = layer->position() - layer->scrollDelta();
 
     WebTransformationMatrix layerLocalTransform;
-    // LT = M[impl transformation]
-    layerLocalTransform.multiply(layer->implTransform());
-    // LT = M[impl transformation] * Tr[origin] * Tr[origin2anchor]
+    // LT = Tr[origin] * Tr[origin2anchor]
     layerLocalTransform.translate3d(position.x() + anchorPoint.x() * bounds.width(), position.y() + anchorPoint.y() * bounds.height(), layer->anchorPointZ());
-    // LT = M[impl transformation] * Tr[origin] * Tr[origin2anchor] * M[layer]
+    // LT = Tr[origin] * Tr[origin2anchor] * M[layer]
     layerLocalTransform.multiply(layer->transform());
-    // LT = S[impl transformation] * Tr[origin] * Tr[origin2anchor] * M[layer] * Tr[anchor2origin]
+    // LT = Tr[origin] * Tr[origin2anchor] * M[layer] * Tr[anchor2origin]
     layerLocalTransform.translate3d(-anchorPoint.x() * bounds.width(), -anchorPoint.y() * bounds.height(), -layer->anchorPointZ());
 
     WebTransformationMatrix combinedTransform = parentMatrix;
     combinedTransform.multiply(layerLocalTransform);
+
+    // The layer's contentsSize is determined from the combinedTransform, which then informs the
+    // layer's drawTransform.
+    updateLayerContentsScale(layer, combinedTransform, deviceScaleFactor, pageScaleFactor);
+
+    // If there is a tranformation from the impl thread then it should be at the
+    // start of the combinedTransform, but we don't want it to affect the contentsScale.
+    combinedTransform = layer->implTransform() * combinedTransform;
 
     if (layer->fixedToContainerLayer()) {
         // Special case: this layer is a composited fixed-position layer; we need to
@@ -518,6 +550,8 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     WebTransformationMatrix nextHierarchyMatrix = fullHierarchyMatrix;
     WebTransformationMatrix sublayerMatrix;
 
+    FloatPoint renderSurfaceSublayerScale = MathUtil::computeTransform2dScaleComponents(combinedTransform);
+
     if (subtreeShouldRenderToSeparateSurface(layer, isScaleOrTranslation(combinedTransform))) {
         // Check back-face visibility before continuing with this surface and its subtree
         if (!layer->doubleSided() && transformToParentIsKnown(layer) && isSurfaceBackFaceVisible(layer, combinedTransform))
@@ -529,20 +563,29 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         RenderSurfaceType* renderSurface = layer->renderSurface();
         renderSurface->clearLayerLists();
 
-        // The origin of the new surface is the upper left corner of the layer.
+        // The owning layer's draw transform has a scale from content to layer space which we need to undo and
+        // replace with a scale from the surface's subtree into layer space.
+        if (!layer->contentBounds().isEmpty() && !layer->bounds().isEmpty()) {
+            drawTransform.scaleNonUniform(layer->contentBounds().width() / static_cast<double>(layer->bounds().width()),
+                                          layer->contentBounds().height() / static_cast<double>(layer->bounds().height()));
+        }
+        drawTransform.scaleNonUniform(1 / renderSurfaceSublayerScale.x(), 1 / renderSurfaceSublayerScale.y());
         renderSurface->setDrawTransform(drawTransform);
+
+        // The origin of the new surface is the upper left corner of the layer.
         WebTransformationMatrix layerDrawTransform;
-        layerDrawTransform.scale(deviceScaleFactor);
+        layerDrawTransform.scaleNonUniform(renderSurfaceSublayerScale.x(), renderSurfaceSublayerScale.y());
         if (!layer->contentBounds().isEmpty() && !layer->bounds().isEmpty()) {
             layerDrawTransform.scaleNonUniform(layer->bounds().width() / static_cast<double>(layer->contentBounds().width()),
                                                layer->bounds().height() / static_cast<double>(layer->contentBounds().height()));
         }
         layer->setDrawTransform(layerDrawTransform);
 
+        // Inside the surface's subtree, we scale everything to the owning layer's scale.
         // The sublayer matrix transforms centered layer rects into target
         // surface content space.
         sublayerMatrix.makeIdentity();
-        sublayerMatrix.scale(deviceScaleFactor);
+        sublayerMatrix.scaleNonUniform(renderSurfaceSublayerScale.x(), renderSurfaceSublayerScale.y());
 
         // The opacity value is moved from the layer to its surface, so that the entire subtree properly inherits opacity.
         renderSurface->setDrawOpacity(drawOpacity);
@@ -576,7 +619,9 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
             layer->replicaLayer()->maskLayer()->setVisibleContentRect(IntRect(IntPoint(), layer->contentBounds()));
         }
 
-        if (layer->filters().hasFilterThatMovesPixels())
+        // FIXME:  make this smarter for the SkImageFilter case (check for
+        //         pixel-moving filters)
+        if (layer->filters().hasFilterThatMovesPixels() || layer->filter())
             nearestAncestorThatMovesPixels = renderSurface;
 
         // The render surface clipRect is expressed in the space where this surface draws, i.e. the same space as clipRectFromAncestor.
@@ -589,6 +634,8 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
 
         renderSurfaceLayerList.push_back(layer);
     } else {
+        DCHECK(layer->parent());
+
         layer->setDrawTransform(drawTransform);
         layer->setDrawTransformIsAnimating(animatingTransformToTarget);
         layer->setScreenSpaceTransformIsAnimating(animatingTransformToScreen);
@@ -597,25 +644,15 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         layer->setDrawOpacity(drawOpacity);
         layer->setDrawOpacityIsAnimating(drawOpacityIsAnimating);
 
-        if (layer != rootLayer) {
-            DCHECK(layer->parent());
-            layer->clearRenderSurface();
+        layer->clearRenderSurface();
 
-            // Layers without renderSurfaces directly inherit the ancestor's clip status.
-            subtreeShouldBeClipped = ancestorClipsSubtree;
-            if (ancestorClipsSubtree)
-                clipRectForSubtree = clipRectFromAncestor;
+        // Layers without renderSurfaces directly inherit the ancestor's clip status.
+        subtreeShouldBeClipped = ancestorClipsSubtree;
+        if (ancestorClipsSubtree)
+            clipRectForSubtree = clipRectFromAncestor;
 
-            // Layers that are not their own renderTarget will render into the target of their nearest ancestor.
-            layer->setRenderTarget(layer->parent()->renderTarget());
-        } else {
-            // FIXME: This root layer special case code should eventually go away. https://bugs.webkit.org/show_bug.cgi?id=92290
-            DCHECK(!layer->parent());
-            DCHECK(layer->renderSurface());
-            DCHECK(ancestorClipsSubtree);
-            layer->renderSurface()->setClipRect(clipRectFromAncestor);
-            subtreeShouldBeClipped = false;
-        }
+        // Layers that are not their own renderTarget will render into the target of their nearest ancestor.
+        layer->setRenderTarget(layer->parent()->renderTarget());
     }
 
     IntRect rectInTargetSpace = enclosingIntRect(MathUtil::mapClippedRect(layer->drawTransform(), contentRect));
@@ -652,9 +689,9 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     for (size_t i = 0; i < layer->children().size(); ++i) {
         LayerType* child = LayerTreeHostCommon::getChildAsRawPtr(layer->children(), i);
         IntRect drawableContentRectOfChildSubtree;
-        calculateDrawTransformsInternal<LayerType, LayerList, RenderSurfaceType, LayerSorter>(child, rootLayer, sublayerMatrix, nextHierarchyMatrix, nextScrollCompensationMatrix,
+        calculateDrawTransformsInternal<LayerType, LayerList, RenderSurfaceType, LayerSorter>(child, sublayerMatrix, nextHierarchyMatrix, nextScrollCompensationMatrix,
                                                                                               clipRectForSubtree, subtreeShouldBeClipped, nearestAncestorThatMovesPixels,
-                                                                                              renderSurfaceLayerList, descendants, layerSorter, maxTextureSize, deviceScaleFactor, drawableContentRectOfChildSubtree);
+                                                                                              renderSurfaceLayerList, descendants, layerSorter, maxTextureSize, deviceScaleFactor, pageScaleFactor, drawableContentRectOfChildSubtree);
         if (!drawableContentRectOfChildSubtree.isEmpty()) {
             accumulatedDrawableContentRectOfChildren.unite(drawableContentRectOfChildSubtree);
             if (child->renderSurface())
@@ -680,7 +717,11 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     layer->setVisibleContentRect(visibleContentRectOfLayer);
 
     // Compute the remaining properties for the render surface, if the layer has one.
-    if (layer->renderSurface() && layer != rootLayer) {
+    if (isRootLayer(layer)) {
+        // The root layer's surface's contentRect is always the entire viewport.
+        DCHECK(layer->renderSurface());
+        layer->renderSurface()->setContentRect(clipRectFromAncestor);
+    } else if (layer->renderSurface() && !isRootLayer(layer)) {
         RenderSurfaceType* renderSurface = layer->renderSurface();
         IntRect clippedContentRect = localDrawableContentRectOfSubtree;
 
@@ -705,16 +746,25 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
             renderSurface->clearLayerLists();
 
         renderSurface->setContentRect(clippedContentRect);
-        renderSurface->setScreenSpaceTransform(layer->screenSpaceTransform());
+
+        // The owning layer's screenSpaceTransform has a scale from content to layer space which we need to undo and
+        // replace with a scale from the surface's subtree into layer space.
+        WebTransformationMatrix screenSpaceTransform = layer->screenSpaceTransform();
+        if (!layer->contentBounds().isEmpty() && !layer->bounds().isEmpty()) {
+            screenSpaceTransform.scaleNonUniform(layer->contentBounds().width() / static_cast<double>(layer->bounds().width()),
+                                          layer->contentBounds().height() / static_cast<double>(layer->bounds().height()));
+        }
+        screenSpaceTransform.scaleNonUniform(1 / renderSurfaceSublayerScale.x(), 1 / renderSurfaceSublayerScale.y());
+        renderSurface->setScreenSpaceTransform(screenSpaceTransform);
 
         if (layer->replicaLayer()) {
             WebTransformationMatrix surfaceOriginToReplicaOriginTransform;
-            surfaceOriginToReplicaOriginTransform.scale(deviceScaleFactor);
+            surfaceOriginToReplicaOriginTransform.scaleNonUniform(renderSurfaceSublayerScale.x(), renderSurfaceSublayerScale.y());
             surfaceOriginToReplicaOriginTransform.translate(layer->replicaLayer()->position().x() + layer->replicaLayer()->anchorPoint().x() * bounds.width(),
                                                             layer->replicaLayer()->position().y() + layer->replicaLayer()->anchorPoint().y() * bounds.height());
             surfaceOriginToReplicaOriginTransform.multiply(layer->replicaLayer()->transform());
             surfaceOriginToReplicaOriginTransform.translate(-layer->replicaLayer()->anchorPoint().x() * bounds.width(), -layer->replicaLayer()->anchorPoint().y() * bounds.height());
-            surfaceOriginToReplicaOriginTransform.scale(1 / deviceScaleFactor);
+            surfaceOriginToReplicaOriginTransform.scaleNonUniform(1 / renderSurfaceSublayerScale.x(), 1 / renderSurfaceSublayerScale.y());
 
             // Compute the replica's "originTransform" that maps from the replica's origin space to the target surface origin space.
             WebTransformationMatrix replicaOriginTransform = layer->renderSurface()->drawTransform() * surfaceOriginToReplicaOriginTransform;
@@ -762,32 +812,58 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         layer->renderTarget()->renderSurface()->addContributingDelegatedRenderPassLayer(layer);
 }
 
-void LayerTreeHostCommon::calculateDrawTransforms(Layer* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, int maxTextureSize, std::vector<scoped_refptr<Layer> >& renderSurfaceLayerList)
+void LayerTreeHostCommon::calculateDrawTransforms(Layer* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, float pageScaleFactor, int maxTextureSize, std::vector<scoped_refptr<Layer> >& renderSurfaceLayerList)
 {
     IntRect totalDrawableContentRect;
     WebTransformationMatrix identityMatrix;
     WebTransformationMatrix deviceScaleTransform;
     deviceScaleTransform.scale(deviceScaleFactor);
+    std::vector<scoped_refptr<Layer> > dummyLayerList;
 
-    setupRootLayerAndSurfaceForRecursion<Layer, std::vector<scoped_refptr<Layer> > >(rootLayer, renderSurfaceLayerList, deviceViewportSize);
+    // The root layer's renderSurface should receive the deviceViewport as the initial clipRect.
+    bool subtreeShouldBeClipped = true;
+    IntRect deviceViewportRect(IntPoint::zero(), deviceViewportSize);
 
-    cc::calculateDrawTransformsInternal<Layer, std::vector<scoped_refptr<Layer> >, RenderSurface, void>(rootLayer, rootLayer, deviceScaleTransform, identityMatrix, identityMatrix,
-                                                                                                                         rootLayer->renderSurface()->contentRect(), true, 0, renderSurfaceLayerList,
-                                                                                                                         rootLayer->renderSurface()->layerList(), 0, maxTextureSize, deviceScaleFactor, totalDrawableContentRect);
+    // This function should have received a root layer.
+    DCHECK(isRootLayer(rootLayer));
+
+    cc::calculateDrawTransformsInternal<Layer, std::vector<scoped_refptr<Layer> >, RenderSurface, void>(
+        rootLayer, deviceScaleTransform, identityMatrix, identityMatrix,
+        deviceViewportRect, subtreeShouldBeClipped, 0, renderSurfaceLayerList,
+        dummyLayerList, 0, maxTextureSize,
+        deviceScaleFactor, pageScaleFactor, totalDrawableContentRect);
+
+    // The dummy layer list should not have been used.
+    DCHECK(dummyLayerList.size() == 0);
+    // A root layer renderSurface should always exist after calculateDrawTransforms.
+    DCHECK(rootLayer->renderSurface());
 }
 
-void LayerTreeHostCommon::calculateDrawTransforms(LayerImpl* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, LayerSorter* layerSorter, int maxTextureSize, std::vector<LayerImpl*>& renderSurfaceLayerList)
+void LayerTreeHostCommon::calculateDrawTransforms(LayerImpl* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, float pageScaleFactor, LayerSorter* layerSorter, int maxTextureSize, std::vector<LayerImpl*>& renderSurfaceLayerList)
 {
     IntRect totalDrawableContentRect;
     WebTransformationMatrix identityMatrix;
     WebTransformationMatrix deviceScaleTransform;
     deviceScaleTransform.scale(deviceScaleFactor);
+    std::vector<LayerImpl*> dummyLayerList;
 
-    setupRootLayerAndSurfaceForRecursion<LayerImpl, std::vector<LayerImpl*> >(rootLayer, renderSurfaceLayerList, deviceViewportSize);
+    // The root layer's renderSurface should receive the deviceViewport as the initial clipRect.
+    bool subtreeShouldBeClipped = true;
+    IntRect deviceViewportRect(IntPoint::zero(), deviceViewportSize);
 
-    cc::calculateDrawTransformsInternal<LayerImpl, std::vector<LayerImpl*>, RenderSurfaceImpl, LayerSorter>(rootLayer, rootLayer, deviceScaleTransform, identityMatrix, identityMatrix,
-                                                                                                                rootLayer->renderSurface()->contentRect(), true, 0, renderSurfaceLayerList,
-                                                                                                                rootLayer->renderSurface()->layerList(), layerSorter, maxTextureSize, deviceScaleFactor, totalDrawableContentRect);
+    // This function should have received a root layer.
+    DCHECK(isRootLayer(rootLayer));
+
+    cc::calculateDrawTransformsInternal<LayerImpl, std::vector<LayerImpl*>, RenderSurfaceImpl, LayerSorter>(
+        rootLayer, deviceScaleTransform, identityMatrix, identityMatrix,
+        deviceViewportRect, subtreeShouldBeClipped, 0, renderSurfaceLayerList,
+        dummyLayerList, layerSorter, maxTextureSize,
+        deviceScaleFactor, pageScaleFactor, totalDrawableContentRect);
+
+    // The dummy layer list should not have been used.
+    DCHECK(dummyLayerList.size() == 0);
+    // A root layer renderSurface should always exist after calculateDrawTransforms.
+    DCHECK(rootLayer->renderSurface());
 }
 
 static bool pointHitsRect(const IntPoint& screenSpacePoint, const WebTransformationMatrix& localSpaceToScreenSpaceTransform, FloatRect localSpaceRect)

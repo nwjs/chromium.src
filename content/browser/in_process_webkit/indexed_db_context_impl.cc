@@ -19,18 +19,17 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBFactory.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
+#include "webkit/base/file_path_string_conversions.h"
 #include "webkit/database/database_util.h"
-#include "webkit/glue/webkit_glue.h"
 #include "webkit/quota/quota_manager.h"
 #include "webkit/quota/special_storage_policy.h"
 
-using content::BrowserThread;
-using content::IndexedDBContext;
 using webkit_database::DatabaseUtil;
 using WebKit::WebIDBDatabase;
 using WebKit::WebIDBFactory;
 using WebKit::WebSecurityOrigin;
 
+namespace content {
 const FilePath::CharType IndexedDBContextImpl::kIndexedDBDirectory[] =
     FILE_PATH_LITERAL("IndexedDB");
 
@@ -52,7 +51,7 @@ void GetAllOriginsAndPaths(
        file_path = file_enumerator.Next()) {
     if (file_path.Extension() == IndexedDBContextImpl::kIndexedDBExtension) {
       WebKit::WebString origin_id_webstring =
-          webkit_glue::FilePathToWebString(file_path.BaseName());
+          webkit_base::FilePathToWebString(file_path.BaseName());
       origins->push_back(
           DatabaseUtil::GetOriginFromIdentifier(origin_id_webstring));
       if (file_paths)
@@ -274,7 +273,7 @@ FilePath IndexedDBContextImpl::GetIndexedDBFilePath(
     const string16& origin_id) const {
   DCHECK(!data_path_.empty());
   FilePath::StringType id =
-      webkit_glue::WebStringToFilePathString(origin_id).append(
+      webkit_base::WebStringToFilePathString(origin_id).append(
           FILE_PATH_LITERAL(".indexeddb"));
   return data_path_.Append(id.append(kIndexedDBExtension));
 }
@@ -369,3 +368,5 @@ void IndexedDBContextImpl::ResetCaches() {
   origin_size_map_.clear();
   space_available_map_.clear();
 }
+
+}  // namespace content

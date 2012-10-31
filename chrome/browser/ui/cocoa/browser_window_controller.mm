@@ -17,7 +17,7 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/instant/instant_controller.h"
-#include "chrome/browser/managed_mode.h"
+#include "chrome/browser/managed_mode/managed_mode.h"
 #include "chrome/browser/profiles/avatar_menu_model.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
@@ -1551,16 +1551,9 @@ enum {
   // applicable)?
   [self updateBookmarkBarVisibilityWithAnimation:NO];
 
-  TabContents* tabContents = TabContents::FromWebContents(contents);
-  // Without the .get(), xcode fails.
-  [infoBarContainerController_.get() changeTabContents:tabContents];
-}
+  [infoBarContainerController_ changeWebContents:contents];
 
-- (void)onReplaceTabWithContents:(WebContents*)contents {
-  // Simply remove the preview view if it exists; the tab strip
-  // controller will reinstall the view as the active view.
-  [previewableContentsController_ hidePreview];
-  [self updateBookmarkBarVisibilityWithAnimation:NO];
+  [previewableContentsController_ onActivateTabWithContents:contents];
 }
 
 - (void)onTabChanged:(TabStripModelObserver::TabChangeType)change
@@ -1580,12 +1573,7 @@ enum {
 }
 
 - (void)onTabDetachedWithContents:(WebContents*)contents {
-  TabContents* tabContents = TabContents::FromWebContents(contents);
-  [infoBarContainerController_ tabDetachedWithContents:tabContents];
-}
-
-- (void)onInsertTabWithContents:(WebContents*)contents {
-  [previewableContentsController_ onInsertTabWithContents:contents];
+  [infoBarContainerController_ tabDetachedWithContents:contents];
 }
 
 - (void)userChangedTheme {

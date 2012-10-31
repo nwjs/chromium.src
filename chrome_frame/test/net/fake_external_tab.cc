@@ -18,6 +18,7 @@
 #include "base/lazy_instance.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
+#include "base/prefs/json_pref_store.h"
 #include "base/scoped_temp_dir.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
@@ -241,6 +242,13 @@ void FilterDisabledTests() {
     // now.
     "URLRequestTestHTTP.GetTest_NoCache",
 
+    // These tests use HTTPS, and IE's trust store does not have the test
+    // certs. So these tests time out waiting for user input. The
+    // functionality they test (HTTP Strict Transport Security) does not
+    // work in Chrome Frame anyway.
+    "URLRequestTestHTTP.ProcessSTS",
+    "URLRequestTestHTTP.ProcessSTSOnce",
+
     // These tests have been disabled as the Chrome cookie policies don't make
     // sense or have not been implemented for the host network stack.
     "URLRequestTest.DoNotSaveCookies_ViaPolicy",
@@ -344,8 +352,9 @@ void FilterDisabledTests() {
 // Same as BrowserProcessImpl, but uses custom profile manager.
 class FakeBrowserProcessImpl : public BrowserProcessImpl {
  public:
-  explicit FakeBrowserProcessImpl(const CommandLine& command_line)
-      : BrowserProcessImpl(command_line) {
+  FakeBrowserProcessImpl(base::SequencedTaskRunner* local_state_task_runner,
+                         const CommandLine& command_line)
+      : BrowserProcessImpl(local_state_task_runner, command_line) {
     profiles_dir_.CreateUniqueTempDir();
   }
 
@@ -486,12 +495,18 @@ void FakeExternalTab::Initialize() {
   cmd->AppendSwitch(switches::kDisableWebResources);
   cmd->AppendSwitch(switches::kSingleProcess);
 
-  browser_process_.reset(new FakeBrowserProcessImpl(*cmd));
+  FilePath local_state_path;
+  CHECK(PathService::Get(chrome::FILE_LOCAL_STATE, &local_state_path));
+  scoped_refptr<base::SequencedTaskRunner> local_state_task_runner =
+      JsonPrefStore::GetTaskRunnerForFile(local_state_path,
+                                          BrowserThread::GetBlockingPool());
+  browser_process_.reset(new FakeBrowserProcessImpl(local_state_task_runner,
+                                                    *cmd));
   // BrowserProcessImpl's constructor should set g_browser_process.
   DCHECK(g_browser_process);
   g_browser_process->SetApplicationLocale("en-US");
 
-  content::RenderProcessHost::set_run_renderer_in_process(true);
+  content::RenderProcessHost::SetRunRendererInProcess(true);
 
   browser_process_->local_state()->RegisterBooleanPref(
       prefs::kMetricsReportingEnabled, false);

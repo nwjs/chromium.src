@@ -30,6 +30,7 @@
 #include "google_apis/gaia/gaia_auth_consumer.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 
+class CookieSettings;
 class GaiaAuthFetcher;
 class Profile;
 class PrefService;
@@ -53,6 +54,11 @@ class SigninManager : public GaiaAuthConsumer,
   // Returns true if the cookie policy for the given profile allows cookies
   // for the Google signin domain.
   static bool AreSigninCookiesAllowed(Profile* profile);
+  static bool AreSigninCookiesAllowed(CookieSettings* cookie_settings);
+
+  // Returns true if the username is allowed based on the policy string.
+  static bool IsAllowedUsername(const std::string& username,
+                                const std::string& policy);
 
   SigninManager();
   virtual ~SigninManager();
@@ -206,6 +212,11 @@ class SigninManager : public GaiaAuthConsumer,
   // to one of the StartSigninXXX methods and when the sign in is either
   // successful or not.
   SigninType type_;
+
+  // Temporarily saves the oauth2 refresh and access tokens when signing in
+  // with credentials.  These will be passed to TokenService so that it does
+  // not need to mint new ones.
+  ClientOAuthResult temp_oauth_login_tokens_;
 
   DISALLOW_COPY_AND_ASSIGN(SigninManager);
 };

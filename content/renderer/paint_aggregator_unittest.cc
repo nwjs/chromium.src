@@ -5,6 +5,8 @@
 #include "content/renderer/paint_aggregator.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+namespace content {
+
 TEST(PaintAggregator, InitialState) {
   PaintAggregator greg;
   EXPECT_FALSE(greg.HasPendingUpdate());
@@ -35,7 +37,7 @@ TEST(PaintAggregator, DoubleDisjointInvalidation) {
   greg.InvalidateRect(r1);
   greg.InvalidateRect(r2);
 
-  gfx::Rect expected_bounds = r1.Union(r2);
+  gfx::Rect expected_bounds = gfx::UnionRects(r1, r2);
 
   EXPECT_TRUE(greg.HasPendingUpdate());
   PaintAggregator::PendingUpdate update;
@@ -59,7 +61,7 @@ TEST(PaintAggregator, DisjointInvalidationsCombined) {
   greg.InvalidateRect(r1);
   greg.InvalidateRect(r2);
 
-  gfx::Rect expected_bounds = r1.Union(r2);
+  gfx::Rect expected_bounds = gfx::UnionRects(r1, r2);
 
   EXPECT_TRUE(greg.HasPendingUpdate());
   PaintAggregator::PendingUpdate update;
@@ -275,7 +277,7 @@ TEST(PaintAggregator, OverlappingPaintBeforeScroll) {
   gfx::Rect scroll_rect(0, 0, 10, 10);
   greg.ScrollRect(2, 0, scroll_rect);
 
-  gfx::Rect expected_paint_rect = scroll_rect.Union(paint_rect);
+  gfx::Rect expected_paint_rect = gfx::UnionRects(scroll_rect, paint_rect);
 
   EXPECT_TRUE(greg.HasPendingUpdate());
   PaintAggregator::PendingUpdate update;
@@ -296,7 +298,7 @@ TEST(PaintAggregator, OverlappingPaintAfterScroll) {
   gfx::Rect paint_rect(4, 4, 10, 2);
   greg.InvalidateRect(paint_rect);
 
-  gfx::Rect expected_paint_rect = scroll_rect.Union(paint_rect);
+  gfx::Rect expected_paint_rect = gfx::UnionRects(scroll_rect, paint_rect);
 
   EXPECT_TRUE(greg.HasPendingUpdate());
   PaintAggregator::PendingUpdate update;
@@ -435,3 +437,5 @@ TEST(PaintAggregator, ContainedPaintAfterScrollEliminatedByScrollDamage) {
   EXPECT_EQ(scroll_rect, update.scroll_rect);
   EXPECT_EQ(expected_scroll_damage, update.GetScrollDamage());
 }
+
+}  // namespace content

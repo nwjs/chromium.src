@@ -7,7 +7,7 @@
     'chromium_code': 1,
   },  # variables
   'conditions': [
-    ['OS != "ios"', {
+    ['OS != "ios" and OS != "android"', {
       'targets': [
         # A library of various utils for integration with libjingle.
         {
@@ -95,6 +95,8 @@
             'notifier/listener/push_notifications_send_update_task.h',
             'notifier/listener/push_notifications_subscribe_task.cc',
             'notifier/listener/push_notifications_subscribe_task.h',
+            'notifier/listener/send_ping_task.cc',
+            'notifier/listener/send_ping_task.h',
             'notifier/listener/xml_element_util.cc',
             'notifier/listener/xml_element_util.h',
             'notifier/listener/xmpp_push_client.cc',
@@ -179,6 +181,7 @@
             'notifier/listener/push_client_unittest.cc',
             'notifier/listener/push_notifications_send_update_task_unittest.cc',
             'notifier/listener/push_notifications_subscribe_task_unittest.cc',
+            'notifier/listener/send_ping_task_unittest.cc',
             'notifier/listener/xml_element_util_unittest.cc',
             'notifier/listener/xmpp_push_client_unittest.cc',
             'run_all_unittests.cc',
@@ -211,11 +214,15 @@
           ],
         },
       ],
-    }, {  # OS == "ios"
+    }, {  # OS == "ios" or OS == "android"
       'targets': [
-        # Stub targets as iOS doesn't use libjingle.
+        # Stub targets as iOS/Android don't use libjingle.
         {
           'target_name': 'jingle_glue',
+          'type': 'none',
+        },
+        {
+          'target_name': 'jingle_glue_test_util',
           'type': 'none',
         },
         {

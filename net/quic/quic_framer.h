@@ -35,7 +35,12 @@ class NET_EXPORT_PRIVATE QuicFramerVisitorInterface {
 
   // Called when a new packet has been recieved, before it
   // has been validated or processed.
-  virtual void OnPacket(const IPEndPoint& peer_address) = 0;
+  virtual void OnPacket(const IPEndPoint& self_address,
+                        const IPEndPoint& peer_address) = 0;
+
+  // Called when a lost packet has been recovered via FEC,
+  // before it has been processed.
+  virtual void OnRevivedPacket() = 0;
 
   // Called when the header of a packet had been parsed.
   // If OnPacketHeader returns false, framing for this packet will cease.
@@ -110,15 +115,15 @@ class NET_EXPORT_PRIVATE QuicFramer {
   // single, complete UDP packet (not a frame of a packet).  This packet
   // might be null padded past the end of the payload, which will be correctly
   // ignored.
-  bool ProcessPacket(const IPEndPoint& client_address,
+  bool ProcessPacket(const IPEndPoint& self_address,
+                     const IPEndPoint& peer_address,
                      const QuicEncryptedPacket& packet);
 
   // Pass a data packet that was revived from FEC data into the framer
   // for parsing.
   // Return true if the packet was processed succesfully. |payload| must be
   // the complete DECRYPTED payload of the revived packet.
-  bool ProcessRevivedPacket(const IPEndPoint& client_address,
-                            const QuicPacketHeader& header,
+  bool ProcessRevivedPacket(const QuicPacketHeader& header,
                             base::StringPiece payload);
 
   // Creates a new QuicPacket populated with the fields in |header| and

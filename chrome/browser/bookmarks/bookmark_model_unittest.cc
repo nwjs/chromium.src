@@ -34,6 +34,7 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/test/test_browser_thread.h"
+#include "googleurl/src/gurl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/models/tree_node_iterator.h"
 #include "ui/base/models/tree_node_model.h"
@@ -471,6 +472,21 @@ TEST_F(BookmarkModelTest, SetURL) {
   AssertObserverCount(0, 0, 0, 1, 0);
   observer_details_.ExpectEquals(node, NULL, -1, -1);
   EXPECT_EQ(url, node->url());
+}
+
+TEST_F(BookmarkModelTest, SetDateAdded) {
+  const BookmarkNode* root = model_.bookmark_bar_node();
+  const string16 title(ASCIIToUTF16("foo"));
+  GURL url("http://foo.com");
+  const BookmarkNode* node = model_.AddURL(root, 0, title, url);
+
+  ClearCounts();
+
+  base::Time new_time = base::Time::Now() + base::TimeDelta::FromMinutes(20);
+  model_.SetDateAdded(node, new_time);
+  AssertObserverCount(0, 0, 0, 0, 0);
+  EXPECT_EQ(new_time, node->date_added());
+  EXPECT_EQ(new_time, model_.bookmark_bar_node()->date_folder_modified());
 }
 
 TEST_F(BookmarkModelTest, Move) {
@@ -1077,6 +1093,30 @@ TEST_F(BookmarkModelTest, MultipleExtensiveChangesObserver) {
   model_.EndExtensiveChanges();
   EXPECT_FALSE(model_.IsDoingExtensiveChanges());
   AssertExtensiveChangesObserverCount(1, 1);
+}
+
+TEST(BookmarkNodeTest, NodeMetaInfo) {
+  GURL url;
+  BookmarkNode node(url);
+  EXPECT_TRUE(node.meta_info_str().empty());
+
+  EXPECT_TRUE(node.SetMetaInfo("key1", "value1"));
+  std::string out_value;
+  EXPECT_TRUE(node.GetMetaInfo("key1", &out_value));
+  EXPECT_EQ("value1", out_value);
+  EXPECT_FALSE(node.SetMetaInfo("key1", "value1"));
+
+  EXPECT_FALSE(node.GetMetaInfo("key2", &out_value));
+  EXPECT_TRUE(node.SetMetaInfo("key2", "value2"));
+  EXPECT_TRUE(node.GetMetaInfo("key2", &out_value));
+  EXPECT_EQ("value2", out_value);
+
+  EXPECT_TRUE(node.DeleteMetaInfo("key1"));
+  EXPECT_TRUE(node.DeleteMetaInfo("key2"));
+  EXPECT_FALSE(node.DeleteMetaInfo("key3"));
+  EXPECT_FALSE(node.GetMetaInfo("key1", &out_value));
+  EXPECT_FALSE(node.GetMetaInfo("key2", &out_value));
+  EXPECT_TRUE(node.meta_info_str().empty());
 }
 
 }  // namespace

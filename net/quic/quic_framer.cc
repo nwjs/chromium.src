@@ -114,7 +114,7 @@ bool QuicFramer::ConstructFecPacket(const QuicPacketHeader& header,
     return false;
   }
 
-  if (!writer.WriteUInt48(fec.first_protected_packet_sequence_number)) {
+  if (!writer.WriteUInt48(fec.min_protected_packet_sequence_number)) {
     return false;
   }
 
@@ -139,11 +139,12 @@ uint8 QuicFramer::GetRetransmitCount(QuicPacket* packet) {
   return packet->mutable_data()[kRetransmissionOffset];
 }
 
-bool QuicFramer::ProcessPacket(const IPEndPoint& peer_address,
+bool QuicFramer::ProcessPacket(const IPEndPoint& self_address,
+                               const IPEndPoint& peer_address,
                                const QuicEncryptedPacket& packet) {
   DCHECK(!reader_.get());
   reader_.reset(new QuicDataReader(packet.data(), packet.length()));
-  visitor_->OnPacket(peer_address);
+  visitor_->OnPacket(self_address, peer_address);
 
   // First parse the packet header.
   QuicPacketHeader header;
@@ -177,7 +178,7 @@ bool QuicFramer::ProcessPacket(const IPEndPoint& peer_address,
     QuicFecData fec_data;
     fec_data.fec_group = header.fec_group;
     if (!reader_->ReadUInt48(
-            &fec_data.first_protected_packet_sequence_number)) {
+            &fec_data.min_protected_packet_sequence_number)) {
       set_detailed_error("Unable to read first protected packet.");
       return RaiseError(QUIC_INVALID_FEC_DATA);
     }
@@ -191,12 +192,11 @@ bool QuicFramer::ProcessPacket(const IPEndPoint& peer_address,
   return true;
 }
 
-bool QuicFramer::ProcessRevivedPacket(const IPEndPoint& peer_address,
-                                      const QuicPacketHeader& header,
+bool QuicFramer::ProcessRevivedPacket(const QuicPacketHeader& header,
                                       StringPiece payload) {
   DCHECK(!reader_.get());
 
-  visitor_->OnPacket(peer_address);
+  visitor_->OnRevivedPacket();
 
   visitor_->OnPacketHeader(header);
 

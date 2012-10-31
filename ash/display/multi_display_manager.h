@@ -22,8 +22,8 @@ class Rect;
 }
 
 namespace ash {
-namespace test {
 class AcceleratorControllerTest;
+namespace test {
 class AshTestBase;
 class SystemGestureEventFilterTest;
 }
@@ -78,6 +78,11 @@ class ASH_EXPORT MultiDisplayManager : public aura::DisplayManager,
   // display's bounds change.
   void SetOverscanInsets(int64 display_id, const gfx::Insets& insets_in_dip);
 
+  // Returns the current overscan insets for the specified |display_id|.
+  // Returns an empty insets (0, 0, 0, 0) if no insets are specified for
+  // the display.
+  gfx::Insets GetOverscanInsets(int64 display_id) const;
+
   // DisplayManager overrides:
   virtual void OnNativeDisplaysChanged(
       const std::vector<gfx::Display>& displays) OVERRIDE;
@@ -101,7 +106,9 @@ class ASH_EXPORT MultiDisplayManager : public aura::DisplayManager,
  private:
   FRIEND_TEST_ALL_PREFIXES(ExtendedDesktopTest, ConvertPoint);
   FRIEND_TEST_ALL_PREFIXES(MultiDisplayManagerTest, TestNativeDisplaysChanged);
-  friend class test::AcceleratorControllerTest;
+  FRIEND_TEST_ALL_PREFIXES(MultiDisplayManagerTest,
+                           NativeDisplaysChangedAfterPrimaryChange);
+  friend class ash::AcceleratorControllerTest;
   friend class test::AshTestBase;
   friend class MultiDisplayManagerTest;
   friend class test::SystemGestureEventFilterTest;
@@ -122,6 +129,10 @@ class ASH_EXPORT MultiDisplayManager : public aura::DisplayManager,
   // Set the 1st display as an internal display and returns the display Id for
   // the internal display.
   int64 SetFirstDisplayAsInternalDisplayForTest();
+
+  // Checks if the mouse pointer is on one of displays, and moves to
+  // the center of the nearest display if it's outside of all displays.
+  void EnsurePointerInDisplays();
 
   // Update the display's id in the |display_list| to match the ones
   // stored in this display manager's |displays_|. This is used to

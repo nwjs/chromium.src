@@ -57,11 +57,15 @@
 #include "webkit/plugins/npapi/webplugin.h"
 
 using content::BackingStoreMac;
+using content::BrowserAccessibility;
+using content::BrowserAccessibilityManager;
+using content::EditCommand;
 using content::NativeWebKeyboardEvent;
 using content::RenderViewHostImpl;
 using content::RenderWidgetHostImpl;
 using content::RenderWidgetHostViewMac;
 using content::RenderWidgetHostViewMacEditCommandHelper;
+using content::TextInputClientMac;
 using WebKit::WebInputEvent;
 using WebKit::WebInputEventFactory;
 using WebKit::WebMouseEvent;
@@ -599,7 +603,10 @@ void RenderWidgetHostViewMac::TextInputStateChanged(
       // Let AppKit cache the new input context to make IMEs happy.
       // See http://crbug.com/73039.
       [NSApp updateWindows];
+
+#ifndef __LP64__
       UseInputWindow(TSMGetActiveDocument(), !can_compose_inline_);
+#endif
     }
   }
 }
@@ -852,8 +859,8 @@ void RenderWidgetHostViewMac::CopyFromCompositingSurface(
   gfx::Rect src_gl_subrect = src_subrect;
   src_gl_subrect.set_y(GetViewBounds().height() - src_subrect.bottom());
 
-  gfx::Rect src_pixel_gl_subrect =
-      gfx::ToEnclosingRect(src_gl_subrect.Scale(scale));
+  gfx::Rect src_pixel_gl_subrect = gfx::ToEnclosingRect(
+      gfx::ScaleRect(src_gl_subrect, scale));
   compositing_iosurface_->CopyTo(
       src_pixel_gl_subrect,
       dst_pixel_size,
@@ -1033,6 +1040,7 @@ void RenderWidgetHostViewMac::AckPendingSwapBuffers() {
       RenderWidgetHostImpl::AcknowledgeBufferPresent(
           pending_swap_buffers_acks_.front().first,
           pending_swap_buffers_acks_.front().second,
+          true,
           0);
       if (render_widget_host_) {
         render_widget_host_->AcknowledgeSwapBuffersToRenderer();
@@ -1118,7 +1126,7 @@ gfx::Rect RenderWidgetHostViewMac::GetFirstRectForCompositionRange(
   *actual_range = ui::Range(range.start(), end_idx);
   gfx::Rect rect = composition_bounds_[range.start()];
   for (size_t i = range.start() + 1; i < end_idx; ++i) {
-    rect = rect.Union(composition_bounds_[i]);
+    rect.Union(composition_bounds_[i]);
   }
   return rect;
 }
@@ -2269,7 +2277,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
     // smaller and the renderer hasn't yet repainted.
     int yOffset = NSHeight([self bounds]) - backingStore->size().height();
 
-    gfx::Rect paintRect = bitmapRect.Intersect(damagedRect);
+    gfx::Rect paintRect = gfx::IntersectRects(bitmapRect, damagedRect);
     if (!paintRect.IsEmpty()) {
       // if we have a CGLayer, draw that into the window
       if (backingStore->cg_layer()) {

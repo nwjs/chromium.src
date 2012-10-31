@@ -5,6 +5,7 @@
 #ifndef WEBKIT_FILEAPI_SYNCABLE_SYNC_STATUS_CODE_H_
 #define WEBKIT_FILEAPI_SYNCABLE_SYNC_STATUS_CODE_H_
 
+#include "base/platform_file.h"
 #include "webkit/storage/webkit_storage_export.h"
 
 namespace leveldb {
@@ -39,10 +40,20 @@ enum SyncStatusCode {
   SYNC_DATABASE_ERROR_CORRUPTION = -17,
   SYNC_DATABASE_ERROR_IO_ERROR = -18,
   SYNC_DATABASE_ERROR_FAILED = -19,
+
+  // Sync specific status code.
+  SYNC_STATUS_FILE_BUSY = -100,
+  SYNC_STATUS_HAS_CONFLICT = -101,
+  SYNC_STATUS_NOT_A_CONFLICT = -102,
+  SYNC_STATUS_SYNC_SUSPEND = -103,
+  SYNC_STATUS_ABORT = -104,
 };
 
 WEBKIT_STORAGE_EXPORT SyncStatusCode LevelDBStatusToSyncStatusCode(
     const leveldb::Status& status);
+
+WEBKIT_STORAGE_EXPORT SyncStatusCode PlatformFileErrorToSyncStatusCode(
+    base::PlatformFileError file_error);
 
 }  // namespace fileapi
 

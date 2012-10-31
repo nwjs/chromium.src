@@ -12,6 +12,8 @@
 #include "webkit/database/database_tracker.h"
 #include "webkit/fileapi/file_system_context.h"
 
+namespace content {
+
 WorkerStoragePartition::WorkerStoragePartition(
     net::URLRequestContextGetter* url_request_context,
     net::URLRequestContextGetter* media_url_request_context,
@@ -59,3 +61,5 @@ void WorkerStoragePartition::Copy(const WorkerStoragePartition& other) {
   database_tracker_ = other.database_tracker_;
   indexed_db_context_ = other.indexed_db_context_;
 }
+
+}  // namespace content

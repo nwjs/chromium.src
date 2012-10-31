@@ -381,9 +381,6 @@
       # gyp will remove duplicate flags, causing isolate.py to be confused.
       'test_isolation_outdir%': '<(PRODUCT_DIR)/isolate',
 
-       # Force rlz to use chrome's networking stack.
-      'force_rlz_use_chrome_net%': 1,
-
       'sas_dll_path%': '<(DEPTH)/third_party/platformsdk_win7/files/redist/x86',
       'wix_path%': '<(DEPTH)/third_party/wix',
 
@@ -656,7 +653,6 @@
     'enable_printing%': '<(enable_printing)',
     'enable_captive_portal_detection%': '<(enable_captive_portal_detection)',
     'disable_ftp_support%': '<(disable_ftp_support)',
-    'force_rlz_use_chrome_net%': '<(force_rlz_use_chrome_net)',
     'enable_task_manager%': '<(enable_task_manager)',
     'sas_dll_path%': '<(sas_dll_path)',
     'wix_path%': '<(wix_path)',
@@ -797,9 +793,6 @@
     # Enable TCMalloc.
     'linux_use_tcmalloc%': 1,
 
-    # Disable TCMalloc's debugallocation.
-    'linux_use_debugallocation%': 0,
-
     # Disable TCMalloc's heapchecker.
     'linux_use_heapchecker%': 0,
 
@@ -855,7 +848,7 @@
       'am', 'ar', 'bg', 'bn', 'ca', 'cs', 'da', 'de', 'el', 'en-GB',
       'en-US', 'es-419', 'es', 'et', 'fa', 'fi', 'fil', 'fr', 'gu', 'he',
       'hi', 'hr', 'hu', 'id', 'it', 'ja', 'kn', 'ko', 'lt', 'lv',
-      'ml', 'mr', 'ms', 'nb', 'nl', 'pl', 'pt-BR', 'pt-PT', 'ro', 'ru',
+      'ml', 'mr', 'ms', 'nb', 'nl', 'pl', 'pt-PT', 'ro', 'ru',
       'sk', 'sl', 'sr', 'sv', 'sw', 'ta', 'te', 'th', 'tr', 'uk',
       'vi', 'zh-CN', 'zh-TW',
     ],
@@ -912,6 +905,9 @@
     'windows_sdk_default_path': '<(DEPTH)/third_party/platformsdk_win8/files',
     'directx_sdk_default_path': '<(DEPTH)/third_party/directxsdk/files',
 
+    # Whether rlz is enabled.
+    'enable_rlz%': 0,
+
     'conditions': [
       ['OS=="win" and "<!(python <(DEPTH)/build/dir_exists.py <(windows_sdk_default_path))"=="True"', {
         'windows_sdk_path%': '<(windows_sdk_default_path)',
@@ -961,6 +957,7 @@
       ['OS=="ios"', {
         'disable_nacl%': 1,
         'enable_gpu%': 0,
+        'enable_task_manager%': 0,
         'icu_use_data_file_flag%': 1,
         'use_system_bzip2%': 1,
         'use_system_libxml%': 1,
@@ -1204,7 +1201,7 @@
         ],
       }],
 
-      ['os_posix==1 and chromeos==0 and OS!="android"', {
+      ['os_posix==1 and chromeos==0 and OS!="android" and OS!="ios"', {
         'use_cups%': 1,
       }, {
         'use_cups%': 0,
@@ -1297,6 +1294,10 @@
           # iOS uses a whitelist to filter resources.
           '-w', '<(DEPTH)/build/ios/grit_whitelist.txt'
         ],
+        # iOS uses pt instead of pt-BR.
+        'locales': ['pt'],
+      }, {  # OS != "ios"
+        'locales': ['pt-BR'],
       }],
       ['enable_extensions==1', {
         'grit_defines': ['-D', 'enable_extensions'],
@@ -1388,6 +1389,11 @@
         'win_debug_OmitFramePointers': 0,
         # Keep the code under #ifndef NVALGRIND.
         'release_valgrind_build': 1,
+      }],
+
+      # Enable RLZ on Win and Mac.
+      ['branding=="Chrome" and (OS=="win" or OS=="mac")', {
+        'enable_rlz%': 1,
       }],
     ],
 
@@ -1523,7 +1529,7 @@
           ],
         },
       }],
-      ['branding=="Chrome" and (OS=="win" or OS=="mac")', {
+      ['enable_rlz==1', {
         'defines': ['ENABLE_RLZ'],
       }],
       ['component=="shared_library"', {
@@ -1569,8 +1575,7 @@
       }],
       ['OS=="linux" and glibcxx_debug==1', {
         'defines': ['_GLIBCXX_DEBUG=1',],
-        'cflags_cc!': ['-fno-rtti'],
-        'cflags_cc+': ['-frtti', '-g'],
+        'cflags_cc+': ['-g'],
       }],
       ['remoting==1', {
         'defines': ['ENABLE_REMOTING=1'],
@@ -2527,8 +2532,6 @@
               # also contain a default: branch. Chrome is full of that.
               '-Wno-covered-switch-default',
 
-              # TODO(thakis): Remove this.
-              '-Wno-implicit-conversion-floating-point-to-bool',
               # TODO(thakis): Remove this once http://crbug.com/151927 is fixed.
               '-Wno-tautological-constant-out-of-range-compare',
             ],
@@ -3032,47 +3035,8 @@
             ['chromium_mac_pch', {'GCC_PRECOMPILE_PREFIX_HEADER': 'YES'},
                                  {'GCC_PRECOMPILE_PREFIX_HEADER': 'NO'}
             ],
-          ],
-        },
-        'target_conditions': [
-          ['_target_name!="v8" and _target_name!="v8_snapshot" and _target_name!="v8_base" and _target_name!="uv" and _target_name!="node" and _target_name!="openssl" and _target_name!="zlib"', {
-            'xcode_settings': {
-              'DEAD_CODE_STRIPPING': 'YES',  # -Wl,-dead_strip
-              'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
-              'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',
-            },
-          }],
-          ['_type!="static_library"', {
-            'xcode_settings': {'OTHER_LDFLAGS': ['-Wl,-search_paths_first']},
-          }],
-          ['_mac_bundle', {
-            'xcode_settings': {'OTHER_LDFLAGS': ['-Wl,-ObjC']},
-          }],
-        ],  # target_conditions
-      },  # target_defaults
-    }],  # OS=="mac" or OS=="ios"
-    ['OS=="mac"', {
-      'target_defaults': {
-        'variables': {
-          # These should end with %, but there seems to be a bug with % in
-          # variables that are intended to be set to different values in
-          # different targets, like these.
-          'mac_pie': 1,        # Most executables can be position-independent.
-          'mac_real_dsym': 0,  # Fake .dSYMs are fine in most cases.
-          # Strip debugging symbols from the target.
-          'mac_strip': '<(mac_strip_release)',
-        },
-        'xcode_settings': {
-          'GCC_DYNAMIC_NO_PIC': 'NO',               # No -mdynamic-no-pic
-                                                    # (Equivalent to -fPIC)
-          # MACOSX_DEPLOYMENT_TARGET maps to -mmacosx-version-min
-          'MACOSX_DEPLOYMENT_TARGET': '<(mac_deployment_target)',
-          # Keep pch files below xcodebuild/.
-          'SHARED_PRECOMPS_DIR': '$(CONFIGURATION_BUILD_DIR)/SharedPrecompiledHeaders',
-          'OTHER_CFLAGS': [
-            '-fno-strict-aliasing',  # See http://crbug.com/32204
-          ],
-          'conditions': [
+            # Note that the prebuilt Clang binaries should not be used for iOS
+            # development except for ASan builds.
             ['clang==1', {
               'CC': '$(SOURCE_ROOT)/<(clang_dir)/clang',
               'LDPLUSPLUS': '$(SOURCE_ROOT)/<(clang_dir)/clang++',
@@ -3101,8 +3065,6 @@
                 # also contain a default: branch. Chrome is full of that.
                 '-Wno-covered-switch-default',
 
-                # TODO(thakis): Remove this.
-                '-Wno-implicit-conversion-floating-point-to-bool',
                 # TODO(thakis): Remove this once http://crbug.com/151927 is fixed.
                 '-Wno-tautological-constant-out-of-range-compare',
               ],
@@ -3162,6 +3124,39 @@
           }],
           ['_mac_bundle', {
             'xcode_settings': {'OTHER_LDFLAGS': ['-Wl,-ObjC']},
+          }],
+        ],  # target_conditions
+      },  # target_defaults
+    }],  # OS=="mac" or OS=="ios"
+    ['OS=="mac"', {
+      'target_defaults': {
+        'variables': {
+          # These should end with %, but there seems to be a bug with % in
+          # variables that are intended to be set to different values in
+          # different targets, like these.
+          'mac_pie': 1,        # Most executables can be position-independent.
+          'mac_real_dsym': 0,  # Fake .dSYMs are fine in most cases.
+          # Strip debugging symbols from the target.
+          'mac_strip': '<(mac_strip_release)',
+        },
+        'xcode_settings': {
+          'GCC_DYNAMIC_NO_PIC': 'NO',               # No -mdynamic-no-pic
+                                                    # (Equivalent to -fPIC)
+          # MACOSX_DEPLOYMENT_TARGET maps to -mmacosx-version-min
+          'MACOSX_DEPLOYMENT_TARGET': '<(mac_deployment_target)',
+          # Keep pch files below xcodebuild/.
+          'SHARED_PRECOMPS_DIR': '$(CONFIGURATION_BUILD_DIR)/SharedPrecompiledHeaders',
+          'OTHER_CFLAGS': [
+            '-fno-strict-aliasing',  # See http://crbug.com/32204
+          ],
+        },
+        'target_conditions': [
+          ['_target_name!="v8" and _target_name!="v8_snapshot" and _target_name!="v8_base" and _target_name!="uv" and _target_name!="node" and _target_name!="openssl" and _target_name!="zlib"', {
+            'xcode_settings': {
+              'DEAD_CODE_STRIPPING': 'YES',  # -Wl,-dead_strip
+              'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
+              'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',
+            },
           }],
           ['_type=="executable"', {
             'postbuilds': [

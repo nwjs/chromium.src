@@ -9,9 +9,9 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "googleurl/src/gurl.h"
+#include "media/filters/skcanvas_video_renderer.h"
 #include "skia/ext/platform_canvas.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaPlayer.h"
-#include "webkit/media/skcanvas_video_renderer.h"
 
 namespace WebKit {
 class WebFrame;
@@ -24,6 +24,7 @@ class MediaLog;
 
 namespace webkit_media {
 
+class MediaStreamAudioRenderer;
 class MediaStreamClient;
 class VideoFrameProvider;
 class WebMediaPlayerDelegate;
@@ -150,15 +151,17 @@ class WebMediaPlayerMS
 
   MediaStreamClient* media_stream_client_;
   scoped_refptr<VideoFrameProvider> video_frame_provider_;
-  bool video_frame_provider_started_;
   bool paused_;
   scoped_refptr<media::VideoFrame> current_frame_;
   bool pending_repaint_;
-  bool got_first_frame_;
+  bool received_first_frame_;
+  bool sequence_started_;
   base::TimeDelta start_time_;
   unsigned total_frame_count_;
   unsigned dropped_frame_count_;
-  SkCanvasVideoRenderer video_renderer_;
+  media::SkCanvasVideoRenderer video_renderer_;
+
+  scoped_refptr<MediaStreamAudioRenderer> audio_renderer_;
 
   scoped_refptr<media::MediaLog> media_log_;
 

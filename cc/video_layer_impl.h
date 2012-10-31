@@ -6,15 +6,20 @@
 #define CCVideoLayerImpl_h
 
 #include "IntSize.h"
+#include "base/callback.h"
 #include "base/synchronization/lock.h"
 #include "cc/layer_impl.h"
+#include "media/base/video_frame.h"
 #include "third_party/khronos/GLES2/gl2.h"
 #include <public/WebTransformationMatrix.h>
 #include <public/WebVideoFrameProvider.h>
-#include <wtf/ThreadingPrimitives.h>
 
 namespace WebKit {
 class WebVideoFrame;
+}
+
+namespace media {
+class SkCanvasVideoRenderer;
 }
 
 namespace cc {
@@ -23,11 +28,14 @@ class LayerTreeHostImpl;
 class VideoLayerImpl;
 
 class VideoLayerImpl : public LayerImpl
-                       , public WebKit::WebVideoFrameProvider::Client {
+                     , public WebKit::WebVideoFrameProvider::Client {
 public:
-    static scoped_ptr<VideoLayerImpl> create(int id, WebKit::WebVideoFrameProvider* provider)
+    typedef base::Callback<media::VideoFrame* (WebKit::WebVideoFrame*)> FrameUnwrapper;
+
+    static scoped_ptr<VideoLayerImpl> create(int id, WebKit::WebVideoFrameProvider* provider,
+                                             const FrameUnwrapper& unwrapper)
     {
-        return make_scoped_ptr(new VideoLayerImpl(id, provider));
+        return make_scoped_ptr(new VideoLayerImpl(id, provider, unwrapper));
     }
     virtual ~VideoLayerImpl();
 
@@ -59,9 +67,8 @@ public:
     };
 
 private:
-    VideoLayerImpl(int, WebKit::WebVideoFrameProvider*);
+    VideoLayerImpl(int, WebKit::WebVideoFrameProvider*, const FrameUnwrapper&);
 
-    static IntSize computeVisibleSize(const WebKit::WebVideoFrame&, unsigned plane);
     virtual const char* layerTypeAsString() const OVERRIDE;
 
     void willDrawInternal(ResourceProvider*);
@@ -69,6 +76,7 @@ private:
     bool copyPlaneData(ResourceProvider*);
     void freePlaneData(ResourceProvider*);
     void freeUnusedPlaneData(ResourceProvider*);
+    size_t numPlanes() const;
 
     // Guards the destruction of m_provider and the frame that it provides
     base::Lock m_providerLock;
@@ -76,14 +84,18 @@ private:
 
     WebKit::WebTransformationMatrix m_streamTextureMatrix;
 
-    WebKit::WebVideoFrame* m_frame;
+    FrameUnwrapper m_unwrapper;
+    WebKit::WebVideoFrame *m_webFrame;
+    media::VideoFrame* m_frame;
     GLenum m_format;
+    bool m_convertYUV;
     ResourceProvider::ResourceId m_externalTextureResource;
+    scoped_ptr<media::SkCanvasVideoRenderer> m_videoRenderer;
 
-    // Each index in this array corresponds to a plane in WebKit::WebVideoFrame.
-    FramePlane m_framePlanes[WebKit::WebVideoFrame::maxPlanes];
+    // Each index in this array corresponds to a plane in media::VideoFrame.
+    FramePlane m_framePlanes[media::VideoFrame::kMaxPlanes];
 };
 
-}
+}  // namespace cc
 
 #endif // CCVideoLayerImpl_h

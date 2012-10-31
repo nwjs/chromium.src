@@ -6,14 +6,14 @@
 
 #include "cc/layer_tree_host_impl.h"
 
-#include "CCAppendQuadsData.h"
-#include "CCDamageTracker.h"
-#include "CCDebugRectHistory.h"
-#include "CCDelayBasedTimeSource.h"
-#include "CCFontAtlas.h"
-#include "CCFrameRateCounter.h"
 #include "base/basictypes.h"
 #include "base/debug/trace_event.h"
+#include "cc/append_quads_data.h"
+#include "cc/damage_tracker.h"
+#include "cc/debug_rect_history.h"
+#include "cc/delay_based_time_source.h"
+#include "cc/font_atlas.h"
+#include "cc/frame_rate_counter.h"
 #include "cc/gl_renderer.h"
 #include "cc/heads_up_display_layer_impl.h"
 #include "cc/layer_iterator.h"
@@ -31,7 +31,6 @@
 #include "cc/single_thread_proxy.h"
 #include "cc/software_renderer.h"
 #include "cc/texture_uploader.h"
-#include <wtf/CurrentTime.h>
 #include <algorithm>
 
 using WebKit::WebTransformationMatrix;
@@ -170,12 +169,7 @@ public:
 
     virtual void onTimerTick() OVERRIDE
     {
-        // FIXME: We require that animate be called on the impl thread. This
-        // avoids asserts in single threaded mode. Ideally background ticking
-        // would be handled by the proxy/scheduler and this could be removed.
-        DebugScopedSetImplThread impl;
-
-        m_layerTreeHostImpl->animate(monotonicallyIncreasingTime(), currentTime());
+        m_layerTreeHostImpl->animate(base::TimeTicks::Now(), base::Time::Now());
     }
 
     void setActive(bool active)
@@ -259,6 +253,7 @@ void LayerTreeHostImpl::commitComplete()
     // Recompute max scroll position; must be after layer content bounds are
     // updated.
     updateMaxScrollPosition();
+    m_client->sendManagedMemoryStats();
 }
 
 bool LayerTreeHostImpl::canDraw()
@@ -291,14 +286,14 @@ GraphicsContext* LayerTreeHostImpl::context() const
     return m_context.get();
 }
 
-void LayerTreeHostImpl::animate(double monotonicTime, double wallClockTime)
+void LayerTreeHostImpl::animate(base::TimeTicks monotonicTime, base::Time wallClockTime)
 {
     animatePageScale(monotonicTime);
     animateLayers(monotonicTime, wallClockTime);
     animateScrollbars(monotonicTime);
 }
 
-void LayerTreeHostImpl::startPageScaleAnimation(const IntSize& targetPosition, bool anchorPoint, float pageScale, double startTime, double duration)
+void LayerTreeHostImpl::startPageScaleAnimation(const IntSize& targetPosition, bool anchorPoint, float pageScale, base::TimeTicks startTime, base::TimeDelta duration)
 {
     if (!m_rootScrollLayerImpl)
         return;
@@ -309,15 +304,16 @@ void LayerTreeHostImpl::startPageScaleAnimation(const IntSize& targetPosition, b
     IntSize scaledContentSize = contentSize();
     scaledContentSize.scale(m_pinchZoomViewport.pageScaleDelta());
 
-    m_pageScaleAnimation = PageScaleAnimation::create(scrollTotal, scaleTotal, m_deviceViewportSize, scaledContentSize, startTime);
+    double startTimeSeconds = (startTime - base::TimeTicks()).InSecondsF();
+    m_pageScaleAnimation = PageScaleAnimation::create(scrollTotal, scaleTotal, m_deviceViewportSize, scaledContentSize, startTimeSeconds);
 
     if (anchorPoint) {
         IntSize windowAnchor(targetPosition);
         windowAnchor.scale(scaleTotal / pageScale);
         windowAnchor -= scrollTotal;
-        m_pageScaleAnimation->zoomWithAnchor(windowAnchor, pageScale, duration);
+        m_pageScaleAnimation->zoomWithAnchor(windowAnchor, pageScale, duration.InSecondsF());
     } else
-        m_pageScaleAnimation->zoomTo(targetPosition, pageScale, duration);
+        m_pageScaleAnimation->zoomTo(targetPosition, pageScale, duration.InSecondsF());
 
     m_client->setNeedsRedrawOnImplThread();
     m_client->setNeedsCommitOnImplThread();
@@ -338,7 +334,7 @@ void LayerTreeHostImpl::trackDamageForAllSurfaces(LayerImpl* rootDrawLayer, cons
         LayerImpl* renderSurfaceLayer = renderSurfaceLayerList[surfaceIndex];
         RenderSurfaceImpl* renderSurface = renderSurfaceLayer->renderSurface();
         DCHECK(renderSurface);
-        renderSurface->damageTracker()->updateDamageTrackingState(renderSurface->layerList(), renderSurfaceLayer->id(), renderSurface->surfacePropertyChangedOnlyFromDescendant(), renderSurface->contentRect(), renderSurfaceLayer->maskLayer(), renderSurfaceLayer->filters());
+        renderSurface->damageTracker()->updateDamageTrackingState(renderSurface->layerList(), renderSurfaceLayer->id(), renderSurface->surfacePropertyChangedOnlyFromDescendant(), renderSurface->contentRect(), renderSurfaceLayer->maskLayer(), renderSurfaceLayer->filters(), renderSurfaceLayer->filter());
     }
 }
 
@@ -359,7 +355,8 @@ void LayerTreeHostImpl::calculateRenderSurfaceLayerList(LayerList& renderSurface
         updateRootScrollLayerImplTransform();
 
         TRACE_EVENT0("cc", "LayerTreeHostImpl::calcDrawEtc");
-        LayerTreeHostCommon::calculateDrawTransforms(m_rootLayerImpl.get(), deviceViewportSize(), m_deviceScaleFactor, &m_layerSorter, rendererCapabilities().maxTextureSize, renderSurfaceLayerList);
+        float pageScaleFactor = m_pinchZoomViewport.pageScaleFactor();
+        LayerTreeHostCommon::calculateDrawTransforms(m_rootLayerImpl.get(), deviceViewportSize(), m_deviceScaleFactor, pageScaleFactor, &m_layerSorter, rendererCapabilities().maxTextureSize, renderSurfaceLayerList);
 
         trackDamageForAllSurfaces(m_rootLayerImpl.get(), renderSurfaceLayerList);
     }
@@ -416,7 +413,8 @@ bool LayerTreeHostImpl::calculateRenderPasses(FrameData& frame)
             targetRenderPass->appendQuadsForRenderSurfaceLayer(*it, contributingRenderPass, &occlusionTracker, appendQuadsData);
         } else if (it.representsItself() && !it->visibleContentRect().isEmpty()) {
             bool hasOcclusionFromOutsideTargetSurface;
-            if (occlusionTracker.occluded(*it, it->visibleContentRect(), &hasOcclusionFromOutsideTargetSurface))
+            bool implDrawTransformIsUnknown = false;
+            if (occlusionTracker.occluded(it->renderTarget(), it->visibleContentRect(), it->drawTransform(), implDrawTransformIsUnknown, it->drawableContentRect(), &hasOcclusionFromOutsideTargetSurface))
                 appendQuadsData.hadOcclusionFromOutsideTargetSurface |= hasOcclusionFromOutsideTargetSurface;
             else {
                 it->willDraw(m_resourceProvider.get());
@@ -473,14 +471,15 @@ bool LayerTreeHostImpl::calculateRenderPasses(FrameData& frame)
     return drawFrame;
 }
 
-void LayerTreeHostImpl::animateLayersRecursive(LayerImpl* current, double monotonicTime, double wallClockTime, AnimationEventsVector* events, bool& didAnimate, bool& needsAnimateLayers)
+void LayerTreeHostImpl::animateLayersRecursive(LayerImpl* current, base::TimeTicks monotonicTime, base::Time wallClockTime, AnimationEventsVector* events, bool& didAnimate, bool& needsAnimateLayers)
 {
     bool subtreeNeedsAnimateLayers = false;
 
     LayerAnimationController* currentController = current->layerAnimationController();
 
     bool hadActiveAnimation = currentController->hasActiveAnimation();
-    currentController->animate(monotonicTime, events);
+    double monotonicTimeSeconds = (monotonicTime - base::TimeTicks()).InSecondsF();
+    currentController->animate(monotonicTimeSeconds, events);
     bool startedAnimation = events->size() > 0;
 
     // We animated if we either ticked a running animation, or started a new animation.
@@ -647,6 +646,7 @@ void LayerTreeHostImpl::enforceManagedMemoryPolicy(const ManagedMemoryPolicy& po
         m_client->setNeedsCommitOnImplThread();
         m_client->onCanDrawStateChanged(canDraw());
     }
+    m_client->sendManagedMemoryStats();
 }
 
 void LayerTreeHostImpl::setManagedMemoryPolicy(const ManagedMemoryPolicy& policy)
@@ -662,7 +662,9 @@ void LayerTreeHostImpl::setManagedMemoryPolicy(const ManagedMemoryPolicy& policy
 
 void LayerTreeHostImpl::onVSyncParametersChanged(double monotonicTimebase, double intervalInSeconds)
 {
-    m_client->onVSyncParametersChanged(monotonicTimebase, intervalInSeconds);
+    base::TimeTicks timebase = base::TimeTicks::FromInternalValue(monotonicTimebase * base::Time::kMicrosecondsPerSecond);
+    base::TimeDelta interval = base::TimeDelta::FromMicroseconds(intervalInSeconds * base::Time::kMicrosecondsPerSecond);
+    m_client->onVSyncParametersChanged(timebase, interval);
 }
 
 void LayerTreeHostImpl::drawLayers(const FrameData& frame)
@@ -1302,7 +1304,7 @@ void LayerTreeHostImpl::makeScrollAndScaleSet(ScrollAndScaleSet* scrollInfo, con
     LayerTreeHostCommon::ScrollUpdateInfo scroll;
     scroll.layerId = m_rootScrollLayerImpl->id();
     scroll.scrollDelta = scrollOffset - toSize(m_rootScrollLayerImpl->scrollPosition());
-    scrollInfo->scrolls.append(scroll);
+    scrollInfo->scrolls.push_back(scroll);
     m_rootScrollLayerImpl->setSentScrollDelta(scroll.scrollDelta);
     scrollInfo->pageScaleDelta = pageScale / m_pinchZoomViewport.pageScaleFactor();
     m_pinchZoomViewport.setSentPageScaleDelta(scrollInfo->pageScaleDelta);
@@ -1318,7 +1320,7 @@ static void collectScrollDeltas(ScrollAndScaleSet* scrollInfo, LayerImpl* layerI
         LayerTreeHostCommon::ScrollUpdateInfo scroll;
         scroll.layerId = layerImpl->id();
         scroll.scrollDelta = scrollDelta;
-        scrollInfo->scrolls.append(scroll);
+        scrollInfo->scrolls.push_back(scroll);
         layerImpl->setSentScrollDelta(scrollDelta);
     }
 
@@ -1365,11 +1367,12 @@ void LayerTreeHostImpl::setFullRootLayerDamage()
     }
 }
 
-void LayerTreeHostImpl::animatePageScale(double monotonicTime)
+void LayerTreeHostImpl::animatePageScale(base::TimeTicks time)
 {
     if (!m_pageScaleAnimation || !m_rootScrollLayerImpl)
         return;
 
+    double monotonicTime = (time - base::TimeTicks()).InSecondsF();
     IntSize scrollTotal = flooredIntSize(m_rootScrollLayerImpl->scrollPosition() + m_rootScrollLayerImpl->scrollDelta());
 
     setPageScaleDelta(m_pageScaleAnimation->pageScaleAtTime(monotonicTime) / m_pinchZoomViewport.pageScaleFactor());
@@ -1384,7 +1387,7 @@ void LayerTreeHostImpl::animatePageScale(double monotonicTime)
     }
 }
 
-void LayerTreeHostImpl::animateLayers(double monotonicTime, double wallClockTime)
+void LayerTreeHostImpl::animateLayers(base::TimeTicks monotonicTime, base::Time wallClockTime)
 {
     if (!Settings::acceleratedAnimationEnabled() || !m_needsAnimateLayers || !m_rootLayerImpl)
         return;
@@ -1469,22 +1472,23 @@ void LayerTreeHostImpl::renderingStats(RenderingStats* stats) const
     stats->numMainThreadScrolls = m_numMainThreadScrolls;
 }
 
-void LayerTreeHostImpl::animateScrollbars(double monotonicTime)
+void LayerTreeHostImpl::animateScrollbars(base::TimeTicks time)
 {
-    animateScrollbarsRecursive(m_rootLayerImpl.get(), monotonicTime);
+    animateScrollbarsRecursive(m_rootLayerImpl.get(), time);
 }
 
-void LayerTreeHostImpl::animateScrollbarsRecursive(LayerImpl* layer, double monotonicTime)
+void LayerTreeHostImpl::animateScrollbarsRecursive(LayerImpl* layer, base::TimeTicks time)
 {
     if (!layer)
         return;
 
     ScrollbarAnimationController* scrollbarController = layer->scrollbarAnimationController();
+    double monotonicTime = (time - base::TimeTicks()).InSecondsF();
     if (scrollbarController && scrollbarController->animate(monotonicTime))
         m_client->setNeedsRedrawOnImplThread();
 
     for (size_t i = 0; i < layer->children().size(); ++i)
-        animateScrollbarsRecursive(layer->children()[i], monotonicTime);
+        animateScrollbarsRecursive(layer->children()[i], time);
 }
 
 }  // namespace cc

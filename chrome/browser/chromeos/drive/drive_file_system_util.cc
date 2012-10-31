@@ -29,6 +29,7 @@
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "content/public/browser/browser_thread.h"
 #include "net/base/escape.h"
 #include "net/base/network_change_notifier.h"
 
@@ -384,6 +385,7 @@ void PrepareWritableFileAndRun(Profile* profile,
                                const FilePath& path,
                                const OpenFileCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(!callback.is_null());
   if (IsUnderDriveMountPoint(path)) {
     FileWriteHelper* file_write_helper = GetFileWriteHelper(profile);
     if (!file_write_helper)
@@ -391,10 +393,8 @@ void PrepareWritableFileAndRun(Profile* profile,
     FilePath remote_path(ExtractDrivePath(path));
     file_write_helper->PrepareWritableFileAndRun(remote_path, callback);
   } else {
-    if (!callback.is_null()) {
-      content::BrowserThread::GetBlockingPool()->PostTask(
-          FROM_HERE, base::Bind(callback, DRIVE_FILE_OK, path));
-    }
+    content::BrowserThread::GetBlockingPool()->PostTask(
+        FROM_HERE, base::Bind(callback, DRIVE_FILE_OK, path));
   }
 }
 

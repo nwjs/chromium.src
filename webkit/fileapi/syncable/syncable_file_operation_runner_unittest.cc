@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <string>
+
 #include "base/basictypes.h"
 #include "base/location.h"
 #include "base/memory/scoped_ptr.h"
@@ -41,6 +43,7 @@ class SyncableFileOperationRunnerTest : public testing::Test {
   SyncableFileOperationRunnerTest()
     : message_loop_(MessageLoop::TYPE_IO),
       file_system_(GURL("http://example.com"), kServiceName,
+                   base::MessageLoopProxy::current(),
                    base::MessageLoopProxy::current()),
       callback_count_(0),
       write_status_(base::PLATFORM_FILE_ERROR_FAILED),
@@ -75,16 +78,8 @@ class SyncableFileOperationRunnerTest : public testing::Test {
     return file_system_.URL(path);
   }
 
-  LocalFileSyncContext* sync_context() {
-    return file_system_.file_system_context()->sync_context();
-  }
-
-  SyncableFileOperationRunner* operation_runner() {
-    return sync_context()->operation_runner().get();
-  }
-
   LocalFileSyncStatus* sync_status() {
-    return operation_runner()->sync_status();
+    return file_system_.file_system_context()->sync_context()->sync_status();
   }
 
   void ResetCallbackStatus() {
@@ -164,7 +159,6 @@ TEST_F(SyncableFileOperationRunnerTest, SimpleQueue) {
   ASSERT_TRUE(sync_status()->IsWritable(URL(kFile)));
 
   ResetCallbackStatus();
-  operation_runner()->RunNextRunnableTask();
   MessageLoop::current()->RunAllPending();
   EXPECT_EQ(2, callback_count_);
 
@@ -185,13 +179,10 @@ TEST_F(SyncableFileOperationRunnerTest, WriteToParentAndChild) {
   sync_status()->StartSyncing(URL(kDir));
   ASSERT_FALSE(sync_status()->IsWritable(URL(kDir)));
 
-  // Writes to kParent, kDir and kChild should be all queued up.
+  // Writes to kParent and kChild should be all queued up.
   ResetCallbackStatus();
   file_system_.NewOperation()->Truncate(
       URL(kChild), 1, ExpectStatus(FROM_HERE, base::PLATFORM_FILE_OK));
-  file_system_.NewOperation()->Remove(
-      URL(kDir), true /* recursive */,
-      ExpectStatus(FROM_HERE, base::PLATFORM_FILE_OK));
   file_system_.NewOperation()->Remove(
       URL(kParent), true /* recursive */,
       ExpectStatus(FROM_HERE, base::PLATFORM_FILE_OK));
@@ -217,9 +208,8 @@ TEST_F(SyncableFileOperationRunnerTest, WriteToParentAndChild) {
   ASSERT_TRUE(sync_status()->IsWritable(URL(kDir)));
 
   ResetCallbackStatus();
-  operation_runner()->RunNextRunnableTask();
   MessageLoop::current()->RunAllPending();
-  EXPECT_EQ(3, callback_count_);
+  EXPECT_EQ(2, callback_count_);
 }
 
 TEST_F(SyncableFileOperationRunnerTest, CopyAndMove) {
@@ -262,7 +252,6 @@ TEST_F(SyncableFileOperationRunnerTest, CopyAndMove) {
   // Finish syncing the "dest-copy2" directory to unlock Copy.
   sync_status()->EndSyncing(URL("dest-copy2"));
   ResetCallbackStatus();
-  operation_runner()->RunNextRunnableTask();
   MessageLoop::current()->RunAllPending();
   EXPECT_EQ(1, callback_count_);
 
@@ -273,7 +262,6 @@ TEST_F(SyncableFileOperationRunnerTest, CopyAndMove) {
   // Finish syncing the kParent to unlock Move.
   sync_status()->EndSyncing(URL(kParent));
   ResetCallbackStatus();
-  operation_runner()->RunNextRunnableTask();
   MessageLoop::current()->RunAllPending();
   EXPECT_EQ(1, callback_count_);
 
@@ -299,7 +287,6 @@ TEST_F(SyncableFileOperationRunnerTest, Write) {
 
   sync_status()->EndSyncing(URL(kFile));
   ResetCallbackStatus();
-  operation_runner()->RunNextRunnableTask();
 
   while (!write_complete_)
     MessageLoop::current()->RunAllPending();

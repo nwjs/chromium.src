@@ -699,6 +699,8 @@ EVENT_TYPE(SOCKET_POOL_CONNECTING_N_SOCKETS)
 //      "url": <String of URL being loaded>,
 //      "method": <The method ("POST" or "GET" or "HEAD" etc..)>,
 //      "load_flags": <Numeric value of the combined load flags>,
+//      "priority": <Numeric priority of the request>,
+//      "upload_id" <String of upload body identifier, if present>,
 //   }
 //
 // For the END phase, if there was an error, the following parameters are
@@ -1293,9 +1295,16 @@ EVENT_TYPE(APPCACHE_DELIVERING_ERROR_RESPONSE)
 // These are events which are not grouped by source id, as they have no
 // context.
 
-// This event is emitted whenever NetworkChangeNotifier determines that the
-// underlying network has changed.
+// This event is emitted whenever NetworkChangeNotifier determines that an
+// active network adapter's IP address has changed.
 EVENT_TYPE(NETWORK_IP_ADDRESSES_CHANGED)
+
+// This event is emitted whenever NetworkChangeNotifier determines that an
+// active network adapter's connectivity status has changed.
+//   {
+//     "new_connection_type": <Type of the new connection>
+//   }
+EVENT_TYPE(NETWORK_CONNECTIVITY_CHANGED)
 
 
 // This event is emitted whenever HostResolverImpl receives a new DnsConfig
@@ -1579,7 +1588,7 @@ EVENT_TYPE(DOWNLOAD_ITEM_RENAMED)
 
 // This event is created when a download item is interrupted.
 //   {
-//     "reason": <The reason for the interruption>,
+//     "interrupt_reason": <The reason for the interruption>,
 //     "bytes_so_far": <Number of bytes received>,
 //     "hash_state": <Current hash state, as a hex-encoded binary string>,
 //   }
@@ -1656,6 +1665,8 @@ EVENT_TYPE(DOWNLOAD_FILE_DELETED)
 //   {
 //     "operation": <open, write, close, etc>,
 //     "net_error": <net::Error code>,
+//     "os_error": <OS depedent error code>
+//     "interrupt_reason": <Download interrupt reason>
 //   }
 EVENT_TYPE(DOWNLOAD_FILE_ERROR)
 

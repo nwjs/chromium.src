@@ -123,6 +123,9 @@ const char kAuthServerWhitelist[]           = "auth-server-whitelist";
 // computer startup and not by some user action.
 const char kAutoLaunchAtStartup[]           = "auto-launch-at-startup";
 
+// Flag used to tell Chrome the base url of the Autofill service.
+const char kAutofillServiceUrl[]            = "autofill-service-url";
+
 // The value of this switch tells the app to listen for and broadcast
 // automation-related messages on IPC channel with the given ID.
 const char kAutomationClientChannelID[]     = "automation-channel";
@@ -255,11 +258,6 @@ const char kDiagnostics[]                   = "diagnostics";
 // Disables the experimental asynchronous DNS client.
 const char kDisableAsyncDns[]               = "disable-async-dns";
 
-// Disables asynchronous spellchecking features for all time. Disabling this
-// feature also disables unified spellchecking.
-const char kDisableAsynchronousSpellChecking[] =
-    "disable-asynchronous-spellchecking";
-
 // Disables CNAME lookup of the host when generating the Kerberos SPN for a
 // Negotiate challenge. See HttpAuthHandlerNegotiate::CreateSPN for more
 // background.
@@ -290,10 +288,6 @@ const char kDisableClientSidePhishingDetection[] =
     "disable-client-side-phishing-detection";
 
 const char kDisableComponentUpdate[]        = "disable-component-update";
-
-// Disables establishing a backup TCP connection if a specified timeout is
-// exceeded.
-const char kDisableConnectBackupJobs[]      = "disable-connect-backup-jobs";
 
 // Disables establishing certificate revocation information by downloading a
 // set of CRLs rather than performing on-line checks.
@@ -463,12 +457,6 @@ const char kEnableAsyncDns[]                = "enable-async-dns";
 // HttpAuthHandlerNegotiate::CreateSPN for more background.
 const char kEnableAuthNegotiatePort[]       = "enable-auth-negotiate-port";
 
-// With this flag set, Chrome will occasionally prompt the user to volunteer
-// Autofill usage data beyond what is collected by default. This is data that
-// we expect to be helpful for debugging, but that we do not want to send up
-// automatically due to privacy concerns.
-const char kEnableAutofillFeedback[]        = "enable-autofill-feedback";
-
 // Enables the pre- and auto-login features. When a user signs in to sync, the
 // browser's cookie jar is pre-filled with GAIA cookies. When the user visits a
 // GAIA login page, an info bar can help the user login.
@@ -487,10 +475,6 @@ const char kEnableCloudPolicyService[]      = "enable-cloud-policy-service";
 // Print Proxy component within the service process.
 const char kEnableCloudPrintProxy[]         = "enable-cloud-print-proxy";
 
-// Enables establishing a backup TCP connection if a specified timeout is
-// exceeded.
-const char kEnableConnectBackupJobs[]       = "enable-connect-backup-jobs";
-
 // Enables fetching the user's contacts from Google and showing them in the
 // Chrome OS apps list.
 const char kEnableContacts[]                = "enable-contacts";
@@ -500,6 +484,9 @@ const char kEnableCrxlessWebApps[]          = "enable-crxless-web-apps";
 
 // If true devtools experimental settings are enabled.
 const char kEnableDevToolsExperiments[]     = "enable-devtools-experiments";
+
+// Enables Drive v2 API instead of Google Documents List API.
+const char kEnableDriveV2Api[]              = "enable-drive-v2-api";
 
 // Enables extensions to be easily installed from sites other than the web
 // store. Without this flag, they can still be installed, but must be manually
@@ -558,9 +545,6 @@ const char kEnableIPPooling[]               = "enable-ip-pooling";
 // flag can be used to enable it until http://crbug.com/108992 is fixed.
 extern const char kEnableManagedStorage[]   = "enable-managed-storage";
 
-// Enables media gallery UI elements and permission management.
-const char kEnableMediaGalleryUI[]          = "enable-media-gallery-ui";
-
 // Allows reporting memory info (JS heap size) to page.
 const char kEnableMemoryInfo[]              = "enable-memory-info";
 
@@ -595,6 +579,13 @@ const char kEnableNaClExceptionHandling[]   = "enable-nacl-exception-handling";
 
 // Enables the native messaging extensions API.
 const char kEnableNativeMessaging[]         = "enable-native-messaging";
+
+// Enables the new Autofill UI, which is part of the browser process rather than
+// part of the renderer process.  http://crbug.com/51644
+const char kEnableNewAutofillUi[]           = "enable-new-autofill-ui";
+
+// Enables new Autofill heuristics, such as adding support for new field types.
+const char kEnableNewAutofillHeuristics[]   = "enable-new-autofill-heuristics";
 
 // Enables NPN and SPDY. In case server supports SPDY, browser will use SPDY.
 const char kEnableNpn[]                     = "enable-npn";
@@ -641,6 +632,9 @@ const char kEnableSpdy3[]                   = "enable-spdy3";
 // Enable SPDY CREDENTIAL frame support.  This is a temporary testing flag.
 const char kEnableSpdyCredentialFrames[]    = "enable-spdy-credential-frames";
 
+// Enables auto correction for misspelled words.
+const char kEnableSpellingAutoCorrect[]    = "enable-spelling-auto-correct";
+
 // Enables the stacked tabstrip.
 const char kEnableStackedTabStrip[]         = "enable-stacked-tab-strip";
 
@@ -664,16 +658,8 @@ const char kEnableWatchdog[]                = "enable-watchdog";
 // Uses WebSocket over SPDY.
 const char kEnableWebSocketOverSpdy[]       = "enable-websocket-over-spdy";
 
-// Enables experimental features for Spellchecker. Right now, the first
-// experimental feature is auto spell correct, which corrects words which are
-// misspelled by typing the word with two consecutive letters swapped. The
-// features that will be added next are:
-//
-// 1 - Allow multiple spellcheckers to work simultaneously.
-// 2 - Allow automatic detection of spell check language.
-// TODO(sidchat): Implement the above features to work under this flag.
-const char kExperimentalSpellcheckerFeatures[] =
-    "experimental-spellchecker-features";
+// Enable <webview> in Chrome Apps.
+const char kEnableWebView[]                 = "enable-webview";
 
 // Explicitly allows additional ports using a comma-separated list of port
 // numbers.
@@ -693,9 +679,6 @@ const char kExtensionProcess[]              = "extension-process";
 // Frequency in seconds for Extensions auto-update.
 const char kExtensionsUpdateFrequency[]     = "extensions-update-frequency";
 
-// Should we use an external Autofill popup?  Default is no.
-const char kExternalAutofillPopup[]         = "external-autofill-popup";
-
 // These two flags are added around the switches about:flags adds to the
 // command line. This is useful to see which switches were added by about:flags
 // on about:version. They don't have any effect.
@@ -713,6 +696,10 @@ const char kFileDescriptorLimit[]           = "file-descriptor-limit";
 // Displays the First Run experience when the browser is started, regardless of
 // whether or not it's actually the first run.
 const char kFirstRun[]                      = "first-run";
+
+// Force use of synchronous spell checking. If this is enabled, unified spell
+// checking will be disabled since it relies on asynchronous spellchecking.
+const char kForceSyncSpellCheck[]           = "force-sync-spellcheck";
 
 // Enables using GAIA information to populate profile name and icon.
 const char kGaiaProfileInfo[]               = "gaia-profile-info";
@@ -1287,6 +1274,9 @@ const char kSyncTrySsltcpFirstForXmpp[]     = "sync-try-ssltcp-first-for-xmpp";
 // Enables tab dragging to create a real browser.
 const char kTabBrowserDragging[]            = "enable-tab-browser-dragging";
 
+// Enables tab capture.
+const char kTabCapture[]                    = "enable-tab-capture";
+
 // Passes the name of the current running automated test to Chrome.
 const char kTestName[]                      = "test-name";
 
@@ -1318,6 +1308,10 @@ const char kUseGpuInTests[] = "use-gpu-in-tests";
 // testing flag.
 const char kUseSpdy[]                       = "use-spdy";
 
+// Enables use of the spelling web service. This will only work if asynchronous
+// spell checking is not disabled.
+const char kUseSpellingService[]            = "use-spelling-service";
+
 // Sets the maximum SPDY sessions per domain.
 const char kMaxSpdySessionsPerDomain[]      = "max-spdy-sessions-per-domain";
 
@@ -1327,6 +1321,9 @@ const char kMaxSpdyConcurrentStreams[]      = "max-spdy-concurrent-streams";
 // Specifies the user data directory, which is where the browser will look for
 // all of its state.
 const char kUserDataDir[]                   = "user-data-dir";
+
+// Uses the GAIA web-based signin flow instead of the native UI signin flow.
+const char kUseWebBasedSigninFlow[]         = "use-web-based-signin-flow";
 
 // Specifies a custom URL for the server which reports variation data to the
 // client. See variations_service.cc.
@@ -1341,6 +1338,10 @@ const char kVisitURLs[]                     = "visit-urls";
 // Enable the "native services" feature of web-intents.
 const char kWebIntentsNativeServicesEnabled[] =
     "web-intents-native-services-enabled";
+
+// Enable invocation of web intents from web content.
+const char kWebIntentsInvocationEnabled[] =
+    "enable-web-intents-invocation";
 
 // Adds the given extension ID to all the permission whitelists.
 const char kWhitelistedExtensionID[]        = "whitelisted-extension-id";
@@ -1377,6 +1378,11 @@ const char kEnableCarrierSwitching[]        = "enable-carrier-switching";
 // Disables wallpaper boot animation (except of OOBE case).
 const char kDisableBootAnimation[]          = "disable-boot-animation";
 
+// Disables Chrome Captive Portal detector, which initiates Captive
+// Portal detection for new active networks.
+const char kDisableChromeCaptivePortalDetector[] =
+    "disable-chrome-captive-portal-detector";
+
 // Disables Google Drive integration.
 const char kDisableDrive[]                  = "disable-drive";
 
@@ -1405,9 +1411,18 @@ const char kDisableOobeAnimation[]          = "disable-oobe-animation";
 // certain hosted applications.
 const char kEnableBackgroundLoader[]        = "enable-background-loader";
 
+// Enables Chrome Captive Portal detector, which initiates Captive
+// Portal detection for new active networks.
+const char kEnableChromeCaptivePortalDetector[] =
+    "enable-chrome-captive-portal-detector";
+
 // Enables touchpad three-finger-click as middle button.
 const char kEnableTouchpadThreeFingerClick[]
-    = "touchpad-enable-three-finger-click";
+    = "enable-touchpad-three-finger-click";
+
+// Enables touchpad three-finger swipe.
+const char kEnableTouchpadThreeFingerSwipe[]
+    = "enable-touchpad-three-finger-swipe";
 
 // Skips OAuth part of ChromeOS login process.
 const char kSkipOAuthLogin[]                = "skip-oauth-login";
@@ -1487,9 +1502,6 @@ const char kEnterpriseEnrollmentInitialModulus[] =
 // auto-enrollment client.
 const char kEnterpriseEnrollmentModulusLimit[] =
     "enterprise-enrollment-modulus-limit";
-
-// Enables overriding the Chrome OS board type when running on Linux.
-const char kChromeOSReleaseBoard[]          = "chromeos-release-board";
 
 #ifndef NDEBUG
 // Skips all other OOBE pages after user login.

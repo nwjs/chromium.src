@@ -47,6 +47,7 @@
 #if defined(USE_ASH)
 #include "ash/shell.h"
 #include "ash/wm/property_util.h"
+#include "ash/wm/window_util.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/base/gestures/gesture_recognizer.h"
@@ -191,6 +192,12 @@ void SetTrackedByWorkspace(gfx::NativeWindow window, bool value) {
 #endif
 }
 
+void SetWindowPositionManaged(gfx::NativeWindow window, bool value) {
+#if defined(USE_ASH)
+  ash::wm::SetWindowPositionManaged(window, value);
+#endif
+}
+
 bool ShouldDetachIntoNewBrowser() {
 #if defined(USE_AURA)
   return true;
@@ -210,6 +217,19 @@ bool DoesRectContainVerticalPointExpanded(
   int lower_threshold = bounds.y() - vertical_adjustment;
   return y >= lower_threshold && y <= upper_threshold;
 }
+
+// WidgetObserver implementation that resets the window position managed
+// property on Show.
+// We're forced to do this here since BrowserFrameAura resets the 'window
+// position managed' property during a show and we need the property set to
+// false before WorkspaceLayoutManager2 sees the visibility change.
+class WindowPositionManagedUpdater : public views::WidgetObserver {
+ public:
+  virtual void OnWidgetVisibilityChanged(views::Widget* widget,
+                                         bool visible) OVERRIDE {
+    SetWindowPositionManaged(widget->GetNativeView(), false);
+  }
+};
 
 }  // namespace
 
@@ -373,6 +393,7 @@ TabDragController::~TabDragController() {
   if (move_loop_widget_) {
     move_loop_widget_->RemoveObserver(this);
     SetTrackedByWorkspace(move_loop_widget_->GetNativeView(), true);
+    SetWindowPositionManaged(move_loop_widget_->GetNativeView(), true);
   }
 
   if (source_tabstrip_ && detach_into_browser_)
@@ -405,6 +426,8 @@ void TabDragController::Init(
   DCHECK(std::find(tabs.begin(), tabs.end(), source_tab) != tabs.end());
   source_tabstrip_ = source_tabstrip;
   screen_ = gfx::Screen::GetScreenFor(
+      source_tabstrip->GetWidget()->GetNativeView());
+  host_desktop_type_ = chrome::GetHostDesktopTypeForNativeView(
       source_tabstrip->GetWidget()->GetNativeView());
   source_tab_offset_ = source_tab_offset;
   start_point_in_screen_ = gfx::Point(source_tab_offset, mouse_offset.y());
@@ -829,6 +852,10 @@ TabDragController::DragBrowserToNewTabStrip(
 #else
     target_tabstrip->GetWidget()->SetCapture(attached_tabstrip_);
 #endif
+    // The window is going away. Since the drag is still on going we don't want
+    // that to effect the position of any windows.
+    SetWindowPositionManaged(browser_widget->GetNativeView(), false);
+
     // EndMoveLoop is going to snap the window back to its original location.
     // Hide it so users don't see this.
     browser_widget->Hide();
@@ -1022,7 +1049,10 @@ DockInfo TabDragController::GetDockInfoAtPoint(
 
   gfx::NativeView dragged_view = view_->GetWidget()->GetNativeView();
   dock_windows_.insert(dragged_view);
-  DockInfo info = DockInfo::GetDockInfoAtPoint(point_in_screen, dock_windows_);
+  DockInfo info = DockInfo::GetDockInfoAtPoint(
+      host_desktop_type_,
+      point_in_screen,
+      dock_windows_);
   dock_windows_.erase(dragged_view);
   return info;
 }
@@ -1047,7 +1077,10 @@ TabStrip* TabDragController::GetTargetTabStripForPoint(
   if (dragged_view)
     dock_windows_.insert(dragged_view);
   gfx::NativeWindow local_window =
-      DockInfo::GetLocalProcessWindowAtPoint(point_in_screen, dock_windows_);
+      DockInfo::GetLocalProcessWindowAtPoint(
+          host_desktop_type_,
+          point_in_screen,
+          dock_windows_);
   if (dragged_view)
     dock_windows_.erase(dragged_view);
   TabStrip* tab_strip = GetTabStripForWindow(local_window);
@@ -1299,7 +1332,11 @@ void TabDragController::DetachIntoNewBrowserAndRunMoveLoop(
   // TODO: come up with a cleaner way to do this.
   attached_tabstrip_->SetTabBoundsForDrag(drag_bounds);
 
+  WindowPositionManagedUpdater updater;
+  dragged_browser_view->GetWidget()->AddObserver(&updater);
   browser->window()->Show();
+  dragged_browser_view->GetWidget()->RemoveObserver(&updater);
+
   browser->window()->Activate();
   dragged_browser_view->GetWidget()->SetVisibilityChangedAnimationsEnabled(
       true);
@@ -1556,8 +1593,11 @@ void TabDragController::EndDragImpl(EndDragType type) {
     // happens we ignore it.
     waiting_for_run_loop_to_exit_ = true;
 
-    if (type == NORMAL || (type == TAB_DESTROYED && drag_data_.size() > 1))
+    if (type == NORMAL || (type == TAB_DESTROYED && drag_data_.size() > 1)) {
       SetTrackedByWorkspace(GetAttachedBrowserWidget()->GetNativeView(), true);
+      SetWindowPositionManaged(GetAttachedBrowserWidget()->GetNativeView(),
+                               true);
+    }
 
     // End the nested drag loop.
     GetAttachedBrowserWidget()->EndMoveLoop();
@@ -1893,8 +1933,10 @@ void TabDragController::BringWindowUnderPointToFront(
     gfx::NativeView dragged_native_view =
         dragged_view->GetWidget()->GetNativeView();
     dock_windows_.insert(dragged_native_view);
-    window =
-        DockInfo::GetLocalProcessWindowAtPoint(point_in_screen, dock_windows_);
+    window = DockInfo::GetLocalProcessWindowAtPoint(
+        host_desktop_type_,
+        point_in_screen,
+        dock_windows_);
     dock_windows_.erase(dragged_native_view);
   }
   if (window) {
@@ -1966,10 +2008,14 @@ Browser* TabDragController::CreateBrowserForDrag(
 
   *drag_offset = point_in_screen.Subtract(new_bounds.origin());
 
-  Browser::CreateParams create_params(drag_data_[0].contents->profile());
+  Browser::CreateParams create_params(
+      Browser::TYPE_TABBED,
+      drag_data_[0].contents->profile(),
+      host_desktop_type_);
   create_params.initial_bounds = new_bounds;
   Browser* browser = new Browser(create_params);
   SetTrackedByWorkspace(browser->window()->GetNativeWindow(), false);
+  SetWindowPositionManaged(browser->window()->GetNativeWindow(), false);
   // If the window is created maximized then the bounds we supplied are ignored.
   // We need to reset them again so they are honored.
   browser->window()->SetBounds(new_bounds);

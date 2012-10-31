@@ -21,22 +21,16 @@ class DriveDirectory;
 class DriveEntry;
 class DriveResourceMetadata;
 
-typedef std::map<std::string /* resource_id */, DriveEntry*>
-    FileResourceIdMap;
-
-// Struct used to record UMA stats with FeedToFileResourceMap().
-struct FeedToFileResourceMapUmaStats {
-  FeedToFileResourceMapUmaStats();
-  ~FeedToFileResourceMapUmaStats();
-
-  int num_regular_files;
-  int num_hosted_documents;
-};
-
 // DriveFeedProcessor is used to process feeds from WAPI (codename for
 // Documents List API).
 class DriveFeedProcessor {
  public:
+  typedef std::map<std::string /* resource_id */, DriveEntryProto>
+      DriveEntryProtoMap;
+
+  // Class used to record UMA stats with FeedToEntryProtoMap().
+  class FeedToEntryProtoMapUMAStats;
+
   explicit DriveFeedProcessor(DriveResourceMetadata* resource_metadata);
   ~DriveFeedProcessor();
 
@@ -48,59 +42,50 @@ class DriveFeedProcessor {
   // In the case of processing the root feeds |root_feed_changestamp| is used
   // as its initial changestamp value. The value comes from
   // google_apis::AccountMetadataFeed.
-  DriveFileError ApplyFeeds(
+  void ApplyFeeds(
       const ScopedVector<google_apis::DocumentFeed>& feed_list,
       int64 start_changestamp,
       int64 root_feed_changestamp,
       std::set<FilePath>* changed_dirs);
 
-  // Converts list of document feeds from collected feeds into
-  // FileResourceIdMap.
-  DriveFileError FeedToFileResourceMap(
+  // Converts list of document feeds from collected feeds into a
+  // DriveEntryProtoMap. |feed_changestamp| and/or |uma_stats| may be NULL.
+  void FeedToEntryProtoMap(
     const ScopedVector<google_apis::DocumentFeed>& feed_list,
-    FileResourceIdMap* file_map,
+    DriveEntryProtoMap* entry_proto_map,
     int64* feed_changestamp,
-    FeedToFileResourceMapUmaStats* uma_stats);
+    FeedToEntryProtoMapUMAStats* uma_stats);
 
  private:
-  // Updates UMA histograms about file counts.
-  void UpdateFileCountUmaHistograms(
-      const FeedToFileResourceMapUmaStats& uma_stats) const;
+  typedef std::map<std::string /* resource_id */, DriveEntry*> ResourceMap;
 
-  // Applies the pre-processed feed from |file_map| map onto the file system.
-  // All entries in |file_map| will be erased (i.e. the map becomes empty),
-  // and values are deleted.
-  void ApplyFeedFromFileUrlMap(bool is_delta_feed,
-                               int64 feed_changestamp,
-                               FileResourceIdMap* file_map,
-                               std::set<FilePath>* changed_dirs);
+  // Applies the pre-processed feed from |entry_proto_map| onto the filesystem.
+  void ApplyEntryProtoMap(const DriveEntryProtoMap& entry_proto_map,
+                          bool is_delta_feed,
+                          int64 feed_changestamp,
+                          std::set<FilePath>* changed_dirs);
 
-  // Helper function for adding new |file| from the feed into |directory|. It
-  // checks the type of file and updates |changed_dirs| if this file adding
-  // operation needs to raise directory notification update. If file is being
-  // added to |orphaned_resources| such notifications are not raised since
-  // we ignore such files and don't add them to the file system now.
-  static void AddEntryToDirectoryAndCollectChangedDirectories(
+  // Helper function for adding a new |entry| from the feed into |directory|. It
+  // checks the type of the entry and updates |changed_dirs| if this file adding
+  // operation needs to raise a directory notification update.
+  void AddEntryToDirectoryAndCollectChangedDirectories(
       DriveEntry* entry,
       DriveDirectory* directory,
-      DriveResourceMetadata* orphaned_resources,
       std::set<FilePath>* changed_dirs);
 
-  // Helper function for removing |entry| from |directory|. If |entry| is a
-  // directory too, it will collect all its children file paths into
-  // |changed_dirs| as well.
-  static void RemoveEntryFromDirectoryAndCollectChangedDirectories(
-      DriveDirectory* directory,
+  // Helper function for removing |entry| from its parent. It checks the type
+  // of the entry and updates |changed_dirs| if this entry removing operation
+  // needs to raise a directory notification update, including children
+  // directories.
+  void RemoveEntryFromParentAndCollectChangedDirectories(
       DriveEntry* entry,
       std::set<FilePath>* changed_dirs);
 
-  // Finds directory where new |file| should be added to during feed processing.
-  // |orphaned_entries_dir| collects files/dirs that don't have a parent in
-  // either locally cached file system or in this new feed.
-  DriveDirectory* FindDirectoryForNewEntry(
+  // Resolves directory where |new_entry| should be added to during feed
+  // processing.
+  DriveDirectory* ResolveParentDirectoryForNewEntry(
       DriveEntry* new_entry,
-      const FileResourceIdMap& file_map,
-      DriveResourceMetadata* orphaned_ressources);
+      const ResourceMap& resource_map);
 
   DriveResourceMetadata* resource_metadata_;  // Not owned.
   DISALLOW_COPY_AND_ASSIGN(DriveFeedProcessor);

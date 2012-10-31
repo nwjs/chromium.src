@@ -29,6 +29,7 @@
 #include "net/base/ssl_cert_request_info.h"
 #include "net/base/ssl_config_service.h"
 #include "net/cookies/cookie_monster.h"
+#include "net/http/http_network_session.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_response_info.h"
@@ -700,7 +701,16 @@ void URLRequestHttpJob::ProcessStrictTransportSecurityHeader() {
   void* iter = NULL;
   base::Time now = base::Time::Now();
 
+  // http://tools.ietf.org/html/draft-ietf-websec-strict-transport-sec:
+  //
+  //   If a UA receives more than one STS header field in a HTTP response
+  //   message over secure transport, then the UA MUST process only the
+  //   first such header field.
+  bool seen_sts = false;
   while (headers->EnumerateHeader(&iter, "Strict-Transport-Security", &value)) {
+    if (seen_sts)
+      return;
+    seen_sts = true;
     TransportSecurityState::DomainState domain_state;
     if (domain_state.ParseSTSHeader(now, value))
       security_state->EnableHost(host, domain_state);
@@ -1488,10 +1498,11 @@ void URLRequestHttpJob::DoneWithRequest(CompletionCause reason) {
   if (done_)
     return;
   done_ = true;
-
   RecordPerfHistograms(reason);
-  if (reason == FINISHED)
+  if (reason == FINISHED) {
+    request_->set_received_response_content_length(prefilter_bytes_read());
     RecordCompressionHistograms();
+  }
 }
 
 HttpResponseHeaders* URLRequestHttpJob::GetResponseHeaders() const {

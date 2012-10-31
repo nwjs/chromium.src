@@ -10,18 +10,22 @@
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/drive/drive_resource_metadata.h"
+#include "chrome/browser/google_apis/drive_uploader.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
 
 class FilePath;
 class GURL;
+
+namespace google_apis {
+class DriveServiceInterface;
+class DriveUploaderInterface;
+}
 
 namespace drive {
 
 class DriveCache;
 class DriveEntryProto;
 class DriveFileSystemInterface;
-class DriveServiceInterface;
-class DriveUploaderInterface;
 
 using google_apis::DocumentEntry;
 using google_apis::GDataErrorCode;
@@ -35,10 +39,10 @@ class OperationObserver;
 // metadata to reflect the new state.
 class CopyOperation {
  public:
-  CopyOperation(DriveServiceInterface* drive_service,
+  CopyOperation(google_apis::DriveServiceInterface* drive_service,
                 DriveFileSystemInterface* drive_file_system,
                 DriveResourceMetadata* metadata,
-                DriveUploaderInterface* uploader,
+                google_apis::DriveUploaderInterface* uploader,
                 scoped_refptr<base::SequencedTaskRunner> blocking_task_runner,
                 OperationObserver* observer);
   virtual ~CopyOperation();
@@ -170,23 +174,23 @@ class CopyOperation {
 
   // Kicks off file upload once it receives |file_size| and |content_type|.
   void StartFileUpload(const StartFileUploadParams& params,
-                       DriveFileError* error,
                        int64* file_size,
-                       std::string* content_type);
+                       std::string* content_type,
+                       DriveFileError error);
 
   // Part of StartFileUpload(). Called after GetEntryInfoByPath()
   // is complete.
   void StartFileUploadAfterGetEntryInfo(
       const StartFileUploadParams& params,
       int64 file_size,
-      std::string content_type,
+      const std::string& content_type,
       DriveFileError error,
       scoped_ptr<DriveEntryProto> entry_proto);
 
   // Helper function that completes bookkeeping tasks related to
   // completed file transfer.
   void OnTransferCompleted(const FileOperationCallback& callback,
-                           DriveFileError error,
+                           google_apis::DriveUploadError error,
                            const FilePath& drive_path,
                            const FilePath& file_path,
                            scoped_ptr<DocumentEntry> document_entry);
@@ -215,10 +219,10 @@ class CopyOperation {
       const FileOperationCallback& callback,
       std::string* resource_id);
 
-  DriveServiceInterface* drive_service_;
+  google_apis::DriveServiceInterface* drive_service_;
   DriveFileSystemInterface* drive_file_system_;
   DriveResourceMetadata* metadata_;
-  DriveUploaderInterface* uploader_;
+  google_apis::DriveUploaderInterface* uploader_;
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   OperationObserver* observer_;
 

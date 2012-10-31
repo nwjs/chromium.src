@@ -17,6 +17,7 @@
 #include "chrome/browser/extensions/api/commands/command_service_factory.h"
 #include "chrome/browser/extensions/api/discovery/suggested_links_registry_factory.h"
 #include "chrome/browser/extensions/app_restore_service_factory.h"
+#include "chrome/browser/extensions/api/tab_capture/tab_capture_registry_factory.h"
 #include "chrome/browser/extensions/extension_system_factory.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/google/google_url_tracker_factory.h"
@@ -58,6 +59,7 @@
 #include "chrome/browser/ui/webui/chrome_url_data_manager_factory.h"
 #include "chrome/browser/ui/webui/ntp/ntp_resource_cache_factory.h"
 #include "chrome/browser/user_style_sheet_watcher_factory.h"
+#include "chrome/browser/visitedlink/visitedlink_master_factory.h"
 #include "chrome/browser/webdata/web_data_service_factory.h"
 
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
@@ -221,6 +223,7 @@ void ProfileDependencyManager::AssertFactoriesBuilt() {
   extensions::CommandServiceFactory::GetInstance();
   extensions::SuggestedLinksRegistryFactory::GetInstance();
   extensions::ExtensionSystemFactory::GetInstance();
+  extensions::TabCaptureRegistryFactory::GetInstance();
 #endif
   FaviconServiceFactory::GetInstance();
   FindBarStateFactory::GetInstance();
@@ -274,6 +277,7 @@ void ProfileDependencyManager::AssertFactoriesBuilt() {
 #endif
   TokenServiceFactory::GetInstance();
   UserStyleSheetWatcherFactory::GetInstance();
+  VisitedLinkMasterFactory::GetInstance();
   WebDataServiceFactory::GetInstance();
   WebIntentsRegistryFactory::GetInstance();
 

@@ -164,6 +164,7 @@
     { "name": "hostedtalkgadget.google.com", "include_subdomains": true, "mode": "force-https", "pins": "google" },
     { "name": "plus.google.com", "include_subdomains": true, "mode": "force-https", "pins": "google" },
     { "name": "script.google.com", "include_subdomains": true, "mode": "force-https", "pins": "google" },
+    { "name": "history.google.com", "include_subdomains": true, "mode": "force-https", "pins": "google" },
 
     // Other Google related domain that must use HTTPS.
     { "name": "market.android.com", "include_subdomains": true, "mode": "force-https", "pins": "google" },
@@ -174,6 +175,7 @@
     { "name": "apis.google.com", "include_subdomains": true, "mode": "force-https", "pins": "google" },
     { "name": "chromiumcodereview.appspot.com", "include_subdomains": true, "mode": "force-https", "pins": "google" },
     { "name": "codereview.appspot.com", "include_subdomains": true, "mode": "force-https", "pins": "google" },
+    { "name": "codereview.chromium.org", "include_subdomains": true, "mode": "force-https", "pins": "google" },
 
     // chart.apis.google.com is *not* HSTS because the certificate doesn't match
     // and there are lots of links out there that still use the name. The correct
@@ -484,8 +486,8 @@
     { "name": "crypto.cat", "include_subdomains": true, "mode": "force-https" },
     { "name": "bigshinylock.minazo.net", "include_subdomains": true, "mode": "force-https" },
     { "name": "crate.io", "include_subdomains": true, "mode": "force-https" },
-    { "name": "twitter.com", "pins": "twitterCom" },
-    { "name": "www.twitter.com", "include_subdomains": true, "pins": "twitterCom" },
+    { "name": "twitter.com", "mode": "force-https", "pins": "twitterCom" },
+    { "name": "www.twitter.com", "include_subdomains": true, "mode": "force-https", "pins": "twitterCom" },
     { "name": "api.twitter.com", "include_subdomains": true, "pins": "twitterCDN" },
     { "name": "oauth.twitter.com", "include_subdomains": true, "pins": "twitterCom" },
     { "name": "mobile.twitter.com", "include_subdomains": true, "pins": "twitterCom" },

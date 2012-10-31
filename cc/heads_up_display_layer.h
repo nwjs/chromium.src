@@ -5,9 +5,9 @@
 #ifndef HeadsUpDisplayLayerChromium_h
 #define HeadsUpDisplayLayerChromium_h
 
-#include "CCFontAtlas.h"
 #include "IntSize.h"
 #include "base/memory/scoped_ptr.h"
+#include "cc/font_atlas.h"
 #include "cc/layer.h"
 
 namespace cc {
@@ -16,7 +16,7 @@ class HeadsUpDisplayLayer : public Layer {
 public:
     static scoped_refptr<HeadsUpDisplayLayer> create();
 
-    virtual void update(TextureUpdateQueue&, const OcclusionTracker*, RenderingStats&) OVERRIDE;
+    virtual void update(ResourceUpdateQueue&, const OcclusionTracker*, RenderingStats&) OVERRIDE;
     virtual bool drawsContent() const OVERRIDE;
 
     void setFontAtlas(scoped_ptr<FontAtlas>);

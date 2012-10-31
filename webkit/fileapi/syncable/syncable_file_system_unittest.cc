@@ -25,10 +25,8 @@ class SyncableFileSystemTest : public testing::Test {
  public:
   SyncableFileSystemTest()
       : file_system_(GURL("http://example.com/"), "test",
+                     base::MessageLoopProxy::current(),
                      base::MessageLoopProxy::current()),
-        quota_status_(quota::kQuotaStatusUnknown),
-        usage_(-1),
-        quota_(-1),
         weak_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {}
 
   void SetUp() {
@@ -53,28 +51,7 @@ class SyncableFileSystemTest : public testing::Test {
     RevokeSyncableFileSystem("test");
   }
 
-  void DidGetUsageAndQuota(QuotaStatusCode status, int64 usage, int64 quota) {
-    quota_status_ = status;
-    usage_ = usage;
-    quota_ = quota;
-  }
-
  protected:
-  void GetUsageAndQuota(int64* usage, int64* quota) {
-    quota_status_ = quota::kQuotaStatusUnknown;
-    file_system_.quota_manager()->GetUsageAndQuota(
-        file_system_.origin(),
-        file_system_.storage_type(),
-        base::Bind(&SyncableFileSystemTest::DidGetUsageAndQuota,
-                   weak_factory_.GetWeakPtr()));
-    MessageLoop::current()->RunAllPending();
-    EXPECT_EQ(quota::kQuotaStatusOk, quota_status_);
-    if (usage)
-      *usage = usage_;
-    if (quota)
-      *quota = quota_;
-  }
-
   void VerifyAndClearChange(const FileSystemURL& url,
                             const FileChange& expected_change) {
     SCOPED_TRACE(testing::Message() << url.DebugString() <<
@@ -109,9 +86,6 @@ class SyncableFileSystemTest : public testing::Test {
   CannedSyncableFileSystem file_system_;
   scoped_refptr<LocalFileSyncContext> sync_context_;
 
-  QuotaStatusCode quota_status_;
-  int64 usage_;
-  int64 quota_;
   base::WeakPtrFactory<SyncableFileSystemTest> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncableFileSystemTest);
@@ -134,7 +108,8 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
   const int64 kQuota = 12345 * 1024;
   QuotaManager::kSyncableStorageDefaultHostQuota = kQuota;
   int64 usage, quota;
-  GetUsageAndQuota(&usage, &quota);
+  EXPECT_EQ(quota::kQuotaStatusOk,
+            file_system_.GetUsageAndQuota(&usage, &quota));
 
   // Returned quota must be what we overrode. Usage must be greater than 0
   // as creating a file or directory consumes some space.
@@ -150,7 +125,8 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
             file_system_.TruncateFile(URL("dir/foo"), kFileSizeToExtend));
 
   int64 new_usage;
-  GetUsageAndQuota(&new_usage, NULL);
+  EXPECT_EQ(quota::kQuotaStatusOk,
+            file_system_.GetUsageAndQuota(&new_usage, &quota));
   EXPECT_EQ(kFileSizeToExtend, new_usage - usage);
 
   // Shrink the quota to the current usage, try to extend the file further
@@ -160,7 +136,8 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
             file_system_.TruncateFile(URL("dir/foo"), kFileSizeToExtend + 1));
 
   usage = new_usage;
-  GetUsageAndQuota(&new_usage, NULL);
+  EXPECT_EQ(quota::kQuotaStatusOk,
+            file_system_.GetUsageAndQuota(&new_usage, &quota));
   EXPECT_EQ(usage, new_usage);
 
   // Deletes the file system.
@@ -168,7 +145,8 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
             file_system_.DeleteFileSystem());
 
   // Now the usage must be zero.
-  GetUsageAndQuota(&usage, NULL);
+  EXPECT_EQ(quota::kQuotaStatusOk,
+            file_system_.GetUsageAndQuota(&usage, &quota));
   EXPECT_EQ(0, usage);
 
   // Restore the system default quota.
@@ -209,13 +187,13 @@ TEST_F(SyncableFileSystemTest, ChangeTrackerSimple) {
 
   VerifyAndClearChange(URL(kPath0),
                        FileChange(FileChange::FILE_CHANGE_ADD_OR_UPDATE,
-                                  FileChange::FILE_TYPE_DIRECTORY));
+                                  SYNC_FILE_TYPE_DIRECTORY));
   VerifyAndClearChange(URL(kPath1),
                        FileChange(FileChange::FILE_CHANGE_ADD_OR_UPDATE,
-                                  FileChange::FILE_TYPE_DIRECTORY));
+                                  SYNC_FILE_TYPE_DIRECTORY));
   VerifyAndClearChange(URL(kPath2),
                        FileChange(FileChange::FILE_CHANGE_ADD_OR_UPDATE,
-                                  FileChange::FILE_TYPE_FILE));
+                                  SYNC_FILE_TYPE_FILE));
 
   // Creates and removes a same directory.
   EXPECT_EQ(base::PLATFORM_FILE_OK,
@@ -245,13 +223,13 @@ TEST_F(SyncableFileSystemTest, ChangeTrackerSimple) {
 
   VerifyAndClearChange(URL(kPath0),
                        FileChange(FileChange::FILE_CHANGE_DELETE,
-                                  FileChange::FILE_TYPE_DIRECTORY));
+                                  SYNC_FILE_TYPE_DIRECTORY));
   VerifyAndClearChange(URL(kPath1),
                        FileChange(FileChange::FILE_CHANGE_DELETE,
-                                  FileChange::FILE_TYPE_DIRECTORY));
+                                  SYNC_FILE_TYPE_DIRECTORY));
   VerifyAndClearChange(URL(kPath2),
                        FileChange(FileChange::FILE_CHANGE_DELETE,
-                                  FileChange::FILE_TYPE_FILE));
+                                  SYNC_FILE_TYPE_FILE));
 }
 
 }  // namespace fileapi

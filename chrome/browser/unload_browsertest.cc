@@ -141,7 +141,7 @@ class UnloadTest : public InProcessBrowserTest {
   }
 
   void NavigateToNolistenersFileTwice() {
-    GURL url(URLRequestMockHTTPJob::GetMockUrl(
+    GURL url(content::URLRequestMockHTTPJob::GetMockUrl(
         FilePath(FILE_PATH_LITERAL("title2.html"))));
     ui_test_utils::NavigateToURL(browser(), url);
     CheckTitle("Title Of Awesomeness");
@@ -153,7 +153,7 @@ class UnloadTest : public InProcessBrowserTest {
   // load is purposely async to test the case where the user loads another
   // page without waiting for the first load to complete.
   void NavigateToNolistenersFileTwiceAsync() {
-    GURL url(URLRequestMockHTTPJob::GetMockUrl(
+    GURL url(content::URLRequestMockHTTPJob::GetMockUrl(
         FilePath(FILE_PATH_LITERAL("title2.html"))));
     ui_test_utils::NavigateToURLWithDisposition(browser(), url, CURRENT_TAB, 0);
     ui_test_utils::NavigateToURL(browser(), url);
@@ -395,7 +395,8 @@ IN_PROC_BROWSER_TEST_F(UnloadTest, BrowserCloseTabWhenOtherTabHasListener) {
   content::WindowedNotificationObserver load_stop_observer(
       content::NOTIFICATION_LOAD_STOP,
       content::NotificationService::AllSources());
-  content::SimulateMouseClick(chrome::GetActiveWebContents(browser()));
+  content::SimulateMouseClick(chrome::GetActiveWebContents(browser()), 0,
+      WebKit::WebMouseEvent::ButtonLeft);
   observer.Wait();
   load_stop_observer.Wait();
   CheckTitle("popup");

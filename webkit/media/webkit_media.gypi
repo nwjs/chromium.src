@@ -3,6 +3,16 @@
 # found in the LICENSE file.
 
 {
+  'variables': {
+    'conditions': [
+      ['OS == "android" or OS == "ios"', {
+        # Android and iOS don't use ffmpeg.
+        'use_ffmpeg%': 0,
+      }, {  # 'OS != "android" and OS != "ios"'
+        'use_ffmpeg%': 1,
+      }],
+    ],
+  },
   'targets': [
     {
       'target_name': 'webkit_media',
@@ -52,12 +62,12 @@
         'crypto/proxy_decryptor.h',
         'filter_helpers.cc',
         'filter_helpers.h',
+        'media_stream_audio_renderer.cc',
+        'media_stream_audio_renderer.h',
         'media_stream_client.h',
         'preload.h',
         'simple_video_frame_provider.cc',
         'simple_video_frame_provider.h',
-        'skcanvas_video_renderer.cc',
-        'skcanvas_video_renderer.h',
         'video_frame_provider.cc',
         'video_frame_provider.h',
         'webmediaplayer_delegate.h',
@@ -73,7 +83,7 @@
         'webvideoframe_impl.h',
       ],
       'conditions': [
-        ['inside_chromium_build==0', {
+        ['inside_chromium_build == 0', {
           'dependencies': [
             '<(DEPTH)/webkit/support/setup_third_party.gyp:third_party_headers',
           ],
@@ -101,11 +111,30 @@
     },
     {
       'target_name': 'clearkeycdm',
-      'type': 'shared_library',
+      'type': 'none',
+      'conditions': [
+        ['use_ffmpeg == 1' , {
+          'defines': ['CLEAR_KEY_CDM_USE_FFMPEG_DECODER'],
+          'dependencies': [
+            '<(DEPTH)/third_party/ffmpeg/ffmpeg.gyp:ffmpeg',
+          ],
+          'sources': [
+            'crypto/ppapi/ffmpeg_cdm_audio_decoder.cc',
+            'crypto/ppapi/ffmpeg_cdm_audio_decoder.h',
+            'crypto/ppapi/ffmpeg_cdm_video_decoder.cc',
+            'crypto/ppapi/ffmpeg_cdm_video_decoder.h',
+          ],
+        }],
+        ['os_posix == 1 and OS != "mac"', {
+          'type': 'loadable_module',  # Must be in PRODUCT_DIR for ASAN bots.
+        }, {  # 'os_posix != 1 or OS == "mac"'
+          'type': 'shared_library',
+        }],
+      ],
       'defines': ['CDM_IMPLEMENTATION'],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
-        '<(DEPTH)/media/media.gyp:media'
+        '<(DEPTH)/media/media.gyp:media',
       ],
       'sources': [
         'crypto/ppapi/clear_key_cdm.cc',
@@ -125,19 +154,20 @@
         'crypto/ppapi/linked_ptr.h',
       ],
       'conditions': [
-        ['os_posix==1 and OS!="mac"', {
+        ['os_posix == 1 and OS != "mac"', {
           'cflags': ['-fvisibility=hidden'],
           'type': 'loadable_module',
-          # -gstabs, used in the official builds, causes an ICE. Simply remove
-          # it.
-          'cflags!': ['-gstabs'],
           # Allow the plugin wrapper to find the CDM in the same directory.
-          'ldflags': ['-Wl,-rpath=\$$ORIGIN']
+          'ldflags': ['-Wl,-rpath=\$$ORIGIN'],
+          'libraries': [
+            # Built by clearkeycdm.
+            '<(PRODUCT_DIR)/libclearkeycdm.so',
+          ],
         }],
-        ['OS=="win"', {
+        ['OS == "win"', {
           'type': 'shared_library',
         }],
-        ['OS=="mac"', {
+        ['OS == "mac"', {
           'type': 'loadable_module',
           'mac_bundle': 1,
           'product_extension': 'plugin',

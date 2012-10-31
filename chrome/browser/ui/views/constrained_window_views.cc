@@ -12,7 +12,6 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "chrome/browser/ui/views/constrained_window_frame_simple.h"
@@ -63,6 +62,7 @@
 #include "ash/shell.h"
 #include "ash/wm/custom_frame_view_ash.h"
 #include "ash/wm/visibility_controller.h"
+#include "ash/wm/window_animations.h"
 #include "ui/aura/window.h"
 #endif
 
@@ -624,6 +624,13 @@ ConstrainedWindowViews::~ConstrainedWindowViews() {
 }
 
 void ConstrainedWindowViews::ShowConstrainedWindow() {
+#if defined(USE_ASH)
+  if (enable_chrome_style_) {
+    ash::SetWindowVisibilityAnimationType(
+        GetNativeWindow(),
+        ash::WINDOW_VISIBILITY_ANIMATION_TYPE_ROTATE);
+  }
+#endif
   Show();
   FocusConstrainedWindow();
 }
@@ -718,24 +725,31 @@ void ConstrainedWindowViews::Observe(
     const content::NotificationDetails& details) {
   DCHECK(enable_chrome_style_);
   DCHECK_EQ(type, content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED);
-  if (*content::Details<bool>(details).ptr())
+#if defined(USE_ASH)
+  ash::SuspendChildWindowVisibilityAnimations
+      suspend(GetNativeWindow()->parent());
+#endif
+  if (*content::Details<bool>(details).ptr()) {
     Show();
-  else
+#if defined(USE_ASH)
+    GetNativeWindow()->parent()->StackChildAbove(
+        GetNativeWindow(), web_contents_->GetNativeView());
+#endif
+  } else {
     Hide();
+  }
 }
 
 void ConstrainedWindowViews::PositionChromeStyleWindow(const gfx::Size& size) {
   DCHECK(enable_chrome_style_);
-  gfx::Rect bounds(GetRootView()->bounds().origin(), size);
   ConstrainedWindowTabHelperDelegate* tab_helper_delegate =
       ConstrainedWindowTabHelper::FromWebContents(web_contents_)->delegate();
-  BrowserWindow* browser_window =
-      tab_helper_delegate ? tab_helper_delegate->GetBrowserWindow() : NULL;
-  if (browser_window) {
-    bounds.set_x(browser_window->GetBounds().width() / 2 - bounds.width() / 2);
-    int top_y;
-    if (browser_window->GetConstrainedWindowTopY(&top_y))
-      bounds.set_y(top_y);
+  gfx::Point point;
+  if (!tab_helper_delegate ||
+      !tab_helper_delegate->GetConstrainedWindowTopCenter(&point)) {
+    Widget::CenterWindow(size);
+    return;
   }
-  SetBounds(bounds);
+
+  SetBounds(gfx::Rect(point - gfx::Point(size.width() / 2, 0), size));
 }

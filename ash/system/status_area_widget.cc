@@ -174,8 +174,14 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
                                           bool large) OVERRIDE {
   }
 
+  virtual void GetVirtualNetworkIcon(ash::NetworkIconInfo* info) OVERRIDE {
+  }
+
   virtual void GetAvailableNetworks(
       std::vector<NetworkIconInfo>* list) OVERRIDE {
+  }
+
+  virtual void GetVirtualNetworks(std::vector<NetworkIconInfo>* list) OVERRIDE {
   }
 
   virtual void ConnectToNetwork(const std::string& network_id) OVERRIDE {
@@ -215,6 +221,9 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
   }
 
   virtual void ShowOtherWifi() OVERRIDE {
+  }
+
+  virtual void ShowOtherVPN() OVERRIDE {
   }
 
   virtual void ShowOtherCellular() OVERRIDE {
@@ -331,7 +340,7 @@ void StatusAreaWidget::Shutdown() {
 }
 
 bool StatusAreaWidget::ShouldShowLauncher() const {
-  if ((system_tray_ && system_tray_->HasSystemBubble()) ||
+  if ((system_tray_ && system_tray_->ShouldShowLauncher()) ||
       (web_notification_tray_ &&
        web_notification_tray_->IsMessageCenterBubbleVisible()))
     return true;

@@ -18,7 +18,6 @@
 #import "chrome/browser/ui/cocoa/intents/web_intent_progress_view_controller.h"
 #import "chrome/browser/ui/cocoa/intents/web_intent_service_row_view_controller.h"
 #import "chrome/browser/ui/cocoa/key_equivalent_constants.h"
-#include "chrome/browser/ui/cocoa/run_loop_testing.h"
 #import "chrome/browser/ui/cocoa/spinner_progress_indicator.h"
 #include "chrome/browser/ui/intents/web_intent_picker_delegate_mock.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -26,6 +25,7 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/test_utils.h"
 #include "ipc/ipc_message.h"
 #import "testing/gtest_mac.h"
 
@@ -49,12 +49,7 @@ class WebIntentPickerViewControllerTest : public InProcessBrowserTest {
 
   virtual void CleanUpOnMainThread() OVERRIDE {
     EXPECT_CALL(delegate_, OnClosing());
-    NSWindow* sheet = picker_->constrained_window()->GetNativeWindow();
-    ConstrainedWindowSheetController* sheetController =
-        [ConstrainedWindowSheetController controllerForSheet:sheet];
     picker_->Close();
-    [sheetController endAnimationForSheet:sheet];
-    chrome::testing::NSRunLoopRunAllPending();
   }
 
  protected:
@@ -94,6 +89,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerViewControllerTest, Waiting) {
 // Test the "no matching services" state.
 IN_PROC_BROWSER_TEST_F(WebIntentPickerViewControllerTest, NoServices) {
   model_.SetWaitingForSuggestions(false);
+  content::RunAllPendingInMessageLoop();
   EXPECT_EQ(PICKER_STATE_NO_SERVICE, [controller_ state]);
   WebIntentMessageViewController* message_controller =
       [controller_ messageViewController];
@@ -118,6 +114,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerViewControllerTest, ChooseService) {
   suggestions.push_back(suggestion);
   model_.AddSuggestedExtensions(suggestions);
 
+  content::RunAllPendingInMessageLoop();
   EXPECT_EQ(PICKER_STATE_CHOOSE_SERVICE, [controller_ state]);
   WebIntentChooseServiceViewController* choose_controller =
       [controller_ chooseServiceViewController];
@@ -145,6 +142,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerViewControllerTest, ChooseService) {
 
   // Remove everything but suggested extensions.
   model_.Clear();
+  content::RunAllPendingInMessageLoop();
   EXPECT_EQ(PICKER_STATE_CHOOSE_SERVICE, [controller_ state]);
   rows = [choose_controller rows];
   EXPECT_EQ(1u, [rows count]);
@@ -171,6 +169,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerViewControllerTest, InlineService) {
       webkit_glue::WebIntentServiceData::DISPOSITION_INLINE;
   model_.AddInstalledService(ASCIIToUTF16("Title"), url, disposition);
   model_.SetInlineDisposition(url);
+  content::RunAllPendingInMessageLoop();
   EXPECT_EQ(PICKER_STATE_INLINE_SERVICE, [controller_ state]);
 
   WebIntentInlineServiceViewController * inline_controller =
@@ -200,6 +199,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerViewControllerTest, Installing) {
   // Set a pending extension download.
   model_.SetWaitingForSuggestions(false);
   model_.SetPendingExtensionInstallId(suggestion.id);
+  content::RunAllPendingInMessageLoop();
   EXPECT_EQ(PICKER_STATE_INSTALLING_EXTENSION, [controller_ state]);
 
   WebIntentProgressViewController* progress_controller =
@@ -211,6 +211,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerViewControllerTest, Installing) {
 
   int percent_done = 50;
   model_.SetPendingExtensionInstallDownloadProgress(percent_done);
+  content::RunAllPendingInMessageLoop();
   EXPECT_EQ(percent_done, [progress_indicator percentDone]);
 }
 
@@ -225,6 +226,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerViewControllerTest, ExtensionPrompt) {
   // Set a pending install prompt.
   model_.SetPendingExtensionInstallDelegate(&delegate);
   model_.SetPendingExtensionInstallPrompt(prompt);
+  content::RunAllPendingInMessageLoop();
   EXPECT_EQ(PICKER_STATE_EXTENSION_PROMPT, [controller_ state]);
 
   // Verify that the view controll is embedded.

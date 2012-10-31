@@ -23,7 +23,7 @@
 #include "ui/base/ui_base_types.h"
 
 namespace content {
-
+namespace {
 class MockRenderWidgetHostDelegate : public RenderWidgetHostDelegate {
  public:
   MockRenderWidgetHostDelegate() {}
@@ -105,6 +105,8 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAuraTest);
 };
 
+}  // namespace
+
 // Checks that a fullscreen view has the correct show-state and receives the
 // focus.
 TEST_F(RenderWidgetHostViewAuraTest, FocusFullscreen) {
@@ -145,10 +147,7 @@ TEST_F(RenderWidgetHostViewAuraTest, DestroyFullscreenOnBlur) {
   view_ = NULL;
 }
 
-#if !defined(OS_WIN)
-// Checks that touch-event state is maintained correctly. A lot of the
-// touch-event related functions are not implemented on Windows. So run this
-// test only in chromeos. http://crbug.com/157268
+// Checks that touch-event state is maintained correctly.
 TEST_F(RenderWidgetHostViewAuraTest, TouchEventState) {
   view_->InitAsChild(NULL);
   view_->Show();
@@ -222,6 +221,5 @@ TEST_F(RenderWidgetHostViewAuraTest, TouchEventState) {
   EXPECT_EQ(WebKit::WebInputEvent::TouchEnd, view_->touch_event_.type);
   EXPECT_EQ(0U, view_->touch_event_.touchesLength);
 }
-#endif // !defined(OS_WIN)
 
 }  // namespace content

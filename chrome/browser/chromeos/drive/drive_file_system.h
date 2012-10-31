@@ -29,6 +29,8 @@ class SequencedTaskRunner;
 
 namespace google_apis {
 class DocumentFeed;
+class DriveServiceInterface;
+class DriveUploaderInterface;
 }
 
 namespace drive {
@@ -36,9 +38,7 @@ namespace drive {
 class DriveFileSystemObserver;
 class DriveFunctionRemove;
 class DriveResourceMetadata;
-class DriveServiceInterface;
 class DriveScheduler;
-class DriveUploaderInterface;
 class DriveWebAppsRegistryInterface;
 class DriveFeedLoader;
 struct LoadFeedParams;
@@ -57,8 +57,8 @@ class DriveFileSystem : public DriveFileSystemInterface,
  public:
   DriveFileSystem(Profile* profile,
                   DriveCache* cache,
-                  DriveServiceInterface* drive_service,
-                  DriveUploaderInterface* uploader,
+                  google_apis::DriveServiceInterface* drive_service,
+                  google_apis::DriveUploaderInterface* uploader,
                   DriveWebAppsRegistryInterface* webapps_registry,
                   base::SequencedTaskRunner* blocking_task_runner);
   virtual ~DriveFileSystem();
@@ -141,6 +141,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
                                const FilePath& file_content_path,
                                const base::Closure& callback) OVERRIDE;
   virtual DriveFileSystemMetadata GetMetadata() const OVERRIDE;
+  virtual void Reload() OVERRIDE;
 
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -158,14 +159,11 @@ class DriveFileSystem : public DriveFileSystemInterface,
   virtual void OnFeedFromServerLoaded() OVERRIDE;
 
   // Used in tests to load the root feed from the cache.
-  void LoadRootFeedFromCacheForTesting();
+  void LoadRootFeedFromCacheForTesting(const FileOperationCallback& callback);
 
   // Used in tests to update the file system from |feed_list|.
   // See also the comment at DriveFeedLoader::UpdateFromFeed().
-  DriveFileError UpdateFromFeedForTesting(
-      const ScopedVector<google_apis::DocumentFeed>& feed_list,
-      int64 start_changestamp,
-      int64 root_feed_changestamp);
+  DriveFeedLoader* feed_loader() { return feed_loader_.get(); }
 
  private:
   friend class DriveFileSystemTest;
@@ -244,6 +242,10 @@ class DriveFileSystem : public DriveFileSystemInterface,
 
   // Struct used by UpdateEntryData.
   struct UpdateEntryParams;
+
+  // Initializes DriveResourceMetadata and DriveFeedLoader instances. This is a
+  // part of the initialization.
+  void InitializeResourceMetadataAndFeedLoader();
 
   // Callback passed to |LoadFeedFromServer| from |Search| method.
   // |callback| is that should be run with data received from
@@ -397,7 +399,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
                                        google_apis::GDataErrorCode status,
                                        const GURL& content_url,
                                        const FilePath& downloaded_file_path,
-                                       bool* has_enough_space);
+                                       bool has_enough_space);
 
   // Callback for handling internal StoreToCache() calls after downloading
   // file content.
@@ -441,13 +443,17 @@ class DriveFileSystem : public DriveFileSystemInterface,
       scoped_ptr<DriveEntryProto> entry_proto);
 
   // Callback for handling results of ReloadFeedFromServerIfNeeded() initiated
-  // from CheckForUpdates(). This callback checks whether feed is successfully
-  // reloaded, and in case of failure, restores the content origin of the root
-  // directory.
-  void OnUpdateChecked(ContentOrigin initial_origin,
-                       DriveFileError error);
+  // from CheckForUpdates().
+  void OnUpdateChecked(DriveFileError error);
 
-  // Notifies that the initial load is finished and runs |callback|.
+  // Called when the initial cache load is finished. It triggers feed loading
+  // from the server. If the cache loading was successful, runs |callback| for
+  // notifying it to the callers. Otherwise, defer till the server feed arrival.
+  // |callback| must not be null.
+  void OnFeedCacheLoaded(const FileOperationCallback& callback,
+                         DriveFileError error);
+
+  // Notifies that the initial feed load is finished and runs |callback|.
   // |callback| must not be null.
   void NotifyInitialLoadFinishedAndRun(const FileOperationCallback& callback,
                                        DriveFileError error);
@@ -485,7 +491,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
   void StartDownloadFileIfEnoughSpace(const GetFileFromCacheParams& params,
                                       const GURL& content_url,
                                       const FilePath& cache_file_path,
-                                      bool* has_enough_space);
+                                      bool has_enough_space);
 
   // Changes state of hosted documents visibility, triggers directory refresh.
   void SetHideHostedDocuments(bool hide);
@@ -562,8 +568,8 @@ class DriveFileSystem : public DriveFileSystemInterface,
       const FilePath& drive_file_path,
       scoped_ptr<DriveEntryProto> entry_proto,
       const FilePath& cache_file_path,
-      DriveFileError* error,
-      int64* file_size);
+      int64* file_size,
+      bool get_file_size_result);
 
   // Part of UpdateFileByResourceId().
   // Called when DriveUploader::UploadUpdatedFile() is completed for
@@ -571,7 +577,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // |callback| must not be null.
   void OnUpdatedFileUploaded(
       const FileOperationCallback& callback,
-      DriveFileError error,
+      google_apis::DriveUploadError error,
       const FilePath& gdata_path,
       const FilePath& file_path,
       scoped_ptr<google_apis::DocumentEntry> document_entry);
@@ -698,7 +704,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
       scoped_ptr<DriveEntryProto> entry_proto,
       const GetEntryInfoCallback& callback,
       base::PlatformFileInfo* file_info,
-      bool* get_file_info_result);
+      bool get_file_info_result);
 
   // All members should be accessed only on UI thread. Do not post tasks to
   // other threads with base::Unretained(this).
@@ -711,10 +717,10 @@ class DriveFileSystem : public DriveFileSystemInterface,
   DriveCache* cache_;
 
   // The uploader owned by DriveSystemService.
-  DriveUploaderInterface* uploader_;
+  google_apis::DriveUploaderInterface* uploader_;
 
   // The document service owned by DriveSystemService.
-  DriveServiceInterface* drive_service_;
+  google_apis::DriveServiceInterface* drive_service_;
 
   // The webapps registry owned by DriveSystemService.
   DriveWebAppsRegistryInterface* webapps_registry_;

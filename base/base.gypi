@@ -146,6 +146,8 @@
           'files/file_path_watcher_linux.cc',
           'files/file_path_watcher_stub.cc',
           'files/file_path_watcher_win.cc',
+          'files/important_file_writer.h',
+          'files/important_file_writer.cc',
           'float_util.h',
           'format_macros.h',
           'global_descriptors_posix.cc',
@@ -399,6 +401,7 @@
           'system_monitor/system_monitor_posix.cc',
           'system_monitor/system_monitor_win.cc',
           'sys_byteorder.h',
+          'sys_info.cc',
           'sys_info.h',
           'sys_info_android.cc',
           'sys_info_chromeos.cc',
@@ -592,6 +595,8 @@
                'threading/sequenced_worker_pool.cc',
                'third_party/dynamic_annotations/dynamic_annotations.c',
             ],
+            # Metrics won't work in the NaCl sandbox.
+            'sources/': [ ['exclude', '^metrics/'] ],
           }],
           ['OS == "android" and >(nacl_untrusted_build)==0', {
             'sources!': [

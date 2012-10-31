@@ -6,18 +6,18 @@
 
 #include "cc/gl_renderer.h"
 
-#include "CCDamageTracker.h"
 #include "FloatQuad.h"
-#include "GrTexture.h"
 #include "NotImplemented.h"
 #include "base/debug/trace_event.h"
 #include "base/logging.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
+#include "cc/damage_tracker.h"
 #include "cc/geometry_binding.h"
 #include "cc/layer_quad.h"
 #include "cc/math_util.h"
 #include "cc/platform_color.h"
+#include "cc/priority_calculator.h"
 #include "cc/proxy.h"
 #include "cc/render_pass.h"
 #include "cc/render_surface_filters.h"
@@ -31,14 +31,16 @@
 #include "third_party/khronos/GLES2/gl2ext.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "third_party/skia/include/gpu/GrContext.h"
+#include "third_party/skia/include/gpu/GrTexture.h"
+#include "third_party/skia/include/gpu/SkGpuDevice.h"
+#include "third_party/skia/include/gpu/SkGrTexturePixelRef.h"
 #include "ui/gfx/rect_conversions.h"
 #include <public/WebGraphicsContext3D.h>
 #include <public/WebSharedGraphicsContext3D.h>
-#include <public/WebVideoFrame.h>
 #include <set>
 #include <string>
 #include <vector>
-#include <wtf/CurrentTime.h>
 
 using namespace std;
 using WebKit::WebGraphicsContext3D;
@@ -173,12 +175,22 @@ void GLRenderer::setVisible(bool visible)
         return;
     m_visible = visible;
 
+    enforceMemoryPolicy();
+
     // TODO: Replace setVisibilityCHROMIUM with an extension to explicitly manage front/backbuffers
     // crbug.com/116049
     if (m_capabilities.usingSetVisibility)
         m_context->setVisibilityCHROMIUM(visible);
+}
 
-    enforceMemoryPolicy();
+void GLRenderer::sendManagedMemoryStats(size_t bytesVisible, size_t bytesVisibleAndNearby, size_t bytesAllocated)
+{
+    WebKit::WebGraphicsManagedMemoryStats stats;
+    stats.bytesVisible = bytesVisible;
+    stats.bytesVisibleAndNearby = bytesVisibleAndNearby;
+    stats.bytesAllocated = bytesAllocated;
+    stats.backbufferRequested = !m_isFramebufferDiscarded;
+    m_context->sendManagedMemoryStatsCHROMIUM(&stats);
 }
 
 void GLRenderer::releaseRenderPassTextures()
@@ -331,13 +343,29 @@ void GLRenderer::drawDebugBorderQuad(const DrawingFrame& frame, const DebugBorde
     GLC(context(), context()->drawElements(GL_LINE_LOOP, 4, GL_UNSIGNED_SHORT, 6 * sizeof(unsigned short)));
 }
 
+static WebGraphicsContext3D* getFilterContext()
+{
+    if (Proxy::hasImplThread())
+        return WebSharedGraphicsContext3D::compositorThreadContext();
+    else
+        return WebSharedGraphicsContext3D::mainThreadContext();
+}
+
+static GrContext* getFilterGrContext()
+{
+    if (Proxy::hasImplThread())
+        return WebSharedGraphicsContext3D::compositorThreadGrContext();
+    else
+        return WebSharedGraphicsContext3D::mainThreadGrContext();
+}
+
 static inline SkBitmap applyFilters(GLRenderer* renderer, const WebKit::WebFilterOperations& filters, ScopedTexture* sourceTexture)
 {
     if (filters.isEmpty())
         return SkBitmap();
 
-    WebGraphicsContext3D* filterContext = Proxy::hasImplThread() ? WebSharedGraphicsContext3D::compositorThreadContext() : WebSharedGraphicsContext3D::mainThreadContext();
-    GrContext* filterGrContext = Proxy::hasImplThread() ? WebSharedGraphicsContext3D::compositorThreadGrContext() : WebSharedGraphicsContext3D::mainThreadGrContext();
+    WebGraphicsContext3D* filterContext = getFilterContext();
+    GrContext* filterGrContext = getFilterGrContext();
 
     if (!filterContext || !filterGrContext)
         return SkBitmap();
@@ -347,6 +375,58 @@ static inline SkBitmap applyFilters(GLRenderer* renderer, const WebKit::WebFilte
     ResourceProvider::ScopedWriteLockGL lock(renderer->resourceProvider(), sourceTexture->id());
     SkBitmap source = RenderSurfaceFilters::apply(filters, lock.textureId(), sourceTexture->size(), filterContext, filterGrContext);
     return source;
+}
+
+static SkBitmap applyImageFilter(GLRenderer* renderer, SkImageFilter* filter, ScopedTexture* sourceTexture)
+{
+    if (!filter)
+        return SkBitmap();
+
+    WebGraphicsContext3D* context3d = getFilterContext();
+    GrContext* grContext = getFilterGrContext();
+
+    if (!context3d || !grContext)
+        return SkBitmap();
+
+    renderer->context()->flush();
+
+    ResourceProvider::ScopedWriteLockGL lock(renderer->resourceProvider(), sourceTexture->id());
+
+    // Wrap the source texture in a Ganesh platform texture.
+    GrPlatformTextureDesc platformTextureDescription;
+    platformTextureDescription.fWidth = sourceTexture->size().width();
+    platformTextureDescription.fHeight = sourceTexture->size().height();
+    platformTextureDescription.fConfig = kSkia8888_GrPixelConfig;
+    platformTextureDescription.fTextureHandle = lock.textureId();
+    SkAutoTUnref<GrTexture> texture(grContext->createPlatformTexture(platformTextureDescription));
+
+    // Place the platform texture inside an SkBitmap.
+    SkBitmap source;
+    source.setConfig(SkBitmap::kARGB_8888_Config, sourceTexture->size().width(), sourceTexture->size().height());
+    source.setPixelRef(new SkGrPixelRef(texture.get()))->unref();
+    
+    // Create a scratch texture for backing store.
+    GrTextureDesc desc;
+    desc.fFlags = kRenderTarget_GrTextureFlagBit | kNoStencil_GrTextureFlagBit;
+    desc.fSampleCnt = 0;
+    desc.fWidth = source.width();
+    desc.fHeight = source.height();
+    desc.fConfig = kSkia8888_GrPixelConfig;
+    GrAutoScratchTexture scratchTexture(grContext, desc, GrContext::kExact_ScratchTexMatch);
+    SkAutoTUnref<GrTexture> backingStore(scratchTexture.detach());
+
+    // Create a device and canvas using that backing store.
+    SkGpuDevice device(grContext, backingStore.get());
+    SkCanvas canvas(&device);
+
+    // Draw the source bitmap through the filter to the canvas.
+    SkPaint paint;
+    paint.setImageFilter(filter);
+    canvas.clear(0x0);
+    canvas.drawSprite(source, 0, 0, &paint);
+    canvas.flush();
+    context3d->flush();
+    return device.accessBitmap(false);
 }
 
 scoped_ptr<ScopedTexture> GLRenderer::drawBackgroundFilters(DrawingFrame& frame, const RenderPassDrawQuad* quad, const WebKit::WebFilterOperations& filters, const WebTransformationMatrix& contentsDeviceTransform)
@@ -383,7 +463,7 @@ scoped_ptr<ScopedTexture> GLRenderer::drawBackgroundFilters(DrawingFrame& frame,
     filters.getOutsets(top, right, bottom, left);
     deviceRect.Inset(-left, -top, -right, -bottom);
 
-    deviceRect = deviceRect.Intersect(frame.currentRenderPass->outputRect());
+    deviceRect.Intersect(frame.currentRenderPass->outputRect());
 
     scoped_ptr<ScopedTexture> deviceBackgroundTexture = ScopedTexture::create(m_resourceProvider);
     if (!getFramebufferTexture(deviceBackgroundTexture.get(), cc::IntRect(deviceRect)))
@@ -442,7 +522,12 @@ void GLRenderer::drawRenderPassQuad(DrawingFrame& frame, const RenderPassDrawQua
 
     // FIXME: Cache this value so that we don't have to do it for both the surface and its replica.
     // Apply filters to the contents texture.
-    SkBitmap filterBitmap = applyFilters(this, renderPass->filters(), contentsTexture);
+    SkBitmap filterBitmap;
+    if (renderPass->filter()) {
+        filterBitmap = applyImageFilter(this, renderPass->filter(), contentsTexture);
+    } else {
+        filterBitmap = applyFilters(this, renderPass->filters(), contentsTexture);
+    }
     scoped_ptr<ResourceProvider::ScopedReadLockGL> contentsResourceLock;
     unsigned contentsTextureId = 0;
     if (filterBitmap.getTexture()) {
@@ -802,7 +887,7 @@ void GLRenderer::drawYUVVideoQuad(const DrawingFrame& frame, const YUVVideoDrawQ
         0.f, -.391f, 2.018f,
         1.596f, -.813f, 0.f,
     };
-    GLC(context(), context()->uniformMatrix3fv(program->fragmentShader().matrixLocation(), 1, 0, yuv2RGB));
+    GLC(context(), context()->uniformMatrix3fv(program->fragmentShader().yuvMatrixLocation(), 1, 0, yuv2RGB));
 
     // These values map to 16, 128, and 128 respectively, and are computed
     // as a fraction over 256 (e.g. 16 / 256 = 0.0625).
@@ -938,7 +1023,7 @@ void GLRenderer::drawIOSurfaceQuad(const DrawingFrame& frame, const IOSurfaceDra
 void GLRenderer::finishDrawingFrame(DrawingFrame& frame)
 {
     m_currentFramebufferLock.reset();
-    m_swapBufferRect = m_swapBufferRect.Union(gfx::ToEnclosingRect(frame.rootDamageRect));
+    m_swapBufferRect.Union(gfx::ToEnclosingRect(frame.rootDamageRect));
 
     GLC(m_context, m_context->disable(GL_SCISSOR_TEST));
     GLC(m_context, m_context->disable(GL_BLEND));
@@ -1036,7 +1121,7 @@ bool GLRenderer::swapBuffers()
 
     if (m_capabilities.usingPartialSwap) {
         // If supported, we can save significant bandwidth by only swapping the damaged/scissored region (clamped to the viewport)
-        m_swapBufferRect = m_swapBufferRect.Intersect(gfx::Rect(gfx::Point(), viewportSize()));
+        m_swapBufferRect.Intersect(gfx::Rect(gfx::Point(), viewportSize()));
         int flippedYPosOfRectBottom = viewportHeight() - m_swapBufferRect.y() - m_swapBufferRect.height();
         m_context->postSubBufferCHROMIUM(m_swapBufferRect.x(), flippedYPosOfRectBottom, m_swapBufferRect.width(), m_swapBufferRect.height());
     } else {
@@ -1068,15 +1153,45 @@ void GLRenderer::onMemoryAllocationChanged(WebGraphicsMemoryAllocation allocatio
     }
 }
 
+int GLRenderer::priorityCutoffValue(WebKit::WebGraphicsMemoryAllocation::PriorityCutoff priorityCutoff)
+{
+    switch (priorityCutoff) {
+    case WebKit::WebGraphicsMemoryAllocation::PriorityCutoffAllowNothing:
+        return PriorityCalculator::allowNothingCutoff();
+    case WebKit::WebGraphicsMemoryAllocation::PriorityCutoffAllowVisibleOnly:
+        return PriorityCalculator::allowVisibleOnlyCutoff();
+    case WebKit::WebGraphicsMemoryAllocation::PriorityCutoffAllowVisibleAndNearby:
+        return PriorityCalculator::allowVisibleAndNearbyCutoff();
+    case WebKit::WebGraphicsMemoryAllocation::PriorityCutoffAllowEverything:
+        return PriorityCalculator::allowEverythingCutoff();
+    }
+    NOTREACHED();
+    return 0;
+}
+
 void GLRenderer::onMemoryAllocationChangedOnImplThread(WebKit::WebGraphicsMemoryAllocation allocation)
 {
-    m_discardFramebufferWhenNotVisible = !allocation.suggestHaveBackbuffer;
     // Just ignore the memory manager when it says to set the limit to zero
     // bytes. This will happen when the memory manager thinks that the renderer
     // is not visible (which the renderer knows better).
-    if (allocation.gpuResourceSizeInBytes)
-        m_client->setManagedMemoryPolicy(ManagedMemoryPolicy(allocation.gpuResourceSizeInBytes));
+    if (allocation.bytesLimitWhenVisible) {
+        ManagedMemoryPolicy policy(
+            allocation.bytesLimitWhenVisible,
+            priorityCutoffValue(allocation.priorityCutoffWhenVisible),
+            allocation.bytesLimitWhenNotVisible,
+            priorityCutoffValue(allocation.priorityCutoffWhenNotVisible));
+
+        if (allocation.enforceButDoNotKeepAsPolicy)
+            m_client->enforceManagedMemoryPolicy(policy);
+        else
+            m_client->setManagedMemoryPolicy(policy);
+    }
+
+    bool oldDiscardFramebufferWhenNotVisible = m_discardFramebufferWhenNotVisible;
+    m_discardFramebufferWhenNotVisible = !allocation.suggestHaveBackbuffer;
     enforceMemoryPolicy();
+    if (allocation.enforceButDoNotKeepAsPolicy)
+        m_discardFramebufferWhenNotVisible = oldDiscardFramebufferWhenNotVisible;
 }
 
 void GLRenderer::enforceMemoryPolicy()

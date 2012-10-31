@@ -208,14 +208,18 @@ ProfileImplIOData::Handle::GetExtensionsRequestContextGetter() const {
 
 scoped_refptr<ChromeURLRequestContextGetter>
 ProfileImplIOData::Handle::GetIsolatedAppRequestContextGetter(
-    const std::string& app_id) const {
+    const FilePath& partition_path,
+    bool in_memory) const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  CHECK(!app_id.empty());
+  // TODO(nasko): Check that the partition_path is not the same as the
+  // base profile path. We expect isolated partition, which will never go
+  // to the default profile path.
   LazyInitialize();
 
-  // Keep a map of request context getters, one per requested app ID.
+  // Keep a map of request context getters, one per requested storage partition.
+  StoragePartitionDescriptor descriptor(partition_path, in_memory);
   ChromeURLRequestContextGetterMap::iterator iter =
-      app_request_context_getter_map_.find(app_id);
+      app_request_context_getter_map_.find(descriptor);
   if (iter != app_request_context_getter_map_.end())
     return iter->second;
 
@@ -225,34 +229,41 @@ ProfileImplIOData::Handle::GetIsolatedAppRequestContextGetter(
               CreateURLInterceptor());
   ChromeURLRequestContextGetter* context =
       ChromeURLRequestContextGetter::CreateOriginalForIsolatedApp(
-          profile_, io_data_, app_id, protocol_handler_interceptor.Pass());
-  app_request_context_getter_map_[app_id] = context;
+          profile_, io_data_, descriptor,
+          protocol_handler_interceptor.Pass());
+  app_request_context_getter_map_[descriptor] = context;
 
   return context;
 }
 
 scoped_refptr<ChromeURLRequestContextGetter>
 ProfileImplIOData::Handle::GetIsolatedMediaRequestContextGetter(
-    const std::string& app_id) const {
+    const FilePath& partition_path,
+    bool in_memory) const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  // We must have an app ID, or this will act like the default media context.
-  CHECK(!app_id.empty());
+  // We must have a non-default path, or this will act like the default media
+  // context.
+  //
+  // TODO(nasko): Check that the partition_path is not the same as the
+  // base profile path. We expect isolated partition, which will never go
+  // to the default profile path.
   LazyInitialize();
 
-  // Keep a map of request context getters, one per requested app ID.
+  // Keep a map of request context getters, one per requested storage partition.
+  StoragePartitionDescriptor descriptor(partition_path, in_memory);
   ChromeURLRequestContextGetterMap::iterator iter =
-      isolated_media_request_context_getter_map_.find(app_id);
+      isolated_media_request_context_getter_map_.find(descriptor);
   if (iter != isolated_media_request_context_getter_map_.end())
     return iter->second;
 
   // Get the app context as the starting point for the media context, so that
   // it uses the app's cookie store.
   ChromeURLRequestContextGetter* app_context =
-      GetIsolatedAppRequestContextGetter(app_id);
+      GetIsolatedAppRequestContextGetter(partition_path, in_memory);
   ChromeURLRequestContextGetter* context =
       ChromeURLRequestContextGetter::CreateOriginalForIsolatedMedia(
-          profile_, app_context, io_data_, app_id);
-  isolated_media_request_context_getter_map_[app_id] = context;
+          profile_, app_context, io_data_, descriptor);
+  isolated_media_request_context_getter_map_[descriptor] = context;
 
   return context;
 }
@@ -282,11 +293,13 @@ void ProfileImplIOData::Handle::LazyInitialize() const {
       new chrome_browser_net::HttpServerPropertiesManager(pref_service));
   io_data_->session_startup_pref()->Init(
       prefs::kRestoreOnStartup, pref_service, NULL);
-  io_data_->session_startup_pref()->MoveToThread(BrowserThread::IO);
+  io_data_->session_startup_pref()->MoveToThread(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO));
 #if defined(ENABLE_SAFE_BROWSING)
   io_data_->safe_browsing_enabled()->Init(prefs::kSafeBrowsingEnabled,
       pref_service, NULL);
-  io_data_->safe_browsing_enabled()->MoveToThread(BrowserThread::IO);
+  io_data_->safe_browsing_enabled()->MoveToThread(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO));
 #endif
   io_data_->InitializeOnUIThread(profile_);
 }
@@ -443,10 +456,12 @@ void ProfileImplIOData::LazyInitializeInternal(
   main_context->set_chrome_url_data_manager_backend(
       chrome_url_data_manager_backend());
 
-  main_job_factory_.reset(new net::URLRequestJobFactoryImpl);
-  extensions_job_factory_.reset(new net::URLRequestJobFactoryImpl);
+  scoped_ptr<net::URLRequestJobFactoryImpl> main_job_factory(
+      new net::URLRequestJobFactoryImpl());
+  scoped_ptr<net::URLRequestJobFactoryImpl> extensions_job_factory(
+      new net::URLRequestJobFactoryImpl());
 
-  SetUpJobFactory(main_job_factory_.get(),
+  SetUpJobFactory(main_job_factory.get(),
                   profile_params->protocol_handler_interceptor.Pass(),
                   network_delegate(),
                   main_context->ftp_transaction_factory(),
@@ -457,18 +472,22 @@ void ProfileImplIOData::LazyInitializeInternal(
   // job_factory::IsHandledProtocol return true, which prevents attempts to
   // handle the protocol externally. We pass NULL in to
   // SetUpJobFactory() to get this effect.
-  SetUpJobFactory(extensions_job_factory_.get(),
+  SetUpJobFactory(extensions_job_factory.get(),
                   scoped_ptr<net::URLRequestJobFactoryImpl::Interceptor>(NULL),
                   NULL,
                   extensions_context->ftp_transaction_factory(),
                   extensions_context->ftp_auth_cache());
 
+  main_job_factory_ = main_job_factory.Pass();
   main_context->set_job_factory(main_job_factory_.get());
+  extensions_job_factory_ = extensions_job_factory.Pass();
   extensions_context->set_job_factory(extensions_job_factory_.get());
 
   // Create a media request context based on the main context, but using a
   // media cache.  It shares the same job factory as the main context.
-  media_request_context_.reset(InitializeMediaRequestContext(main_context, ""));
+  StoragePartitionDescriptor details(FilePath(), false);
+  media_request_context_.reset(InitializeMediaRequestContext(main_context,
+                                                             details));
 
   lazy_params_.reset();
 }
@@ -476,23 +495,16 @@ void ProfileImplIOData::LazyInitializeInternal(
 ChromeURLRequestContext*
 ProfileImplIOData::InitializeAppRequestContext(
     ChromeURLRequestContext* main_context,
-    const std::string& app_id,
+    const StoragePartitionDescriptor& partition_descriptor,
     scoped_ptr<net::URLRequestJobFactory::Interceptor>
         protocol_handler_interceptor) const {
-  // If this is for a guest process, we should not persist cookies and http
-  // cache.
-  bool is_guest_process = (app_id.find("guest-") != std::string::npos);
-
   // Copy most state from the main context.
   AppRequestContext* context = new AppRequestContext(load_time_stats());
   context->CopyFrom(main_context);
 
-  using content::StoragePartition;
-  FilePath app_path =
-      profile_path_.Append(StoragePartition::GetPartitionPath(app_id));
-
-  FilePath cookie_path = app_path.Append(chrome::kCookieFilename);
-  FilePath cache_path = app_path.Append(chrome::kCacheDirname);
+  FilePath cookie_path = partition_descriptor.path.Append(
+      chrome::kCookieFilename);
+  FilePath cache_path = partition_descriptor.path.Append(chrome::kCacheDirname);
 
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   // Only allow Record Mode if we are in a Debug build or where we are running
@@ -504,7 +516,7 @@ ProfileImplIOData::InitializeAppRequestContext(
 
   // Use a separate HTTP disk cache for isolated apps.
   net::HttpCache::BackendFactory* app_backend = NULL;
-  if (is_guest_process) {
+  if (partition_descriptor.in_memory) {
     app_backend = net::HttpCache::DefaultBackend::InMemory(0);
   } else {
     app_backend = new net::HttpCache::DefaultBackend(
@@ -519,7 +531,7 @@ ProfileImplIOData::InitializeAppRequestContext(
       new net::HttpCache(main_network_session, app_backend);
 
   scoped_refptr<net::CookieStore> cookie_store = NULL;
-  if (is_guest_process) {
+  if (partition_descriptor.in_memory) {
     cookie_store = new net::CookieMonster(NULL, NULL);
   } else if (record_mode || playback_mode) {
     // Don't use existing cookies and use an in-memory store.
@@ -550,13 +562,17 @@ ProfileImplIOData::InitializeAppRequestContext(
 
   // Overwrite the job factory that we inherit from the main context so
   // that we can later provide our own handles for storage related protocols.
-  scoped_ptr<net::URLRequestJobFactory> job_factory(
+  // Install all the usual protocol handlers unless we are in a browser plugin
+  // guest process, in which case only web-safe schemes are allowed.
+  scoped_ptr<net::URLRequestJobFactoryImpl> job_factory(
       new net::URLRequestJobFactoryImpl());
-  SetUpJobFactory(job_factory.get(), protocol_handler_interceptor.Pass(),
-                  network_delegate(),
-                  context->ftp_transaction_factory(),
-                  context->ftp_auth_cache());
-  context->SetJobFactory(job_factory.Pass());
+  if (!partition_descriptor.in_memory) {
+    SetUpJobFactory(job_factory.get(), protocol_handler_interceptor.Pass(),
+                    network_delegate(),
+                    context->ftp_transaction_factory(),
+                    context->ftp_auth_cache());
+  }
+  context->SetJobFactory(job_factory.PassAs<net::URLRequestJobFactory>());
 
   return context;
 }
@@ -564,10 +580,10 @@ ProfileImplIOData::InitializeAppRequestContext(
 ChromeURLRequestContext*
 ProfileImplIOData::InitializeMediaRequestContext(
     ChromeURLRequestContext* original_context,
-    const std::string& app_id) const {
-  // If this is for a guest process, we do not persist storage, so we can
-  // simply use the app's in-memory cache (like off-the-record mode).
-  if (app_id.find("guest-") != std::string::npos)
+    const StoragePartitionDescriptor& partition_descriptor) const {
+  // If this is for a in_memory partition, we can simply use the original
+  // context (like off-the-record mode).
+  if (partition_descriptor.in_memory)
     return original_context;
 
   // Copy most state from the original context.
@@ -575,16 +591,14 @@ ProfileImplIOData::InitializeMediaRequestContext(
   context->CopyFrom(original_context);
 
   using content::StoragePartition;
-  FilePath app_path =
-      profile_path_.Append(StoragePartition::GetPartitionPath(app_id));
   FilePath cache_path;
   int cache_max_size = app_media_cache_max_size_;
-  if (app_id.empty()) {
+  if (partition_descriptor.path == profile_path_) {
     // lazy_params_ is only valid for the default media context creation.
     cache_path = lazy_params_->media_cache_path;
     cache_max_size = lazy_params_->media_cache_max_size;
   } else {
-    cache_path = app_path.Append(chrome::kMediaCacheDirname);
+    cache_path = partition_descriptor.path.Append(chrome::kMediaCacheDirname);
   }
 
   // Use a separate HTTP disk cache for isolated apps.
@@ -620,12 +634,12 @@ ProfileImplIOData::AcquireMediaRequestContext() const {
 ChromeURLRequestContext*
 ProfileImplIOData::AcquireIsolatedAppRequestContext(
     ChromeURLRequestContext* main_context,
-    const std::string& app_id,
+    const StoragePartitionDescriptor& partition_descriptor,
     scoped_ptr<net::URLRequestJobFactory::Interceptor>
         protocol_handler_interceptor) const {
   // We create per-app contexts on demand, unlike the others above.
   ChromeURLRequestContext* app_request_context =
-      InitializeAppRequestContext(main_context, app_id,
+      InitializeAppRequestContext(main_context, partition_descriptor,
                                   protocol_handler_interceptor.Pass());
   DCHECK(app_request_context);
   return app_request_context;
@@ -634,10 +648,10 @@ ProfileImplIOData::AcquireIsolatedAppRequestContext(
 ChromeURLRequestContext*
 ProfileImplIOData::AcquireIsolatedMediaRequestContext(
     ChromeURLRequestContext* app_context,
-    const std::string& app_id) const {
+    const StoragePartitionDescriptor& partition_descriptor) const {
   // We create per-app media contexts on demand, unlike the others above.
   ChromeURLRequestContext* media_request_context =
-      InitializeMediaRequestContext(app_context, app_id);
+      InitializeMediaRequestContext(app_context, partition_descriptor);
   DCHECK(media_request_context);
   return media_request_context;
 }
@@ -648,7 +662,7 @@ chrome_browser_net::LoadTimeStats* ProfileImplIOData::GetLoadTimeStats(
 }
 
 void ProfileImplIOData::SetUpJobFactory(
-    net::URLRequestJobFactory* job_factory,
+    net::URLRequestJobFactoryImpl* job_factory,
     scoped_ptr<net::URLRequestJobFactory::Interceptor>
         protocol_handler_interceptor,
     net::NetworkDelegate* network_delegate,

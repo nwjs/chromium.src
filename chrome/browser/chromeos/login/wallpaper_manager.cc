@@ -438,18 +438,25 @@ void WallpaperManager::ResizeAndSaveWallpaper(const UserImage& wallpaper,
 
 void WallpaperManager::RestartTimer() {
   timer_.Stop();
-  base::Time midnight = base::Time::Now().LocalMidnight();
-  base::TimeDelta interval = base::Time::Now() - midnight;
-  int64 remaining_seconds = kWallpaperUpdateIntervalSec - interval.InSeconds();
-  if (remaining_seconds <= 0) {
-    BatchUpdateWallpaper();
-  } else {
-    // Set up a one shot timer which will batch update wallpaper at midnight.
-    timer_.Start(FROM_HERE,
-                 base::TimeDelta::FromSeconds(remaining_seconds),
-                 this,
-                 &WallpaperManager::BatchUpdateWallpaper);
+  // Determine the next update time as the earliest local midnight after now.
+  // Note that this may be more than kWallpaperUpdateIntervalSec seconds in the
+  // future due to DST.
+  base::Time now = base::Time::Now();
+  base::TimeDelta update_interval = base::TimeDelta::FromSeconds(
+      kWallpaperUpdateIntervalSec);
+  base::Time future = now + update_interval;
+  base::Time next_update = future.LocalMidnight();
+  while (next_update < now) {
+    future += update_interval;
+    next_update = future.LocalMidnight();
   }
+  int64 remaining_seconds = (next_update - now).InSeconds();
+  DCHECK(remaining_seconds > 0);
+  // Set up a one shot timer which will batch update wallpaper at midnight.
+  timer_.Start(FROM_HERE,
+               base::TimeDelta::FromSeconds(remaining_seconds),
+               this,
+               &WallpaperManager::BatchUpdateWallpaper);
 }
 
 void WallpaperManager::SetCustomWallpaper(const std::string& username,
@@ -1236,11 +1243,6 @@ void WallpaperManager::StartLoad(const std::string& email,
                                       email,
                                       info.layout,
                                       update_wallpaper));
-}
-
-void WallpaperManager::OnWallpaperLoaded(ash::WallpaperLayout layout,
-                                         const UserImage& user_image) {
-  SetWallpaperFromImageSkia(user_image.image(), layout);
 }
 
 void WallpaperManager::SystemResumed() {

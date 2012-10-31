@@ -49,10 +49,18 @@ supported_format_key_system_combinations[] = {
   // Clear Key.
   { "video/webm", "vorbis,vp8,vp8.0,", kClearKeyKeySystem },
   { "audio/webm", "vorbis,", kClearKeyKeySystem },
+#if defined(GOOGLE_CHROME_BUILD) || defined(USE_PROPRIETARY_CODECS)
+  { "video/mp4", "avc1,mp4a,", kClearKeyKeySystem },
+  { "audio/mp4", "mp4a,", kClearKeyKeySystem },
+#endif
 
   // External Clear Key (used for testing).
   { "video/webm", "vorbis,vp8,vp8.0,", kExternalClearKeyKeySystem },
   { "audio/webm", "vorbis,", kExternalClearKeyKeySystem },
+#if defined(GOOGLE_CHROME_BUILD) || defined(USE_PROPRIETARY_CODECS)
+  { "video/mp4", "avc1,mp4a,", kExternalClearKeyKeySystem },
+  { "audio/mp4", "mp4a,", kExternalClearKeyKeySystem },
+#endif
 
 #if defined(WIDEVINE_CDM_AVAILABLE)
   // Widevine.
@@ -185,6 +193,25 @@ bool IsSupportedKeySystemWithMediaMimeType(
     const std::string& key_system) {
   return g_key_systems.Get().IsSupportedKeySystemWithMediaMimeType(
       mime_type, codecs, key_system);
+}
+
+template<typename T>  // T is a stringish type.
+static std::string KeySystemNameForUMAGeneric(const T& key_system) {
+  if (key_system == kClearKeyKeySystem)
+    return "ClearKey";
+#if defined(WIDEVINE_CDM_AVAILABLE)
+  if (key_system == kWidevineKeySystem)
+    return "Widevine";
+#endif  // WIDEVINE_CDM_AVAILABLE
+  return "Unknown";
+}
+
+std::string KeySystemNameForUMA(const std::string& key_system) {
+  return KeySystemNameForUMAGeneric(key_system);
+}
+
+std::string KeySystemNameForUMA(const WebKit::WebString& key_system) {
+  return KeySystemNameForUMAGeneric(key_system);
 }
 
 bool CanUseAesDecryptor(const std::string& key_system) {

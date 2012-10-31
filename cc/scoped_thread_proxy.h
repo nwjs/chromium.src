@@ -5,12 +5,11 @@
 #ifndef CCScopedThreadProxy_h
 #define CCScopedThreadProxy_h
 
+#include "base/memory/ref_counted.h"
+#include "base/callback.h"
+#include "cc/thread.h"
+#include "base/location.h"
 #include "base/logging.h"
-#include "base/threading/platform_thread.h"
-#include "cc/thread_task.h"
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
-#include <wtf/ThreadSafeRefCounted.h>
 
 namespace cc {
 
@@ -24,52 +23,31 @@ namespace cc {
 // Implementation note: Unlike ScopedRunnableMethodFactory in Chromium, pending tasks are not cancelled by actually
 // destroying the proxy. Instead each pending task holds a reference to the proxy to avoid maintaining an explicit
 // list of outstanding tasks.
-class ScopedThreadProxy : public ThreadSafeRefCounted<ScopedThreadProxy> {
+class ScopedThreadProxy : public base::RefCountedThreadSafe<ScopedThreadProxy> {
 public:
-    static PassRefPtr<ScopedThreadProxy> create(Thread* targetThread)
+    static scoped_refptr<ScopedThreadProxy> create(cc::Thread* targetThread)
     {
-        DCHECK(base::PlatformThread::CurrentId() == targetThread->threadID());
-        return adoptRef(new ScopedThreadProxy(targetThread));
+        DCHECK(targetThread->belongsToCurrentThread());
+        return make_scoped_refptr(new ScopedThreadProxy(targetThread));
     }
-
-    ~ScopedThreadProxy();
 
     // Can be called from any thread. Posts a task to the target thread that runs unless
     // shutdown() is called before it runs.
-    void postTask(PassOwnPtr<Thread::Task> task)
-    {
-        ref();
-        m_targetThread->postTask(createThreadTask(this, &ScopedThreadProxy::runTaskIfNotShutdown, task));
-    }
+    void postTask(const tracked_objects::Location& location, base::Closure cb);
 
-    void shutdown()
-    {
-        DCHECK(base::PlatformThread::CurrentId() == m_targetThread->threadID());
-        DCHECK(!m_shutdown);
-        m_shutdown = true;
-    }
+    void shutdown();
 
 private:
-    explicit ScopedThreadProxy(Thread* targetThread);
+    explicit ScopedThreadProxy(cc::Thread* targetThread);
+    friend class base::RefCountedThreadSafe<ScopedThreadProxy>;
+    ~ScopedThreadProxy();
 
-    void runTaskIfNotShutdown(PassOwnPtr<Thread::Task> popTask)
-    {
-        OwnPtr<Thread::Task> task = popTask;
-        // If our shutdown flag is set, it's possible that m_targetThread has already been destroyed so don't
-        // touch it.
-        if (m_shutdown) {
-            deref();
-            return;
-        }
-        DCHECK(base::PlatformThread::CurrentId() == m_targetThread->threadID());
-        task->performTask();
-        deref();
-    }
+    void runTaskIfNotShutdown(base::Closure cb);
 
-    Thread* m_targetThread;
+    cc::Thread* m_targetThread;
     bool m_shutdown; // Only accessed on the target thread
 };
 
-}
+}  // namespace cc
 
 #endif

@@ -18,13 +18,16 @@
 
 class FilePath;
 
+namespace google_apis {
+class DriveServiceInterface;
+class DriveUploader;
+}
+
 namespace drive {
 
 class DriveCache;
 class DriveDownloadObserver;
 class DriveFileSystemInterface;
-class DriveServiceInterface;
-class DriveUploader;
 class DriveWebAppsRegistry;
 class FileWriteHelper;
 class DriveSyncClient;
@@ -40,17 +43,23 @@ class StaleCacheFilesRemover;
 class DriveSystemService : public ProfileKeyedService,
                            public syncer::InvalidationHandler {
  public:
-  DriveServiceInterface* drive_service() { return drive_service_.get(); }
+  google_apis::DriveServiceInterface* drive_service() {
+    return drive_service_.get();
+  }
+
   DriveCache* cache() { return cache_; }
   DriveFileSystemInterface* file_system() { return file_system_.get(); }
   FileWriteHelper* file_write_helper() { return file_write_helper_.get(); }
-  DriveUploader* uploader() { return uploader_.get(); }
+  google_apis::DriveUploader* uploader() { return uploader_.get(); }
   DriveWebAppsRegistry* webapps_registry() { return webapps_registry_.get(); }
 
   // Clears all the local cache files and in-memory data, and remounts the file
   // system.
   void ClearCacheAndRemountFileSystem(
       const base::Callback<void(bool)>& callback);
+
+  // Reloads and remounts the file system.
+  void ReloadAndRemountFileSystem();
 
   // ProfileKeyedService override:
   virtual void Shutdown() OVERRIDE;
@@ -72,7 +81,7 @@ class DriveSystemService : public ProfileKeyedService,
 
   // Initializes the object. This function should be called before any
   // other functions.
-  void Initialize(DriveServiceInterface* drive_service,
+  void Initialize(google_apis::DriveServiceInterface* drive_service,
                   const FilePath& cache_root);
 
   // Registers remote file system proxy for drive mount point.
@@ -105,8 +114,8 @@ class DriveSystemService : public ProfileKeyedService,
 
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   DriveCache* cache_;
-  scoped_ptr<DriveServiceInterface> drive_service_;
-  scoped_ptr<DriveUploader> uploader_;
+  scoped_ptr<google_apis::DriveServiceInterface> drive_service_;
+  scoped_ptr<google_apis::DriveUploader> uploader_;
   scoped_ptr<DriveWebAppsRegistry> webapps_registry_;
   scoped_ptr<DriveFileSystemInterface> file_system_;
   scoped_ptr<FileWriteHelper> file_write_helper_;
@@ -148,7 +157,8 @@ class DriveSystemServiceFactory : public ProfileKeyedServiceFactory {
   // Should be called before the service is created.
   // Please, make sure |drive_service| gets deleted if no system service is
   // created (e.g. by calling this method with NULL).
-  static void set_drive_service_for_test(DriveServiceInterface* drive_service);
+  static void set_drive_service_for_test(
+      google_apis::DriveServiceInterface* drive_service);
 
   // Sets root path for the cache used in test. Should be called before the
   // service is created.

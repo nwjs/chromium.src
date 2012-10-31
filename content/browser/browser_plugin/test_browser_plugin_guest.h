@@ -11,12 +11,11 @@
 #include "content/public/test/test_utils.h"
 #include "ui/gfx/size.h"
 
-class WebContentsImpl;
-
 namespace content {
 
 class RenderProcessHost;
 class RenderViewHost;
+class WebContentsImpl;
 
 // Test class for BrowserPluginGuest.
 //
@@ -26,7 +25,9 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
  public:
   TestBrowserPluginGuest(int instance_id,
                          WebContentsImpl* web_contents,
-                         RenderViewHost* render_view_host);
+                         RenderViewHost* render_view_host,
+                         bool focused,
+                         bool visible);
   virtual ~TestBrowserPluginGuest();
 
   WebContentsImpl* web_contents() const;
@@ -52,6 +53,7 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
 #endif
                                const gfx::Size& damage_view_size,
                                float scale_factor) OVERRIDE;
+  virtual void DidStopLoading(RenderViewHost* render_view_host) OVERRIDE;
 
   // Test utilities to wait for a event we are interested in.
   // Waits until UpdateRect message is sent from the guest, meaning it is
@@ -66,15 +68,16 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   void WaitForAdvanceFocus();
   // Waits until the guest is hidden.
   void WaitUntilHidden();
-  // Waits until guest crashes.
-  void WaitForCrashed();
+  // Waits until guest exits.
+  void WaitForExit();
   // Waits until a reload request is observed.
   void WaitForReload();
   // Waits until a stop request is observed.
   void WaitForStop();
   // Waits until input is observed.
   void WaitForInput();
-
+  // Waits until 'loadstop' is observed.
+  void WaitForLoadStop();
 
  private:
   // Overridden methods from BrowserPluginGuest to intercept in test objects.
@@ -82,7 +85,7 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
 
   int update_rect_count_;
   int damage_buffer_call_count_;
-  bool crash_observed_;
+  bool exit_observed_;
   bool focus_observed_;
   bool advance_focus_observed_;
   bool was_hidden_observed_;
@@ -90,6 +93,7 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   bool reload_observed_;
   bool set_damage_buffer_observed_;
   bool input_observed_;
+  bool load_stop_observed_;
 
   // For WaitForDamageBufferWithSize().
   bool waiting_for_damage_buffer_with_size_;
@@ -105,6 +109,7 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   scoped_refptr<MessageLoopRunner> stop_message_loop_runner_;
   scoped_refptr<MessageLoopRunner> damage_buffer_message_loop_runner_;
   scoped_refptr<MessageLoopRunner> input_message_loop_runner_;
+  scoped_refptr<MessageLoopRunner> load_stop_message_loop_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(TestBrowserPluginGuest);
 };

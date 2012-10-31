@@ -34,15 +34,21 @@ class VideoFrame;
 // asynchronously.
 class MEDIA_EXPORT Decryptor {
  public:
+  // Reported to UMA, so never reuse a value!
+  // Must be kept in sync with WebKit::WebMediaPlayerClient::MediaKeyErrorCode
+  // (enforced in webmediaplayer_impl.cc).
   enum KeyError {
     kUnknownError = 1,
     kClientError,
     kServiceError,
     kOutputError,
     kHardwareChangeError,
-    kDomainError
+    kDomainError,
+    kMaxKeyError  // Must be last and greater than any legit value.
   };
 
+  // TODO(xhwang): Replace kError with kDecryptError and kDecodeError.
+  // TODO(xhwang): Replace kNeedMoreData with kNotEnoughData.
   enum Status {
     kSuccess,  // Decryption successfully completed. Decrypted buffer ready.
     kNoKey,  // No key is available to decrypt.
@@ -58,11 +64,13 @@ class MEDIA_EXPORT Decryptor {
   Decryptor();
   virtual ~Decryptor();
 
-  // Generates a key request for the |key_system| with |init_data| provided.
+  // Generates a key request for the |key_system| with |type| and
+  // |init_data| provided.
   // Returns true if generating key request succeeded, false otherwise.
   // Note: AddKey() and CancelKeyRequest() should only be called after
   // GenerateKeyRequest() returns true.
   virtual bool GenerateKeyRequest(const std::string& key_system,
+                                  const std::string& type,
                                   const uint8* init_data,
                                   int init_data_length) = 0;
 
@@ -131,6 +139,7 @@ class MEDIA_EXPORT Decryptor {
                                       const KeyAddedCB& key_added_cb) = 0;
 
   // Helper structure for managing multiple decoded audio buffers per input.
+  // TODO(xhwang): Rename this to AudioFrames.
   typedef std::list<scoped_refptr<Buffer> > AudioBuffers;
 
   // Indicates completion of audio/video decrypt-and-decode operation.

@@ -26,7 +26,6 @@
 #include "chrome/renderer/extensions/chrome_v8_extension.h"
 #include "chrome/renderer/extensions/context_menus_custom_bindings.h"
 #include "chrome/renderer/extensions/event_bindings.h"
-#include "chrome/renderer/extensions/experimental.usb_custom_bindings.h"
 #include "chrome/renderer/extensions/extension_custom_bindings.h"
 #include "chrome/renderer/extensions/extension_groups.h"
 #include "chrome/renderer/extensions/extension_helper.h"
@@ -252,7 +251,7 @@ class LoggingNativeHandler : public NativeHandler {
 
     v8::Handle<v8::StackTrace> stack_trace =
         v8::StackTrace::CurrentStackTrace(10);
-    if (stack_trace.IsEmpty() || stack_trace->GetFrameCount() == 0) {
+    if (stack_trace.IsEmpty() || stack_trace->GetFrameCount() <= 0) {
       error_message += "\n    <no stack trace>";
     } else {
       for (size_t i = 0; i < (size_t) stack_trace->GetFrameCount(); ++i) {
@@ -585,8 +584,6 @@ void Dispatcher::RegisterNativeHandlers(ModuleSystem* module_system,
           new ExtensionCustomBindings(this)));
   module_system->RegisterNativeHandler("sync_file_system",
       scoped_ptr<NativeHandler>(new SyncFileSystemCustomBindings()));
-  module_system->RegisterNativeHandler("experimental_usb",
-      scoped_ptr<NativeHandler>(new ExperimentalUsbCustomBindings()));
   module_system->RegisterNativeHandler("file_browser_handler",
       scoped_ptr<NativeHandler>(new FileBrowserHandlerCustomBindings()));
   module_system->RegisterNativeHandler("file_browser_private",
@@ -647,8 +644,6 @@ void Dispatcher::PopulateSourceMap() {
       IDR_EXPERIMENTAL_MEDIA_GALLERIES_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("experimental.offscreen",
                              IDR_EXPERIMENTAL_OFFSCREENTABS_CUSTOM_BINDINGS_JS);
-  source_map_.RegisterSource("experimental.usb",
-                             IDR_EXPERIMENTAL_USB_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("extension", IDR_EXTENSION_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("fileBrowserHandler",
                              IDR_FILE_BROWSER_HANDLER_CUSTOM_BINDINGS_JS);
@@ -670,6 +665,7 @@ void Dispatcher::PopulateSourceMap() {
   source_map_.RegisterSource("storage", IDR_STORAGE_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("syncFileSystem",
                              IDR_SYNC_FILE_SYSTEM_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("tabCapture", IDR_TAB_CAPTURE_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("tabs", IDR_TABS_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("tts", IDR_TTS_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("ttsEngine", IDR_TTS_ENGINE_CUSTOM_BINDINGS_JS);
@@ -680,11 +676,7 @@ void Dispatcher::PopulateSourceMap() {
   source_map_.RegisterSource("webstore", IDR_WEBSTORE_CUSTOM_BINDINGS_JS);
 
   // Platform app sources that are not API-specific..
-  const CommandLine& command_line = *(CommandLine::ForCurrentProcess());
-  if (command_line.HasSwitch(switches::kEnableBrowserPluginOldImplementation))
-    source_map_.RegisterSource("browserTag", IDR_BROWSER_TAG_OLD_JS);
-  else
-    source_map_.RegisterSource("browserTag", IDR_BROWSER_TAG_JS);
+  source_map_.RegisterSource("webview", IDR_WEB_VIEW_JS);
   source_map_.RegisterSource("platformApp", IDR_PLATFORM_APP_JS);
   source_map_.RegisterSource("injectAppTitlebar", IDR_INJECT_APP_TITLEBAR_JS);
 }
@@ -811,8 +803,11 @@ void Dispatcher::DidCreateScriptContext(
     module_system->Require("platformApp");
 
   if (context_type == Feature::BLESSED_EXTENSION_CONTEXT &&
-      extension->HasAPIPermission(APIPermission::kBrowserTag)) {
-    module_system->Require("browserTag");
+      (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableWebView) ||
+      (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableBrowserPluginForAllViewTypes))) &&
+      extension->HasAPIPermission(APIPermission::kWebView)) {
+    module_system->Require("webview");
   }
 
   context->set_module_system(module_system.Pass());

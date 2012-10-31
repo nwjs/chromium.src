@@ -162,6 +162,7 @@ HttpCache::Transaction::~Transaction() {
   callback_.Reset();
 
   transaction_delegate_ = NULL;
+  cache_io_start_ = base::TimeTicks();
 
   if (cache_) {
     if (entry_) {
@@ -264,6 +265,8 @@ int HttpCache::Transaction::Start(const HttpRequestInfo* request,
         (effective_load_flags_ & LOAD_VALIDATE_CACHE) ||
         (effective_load_flags_ & LOAD_PREFERRING_CACHE) ||
         partial_.get()) {
+      if (effective_load_flags_ & LOAD_PREFERRING_CACHE)
+        infinite_cache_transaction_->OnBackForwardNavigation();
       infinite_cache_transaction_.reset();
     } else {
       infinite_cache_transaction_->OnRequestStart(request);

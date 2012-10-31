@@ -17,10 +17,10 @@
 #include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_function_util.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/task_manager/task_manager.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension_error_utils.h"
 #include "content/public/browser/browser_thread.h"
@@ -475,10 +475,10 @@ void ProcessesEventRouter::ProcessClosedEvent(
 void ProcessesEventRouter::DispatchEvent(Profile* profile,
                                          const char* event_name,
                                          scoped_ptr<ListValue> event_args) {
-  if (profile && profile->GetExtensionEventRouter()) {
-    profile->GetExtensionEventRouter()->DispatchEventToRenderers(
-        event_name, event_args.Pass(), NULL, GURL(),
-        extensions::EventFilteringInfo());
+  if (profile && extensions::ExtensionSystem::Get(profile)->event_router()) {
+    extensions::ExtensionSystem::Get(profile)->event_router()->
+        DispatchEventToRenderers(event_name, event_args.Pass(), NULL, GURL(),
+                                 extensions::EventFilteringInfo());
   }
 }
 
@@ -500,7 +500,8 @@ bool ProcessesEventRouter::HasEventListeners(const std::string& event_name) {
   for (ProfileSet::iterator it = profiles_.begin();
        it != profiles_.end(); ++it) {
     Profile* profile = *it;
-    extensions::EventRouter* router = profile->GetExtensionEventRouter();
+    extensions::EventRouter* router =
+        extensions::ExtensionSystem::Get(profile)->event_router();
     if (!router)
       continue;
 
@@ -552,7 +553,7 @@ void GetProcessIdForTabFunction::Observe(
 }
 
 void GetProcessIdForTabFunction::GetProcessIdForTab() {
-  TabContents* contents = NULL;
+  content::WebContents* contents = NULL;
   int tab_index = -1;
   if (!ExtensionTabUtil::GetTabById(tab_id_, profile(), include_incognito(),
                                     NULL, NULL, &contents, &tab_index)) {
@@ -562,7 +563,7 @@ void GetProcessIdForTabFunction::GetProcessIdForTab() {
     SetResult(Value::CreateIntegerValue(-1));
     SendResponse(false);
   } else {
-    int process_id = contents->web_contents()->GetRenderProcessHost()->GetID();
+    int process_id = contents->GetRenderProcessHost()->GetID();
     SetResult(Value::CreateIntegerValue(process_id));
     SendResponse(true);
   }

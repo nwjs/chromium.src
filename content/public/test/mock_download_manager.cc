@@ -7,18 +7,18 @@
 #include "content/browser/download/byte_stream.h"
 #include "content/browser/download/download_create_info.h"
 
+namespace content {
+
 void PrintTo(const DownloadRequestHandle& params, std::ostream* os) {
 }
-
-namespace content {
 
 MockDownloadManager::MockDownloadManager() {}
 
 MockDownloadManager::~MockDownloadManager() {}
 
-content::DownloadItem* MockDownloadManager::StartDownload(
+DownloadItem* MockDownloadManager::StartDownload(
     scoped_ptr<DownloadCreateInfo> info,
-    scoped_ptr<content::ByteStreamReader> stream) {
+    scoped_ptr<ByteStreamReader> stream) {
   return MockStartDownload(info.get(), stream.get());
 }
 

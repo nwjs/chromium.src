@@ -22,6 +22,8 @@ class WebAnimationDelegate;
 class WebLayerScrollClient;
 }
 
+class SkImageFilter;
+
 namespace cc {
 
 class ActiveAnimation;
@@ -30,7 +32,7 @@ class LayerAnimationDelegate;
 class LayerImpl;
 class LayerTreeHost;
 class PriorityCalculator;
-class TextureUpdateQueue;
+class ResourceUpdateQueue;
 class ScrollbarLayer;
 struct AnimationEvent;
 struct RenderingStats;
@@ -94,6 +96,9 @@ public:
 
     void setFilters(const WebKit::WebFilterOperations&);
     const WebKit::WebFilterOperations& filters() const { return m_filters; }
+
+    void setFilter(SkImageFilter* filter);
+    SkImageFilter* filter() const { return m_filter; }
 
     // Background filters are filters applied to what is behind this layer, when they are viewed through non-opaque
     // regions in this layer. They are used through the WebLayer interface, and are not exposed to HTML.
@@ -180,7 +185,7 @@ public:
 
     // These methods typically need to be overwritten by derived classes.
     virtual bool drawsContent() const;
-    virtual void update(TextureUpdateQueue&, const OcclusionTracker*, RenderingStats&) { }
+    virtual void update(ResourceUpdateQueue&, const OcclusionTracker*, RenderingStats&) { }
     virtual bool needMoreUpdates();
     virtual void setIsMask(bool) { }
     virtual void bindContentsTexture() { }
@@ -221,10 +226,24 @@ public:
     void setScreenSpaceTransform(const WebKit::WebTransformationMatrix& matrix) { m_screenSpaceTransform = matrix; }
     const IntRect& drawableContentRect() const { return m_drawableContentRect; }
     void setDrawableContentRect(const IntRect& rect) { m_drawableContentRect = rect; }
+
     // The contentsScale converts from logical, non-page-scaled pixels to target pixels.
     // The contentsScale is 1 for the root layer as it is already in physical pixels.
     float contentsScale() const { return m_contentsScale; }
     void setContentsScale(float);
+
+    // The scale at which contents should be rastered, to match the scale at
+    // which they will drawn to the screen. This scale is a component of the
+    // contentsScale() but does not include page/device scale factors.
+    float rasterScale() const { return m_rasterScale; }
+    void setRasterScale(float scale);
+
+    // When true, the rasterScale() will be set by the compositor. If false, it
+    // will use whatever value is given to it by the embedder.
+    bool automaticallyComputeRasterScale() { return m_automaticallyComputeRasterScale; }
+    void setAutomaticallyComputeRasterScale(bool);
+
+    void forceAutomaticRasterScaleToBeRecomputed();
 
     // When true, the layer's contents are not scaled by the current page scale factor.
     // setBoundsContainPageScale recursively sets the value on all child layers.
@@ -335,6 +354,7 @@ private:
     float m_debugBorderWidth;
     std::string m_debugName;
     float m_opacity;
+    SkImageFilter* m_filter;
     WebKit::WebFilterOperations m_filters;
     WebKit::WebFilterOperations m_backgroundFilters;
     float m_anchorPointZ;
@@ -371,6 +391,8 @@ private:
     // Uses target surface space.
     IntRect m_drawableContentRect;
     float m_contentsScale;
+    float m_rasterScale;
+    bool m_automaticallyComputeRasterScale;
     bool m_boundsContainPageScale;
 
     WebKit::WebTransformationMatrix m_implTransform;

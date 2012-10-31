@@ -28,6 +28,18 @@ class UploadElement;
 
 namespace extensions {
 
+namespace subtle {
+
+// Helpers shared with unit-tests.
+
+// Appends a dictionary {'key': 'value'} to |list|. |list| becomes the owner of
+// |value|.
+void AppendKeyValuePair(const char* key,
+                        base::Value* value,
+                        base::ListValue* list);
+
+}  // namespace subtle
+
 FORWARD_DECLARE_TEST(WebRequestUploadDataPresenterTest, RawData);
 
 // UploadDataPresenter is an interface for objects capable to consume a series
@@ -64,13 +76,6 @@ class RawDataPresenter : public UploadDataPresenter {
   virtual bool Succeeded() OVERRIDE;
   virtual scoped_ptr<base::Value> Result() OVERRIDE;
 
-  // Appends a dictionary {'key': 'value'} to |list|.
-  // This is a helper function and has nothing to do with RawDataPresenter
-  // directly. However, it is used by FeedNext* methods and also unit-tests
-  // depending on RawDataPresenter. It is here to avoid code duplication.
-  static void AppendResultWithKey(
-      base::ListValue* list, const char* key, base::Value* value);
-
  private:
   // Clears resources and the success flag.
   void Abort();
@@ -94,7 +99,7 @@ class RawDataPresenter : public UploadDataPresenter {
 // DictionaryValue, not as a JSON string).
 class ParsedDataPresenter : public UploadDataPresenter {
  public:
-  explicit ParsedDataPresenter(const net::URLRequest* request);
+  explicit ParsedDataPresenter(const net::URLRequest& request);
   virtual ~ParsedDataPresenter();
 
   // Implementation of UploadDataPresenter.
@@ -102,7 +107,15 @@ class ParsedDataPresenter : public UploadDataPresenter {
   virtual bool Succeeded() OVERRIDE;
   virtual scoped_ptr<base::Value> Result() OVERRIDE;
 
+  // Allows to create ParsedDataPresenter without the URLRequest. Uses the
+  // parser for "application/x-www-form-urlencoded" form encoding. Only use this
+  // in tests.
+  static scoped_ptr<ParsedDataPresenter> CreateForTests();
+
  private:
+  // This constructor is used in CreateForTests.
+  explicit ParsedDataPresenter(const std::string& form_type);
+
   // Clears resources and the success flag.
   void Abort();
   scoped_ptr<FormDataParser> parser_;

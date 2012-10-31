@@ -41,6 +41,7 @@ struct ContentSettings::FieldIds {
     // FIXME: we should be using a new GetFieldIDFromClassName() with caching.
     ScopedJavaLocalRef<jclass> clazz(
         GetClass(env, "org/chromium/content/browser/ContentSettings"));
+    text_size_percent = GetFieldID(env, clazz, "mTextSizePercent", "I");
     standard_fond_family =
         GetFieldID(env, clazz, "mStandardFontFamily", kStringClassName);
     fixed_font_family =
@@ -75,11 +76,14 @@ struct ContentSettings::FieldIds {
         GetFieldID(env, clazz, "mAllowFileAccessFromFileURLs", "Z");
     java_script_can_open_windows_automatically =
         GetFieldID(env, clazz, "mJavaScriptCanOpenWindowsAutomatically", "Z");
+    support_multiple_windows =
+        GetFieldID(env, clazz, "mSupportMultipleWindows", "Z");
     dom_storage_enabled =
         GetFieldID(env, clazz, "mDomStorageEnabled", "Z");
   }
 
   // Field ids
+  jfieldID text_size_percent;
   jfieldID standard_fond_family;
   jfieldID fixed_font_family;
   jfieldID sans_serif_font_family;
@@ -98,6 +102,7 @@ struct ContentSettings::FieldIds {
   jfieldID allow_universal_access_from_file_urls;
   jfieldID allow_file_access_from_file_urls;
   jfieldID java_script_can_open_windows_automatically;
+  jfieldID support_multiple_windows;
   jfieldID dom_storage_enabled;
 };
 
@@ -136,6 +141,15 @@ void ContentSettings::SyncFromNativeImpl() {
     return;
   RenderViewHost* render_view_host = web_contents()->GetRenderViewHost();
   WebPreferences prefs = render_view_host->GetDelegate()->GetWebkitPrefs();
+
+  // TODO(mnaganov): Hook LayoutAlgorithm.NARROW_COLUMNS up to
+  // prefs.text_autosizing_enabled
+
+  env->SetIntField(
+      obj,
+      field_ids_->text_size_percent,
+      prefs.font_scale_factor * 100.0f);
+  CheckException(env);
 
   ScopedJavaLocalRef<jstring> str =
       ConvertUTF16ToJavaString(env,
@@ -225,6 +239,12 @@ void ContentSettings::SyncFromNativeImpl() {
       prefs.javascript_can_open_windows_automatically);
   CheckException(env);
 
+  env->SetBooleanField(
+      obj,
+      field_ids_->support_multiple_windows,
+      prefs.supports_multiple_windows);
+  CheckException(env);
+
   Java_ContentSettings_setPluginsDisabled(env, obj, !prefs.plugins_enabled);
   CheckException(env);
 
@@ -247,6 +267,13 @@ void ContentSettings::SyncToNativeImpl() {
     return;
   RenderViewHost* render_view_host = web_contents()->GetRenderViewHost();
   WebPreferences prefs = render_view_host->GetDelegate()->GetWebkitPrefs();
+
+  // TODO(mnaganov): Hook prefs.text_autosizing_enabled up to
+  // LayoutAlgorithm.NARROW_COLUMNS
+
+  int text_size_percent = env->GetIntField(obj, field_ids_->text_size_percent);
+  prefs.font_scale_factor = text_size_percent / 100.0f;
+  prefs.force_enable_zoom = text_size_percent >= 130;
 
   ScopedJavaLocalRef<jstring> str(
       env, static_cast<jstring>(
@@ -318,6 +345,9 @@ void ContentSettings::SyncToNativeImpl() {
 
   prefs.javascript_can_open_windows_automatically = env->GetBooleanField(
       obj, field_ids_->java_script_can_open_windows_automatically);
+
+  prefs.supports_multiple_windows = env->GetBooleanField(
+      obj, field_ids_->support_multiple_windows);
 
   prefs.plugins_enabled = !Java_ContentSettings_getPluginsDisabled(env, obj);
 

@@ -54,6 +54,17 @@ IndexedDBDispatcher::IndexedDBDispatcher() {
 }
 
 IndexedDBDispatcher::~IndexedDBDispatcher() {
+
+  // Clear any pending callbacks - which may result in dispatch requests -
+  // before marking the dispatcher as deleted.
+  pending_callbacks_.Clear();
+  pending_database_callbacks_.Clear();
+  pending_transaction_callbacks_.Clear();
+
+  DCHECK(pending_callbacks_.IsEmpty());
+  DCHECK(pending_database_callbacks_.IsEmpty());
+  DCHECK(pending_transaction_callbacks_.IsEmpty());
+
   g_idb_dispatcher_tls.Pointer()->Set(kHasBeenDeleted);
 }
 

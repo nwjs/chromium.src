@@ -54,9 +54,7 @@ class UI_EXPORT GestureSequence {
 
  protected:
   virtual base::OneShotTimer<GestureSequence>* CreateTimer();
-  base::OneShotTimer<GestureSequence>* long_press_timer() {
-    return long_press_timer_.get();
-  }
+  base::OneShotTimer<GestureSequence>* GetLongPressTimer();
 
  private:
   // Recreates the axis-aligned bounding box that contains all the touch-points
@@ -107,7 +105,6 @@ class UI_EXPORT GestureSequence {
                               float x_velocity,
                               float y_velocity);
   void AppendScrollGestureUpdate(GesturePoint& point,
-                                 const gfx::Point& location,
                                  Gestures* gestures);
 
   // Pinch gestures.
@@ -181,10 +178,12 @@ class UI_EXPORT GestureSequence {
   int flags_;
 
   // We maintain the smallest axis-aligned rectangle that contains all the
-  // current touch-points. The 'distance' represents the diagonal distance.
-  // This box is updated after every touch-event.
+  // current touch-points. This box is updated after every touch-event.
   gfx::Rect bounding_box_;
-  gfx::Point bounding_box_last_center_;
+
+  // The center of the bounding box used in the latest multi-finger scroll
+  // update gesture.
+  gfx::Point latest_multi_scroll_update_location_;
 
   // For pinch, the 'distance' represents the diagonal distance of
   // |bounding_box_|.

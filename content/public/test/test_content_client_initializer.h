@@ -8,12 +8,11 @@
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 
-class NotificationServiceImpl;
-
 namespace content {
 
 class ContentClient;
 class MockRenderProcessHostFactory;
+class NotificationServiceImpl;
 class TestContentBrowserClient;
 class TestRenderViewHostFactory;
 
@@ -34,7 +33,7 @@ class TestContentClientInitializer {
   scoped_ptr<NotificationServiceImpl> notification_service_;
   scoped_ptr<ContentClient> content_client_;
   scoped_ptr<TestContentBrowserClient> content_browser_client_;
-  scoped_ptr<content::MockRenderProcessHostFactory> rph_factory_;
+  scoped_ptr<MockRenderProcessHostFactory> rph_factory_;
   scoped_ptr<TestRenderViewHostFactory> test_render_view_host_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(TestContentClientInitializer);

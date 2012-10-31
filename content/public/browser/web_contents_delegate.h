@@ -23,7 +23,6 @@
 
 class FilePath;
 class GURL;
-class WebContentsImpl;
 
 namespace base {
 class ListValue;
@@ -36,6 +35,7 @@ class DownloadItem;
 class JavaScriptDialogCreator;
 class RenderViewHost;
 class WebContents;
+class WebContentsImpl;
 class WebIntentsDispatcher;
 struct ContextMenuParams;
 struct FileChooserParams;
@@ -117,13 +117,13 @@ class CONTENT_EXPORT WebContentsDelegate {
   // loading feedback. See WebContents::IsLoading()
   virtual void LoadingStateChanged(WebContents* source) {}
 
+#if defined(OS_ANDROID)
   // Notifies the delegate that the page has made some progress loading.
   // |progress| is a value between 0.0 (nothing loaded) to 1.0 (page fully
   // loaded).
-  // Note that to receive this notification, you must have called
-  // SetReportLoadProgressEnabled(true) in the render view.
   virtual void LoadProgressChanged(WebContents* source,
                                    double progress) {}
+#endif
 
   // Request the delegate to close this web contents, and do whatever cleanup
   // it needs to do.
@@ -434,7 +434,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual ~WebContentsDelegate();
 
  private:
-  friend class ::WebContentsImpl;
+  friend class WebContentsImpl;
 
   // Called when |this| becomes the WebContentsDelegate for |source|.
   void Attach(WebContents* source);

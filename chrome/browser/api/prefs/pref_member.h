@@ -25,13 +25,14 @@
 #define CHROME_BROWSER_API_PREFS_PREF_MEMBER_H_
 
 #include <string>
+#include <vector>
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
+#include "base/message_loop_proxy.h"
 #include "base/values.h"
-#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_observer.h"
 
 class PrefServiceBase;
@@ -51,7 +52,8 @@ class PrefMemberBase : public content::NotificationObserver {
                      bool is_managed,
                      bool is_user_modifiable) const;
 
-    void MoveToThread(content::BrowserThread::ID thread_id);
+    void MoveToThread(
+        const scoped_refptr<base::MessageLoopProxy>& message_loop);
 
     // See PrefMember<> for description.
     bool IsManaged() const {
@@ -77,7 +79,7 @@ class PrefMemberBase : public content::NotificationObserver {
 
     bool IsOnCorrectThread() const;
 
-    content::BrowserThread::ID thread_id_;
+    scoped_refptr<base::MessageLoopProxy> thread_loop_;
     mutable bool is_managed_;
     mutable bool is_user_modifiable_;
 
@@ -96,7 +98,7 @@ class PrefMemberBase : public content::NotificationObserver {
   // See PrefMember<> for description.
   void Destroy();
 
-  void MoveToThread(content::BrowserThread::ID thread_id);
+  void MoveToThread(const scoped_refptr<base::MessageLoopProxy>& message_loop);
 
   // content::NotificationObserver
   virtual void Observe(int type,
@@ -132,6 +134,11 @@ class PrefMemberBase : public content::NotificationObserver {
   bool setting_value_;
 };
 
+// This function implements StringListPrefMember::UpdateValue().
+// It is exposed here for testing purposes.
+bool PrefMemberVectorStringUpdate(const Value& value,
+                                  std::vector<std::string>* string_vector);
+
 }  // namespace subtle
 
 template <typename ValueType>
@@ -151,7 +158,10 @@ class PrefMember : public subtle::PrefMemberBase {
   }
 
   // Unsubscribes the PrefMember from the PrefService. After calling this
-  // function, the PrefMember may not be used any more.
+  // function, the PrefMember may not be used any more on the UI thread.
+  // Assuming |MoveToThread| was previously called, |GetValue|, |IsManaged|,
+  // and |IsUserModifiable| can still be called from the other thread but
+  // the results will no longer update from the PrefService.
   // This method should only be called on the UI thread.
   void Destroy() {
     subtle::PrefMemberBase::Destroy();
@@ -162,8 +172,8 @@ class PrefMember : public subtle::PrefMemberBase {
   // via PostTask.
   // This method should only be used from the thread the PrefMember is currently
   // on, which is the UI thread by default.
-  void MoveToThread(content::BrowserThread::ID thread_id) {
-    subtle::PrefMemberBase::MoveToThread(thread_id);
+  void MoveToThread(const scoped_refptr<base::MessageLoopProxy>& message_loop) {
+    subtle::PrefMemberBase::MoveToThread(message_loop);
   }
 
   // Check whether the pref is managed, i.e. controlled externally through
@@ -253,5 +263,7 @@ typedef PrefMember<int> IntegerPrefMember;
 typedef PrefMember<double> DoublePrefMember;
 typedef PrefMember<std::string> StringPrefMember;
 typedef PrefMember<FilePath> FilePathPrefMember;
+// This preference member is expensive for large string arrays.
+typedef PrefMember<std::vector<std::string> > StringListPrefMember;
 
 #endif  // CHROME_BROWSER_API_PREFS_PREF_MEMBER_H_

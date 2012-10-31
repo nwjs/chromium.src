@@ -20,19 +20,17 @@
 #include "net/base/cert_status_flags.h"
 #include "net/base/net_errors.h"
 
-class NavigationControllerImpl;
-class SSLPolicy;
-
-namespace content {
-class NavigationEntryImpl;
-struct LoadFromMemoryCacheDetails;
-struct ResourceRedirectDetails;
-struct ResourceRequestDetails;
-}
-
 namespace net {
 class SSLInfo;
 }
+
+namespace content {
+class NavigationEntryImpl;
+class NavigationControllerImpl;
+class SSLPolicy;
+struct LoadFromMemoryCacheDetails;
+struct ResourceRedirectDetails;
+struct ResourceRequestDetails;
 
 // The SSLManager SSLManager controls the SSL UI elements in a WebContents.  It
 // listens for various events that influence when these elements should or
@@ -42,7 +40,7 @@ class SSLInfo;
 // The security state (secure/insecure) is stored in the navigation entry.
 // Along with it are stored any SSL error code and the associated cert.
 
-class SSLManager : public content::NotificationObserver {
+class SSLManager : public NotificationObserver {
  public:
   // Entry point for SSLCertificateErrors.  This function begins the process
   // of resolving a certificate error during an SSL connection.  SSLManager
@@ -52,7 +50,7 @@ class SSLManager : public content::NotificationObserver {
   // Called on the IO thread.
   static void OnSSLCertificateError(
       const base::WeakPtr<SSLErrorHandler::Delegate>& delegate,
-      const content::GlobalRequestID& id,
+      const GlobalRequestID& id,
       ResourceType::Type resource_type,
       const GURL& url,
       int render_process_id,
@@ -80,7 +78,7 @@ class SSLManager : public content::NotificationObserver {
   // This entry point is called directly (instead of via the notification
   // service) because we need more precise control of the order in which folks
   // are notified of this event.
-  void DidCommitProvisionalLoad(const content::NotificationDetails& details);
+  void DidCommitProvisionalLoad(const NotificationDetails& details);
 
   // Insecure content entry point.
   void DidRunInsecureContent(const std::string& security_origin);
@@ -90,21 +88,21 @@ class SSLManager : public content::NotificationObserver {
   //
   // Called on the UI thread.
   virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+                       const NotificationSource& source,
+                       const NotificationDetails& details) OVERRIDE;
 
  private:
   // Entry points for notifications to which we subscribe. Note that
   // DidCommitProvisionalLoad uses the abstract NotificationDetails type since
   // the type we need is in NavigationController which would create a circular
   // header file dependency.
-  void DidLoadFromMemoryCache(content::LoadFromMemoryCacheDetails* details);
-  void DidStartResourceResponse(content::ResourceRequestDetails* details);
-  void DidReceiveResourceRedirect(content::ResourceRedirectDetails* details);
+  void DidLoadFromMemoryCache(LoadFromMemoryCacheDetails* details);
+  void DidStartResourceResponse(ResourceRequestDetails* details);
+  void DidReceiveResourceRedirect(ResourceRedirectDetails* details);
   void DidChangeSSLInternalState();
 
   // Update the NavigationEntry with our current state.
-  void UpdateEntry(content::NavigationEntryImpl* entry);
+  void UpdateEntry(NavigationEntryImpl* entry);
 
   // The backend for the SSLPolicy to actuate its decisions.
   SSLPolicyBackend backend_;
@@ -117,9 +115,11 @@ class SSLManager : public content::NotificationObserver {
   NavigationControllerImpl* controller_;
 
   // Handles registering notifications with the NotificationService.
-  content::NotificationRegistrar registrar_;
+  NotificationRegistrar registrar_;
 
   DISALLOW_COPY_AND_ASSIGN(SSLManager);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_SSL_SSL_MANAGER_H_

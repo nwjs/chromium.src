@@ -428,8 +428,7 @@ DialogType.isModal = function(type) {
 
     this.refocus();
 
-    if (this.dialogType == DialogType.FULL_PAGE)
-      this.initDataTransferOperations_();
+    this.initDataTransferOperations_();
 
     this.table_.endBatchUpdates();
     this.grid_.endBatchUpdates();
@@ -462,13 +461,18 @@ DialogType.isModal = function(type) {
   FileManager.prototype.initDataTransferOperations_ = function() {
     this.copyManager_ = new FileCopyManagerWrapper.getInstance(
         this.filesystem_.root);
+
+    this.butterBar_ = new ButterBar(this.dialogDom_, this.copyManager_,
+        this.metadataCache_);
+
+    // CopyManager and ButterBar are required for 'Delete' operation in
+    // Open and Save dialogs. But drag-n-drop and copy-paste are not needed.
+    if (this.dialogType != DialogType.FULL_PAGE) return;
+
     this.copyManager_.addEventListener('copy-progress',
                                        this.onCopyProgress_.bind(this));
     this.copyManager_.addEventListener('copy-operation-complete',
         this.onCopyManagerOperationComplete_.bind(this));
-
-    this.butterBar_ = new ButterBar(this.dialogDom_, this.copyManager_,
-        this.metadataCache_);
 
     var controller = this.fileTransferController_ = new FileTransferController(
         GridItem.bind(null, this, false /* no checkbox */),
@@ -1315,63 +1319,55 @@ DialogType.isModal = function(type) {
   FileManager.prototype.finishSetupCurrentDirectory_ = function(
       path, invokeHandlers) {
     if (invokeHandlers) {
-      // Keep track of whether the path is identified as an existing leaf
-      // node.  Note that onResolve is guaranteed to be called (exactly once)
-      // before onLoadedActivateLeaf.
-      var foundLeaf = true;
       var onResolve = function(baseName, leafName, exists) {
+        var galleryUrls = null;
+
         if (!exists || leafName == '') {
           // Non-existent file or a directory.
-          foundLeaf = false;
           if (this.params_.gallery) {
             // Reloading while the Gallery is open with empty or multiple
             // selection. Open the Gallery when the directory is scanned.
-            var listener = function() {
-              this.directoryModel_.removeEventListener(
-                  'scan-completed', listener);
-              new FileTasks(this, this.params_).openGallery([]);
-            }.bind(this);
-            this.directoryModel_.addEventListener('scan-completed', listener);
-          } else {
-            this.show_();  // Remove the shade immediately.
+            galleryUrls = [];
+          }
+        } else {
+          // There are 3 ways we can get here:
+          // 1. Invoked from file_manager_util::ViewFile. This can only
+          //    happen for 'gallery' and 'mount-archive' actions.
+          // 2. Reloading a Gallery page. Must be an image or a video file.
+          // 3. A user manually entered a URL pointing to a file.
+          // We call the appropriate methods of FileTasks directly as we do
+          // not need any of the preparations that |execute| method does.
+          if (FileType.isImageOrVideo(path)) {
+            galleryUrls = [util.makeFilesystemUrl(path)];
+          }
+          if (FileType.getMediaType(path) == 'archive') {
+            new FileTasks(this, this.params_).mountArchives_(
+                [util.makeFilesystemUrl(path)]);
           }
         }
-      }.bind(this);
 
-      // TODO(dgozman): get rid of onLoadedActivate callback in setupPath.
-      var onLoadedActivateLeaf = function() {
-        if (!foundLeaf) return;
-        // TODO(kaznacheev): use |makeFIlesystemUrl| instead of
-        // this.getSelection().
-        var urls = [this.getSelection().urls[0]];
-        var tasks = new FileTasks(this, this.params_);
-        // There are 3 ways we can get here:
-        // 1. Invoked from file_manager_util::ViewFile. This can only
-        //    happen for 'gallery' and 'mount-archive' actions.
-        // 2. Reloading a Gallery page. Must be an image or a video file.
-        // 3. A user manually entered a URL pointing to a file.
-        // We call the appropriate methods of FileTasks directly as we do
-        // not need any of the preparations that |execute| method does.
-        if (FileType.isImageOrVideo(path)) {
-          tasks.openGallery(urls);
-        } else if (FileType.getMediaType(path) == 'archive') {
-          this.show_();
-          tasks.mountArchives_(urls);
+        if (galleryUrls) {
+          // Opening gallery will invoke |this.show_| at the right time.
+          var listener = function() {
+            this.directoryModel_.removeEventListener(
+                'scan-completed', listener);
+            new FileTasks(this, this.params_).openGallery(galleryUrls);
+          }.bind(this);
+          this.directoryModel_.addEventListener('scan-completed', listener);
         } else {
           this.show_();
         }
       }.bind(this);
 
-      this.directoryModel_.setupPath(path, onLoadedActivateLeaf, onResolve);
+      this.directoryModel_.setupPath(path, onResolve);
       return;
     }
 
     if (this.dialogType == DialogType.SELECT_SAVEAS_FILE) {
-      this.directoryModel_.setupPath(path, undefined,
-          function(basePath, leafName) {
-            this.filenameInput_.value = leafName;
-            this.selectDefaultPathInFilenameInput_();
-          }.bind(this));
+      this.directoryModel_.setupPath(path, function(basePath, leafName) {
+        this.filenameInput_.value = leafName;
+        this.selectDefaultPathInFilenameInput_();
+      }.bind(this));
       return;
     }
 
@@ -1519,6 +1515,13 @@ DialogType.isModal = function(type) {
       box.className = 'img-container';
     }
 
+    if (entry.isDirectory) {
+      box.setAttribute('generic-thumbnail', 'folder');
+      if (opt_imageLoadCallback)
+        setTimeout(opt_imageLoadCallback, 0, null /* callback parameter */);
+      return box;
+    }
+
     var imageUrl = entry.toURL();
 
     // Failing to fetch a thumbnail likely means that the thumbnail URL
@@ -1656,7 +1659,7 @@ DialogType.isModal = function(type) {
     var onError = function(error) {
       if (listItem)
         listItem.removeAttribute('disabled');
-      this.alert.show(strf('UNMOUNT_FAILED', error.message));
+      this.alert.showHtml('', str('UNMOUNT_FAILED'));
     };
     this.volumeManager_.unmount(path, function() {}, onError.bind(this));
   };
@@ -2297,7 +2300,7 @@ DialogType.isModal = function(type) {
     }
 
     var clickNumber;
-    if (this.dialogType_ == FileManager.DialogType.FULL_PAGE &&
+    if (this.dialogType == DialogType.FULL_PAGE &&
             (event.target.parentElement.classList.contains('filename-label') ||
              event.target.classList.contains('detail-icon'))) {
       // If full page mode the file name and icon should react on single click.
@@ -2570,6 +2573,7 @@ DialogType.isModal = function(type) {
         this.directoryModel_.getCurrentDirPath());
 
     this.cancelSpinnerTimeout_();
+    this.showSpinner_(false);
     this.showSpinnerTimeout_ =
         setTimeout(this.showSpinner_.bind(this, true), 500);
   };
@@ -2582,7 +2586,9 @@ DialogType.isModal = function(type) {
   };
 
   FileManager.prototype.hideSpinnerLater_ = function() {
-    setTimeout(this.showSpinner_.bind(this, false), 100);
+    this.cancelSpinnerTimeout_();
+    this.showSpinnerTimeout_ =
+        setTimeout(this.showSpinner_.bind(this, false), 100);
   };
 
   FileManager.prototype.showSpinner_ = function(on) {

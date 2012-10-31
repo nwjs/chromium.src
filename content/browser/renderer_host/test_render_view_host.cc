@@ -17,7 +17,7 @@
 #include "content/public/common/password_form.h"
 #include "ui/gfx/rect.h"
 #include "webkit/dom_storage/dom_storage_types.h"
-#include "webkit/glue/webkit_glue.h"
+#include "webkit/glue/glue_serialize.h"
 #include "webkit/glue/webpreferences.h"
 
 namespace content {
@@ -274,9 +274,7 @@ TestRenderViewHost::~TestRenderViewHost() {
 bool TestRenderViewHost::CreateRenderView(
     const string16& frame_name,
     int opener_route_id,
-    int32 max_page_id,
-    const std::string& embedder_channel_name,
-    int embedder_container_id) {
+    int32 max_page_id) {
   DCHECK(!render_view_created_);
   render_view_created_ = true;
   return true;

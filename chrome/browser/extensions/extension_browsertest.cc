@@ -22,6 +22,7 @@
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -43,6 +44,7 @@
 
 using extensions::Extension;
 using extensions::ExtensionCreator;
+using extensions::FeatureSwitch;
 
 ExtensionBrowserTest::ExtensionBrowserTest()
     : loaded_(false),
@@ -53,7 +55,9 @@ ExtensionBrowserTest::ExtensionBrowserTest()
       target_visible_page_action_count_(-1),
       current_channel_(chrome::VersionInfo::CHANNEL_DEV),
       override_prompt_for_external_extensions_(
-          extensions::FeatureSwitch::prompt_for_external_extensions(), false) {
+          FeatureSwitch::prompt_for_external_extensions(), false),
+       override_sideload_wipeout_(
+          FeatureSwitch::sideload_wipeout(), false) {
   EXPECT_TRUE(temp_dir_.CreateUniqueTempDir());
 }
 
@@ -460,7 +464,7 @@ bool ExtensionBrowserTest::WaitForExtensionViewsToLoad() {
                 content::NotificationService::AllSources());
 
   ExtensionProcessManager* manager =
-        browser()->profile()->GetExtensionProcessManager();
+      extensions::ExtensionSystem::Get(browser()->profile())->process_manager();
   ExtensionProcessManager::ViewSet all_views = manager->GetAllViews();
   for (ExtensionProcessManager::ViewSet::const_iterator iter =
            all_views.begin();

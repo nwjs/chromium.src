@@ -89,6 +89,7 @@
 #include "content/public/browser/browser_ppapi_host.h"
 #include "content/public/browser/browser_url_handler.h"
 #include "content/public/browser/child_process_security_policy.h"
+#include "content/public/browser/compositor_util.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/resource_context.h"
@@ -96,7 +97,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 #include "content/public/common/child_process_host.h"
-#include "content/public/common/compositor_util.h"
 #include "content/public/common/content_descriptors.h"
 #include "grit/generated_resources.h"
 #include "grit/ui_resources.h"
@@ -120,6 +120,7 @@
 #elif defined(OS_LINUX)
 #include "chrome/browser/chrome_browser_main_linux.h"
 #elif defined(OS_ANDROID)
+#include "chrome/browser/android/crash_dump_manager.h"
 #include "chrome/browser/chrome_browser_main_android.h"
 #include "chrome/common/descriptors_android.h"
 #elif defined(OS_POSIX)
@@ -571,6 +572,10 @@ void ChromeContentBrowserClient::RenderProcessHostCreated(
   RendererContentSettingRules rules;
   GetRendererContentSettingRules(profile->GetHostContentSettingsMap(), &rules);
   host->Send(new ChromeViewMsg_SetContentSettingRules(rules));
+
+#if defined(OS_ANDROID) && defined(USE_LINUX_BREAKPAD)
+  InitCrashDumpManager();
+#endif
 }
 
 void ChromeContentBrowserClient::BrowserChildProcessHostCreated(
@@ -718,7 +723,8 @@ bool ChromeContentBrowserClient::ShouldTryToUseExistingProcessHost(
   std::vector<Profile*> profiles = g_browser_process->profile_manager()->
       GetLoadedProfiles();
   for (size_t i = 0; i < profiles.size(); ++i) {
-    ExtensionProcessManager* epm = profiles[i]->GetExtensionProcessManager();
+    ExtensionProcessManager* epm =
+        extensions::ExtensionSystem::Get(profiles[i])->process_manager();
     for (ExtensionProcessManager::const_iterator iter =
              epm->background_hosts().begin();
          iter != epm->background_hosts().end(); ++iter) {
@@ -894,6 +900,9 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
         command_line->AppendSwitch(switches::kRendererPrintPreview);
     }
 
+    if (content::IsThreadedCompositingEnabled())
+      command_line->AppendSwitch(switches::kEnableThreadedCompositing);
+
     // Please keep this in alphabetical order.
     static const char* const kSwitchNames[] = {
       switches::kAllowHTTPBackgroundPage,
@@ -903,7 +912,6 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kAppsGalleryURL,
       switches::kCloudPrintServiceURL,
       switches::kDebugPrint,
-      switches::kDisableAsynchronousSpellChecking,
       switches::kDisableBundledPpapiFlash,
       switches::kDisableExtensionsResourceWhitelist,
       switches::kDisableScriptedPrintThrottling,
@@ -919,10 +927,11 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kEnablePasswordGeneration,
       switches::kEnablePnacl,
       switches::kEnableWatchdog,
-      switches::kExperimentalSpellcheckerFeatures,
+      switches::kEnableWebView,
       switches::kMemoryProfiling,
       switches::kMessageLoopHistogrammer,
       switches::kNoJsRandomness,
+      switches::kPerformCrashAnalysis,
       switches::kPlaybackMode,
       switches::kPpapiFlashArgs,
       switches::kPpapiFlashInProcess,
@@ -1573,12 +1582,10 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
       false;
 #else
       !CommandLine::ForCurrentProcess()->
-          HasSwitch(switches::kDisableAsynchronousSpellChecking);
+          HasSwitch(switches::kForceSyncSpellCheck);
 #endif
   web_prefs->unified_textchecker_enabled =
-      web_prefs->asynchronous_spell_checking_enabled ||
-          CommandLine::ForCurrentProcess()->
-              HasSwitch(switches::kExperimentalSpellcheckerFeatures);
+      web_prefs->asynchronous_spell_checking_enabled;
 
   web_prefs->uses_universal_detector =
       prefs->GetBoolean(prefs::kWebKitUsesUniversalDetector);
@@ -1762,13 +1769,8 @@ FilePath ChromeContentBrowserClient::GetHyphenDictionaryDirectory() {
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
 void ChromeContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
     const CommandLine& command_line,
+    int child_process_id,
     std::vector<FileDescriptorInfo>* mappings) {
-  int crash_signal_fd = GetCrashSignalFD(command_line);
-  if (crash_signal_fd >= 0) {
-    mappings->push_back(FileDescriptorInfo(kCrashDumpSignal,
-                                           FileDescriptor(crash_signal_fd,
-                                                          false)));
-  }
 #if defined(OS_ANDROID)
   FilePath data_path;
   PathService::Get(ui::DIR_RESOURCE_PAKS_ANDROID, &data_path);
@@ -1796,6 +1798,25 @@ void ChromeContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
   DCHECK(f != base::kInvalidPlatformFileValue);
   mappings->push_back(FileDescriptorInfo(kAndroidLocalePakDescriptor,
                                          FileDescriptor(f, true)));
+
+#if defined(USE_LINUX_BREAKPAD)
+  f = crash_dump_manager_->CreateMinidumpFile(child_process_id);
+  if (f == base::kInvalidPlatformFileValue) {
+    LOG(ERROR) << "Failed to create file for minidump, crash reporting will be "
+        "disabled for this process.";
+  } else {
+    mappings->push_back(FileDescriptorInfo(kAndroidMinidumpDescriptor,
+                                           FileDescriptor(f, true)));
+  }
+#endif  // defined(USE_LINUX_BREAKPAD)
+
+#else
+  int crash_signal_fd = GetCrashSignalFD(command_line);
+  if (crash_signal_fd >= 0) {
+    mappings->push_back(FileDescriptorInfo(kCrashDumpSignal,
+                                           FileDescriptor(crash_signal_fd,
+                                                          false)));
+  }
 #endif  // defined(OS_ANDROID)
 }
 #endif  // defined(OS_POSIX) && !defined(OS_MACOSX)
@@ -1803,6 +1824,13 @@ void ChromeContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
 #if defined(OS_WIN)
 const wchar_t* ChromeContentBrowserClient::GetResourceDllName() {
   return chrome::kBrowserResourcesDll;
+}
+#endif
+
+#if defined(OS_ANDROID)
+void ChromeContentBrowserClient::InitCrashDumpManager() {
+  if (!crash_dump_manager_.get())
+    crash_dump_manager_.reset(new CrashDumpManager());
 }
 #endif
 

@@ -11,9 +11,9 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebData.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURL.h"
-#include "webkit/glue/webkit_glue.h"
+#include "webkit/base/file_path_string_conversions.h"
 
-using content::GpuChannelHostFactory;
+namespace content {
 
 BrowserWebKitPlatformSupportImpl::BrowserWebKitPlatformSupportImpl() {
   file_utilities_.set_sandbox_enabled(false);
@@ -122,11 +122,13 @@ BrowserWebKitPlatformSupportImpl::sharedWorkerRepository() {
 
 int BrowserWebKitPlatformSupportImpl::databaseDeleteFile(
     const WebKit::WebString& vfs_file_name, bool sync_dir) {
-  const FilePath path = webkit_glue::WebStringToFilePath(vfs_file_name);
+  const FilePath path = webkit_base::WebStringToFilePath(vfs_file_name);
   return file_util::Delete(path, false) ? 0 : 1;
 }
 
 GpuChannelHostFactory*
 BrowserWebKitPlatformSupportImpl::GetGpuChannelHostFactory() {
-  return content::BrowserGpuChannelHostFactory::instance();
+  return BrowserGpuChannelHostFactory::instance();
 }
+
+}  // namespace content

@@ -4,12 +4,13 @@
 
 #include "chrome/service/service_process_prefs.h"
 
+#include "base/message_loop_proxy.h"
 #include "base/values.h"
 
 ServiceProcessPrefs::ServiceProcessPrefs(
     const FilePath& pref_filename,
-    base::MessageLoopProxy* file_message_loop_proxy)
-    : prefs_(new JsonPrefStore(pref_filename, file_message_loop_proxy)) {
+    base::SequencedTaskRunner* task_runner)
+    : prefs_(new JsonPrefStore(pref_filename, task_runner)) {
 }
 
 ServiceProcessPrefs::~ServiceProcessPrefs() {}
@@ -52,6 +53,21 @@ bool ServiceProcessPrefs::GetBoolean(const std::string& key,
 
 void ServiceProcessPrefs::SetBoolean(const std::string& key, bool value) {
   prefs_->SetValue(key, Value::CreateBooleanValue(value));
+}
+
+int ServiceProcessPrefs::GetInt(const std::string& key,
+                                int default_value) const {
+  const Value* value;
+  int result = default_value;
+  if (prefs_->GetValue(key, &value) != PersistentPrefStore::READ_OK ||
+      !value->GetAsInteger(&result)) {
+    return default_value;
+  }
+  return result;
+}
+
+void ServiceProcessPrefs::SetInt(const std::string& key, int value) {
+  prefs_->SetValue(key, Value::CreateIntegerValue(value));
 }
 
 const DictionaryValue* ServiceProcessPrefs::GetDictionary(

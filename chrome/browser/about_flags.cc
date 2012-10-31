@@ -21,7 +21,9 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/user_metrics.h"
+#include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
+#include "grit/google_chrome_strings.h"
 #include "media/base/media_switches.h"
 #include "ui/app_list/app_list_switches.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -177,6 +179,14 @@ const Experiment::Choice kScriptBubbleChoices[] = {
     switches::kScriptBubble, "1"}
 };
 
+const Experiment::Choice kTabCaptureChoices[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED,
+    switches::kTabCapture, "0"},
+  { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
+    switches::kTabCapture, "1"}
+};
+
 #if defined(OS_CHROMEOS)
 const Experiment::Choice kAshBootAnimationFunction[] = {
   { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
@@ -184,6 +194,14 @@ const Experiment::Choice kAshBootAnimationFunction[] = {
     ash::switches::kAshBootAnimationFunction2, ""},
   { IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION3,
     ash::switches::kAshBootAnimationFunction3, ""}
+};
+
+const Experiment::Choice kChromeCaptivePortalDetectionChoices[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
+  { IDS_FLAGS_SHILL_CAPTIVE_PORTAL_DETECTOR,
+    switches::kDisableChromeCaptivePortalDetector, ""},
+  { IDS_FLAGS_CHROME_CAPTIVE_PORTAL_DETECTOR,
+    switches::kEnableChromeCaptivePortalDetector, ""}
 };
 #endif
 
@@ -199,14 +217,17 @@ const Experiment::Choice kAshBootAnimationFunction[] = {
 // the top of that file for details) to update the chromeactions.txt file, which
 // will enable UMA to record your feature flag.
 //
-// After your feature has shipped under a flag, you can locate the metrics
-// under the action name AboutFlags_internal-action-name. Actions are recorded
-// once per startup, so you should divide this number by AboutFlags_StartupTick
-// to get a sense of usage. Note that this will not be the same as number of
-// users with a given feature enabled because users can quit and relaunch
-// the application multiple times over a given time interval.
-// TODO(rsesek): See if there's a way to count per-user, rather than
-// per-startup.
+// After your feature has shipped under a flag, you can locate the metrics under
+// the action name AboutFlags_internal-action-name. Actions are recorded once
+// per startup, so you should divide this number by AboutFlags_StartupTick to
+// get a sense of usage. Note that this will not be the same as number of users
+// with a given feature enabled because users can quit and relaunch the
+// application multiple times over a given time interval. The dashboard also
+// shows you how many (metrics reporting) users have enabled the flag over the
+// last seven days. However, note that this is not the same as the number of
+// users who have the flag enabled, since enabling the flag happens once,
+// whereas running with the flag enabled happens until the user flips the flag
+// again.
 
 // To add a new experiment add to the end of kExperiments. There are two
 // distinct types of experiments:
@@ -609,6 +630,13 @@ const Experiment kExperiments[] = {
     kOsWin | kOsLinux | kOsCrOS,
     SINGLE_VALUE_TYPE(ash::switches::kAuraGoogleDialogFrames)
   },
+  {
+    "ash-disable-auto-window-placement",
+    IDS_FLAGS_ASH_AUTO_WINDOW_PLACEMENT_NAME,
+    IDS_FLAGS_ASH_AUTO_WINDOW_PLACEMENT_DESCRIPTION,
+    kOsWin | kOsLinux | kOsCrOS,
+    SINGLE_VALUE_TYPE(ash::switches::kAshDisableAutoWindowPlacement)
+  },
 #endif
   {
     "per-tile-painting",
@@ -704,15 +732,13 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableSuggestionsTabPage)
   },
-#if defined(GOOGLE_CHROME_BUILD)
   {
-    "disable-asynchronous-spellchecking",
-    IDS_FLAGS_DISABLE_ASYNCHRONOUS_SPELLCHECKING,
-    IDS_FLAGS_DISABLE_ASYNCHRONOUS_SPELLCHECKING_DESCRIPTION,
+    "force-sync-spellcheck",
+    IDS_FLAGS_FORCE_SYNC_SPELLCHECK,
+    IDS_FLAGS_FORCE_SYNC_SPELLCHECK_DESCRIPTION,
     kOsWin | kOsLinux | kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kDisableAsynchronousSpellChecking)
+    SINGLE_VALUE_TYPE(switches::kForceSyncSpellCheck)
   },
-#endif
   {
     "touch-optimized-ui",
     IDS_FLAGS_TOUCH_OPTIMIZED_UI_NAME,
@@ -733,6 +759,13 @@ const Experiment kExperiments[] = {
     IDS_ENABLE_TOUCH_EVENTS_DESCRIPTION,
     kOsWin | kOsMac | kOsLinux,
     SINGLE_VALUE_TYPE(switches::kEnableTouchEvents)
+  },
+  {
+    "enable-tab-capture",
+    IDS_ENABLE_TAB_CAPTURE_NAME,
+    IDS_ENABLE_TAB_CAPTURE_DESCRIPTION,
+    kOsMac | kOsLinux,
+    MULTI_VALUE_TYPE(kTabCaptureChoices)
   },
 #if defined(OS_CHROMEOS)
   {
@@ -786,7 +819,21 @@ const Experiment kExperiments[] = {
     kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kEnableTouchpadThreeFingerClick)
   },
+  {
+    "allow-touchpad-three-finger-swipe",
+    IDS_FLAGS_ALLOW_TOUCHPAD_THREE_FINGER_SWIPE_NAME,
+    IDS_FLAGS_ALLOW_TOUCHPAD_THREE_FINGER_SWIPE_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableTouchpadThreeFingerSwipe)
+  },
 #endif
+  {
+    "use-web-based-signin-flow",
+    IDS_FLAGS_USE_WEB_BASED_SIGNIN_FLOW_NAME,
+    IDS_FLAGS_USE_WEB_BASED_SIGNIN_FLOW_DESCRIPTION,
+    kOsMac | kOsWin | kOsLinux,
+    SINGLE_VALUE_TYPE(switches::kUseWebBasedSigninFlow)
+  },
 #if defined(USE_ASH)
   {
     "show-launcher-alignment-menu",
@@ -866,6 +913,20 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ASH_BOOT_ANIMATION_FUNCTION_DESCRIPTION,
     kOsCrOS,
     MULTI_VALUE_TYPE(kAshBootAnimationFunction),
+  },
+  {
+    "captive-portal-detector",
+    IDS_FLAGS_CAPTIVE_PORTAL_DETECTOR_NAME,
+    IDS_FLAGS_CAPTIVE_PORTAL_DETECTOR_DESCRIPTION,
+    kOsCrOS,
+    MULTI_VALUE_TYPE(kChromeCaptivePortalDetectionChoices),
+  },
+  {
+    "new-lock-animations",
+    IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS,
+    IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(ash::switches::kAshNewLockAnimationsEnabled),
   },
 #endif
   {
@@ -969,6 +1030,45 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_CRASH_ON_GPU_HANG_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kCrashOnGpuHang)
+  },
+  {
+    "enable-deferred-image-decoding",
+    IDS_FLAGS_ENABLE_DEFERRED_IMAGE_DECODING_NAME,
+    IDS_FLAGS_ENABLE_DEFERRED_IMAGE_DECODING_DESCRIPTION,
+#if defined(USE_SKIA)
+    kOsMac | kOsLinux | kOsCrOS,
+#else
+    0,
+#endif
+    SINGLE_VALUE_TYPE(switches::kEnableDeferredImageDecoding)
+  },
+  {
+    "performance-monitor-gathering",
+    IDS_FLAGS_PERFORMANCE_MONITOR_GATHERING_NAME,
+    IDS_FLAGS_PERFORMANCE_MONITOR_GATHERING_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kPerformanceMonitorGathering)
+  },
+  {
+    "enable-new-autofill-ui",
+    IDS_FLAGS_ENABLE_NEW_AUTOFILL_UI_NAME,
+    IDS_FLAGS_ENABLE_NEW_AUTOFILL_UI_DESCRIPTION,
+    kOsWin | kOsLinux,
+    SINGLE_VALUE_TYPE(switches::kEnableNewAutofillUi)
+  },
+  {
+    "enable-new-autofill-heuristics",
+    IDS_FLAGS_ENABLE_NEW_AUTOFILL_HEURISTICS_NAME,
+    IDS_FLAGS_ENABLE_NEW_AUTOFILL_HEURISTICS_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnableNewAutofillHeuristics)
+  },
+  {
+    "enable-web-intents-invocation",
+    IDS_FLAGS_WEB_INTENTS_INVOCATION_ENABLED_NAME,
+    IDS_FLAGS_WEB_INTENTS_INVOCATION_ENABLED_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kWebIntentsInvocationEnabled)
   },
 };
 

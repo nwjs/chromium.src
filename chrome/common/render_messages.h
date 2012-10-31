@@ -59,6 +59,7 @@ struct ChromeViewHostMsg_GetPluginInfo_Status {
     kClickToPlay,
     kDisabled,
     kNotFound,
+    kNPAPINotSupported,
     kOutdatedBlocked,
     kOutdatedDisallowed,
     kUnauthorized,
@@ -483,6 +484,10 @@ IPC_MESSAGE_ROUTED0(ChromeViewHostMsg_OpenAboutPlugins)
 IPC_MESSAGE_ROUTED1(ChromeViewHostMsg_CouldNotLoadPlugin,
                     FilePath /* plugin_path */)
 
+// Tells the browser that we blocked a plug-in because NPAPI is not supported.
+IPC_MESSAGE_ROUTED1(ChromeViewHostMsg_NPAPINotSupported,
+                    std::string /* identifer */)
+
 // Send a snapshot of the tab contents to the render host.
 IPC_MESSAGE_ROUTED1(ChromeViewHostMsg_Snapshot,
                     SkBitmap /* bitmap */)
@@ -497,12 +502,13 @@ IPC_MESSAGE_ROUTED3(ChromeViewHostMsg_ForwardMessageToExternalHost,
 // a new instance of the Native Client process. The browser will launch
 // the process and return an IPC channel handle. This handle will only
 // be valid if the NaCl IPC proxy is enabled.
-IPC_SYNC_MESSAGE_CONTROL2_2(ChromeViewHostMsg_LaunchNaCl,
+IPC_SYNC_MESSAGE_CONTROL2_3(ChromeViewHostMsg_LaunchNaCl,
                             GURL /* manifest_url */,
                             int /* socket count */,
                             std::vector<nacl::FileDescriptor>
                                 /* imc channel handles */,
-                            IPC::ChannelHandle /* ipc_channel_handle */)
+                            IPC::ChannelHandle /* ipc_channel_handle */,
+                            int /* plugin_child_id */)
 
 // A renderer sends this to the browser process when it wants to
 // open a file for from the Pnacl component directory.

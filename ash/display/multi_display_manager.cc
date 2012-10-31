@@ -13,11 +13,15 @@
 #include "base/stl_util.h"
 #include "base/string_split.h"
 #include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
+#include "grit/ash_strings.h"
 #include "ui/aura/aura_switches.h"
+#include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/root_window_host.h"
 #include "ui/aura/window_property.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/rect.h"
@@ -162,6 +166,12 @@ void MultiDisplayManager::SetOverscanInsets(int64 display_id,
   OnNativeDisplaysChanged(displays);
 }
 
+gfx::Insets MultiDisplayManager::GetOverscanInsets(int64 display_id) const {
+  std::map<int64, gfx::Insets>::const_iterator it =
+      overscan_mapping_.find(display_id);
+  return (it != overscan_mapping_.end()) ? it->second : gfx::Insets();
+}
+
 void MultiDisplayManager::OnNativeDisplaysChanged(
     const std::vector<gfx::Display>& updated_displays) {
   if (updated_displays.empty()) {
@@ -263,6 +273,15 @@ void MultiDisplayManager::OnNativeDisplaysChanged(
       ++new_iter;
     }
   }
+
+  // Do not update |displays_| if there's nothing to be updated. Without this,
+  // it will not update the display layout, which causes the bug
+  // http://crbug.com/155948.
+  if (changed_display_indices.empty() && added_display_indices.empty() &&
+      removed_displays.empty()) {
+    return;
+  }
+
   displays_ = new_displays;
   // Temporarily add displays to be removed because display object
   // being removed are accessed during shutting down the root.
@@ -282,6 +301,7 @@ void MultiDisplayManager::OnNativeDisplaysChanged(
     NotifyDisplayRemoved(displays_.back());
     displays_.pop_back();
   }
+  EnsurePointerInDisplays();
 }
 
 RootWindow* MultiDisplayManager::CreateRootWindowForDisplay(
@@ -319,7 +339,7 @@ const gfx::Display& MultiDisplayManager::GetDisplayNearestWindow(
   MultiDisplayManager* manager = const_cast<MultiDisplayManager*>(this);
   return root ?
       manager->FindDisplayForRootWindow(root) :
-      *manager->GetDisplayAt(0);
+      DisplayController::GetPrimaryDisplay();
 }
 
 const gfx::Display& MultiDisplayManager::GetDisplayNearestPoint(
@@ -340,7 +360,7 @@ const gfx::Display& MultiDisplayManager::GetDisplayMatching(
   for (std::vector<gfx::Display>::const_iterator iter = displays_.begin();
        iter != displays_.end(); ++iter) {
     const gfx::Display& display = *iter;
-    gfx::Rect intersect = display.bounds().Intersect(rect);
+    gfx::Rect intersect = gfx::IntersectRects(display.bounds(), rect);
     int area = intersect.width() * intersect.height();
     if (area > max) {
       max = area;
@@ -353,6 +373,12 @@ const gfx::Display& MultiDisplayManager::GetDisplayMatching(
 
 std::string MultiDisplayManager::GetDisplayNameFor(
     const gfx::Display& display) {
+  if (HasInternalDisplay() && IsInternalDisplayId(display.id())) {
+    ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
+    return UTF16ToUTF8(
+        bundle.GetLocalizedString(IDS_ASH_INTERNAL_DISPLAY_NAME));
+  }
+
 #if defined(USE_X11)
   std::vector<XID> outputs;
   if (display.id() != gfx::Display::kInvalidDisplayID &&
@@ -477,6 +503,42 @@ int64 MultiDisplayManager::SetFirstDisplayAsInternalDisplayForTest() {
   internal_display_.reset(new gfx::Display);
   *internal_display_ = displays_[0];
   return internal_display_id_;
+}
+
+void MultiDisplayManager::EnsurePointerInDisplays() {
+  // Don't try to move the pointer during the boot/startup.
+  if (!Shell::HasInstance())
+    return;
+  gfx::Point location_in_screen = Shell::GetScreen()->GetCursorScreenPoint();
+  gfx::Point target_location;
+  int64 closest_distance = -1;
+
+  for (DisplayList::const_iterator iter = displays_.begin();
+       iter != displays_.end(); ++iter) {
+    const gfx::Rect& display_bounds = iter->bounds();
+
+    if (display_bounds.Contains(location_in_screen)) {
+      target_location = location_in_screen;
+      break;
+    }
+    gfx::Point center = display_bounds.CenterPoint();
+    gfx::Point diff = center.Subtract(location_in_screen);
+    // Use the distance from the center of the dislay. This is not
+    // exactly "closest" display, but good enough to pick one
+    // appropriate (and there are at most two displays).
+    int64 distance = diff.x() * diff.x() + diff.y() * diff.y();
+    if (closest_distance < 0 || closest_distance > distance) {
+      target_location = center;
+      closest_distance = distance;
+    }
+  }
+
+  aura::RootWindow* root_window = Shell::GetPrimaryRootWindow();
+  aura::client::ScreenPositionClient* client =
+      aura::client::GetScreenPositionClient(root_window);
+  client->ConvertPointFromScreen(root_window, &target_location);
+
+  root_window->MoveCursorTo(target_location);
 }
 
 void MultiDisplayManager::SetDisplayIdsForTest(DisplayList* to_update) const {

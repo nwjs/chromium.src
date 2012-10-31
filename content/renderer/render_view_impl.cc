@@ -15,6 +15,7 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/message_loop_proxy.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
@@ -38,7 +39,6 @@
 #include "content/common/gpu/client/webgraphicscontext3d_command_buffer_impl.h"
 #include "content/common/intents_messages.h"
 #include "content/common/java_bridge_messages.h"
-#include "content/common/old_browser_plugin_messages.h"
 #include "content/common/pepper_messages.h"
 #include "content/common/pepper_plugin_registry.h"
 #include "content/common/quota_dispatcher.h"
@@ -61,10 +61,6 @@
 #include "content/public/renderer/render_view_visitor.h"
 #include "content/renderer/browser_plugin/browser_plugin.h"
 #include "content/renderer/browser_plugin/browser_plugin_manager.h"
-#include "content/renderer/browser_plugin/old/old_browser_plugin.h"
-#include "content/renderer/browser_plugin/old/browser_plugin_channel_manager.h"
-#include "content/renderer/browser_plugin/old/browser_plugin_constants.h"
-#include "content/renderer/browser_plugin/old/guest_to_embedder_channel.h"
 #include "content/renderer/device_orientation_dispatcher.h"
 #include "content/renderer/devtools_agent.h"
 #include "content/renderer/disambiguation_popup_helper.h"
@@ -118,6 +114,7 @@
 #include "net/http/http_util.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorOutputSurface.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebAccessibilityObject.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebColorName.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDOMEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDOMMessageEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDataSource.h"
@@ -183,6 +180,7 @@
 #include "ui/gfx/size_conversions.h"
 #include "v8/include/v8.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
+#include "webkit/base/file_path_string_conversions.h"
 #include "webkit/dom_storage/dom_storage_types.h"
 #include "webkit/glue/alt_error_page_resource_fetcher.h"
 #include "webkit/glue/dom_operations.h"
@@ -491,31 +489,6 @@ static void NotifyTimezoneChange(WebKit::WebFrame* frame) {
     NotifyTimezoneChange(child);
 }
 
-// Recursively walks the frame tree and serializes it to JSON as described in
-// the comment for ViewMsg_UpdateFrameTree.  If |exclude_frame_subtree| is not
-// NULL, the subtree for the frame is not included in the serialized form.
-// This is used when a frame is going to be removed from the tree.
-static void ConstructFrameTree(WebKit::WebFrame* frame,
-                               WebKit::WebFrame* exclude_frame_subtree,
-                               base::DictionaryValue* dict) {
-  dict->SetString(kFrameTreeNodeNameKey,
-                  UTF16ToUTF8(frame->assignedName()).c_str());
-  dict->SetInteger(kFrameTreeNodeIdKey, frame->identifier());
-
-  WebFrame* child = frame->firstChild();
-  ListValue* children = new ListValue();
-  for (; child; child = child->nextSibling()) {
-    if (child == exclude_frame_subtree)
-      continue;
-
-    base::DictionaryValue* d = new base::DictionaryValue();
-    ConstructFrameTree(child, exclude_frame_subtree, d);
-    children->Append(d);
-  }
-  if (children->GetSize() > 0)
-    dict->Set(kFrameTreeNodeSubtreeKey, children);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 struct RenderViewImpl::PendingFileChooser {
@@ -581,7 +554,6 @@ RenderViewImpl::RenderViewImpl(
     bool swapped_out,
     int32 next_page_id,
     const WebKit::WebScreenInfo& screen_info,
-    old::GuestToEmbedderChannel* guest_to_embedder_channel,
     AccessibilityMode accessibility_mode)
     : RenderWidget(WebKit::WebPopupTypeNone, screen_info, swapped_out),
       webkit_preferences_(webkit_prefs),
@@ -620,15 +592,14 @@ RenderViewImpl::RenderViewImpl(
       expected_content_intent_id_(0),
       media_player_proxy_(NULL),
       synchronous_find_active_match_ordinal_(-1),
+      ALLOW_THIS_IN_INITIALIZER_LIST(
+          load_progress_tracker_(new LoadProgressTracker(this))),
 #endif
       session_storage_namespace_id_(session_storage_namespace_id),
       handling_select_range_(false),
 #if defined(OS_WIN)
       focused_plugin_id_(-1),
 #endif
-      guest_to_embedder_channel_(guest_to_embedder_channel),
-      guest_pp_instance_(0),
-      guest_uninitialized_context_(NULL),
       updating_frame_tree_(false),
       pending_frame_tree_update_(false),
       target_process_id_(0),
@@ -689,7 +660,7 @@ RenderViewImpl::RenderViewImpl(
 
   // If this is a popup, we must wait for the CreatingNew_ACK message before
   // completing initialization.  Otherwise, we can finish it now.
-  if (!guest_to_embedder_channel && opener_id_ == MSG_ROUTING_NONE) {
+  if (opener_id_ == MSG_ROUTING_NONE) {
     did_show_ = true;
     CompleteInit(parent_hwnd);
   }
@@ -827,7 +798,6 @@ RenderViewImpl* RenderViewImpl::Create(
     bool swapped_out,
     int32 next_page_id,
     const WebKit::WebScreenInfo& screen_info,
-    old::GuestToEmbedderChannel* guest_to_embedder_channel,
     AccessibilityMode accessibility_mode) {
   DCHECK(routing_id != MSG_ROUTING_NONE);
   return new RenderViewImpl(
@@ -844,7 +814,6 @@ RenderViewImpl* RenderViewImpl::Create(
       swapped_out,
       next_page_id,
       screen_info,
-      guest_to_embedder_channel,
       accessibility_mode);
 }
 
@@ -859,24 +828,6 @@ void RenderViewImpl::RemoveObserver(RenderViewObserver* observer) {
 
 WebKit::WebView* RenderViewImpl::webview() const {
   return static_cast<WebKit::WebView*>(webwidget());
-}
-
-void RenderViewImpl::SetReportLoadProgressEnabled(bool enabled) {
-  if (!enabled) {
-    load_progress_tracker_.reset(NULL);
-    return;
-  }
-  if (load_progress_tracker_ == NULL)
-    load_progress_tracker_.reset(new LoadProgressTracker(this));
-}
-
-old::GuestToEmbedderChannel* RenderViewImpl::GetGuestToEmbedderChannel() const {
-  return guest_to_embedder_channel_;
-}
-
-void RenderViewImpl::SetGuestToEmbedderChannel(
-    old::GuestToEmbedderChannel* channel) {
-  guest_to_embedder_channel_ = channel;
 }
 
 void RenderViewImpl::PluginCrashed(const FilePath& plugin_path) {
@@ -1074,25 +1025,6 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
 }
 
 void RenderViewImpl::OnNavigate(const ViewMsg_Navigate_Params& params) {
-  // If we don't have guest-to-embedder channel associated with this RenderView
-  // but we need one, grab one now.
-  if (!params.embedder_channel_name.empty() && !GetGuestToEmbedderChannel()) {
-    old::GuestToEmbedderChannel* embedder_channel =
-        RenderThreadImpl::current()->browser_plugin_channel_manager()->
-            GetChannelByName(params.embedder_channel_name);
-    DCHECK(embedder_channel);
-    SetGuestToEmbedderChannel(embedder_channel);
-    host_window_set_ = false;
-    // TODO(fsamuel): This is test code. Need to find a better way to tell
-    // a WebView to drop its context. This needs to change in
-    // GuestToEmbedderChannel::OnContextLost.
-    GetWebView()->loseCompositorContext(1);
-    RenderThreadImpl::current()->browser_plugin_channel_manager()->
-        ReportChannelToEmbedder(this,
-                                embedder_channel->embedder_channel_handle(),
-                                params.embedder_channel_name,
-                                params.embedder_container_id);
-  }
   MaybeHandleDebugURL(params.url);
   if (!webview())
     return;
@@ -1825,9 +1757,6 @@ WebView* RenderViewImpl::createView(
   if (routing_id == MSG_ROUTING_NONE)
     return NULL;
 
-  // TODO(fsamuel): The host renderer needs to be able to control whether
-  // the guest renderer is allowed to do this or not. This current
-  // behavior is not well defined.
   RenderViewImpl* view = RenderViewImpl::Create(
       0,
       routing_id_,
@@ -1842,7 +1771,6 @@ WebView* RenderViewImpl::createView(
       false,
       1,
       screen_info_,
-      guest_to_embedder_channel_,
       accessibility_mode_);
   view->opened_by_user_gesture_ = params.user_gesture;
 
@@ -1977,7 +1905,7 @@ bool RenderViewImpl::enumerateChosenDirectory(
   return Send(new ViewHostMsg_EnumerateDirectory(
       routing_id_,
       id,
-      webkit_glue::WebStringToFilePath(path)));
+      webkit_base::WebStringToFilePath(path)));
 }
 
 void RenderViewImpl::initializeHelperPluginWebFrame(
@@ -2128,7 +2056,7 @@ bool RenderViewImpl::runFileChooser(
   ipc_params.extract_directory = params.extractDirectory;
   ipc_params.title = params.title;
   ipc_params.default_file_name =
-      webkit_glue::WebStringToFilePath(params.initialValue);
+      webkit_base::WebStringToFilePath(params.initialValue);
   ipc_params.accept_types.reserve(params.acceptTypes.size());
   for (size_t i = 0; i < params.acceptTypes.size(); ++i)
     ipc_params.accept_types.push_back(params.acceptTypes[i]);
@@ -2194,12 +2122,6 @@ bool RenderViewImpl::runModalBeforeUnloadDialog(
 
 void RenderViewImpl::showContextMenu(
     WebFrame* frame, const WebContextMenuData& data) {
-  // TODO(fsamuel): In the future, we might want the embedder to be able to
-  // decide whether the guest can show a context menu or not. See
-  // http://www.crbug.com/134207
-  if (GetGuestToEmbedderChannel())
-    return;
-
   ContextMenuParams params(data);
 
   // Plugins, e.g. PDF, don't currently update the render view when their
@@ -2207,7 +2129,14 @@ void RenderViewImpl::showContextMenu(
   // selection. If that's the case, update the render view's state just prior
   // to showing the context menu.
   // TODO(asvitkine): http://crbug.com/152432
-  if (params.selection_text != selection_text_) {
+  string16 selection_text;
+  if (!selection_text_.empty() && !selection_range_.is_empty()) {
+    const int start = selection_range_.GetMin() - selection_text_offset_;
+    const size_t length = selection_range_.length();
+    if (start >= 0 && start + length <= selection_text_.length())
+      selection_text = selection_text_.substr(start, length);
+  }
+  if (params.selection_text != selection_text) {
     selection_text_ = params.selection_text;
     // TODO(asvitkine): Text offset and range is not available in this case.
     selection_text_offset_ = 0;
@@ -2416,12 +2345,19 @@ void RenderViewImpl::didBlur() {
 // created RenderView (i.e., as a blocked popup or as a new tab).
 //
 void RenderViewImpl::show(WebNavigationPolicy policy) {
-  DCHECK(!did_show_) << "received extraneous Show call";
-  DCHECK(opener_id_ != MSG_ROUTING_NONE);
-
-  if (did_show_)
+  if (did_show_) {
+#if defined(OS_ANDROID)
+    // When supports_multiple_windows is disabled, popups are reusing
+    // the same view. In some scenarios, this makes WebKit to call show() twice.
+    if (!webkit_preferences_.supports_multiple_windows)
+      return;
+#endif
+    NOTREACHED() << "received extraneous Show call";
     return;
+  }
   did_show_ = true;
+
+  DCHECK(opener_id_ != MSG_ROUTING_NONE);
 
   if (GetContentClient()->renderer()->AllowPopup(creator_url_))
     opened_by_user_gesture_ = true;
@@ -2505,16 +2441,9 @@ WebPlugin* RenderViewImpl::createPlugin(WebFrame* frame,
     return plugin;
   }
 
-  const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   if (UTF16ToASCII(params.mimeType) == kBrowserPluginMimeType) {
-    if (cmd_line->HasSwitch(switches::kEnableBrowserPluginOldImplementation)) {
-      // TODO(fsamuel): Remove this once upstreaming of the new browser plugin
-      // is complete.
-      return old::BrowserPlugin::Create(this, frame, params);
-    } else {
-      return BrowserPluginManager::Get()->CreateBrowserPlugin(this, frame,
-                                                                       params);
-    }
+    return BrowserPluginManager::Get()->
+        CreateBrowserPlugin(this, frame, params);
   }
 
   webkit::WebPluginInfo info;
@@ -3361,7 +3290,9 @@ void RenderViewImpl::didCommitProvisionalLoad(WebFrame* frame,
     document_state->set_commit_load_time(Time::Now());
 
   if (document_state->must_reset_scroll_and_scale_state()) {
+#if defined(OS_ANDROID) // crbug.com/153907
     webview()->resetScrollAndScaleState();
+#endif
     document_state->set_must_reset_scroll_and_scale_state(false);
   }
 
@@ -3843,17 +3774,6 @@ WebGraphicsContext3D* RenderViewImpl::CreateGraphicsContext3D(
     const WebGraphicsContext3D::Attributes& attributes) {
   if (!webview())
     return NULL;
-
-  if (GetGuestToEmbedderChannel()) {
-    WebGraphicsContext3DCommandBufferImpl* context =
-        GetGuestToEmbedderChannel()->CreateWebGraphicsContext3D(
-            this, attributes, false);
-    if (!guest_pp_instance()) {
-      guest_uninitialized_context_ = context;
-      guest_attributes_ = attributes;
-    }
-    return context;
-  }
 
   // The WebGraphicsContext3DInProcessImpl code path is used for
   // layout tests (though not through this code) as well as for
@@ -4356,31 +4276,6 @@ bool RenderViewImpl::IsEditableNode(const WebNode& node) const {
   }
 
   return false;
-}
-
-void RenderViewImpl::GuestReady(PP_Instance instance) {
-  guest_pp_instance_ = instance;
-  if (guest_uninitialized_context_) {
-    bool success = GetGuestToEmbedderChannel()->CreateGraphicsContext(
-        guest_uninitialized_context_,
-        guest_attributes_,
-        false,
-        this);
-    DCHECK(success);
-    CompleteInit(host_window_);
-    guest_uninitialized_context_ = NULL;
-  }
-}
-
-webkit::ppapi::WebPluginImpl* RenderViewImpl::CreateBrowserPlugin(
-    const IPC::ChannelHandle& channel_handle,
-    int guest_process_id,
-    const WebKit::WebPluginParams& params) {
-  scoped_refptr<webkit::ppapi::PluginModule> pepper_module(
-      pepper_delegate_.CreateBrowserPluginModule(channel_handle,
-                                                 guest_process_id));
-  return new webkit::ppapi::WebPluginImpl(
-      pepper_module.get(), params, pepper_delegate_.AsWeakPtr());
 }
 
 WebKit::WebPlugin* RenderViewImpl::CreatePlugin(
@@ -5218,7 +5113,7 @@ void RenderViewImpl::OnEnumerateDirectoryResponse(
 
   WebVector<WebString> ws_file_names(paths.size());
   for (size_t i = 0; i < paths.size(); ++i)
-    ws_file_names[i] = webkit_glue::FilePathToWebString(paths[i]);
+    ws_file_names[i] = webkit_base::FilePathToWebString(paths[i]);
 
   enumeration_completions_[id]->didChooseFile(ws_file_names);
   enumeration_completions_.erase(id);
@@ -5236,8 +5131,8 @@ void RenderViewImpl::OnFileChooserResponse(
       files.size());
   for (size_t i = 0; i < files.size(); ++i) {
     WebFileChooserCompletion::SelectedFileInfo selected_file;
-    selected_file.path = webkit_glue::FilePathToWebString(files[i].local_path);
-    selected_file.displayName = webkit_glue::FilePathStringToWebString(
+    selected_file.path = webkit_base::FilePathToWebString(files[i].local_path);
+    selected_file.displayName = webkit_base::FilePathStringToWebString(
         files[i].display_name);
     selected_files[i] = selected_file;
   }
@@ -5394,11 +5289,11 @@ void RenderViewImpl::OnGetSerializedHtmlDataForCurrentPageWithLocalLinks(
   // Convert std::vector of std::strings to WebVector<WebString>
   WebVector<WebString> webstring_paths(local_paths.size());
   for (size_t i = 0; i < local_paths.size(); i++)
-    webstring_paths[i] = webkit_glue::FilePathToWebString(local_paths[i]);
+    webstring_paths[i] = webkit_base::FilePathToWebString(local_paths[i]);
 
   WebPageSerializer::serialize(webview()->mainFrame(), true, this, weburl_links,
                                webstring_paths,
-                               webkit_glue::FilePathToWebString(
+                               webkit_base::FilePathToWebString(
                                    local_directory_name));
 }
 
@@ -5574,8 +5469,6 @@ void RenderViewImpl::WillInitiatePaint() {
 void RenderViewImpl::DidInitiatePaint() {
   // Notify the pepper plugins that we've painted, and are waiting to flush.
   pepper_delegate_.ViewInitiatedPaint();
-  if (GetGuestToEmbedderChannel())
-    GetGuestToEmbedderChannel()->IssueSwapBuffers(guest_graphics_resource());
 }
 
 void RenderViewImpl::DidFlushPaint() {
@@ -5817,6 +5710,10 @@ bool RenderViewImpl::SupportsAsynchronousSwapBuffers() {
     return false;
 
   return true;
+}
+
+bool RenderViewImpl::ForceCompositingModeEnabled() {
+  return webkit_preferences_.force_compositing_mode;
 }
 
 void RenderViewImpl::OnSetFocus(bool enable) {

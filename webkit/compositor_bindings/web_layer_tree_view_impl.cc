@@ -124,7 +124,8 @@ void WebLayerTreeViewImpl::setPageScaleFactorAndLimits(float pageScaleFactor, fl
 
 void WebLayerTreeViewImpl::startPageScaleAnimation(const WebPoint& scroll, bool useAnchor, float newPageScale, double durationSec)
 {
-    m_layerTreeHost->startPageScaleAnimation(IntSize(scroll.x, scroll.y), useAnchor, newPageScale, durationSec);
+    base::TimeDelta duration = base::TimeDelta::FromMicroseconds(durationSec * base::Time::kMicrosecondsPerSecond);
+    m_layerTreeHost->startPageScaleAnimation(IntSize(scroll.x, scroll.y), useAnchor, newPageScale, duration);
 }
 
 void WebLayerTreeViewImpl::setNeedsAnimate()
@@ -150,8 +151,9 @@ void WebLayerTreeViewImpl::composite()
         m_layerTreeHost->composite();
 }
 
-void WebLayerTreeViewImpl::updateAnimations(double frameBeginTime)
+void WebLayerTreeViewImpl::updateAnimations(double frameBeginTimeSeconds)
 {
+    base::TimeTicks frameBeginTime = base::TimeTicks::FromInternalValue(frameBeginTimeSeconds * base::Time::kMicrosecondsPerSecond);
     m_layerTreeHost->updateAnimations(frameBeginTime);
 }
 
@@ -163,6 +165,11 @@ bool WebLayerTreeViewImpl::compositeAndReadback(void *pixels, const WebRect& rec
 void WebLayerTreeViewImpl::finishAllRendering()
 {
     m_layerTreeHost->finishAllRendering();
+}
+
+void WebLayerTreeViewImpl::setDeferCommits(bool deferCommits)
+{
+    m_layerTreeHost->setDeferCommits(deferCommits);
 }
 
 void WebLayerTreeViewImpl::renderingStats(WebRenderingStats& stats) const

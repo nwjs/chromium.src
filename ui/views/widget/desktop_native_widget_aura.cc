@@ -142,6 +142,8 @@ ui::Compositor* DesktopNativeWidgetAura::GetCompositor() {
 void DesktopNativeWidgetAura::CalculateOffsetToAncestorWithLayer(
       gfx::Point* offset,
       ui::Layer** layer_parent) {
+  if (layer_parent)
+    *layer_parent = window_->layer();
 }
 
 void DesktopNativeWidgetAura::ViewRemoved(View* view) {
@@ -418,6 +420,8 @@ void DesktopNativeWidgetAura::OnFocus(aura::Window* old_focused_window) {
 }
 
 void DesktopNativeWidgetAura::OnBlur() {
+  if (GetWidget()->HasFocusManager())
+    GetWidget()->GetFocusManager()->StoreFocusedView();
   desktop_root_window_host_->OnNativeWidgetBlur();
   native_widget_delegate_->OnNativeBlur(
       window_->GetFocusManager()->GetFocusedWindow());
@@ -499,8 +503,8 @@ ui::EventResult DesktopNativeWidgetAura::OnKeyEvent(ui::KeyEvent* event) {
   // and the window may be invisible by that time.
   if (!window_->IsVisible())
     return ui::ER_UNHANDLED;
-  GetWidget()->GetInputMethod()->DispatchKeyEvent(*event);
-  return ui::ER_HANDLED;
+  return native_widget_delegate_->OnKeyEvent(*event) ?
+      ui::ER_HANDLED : ui::ER_UNHANDLED;;
 }
 
 ui::EventResult DesktopNativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {
@@ -549,8 +553,6 @@ void DesktopNativeWidgetAura::OnActivated() {
 }
 
 void DesktopNativeWidgetAura::OnLostActive() {
-  if (GetWidget()->HasFocusManager())
-    GetWidget()->GetFocusManager()->StoreFocusedView();
   native_widget_delegate_->OnNativeWidgetActivationChanged(false);
   if (IsVisible() && GetWidget()->non_client_view())
     GetWidget()->non_client_view()->SchedulePaint();

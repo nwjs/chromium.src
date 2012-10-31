@@ -26,9 +26,7 @@
 #include "ui/base/ime/text_input_type.h"
 #include "ui/gfx/native_widget_types.h"
 
-class MockRenderWidgetHost;
 class WebCursor;
-struct EditCommand;
 struct ViewHostMsg_UpdateRect_Params;
 struct ViewHostMsg_TextInputState_Params;
 struct ViewHostMsg_BeginSmoothScroll_Params;
@@ -58,10 +56,12 @@ class WebLayer;
 namespace content {
 class BackingStore;
 class GestureEventFilter;
+class MockRenderWidgetHost;
 class RenderWidgetHostDelegate;
 class RenderWidgetHostViewPort;
 class SmoothScrollGesture;
 class TouchEventQueue;
+struct EditCommand;
 
 // This implements the RenderWidgetHost interface that is exposed to
 // embedders of content, and adds things only visible to content.
@@ -393,6 +393,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   static void AcknowledgeBufferPresent(
       int32 route_id,
       int gpu_host_id,
+      bool presented,
       uint32 sync_point);
 
   // Called by the view in response to AcceleratedSurfaceBuffersSwapped for
@@ -519,7 +520,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   std::queue<WebKit::WebInputEvent::Type> in_process_event_types_;
 
  private:
-  friend class ::MockRenderWidgetHost;
+  friend class MockRenderWidgetHost;
 
   // Tell this object to destroy itself.
   void Destroy();

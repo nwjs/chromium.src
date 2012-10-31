@@ -43,7 +43,7 @@ class OmniboxViewWin
                                     ES_NOHIDESEL> >,
       public CRichEditCommands<OmniboxViewWin>,
       public ui::SimpleMenuModel::Delegate,
-      public ui::TsfEventRouter::Observer,
+      public ui::TsfEventRouterObserver,
       public OmniboxView {
  public:
   struct State {
@@ -64,8 +64,7 @@ class OmniboxViewWin
                  LocationBarView* parent_view,
                  CommandUpdater* command_updater,
                  bool popup_window_mode,
-                 views::View* location_bar,
-                 views::View* popup_parent_view);
+                 views::View* location_bar);
   ~OmniboxViewWin();
 
   // Gets the relative window for the specified native view.
@@ -109,8 +108,7 @@ class OmniboxViewWin
   virtual bool OnAfterPossibleChange() OVERRIDE;
   virtual gfx::NativeView GetNativeView() const OVERRIDE;
   virtual gfx::NativeView GetRelativeWindowForPopup() const OVERRIDE;
-  virtual void SetInstantSuggestion(const string16& suggestion,
-                                    bool animate_to_complete) OVERRIDE;
+  virtual void SetInstantSuggestion(const string16& suggestion) OVERRIDE;
   virtual int TextWidth() const OVERRIDE;
   virtual string16 GetInstantSuggestion() const OVERRIDE;
   virtual bool IsImeComposing() const OVERRIDE;
@@ -331,9 +329,9 @@ class OmniboxViewWin
   // If a host name is found, it makes it visually stronger.
   virtual void EmphasizeURLComponents() OVERRIDE;
 
-  // TsfEventRouter::Observer
-  virtual void OnTextUpdated() OVERRIDE;
+  // TsfEventRouter::Observer:
   virtual void OnCandidateWindowCountChanged(size_t window_count) OVERRIDE;
+  virtual void OnTextUpdated(const ui::Range& composition_range) OVERRIDE;
 
   // Erases the portion of the selection in the font's y-adjustment area.  For
   // some reason the edit draws the selection rect here even though it's not
@@ -518,7 +516,7 @@ class OmniboxViewWin
   views::NativeViewHost* native_view_host_;
 
   // TSF related event router.
-  scoped_refptr<ui::TsfEventRouter> tsf_event_router_;
+  scoped_ptr<ui::TsfEventRouter> tsf_event_router_;
 
   DISALLOW_COPY_AND_ASSIGN(OmniboxViewWin);
 };

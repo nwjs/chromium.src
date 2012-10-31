@@ -20,7 +20,7 @@
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
-using message_center::TrayBubbleView;
+using views::TrayBubbleView;
 
 namespace ash {
 
@@ -304,6 +304,16 @@ void SystemTrayBubble::SetVisible(bool is_visible) {
 
 bool SystemTrayBubble::IsVisible() {
   return bubble_view() && bubble_view()->GetWidget()->IsVisible();
+}
+
+bool SystemTrayBubble::ShouldShowLauncher() const {
+  for (std::vector<ash::SystemTrayItem*>::const_iterator it = items_.begin();
+       it != items_.end();
+       ++it) {
+    if ((*it)->ShouldShowLauncher())
+      return true;
+  }
+  return false;
 }
 
 void SystemTrayBubble::CreateItemViews(user::LoginStatus login_status) {

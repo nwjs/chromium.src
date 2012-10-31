@@ -166,11 +166,18 @@ class ExtensionHost : public content::WebContentsDelegate,
                               bool user_gesture,
                               bool* was_blocked) OVERRIDE;
   virtual void CloseContents(content::WebContents* contents) OVERRIDE;
+#if defined(OS_CHROMEOS)
+  virtual bool ShouldSuppressDialogs() OVERRIDE;
+#endif
   virtual void OnStartDownload(content::WebContents* source,
                                content::DownloadItem* download) OVERRIDE;
   virtual void WebIntentDispatch(
       content::WebContents* web_contents,
       content::WebIntentsDispatcher* intents_dispatcher) OVERRIDE;
+  virtual void RequestMediaAccessPermission(
+      content::WebContents* web_contents,
+      const content::MediaStreamRequest* request,
+      const content::MediaResponseCallback& callback) OVERRIDE;
 
   // content::NotificationObserver
   virtual void Observe(int type,

@@ -61,6 +61,7 @@ class ShellWindowCocoa : public NativeShellWindow {
   virtual gfx::Rect GetBounds() const OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void ShowInactive() OVERRIDE;
+  virtual void Hide() OVERRIDE;
   virtual void Close() OVERRIDE;
   virtual void Activate() OVERRIDE;
   virtual void Deactivate() OVERRIDE;
@@ -105,6 +106,7 @@ class ShellWindowCocoa : public NativeShellWindow {
       const std::vector<extensions::DraggableRegion>& regions) OVERRIDE;
   virtual void HandleKeyboardEvent(
       const content::NativeWebKeyboardEvent& event) OVERRIDE;
+  virtual void RenderViewHostChanged() OVERRIDE {}
 
  private:
   virtual ~ShellWindowCocoa();
@@ -133,6 +135,9 @@ class ShellWindowCocoa : public NativeShellWindow {
 
   bool is_fullscreen_;
   NSRect restored_bounds_;
+
+  gfx::Size min_size_;
+  gfx::Size max_size_;
 
   scoped_nsobject<ShellWindowController> window_controller_;
   NSInteger attention_request_id_;  // identifier from requestUserAttention

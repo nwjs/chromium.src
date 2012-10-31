@@ -53,12 +53,6 @@ class ASH_EXPORT ToplevelWindowEventHandler
   // Overridden form ash::DisplayController::Observer:
   virtual void OnDisplayConfigurationChanging() OVERRIDE;
 
- protected:
-  // Creates a new WindowResizer.
-  virtual WindowResizer* CreateWindowResizer(aura::Window* window,
-                                             const gfx::Point& point_in_parent,
-                                             int window_component);
-
  private:
   class ScopedWindowResizer;
 
@@ -109,6 +103,10 @@ class ASH_EXPORT ToplevelWindowEventHandler
   scoped_ptr<ScopedWindowResizer> window_resizer_;
 
   base::Closure quit_closure_;
+
+  // Used to track if this object is deleted while running a nested message
+  // loop. If non-null the destructor sets this to true.
+  bool* destroyed_;
 
   DISALLOW_COPY_AND_ASSIGN(ToplevelWindowEventHandler);
 };

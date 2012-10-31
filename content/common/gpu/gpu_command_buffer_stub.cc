@@ -212,6 +212,8 @@ bool GpuCommandBufferStub::OnMessageReceived(const IPC::Message& message) {
                         OnWaitSyncPoint)
     IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_SignalSyncPoint,
                         OnSignalSyncPoint)
+    IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_SendClientManagedMemoryStats,
+                        OnReceivedClientManagedMemoryStats)
     IPC_MESSAGE_HANDLER(
         GpuCommandBufferMsg_SetClientHasMemoryAllocationChangedCallback,
         OnSetClientHasMemoryAllocationChangedCallback)
@@ -772,6 +774,14 @@ void GpuCommandBufferStub::OnSignalSyncPointAck(uint32 id) {
   Send(new GpuCommandBufferMsg_SignalSyncPointAck(route_id_, id));
 }
 
+void GpuCommandBufferStub::OnReceivedClientManagedMemoryStats(
+    const GpuManagedMemoryStats& stats) {
+  TRACE_EVENT0(
+      "gpu",
+      "GpuCommandBufferStub::OnReceivedClientManagedMemoryStats");
+  memory_manager_state_->managed_memory_stats = stats;
+}
+
 void GpuCommandBufferStub::OnSetClientHasMemoryAllocationChangedCallback(
     bool has_callback) {
   TRACE_EVENT0(
@@ -830,19 +840,20 @@ bool GpuCommandBufferStub::IsInSameContextShareGroup(
       static_cast<const GpuCommandBufferStub&>(other).context_group_;
 }
 
-
 const GpuCommandBufferStubBase::MemoryManagerState&
     GpuCommandBufferStub::memory_manager_state() const {
   return *memory_manager_state_.get();
 }
 void GpuCommandBufferStub::SetMemoryAllocation(
     const GpuMemoryAllocation& allocation) {
-  Send(new GpuCommandBufferMsg_SetMemoryAllocation(route_id_, allocation));
+  Send(new GpuCommandBufferMsg_SetMemoryAllocation(
+      route_id_, allocation.renderer_allocation));
   // This can be called outside of OnMessageReceived, so the context needs to be
   // made current before calling methods on the surface.
   if (!surface_ || !MakeCurrent())
     return;
-  surface_->SetFrontbufferAllocation(allocation.suggest_have_frontbuffer);
+  surface_->SetFrontbufferAllocation(
+      allocation.browser_allocation.suggest_have_frontbuffer);
 }
 
 }  // namespace content

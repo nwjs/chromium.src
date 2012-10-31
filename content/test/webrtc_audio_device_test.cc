@@ -134,8 +134,7 @@ void WebRTCAudioDeviceTest::SetUp() {
 
   // Create our own AudioManager and MediaStreamManager.
   audio_manager_.reset(media::AudioManager::Create());
-  media_stream_manager_.reset(
-      new media_stream::MediaStreamManager(audio_manager_.get()));
+  media_stream_manager_.reset(new MediaStreamManager(audio_manager_.get()));
 
   // Construct the resource context on the UI thread.
   resource_context_.reset(new MockRTCResourceContext);
@@ -190,7 +189,7 @@ bool WebRTCAudioDeviceTest::Send(IPC::Message* message) {
 void WebRTCAudioDeviceTest::SetAudioUtilCallback(AudioUtilInterface* callback) {
   // Invalidate any potentially cached values since the new callback should
   // be used for those queries.
-  AudioHardware::ResetCache();
+  ResetAudioCache();
   audio_util_callback_ = callback;
 }
 

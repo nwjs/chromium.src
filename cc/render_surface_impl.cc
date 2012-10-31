@@ -6,11 +6,11 @@
 
 #include "cc/render_surface_impl.h"
 
-#include "CCDamageTracker.h"
-#include "CCDebugBorderDrawQuad.h"
-#include "CCDelegatedRendererLayerImpl.h"
 #include "base/logging.h"
 #include "base/stringprintf.h"
+#include "cc/damage_tracker.h"
+#include "cc/debug_border_draw_quad.h"
+#include "cc/delegated_renderer_layer_impl.h"
 #include "cc/layer_impl.h"
 #include "cc/math_util.h"
 #include "cc/quad_sink.h"
@@ -193,6 +193,7 @@ void RenderSurfaceImpl::appendRenderPasses(RenderPassSink& passSink)
     scoped_ptr<RenderPass> pass = RenderPass::create(renderPassId(), m_contentRect, m_screenSpaceTransform);
     pass->setDamageRect(m_damageTracker->currentDamageRect());
     pass->setFilters(m_owningLayer->filters());
+    pass->setFilter(m_owningLayer->filter());
     pass->setBackgroundFilters(m_owningLayer->backgroundFilters());
     passSink.appendRenderPass(pass.Pass());
 }
@@ -232,8 +233,8 @@ void RenderSurfaceImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQ
 
     float maskTexCoordScaleX = 1;
     float maskTexCoordScaleY = 1;
-    float maskTexCoordOffsetX = 1;
-    float maskTexCoordOffsetY = 1;
+    float maskTexCoordOffsetX = 0;
+    float maskTexCoordOffsetY = 0;
     if (maskLayer) {
         maskTexCoordScaleX = static_cast<float>(contentRect().width()) / maskLayer->contentBounds().width();
         maskTexCoordScaleY = static_cast<float>(contentRect().height()) / maskLayer->contentBounds().height();

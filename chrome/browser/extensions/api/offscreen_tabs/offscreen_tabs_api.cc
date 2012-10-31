@@ -22,6 +22,7 @@
 #include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_function_dispatcher.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -282,9 +283,10 @@ void OffscreenTab::Observe(int type,
   // The event router only dispatches the event to renderers listening for the
   // event.
   Profile* profile = parent_tab_->tab_contents()->profile();
-  profile->GetExtensionEventRouter()->DispatchEventToRenderers(
-      events::kOnOffscreenTabUpdated, args.Pass(), profile, GURL(),
-      extensions::EventFilteringInfo());
+  extensions::ExtensionSystem::Get(profile)->event_router()->
+      DispatchEventToRenderers(
+          events::kOnOffscreenTabUpdated, args.Pass(), profile, GURL(),
+          extensions::EventFilteringInfo());
 }
 
 ParentTab::ParentTab() : tab_contents_(NULL) {}
@@ -807,7 +809,7 @@ bool UpdateOffscreenTabFunction::RunImpl() {
   DictionaryValue* update_props;
   EXTENSION_FUNCTION_VALIDATE(args_->GetDictionary(1, &update_props));
 
-  tab_contents_ = offscreen_tab->tab_contents();
+  web_contents_ = offscreen_tab->tab_contents()->web_contents();
   bool is_async = false;
   if (!UpdateURLIfPresent(update_props, offscreen_tab_id, &is_async))
     return false;
@@ -815,8 +817,7 @@ bool UpdateOffscreenTabFunction::RunImpl() {
   // Update the width and height, if specified.
   if (update_props->HasKey(tabs_keys::kWidthKey) ||
       update_props->HasKey(tabs_keys::kHeightKey)) {
-    const gfx::Size& size =
-        tab_contents_->web_contents()->GetView()->GetContainerSize();
+    const gfx::Size& size = web_contents_->GetView()->GetContainerSize();
 
     int width;
     if (update_props->HasKey(tabs_keys::kWidthKey))

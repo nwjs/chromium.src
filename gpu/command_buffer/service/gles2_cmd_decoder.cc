@@ -971,6 +971,8 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
 
   // Helper for glGetBooleanv, glGetFloatv and glGetIntegerv
   bool GetHelper(GLenum pname, GLint* params, GLsizei* num_written);
+  // Same as GetHelper except for auto-generated state.
+  bool GetState(GLenum pname, GLint* params, GLsizei* num_written);
 
   // Wrapper for glCreateProgram
   bool CreateProgramHelper(GLuint client_id);
@@ -1020,16 +1022,10 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
   // Wrapper for glClear
   error::Error DoClear(GLbitfield mask);
 
-  // Wrappers for clear and mask settings functions.
-  void DoClearColor(
-      GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
-  void DoClearDepthf(GLclampf depth);
-  void DoClearStencil(GLint s);
-  void DoColorMask(
-      GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
-  void DoDepthMask(GLboolean depth);
-  void DoStencilMask(GLuint mask);
-  void DoStencilMaskSeparate(GLenum face, GLuint mask);
+  // Wrappers for various state.
+  void DoDepthRangef(GLclampf znear, GLclampf zfar);
+  void DoHint(GLenum target, GLenum mode);
+  void DoSampleCoverage (GLclampf value, GLboolean invert);
 
   // Wrapper for glCompileShader.
   void DoCompileShader(GLuint shader);
@@ -1386,6 +1382,14 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
   void PerformanceWarning(const std::string& msg);
   const std::string& GetLogPrefix() const;
 
+  const FeatureInfo::FeatureFlags& features() const {
+    return feature_info_->feature_flags();
+  }
+
+  const FeatureInfo::Workarounds& workarounds() const {
+    return feature_info_->workarounds();
+  }
+
   bool ShouldDeferDraws() {
     return !offscreen_target_frame_buffer_.get() &&
            state_.bound_draw_framebuffer == NULL &&
@@ -1458,7 +1462,7 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
 
   // state saved for clearing so we can clear render buffers and then
   // restore to these values.
-  bool state_dirty_;
+  bool clear_state_dirty_;
 
   // The offscreen frame buffer that the client renders to. With EGL, the
   // depth and stencil buffers are separate. With regular GL there is a single
@@ -1531,9 +1535,6 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
 
   bool has_robustness_extension_;
   GLenum reset_status_;
-
-  bool needs_mac_nvidia_driver_workaround_;
-  bool needs_glsl_built_in_function_emulation_;
 
   // These flags are used to override the state of the shared feature_info_
   // member.  Because the same FeatureInfo instance may be shared among many
@@ -1670,7 +1671,7 @@ ScopedResolvedFrameBufferBinder::~ScopedResolvedFrameBufferBinder() {
 
   ScopedGLErrorSuppressor suppressor(decoder_);
   decoder_->RestoreCurrentFramebufferBindings();
-  if (decoder_->state_.enable_scissor_test) {
+  if (decoder_->state_.enable_flags.scissor_test) {
     glEnable(GL_SCISSOR_TEST);
   }
 }
@@ -1916,7 +1917,7 @@ GLES2DecoderImpl::GLES2DecoderImpl(ContextGroup* group)
       attrib_0_size_(0),
       fixed_attrib_buffer_id_(0),
       fixed_attrib_buffer_size_(0),
-      state_dirty_(true),
+      clear_state_dirty_(true),
       offscreen_target_color_format_(0),
       offscreen_target_depth_format_(0),
       offscreen_target_stencil_format_(0),
@@ -1937,8 +1938,6 @@ GLES2DecoderImpl::GLES2DecoderImpl(ContextGroup* group)
       frame_number_(0),
       has_robustness_extension_(false),
       reset_status_(GL_NO_ERROR),
-      needs_mac_nvidia_driver_workaround_(false),
-      needs_glsl_built_in_function_emulation_(false),
       force_webgl_glsl_validation_(false),
       derivatives_explicitly_enabled_(false),
       compile_shader_always_succeeds_(false),
@@ -1961,8 +1960,7 @@ GLES2DecoderImpl::GLES2DecoderImpl(ContextGroup* group)
   // empty string to CompileShader and this is not a valid shader.
   // TODO(apatrick): fix this test.
   if ((gfx::GetGLImplementation() == gfx::kGLImplementationEGLGLES2 &&
-       !feature_info_->feature_flags().chromium_webglsl &&
-       !force_webgl_glsl_validation_) ||
+       !features().chromium_webglsl && !force_webgl_glsl_validation_) ||
       gfx::GetGLImplementation() == gfx::kGLImplementationMockGL ||
       CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableGLSLTranslator)) {
@@ -2049,12 +2047,12 @@ bool GLES2DecoderImpl::Initialize(
     glActiveTexture(GL_TEXTURE0 + tt);
     // We want the last bind to be 2D.
     TextureManager::TextureInfo* info;
-    if (feature_info_->feature_flags().oes_egl_image_external) {
+    if (features().oes_egl_image_external) {
       info = texture_manager()->GetDefaultTextureInfo(GL_TEXTURE_EXTERNAL_OES);
       state_.texture_units[tt].bound_texture_external_oes = info;
       glBindTexture(GL_TEXTURE_EXTERNAL_OES, info->service_id());
     }
-    if (feature_info_->feature_flags().arb_texture_rectangle) {
+    if (features().arb_texture_rectangle) {
       info = texture_manager()->GetDefaultTextureInfo(GL_TEXTURE_RECTANGLE_ARB);
       state_.texture_units[tt].bound_texture_rectangle_arb = info;
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, info->service_id());
@@ -2227,68 +2225,27 @@ bool GLES2DecoderImpl::Initialize(
       context->HasExtension("GL_ARB_robustness") ||
       context->HasExtension("GL_EXT_robustness");
 
-  if (!feature_info_->feature_flags().disable_workarounds) {
-#if defined(OS_MACOSX)
-    needs_mac_nvidia_driver_workaround_ =
-        feature_info_->feature_flags().is_nvidia;
-    needs_glsl_built_in_function_emulation_ =
-        feature_info_->feature_flags().is_amd;
-#endif
-  }
-
   if (!InitializeShaderTranslator()) {
     return false;
   }
 
   state_.viewport_width = size.width();
   state_.viewport_height = size.height();
-  glViewport(
-      state_.viewport_x, state_.viewport_y,
-      state_.viewport_width, state_.viewport_height);
 
   GLint viewport_params[4] = { 0 };
   glGetIntegerv(GL_MAX_VIEWPORT_DIMS, viewport_params);
   state_.viewport_max_width = viewport_params[0];
   state_.viewport_max_height = viewport_params[1];
 
+  state_.scissor_width = state_.viewport_width;
+  state_.scissor_height = state_.viewport_height;
+
   // Set all the default state because some GL drivers get it wrong.
+  state_.InitCapabilities();
+  state_.InitState();
   glActiveTexture(GL_TEXTURE0 + state_.active_texture_unit);
-  glLineWidth(1.0);
-  EnableDisable(GL_BLEND, state_.enable_blend);
-  glBlendColor(0.0f, 0.0, 0.0f, 0.0f);
-  glBlendFunc(GL_ONE, GL_ZERO);
-  glBlendEquation(GL_FUNC_ADD);
-  glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
-  glClearColor(
-      state_.color_clear_red, state_.color_clear_green, state_.color_clear_blue,
-      state_.color_clear_alpha);
-  glColorMask(
-      state_.color_mask_red, state_.color_mask_green, state_.color_mask_blue,
-      state_.color_mask_alpha);
-  EnableDisable(GL_CULL_FACE, state_.enable_cull_face);
-  glCullFace(GL_BACK);
-  glClearDepth(state_.depth_clear);
-  glDepthFunc(GL_LESS);
-  glDepthRange(0.0f, 1.0f);
-  EnableDisable(GL_DEPTH_TEST, state_.enable_depth_test);
-  glEnable(GL_DITHER);
-  glFrontFace(GL_CCW);
-  glHint(GL_GENERATE_MIPMAP_HINT, GL_DONT_CARE);
-  glLineWidth(1.0f);
+  glHint(GL_GENERATE_MIPMAP_HINT, state_.hint_generate_mipmap);
   glPixelStorei(GL_PACK_ALIGNMENT, state_.pack_alignment);
-  glPolygonOffset(0.0f, 0.0f);
-  glDisable(GL_POLYGON_OFFSET_FILL);
-  glSampleCoverage(1.0, false);
-  glScissor(
-      state_.viewport_x, state_.viewport_y,
-      state_.viewport_width, state_.viewport_height);
-  EnableDisable(GL_SCISSOR_TEST, state_.enable_scissor_test);
-  EnableDisable(GL_STENCIL_TEST, state_.enable_stencil_test);
-  glClearStencil(state_.stencil_clear);
-  glStencilFunc(GL_ALWAYS, 0, 0xFFFFFFFFU);
-  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-  glStencilMaskSeparate(GL_FRONT, state_.stencil_mask_front);
-  glStencilMaskSeparate(GL_BACK, state_.stencil_mask_back);
   glPixelStorei(GL_UNPACK_ALIGNMENT, state_.unpack_alignment);
 
   DoBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2299,14 +2256,9 @@ bool GLES2DecoderImpl::Initialize(
   // AMD and Intel drivers on Mac OS apparently get gl_PointCoord
   // backward from the spec and this setting makes them work
   // correctly. rdar://problem/11883495
-#if defined(OS_MACOSX)
-  if (!feature_info_->feature_flags().disable_workarounds &&
-      (feature_info_->feature_flags().is_amd ||
-       feature_info_->feature_flags().is_intel) &&
-      gfx::GetGLImplementation() == gfx::kGLImplementationDesktopGL) {
+  if (feature_info_->workarounds().reverse_point_sprite_coord_origin) {
     glPointParameteri(GL_POINT_SPRITE_COORD_ORIGIN, GL_LOWER_LEFT);
   }
-#endif
 
   return true;
 }
@@ -2323,8 +2275,7 @@ bool GLES2DecoderImpl::InitializeShaderTranslator() {
 
   // Re-check the state of use_shader_translator_ each time this is called.
   if (gfx::GetGLImplementation() == gfx::kGLImplementationEGLGLES2 &&
-      (feature_info_->feature_flags().chromium_webglsl ||
-       force_webgl_glsl_validation_) &&
+      (features().chromium_webglsl || force_webgl_glsl_validation_) &&
       !use_shader_translator_) {
     use_shader_translator_ = true;
   }
@@ -2349,21 +2300,20 @@ bool GLES2DecoderImpl::InitializeShaderTranslator() {
     resources.OES_standard_derivatives = derivatives_explicitly_enabled_;
   } else {
     resources.OES_standard_derivatives =
-        feature_info_->feature_flags().oes_standard_derivatives ? 1 : 0;
+        features().oes_standard_derivatives ? 1 : 0;
     resources.ARB_texture_rectangle =
-        feature_info_->feature_flags().arb_texture_rectangle ? 1 : 0;
+        features().arb_texture_rectangle ? 1 : 0;
     resources.OES_EGL_image_external =
-        feature_info_->feature_flags().oes_egl_image_external ? 1 : 0;
+        features().oes_egl_image_external ? 1 : 0;
   }
 
   ShShaderSpec shader_spec = force_webgl_glsl_validation_ ||
-      feature_info_->feature_flags().chromium_webglsl ?
-          SH_WEBGL_SPEC : SH_GLES2_SPEC;
+      features().chromium_webglsl ? SH_WEBGL_SPEC : SH_GLES2_SPEC;
   ShaderTranslatorInterface::GlslImplementationType implementation_type =
       gfx::GetGLImplementation() == gfx::kGLImplementationEGLGLES2 ?
           ShaderTranslatorInterface::kGlslES : ShaderTranslatorInterface::kGlsl;
   ShaderTranslatorInterface::GlslBuiltInFunctionBehavior function_behavior =
-      needs_glsl_built_in_function_emulation_ ?
+      workarounds().needs_glsl_built_in_function_emulation ?
           ShaderTranslatorInterface::kGlslBuiltInFunctionEmulated :
           ShaderTranslatorInterface::kGlslBuiltInFunctionOriginal;
 
@@ -2463,7 +2413,7 @@ void GLES2DecoderImpl::DeleteBuffersHelper(
 void GLES2DecoderImpl::DeleteFramebuffersHelper(
     GLsizei n, const GLuint* client_ids) {
   bool supports_separate_framebuffer_binds =
-     feature_info_->feature_flags().chromium_framebuffer_multisample;
+     features().chromium_framebuffer_multisample;
 
   for (GLsizei ii = 0; ii < n; ++ii) {
     FramebufferManager::FramebufferInfo* framebuffer =
@@ -2471,7 +2421,7 @@ void GLES2DecoderImpl::DeleteFramebuffersHelper(
     if (framebuffer && !framebuffer->IsDeleted()) {
       if (framebuffer == state_.bound_draw_framebuffer) {
         state_.bound_draw_framebuffer = NULL;
-        state_dirty_ = true;
+        clear_state_dirty_ = true;
         GLenum target = supports_separate_framebuffer_binds ?
             GL_DRAW_FRAMEBUFFER_EXT : GL_FRAMEBUFFER;
         glBindFramebufferEXT(target, GetBackbufferServiceId());
@@ -2490,7 +2440,7 @@ void GLES2DecoderImpl::DeleteFramebuffersHelper(
 void GLES2DecoderImpl::DeleteRenderbuffersHelper(
     GLsizei n, const GLuint* client_ids) {
   bool supports_separate_framebuffer_binds =
-     feature_info_->feature_flags().chromium_framebuffer_multisample;
+     features().chromium_framebuffer_multisample;
   for (GLsizei ii = 0; ii < n; ++ii) {
     RenderbufferManager::RenderbufferInfo* renderbuffer =
         GetRenderbufferInfo(client_ids[ii]);
@@ -2514,7 +2464,7 @@ void GLES2DecoderImpl::DeleteRenderbuffersHelper(
               GL_FRAMEBUFFER, renderbuffer);
         }
       }
-      state_dirty_ = true;
+      clear_state_dirty_ = true;
       RemoveRenderbufferInfo(client_ids[ii]);
     }
   }
@@ -2523,12 +2473,12 @@ void GLES2DecoderImpl::DeleteRenderbuffersHelper(
 void GLES2DecoderImpl::DeleteTexturesHelper(
     GLsizei n, const GLuint* client_ids) {
   bool supports_separate_framebuffer_binds =
-     feature_info_->feature_flags().chromium_framebuffer_multisample;
+     features().chromium_framebuffer_multisample;
   for (GLsizei ii = 0; ii < n; ++ii) {
     TextureManager::TextureInfo* texture = GetTextureInfo(client_ids[ii]);
     if (texture && !texture->IsDeleted()) {
       if (texture->IsAttachedToFramebuffer()) {
-        state_dirty_ = true;
+        clear_state_dirty_ = true;
       }
       // Unbind texture from texture units.
       for (size_t jj = 0; jj < group_->max_texture_units(); ++jj) {
@@ -2603,9 +2553,9 @@ static void RebindCurrentFramebuffer(
 }
 
 void GLES2DecoderImpl::RestoreCurrentFramebufferBindings() {
-  state_dirty_ = true;
+  clear_state_dirty_ = true;
 
-  if (!feature_info_->feature_flags().chromium_framebuffer_multisample) {
+  if (!features().chromium_framebuffer_multisample) {
     RebindCurrentFramebuffer(
         GL_FRAMEBUFFER,
         state_.bound_draw_framebuffer.get(),
@@ -2684,7 +2634,7 @@ bool GLES2DecoderImpl::CheckFramebufferValid(
 }
 
 bool GLES2DecoderImpl::CheckBoundFramebuffersValid(const char* func_name) {
-  if (!feature_info_->feature_flags().chromium_framebuffer_multisample) {
+  if (!features().chromium_framebuffer_multisample) {
     return CheckFramebufferValid(
         state_.bound_draw_framebuffer, GL_FRAMEBUFFER_EXT, func_name);
   }
@@ -3366,24 +3316,25 @@ bool GLES2DecoderImpl::BoundFramebufferHasStencilAttachment() {
 }
 
 void GLES2DecoderImpl::ApplyDirtyState() {
-  if (state_dirty_) {
+  if (clear_state_dirty_) {
     glColorMask(
         state_.color_mask_red, state_.color_mask_green, state_.color_mask_blue,
         state_.color_mask_alpha &&
             BoundFramebufferHasColorAttachmentWithAlpha());
     bool have_depth = BoundFramebufferHasDepthAttachment();
     glDepthMask(state_.depth_mask && have_depth);
-    EnableDisable(GL_DEPTH_TEST, state_.enable_depth_test && have_depth);
+    EnableDisable(GL_DEPTH_TEST, state_.enable_flags.depth_test && have_depth);
     bool have_stencil = BoundFramebufferHasStencilAttachment();
     glStencilMaskSeparate(
-        GL_FRONT, have_stencil ? state_.stencil_mask_front : 0);
+        GL_FRONT, have_stencil ? state_.stencil_front_writemask : 0);
     glStencilMaskSeparate(
-        GL_BACK, have_stencil ? state_.stencil_mask_back : 0);
-    EnableDisable(GL_STENCIL_TEST, state_.enable_stencil_test && have_stencil);
-    EnableDisable(GL_CULL_FACE, state_.enable_cull_face);
-    EnableDisable(GL_SCISSOR_TEST, state_.enable_scissor_test);
-    EnableDisable(GL_BLEND, state_.enable_blend);
-    state_dirty_ = false;
+        GL_BACK, have_stencil ? state_.stencil_back_writemask : 0);
+    EnableDisable(
+        GL_STENCIL_TEST, state_.enable_flags.stencil_test && have_stencil);
+    EnableDisable(GL_CULL_FACE, state_.enable_flags.cull_face);
+    EnableDisable(GL_SCISSOR_TEST, state_.enable_flags.scissor_test);
+    EnableDisable(GL_BLEND, state_.enable_flags.blend);
+    clear_state_dirty_ = false;
   }
 }
 
@@ -3435,7 +3386,7 @@ void GLES2DecoderImpl::DoBindFramebuffer(GLenum target, GLuint client_id) {
     state_.bound_read_framebuffer = info;
   }
 
-  state_dirty_ = true;
+  clear_state_dirty_ = true;
 
   // If we are rendering to the backbuffer get the FBO id for any simulated
   // backbuffer.
@@ -3586,11 +3537,11 @@ void GLES2DecoderImpl::DoGenerateMipmap(GLenum target) {
   // to be that if the filtering mode is set to something that doesn't require
   // mipmaps for rendering, or is never set to something other than the default,
   // then glGenerateMipmap misbehaves.
-  if (!feature_info_->feature_flags().disable_workarounds) {
+  if (workarounds().set_texture_filter_before_generating_mipmap) {
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
   }
   glGenerateMipmapEXT(target);
-  if (!feature_info_->feature_flags().disable_workarounds) {
+  if (workarounds().set_texture_filter_before_generating_mipmap) {
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, info->min_filter());
   }
   GLenum error = PeekGLError();
@@ -3636,6 +3587,9 @@ bool GLES2DecoderImpl::GetHelper(
         return true;
       }
   }
+  if (GetState(pname, params, num_written)) {
+    return true;
+  }
   switch (pname) {
     case GL_MAX_VIEWPORT_DIMS:
       if (offscreen_target_frame_buffer_.get()) {
@@ -3669,45 +3623,6 @@ bool GLES2DecoderImpl::GetHelper(
       *num_written = 1;
       if (params) {
         params[0] = texture_manager()->MaxSizeForTarget(GL_TEXTURE_CUBE_MAP);
-      }
-      return true;
-    case GL_COLOR_WRITEMASK:
-      *num_written = 4;
-      if (params) {
-        params[0] = state_.color_mask_red;
-        params[1] = state_.color_mask_green;
-        params[2] = state_.color_mask_blue;
-        params[3] = state_.color_mask_alpha;
-      }
-      return true;
-    case GL_DEPTH_WRITEMASK:
-      *num_written = 1;
-      if (params) {
-        params[0] = state_.depth_mask;
-      }
-      return true;
-    case GL_STENCIL_BACK_WRITEMASK:
-      *num_written = 1;
-      if (params) {
-        params[0] = state_.stencil_mask_back;
-      }
-      return true;
-    case GL_STENCIL_WRITEMASK:
-      *num_written = 1;
-      if (params) {
-        params[0] = state_.stencil_mask_front;
-      }
-      return true;
-    case GL_DEPTH_TEST:
-      *num_written = 1;
-      if (params) {
-        params[0] = state_.enable_depth_test;
-      }
-      return true;
-    case GL_STENCIL_TEST:
-      *num_written = 1;
-      if (params) {
-        params[0] = state_.enable_stencil_test;
       }
       return true;
     case GL_ALPHA_BITS:
@@ -4317,36 +4232,7 @@ void GLES2DecoderImpl::DoFramebufferRenderbuffer(
     framebuffer_info->AttachRenderbuffer(attachment, info);
   }
   if (framebuffer_info == state_.bound_draw_framebuffer) {
-    state_dirty_ = true;
-  }
-}
-
-bool GLES2DecoderImpl::SetCapabilityState(GLenum cap, bool enabled) {
-  switch (cap) {
-    case GL_BLEND:
-      state_.enable_blend = enabled;
-      return true;
-    case GL_CULL_FACE:
-      state_.enable_cull_face = enabled;
-      return true;
-    case GL_SCISSOR_TEST:
-      state_.enable_scissor_test = enabled;
-      return true;
-    case GL_DEPTH_TEST: {
-      if (state_.enable_depth_test != enabled) {
-        state_.enable_depth_test = enabled;
-        state_dirty_ = true;
-      }
-      return false;
-    }
-    case GL_STENCIL_TEST:
-      if (state_.enable_stencil_test != enabled) {
-        state_.enable_stencil_test = enabled;
-        state_dirty_ = true;
-      }
-      return false;
-    default:
-      return true;
+    clear_state_dirty_ = true;
   }
 }
 
@@ -4362,70 +4248,30 @@ void GLES2DecoderImpl::DoEnable(GLenum cap) {
   }
 }
 
-bool GLES2DecoderImpl::DoIsEnabled(GLenum cap) {
-  switch (cap) {
-    case GL_BLEND:
-      return state_.enable_blend;
-    case GL_CULL_FACE:
-      return state_.enable_cull_face;
-    case GL_SCISSOR_TEST:
-      return state_.enable_scissor_test;
-    case GL_DEPTH_TEST:
-      return state_.enable_depth_test;
-    case GL_STENCIL_TEST:
-      return state_.enable_stencil_test;
+void GLES2DecoderImpl::DoDepthRangef(GLclampf znear, GLclampf zfar) {
+  state_.z_near = std::min(1.0f, std::max(0.0f, znear));
+  state_.z_far = std::min(1.0f, std::max(0.0f, zfar));
+  glDepthRange(znear, zfar);
+}
+
+void GLES2DecoderImpl::DoHint(GLenum target, GLenum mode) {
+  switch (target) {
+    case GL_GENERATE_MIPMAP_HINT:
+      state_.hint_generate_mipmap = mode;
+      break;
+    case GL_FRAGMENT_SHADER_DERIVATIVE_HINT_OES:
+      state_.hint_fragment_shader_derivative = mode;
+      break;
     default:
-      return glIsEnabled(cap) != 0;
+      NOTREACHED();
   }
+  glHint(target, mode);
 }
 
-void GLES2DecoderImpl::DoClearColor(
-      GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha) {
-  state_.color_clear_red = red;
-  state_.color_clear_green = green;
-  state_.color_clear_blue = blue;
-  state_.color_clear_alpha = alpha;
-  glClearColor(red, green, blue, alpha);
-}
-
-void GLES2DecoderImpl::DoClearDepthf(GLclampf depth) {
-  state_.depth_clear = depth;
-  glClearDepth(depth);
-}
-
-void GLES2DecoderImpl::DoClearStencil(GLint s) {
-  state_.stencil_clear = s;
-  glClearStencil(s);
-}
-
-void GLES2DecoderImpl::DoColorMask(
-    GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha) {
-  state_.color_mask_red = red;
-  state_.color_mask_green = green;
-  state_.color_mask_blue = blue;
-  state_.color_mask_alpha = alpha;
-  state_dirty_ = true;
-}
-
-void GLES2DecoderImpl::DoDepthMask(GLboolean depth) {
-  state_.depth_mask = depth;
-  state_dirty_ = true;
-}
-
-void GLES2DecoderImpl::DoStencilMask(GLuint mask) {
-  state_.stencil_mask_front = mask;
-  state_.stencil_mask_back = mask;
-  state_dirty_ = true;
-}
-
-void GLES2DecoderImpl::DoStencilMaskSeparate(GLenum face, GLuint mask) {
-  if (face == GL_FRONT || face == GL_FRONT_AND_BACK) {
-    state_.stencil_mask_front = mask;
-  }
-  if (face == GL_BACK || face == GL_FRONT_AND_BACK) {
-    state_.stencil_mask_back = mask;
-  }
-  state_dirty_ = true;
+void GLES2DecoderImpl::DoSampleCoverage (GLclampf value, GLboolean invert) {
+  state_.sample_coverage_value = std::min(1.0f, std::max(0.0f, value));
+  state_.sample_coverage_invert = (invert != 0);
+  glSampleCoverage(state_.sample_coverage_value, invert);
 }
 
 // Assumes framebuffer is complete.
@@ -4482,13 +4328,13 @@ void GLES2DecoderImpl::ClearUnclearedAttachments(
 }
 
 void GLES2DecoderImpl::RestoreClearState() {
-  state_dirty_ = true;
+  clear_state_dirty_ = true;
   glClearColor(
       state_.color_clear_red, state_.color_clear_green, state_.color_clear_blue,
       state_.color_clear_alpha);
   glClearStencil(state_.stencil_clear);
   glClearDepth(state_.depth_clear);
-  if (state_.enable_scissor_test) {
+  if (state_.enable_flags.scissor_test) {
     glEnable(GL_SCISSOR_TEST);
   }
 }
@@ -4541,7 +4387,7 @@ void GLES2DecoderImpl::DoFramebufferTexture2D(
     framebuffer_info->AttachTexture(attachment, info, textarget, level);
   }
   if (framebuffer_info == state_.bound_draw_framebuffer) {
-    state_dirty_ = true;
+    clear_state_dirty_ = true;
   }
 }
 
@@ -4605,7 +4451,7 @@ void GLES2DecoderImpl::DoBlitFramebufferEXT(
     GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
     GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
     GLbitfield mask, GLenum filter) {
-  if (!feature_info_->feature_flags().chromium_framebuffer_multisample) {
+  if (!features().chromium_framebuffer_multisample) {
     SetGLError(GL_INVALID_OPERATION,
                "glBlitFramebufferEXT", "function not available");
   }
@@ -4622,7 +4468,7 @@ void GLES2DecoderImpl::DoBlitFramebufferEXT(
 void GLES2DecoderImpl::DoRenderbufferStorageMultisample(
     GLenum target, GLsizei samples, GLenum internalformat,
     GLsizei width, GLsizei height) {
-  if (!feature_info_->feature_flags().chromium_framebuffer_multisample) {
+  if (!features().chromium_framebuffer_multisample) {
     SetGLError(GL_INVALID_OPERATION,
                "glRenderbufferStorageMultisampleEXT", "function not available");
     return;
@@ -4747,6 +4593,9 @@ void GLES2DecoderImpl::DoLinkProgram(GLuint program) {
                  fragment_translator,
                  feature_info_)) {
     if (info == state_.current_program.get()) {
+      if (workarounds().use_current_program_after_successful_link) {
+        glUseProgram(info->service_id());
+      }
       program_manager()->ClearUniforms(info);
     }
   }
@@ -5658,7 +5507,7 @@ error::Error GLES2DecoderImpl::HandleDrawArrays(
 
 error::Error GLES2DecoderImpl::HandleDrawArraysInstancedANGLE(
     uint32 immediate_data_size, const gles2::DrawArraysInstancedANGLE& c) {
-  if (!feature_info_->feature_flags().angle_instanced_arrays) {
+  if (!features().angle_instanced_arrays) {
     SetGLError(GL_INVALID_OPERATION,
                "glDrawArraysInstancedANGLE", "function not available");
     return error::kNoError;
@@ -5778,7 +5627,7 @@ error::Error GLES2DecoderImpl::HandleDrawElements(
 
 error::Error GLES2DecoderImpl::HandleDrawElementsInstancedANGLE(
     uint32 immediate_data_size, const gles2::DrawElementsInstancedANGLE& c) {
-  if (!feature_info_->feature_flags().angle_instanced_arrays) {
+  if (!features().angle_instanced_arrays) {
     SetGLError(GL_INVALID_OPERATION,
                "glDrawElementsInstancedANGLE", "function not available");
     return error::kNoError;
@@ -6371,7 +6220,7 @@ void GLES2DecoderImpl::DoViewport(GLint x, GLint y, GLsizei width,
 
 error::Error GLES2DecoderImpl::HandleVertexAttribDivisorANGLE(
     uint32 immediate_data_size, const gles2::VertexAttribDivisorANGLE& c) {
-  if (!feature_info_->feature_flags().angle_instanced_arrays) {
+  if (!features().angle_instanced_arrays) {
     SetGLError(GL_INVALID_OPERATION,
                "glVertexAttribDivisorANGLE", "function not available");
   }
@@ -6497,7 +6346,7 @@ error::Error GLES2DecoderImpl::HandleReadPixels(
     GLenum read_format = GetBoundReadFrameBufferInternalFormat();
     uint32 channels_exist = GLES2Util::GetChannelsForFormat(read_format);
     if ((channels_exist & 0x0008) == 0 &&
-        !feature_info_->feature_flags().disable_workarounds) {
+        workarounds().clear_alpha_in_readpixels) {
       // Set the alpha to 255 because some drivers are buggy in this regard.
       uint32 temp_size;
 
@@ -6577,6 +6426,7 @@ error::Error GLES2DecoderImpl::HandlePixelStorei(
         state_.pack_alignment = param;
         break;
     case GL_PACK_REVERSE_ROW_ORDER_ANGLE:
+        state_.pack_reverse_row_order = (param != 0);
         break;
     case GL_UNPACK_ALIGNMENT:
         state_.unpack_alignment = param;
@@ -7172,7 +7022,7 @@ error::Error GLES2DecoderImpl::DoCompressedTexImage2D(
   }
 
   if (info->IsAttachedToFramebuffer()) {
-    state_dirty_ = true;
+    clear_state_dirty_ = true;
     // TODO(gman): If textures tracked which framebuffers they were attached to
     // we could just mark those framebuffers as not complete.
     framebuffer_manager()->IncFramebufferStateChangeCount();
@@ -7409,7 +7259,7 @@ error::Error GLES2DecoderImpl::DoTexImage2D(
   }
 
   if (info->IsAttachedToFramebuffer()) {
-    state_dirty_ = true;
+    clear_state_dirty_ = true;
     // TODO(gman): If textures tracked which framebuffers they were attached to
     // we could just mark those framebuffers as not complete.
     framebuffer_manager()->IncFramebufferStateChangeCount();
@@ -7623,7 +7473,7 @@ void GLES2DecoderImpl::DoCopyTexImage2D(
   gfx::Size size = GetBoundReadFrameBufferSize();
 
   if (info->IsAttachedToFramebuffer()) {
-    state_dirty_ = true;
+    clear_state_dirty_ = true;
     // TODO(gman): If textures tracked which framebuffers they were attached to
     // we could just mark those framebuffers as not complete.
     framebuffer_manager()->IncFramebufferStateChangeCount();
@@ -8298,7 +8148,7 @@ error::Error GLES2DecoderImpl::HandleSwapBuffers(
       // Workaround for NVIDIA driver bug on OS X; crbug.com/89557,
       // crbug.com/94163. TODO(kbr): figure out reproduction so Apple will
       // fix this.
-      if (needs_mac_nvidia_driver_workaround_) {
+      if (workarounds().needs_offscreen_buffer_workaround) {
         offscreen_saved_frame_buffer_->Create();
         glFinish();
       }
@@ -8446,10 +8296,8 @@ error::Error GLES2DecoderImpl::HandleRequestExtensionCHROMIUM(
     return error::kInvalidArguments;
   }
 
-  bool std_derivatives_enabled =
-      feature_info_->feature_flags().oes_standard_derivatives;
-  bool webglsl_enabled =
-      feature_info_->feature_flags().chromium_webglsl;
+  bool std_derivatives_enabled = features().oes_standard_derivatives;
+  bool webglsl_enabled = features().chromium_webglsl;
 
   feature_info_->AddFeatures(feature_str.c_str());
 
@@ -8464,10 +8312,8 @@ error::Error GLES2DecoderImpl::HandleRequestExtensionCHROMIUM(
 
   // If we just enabled a feature which affects the shader translator,
   // we may need to re-initialize it.
-  if (std_derivatives_enabled !=
-          feature_info_->feature_flags().oes_standard_derivatives ||
-      webglsl_enabled !=
-          feature_info_->feature_flags().chromium_webglsl ||
+  if (std_derivatives_enabled != features().oes_standard_derivatives ||
+      webglsl_enabled != features().chromium_webglsl ||
       initialization_required) {
     InitializeShaderTranslator();
   }
@@ -8647,9 +8493,10 @@ error::Error GLES2DecoderImpl::HandleBeginQueryEXT(
 
   switch (target) {
     case GL_COMMANDS_ISSUED_CHROMIUM:
+    case GL_LATENCY_QUERY_CHROMIUM:
       break;
     default:
-      if (!feature_info_->feature_flags().occlusion_query_boolean) {
+      if (!features().occlusion_query_boolean) {
         SetGLError(GL_INVALID_OPERATION, "glBeginQueryEXT", "not enabled");
         return error::kNoError;
       }
@@ -8739,7 +8586,7 @@ bool GLES2DecoderImpl::GenVertexArraysOESHelper(
     }
   }
 
-  if (!feature_info_->feature_flags().native_vertex_array_object_) {
+  if (!features().native_vertex_array_object) {
     // Emulated VAO
     for (GLsizei ii = 0; ii < n; ++ii) {
       CreateVertexAttribManager(client_ids[ii], 0);
@@ -8794,7 +8641,7 @@ void GLES2DecoderImpl::DoBindVertexArrayOES(GLuint client_id) {
   // Only set the VAO state if it's changed
   if (state_.vertex_attrib_manager != vao) {
     state_.vertex_attrib_manager = vao;
-    if (!feature_info_->feature_flags().native_vertex_array_object_) {
+    if (!features().native_vertex_array_object) {
       EmulateVertexArrayState();
     } else {
       glBindVertexArrayOES(service_id);
@@ -8825,7 +8672,7 @@ bool GLES2DecoderImpl::DoIsVertexArrayOES(GLuint client_id) {
 error::Error GLES2DecoderImpl::HandleCreateStreamTextureCHROMIUM(
     uint32 immediate_data_size,
     const gles2::CreateStreamTextureCHROMIUM& c) {
-  if (!feature_info_->feature_flags().chromium_stream_texture) {
+  if (!features().chromium_stream_texture) {
     SetGLError(GL_INVALID_OPERATION,
                "glOpenStreamTextureCHROMIUM", ""
                "not supported.");
@@ -9140,7 +8987,7 @@ void GLES2DecoderImpl::DoCopyTextureCHROMIUM(
     texture_manager()->SetLevelCleared(dest_info, GL_TEXTURE_2D, level);
   }
 
-  state_dirty_ = true;
+  clear_state_dirty_ = true;
   glViewport(0, 0, source_width, source_height);
   copy_texture_CHROMIUM_->DoCopyTexture(target, source_info->service_id(),
                                         dest_info->service_id(), level,
@@ -9232,7 +9079,7 @@ void GLES2DecoderImpl::DoTexStorage2DEXT(
     return;
   }
   if (info->IsAttachedToFramebuffer()) {
-    state_dirty_ = true;
+    clear_state_dirty_ = true;
   }
   if (info->IsImmutable()) {
     SetGLError(GL_INVALID_OPERATION,

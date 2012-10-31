@@ -63,6 +63,9 @@ const unsigned kCacheEntryTTLSeconds = 60;
 // Default TTL for unsuccessful resolutions with ProcTask.
 const unsigned kNegativeCacheEntryTTLSeconds = 0;
 
+// Minimum TTL for successful resolutions with DnsTask.
+const unsigned kMinimumTTLSeconds = kCacheEntryTTLSeconds;
+
 // We use a separate histogram name for each platform to facilitate the
 // display of error codes by their symbolic name (since each platform has
 // different mappings).
@@ -227,12 +230,47 @@ class CallSystemHostResolverProc : public HostResolverProc {
   virtual ~CallSystemHostResolverProc() {}
 };
 
-void EnsurePortOnAddressList(uint16 port, AddressList* list) {
-  DCHECK(list);
-  if (list->empty() || list->front().port() == port)
-    return;
-  SetPortOnAddressList(port, list);
+AddressList EnsurePortOnAddressList(const AddressList& list, uint16 port) {
+  if (list.empty() || list.front().port() == port)
+    return list;
+  return AddressList::CopyWithPort(list, port);
 }
+
+// Wraps a call to HaveOnlyLoopbackAddresses to be executed on the WorkerPool as
+// it takes 40-100ms and should not block initialization.
+class HaveOnlyLoopbackProbeJob
+    : public base::RefCountedThreadSafe<HaveOnlyLoopbackProbeJob> {
+ public:
+  typedef base::Callback<void(bool)> CallbackType;
+  explicit HaveOnlyLoopbackProbeJob(const CallbackType& callback)
+      : result_(false) {
+    const bool kIsSlow = true;
+    base::WorkerPool::PostTaskAndReply(
+        FROM_HERE,
+        base::Bind(&HaveOnlyLoopbackProbeJob::DoProbe, this),
+        base::Bind(&HaveOnlyLoopbackProbeJob::OnProbeComplete, this, callback),
+        kIsSlow);
+  }
+
+ private:
+  friend class base::RefCountedThreadSafe<HaveOnlyLoopbackProbeJob>;
+
+  virtual ~HaveOnlyLoopbackProbeJob() {}
+
+  // Runs on worker thread.
+  void DoProbe() {
+    result_ = HaveOnlyLoopbackAddresses();
+  }
+
+  void OnProbeComplete(const CallbackType& callback) {
+    callback.Run(result_);
+  }
+
+  bool result_;
+
+  DISALLOW_COPY_AND_ASSIGN(HaveOnlyLoopbackProbeJob);
+};
+
 
 // Creates NetLog parameters when the resolve failed.
 base::Value* NetLogProcTaskFailedCallback(uint32 attempt_number,
@@ -445,10 +483,8 @@ class HostResolverImpl::Request {
   // Prepare final AddressList and call completion callback.
   void OnComplete(int error, const AddressList& addr_list) {
     DCHECK(!was_canceled());
-    if (error == OK) {
-      *addresses_ = addr_list;
-      EnsurePortOnAddressList(info_.port(), addresses_);
-    }
+    if (error == OK)
+      *addresses_ = EnsurePortOnAddressList(addr_list, info_.port());
     CompletionCallback callback = callback_;
     MarkAsCanceled();
     callback.Run(error);
@@ -773,17 +809,6 @@ class HostResolverImpl::ProcTask
 
     UMA_HISTOGRAM_ENUMERATION("DNS.ResolveCategory", category, RESOLVE_MAX);
 
-    static const bool show_speculative_experiment_histograms =
-        base::FieldTrialList::TrialExists("DnsImpact");
-    if (show_speculative_experiment_histograms) {
-      UMA_HISTOGRAM_ENUMERATION(
-          base::FieldTrial::MakeName("DNS.ResolveCategory", "DnsImpact"),
-          category, RESOLVE_MAX);
-      if (RESOLVE_SUCCESS == category) {
-        DNS_HISTOGRAM(base::FieldTrial::MakeName("DNS.ResolveSuccess",
-                                                 "DnsImpact"), duration);
-      }
-    }
     static const bool show_parallelism_experiment_histograms =
         base::FieldTrialList::TrialExists("DnsParallelism");
     if (show_parallelism_experiment_histograms) {
@@ -1301,7 +1326,9 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
                                   requests_.front()->info(),
                                   &addr_list)) {
       // This will destroy the Job.
-      CompleteRequests(OK, addr_list, base::TimeDelta(), false /* true_ttl */);
+      CompleteRequests(
+          HostCache::Entry(OK, MakeAddressListForRequest(addr_list)),
+          base::TimeDelta());
       return true;
     }
     return false;
@@ -1326,6 +1353,12 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
         priority_change_time_ = base::TimeTicks::Now();
       handle_ = resolver_->dispatcher_.ChangePriority(handle_, priority());
     }
+  }
+
+  AddressList MakeAddressListForRequest(const AddressList& list) const {
+    if (requests_.empty())
+      return list;
+    return AddressList::CopyWithPort(list, requests_.front()->info().port());
   }
 
   // PriorityDispatch::Job:
@@ -1369,7 +1402,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
     proc_task_ = new ProcTask(
         key_,
         resolver_->proc_params_,
-        base::Bind(&Job::OnProcTaskComplete, base::Unretained(this)),
+        base::Bind(&Job::OnProcTaskComplete, base::Unretained(this),
+                   base::TimeTicks::Now()),
         net_log_);
 
     if (had_non_speculative_request_)
@@ -1380,11 +1414,15 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
   }
 
   // Called by ProcTask when it completes.
-  void OnProcTaskComplete(int net_error, const AddressList& addr_list) {
+  void OnProcTaskComplete(base::TimeTicks start_time,
+                          int net_error,
+                          const AddressList& addr_list) {
     DCHECK(is_proc_running());
 
     if (dns_task_error_ != OK) {
+      base::TimeDelta duration = base::TimeTicks::Now() - start_time;
       if (net_error == OK) {
+        DNS_HISTOGRAM("AsyncDNS.FallbackSuccess", duration);
         if ((dns_task_error_ == ERR_NAME_NOT_RESOLVED) &&
             ResemblesNetBIOSName(key_.hostname)) {
           UmaAsyncDnsResolveStatus(RESOLVE_STATUS_SUSPECT_NETBIOS);
@@ -1395,6 +1433,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
                                          std::abs(dns_task_error_),
                                          GetAllErrorCodesForUma());
       } else {
+        DNS_HISTOGRAM("AsyncDNS.FallbackFail", duration);
         UmaAsyncDnsResolveStatus(RESOLVE_STATUS_FAIL);
       }
     }
@@ -1404,7 +1443,10 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
     if (net_error == OK)
       ttl = base::TimeDelta::FromSeconds(kCacheEntryTTLSeconds);
 
-    CompleteRequests(net_error, addr_list, ttl, false /* true_ttl */);
+    // Don't store the |ttl| in cache since it's not obtained from the server.
+    CompleteRequests(
+        HostCache::Entry(net_error, MakeAddressListForRequest(addr_list)),
+        ttl);
   }
 
   void StartDnsTask() {
@@ -1412,7 +1454,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
     dns_task_.reset(new DnsTask(
         resolver_->dns_client_.get(),
         key_,
-        base::Bind(&Job::OnDnsTaskComplete, base::Unretained(this)),
+        base::Bind(&Job::OnDnsTaskComplete, base::Unretained(this),
+                   base::TimeTicks::Now()),
         net_log_));
 
     int rv = dns_task_->Start();
@@ -1425,12 +1468,16 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
   }
 
   // Called by DnsTask when it completes.
-  void OnDnsTaskComplete(int net_error,
+  void OnDnsTaskComplete(base::TimeTicks start_time,
+                         int net_error,
                          const AddressList& addr_list,
                          base::TimeDelta ttl) {
     DCHECK(is_dns_running());
 
+    base::TimeDelta duration = base::TimeTicks::Now() - start_time;
     if (net_error != OK) {
+      DNS_HISTOGRAM("AsyncDNS.ResolveFail", duration);
+
       dns_task_error_ = net_error;
       dns_task_.reset();
 
@@ -1442,18 +1489,22 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
       StartProcTask();
       return;
     }
+    DNS_HISTOGRAM("AsyncDNS.ResolveSuccess", duration);
 
     UmaAsyncDnsResolveStatus(RESOLVE_STATUS_DNS_SUCCESS);
     RecordTTL(ttl);
 
-    CompleteRequests(net_error, addr_list, ttl, true /* true_ttl */);
+    base::TimeDelta bounded_ttl =
+        std::max(ttl, base::TimeDelta::FromSeconds(kMinimumTTLSeconds));
+
+    CompleteRequests(
+        HostCache::Entry(net_error, MakeAddressListForRequest(addr_list), ttl),
+        bounded_ttl);
   }
 
   // Performs Job's last rites. Completes all Requests. Deletes this.
-  void CompleteRequests(int net_error,
-                        const AddressList& addr_list,
-                        base::TimeDelta ttl,
-                        bool true_ttl) {
+  void CompleteRequests(const HostCache::Entry& entry,
+                        base::TimeDelta ttl) {
     CHECK(resolver_);
 
     // This job must be removed from resolver's |jobs_| now to make room for a
@@ -1463,9 +1514,6 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
     scoped_ptr<Job> self_deleter(this);
 
     resolver_->RemoveJob(this);
-
-    // |addr_list| will be destroyed with |proc_task_| and |dns_task_|.
-    AddressList list = addr_list;
 
     if (is_running()) {
       DCHECK(!is_queued());
@@ -1490,26 +1538,21 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
     }
 
     net_log_.EndEventWithNetErrorCode(NetLog::TYPE_HOST_RESOLVER_IMPL_JOB,
-                                      net_error);
+                                      entry.error);
 
     DCHECK(!requests_.empty());
 
-    if (net_error == OK) {
-      SetPortOnAddressList(requests_.front()->info().port(), &list);
+    if (entry.error == OK) {
       // Record this histogram here, when we know the system has a valid DNS
       // configuration.
       UMA_HISTOGRAM_BOOLEAN("AsyncDNS.HaveDnsConfig",
                             resolver_->received_dns_config_);
     }
 
-    bool did_complete = (net_error != ERR_ABORTED) &&
-                        (net_error != ERR_HOST_RESOLVER_QUEUE_TOO_LARGE);
-    if (did_complete) {
-      HostCache::Entry entry = true_ttl ?
-          HostCache::Entry(net_error, list, ttl) :
-          HostCache::Entry(net_error, list);
+    bool did_complete = (entry.error != ERR_ABORTED) &&
+                        (entry.error != ERR_HOST_RESOLVER_QUEUE_TOO_LARGE);
+    if (did_complete)
       resolver_->CacheResult(key_, entry, ttl);
-    }
 
     // Complete all of the requests that were attached to the job.
     for (RequestsList::const_iterator it = requests_.begin();
@@ -1522,13 +1565,13 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
       DCHECK_EQ(this, req->job());
       // Update the net log and notify registered observers.
       LogFinishRequest(req->source_net_log(), req->request_net_log(),
-                       req->info(), net_error);
+                       req->info(), entry.error);
       if (did_complete) {
         // Record effective total time from creation to completion.
         RecordTotalTime(had_dns_config_, req->info().is_speculative(),
                         base::TimeTicks::Now() - req->request_time());
       }
-      req->OnComplete(net_error, list);
+      req->OnComplete(entry.error, entry.addrlist);
 
       // Check if the resolver was destroyed as a result of running the
       // callback. If it was, we could continue, but we choose to bail.
@@ -1539,7 +1582,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
 
   // Convenience wrapper for CompleteRequests in case of failure.
   void CompleteRequestsWithError(int net_error) {
-    CompleteRequests(net_error, AddressList(), base::TimeDelta(), false);
+    CompleteRequests(HostCache::Entry(net_error, AddressList()),
+                     base::TimeDelta());
   }
 
   RequestPriority priority() const {
@@ -1635,8 +1679,9 @@ HostResolverImpl::HostResolverImpl(
   EnsureWinsockInit();
 #endif
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
-  if (HaveOnlyLoopbackAddresses())
-    additional_resolver_flags_ |= HOST_RESOLVER_LOOPBACK_ONLY;
+  new HaveOnlyLoopbackProbeJob(
+      base::Bind(&HostResolverImpl::SetHaveOnlyLoopbackAddresses,
+                 weak_ptr_factory_.GetWeakPtr()));
 #endif
   NetworkChangeNotifier::AddIPAddressObserver(this);
   NetworkChangeNotifier::AddDNSObserver(this);
@@ -1905,8 +1950,7 @@ bool HostResolverImpl::ServeFromCache(const Key& key,
   if (*net_error == OK) {
     if (cache_entry->has_ttl())
       RecordTTL(cache_entry->ttl);
-    *addresses = cache_entry->addrlist;
-    EnsurePortOnAddressList(info.port(), addresses);
+    *addresses = EnsurePortOnAddressList(cache_entry->addrlist, info.port());
   }
   return true;
 }
@@ -1979,6 +2023,14 @@ void HostResolverImpl::IPv6ProbeSetDefaultAddressFamily(
   DiscardIPv6ProbeJob();
 }
 
+void HostResolverImpl::SetHaveOnlyLoopbackAddresses(bool result) {
+  if (result) {
+    additional_resolver_flags_ |= HOST_RESOLVER_LOOPBACK_ONLY;
+  } else {
+    additional_resolver_flags_ &= ~HOST_RESOLVER_LOOPBACK_ONLY;
+  }
+}
+
 HostResolverImpl::Key HostResolverImpl::GetEffectiveKeyForRequest(
     const RequestInfo& info) const {
   HostResolverFlags effective_flags =
@@ -2048,11 +2100,8 @@ void HostResolverImpl::OnIPAddressChanged() {
     ipv6_probe_job_->Start();
   }
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
-  if (HaveOnlyLoopbackAddresses()) {
-    additional_resolver_flags_ |= HOST_RESOLVER_LOOPBACK_ONLY;
-  } else {
-    additional_resolver_flags_ &= ~HOST_RESOLVER_LOOPBACK_ONLY;
-  }
+  // TODO(szym): Use HaveOnlyLoopbackProbeJob. http://crbug.com/157933
+  SetHaveOnlyLoopbackAddresses(HaveOnlyLoopbackAddresses());
 #endif
   AbortAllInProgressJobs();
   // |this| may be deleted inside AbortAllInProgressJobs().

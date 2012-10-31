@@ -64,7 +64,6 @@
 using base::TimeTicks;
 using content::BrowserThread;
 using content::RenderViewHost;
-using switches::kEnableAutofillFeedback;
 
 namespace {
 
@@ -119,7 +118,7 @@ void RemoveDuplicateSuggestions(std::vector<string16>* values,
 // is auto-filled.
 bool SectionIsAutofilled(const FormStructure& form_structure,
                          const FormData& form,
-                         const string16& section) {
+                         const std::string& section) {
   DCHECK_EQ(form_structure.field_count(), form.fields.size());
   for (size_t i = 0; i < form_structure.field_count(); ++i) {
     if (form_structure.field(i)->section() == section &&
@@ -1083,7 +1082,7 @@ bool AutofillManager::UpdateCachedForm(const FormData& live_form,
   // Add the new or updated form to our cache.
   form_structures_.push_back(new FormStructure(live_form));
   *updated_form = *form_structures_.rbegin();
-  (*updated_form)->DetermineHeuristicTypes();
+  (*updated_form)->DetermineHeuristicTypes(*metric_logger_);
 
   // If we have cached data, propagate it to the updated form.
   if (cached_form) {
@@ -1247,9 +1246,9 @@ void AutofillManager::FillCreditCardFormField(const CreditCard& credit_card,
   DCHECK_EQ(AutofillType::CREDIT_CARD, AutofillType(type).group());
   DCHECK(field);
 
-  if (field->form_control_type == ASCIIToUTF16("select-one")) {
+  if (field->form_control_type == "select-one") {
     autofill::FillSelectControl(credit_card, type, field);
-  } else if (field->form_control_type == ASCIIToUTF16("month")) {
+  } else if (field->form_control_type == "month") {
     // HTML5 input="month" consists of year-month.
     string16 year =
         credit_card.GetCanonicalizedInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR);
@@ -1275,7 +1274,7 @@ void AutofillManager::FillFormField(const AutofillProfile& profile,
   if (type == PHONE_HOME_NUMBER) {
     FillPhoneNumberField(profile, cached_field, variant, field);
   } else {
-    if (field->form_control_type == ASCIIToUTF16("select-one")) {
+    if (field->form_control_type == "select-one") {
       autofill::FillSelectControl(profile, type, field);
     } else {
       std::vector<string16> values;
@@ -1326,7 +1325,7 @@ void AutofillManager::ParseForms(const std::vector<FormData>& forms) {
     if (!form_structure->ShouldBeParsed(false))
       continue;
 
-    form_structure->DetermineHeuristicTypes();
+    form_structure->DetermineHeuristicTypes(*metric_logger_);
 
     // Set aside forms with method GET or author-specified types, so that they
     // are not included in the query to the server.

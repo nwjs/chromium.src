@@ -48,11 +48,14 @@ class ASH_EXPORT ScreenAsh : public gfx::Screen {
                                          const gfx::Rect& rect);
 
   // Returns a gfx::Display object for secondary display. Returns
-  // ivalid display if there is no secondary display connected.
+  // invalid display if there is no secondary display connected.
   static const gfx::Display& GetSecondaryDisplay();
 
- protected:
+  // Returns a gfx::Display object for the specified id.  Returns
+  // invalid display if no such display is connected.
+  static const gfx::Display& GetDisplayForId(int64 display_id);
 
+ protected:
   // Implementation of gfx::Screen:
   virtual bool IsDIPEnabled() OVERRIDE;
   virtual gfx::Point GetCursorScreenPoint() OVERRIDE;

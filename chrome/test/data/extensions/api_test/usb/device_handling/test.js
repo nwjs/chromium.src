@@ -2,17 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var usb = chrome.experimental.usb;
+var usb = chrome.usb;
 
 var tests = [
-  function implicitCloseDevice() {
-    usb.findDevice(0, 0, {}, function(device) {
-      chrome.test.succeed();
-    });
-  },
   function explicitCloseDevice() {
-    usb.findDevice(0, 0, {}, function(device) {
-      usb.closeDevice(device);
+    usb.findDevices(0, 0, {}, function(devices) {
+      usb.closeDevice(devices[0]);
       chrome.test.succeed();
     });
   },

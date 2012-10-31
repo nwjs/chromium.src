@@ -3,6 +3,24 @@
 // found in the LICENSE file.
 
 /**
+ * Updates the Drive related Flags section.
+ * @param {Array} flags List of dictionaries describing flags.
+ */
+function updateDriveRelatedFlags(flags) {
+  var ul = $('drive-related-flags');
+  updateKeyValueList(ul, flags);
+}
+
+/**
+ * Updates the Drive related Preferences section.
+ * @param {Array} preferences List of dictionaries describing preferences.
+ */
+function updateDriveRelatedPreferences(preferences) {
+  var ul = $('drive-related-preferences');
+  updateKeyValueList(ul, preferences);
+}
+
+/**
  * Updates the Authentication Status section.
  * @param {Object} authStatus Dictionary containing auth status.
  */
@@ -129,6 +147,8 @@ function updateAccountMetadata(accountMetadata) {
       accountMetadata['account-largest-changestamp-remote'];
   $('account-largest-changestamp-local').textContent =
       accountMetadata['account-largest-changestamp-local'];
+  $('account-metadata-origin').textContent =
+      accountMetadata['account-metadata-origin'];
 
   var installedAppContainer = $('account-installed-apps');
   for (var i = 0; i < accountMetadata['installed-apps'].length; i++) {
@@ -156,8 +176,38 @@ function createElementFromText(elementName, text) {
   return element;
 }
 
+/**
+ * Updates <ul> element with the given key-value list.
+ * @param {HTMLElement} ul <ul> element to be modified.
+ * @param {Array} list List of dictionaries containing 'key' and 'value'.
+ */
+function updateKeyValueList(ul, list) {
+  for (var i = 0; i < list.length; i++) {
+    var flag = list[i];
+    var text = flag.key;
+    if (list.value != '')
+      text += ': ' + flag.value;
+
+    var li = createElementFromText('li', text);
+    ul.appendChild(li);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   chrome.send('pageLoaded');
+
+  // Update the table of contents.
+  var toc = $('toc');
+  var sections = document.getElementsByTagName('h2');
+  for (var i = 0; i < sections.length; i++) {
+    var section = sections[i];
+    var a = createElementFromText('a', section.textContent);
+    a.href = '#' + section.id;
+    var li = document.createElement('li');
+    li.appendChild(a);
+    toc.appendChild(li);
+  }
+
   window.setInterval(function() {
       chrome.send('periodicUpdate');
     }, 1000);

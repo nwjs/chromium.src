@@ -19,10 +19,8 @@ import tempfile
 import time
 
 import io_stats_parser
-# pexpect is not available on all platforms. We allow this file to be imported
-# on platforms without pexpect and only fail when pexpect is actually used.
 try:
-  from pylib import pexpect
+  import pexpect
 except:
   pexpect = None
 
@@ -111,6 +109,9 @@ def GetAttachedDevices():
     devices.remove(preferred_device)
     devices.insert(0, preferred_device)
   return devices
+
+def IsDeviceAttached(device):
+  return device in GetAttachedDevices()
 
 def _GetFilesFromRecursiveLsOutput(path, ls_output, re_file, utc_offset=None):
   """Gets a list of files from `ls` command output.
@@ -201,6 +202,7 @@ class AndroidCommands(object):
     self._adb = adb_interface.AdbInterface()
     if device:
       self._adb.SetTargetSerial(device)
+    self._device = device
     self._logcat = None
     self.logcat_process = None
     self._pushed_files = []
@@ -506,7 +508,8 @@ class AndroidCommands(object):
   def StartActivity(self, package, activity, wait_for_completion=False,
                     action='android.intent.action.VIEW',
                     category=None, data=None,
-                    extras=None, trace_file_name=None):
+                    extras=None, trace_file_name=None,
+                    force_stop=False):
     """Starts |package|'s activity on the device.
 
     Args:
@@ -519,8 +522,12 @@ class AndroidCommands(object):
       data: Data string to pass to activity (e.g. 'http://www.example.com/').
       extras: Dict of extras to pass to activity. Values are significant.
       trace_file_name: If used, turns on and saves the trace to this file name.
+      force_stop: force stop the target app before starting the activity (-S
+        flag).
     """
     cmd = 'am start -a %s' % action
+    if force_stop:
+      cmd += ' -S'
     if wait_for_completion:
       cmd += ' -W'
     if category:
@@ -661,7 +668,6 @@ class AndroidCommands(object):
     return _GetFilesFromRecursiveLsOutput(
         path, self.RunShellCommand('ls -lR %s' % path), re_file,
         self._device_utc_offset)
-
 
   def SetJavaAssertsEnabled(self, enable):
     """Sets or removes the device java assertions property.
@@ -1045,14 +1051,20 @@ class AndroidCommands(object):
       True if the file exists, False otherwise.
     """
     assert '"' not in file_name, 'file_name cannot contain double quotes'
-    status = self._adb.SendShellCommand(
-        '\'test -e "%s"; echo $?\'' % (file_name))
-    if 'test: not found' not in status:
-      return int(status) == 0
+    try:
+      status = self._adb.SendShellCommand(
+          '\'test -e "%s"; echo $?\'' % (file_name))
+      if 'test: not found' not in status:
+        return int(status) == 0
 
-    status = self._adb.SendShellCommand(
-        '\'ls "%s" >/dev/null 2>&1; echo $?\'' % (file_name))
-    return int(status) == 0
+      status = self._adb.SendShellCommand(
+          '\'ls "%s" >/dev/null 2>&1; echo $?\'' % (file_name))
+      return int(status) == 0
+    except ValueError:
+      if IsDeviceAttached(self._device):
+        raise errors.DeviceUnresponsiveError('Device may be offline.')
+
+      return False
 
 
 class NewLineNormalizer(object):
@@ -1073,4 +1085,3 @@ class NewLineNormalizer(object):
 
   def flush(self):
     self._output.flush()
-

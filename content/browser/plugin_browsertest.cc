@@ -21,6 +21,7 @@
 #include "base/win/registry.h"
 #endif
 
+namespace content {
 namespace {
 
 void SetUrlRequestMock(const FilePath& path) {
@@ -28,8 +29,6 @@ void SetUrlRequestMock(const FilePath& path) {
 }
 
 }
-
-namespace content {
 
 class PluginTest : public ContentBrowserTest {
  protected:
@@ -166,7 +165,8 @@ IN_PROC_BROWSER_TEST_F(PluginTest,
   string16 expected_title(ASCIIToUTF16("OK"));
   TitleWatcher title_watcher(shell()->web_contents(), expected_title);
   title_watcher.AlsoWaitForTitle(ASCIIToUTF16("FAIL"));
-  SimulateMouseClick(shell()->web_contents());
+  SimulateMouseClick(shell()->web_contents(), 0,
+      WebKit::WebMouseEvent::ButtonLeft);
   EXPECT_EQ(expected_title, title_watcher.WaitAndGetTitle());
 }
 #endif

@@ -39,7 +39,6 @@
 #include "content/common/resource_messages.h"
 #include "content/common/view_messages.h"
 #include "content/common/web_database_observer_impl.h"
-#include "content/public/common/compositor_util.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
@@ -48,8 +47,6 @@
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/public/renderer/render_process_observer.h"
 #include "content/public/renderer/render_view_visitor.h"
-#include "content/renderer/browser_plugin/old/browser_plugin_channel_manager.h"
-#include "content/renderer/browser_plugin/old/browser_plugin_registry.h"
 #include "content/renderer/devtools_agent_filter.h"
 #include "content/renderer/dom_storage/dom_storage_dispatcher.h"
 #include "content/renderer/dom_storage/webstoragearea_impl.h"
@@ -297,11 +294,6 @@ void RenderThreadImpl::Init() {
   dom_storage_dispatcher_.reset(new DomStorageDispatcher());
   main_thread_indexed_db_dispatcher_.reset(new content::IndexedDBDispatcher());
 
-  browser_plugin_registry_.reset(new old::BrowserPluginRegistry());
-  browser_plugin_channel_manager_.reset(
-      new old::BrowserPluginChannelManager());
-  AddObserver(browser_plugin_channel_manager_.get());
-
   media_stream_center_ = NULL;
 
   db_message_filter_ = new DBMessageFilter();
@@ -473,14 +465,11 @@ IPC::SyncChannel* RenderThreadImpl::GetChannel() {
 
 std::string RenderThreadImpl::GetLocale() {
   // The browser process should have passed the locale to the renderer via the
-  // --lang command line flag.  In single process mode, this will return the
-  // wrong value.  TODO(tc): Fix this for single process mode.
+  // --lang command line flag.
   const CommandLine& parsed_command_line = *CommandLine::ForCurrentProcess();
   const std::string& lang =
       parsed_command_line.GetSwitchValueASCII(switches::kLang);
-  DCHECK(!lang.empty() ||
-      (!parsed_command_line.HasSwitch(switches::kRendererProcess) &&
-       !parsed_command_line.HasSwitch(switches::kPluginProcess)));
+  DCHECK(!lang.empty());
   return lang;
 }
 
@@ -572,7 +561,10 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   // The new design can be tracked at: http://crbug.com/134492.
   bool is_guest = CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kGuestRenderer);
-  bool enable = IsThreadedCompositingEnabled() && !is_guest;
+  bool threaded = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableThreadedCompositing);
+
+  bool enable = threaded && !is_guest;
   if (enable) {
     compositor_thread_.reset(new CompositorThread(this));
     AddFilter(compositor_thread_->GetMessageFilter());
@@ -856,8 +848,8 @@ RenderThreadImpl::GetGpuVDAContext3D() {
 AudioRendererMixerManager* RenderThreadImpl::GetAudioRendererMixerManager() {
   if (!audio_renderer_mixer_manager_.get()) {
     audio_renderer_mixer_manager_.reset(new AudioRendererMixerManager(
-        AudioHardware::GetOutputSampleRate(),
-        AudioHardware::GetOutputBufferSize()));
+        GetAudioOutputSampleRate(),
+        GetAudioOutputBufferSize()));
   }
 
   return audio_renderer_mixer_manager_.get();
@@ -991,7 +983,6 @@ bool RenderThreadImpl::OnControlMessageReceived(const IPC::Message& msg) {
   IPC_BEGIN_MESSAGE_MAP(RenderThreadImpl, msg)
     IPC_MESSAGE_HANDLER(ViewMsg_SetZoomLevelForCurrentURL,
                         OnSetZoomLevelForCurrentURL)
-    IPC_MESSAGE_HANDLER(ViewMsg_SetCSSColors, OnSetCSSColors)
     // TODO(port): removed from render_messages_internal.h;
     // is there a new non-windows message I should add here?
     IPC_MESSAGE_HANDLER(ViewMsg_New, OnCreateNewView)
@@ -1003,50 +994,24 @@ bool RenderThreadImpl::OnControlMessageReceived(const IPC::Message& msg) {
   return handled;
 }
 
-// Called when to register CSS Color name->system color mappings.
-// We update the colors one by one and then tell WebKit to refresh all render
-// views.
-void RenderThreadImpl::OnSetCSSColors(
-    const std::vector<CSSColors::CSSColorMapping>& colors) {
-  EnsureWebKitInitialized();
-  size_t num_colors = colors.size();
-  scoped_array<WebKit::WebColorName> color_names(
-      new WebKit::WebColorName[num_colors]);
-  scoped_array<WebKit::WebColor> web_colors(new WebKit::WebColor[num_colors]);
-  size_t i = 0;
-  for (std::vector<CSSColors::CSSColorMapping>::const_iterator it =
-          colors.begin();
-       it != colors.end();
-       ++it, ++i) {
-    color_names[i] = it->first;
-    web_colors[i] = it->second;
-  }
-  WebKit::setNamedColors(color_names.get(), web_colors.get(), num_colors);
-}
-
 void RenderThreadImpl::OnCreateNewView(const ViewMsg_New_Params& params) {
   EnsureWebKitInitialized();
   // When bringing in render_view, also bring in webkit's glue and jsbindings.
-  if (!params.embedder_channel_name.empty()) {
-    browser_plugin_channel_manager()->CreateRenderView(params);
-  } else {
-    RenderViewImpl::Create(
-        params.parent_window,
-        params.opener_route_id,
-        params.renderer_preferences,
-        params.web_preferences,
-        new SharedRenderViewCounter(0),
-        params.view_id,
-        params.surface_id,
-        params.session_storage_namespace_id,
-        params.frame_name,
-        false,
-        params.swapped_out,
-        params.next_page_id,
-        params.screen_info,
-        NULL,
-        params.accessibility_mode);
-  }
+  RenderViewImpl::Create(
+      params.parent_window,
+      params.opener_route_id,
+      params.renderer_preferences,
+      params.web_preferences,
+      new SharedRenderViewCounter(0),
+      params.view_id,
+      params.surface_id,
+      params.session_storage_namespace_id,
+      params.frame_name,
+      false,
+      params.swapped_out,
+      params.next_page_id,
+      params.screen_info,
+      params.accessibility_mode);
 }
 
 GpuChannelHost* RenderThreadImpl::EstablishGpuChannelSync(

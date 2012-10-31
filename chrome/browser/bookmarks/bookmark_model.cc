@@ -9,8 +9,10 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/json/json_string_value_serializer.h"
 #include "base/memory/scoped_vector.h"
 #include "base/string_util.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_expanded_state_tracker.h"
 #include "chrome/browser/bookmarks/bookmark_index.h"
@@ -76,12 +78,68 @@ bool BookmarkNode::IsVisible() const {
   return true;
 }
 
+bool BookmarkNode::GetMetaInfo(const std::string& key,
+                               std::string* value) const {
+  if (meta_info_str_.empty())
+    return false;
+
+  JSONStringValueSerializer serializer(meta_info_str_);
+  scoped_ptr<DictionaryValue> meta_dict(
+      static_cast<DictionaryValue*>(serializer.Deserialize(NULL, NULL)));
+  return meta_dict.get() ? meta_dict->GetString(key, value) : false;
+}
+
+bool BookmarkNode::SetMetaInfo(const std::string& key,
+                               const std::string& value) {
+  JSONStringValueSerializer serializer(&meta_info_str_);
+  scoped_ptr<DictionaryValue> meta_dict;
+  if (!meta_info_str_.empty()) {
+    meta_dict.reset(
+        static_cast<DictionaryValue*>(serializer.Deserialize(NULL, NULL)));
+  }
+  if (!meta_dict.get()) {
+    meta_dict.reset(new DictionaryValue);
+  } else {
+    std::string old_value;
+    if (meta_dict->GetString(key, &old_value) && old_value == value)
+      return false;
+  }
+  meta_dict->SetString(key, value);
+  serializer.Serialize(*meta_dict);
+  std::string(meta_info_str_.data(), meta_info_str_.size()).swap(
+      meta_info_str_);
+  return true;
+}
+
+bool BookmarkNode::DeleteMetaInfo(const std::string& key) {
+  if (meta_info_str_.empty())
+    return false;
+
+  JSONStringValueSerializer serializer(&meta_info_str_);
+  scoped_ptr<DictionaryValue> meta_dict(
+      static_cast<DictionaryValue*>(serializer.Deserialize(NULL, NULL)));
+  if (meta_dict.get() && meta_dict->HasKey(key)) {
+    meta_dict->Remove(key, NULL);
+    if (meta_dict->empty()) {
+      meta_info_str_.clear();
+    } else {
+      serializer.Serialize(*meta_dict);
+      std::string(meta_info_str_.data(), meta_info_str_.size()).swap(
+          meta_info_str_);
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+
 void BookmarkNode::Initialize(int64 id) {
   id_ = id;
   type_ = url_.is_empty() ? FOLDER : URL;
   date_added_ = Time::Now();
   favicon_state_ = INVALID_FAVICON;
   favicon_load_handle_ = 0;
+  meta_info_str_.clear();
 }
 
 void BookmarkNode::InvalidateFavicon() {
@@ -378,6 +436,45 @@ void BookmarkModel::SetURL(const BookmarkNode* node, const GURL& url) {
                     BookmarkNodeChanged(this, node));
 }
 
+void BookmarkModel::SetNodeMetaInfo(const BookmarkNode* node,
+                                    const std::string& key,
+                                    const std::string& value) {
+  if (AsMutable(node)->SetMetaInfo(key, value) && store_.get())
+    store_->ScheduleSave();
+}
+
+void BookmarkModel::DeleteNodeMetaInfo(const BookmarkNode* node,
+                                       const std::string& key) {
+  if (AsMutable(node)->DeleteMetaInfo(key) && store_.get())
+    store_->ScheduleSave();
+}
+
+void BookmarkModel::SetDateAdded(const BookmarkNode* node,
+                                 base::Time date_added) {
+  if (!node) {
+    NOTREACHED();
+    return;
+  }
+
+  if (node->date_added() == date_added)
+    return;
+
+  if (is_permanent_node(node)) {
+    NOTREACHED();
+    return;
+  }
+
+  AsMutable(node)->set_date_added(date_added);
+
+  // Syncing might result in dates newer than the folder's last modified date.
+  if (date_added > node->parent()->date_folder_modified()) {
+    // Will trigger store_->ScheduleSave().
+    SetDateFolderModified(node->parent(), date_added);
+  } else if (store_.get()) {
+    store_->ScheduleSave();
+  }
+}
+
 void BookmarkModel::GetNodesByURL(const GURL& url,
                                   std::vector<const BookmarkNode*>* nodes) {
   base::AutoLock url_lock(url_lock_);
@@ -478,7 +575,7 @@ const BookmarkNode* BookmarkModel::AddURLWithCreationTime(
 
   bool was_bookmarked = IsBookmarked(url);
 
-  // Syncing may result in dates older than the last modified date.
+  // Syncing may result in dates newer than the last modified date.
   if (creation_time > parent->date_folder_modified())
     SetDateFolderModified(parent, creation_time);
 
@@ -633,6 +730,8 @@ void BookmarkModel::DoneLoading(BookmarkLoadDetails* details_delete_me) {
   root_.Add(bookmark_bar_node_, 0);
   root_.Add(other_node_, 1);
   root_.Add(mobile_node_, 2);
+
+  root_.set_meta_info_str(details->model_meta_info());
 
   {
     base::AutoLock url_lock(url_lock_);
@@ -884,5 +983,6 @@ BookmarkLoadDetails* BookmarkModel::CreateLoadDetails() {
   BookmarkPermanentNode* mobile_node =
       CreatePermanentNode(BookmarkNode::MOBILE);
   return new BookmarkLoadDetails(bb_node, other_node, mobile_node,
-                                 new BookmarkIndex(profile_), next_node_id_);
+                                 new BookmarkIndex(profile_),
+                                 next_node_id_);
 }

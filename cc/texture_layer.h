@@ -50,7 +50,7 @@ public:
 
     virtual void setLayerTreeHost(LayerTreeHost*) OVERRIDE;
     virtual bool drawsContent() const OVERRIDE;
-    virtual void update(TextureUpdateQueue&, const OcclusionTracker*, RenderingStats&) OVERRIDE;
+    virtual void update(ResourceUpdateQueue&, const OcclusionTracker*, RenderingStats&) OVERRIDE;
     virtual void pushPropertiesTo(LayerImpl*) OVERRIDE;
 
 protected:
@@ -65,6 +65,7 @@ private:
     bool m_premultipliedAlpha;
     bool m_rateLimitContext;
     bool m_contextLost;
+    bool m_contentCommitted;
 
     unsigned m_textureId;
 };

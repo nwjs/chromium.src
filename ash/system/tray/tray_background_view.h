@@ -7,9 +7,9 @@
 
 #include "ash/ash_export.h"
 #include "ash/launcher/background_animator.h"
-#include "ash/system/tray/tray_bubble_view.h"
 #include "ash/system/tray/tray_views.h"
 #include "ash/wm/shelf_types.h"
+#include "ui/views/bubble/tray_bubble_view.h"
 
 namespace ash {
 namespace internal {
@@ -17,8 +17,6 @@ namespace internal {
 class ShelfLayoutManager;
 class StatusAreaWidget;
 class TrayBackground;
-class TrayLayerAnimationObserver;
-
 // Base class for children of StatusAreaWidget: SystemTray, WebNotificationTray.
 // This class handles setting and animating the background when the Launcher
 // his shown/hidden. It also inherits from ActionableView so that the tray
@@ -89,8 +87,7 @@ class ASH_EXPORT TrayBackgroundView : public internal::ActionableView,
 
   // Hides the bubble associated with |bubble_view|. Called when the widget
   // is closed.
-  virtual void HideBubbleWithView(
-      const message_center::TrayBubbleView* bubble_view) = 0;
+  virtual void HideBubbleWithView(const views::TrayBubbleView* bubble_view) = 0;
 
   // Called by the bubble wrapper when a click event occurs outside the bubble.
   // May close the bubble. Returns true if the event is handled.
@@ -117,11 +114,11 @@ class ASH_EXPORT TrayBackgroundView : public internal::ActionableView,
   // Returns the anchor rect for the bubble.
   gfx::Rect GetBubbleAnchorRect(
       views::Widget* anchor_widget,
-      message_center::TrayBubbleView::AnchorType anchor_type,
-      message_center::TrayBubbleView::AnchorAlignment anchor_alignment) const;
+      views::TrayBubbleView::AnchorType anchor_type,
+      views::TrayBubbleView::AnchorAlignment anchor_alignment) const;
 
   // Returns the bubble anchor alignment based on |shelf_alignment_|.
-  message_center::TrayBubbleView::AnchorAlignment GetAnchorAlignment() const;
+  views::TrayBubbleView::AnchorAlignment GetAnchorAlignment() const;
 
   StatusAreaWidget* status_area_widget() {
     return status_area_widget_;
@@ -134,8 +131,11 @@ class ASH_EXPORT TrayBackgroundView : public internal::ActionableView,
 
   ShelfLayoutManager* GetShelfLayoutManager();
 
+  // Updates the arrow visibilty based on the launcher visibilty.
+  void UpdateBubbleViewArrow(views::TrayBubbleView* bubble_view);
+
  private:
-  friend class TrayLayerAnimationObserver;
+  class TrayWidgetObserver;
 
   // Called from Initialize after all status area trays have been created.
   // Sets the border based on the position of the view.
@@ -155,8 +155,7 @@ class ASH_EXPORT TrayBackgroundView : public internal::ActionableView,
 
   internal::BackgroundAnimator hide_background_animator_;
   internal::BackgroundAnimator hover_background_animator_;
-  scoped_ptr<internal::TrayLayerAnimationObserver>
-      layer_animation_observer_;
+  scoped_ptr<TrayWidgetObserver> widget_observer_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayBackgroundView);
 };

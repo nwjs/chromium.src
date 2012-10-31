@@ -46,14 +46,7 @@
 #include "ui/surface/accelerated_surface_win.h"
 #endif
 
-using content::BrowserThread;
-using content::ChildProcessHost;
-using content::GpuChildThread;
-using content::GpuProcess;
-using content::RenderProcessHost;
-using content::RenderWidgetHelper;
-using content::RenderWidgetHost;
-using content::RenderWidgetHostImpl;
+namespace content {
 
 bool GpuProcessHost::gpu_enabled_ = true;
 bool GpuProcessHost::hardware_gpu_enabled_ = true;
@@ -94,7 +87,7 @@ void ReleasePermanentXIDDispatcher(gfx::PluginWindowHandle surface) {
 #endif
 
 void SendGpuProcessMessage(GpuProcessHost::GpuProcessKind kind,
-                           content::CauseForGpuLaunch cause,
+                           CauseForGpuLaunch cause,
                            IPC::Message* message) {
   GpuProcessHost* host = GpuProcessHost::Get(kind, cause);
   if (host) {
@@ -106,7 +99,8 @@ void SendGpuProcessMessage(GpuProcessHost::GpuProcessKind kind,
 
 void AcceleratedSurfaceBuffersSwappedCompletedForGPU(int host_id,
                                                      int route_id,
-                                                     bool alive) {
+                                                     bool alive,
+                                                     bool did_swap) {
   if (!BrowserThread::CurrentlyOn(BrowserThread::IO)) {
     BrowserThread::PostTask(
         BrowserThread::IO,
@@ -114,14 +108,16 @@ void AcceleratedSurfaceBuffersSwappedCompletedForGPU(int host_id,
         base::Bind(&AcceleratedSurfaceBuffersSwappedCompletedForGPU,
                    host_id,
                    route_id,
-                   alive));
+                   alive,
+                   did_swap));
     return;
   }
 
   GpuProcessHost* host = GpuProcessHost::FromID(host_id);
   if (host) {
     if (alive)
-      host->Send(new AcceleratedSurfaceMsg_BufferPresented(route_id, 0));
+      host->Send(new AcceleratedSurfaceMsg_BufferPresented(
+          route_id, did_swap, 0));
     else
       host->ForceShutdown();
   }
@@ -166,7 +162,8 @@ void AcceleratedSurfaceBuffersSwappedCompleted(int host_id,
                                                bool alive,
                                                base::TimeTicks timebase,
                                                base::TimeDelta interval) {
-  AcceleratedSurfaceBuffersSwappedCompletedForGPU(host_id, route_id, alive);
+  AcceleratedSurfaceBuffersSwappedCompletedForGPU(host_id, route_id,
+                                                  alive, true /* presented */);
   AcceleratedSurfaceBuffersSwappedCompletedForRenderer(surface_id, timebase,
                                                        interval);
 }
@@ -264,7 +261,7 @@ bool GpuProcessHost::HostIsValid(GpuProcessHost* host) {
 
 // static
 GpuProcessHost* GpuProcessHost::Get(GpuProcessKind kind,
-                                    content::CauseForGpuLaunch cause) {
+                                    CauseForGpuLaunch cause) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
   // Don't grant further access to GPU if it is not allowed.
@@ -276,7 +273,7 @@ GpuProcessHost* GpuProcessHost::Get(GpuProcessKind kind,
   if (g_gpu_process_hosts[kind] && HostIsValid(g_gpu_process_hosts[kind]))
     return g_gpu_process_hosts[kind];
 
-  if (cause == content::CAUSE_FOR_GPU_LAUNCH_NO_LAUNCH)
+  if (cause == CAUSE_FOR_GPU_LAUNCH_NO_LAUNCH)
     return NULL;
 
   int host_id;
@@ -284,7 +281,7 @@ GpuProcessHost* GpuProcessHost::Get(GpuProcessKind kind,
 
   UMA_HISTOGRAM_ENUMERATION("GPU.GPUProcessLaunchCause",
                             cause,
-                            content::CAUSE_FOR_GPU_LAUNCH_MAX_ENUM);
+                            CAUSE_FOR_GPU_LAUNCH_MAX_ENUM);
 
   GpuProcessHost* host = new GpuProcessHost(host_id, kind);
   if (host->Init())
@@ -296,7 +293,7 @@ GpuProcessHost* GpuProcessHost::Get(GpuProcessKind kind,
 
 // static
 void GpuProcessHost::SendOnIO(GpuProcessKind kind,
-                              content::CauseForGpuLaunch cause,
+                              CauseForGpuLaunch cause,
                               IPC::Message* message) {
   if (!BrowserThread::PostTask(
           BrowserThread::IO, FROM_HERE,
@@ -346,8 +343,7 @@ GpuProcessHost::GpuProcessHost(int host_id, GpuProcessKind kind)
       FROM_HERE,
       base::Bind(base::IgnoreResult(&GpuProcessHostUIShim::Create), host_id));
 
-  process_.reset(
-      new BrowserChildProcessHostImpl(content::PROCESS_TYPE_GPU, this));
+  process_.reset(new BrowserChildProcessHostImpl(PROCESS_TYPE_GPU, this));
 }
 
 GpuProcessHost::~GpuProcessHost() {
@@ -394,7 +390,7 @@ GpuProcessHost::~GpuProcessHost() {
       status == base::TERMINATION_STATUS_ABNORMAL_TERMINATION) {
     UMA_HISTOGRAM_ENUMERATION("GPU.GPUProcessExitCode",
                               exit_code,
-                              content::RESULT_CODE_LAST_CODE);
+                              RESULT_CODE_LAST_CODE);
   }
 
   // In case we never started, clean up.
@@ -520,8 +516,7 @@ void GpuProcessHost::EstablishGpuChannel(
   // If GPU features are already blacklisted, no need to establish the channel.
   if (!GpuDataManagerImpl::GetInstance()->GpuAccessAllowed()) {
     EstablishChannelError(
-        callback, IPC::ChannelHandle(),
-        base::kNullProcessHandle, content::GPUInfo());
+        callback, IPC::ChannelHandle(), base::kNullProcessHandle, GPUInfo());
     return;
   }
 
@@ -530,7 +525,7 @@ void GpuProcessHost::EstablishGpuChannel(
   } else {
     EstablishChannelError(
         callback, IPC::ChannelHandle(),
-        base::kNullProcessHandle, content::GPUInfo());
+        base::kNullProcessHandle, GPUInfo());
   }
 }
 
@@ -615,7 +610,7 @@ void GpuProcessHost::OnChannelEstablished(
     EstablishChannelError(callback,
                           IPC::ChannelHandle(),
                           base::kNullProcessHandle,
-                          content::GPUInfo());
+                          GPUInfo());
     RouteOnUIThread(GpuHostMsg_OnLogMessage(
         logging::LOG_WARNING,
         "WARNING",
@@ -678,7 +673,8 @@ void GpuProcessHost::OnAcceleratedSurfaceBuffersSwapped(
 
   base::ScopedClosureRunner scoped_completion_runner(
       base::Bind(&AcceleratedSurfaceBuffersSwappedCompletedForGPU,
-                 host_id_, params.route_id, true));
+                 host_id_, params.route_id,
+                 true /* alive */, false /* presented */));
 
   int render_process_id = 0;
   int render_widget_id = 0;
@@ -895,7 +891,7 @@ bool GpuProcessHost::LaunchGpuProcess(const std::string& channel_id) {
   cmd_line->CopySwitchesFrom(
       browser_command_line, switches::kGpuSwitches, switches::kNumGpuSwitches);
 
-  content::GetContentClient()->browser()->AppendExtraCommandLineSwitches(
+  GetContentClient()->browser()->AppendExtraCommandLineSwitches(
       cmd_line, process_->GetData().id);
 
   GpuDataManagerImpl::GetInstance()->AppendGpuCommandLine(cmd_line);
@@ -939,7 +935,7 @@ void GpuProcessHost::SendOutstandingReplies() {
     EstablishChannelError(callback,
                           IPC::ChannelHandle(),
                           base::kNullProcessHandle,
-                          content::GPUInfo());
+                          GPUInfo());
   }
 }
 
@@ -947,7 +943,7 @@ void GpuProcessHost::EstablishChannelError(
     const EstablishChannelCallback& callback,
     const IPC::ChannelHandle& channel_handle,
     base::ProcessHandle renderer_process_for_gpu,
-    const content::GPUInfo& gpu_info) {
+    const GPUInfo& gpu_info) {
   callback.Run(channel_handle, gpu_info);
 }
 
@@ -960,3 +956,5 @@ void GpuProcessHost::CreateImageError(
     const CreateImageCallback& callback, const gfx::Size size) {
   callback.Run(size);
 }
+
+}  // namespace content

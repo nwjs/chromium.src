@@ -255,10 +255,6 @@ SafeBrowsingService::SafeBrowsingService()
 }
 
 SafeBrowsingService::~SafeBrowsingService() {
-  // Deletes the PrefChangeRegistrars, whose dtors also unregister |this| as an
-  // observer of the preferences.
-  STLDeleteValues(&prefs_map_);
-
   // We should have already been shut down. If we're still enabled, then the
   // database isn't going to be closed properly, which could lead to corruption.
   DCHECK(!enabled_);
@@ -303,6 +299,13 @@ void SafeBrowsingService::Initialize() {
 }
 
 void SafeBrowsingService::ShutDown() {
+  // Deletes the PrefChangeRegistrars, whose dtors also unregister |this| as an
+  // observer of the preferences.
+  STLDeleteValues(&prefs_map_);
+
+  // Remove Profile creation/destruction observers.
+  prefs_registrar_.RemoveAll();
+
   Stop();
   // The IO thread is going away, so make sure the ClientSideDetectionService
   // dtor executes now since it may call the dtor of URLFetcher which relies
@@ -567,11 +570,6 @@ void SafeBrowsingService::UpdateFinished(bool update_succeeded) {
   }
 }
 
-bool SafeBrowsingService::IsUpdateInProgress() const {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  return update_in_progress_;
-}
-
 void SafeBrowsingService::OnBlockingPageDone(
     const std::vector<UnsafeResource>& resources,
     bool proceed) {
@@ -656,24 +654,25 @@ void SafeBrowsingService::StartOnIOThread() {
 
   MakeDatabaseAvailable();
 
+  SafeBrowsingProtocolConfig config;
   // On Windows, get the safe browsing client name from the browser
   // distribution classes in installer util. These classes don't yet have
   // an analog on non-Windows builds so just keep the name specified here.
 #if defined(OS_WIN)
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-  std::string client_name(dist->GetSafeBrowsingName());
+  config.client_name = dist->GetSafeBrowsingName();
 #else
 #if defined(GOOGLE_CHROME_BUILD)
-  std::string client_name("googlechrome");
+  config.client_name = "googlechrome";
 #else
-  std::string client_name("chromium");
+  config.client_name = "chromium";
 #endif
 #endif
   CommandLine* cmdline = CommandLine::ForCurrentProcess();
-  bool disable_auto_update =
+  config.disable_auto_update =
       cmdline->HasSwitch(switches::kSbDisableAutoUpdate) ||
       cmdline->HasSwitch(switches::kDisableBackgroundNetworking);
-  std::string url_prefix =
+  config.url_prefix =
       cmdline->HasSwitch(switches::kSbURLPrefix) ?
       cmdline->GetSwitchValueASCII(switches::kSbURLPrefix) :
       kSbDefaultURLPrefix;
@@ -681,10 +680,8 @@ void SafeBrowsingService::StartOnIOThread() {
   DCHECK(!protocol_manager_);
   protocol_manager_ =
       SafeBrowsingProtocolManager::Create(this,
-                                          client_name,
                                           url_request_context_getter_,
-                                          url_prefix,
-                                          disable_auto_update);
+                                          config);
 
   protocol_manager_->Initialize();
 }
@@ -861,7 +858,14 @@ void SafeBrowsingService::OnCheckDone(SafeBrowsingCheck* check) {
     // Reset the start time so that we can measure the network time without the
     // database time.
     check->start = base::TimeTicks::Now();
-    protocol_manager_->GetFullHash(check, check->prefix_hits);
+    // Note: If |this| is deleted or stopped, the protocol_manager will
+    // be destroyed as well - hence it's OK to do unretained in this case.
+    protocol_manager_->GetFullHash(
+        check->prefix_hits,
+        base::Bind(&SafeBrowsingService::HandleGetHashResults,
+                   base::Unretained(this),
+                   check),
+        check->is_download);
   } else {
     // We may have cached results for previous GetHash queries.  Since
     // this data comes from cache, don't histogram hits.

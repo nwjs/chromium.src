@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/common/extensions/feature_switch.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_pref_service.h"
@@ -23,6 +24,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/resource/resource_bundle.h"
+
+using extensions::FeatureSwitch;
 
 class ActionBoxMenuModelTest : public BrowserWithTestWindowTest,
                                public ui::SimpleMenuModel::Delegate {
@@ -94,6 +97,7 @@ TEST_F(ActionBoxMenuModelTest, IncongnitoNoMobiles) {
 
   // Expect no c2m command in model.
   EXPECT_EQ(-1, model.GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_CHROME_TO_MOBILE_PAGE));
 
   NavigateToBookmarkablePage();
 
@@ -102,6 +106,7 @@ TEST_F(ActionBoxMenuModelTest, IncongnitoNoMobiles) {
 
   // Expect c2m command not in model.
   EXPECT_EQ(-1, model2.GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_CHROME_TO_MOBILE_PAGE));
 }
 
 // Tests that Chrome2Mobile is disabled on incognito profiles with devices.
@@ -116,6 +121,7 @@ TEST_F(ActionBoxMenuModelTest, IncongnitoHasMobiles) {
 
   // Expect no c2m command in model.
   EXPECT_EQ(-1, model.GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_CHROME_TO_MOBILE_PAGE));
 
   NavigateToBookmarkablePage();
 
@@ -124,21 +130,24 @@ TEST_F(ActionBoxMenuModelTest, IncongnitoHasMobiles) {
   ActionBoxMenuModel model2(browser(), this);
   // Expect c2m command not in model.
   EXPECT_EQ(-1, model2.GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_CHROME_TO_MOBILE_PAGE));
 }
 
 // Tests that Chrome2Mobile is disabled for signed-in profiles with no devices.
 TEST_F(ActionBoxMenuModelTest, OnRecordNoMobiles) {
+  FeatureSwitch::ScopedOverride enable_action_box(FeatureSwitch::action_box(),
+                                                  true);
   InitProfile();
   SetProfileSignedIn();
 
   NavigateToLocalPage();
 
   // Create model.
-
   ActionBoxMenuModel model(browser(), this);
 
   // Expect no c2m command in model.
   EXPECT_EQ(-1, model.GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_CHROME_TO_MOBILE_PAGE));
 
   NavigateToBookmarkablePage();
 
@@ -147,11 +156,14 @@ TEST_F(ActionBoxMenuModelTest, OnRecordNoMobiles) {
 
   // Expect c2m command not in model.
   EXPECT_EQ(-1, model2.GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_CHROME_TO_MOBILE_PAGE));
 }
 
 // Tests that Chrome2Mobile is enabled for signed-in profiles with devices, and
 // disabled if the profile is set to incognito mode.
 TEST_F(ActionBoxMenuModelTest, HasMobilesOnRecordOrIncognito) {
+  FeatureSwitch::ScopedOverride enable_action_box(FeatureSwitch::action_box(),
+                                                  true);
   InitProfile();
   SetProfileSignedIn();
   SetProfileHasMobiles();
@@ -163,6 +175,7 @@ TEST_F(ActionBoxMenuModelTest, HasMobilesOnRecordOrIncognito) {
 
   // Expect no c2m command in model.
   EXPECT_EQ(-1, model.GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_CHROME_TO_MOBILE_PAGE));
 
   NavigateToBookmarkablePage();
 
@@ -171,6 +184,7 @@ TEST_F(ActionBoxMenuModelTest, HasMobilesOnRecordOrIncognito) {
 
   // Expect c2m command in model.
   EXPECT_NE(-1, model2.GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_CHROME_TO_MOBILE_PAGE));
 
   // Incognito-ize profile.
   profile()->set_incognito(true);
@@ -180,6 +194,7 @@ TEST_F(ActionBoxMenuModelTest, HasMobilesOnRecordOrIncognito) {
 
   // Expect no c2m command in this model.
   EXPECT_EQ(-1, model3.GetIndexOfCommandId(IDC_CHROME_TO_MOBILE_PAGE));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_CHROME_TO_MOBILE_PAGE));
 
   // Un-incognito-ize for shutdown.
   profile()->set_incognito(false);
@@ -187,6 +202,8 @@ TEST_F(ActionBoxMenuModelTest, HasMobilesOnRecordOrIncognito) {
 
 // Tests that Bookmark Star is lit up only on bookmarked pages.
 TEST_F(ActionBoxMenuModelTest, BookmarkedPage) {
+  FeatureSwitch::ScopedOverride enable_action_box(FeatureSwitch::action_box(),
+                                                  true);
   // Set up bookmark model
   profile()->CreateBookmarkModel(true);
   profile()->BlockUntilBookmarkModelLoaded();

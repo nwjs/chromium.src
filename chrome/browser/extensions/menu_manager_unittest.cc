@@ -13,8 +13,11 @@
 #include "base/values.h"
 #include "chrome/browser/extensions/event_names.h"
 #include "chrome/browser/extensions/event_router.h"
+#include "chrome/browser/extensions/extension_system_factory.h"
 #include "chrome/browser/extensions/menu_manager.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/extensions/test_extension_prefs.h"
+#include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension.h"
@@ -42,14 +45,20 @@ class MenuManagerTest : public testing::Test {
   MenuManagerTest() : ui_thread_(BrowserThread::UI, &message_loop_),
                       file_thread_(BrowserThread::FILE, &message_loop_),
                       manager_(&profile_),
+                      prefs_(message_loop_.message_loop_proxy()),
                       next_id_(1) {
   }
 
+  virtual void TearDown() OVERRIDE {
+    prefs_.pref_service()->CommitPendingWrite();
+    message_loop_.RunAllPending();
+  }
+
   // Returns a test item.
-  MenuItem* CreateTestItem(Extension* extension) {
+  MenuItem* CreateTestItem(Extension* extension, bool incognito = false) {
     MenuItem::Type type = MenuItem::NORMAL;
     MenuItem::ContextList contexts(MenuItem::ALL);
-    MenuItem::Id id(false, extension->id());
+    MenuItem::Id id(incognito, extension->id());
     id.uid = next_id_++;
     return new MenuItem(id, "test", false, true, type, contexts);
   }
@@ -461,15 +470,27 @@ class MockEventRouter : public EventRouter {
   DISALLOW_COPY_AND_ASSIGN(MockEventRouter);
 };
 
-// A mock profile for tests of MenuManager::ExecuteCommand.
-class MockTestingProfile : public TestingProfile {
+// A mock ExtensionSystem to serve our MockEventRouter.
+class MockExtensionSystem : public TestExtensionSystem {
  public:
-  MockTestingProfile() {}
-  MOCK_METHOD0(GetExtensionEventRouter, EventRouter*());
+  explicit MockExtensionSystem(Profile* profile)
+      : TestExtensionSystem(profile) {}
+
+  virtual EventRouter* event_router() {
+    if (!mock_event_router_.get())
+      mock_event_router_.reset(new MockEventRouter(profile_));
+    return mock_event_router_.get();
+  }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(MockTestingProfile);
+  scoped_ptr<MockEventRouter> mock_event_router_;
+
+  DISALLOW_COPY_AND_ASSIGN(MockExtensionSystem);
 };
+
+ProfileKeyedService* BuildMockExtensionSystem(Profile* profile) {
+  return new MockExtensionSystem(profile);
+}
 
 // Tests the RemoveAll functionality.
 TEST_F(MenuManagerTest, RemoveAll) {
@@ -524,9 +545,13 @@ TEST_F(MenuManagerTest, RemoveOneByOne) {
 }
 
 TEST_F(MenuManagerTest, ExecuteCommand) {
-  MockTestingProfile profile;
+  TestingProfile profile;
 
-  scoped_ptr<MockEventRouter> mock_event_router(new MockEventRouter(&profile));
+  MockExtensionSystem* mock_extension_system =
+      static_cast<MockExtensionSystem*>(ExtensionSystemFactory::GetInstance()->
+          SetTestingFactoryAndUse(&profile, &BuildMockExtensionSystem));
+  MockEventRouter* mock_event_router =
+      static_cast<MockEventRouter*>(mock_extension_system->event_router());
 
   content::ContextMenuParams params;
   params.media_type = WebKit::WebContextMenuData::MediaTypeImage;
@@ -540,16 +565,12 @@ TEST_F(MenuManagerTest, ExecuteCommand) {
   MenuItem::Id id = item->id();
   ASSERT_TRUE(manager_.AddContextItem(extension, item));
 
-  EXPECT_CALL(profile, GetExtensionEventRouter())
-      .Times(1)
-      .WillOnce(Return(mock_event_router.get()));
-
   // Use the magic of googlemock to save a parameter to our mock's
   // DispatchEventToExtension method into event_args.
   base::ListValue* list = NULL;
   {
     InSequence s;
-    EXPECT_CALL(*mock_event_router.get(),
+    EXPECT_CALL(*mock_event_router,
                 DispatchEventToExtensionMock(
                     item->extension_id(),
                     extensions::event_names::kOnContextMenus,
@@ -559,7 +580,7 @@ TEST_F(MenuManagerTest, ExecuteCommand) {
                     EventRouter::USER_GESTURE_ENABLED))
       .Times(1)
       .WillOnce(SaveArg<2>(&list));
-  EXPECT_CALL(*mock_event_router.get(),
+    EXPECT_CALL(*mock_event_router,
               DispatchEventToExtensionMock(
                   item->extension_id(),
                   extensions::event_names::kOnContextMenuClicked,
@@ -689,6 +710,41 @@ TEST_F(MenuManagerTest, SanitizeRadioButtons) {
   parent = NULL;
   ASSERT_FALSE(new_item->checked());
   ASSERT_TRUE(child1->checked());
+}
+
+// Tests the RemoveAllIncognitoContextItems functionality.
+TEST_F(MenuManagerTest, RemoveAllIncognito) {
+  Extension* extension1 = AddExtension("1111");
+  // Add 2 top-level and one child item for extension 1
+  // with incognito 'true'.
+  MenuItem* item1 = CreateTestItem(extension1, true);
+  MenuItem* item2 = CreateTestItem(extension1, true);
+  MenuItem* item3 = CreateTestItem(extension1, true);
+  ASSERT_TRUE(manager_.AddContextItem(extension1, item1));
+  ASSERT_TRUE(manager_.AddContextItem(extension1, item2));
+  ASSERT_TRUE(manager_.AddChildItem(item1->id(), item3));
+
+  // Add 2 top-level and one child item for extension 1
+  // with incognito 'false'.
+  MenuItem* item4 = CreateTestItem(extension1);
+  MenuItem* item5 = CreateTestItem(extension1);
+  MenuItem* item6 = CreateTestItem(extension1);
+  ASSERT_TRUE(manager_.AddContextItem(extension1, item4));
+  ASSERT_TRUE(manager_.AddContextItem(extension1, item5));
+  ASSERT_TRUE(manager_.AddChildItem(item4->id(), item6));
+
+  // Add one top-level item for extension 2.
+  Extension* extension2 = AddExtension("2222");
+  MenuItem* item7 = CreateTestItem(extension2);
+  ASSERT_TRUE(manager_.AddContextItem(extension2, item7));
+
+  EXPECT_EQ(4u, manager_.MenuItems(extension1->id())->size());
+  EXPECT_EQ(1u, manager_.MenuItems(extension2->id())->size());
+
+  // Remove all context menu items with incognito true.
+  manager_.RemoveAllIncognitoContextItems();
+  EXPECT_EQ(2u, manager_.MenuItems(extension1->id())->size());
+  EXPECT_EQ(1u, manager_.MenuItems(extension2->id())->size());
 }
 
 }  // namespace extensions

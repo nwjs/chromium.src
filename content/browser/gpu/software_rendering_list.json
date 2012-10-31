@@ -74,7 +74,7 @@
 {
   "name": "software rendering list",
   // Please update the version number whenever you change this file.
-  "version": "3.9",
+  "version": "4.2",
   "entries": [
     {
       "id": 1,
@@ -870,6 +870,52 @@
       ],
       "blacklist": [
         "panel_fitting"
+      ]
+    },
+    {
+      "id": 58,
+      "description": "Optimus Intel driver version 8.15.10.* has problems sharing textures.",
+      "cr_bugs": [156849],
+      "os": {
+        "type": "win"
+      },
+      "multi_gpu_style": "optimus",
+      "vendor_id": "0x8086",
+      "driver_version": {
+        "op": "=",
+        "number": "8.15.10"
+      },
+      "blacklist": [
+        "texture_sharing"
+      ]
+    },
+    {
+      "id": 59,
+      "description": "NVidia driver 8.15.11.8593 is crashy on Windows.",
+      "cr_bugs": [155749],
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x10de",
+      "driver_version": {
+        "op": "=",
+        "number": "8.15.11.8593"
+      },
+      "blacklist": [
+        "all"
+      ]
+    },
+    {
+      "id": 60,
+      "description": "Multisampling is buggy on Mac with NVIDIA gpu.",
+      "cr_bugs": [137303],
+      "os": {
+        "type": "macosx"
+      },
+      "multi_gpu_category": "any",
+      "vendor_id": "0x10de",
+      "blacklist": [
+        "multisampling"
       ]
     }
   ]

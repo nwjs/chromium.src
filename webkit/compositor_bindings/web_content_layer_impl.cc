@@ -57,6 +57,11 @@ bool WebContentLayerImpl::boundsContainPageScale() const
     return m_layer->layer()->boundsContainPageScale();
 }
 
+void WebContentLayerImpl::setAutomaticallyComputeRasterScale(bool automatic)
+{
+  m_layer->layer()->setAutomaticallyComputeRasterScale(automatic);
+}
+
 void WebContentLayerImpl::setUseLCDText(bool enable)
 {
     m_layer->layer()->setUseLCDText(enable);
@@ -73,7 +78,12 @@ void WebContentLayerImpl::paintContents(SkCanvas* canvas, const IntRect& clip, F
     if (!m_client)
         return;
     WebFloatRect webOpaque;
-    m_client->paintContents(canvas, convert(clip), webOpaque);
+    m_client->paintContents(canvas,
+                            convert(clip),
+#if WEBCONTENTLAYERCLIENT_HAS_CANPAINTLCDTEXT
+                            m_layer->layer()->useLCDText(),
+#endif  // WEBCONTENTLAYERCLIENT_HAS_CANPAINTLCDTEXT
+                            webOpaque);
     opaque = convert(webOpaque);
 }
 

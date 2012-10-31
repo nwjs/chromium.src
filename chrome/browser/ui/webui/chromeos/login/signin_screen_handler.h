@@ -135,6 +135,9 @@ class SigninScreenHandler
   // screen is for OOBE or usual sign-in flow.
   void Show(bool oobe_ui);
 
+  // Shows the login spinner UI for retail mode logins.
+  void ShowRetailModeLoginSpinner();
+
   // Sets delegate to be used by the handler. It is guaranteed that valid
   // delegate is set before Show() method will be called.
   void SetDelegate(SigninScreenHandlerDelegate* delegate);
@@ -249,9 +252,8 @@ class SigninScreenHandler
 
   // Returns true iff
   // (i)   log in is restricted to some user list,
-  // (ii)  existing users fit login screen and
-  // (iii) existing users match to restricted list.
-  bool DoRestrictedUsersMatchExistingOnScreen();
+  // (ii)  all users in the restricted list are present.
+  bool AllWhitelistedUsersPresent();
 
   // Sends network state to a WebUI |callback|.
   void SendState(const std::string& callback,

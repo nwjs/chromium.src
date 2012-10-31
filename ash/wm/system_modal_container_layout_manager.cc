@@ -6,6 +6,7 @@
 
 #include "ash/ash_switches.h"
 #include "ash/shell.h"
+#include "ash/shell_delegate.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/system_modal_container_event_filter.h"
 #include "ash/wm/window_animations.h"
@@ -79,7 +80,9 @@ void SystemModalContainerLayoutManager::OnWindowResized() {
   if (!modal_windows_.empty()) {
     aura::Window::Windows::iterator it = modal_windows_.begin();
     for (it = modal_windows_.begin(); it != modal_windows_.end(); ++it) {
-      (*it)->SetBounds((*it)->bounds().AdjustToFit(container_->bounds()));
+      gfx::Rect bounds = (*it)->bounds();
+      bounds.AdjustToFit(container_->bounds());
+      (*it)->SetBounds(bounds);
     }
   }
 }
@@ -89,6 +92,10 @@ void SystemModalContainerLayoutManager::OnWindowAddedToLayout(
   DCHECK((modal_background_ && child == modal_background_->GetNativeView()) ||
          child->type() == aura::client::WINDOW_TYPE_NORMAL ||
          child->type() == aura::client::WINDOW_TYPE_POPUP);
+  DCHECK(
+      container_->id() != internal::kShellWindowId_LockSystemModalContainer ||
+      Shell::GetInstance()->delegate()->IsScreenLocked());
+
   child->AddObserver(this);
   if (child->GetProperty(aura::client::kModalKey) != ui::MODAL_TYPE_NONE)
     AddModalWindow(child);
@@ -220,7 +227,7 @@ void SystemModalContainerLayoutManager::AddModalWindow(aura::Window* window) {
       capture_window->ReleaseCapture();
   }
   modal_windows_.push_back(window);
-  Shell::GetInstance()->CreateModalBackground();
+  Shell::GetInstance()->CreateModalBackground(window);
 }
 
 void SystemModalContainerLayoutManager::RemoveModalWindow(

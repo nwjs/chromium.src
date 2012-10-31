@@ -17,18 +17,14 @@
 #include "chrome/browser/autocomplete/autocomplete_field_trial.h"
 #include "chrome/browser/chrome_gpu_util.h"
 #include "chrome/browser/google/google_util.h"
-#include "chrome/browser/net/predictor.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
 #include "chrome/browser/safe_browsing/safe_browsing_blocking_page.h"
 #include "chrome/browser/ui/sync/one_click_signin_helper.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/metrics/variations/variations_util.h"
-#include "net/http/http_stream_factory.h"
 #include "net/socket/client_socket_pool_base.h"
-#include "net/socket/client_socket_pool_manager.h"
 #include "net/spdy/spdy_session.h"
-#include "net/spdy/spdy_session_pool.h"
 #include "ui/base/layout.h"
 
 #if defined(OS_WIN)
@@ -105,19 +101,9 @@ ChromeBrowserFieldTrials::~ChromeBrowserFieldTrials() {
 }
 
 void ChromeBrowserFieldTrials::SetupFieldTrials(bool proxy_policy_is_set) {
-  // Note: make sure to call ConnectionFieldTrial() before
-  // ProxyConnectionsFieldTrial().
-  ConnectionFieldTrial();
-  SocketTimeoutFieldTrial();
-  // If a policy is defining the number of active connections this field test
-  // shoud not be performed.
-  if (!proxy_policy_is_set)
-    ProxyConnectionsFieldTrial();
   prerender::ConfigurePrefetchAndPrerender(parsed_command_line_);
   SpdyFieldTrial();
-  ConnectBackupJobsFieldTrial();
   WarmConnectionFieldTrial();
-  PredictorFieldTrial();
   AutoLaunchChromeFieldTrial();
   gpu_util::InitializeCompositingFieldTrial();
   SetupUniformityFieldTrials();
@@ -129,143 +115,6 @@ void ChromeBrowserFieldTrials::SetupFieldTrials(bool proxy_policy_is_set) {
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   OneClickSigninHelper::InitializeFieldTrial();
 #endif
-}
-
-// This is an A/B test for the maximum number of persistent connections per
-// host. Currently Chrome, Firefox, and IE8 have this value set at 6. Safari
-// uses 4, and Fasterfox (a plugin for Firefox that supposedly configures it to
-// run faster) uses 8. We would like to see how much of an effect this value has
-// on browsing. Too large a value might cause us to run into SYN flood detection
-// mechanisms.
-void ChromeBrowserFieldTrials::ConnectionFieldTrial() {
-  const base::FieldTrial::Probability kConnectDivisor = 100;
-  const base::FieldTrial::Probability kConnectProbability = 1;  // 1% prob.
-
-  // This (6) is the current default value. Having this group declared here
-  // makes it straightforward to modify |kConnectProbability| such that the same
-  // probability value will be assigned to all the other groups, while
-  // preserving the remainder of the of probability space to the default value.
-  int connect_6 = -1;
-
-  // After June 30, 2011 builds, it will always be in default group.
-  scoped_refptr<base::FieldTrial> connect_trial(
-      base::FieldTrialList::FactoryGetFieldTrial(
-          "ConnCountImpact", kConnectDivisor, "conn_count_6", 2011, 6, 30,
-          &connect_6));
-
-  const int connect_5 = connect_trial->AppendGroup("conn_count_5",
-                                                   kConnectProbability);
-  const int connect_7 = connect_trial->AppendGroup("conn_count_7",
-                                                   kConnectProbability);
-  const int connect_8 = connect_trial->AppendGroup("conn_count_8",
-                                                   kConnectProbability);
-  const int connect_9 = connect_trial->AppendGroup("conn_count_9",
-                                                   kConnectProbability);
-
-  const int connect_trial_group = connect_trial->group();
-
-  int max_sockets = 0;
-  if (connect_trial_group == connect_5) {
-    max_sockets = 5;
-  } else if (connect_trial_group == connect_6) {
-    max_sockets = 6;
-  } else if (connect_trial_group == connect_7) {
-    max_sockets = 7;
-  } else if (connect_trial_group == connect_8) {
-    max_sockets = 8;
-  } else if (connect_trial_group == connect_9) {
-    max_sockets = 9;
-  } else {
-    NOTREACHED();
-  }
-  net::ClientSocketPoolManager::set_max_sockets_per_group(
-      net::HttpNetworkSession::NORMAL_SOCKET_POOL, max_sockets);
-}
-
-// A/B test for determining a value for unused socket timeout. Currently the
-// timeout defaults to 10 seconds. Having this value set too low won't allow us
-// to take advantage of idle sockets. Setting it to too high could possibly
-// result in more ERR_CONNECTION_RESETs, since some servers will kill a socket
-// before we time it out. Since these are "unused" sockets, we won't retry the
-// connection and instead show an error to the user. So we need to be
-// conservative here. We've seen that some servers will close the socket after
-// as short as 10 seconds. See http://crbug.com/84313 for more details.
-void ChromeBrowserFieldTrials::SocketTimeoutFieldTrial() {
-  const base::FieldTrial::Probability kIdleSocketTimeoutDivisor = 100;
-  // 1% probability for all experimental settings.
-  const base::FieldTrial::Probability kSocketTimeoutProbability = 1;
-
-  // After June 30, 2011 builds, it will always be in default group.
-  int socket_timeout_10 = -1;
-  scoped_refptr<base::FieldTrial> socket_timeout_trial(
-      base::FieldTrialList::FactoryGetFieldTrial(
-          "IdleSktToImpact", kIdleSocketTimeoutDivisor, "idle_timeout_10",
-          2011, 6, 30, &socket_timeout_10));
-
-  const int socket_timeout_5 =
-      socket_timeout_trial->AppendGroup("idle_timeout_5",
-                                        kSocketTimeoutProbability);
-  const int socket_timeout_20 =
-      socket_timeout_trial->AppendGroup("idle_timeout_20",
-                                        kSocketTimeoutProbability);
-
-  const int idle_to_trial_group = socket_timeout_trial->group();
-
-  if (idle_to_trial_group == socket_timeout_5) {
-    net::ClientSocketPool::set_unused_idle_socket_timeout(
-        base::TimeDelta::FromSeconds(5));
-  } else if (idle_to_trial_group == socket_timeout_10) {
-    net::ClientSocketPool::set_unused_idle_socket_timeout(
-        base::TimeDelta::FromSeconds(10));
-  } else if (idle_to_trial_group == socket_timeout_20) {
-    net::ClientSocketPool::set_unused_idle_socket_timeout(
-        base::TimeDelta::FromSeconds(20));
-  } else {
-    NOTREACHED();
-  }
-}
-
-void ChromeBrowserFieldTrials::ProxyConnectionsFieldTrial() {
-  const base::FieldTrial::Probability kProxyConnectionsDivisor = 100;
-  // 25% probability
-  const base::FieldTrial::Probability kProxyConnectionProbability = 1;
-
-  // This (32 connections per proxy server) is the current default value.
-  // Declaring it here allows us to easily re-assign the probability space while
-  // maintaining that the default group always has the remainder of the "share",
-  // which allows for cleaner and quicker changes down the line if needed.
-  int proxy_connections_32 = -1;
-
-  // After June 30, 2011 builds, it will always be in default group.
-  scoped_refptr<base::FieldTrial> proxy_connection_trial(
-      base::FieldTrialList::FactoryGetFieldTrial(
-          "ProxyConnectionImpact", kProxyConnectionsDivisor,
-          "proxy_connections_32", 2011, 6, 30, &proxy_connections_32));
-
-  // The number of max sockets per group cannot be greater than the max number
-  // of sockets per proxy server.  We tried using 8, and it can easily
-  // lead to total browser stalls.
-  const int proxy_connections_16 =
-      proxy_connection_trial->AppendGroup("proxy_connections_16",
-                                          kProxyConnectionProbability);
-  const int proxy_connections_64 =
-      proxy_connection_trial->AppendGroup("proxy_connections_64",
-                                          kProxyConnectionProbability);
-
-  const int proxy_connections_trial_group = proxy_connection_trial->group();
-
-  int max_sockets = 0;
-  if (proxy_connections_trial_group == proxy_connections_16) {
-    max_sockets = 16;
-  } else if (proxy_connections_trial_group == proxy_connections_32) {
-    max_sockets = 32;
-  } else if (proxy_connections_trial_group == proxy_connections_64) {
-    max_sockets = 64;
-  } else {
-    NOTREACHED();
-  }
-  net::ClientSocketPoolManager::set_max_sockets_per_proxy_server(
-      net::HttpNetworkSession::NORMAL_SOCKET_POOL, max_sockets);
 }
 
 // When --use-spdy not set, users will be in A/B test for spdy.
@@ -343,118 +192,6 @@ void ChromeBrowserFieldTrials::WarmConnectionFieldTrial() {
                               last_accessed_socket };
   SetSocketReusePolicy(warmest_socket_trial_group, policy_list,
                        arraysize(policy_list));
-}
-
-// If neither --enable-connect-backup-jobs or --disable-connect-backup-jobs is
-// specified, run an A/B test for automatically establishing backup TCP
-// connections when a certain timeout value is exceeded.
-void ChromeBrowserFieldTrials::ConnectBackupJobsFieldTrial() {
-  if (parsed_command_line_.HasSwitch(switches::kEnableConnectBackupJobs)) {
-    net::internal::ClientSocketPoolBaseHelper::set_connect_backup_jobs_enabled(
-        true);
-  } else if (parsed_command_line_.HasSwitch(
-        switches::kDisableConnectBackupJobs)) {
-    net::internal::ClientSocketPoolBaseHelper::set_connect_backup_jobs_enabled(
-        false);
-  } else {
-    const base::FieldTrial::Probability kConnectBackupJobsDivisor = 100;
-    // 1% probability.
-    const base::FieldTrial::Probability kConnectBackupJobsProbability = 1;
-    // After June 30, 2011 builds, it will always be in default group.
-    int connect_backup_jobs_enabled = -1;
-    scoped_refptr<base::FieldTrial> trial(
-        base::FieldTrialList::FactoryGetFieldTrial("ConnnectBackupJobs",
-            kConnectBackupJobsDivisor, "ConnectBackupJobsEnabled",
-            2011, 6, 30, &connect_backup_jobs_enabled));
-    trial->AppendGroup("ConnectBackupJobsDisabled",
-                       kConnectBackupJobsProbability);
-    const int trial_group = trial->group();
-    net::internal::ClientSocketPoolBaseHelper::set_connect_backup_jobs_enabled(
-        trial_group == connect_backup_jobs_enabled);
-  }
-}
-
-void ChromeBrowserFieldTrials::PredictorFieldTrial() {
-  const base::FieldTrial::Probability kDivisor = 1000;
-  // For each option (i.e., non-default), we have a fixed probability.
-  // 0.1% probability.
-  const base::FieldTrial::Probability kProbabilityPerGroup = 1;
-
-  // After June 30, 2011 builds, it will always be in default group
-  // (default_enabled_prefetch).
-  scoped_refptr<base::FieldTrial> trial(
-      base::FieldTrialList::FactoryGetFieldTrial(
-          "DnsImpact", kDivisor, "default_enabled_prefetch", 2011, 10, 30,
-          NULL));
-
-  // First option is to disable prefetching completely.
-  int disabled_prefetch = trial->AppendGroup("disabled_prefetch",
-                                              kProbabilityPerGroup);
-
-  // We're running two experiments at the same time.  The first set of trials
-  // modulates the delay-time until we declare a congestion event (and purge
-  // our queue).  The second modulates the number of concurrent resolutions
-  // we do at any time.  Users are in exactly one trial (or the default) during
-  // any one run, and hence only one experiment at a time.
-  // Experiment 1:
-  // Set congestion detection at 250, 500, or 750ms, rather than the 1 second
-  // default.
-  int max_250ms_prefetch = trial->AppendGroup("max_250ms_queue_prefetch",
-                                              kProbabilityPerGroup);
-  int max_500ms_prefetch = trial->AppendGroup("max_500ms_queue_prefetch",
-                                              kProbabilityPerGroup);
-  int max_750ms_prefetch = trial->AppendGroup("max_750ms_queue_prefetch",
-                                              kProbabilityPerGroup);
-  // Set congestion detection at 2 seconds instead of the 1 second default.
-  int max_2s_prefetch = trial->AppendGroup("max_2s_queue_prefetch",
-                                           kProbabilityPerGroup);
-  // Experiment 2:
-  // Set max simultaneous resoultions to 2, 4, or 6, and scale the congestion
-  // limit proportionally (so we don't impact average probability of asserting
-  // congesion very much).
-  int max_2_concurrent_prefetch = trial->AppendGroup(
-      "max_2 concurrent_prefetch", kProbabilityPerGroup);
-  int max_4_concurrent_prefetch = trial->AppendGroup(
-      "max_4 concurrent_prefetch", kProbabilityPerGroup);
-  int max_6_concurrent_prefetch = trial->AppendGroup(
-      "max_6 concurrent_prefetch", kProbabilityPerGroup);
-
-  if (trial->group() != disabled_prefetch) {
-    // Initialize the DNS prefetch system.
-    size_t max_parallel_resolves =
-        chrome_browser_net::Predictor::kMaxSpeculativeParallelResolves;
-    int max_queueing_delay_ms =
-        chrome_browser_net::Predictor::kMaxSpeculativeResolveQueueDelayMs;
-
-    if (trial->group() == max_2_concurrent_prefetch)
-      max_parallel_resolves = 2;
-    else if (trial->group() == max_4_concurrent_prefetch)
-      max_parallel_resolves = 4;
-    else if (trial->group() == max_6_concurrent_prefetch)
-      max_parallel_resolves = 6;
-    chrome_browser_net::Predictor::set_max_parallel_resolves(
-        max_parallel_resolves);
-
-    if (trial->group() == max_250ms_prefetch) {
-      max_queueing_delay_ms =
-         (250 * chrome_browser_net::Predictor::kTypicalSpeculativeGroupSize) /
-         max_parallel_resolves;
-    } else if (trial->group() == max_500ms_prefetch) {
-      max_queueing_delay_ms =
-          (500 * chrome_browser_net::Predictor::kTypicalSpeculativeGroupSize) /
-          max_parallel_resolves;
-    } else if (trial->group() == max_750ms_prefetch) {
-      max_queueing_delay_ms =
-          (750 * chrome_browser_net::Predictor::kTypicalSpeculativeGroupSize) /
-          max_parallel_resolves;
-    } else if (trial->group() == max_2s_prefetch) {
-      max_queueing_delay_ms =
-          (2000 * chrome_browser_net::Predictor::kTypicalSpeculativeGroupSize) /
-          max_parallel_resolves;
-    }
-    chrome_browser_net::Predictor::set_max_queueing_delay(
-        max_queueing_delay_ms);
-  }
 }
 
 void ChromeBrowserFieldTrials::AutoLaunchChromeFieldTrial() {

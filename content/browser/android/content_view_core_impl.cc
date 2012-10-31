@@ -295,6 +295,27 @@ void ContentViewCoreImpl::Hide() {
   GetWebContents()->WasHidden();
 }
 
+void ContentViewCoreImpl::OnTabCrashed() {
+  // if tab_crashed_ is already true, just return. e.g. if two tabs share the
+  // render process, this will be called for each tab when the render process
+  // crashed. If user reload one tab, a new render process is created. It can be
+  // shared by the other tab. But if user closes the tab before reload the other
+  // tab, the new render process will be shut down. This will trigger the other
+  // tab's OnTabCrashed() called again as two tabs share the same
+  // BrowserRenderProcessHost.
+  if (tab_crashed_)
+    return;
+  tab_crashed_ = true;
+  // This can happen as WebContents is destroyed after java_object_ is set to 0
+  if (!java_object_)
+    return;
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return;
+  Java_ContentViewCore_onTabCrash(env, obj.obj());
+}
+
 void ContentViewCoreImpl::UpdateContentSize(int width, int height) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
@@ -849,8 +870,16 @@ void ContentViewCoreImpl::StopLoading(JNIEnv* env, jobject obj) {
 void ContentViewCoreImpl::Reload(JNIEnv* env, jobject obj) {
   // Set check_for_repost parameter to false as we have no repost confirmation
   // dialog ("confirm form resubmission" screen will still appear, however).
-  web_contents_->GetController().Reload(false);
+  web_contents_->GetController().Reload(true);
   tab_crashed_ = false;
+}
+
+void ContentViewCoreImpl::CancelPendingReload(JNIEnv* env, jobject obj) {
+  web_contents_->GetController().CancelPendingReload();
+}
+
+void ContentViewCoreImpl::ContinuePendingReload(JNIEnv* env, jobject obj) {
+  web_contents_->GetController().ContinuePendingReload();
 }
 
 void ContentViewCoreImpl::ClearHistory(JNIEnv* env, jobject obj) {

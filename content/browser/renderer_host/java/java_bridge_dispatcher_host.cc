@@ -17,8 +17,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
 
-using content::BrowserThread;
-using content::RenderViewHost;
+namespace content {
 
 namespace {
 class JavaBridgeThread : public base::Thread {
@@ -145,3 +144,5 @@ void JavaBridgeDispatcherHost::CreateObjectStub(NPObject* object,
   // in CreateNPVariantParam().
   WebKit::WebBindings::releaseObject(object);
 }
+
+}  // namespace content

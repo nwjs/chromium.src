@@ -27,6 +27,7 @@ class CloudPolicyDataStore;
 class CloudPolicyProvider;
 class CloudPolicySubsystem;
 class ConfigurationPolicyProvider;
+class DeviceCloudPolicyManagerChromeOS;
 class DeviceManagementService;
 class NetworkConfigurationUpdater;
 class PolicyService;
@@ -107,9 +108,6 @@ class BrowserPolicyConnector : public content::NotificationObserver {
   // Locks the device to an enterprise domain.
   EnterpriseInstallAttributes::LockResult LockDevice(const std::string& user);
 
-  // Returns the device serial number, or an empty string if not available.
-  static std::string GetSerialNumber();
-
   // Returns the enterprise domain if device is managed.
   std::string GetEnterpriseDomain();
 
@@ -166,6 +164,12 @@ class BrowserPolicyConnector : public content::NotificationObserver {
     return device_management_service_.get();
   }
 
+#if defined(OS_CHROMEOS)
+  DeviceCloudPolicyManagerChromeOS* GetDeviceCloudPolicyManager() {
+    return device_cloud_policy_manager_.get();
+  }
+#endif
+
   // Sets a |provider| that will be included in PolicyServices returned by
   // CreatePolicyService. This is a static method because local state is
   // created immediately after the connector, and tests don't have a chance to
@@ -216,6 +220,13 @@ class BrowserPolicyConnector : public content::NotificationObserver {
   scoped_ptr<ConfigurationPolicyProvider> platform_provider_;
   scoped_ptr<CloudPolicyProvider> cloud_provider_;
 
+  // Components of the new-style cloud policy implementation.
+  // TODO(mnissler): Remove the old-style components below once we have
+  // completed the switch to the new cloud policy implementation.
+#if defined(OS_CHROMEOS)
+  scoped_ptr<EnterpriseInstallAttributes> install_attributes_;
+  scoped_ptr<DeviceCloudPolicyManagerChromeOS> device_cloud_policy_manager_;
+#endif
   ProxyPolicyProvider user_cloud_policy_provider_;
 
   // Must be deleted before all the policy providers.
@@ -224,7 +235,6 @@ class BrowserPolicyConnector : public content::NotificationObserver {
 #if defined(OS_CHROMEOS)
   scoped_ptr<CloudPolicyDataStore> device_data_store_;
   scoped_ptr<CloudPolicySubsystem> device_cloud_policy_subsystem_;
-  scoped_ptr<EnterpriseInstallAttributes> install_attributes_;
 #endif
 
   scoped_ptr<UserPolicyTokenCache> user_policy_token_cache_;
@@ -233,9 +243,6 @@ class BrowserPolicyConnector : public content::NotificationObserver {
 
   scoped_ptr<PolicyStatisticsCollector> policy_statistics_collector_;
 
-  // Components of the new-style cloud policy implementation.
-  // TODO(mnissler): Remove the old-style components above once we have
-  // completed the switch to the new cloud policy implementation.
   scoped_ptr<DeviceManagementService> device_management_service_;
 
   // Used to initialize the device policy subsystem once the message loops

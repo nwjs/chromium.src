@@ -590,7 +590,8 @@ void MenuManager::ExecuteCommand(Profile* profile,
                                  WebContents* web_contents,
                                  const content::ContextMenuParams& params,
                                  const MenuItem::Id& menu_item_id) {
-  EventRouter* event_router = profile->GetExtensionEventRouter();
+  EventRouter* event_router = extensions::ExtensionSystem::Get(profile)->
+      event_router();
   if (!event_router)
     return;
 
@@ -807,6 +808,24 @@ void MenuManager::Observe(int type,
 const SkBitmap& MenuManager::GetIconForExtension(
     const std::string& extension_id) {
   return icon_manager_.GetIcon(extension_id);
+}
+
+void MenuManager::RemoveAllIncognitoContextItems() {
+  // Get all context menu items with "incognito" set to "split".
+  std::set<MenuItem::Id> items_to_remove;
+  std::map<MenuItem::Id, MenuItem*>::const_iterator iter;
+  for (iter = items_by_id_.begin();
+       iter != items_by_id_.end();
+       ++iter) {
+    if (iter->first.incognito)
+      items_to_remove.insert(iter->first);
+  }
+
+  std::set<MenuItem::Id>::iterator remove_iter;
+  for (remove_iter = items_to_remove.begin();
+       remove_iter != items_to_remove.end();
+       ++remove_iter)
+    RemoveContextMenuItem(*remove_iter);
 }
 
 MenuItem::Id::Id()

@@ -36,9 +36,11 @@ PpapiDecryptor::PpapiDecryptor(
 }
 
 PpapiDecryptor::~PpapiDecryptor() {
+  cdm_plugin_->set_decrypt_client(NULL);
 }
 
 bool PpapiDecryptor::GenerateKeyRequest(const std::string& key_system,
+                                        const std::string& type,
                                         const uint8* init_data,
                                         int init_data_length) {
   DVLOG(2) << "GenerateKeyRequest()";
@@ -49,6 +51,7 @@ bool PpapiDecryptor::GenerateKeyRequest(const std::string& key_system,
   // data type conversions.
   if (!cdm_plugin_->GenerateKeyRequest(
       key_system,
+      type,
       std::string(reinterpret_cast<const char*>(init_data),
                   init_data_length))) {
     ReportFailureToCallPlugin(key_system, "");
@@ -105,13 +108,13 @@ void PpapiDecryptor::Decrypt(
   }
 
   DVLOG(3) << "Decrypt() - stream_type: " << stream_type;
-  if (!cdm_plugin_->Decrypt(encrypted, decrypt_cb))
+  if (!cdm_plugin_->Decrypt(stream_type, encrypted, decrypt_cb))
     decrypt_cb.Run(kError, NULL);
 }
 
 void PpapiDecryptor::CancelDecrypt(StreamType stream_type) {
   DVLOG(1) << "CancelDecrypt() - stream_type: " << stream_type;
-  // TODO(xhwang): Implement CancelDecrypt() in PluginInstance and call it here.
+  cdm_plugin_->CancelDecrypt(stream_type);
 }
 
 void PpapiDecryptor::InitializeAudioDecoder(
@@ -130,19 +133,12 @@ void PpapiDecryptor::InitializeAudioDecoder(
   DCHECK(config->IsValidConfig());
 
   audio_decoder_init_cb_ = init_cb;
-  // TODO(xhwang): Implement InitializeAudioDecoder() in PluginInstance and call
-  // it here.
-  NOTIMPLEMENTED();
-#if 0
   if (!cdm_plugin_->InitializeAudioDecoder(*config, base::Bind(
       &PpapiDecryptor::OnDecoderInitialized, weak_this_,
       kAudio, key_added_cb))) {
-#endif
     base::ResetAndReturn(&audio_decoder_init_cb_).Run(false);
-#if 0
     return;
   }
-#endif
 }
 
 void PpapiDecryptor::InitializeVideoDecoder(
@@ -180,11 +176,7 @@ void PpapiDecryptor::DecryptAndDecodeAudio(
   }
 
   DVLOG(1) << "DecryptAndDecodeAudio()";
-  NOTIMPLEMENTED();
-  // TODO(xhwang): Enable this once PluginInstance is updated.
-#if 0
   if (!cdm_plugin_->DecryptAndDecodeAudio(encrypted, audio_decode_cb))
-#endif
     audio_decode_cb.Run(kError, AudioBuffers());
 }
 
@@ -199,7 +191,7 @@ void PpapiDecryptor::DecryptAndDecodeVideo(
   }
 
   DVLOG(3) << "DecryptAndDecodeVideo()";
-  if (!cdm_plugin_->DecryptAndDecode(encrypted, video_decode_cb))
+  if (!cdm_plugin_->DecryptAndDecodeVideo(encrypted, video_decode_cb))
     video_decode_cb.Run(kError, NULL);
 }
 
@@ -211,8 +203,7 @@ void PpapiDecryptor::ResetDecoder(StreamType stream_type) {
   }
 
   DVLOG(2) << "ResetDecoder() - stream_type: " << stream_type;
-  // TODO(xhwang): Support stream type in PluginInstance.
-  cdm_plugin_->ResetDecoder();
+  cdm_plugin_->ResetDecoder(stream_type);
 }
 
 void PpapiDecryptor::DeinitializeDecoder(StreamType stream_type) {
@@ -222,8 +213,7 @@ void PpapiDecryptor::DeinitializeDecoder(StreamType stream_type) {
     return;
   }
   DVLOG(2) << "DeinitializeDecoder() - stream_type: " << stream_type;
-  // TODO(xhwang): Support stream type in PluginInstance.
-  cdm_plugin_->DeinitializeDecoder();
+  cdm_plugin_->DeinitializeDecoder(stream_type);
 }
 
 void PpapiDecryptor::ReportFailureToCallPlugin(const std::string& key_system,

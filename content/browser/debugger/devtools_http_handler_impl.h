@@ -86,6 +86,8 @@ class DevToolsHttpHandlerImpl
                               const net::HttpServerRequestInfo& info);
   void OnThumbnailRequestUI(int connection_id,
                        const net::HttpServerRequestInfo& info);
+  void OnDiscoveryPageRequestUI(int connection_id);
+
   void OnWebSocketRequestUI(int connection_id,
                             const net::HttpServerRequestInfo& info);
   void OnWebSocketMessageUI(int connection_id, const std::string& data);
@@ -123,8 +125,7 @@ class DevToolsHttpHandlerImpl
   std::string overridden_frontend_url_;
   scoped_ptr<const net::StreamListenSocketFactory> socket_factory_;
   scoped_refptr<net::HttpServer> server_;
-  typedef std::map<int, content::DevToolsClientHost*>
-      ConnectionToClientHostMap;
+  typedef std::map<int, DevToolsClientHost*> ConnectionToClientHostMap;
   ConnectionToClientHostMap connection_to_client_host_ui_;
   scoped_ptr<DevToolsHttpHandlerDelegate> delegate_;
   RenderViewHostBinding* binding_;

@@ -47,7 +47,8 @@ class ToolbarView : public views::AccessiblePaneView,
                     public chrome::search::SearchModelObserver,
                     public content::NotificationObserver,
                     public CommandObserver,
-                    public views::ButtonListener {
+                    public views::ButtonListener,
+                    public views::WidgetObserver {
  public:
   // The view class name.
   static const char kViewClassName[];
@@ -56,10 +57,8 @@ class ToolbarView : public views::AccessiblePaneView,
   virtual ~ToolbarView();
 
   // Create the contents of the Browser Toolbar. |location_bar_parent| is the
-  // view the LocationBarContainer is added to. |popup_parent_view| is the
-  // View to add the omnibox popup view to.
-  // TODO(sky): clearly describe when |popup_parent_view| is used.
-  void Init(views::View* location_bar_parent, views::View* popup_parent_view);
+  // view the LocationBarContainer is added to.
+  void Init(views::View* location_bar_parent);
 
   // Updates the toolbar (and transitively the location bar) with the states of
   // the specified |tab|.  If |should_restore_state| is true, we're switching
@@ -87,10 +86,8 @@ class ToolbarView : public views::AccessiblePaneView,
 
   virtual bool GetAcceleratorInfo(int id, ui::Accelerator* accel);
 
-  // Layout toolbar for the various modes when --enable-instant-extended-api
-  // is specified. Depending on the toolbar mode, this can result in
-  // some toolbar children views change in visibility.
-  void LayoutForSearch();
+  // Returns the view to which the bookmark bubble should be anchored.
+  views::View* GetBookmarkBubbleAnchor();
 
   // Accessors...
   Browser* browser() const { return browser_; }
@@ -135,6 +132,10 @@ class ToolbarView : public views::AccessiblePaneView,
   // Overridden from views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
                              const ui::Event& event) OVERRIDE;
+
+  // Overridden from views::WidgetObserver:
+  virtual void OnWidgetVisibilityChanged(views::Widget* widget,
+                                         bool visible) OVERRIDE;
 
   // Overridden from content::NotificationObserver:
   virtual void Observe(int type,

@@ -86,6 +86,7 @@ v8.log
 /chrome/test/data/firefox3_profile/searchplugins
 /chrome/test/data/firefox3_searchplugins
 /chrome/test/data/gpu/vectortown_endurance/
+/chrome/test/data/gpu/vt/
 /chrome/test/data/layout_tests
 /chrome/test/data/osdd
 /chrome/test/data/perf/canvas_bench
@@ -197,6 +198,7 @@ v8.log
 /third_party/mkl
 /third_party/mozc
 /third_party/mt19937ar
+/third_party/mtpd/source/
 /third_party/nacl_sdk_binaries/
 /third_party/nss
 /third_party/openssl
@@ -237,9 +239,7 @@ v8.log
 /third_party/webgl_conformance
 /third_party/webpagereplay/
 /third_party/webrtc
-/third_party/webrtc/common_audio/signal_processing/internal
-/third_party/webrtc/modules/audio_coding/codecs/celt
-/third_party/webrtc/modules/audio_coding/codecs/speex
+/third_party/webrtc/internal
 /third_party/webrtc/modules/video_coding/codecs/vp8_internal
 /third_party/widevine/cdm/binaries
 /third_party/widevine/cdm/symbols

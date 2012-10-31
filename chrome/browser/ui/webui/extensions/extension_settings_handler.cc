@@ -30,7 +30,7 @@
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/extensions/updater/extension_updater.h"
 #include "chrome/browser/google/google_util.h"
-#include "chrome/browser/managed_mode.h"
+#include "chrome/browser/managed_mode/managed_mode.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/background_contents.h"
@@ -157,7 +157,7 @@ DictionaryValue* ExtensionSettingsHandler::CreateExtensionDetailValue(
 
   string16 location_text;
   if (extension->location() == Extension::INTERNAL &&
-      !extension->from_webstore()) {
+      !extension->UpdatesFromGallery()) {
     location_text = l10n_util::GetStringUTF16(
         IDS_OPTIONS_SIDELOAD_WIPEOUT_DISABLE_REASON_UNKNOWN);
   } else if (extension->location() == Extension::EXTERNAL_REGISTRY) {
@@ -255,16 +255,12 @@ void ExtensionSettingsHandler::GetLocalizedValues(
   localized_strings->SetString("extensionSettingsSuggestGallery",
       l10n_util::GetStringFUTF16(IDS_EXTENSIONS_NONE_INSTALLED_SUGGEST_GALLERY,
           ASCIIToUTF16(google_util::AppendGoogleLocaleParam(
-              GURL(extension_urls::GetWebstoreLaunchURL())).spec())));
-  localized_strings->SetString("extensionSettingsGetMoreExtensionsDeprecated",
-      l10n_util::GetStringFUTF16(IDS_GET_MORE_EXTENSIONS_DEPRECATED,
-          ASCIIToUTF16(google_util::AppendGoogleLocaleParam(
-              GURL(extension_urls::GetWebstoreLaunchURL())).spec())));
+              GURL(extension_urls::GetExtensionGalleryURL())).spec())));
   localized_strings->SetString("extensionSettingsGetMoreExtensions",
       l10n_util::GetStringUTF16(IDS_GET_MORE_EXTENSIONS));
   localized_strings->SetString("extensionSettingsGetMoreExtensionsUrl",
       ASCIIToUTF16(google_util::AppendGoogleLocaleParam(
-          GURL(extension_urls::GetWebstoreLaunchURL())).spec()));
+          GURL(extension_urls::GetExtensionGalleryURL())).spec()));
   localized_strings->SetString("extensionSettingsExtensionId",
       l10n_util::GetStringUTF16(IDS_EXTENSIONS_ID));
   localized_strings->SetString("extensionSettingsExtensionPath",
@@ -749,9 +745,9 @@ void ExtensionSettingsHandler::HandleOptionsMessage(const ListValue* args) {
   const Extension* extension = GetActiveExtension(args);
   if (!extension || extension->options_url().is_empty())
     return;
-  Profile::FromWebUI(web_ui())->GetExtensionProcessManager()->OpenOptionsPage(
-      extension,
-      browser::FindBrowserWithWebContents(web_ui()->GetWebContents()));
+  extensions::ExtensionSystem::Get(Profile::FromWebUI(web_ui()))->
+      process_manager()->OpenOptionsPage(extension,
+          browser::FindBrowserWithWebContents(web_ui()->GetWebContents()));
 }
 
 void ExtensionSettingsHandler::HandleShowButtonMessage(const ListValue* args) {
@@ -855,7 +851,8 @@ ExtensionSettingsHandler::GetInspectablePagesForExtension(
 
   // Get the extension process's active views.
   ExtensionProcessManager* process_manager =
-      extension_service_->profile()->GetExtensionProcessManager();
+      extensions::ExtensionSystem::Get(extension_service_->profile())->
+          process_manager();
   GetInspectablePagesForExtensionProcess(
       process_manager->GetRenderViewHostsForExtension(extension->id()),
       &result);
@@ -876,8 +873,8 @@ ExtensionSettingsHandler::GetInspectablePagesForExtension(
   if (extension_service_->profile()->HasOffTheRecordProfile() &&
       extension->incognito_split_mode()) {
     ExtensionProcessManager* process_manager =
-        extension_service_->profile()->GetOffTheRecordProfile()->
-            GetExtensionProcessManager();
+        extensions::ExtensionSystem::Get(extension_service_->profile()->
+            GetOffTheRecordProfile())->process_manager();
     GetInspectablePagesForExtensionProcess(
         process_manager->GetRenderViewHostsForExtension(extension->id()),
         &result);

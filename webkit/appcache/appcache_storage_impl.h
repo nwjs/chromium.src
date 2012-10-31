@@ -17,8 +17,12 @@
 #include "base/message_loop_proxy.h"
 #include "webkit/appcache/appcache_database.h"
 #include "webkit/appcache/appcache_disk_cache.h"
-#include "webkit/appcache/appcache_export.h"
 #include "webkit/appcache/appcache_storage.h"
+#include "webkit/storage/webkit_storage_export.h"
+
+namespace content {
+class ChromeAppCacheServiceTest;
+}
 
 namespace appcache {
 
@@ -127,7 +131,7 @@ class AppCacheStorageImpl : public AppCacheStorage {
       const GURL& namespace_entry_url, const AppCacheEntry& fallback_entry,
       int64 cache_id, int64 group_id, const GURL& manifest_url);
 
-  APPCACHE_EXPORT AppCacheDiskCache* disk_cache();
+  WEBKIT_STORAGE_EXPORT AppCacheDiskCache* disk_cache();
 
   // The directory in which we place files in the file system.
   FilePath cache_directory_;
@@ -167,7 +171,7 @@ class AppCacheStorageImpl : public AppCacheStorage {
   std::deque<base::Closure> pending_simple_tasks_;
   base::WeakPtrFactory<AppCacheStorageImpl> weak_factory_;
 
-  friend class ChromeAppCacheServiceTest;
+  friend class content::ChromeAppCacheServiceTest;
 };
 
 }  // namespace appcache

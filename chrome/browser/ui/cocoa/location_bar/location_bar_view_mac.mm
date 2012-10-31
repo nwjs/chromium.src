@@ -14,8 +14,6 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/alternate_nav_url_fetcher.h"
 #import "chrome/browser/app_controller_mac.h"
-#include "chrome/browser/chrome_to_mobile_service.h"
-#include "chrome/browser/chrome_to_mobile_service_factory.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/api/tabs/tabs.h"
@@ -256,7 +254,6 @@ void LocationBarViewMac::Update(const WebContents* contents,
   command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, IsStarEnabled());
   UpdateStarDecorationVisibility();
   UpdatePlusDecorationVisibility();
-  UpdateChromeToMobileEnabled();
   UpdateZoomDecoration();
   RefreshPageActionDecorations();
   RefreshContentSettingsDecorations();
@@ -493,7 +490,6 @@ void LocationBarViewMac::SetEditable(bool editable) {
   [field_ setEditable:editable ? YES : NO];
   UpdateStarDecorationVisibility();
   UpdatePlusDecorationVisibility();
-  UpdateChromeToMobileEnabled();
   UpdateZoomDecoration();
   UpdatePageActions();
   Layout();
@@ -536,8 +532,7 @@ void LocationBarViewMac::ZoomChangedForActiveTab(bool can_show_bubble) {
 }
 
 NSPoint LocationBarViewMac::GetActionBoxAnchorPoint() const {
-  NSPoint point = plus_decoration_->GetActionBoxAnchorPoint();
-  return [field_ convertPoint:point toView:nil];
+  return plus_decoration_->GetActionBoxAnchorPoint();
 }
 
 NSPoint LocationBarViewMac::GetBookmarkBubblePoint() const {
@@ -600,7 +595,6 @@ void LocationBarViewMac::Observe(int type,
 
     case chrome::NOTIFICATION_PREF_CHANGED:
       UpdateStarDecorationVisibility();
-      UpdateChromeToMobileEnabled();
       OnChanged();
       break;
 
@@ -696,7 +690,8 @@ void LocationBarViewMac::Layout() {
   if (plus_decoration_.get())
     [cell addRightDecoration:plus_decoration_.get()];
   [cell addRightDecoration:star_decoration_.get()];
-  [cell addRightDecoration:zoom_decoration_.get()];
+  // TODO(dbeam): uncomment when zoom bubble exists.
+  // [cell addRightDecoration:zoom_decoration_.get()];
 
   // Note that display order is right to left.
   for (size_t i = 0; i < page_action_decorations_.size(); ++i) {
@@ -766,14 +761,6 @@ bool LocationBarViewMac::IsStarEnabled() {
          browser_defaults::bookmarks_enabled &&
          !toolbar_model_->GetInputInProgress() &&
          edit_bookmarks_enabled_.GetValue();
-}
-
-void LocationBarViewMac::UpdateChromeToMobileEnabled() {
-  ChromeToMobileService* chrome_to_mobile_service =
-      ChromeToMobileServiceFactory::GetForProfile(profile_);
-  command_updater_->UpdateCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE,
-      [field_ isEditable] && !toolbar_model_->GetInputInProgress() &&
-      chrome_to_mobile_service && chrome_to_mobile_service->HasMobiles());
 }
 
 void LocationBarViewMac::UpdateZoomDecoration() {

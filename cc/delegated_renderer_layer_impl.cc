@@ -4,9 +4,9 @@
 
 #include "config.h"
 
-#include "CCDelegatedRendererLayerImpl.h"
+#include "cc/delegated_renderer_layer_impl.h"
 
-#include "CCAppendQuadsData.h"
+#include "cc/append_quads_data.h"
 #include "cc/math_util.h"
 #include "cc/quad_sink.h"
 #include "cc/render_pass_draw_quad.h"
@@ -58,7 +58,7 @@ void DelegatedRendererLayerImpl::setRenderPasses(ScopedPtrVector<RenderPass>& re
 
     if (!m_renderPassesInDrawOrder.isEmpty()) {
         gfx::RectF newRootDamage = m_renderPassesInDrawOrder.last()->damageRect();
-        m_renderPassesInDrawOrder.last()->setDamageRect(oldRootDamage.Union(newRootDamage));
+        m_renderPassesInDrawOrder.last()->setDamageRect(gfx::UnionRects(oldRootDamage, newRootDamage));
     }
 }
 

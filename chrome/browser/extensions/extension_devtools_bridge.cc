@@ -58,14 +58,14 @@ bool ExtensionDevToolsBridge::RegisterAsDevToolsClientHost() {
 
   Browser* browser;
   TabStripModel* tab_strip;
-  TabContents* contents;
+  WebContents* contents;
   int tab_index;
   if (ExtensionTabUtil::GetTabById(tab_id_, profile_, true,
                                    &browser, &tab_strip,
                                    &contents, &tab_index)) {
     DevToolsManager* devtools_manager = DevToolsManager::GetInstance();
     DevToolsAgentHost* agent = DevToolsAgentHostRegistry::GetDevToolsAgentHost(
-        contents->web_contents()->GetRenderViewHost());
+        contents->GetRenderViewHost());
     if (devtools_manager->GetDevToolsClientHostFor(agent))
       return false;
 
@@ -108,9 +108,10 @@ void ExtensionDevToolsBridge::InspectedContentsClosing() {
   // event in extensions.
   scoped_ptr<base::ListValue> arguments(new base::ListValue());
   arguments->Set(0, new base::DictionaryValue());
-  profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
-      on_tab_close_event_name_, arguments.Pass(), profile_, GURL(),
-      extensions::EventFilteringInfo());
+  extensions::ExtensionSystem::Get(profile_)->event_router()->
+      DispatchEventToRenderers(
+          on_tab_close_event_name_, arguments.Pass(), profile_, GURL(),
+          extensions::EventFilteringInfo());
 
   // This may result in this object being destroyed.
   extension_devtools_manager_->BridgeClosingForTab(tab_id_);
@@ -125,9 +126,10 @@ void ExtensionDevToolsBridge::DispatchOnInspectorFrontend(
     arguments->Append(base::JSONReader::Read(data));
   }
 
-  profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
-      on_page_event_name_, arguments.Pass(), profile_, GURL(),
-      extensions::EventFilteringInfo());
+  extensions::ExtensionSystem::Get(profile_)->event_router()->
+      DispatchEventToRenderers(
+          on_page_event_name_, arguments.Pass(), profile_, GURL(),
+          extensions::EventFilteringInfo());
 }
 
 void ExtensionDevToolsBridge::ContentsReplaced(WebContents* new_contents) {

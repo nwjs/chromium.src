@@ -24,7 +24,6 @@ class NetPrefObserver;
 class PrefService;
 class PromoResourceService;
 class SSLConfigServiceManager;
-class VisitedLinkEventListener;
 
 #if defined(OS_CHROMEOS)
 namespace chromeos {
@@ -33,6 +32,10 @@ class LocaleChangeGuard;
 class Preferences;
 }
 #endif
+
+namespace base {
+class SequencedTaskRunner;
+}
 
 namespace content {
 class SpeechRecognitionPreferences;
@@ -61,13 +64,15 @@ class ProfileImpl : public Profile,
   virtual net::URLRequestContextGetter* GetRequestContextForRenderProcess(
       int renderer_child_id) OVERRIDE;
   virtual net::URLRequestContextGetter* GetRequestContextForStoragePartition(
-      const std::string& partition_id) OVERRIDE;
+      const FilePath& partition_path,
+      bool in_memory) OVERRIDE;
   virtual net::URLRequestContextGetter* GetMediaRequestContext() OVERRIDE;
   virtual net::URLRequestContextGetter* GetMediaRequestContextForRenderProcess(
       int renderer_child_id) OVERRIDE;
   virtual net::URLRequestContextGetter*
       GetMediaRequestContextForStoragePartition(
-          const std::string& partition_id) OVERRIDE;
+          const FilePath& partition_path,
+          bool in_memory) OVERRIDE;
   virtual content::ResourceContext* GetResourceContext() OVERRIDE;
   virtual content::GeolocationPermissionContext*
       GetGeolocationPermissionContext() OVERRIDE;
@@ -84,11 +89,7 @@ class ProfileImpl : public Profile,
   virtual Profile* GetOriginalProfile() OVERRIDE;
   virtual history::TopSites* GetTopSites() OVERRIDE;
   virtual history::TopSites* GetTopSitesWithoutCreating() OVERRIDE;
-  virtual VisitedLinkMaster* GetVisitedLinkMaster() OVERRIDE;
   virtual ExtensionService* GetExtensionService() OVERRIDE;
-  virtual extensions::UserScriptMaster* GetUserScriptMaster() OVERRIDE;
-  virtual ExtensionProcessManager* GetExtensionProcessManager() OVERRIDE;
-  virtual extensions::EventRouter* GetExtensionEventRouter() OVERRIDE;
   virtual ExtensionSpecialStoragePolicy*
       GetExtensionSpecialStoragePolicy() OVERRIDE;
   virtual GAIAInfoUpdateService* GetGAIAInfoUpdateService() OVERRIDE;
@@ -144,7 +145,8 @@ class ProfileImpl : public Profile,
 
   ProfileImpl(const FilePath& path,
               Delegate* delegate,
-              CreateMode create_mode);
+              CreateMode create_mode,
+              base::SequencedTaskRunner* sequenced_task_runner);
 
   // Does final initialization. Should be called after prefs were loaded.
   void DoFinalInit(bool is_new_profile);
@@ -207,8 +209,6 @@ class ProfileImpl : public Profile,
   // pointers to |prefs_| and shall be destructed first.
   scoped_ptr<PrefService> prefs_;
   scoped_ptr<PrefService> otr_prefs_;
-  scoped_ptr<VisitedLinkEventListener> visited_link_event_listener_;
-  scoped_ptr<VisitedLinkMaster> visited_link_master_;
   ProfileImplIOData::Handle io_data_;
   scoped_refptr<ExtensionSpecialStoragePolicy>
       extension_special_storage_policy_;

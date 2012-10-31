@@ -14,6 +14,7 @@ import logging
 import os
 import signal
 import subprocess
+import sys
 import time
 import urllib
 
@@ -144,7 +145,7 @@ class ReplayServer(object):
     Raises:
       ReplayNotStartedError if Replay start-up fails.
     """
-    cmd_line = [self.replay_py]
+    cmd_line = [sys.executable, self.replay_py]
     cmd_line.extend(self.replay_options)
     cmd_line.append(self.archive_path)
     self.log_fh = self._OpenLogFile()
@@ -160,9 +161,12 @@ class ReplayServer(object):
     """Stop Web Page Replay."""
     if self.replay_process:
       logging.debug('Stopping Web-Page-Replay')
-      # Use a SIGINT here so that it can do graceful cleanup.
-      # Otherwise, we will leave subprocesses hanging.
-      self.replay_process.send_signal(signal.SIGINT)
+      # Use a SIGINT so that it can do graceful cleanup. On Windows, we are left
+      # with no other option than terminate().
+      try:
+        self.replay_process.send_signal(signal.SIGINT)
+      except:
+        self.replay_process.terminate()
       self.replay_process.wait()
     if self.log_fh:
       self.log_fh.close()

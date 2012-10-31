@@ -15,7 +15,6 @@
 #include "cc/test/fake_layer_tree_host_client.h"
 #include "cc/test/geometry_test_utils.h"
 #include "cc/test/test_common.h"
-#include "cc/test/web_compositor_initializer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebTransformationMatrix.h>
@@ -59,7 +58,6 @@ public:
 class LayerTest : public testing::Test {
 public:
     LayerTest()
-        : m_compositorInitializer(0)
     {
     }
 
@@ -135,7 +133,6 @@ protected:
 
     scoped_ptr<MockLayerImplTreeHost> m_layerTreeHost;
     scoped_refptr<Layer> m_parent, m_child1, m_child2, m_child3, m_grandChild1, m_grandChild2, m_grandChild3;
-    WebCompositorInitializer m_compositorInitializer;
 };
 
 TEST_F(LayerTest, basicCreateAndDestroy)
@@ -157,7 +154,6 @@ TEST_F(LayerTest, addAndRemoveChild)
     EXPECT_FALSE(child->parent());
 
     EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, m_layerTreeHost->setRootLayer(parent));
-
     EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, parent->addChild(child));
 
     ASSERT_EQ(static_cast<size_t>(1), parent->children().size());
@@ -421,6 +417,7 @@ TEST_F(LayerTest, checkSetNeedsDisplayCausesCorrectBehavior)
 
     scoped_refptr<Layer> testLayer = Layer::create();
     testLayer->setLayerTreeHost(m_layerTreeHost.get());
+    EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setIsDrawable(true));
 
     IntSize testBounds = IntSize(501, 508);
 
@@ -436,6 +433,7 @@ TEST_F(LayerTest, checkSetNeedsDisplayCausesCorrectBehavior)
     EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setBounds(testBounds));
     testLayer = Layer::create();
     testLayer->setLayerTreeHost(m_layerTreeHost.get());
+    EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setIsDrawable(true));
     EXPECT_FALSE(testLayer->needsDisplay());
 
     // The real test begins here.
@@ -455,6 +453,7 @@ TEST_F(LayerTest, checkSetNeedsDisplayCausesCorrectBehavior)
     // Case 4: Layer should accept dirty rects that go beyond its bounds.
     testLayer = Layer::create();
     testLayer->setLayerTreeHost(m_layerTreeHost.get());
+    EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setIsDrawable(true));
     EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setBounds(testBounds));
     EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setNeedsDisplayRect(outOfBoundsDirtyRect));
     EXPECT_TRUE(testLayer->needsDisplay());
@@ -462,8 +461,16 @@ TEST_F(LayerTest, checkSetNeedsDisplayCausesCorrectBehavior)
     // Case 5: setNeedsDisplay() without the dirty rect arg.
     testLayer = Layer::create();
     testLayer->setLayerTreeHost(m_layerTreeHost.get());
+    EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setIsDrawable(true));
     EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setBounds(testBounds));
     EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setNeedsDisplay());
+    EXPECT_TRUE(testLayer->needsDisplay());
+
+    // Case 6: setNeedsDisplay() with a non-drawable layer
+    testLayer = Layer::create();
+    testLayer->setLayerTreeHost(m_layerTreeHost.get());
+    EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(0, testLayer->setBounds(testBounds));
+    EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(0, testLayer->setNeedsDisplayRect(dirty1));
     EXPECT_TRUE(testLayer->needsDisplay());
 }
 
@@ -471,6 +478,7 @@ TEST_F(LayerTest, checkPropertyChangeCausesCorrectBehavior)
 {
     scoped_refptr<Layer> testLayer = Layer::create();
     testLayer->setLayerTreeHost(m_layerTreeHost.get());
+    EXECUTE_AND_VERIFY_SET_NEEDS_COMMIT_BEHAVIOR(1, testLayer->setIsDrawable(true));
 
     scoped_refptr<Layer> dummyLayer = Layer::create(); // just a dummy layer for this test case.
 
@@ -577,6 +585,7 @@ private:
 TEST_F(LayerTest, checkContentsScaleChangeTriggersNeedsDisplay)
 {
     scoped_refptr<LayerWithContentScaling> testLayer = make_scoped_refptr(new LayerWithContentScaling());
+    testLayer->setIsDrawable(true);
     testLayer->setLayerTreeHost(m_layerTreeHost.get());
 
     IntSize testBounds = IntSize(320, 240);
@@ -626,7 +635,6 @@ void assertLayerTreeHostMatchesForSubtree(Layer* layer, LayerTreeHost* host)
 
 TEST(LayerLayerTreeHostTest, enteringTree)
 {
-    WebCompositorInitializer compositorInitializer(0);
     scoped_refptr<Layer> parent = Layer::create();
     scoped_refptr<Layer> child = Layer::create();
     scoped_refptr<Layer> mask = Layer::create();
@@ -655,7 +663,6 @@ TEST(LayerLayerTreeHostTest, enteringTree)
 
 TEST(LayerLayerTreeHostTest, addingLayerSubtree)
 {
-    WebCompositorInitializer compositorInitializer(0);
     scoped_refptr<Layer> parent = Layer::create();
     scoped_ptr<FakeLayerImplTreeHost> layerTreeHost(FakeLayerImplTreeHost::create());
 
@@ -684,7 +691,6 @@ TEST(LayerLayerTreeHostTest, addingLayerSubtree)
 
 TEST(LayerLayerTreeHostTest, changeHost)
 {
-    WebCompositorInitializer compositorInitializer(0);
     scoped_refptr<Layer> parent = Layer::create();
     scoped_refptr<Layer> child = Layer::create();
     scoped_refptr<Layer> mask = Layer::create();
@@ -714,7 +720,6 @@ TEST(LayerLayerTreeHostTest, changeHost)
 
 TEST(LayerLayerTreeHostTest, changeHostInSubtree)
 {
-    WebCompositorInitializer compositorInitializer(0);
     scoped_refptr<Layer> firstParent = Layer::create();
     scoped_refptr<Layer> firstChild = Layer::create();
     scoped_refptr<Layer> secondParent = Layer::create();
@@ -748,7 +753,6 @@ TEST(LayerLayerTreeHostTest, changeHostInSubtree)
 
 TEST(LayerLayerTreeHostTest, replaceMaskAndReplicaLayer)
 {
-    WebCompositorInitializer compositorInitializer(0);
     scoped_refptr<Layer> parent = Layer::create();
     scoped_refptr<Layer> mask = Layer::create();
     scoped_refptr<Layer> replica = Layer::create();
@@ -783,7 +787,6 @@ TEST(LayerLayerTreeHostTest, replaceMaskAndReplicaLayer)
 
 TEST(LayerLayerTreeHostTest, destroyHostWithNonNullRootLayer)
 {
-    WebCompositorInitializer compositorInitializer(0);
     scoped_refptr<Layer> root = Layer::create();
     scoped_refptr<Layer> child = Layer::create();
     root->addChild(child);
@@ -811,7 +814,6 @@ TEST(LayerLayerTreeHostTest, shouldNotAddAnimationWithoutLayerTreeHost)
     ScopedSettings scopedSettings;
     Settings::setAcceleratedAnimationEnabled(true);
 
-    WebCompositorInitializer compositorInitializer(0);
     scoped_refptr<Layer> layer = Layer::create();
 
     // Case 1: without a layerTreeHost, the animation should not be accepted.

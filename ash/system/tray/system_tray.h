@@ -9,13 +9,13 @@
 #include "ash/system/power/power_supply_status.h"
 #include "ash/system/tray/system_tray_bubble.h"
 #include "ash/system/tray/tray_background_view.h"
-#include "ash/system/tray/tray_bubble_view.h"
 #include "ash/system/tray/tray_views.h"
 #include "ash/system/user/login_status.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
+#include "ui/views/bubble/tray_bubble_view.h"
 #include "ui/views/view.h"
 
 #include <map>
@@ -55,7 +55,7 @@ enum BubbleCreationType {
 };
 
 class ASH_EXPORT SystemTray : public internal::TrayBackgroundView,
-                              public message_center::TrayBubbleView::Delegate {
+                              public views::TrayBubbleView::Delegate {
  public:
   explicit SystemTray(internal::StatusAreaWidget* status_area_widget);
   virtual ~SystemTray();
@@ -101,6 +101,9 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView,
   // Temporarily hides/unhides the notification bubble.
   void SetHideNotifications(bool hidden);
 
+  // Returns true if the launcher should be forced visible when auto-hidden.
+  bool ShouldShowLauncher() const;
+
   // Returns true if there is a system bubble (already visible or in the process
   // of being created).
   bool HasSystemBubble() const;
@@ -145,6 +148,9 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView,
   NetworkObserver* network_observer() const {
     return network_observer_;
   }
+  NetworkObserver* vpn_observer() const {
+    return vpn_observer_;
+  }
   SmsObserver* sms_observer() const {
     return sms_observer_;
   }
@@ -170,7 +176,7 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView,
   virtual void AnchorUpdated() OVERRIDE;
   virtual string16 GetAccessibleNameForTray() OVERRIDE;
   virtual void HideBubbleWithView(
-      const message_center::TrayBubbleView* bubble_view) OVERRIDE;
+      const views::TrayBubbleView* bubble_view) OVERRIDE;
   virtual bool ClickedOutsideBubble() OVERRIDE;
 
   // Overridden from message_center::TrayBubbleView::Delegate.
@@ -181,8 +187,7 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView,
   virtual gfx::Rect GetAnchorRect(views::Widget* anchor_widget,
                                   AnchorType anchor_type,
                                   AnchorAlignment anchor_alignment) OVERRIDE;
-  virtual void HideBubble(
-      const message_center::TrayBubbleView* bubble_view) OVERRIDE;
+  virtual void HideBubble(const views::TrayBubbleView* bubble_view) OVERRIDE;
 
  private:
   // Returns true if the system_bubble_ exists and is of type |type|.
@@ -240,6 +245,7 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView,
   LocaleObserver* locale_observer_;
 #if defined(OS_CHROMEOS)
   NetworkObserver* network_observer_;
+  NetworkObserver* vpn_observer_;
   SmsObserver* sms_observer_;
 #endif
   ObserverList<PowerStatusObserver> power_status_observers_;

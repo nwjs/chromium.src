@@ -223,7 +223,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<extensions::MetricsRecordLongTimeFunction>();
 
   // RLZ.
-#if defined(OS_WIN) || defined(OS_MACOSX)
+#if defined(ENABLE_RLZ)
   RegisterFunction<RlzRecordProductEventFunction>();
   RegisterFunction<RlzGetAccessPointRlzFunction>();
   RegisterFunction<RlzSendFinancialPingFunction>();
@@ -388,6 +388,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<ClearDriveCacheFunction>();
   RegisterFunction<GetNetworkConnectionStateFunction>();
   RegisterFunction<RequestDirectoryRefreshFunction>();
+  RegisterFunction<SetLastModifiedFunction>();
 
   // FileBrowserHandler.
   RegisterFunction<FileHandlerSelectFileFunction>();

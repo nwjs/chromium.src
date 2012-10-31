@@ -46,6 +46,8 @@
 #include "ash/wm/root_window_layout_manager.h"
 #include "ash/wm/screen_dimmer.h"
 #include "ash/wm/session_state_controller.h"
+#include "ash/wm/session_state_controller_impl.h"
+#include "ash/wm/session_state_controller_impl2.h"
 #include "ash/wm/shadow_controller.h"
 #include "ash/wm/stacking_controller.h"
 #include "ash/wm/system_gesture_event_filter.h"
@@ -190,6 +192,8 @@ Shell::Shell(ShellDelegate* delegate)
       simulate_modal_window_open_for_testing_(false) {
   ANNOTATE_LEAKING_OBJECT_PTR(screen_);  // see crbug.com/156466
   gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_ALTERNATE, screen_);
+  if (!gfx::Screen::GetScreenByType(gfx::SCREEN_TYPE_NATIVE))
+    gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_NATIVE, screen_);
   ui_controls::InstallUIControlsAura(internal::CreateUIControls());
 #if defined(OS_CHROMEOS)
   content::GpuFeatureType blacklisted_features =
@@ -489,7 +493,10 @@ void Shell::Init() {
   // the correct size.
   user_wallpaper_delegate_->InitializeWallpaper();
 
-  session_state_controller_.reset(new SessionStateController);
+  if (command_line->HasSwitch(ash::switches::kAshNewLockAnimationsEnabled))
+    session_state_controller_.reset(new SessionStateControllerImpl2);
+  else
+    session_state_controller_.reset(new SessionStateControllerImpl);
   power_button_controller_.reset(new PowerButtonController(
       session_state_controller_.get()));
   AddShellObserver(session_state_controller_.get());
@@ -503,11 +510,11 @@ void Shell::Init() {
 }
 
 void Shell::AddEnvEventFilter(aura::EventFilter* filter) {
-  aura::Env::GetInstance()->AddPreTargetHandler(filter);
+  AddPreTargetHandler(filter);
 }
 
 void Shell::RemoveEnvEventFilter(aura::EventFilter* filter) {
-  aura::Env::GetInstance()->RemovePreTargetHandler(filter);
+  RemovePreTargetHandler(filter);
 }
 
 void Shell::ShowContextMenu(const gfx::Point& location_in_screen) {
@@ -666,7 +673,7 @@ void Shell::SetDimming(bool should_dim) {
     (*iter)->screen_dimmer()->SetDimming(should_dim);
 }
 
-void Shell::CreateModalBackground() {
+void Shell::CreateModalBackground(aura::Window* window) {
   if (!modality_filter_.get()) {
     modality_filter_.reset(new internal::SystemModalContainerEventFilter(this));
     AddEnvEventFilter(modality_filter_.get());
@@ -674,7 +681,7 @@ void Shell::CreateModalBackground() {
   RootWindowControllerList controllers = GetAllRootWindowControllers();
   for (RootWindowControllerList::iterator iter = controllers.begin();
        iter != controllers.end(); ++iter)
-    (*iter)->GetSystemModalLayoutManager(NULL)->CreateModalBackground();
+    (*iter)->GetSystemModalLayoutManager(window)->CreateModalBackground();
 }
 
 void Shell::OnModalWindowRemoved(aura::Window* removed) {
@@ -699,17 +706,25 @@ WebNotificationTray* Shell::GetWebNotificationTray() {
       web_notification_tray();
 }
 
+internal::StatusAreaWidget* Shell::status_area_widget() {
+  return GetPrimaryRootWindowController()->status_area_widget();
+}
+
 SystemTrayDelegate* Shell::tray_delegate() {
   // TODO(oshima): Decouple system tray and its delegate.
-  internal::StatusAreaWidget* status_area_widget =
-      GetPrimaryRootWindowController()->status_area_widget();
-  return status_area_widget ? status_area_widget->system_tray_delegate() : NULL;
+  // We assume in throughout the code that this will not return NULL. If code
+  // triggers this for valid reasons, it should test status_area_widget first.
+  internal::StatusAreaWidget* status_area = status_area_widget();
+  CHECK(status_area);
+  return status_area->system_tray_delegate();
 }
 
 SystemTray* Shell::system_tray() {
-  internal::StatusAreaWidget* status_area_widget =
-      GetPrimaryRootWindowController()->status_area_widget();
-  return status_area_widget ? status_area_widget->system_tray() : NULL;
+  // We assume in throughout the code that this will not return NULL. If code
+  // triggers this for valid reasons, it should test status_area_widget first.
+  internal::StatusAreaWidget* status_area = status_area_widget();
+  CHECK(status_area);
+  return status_area->system_tray();
 }
 
 void Shell::InitRootWindowForSecondaryDisplay(aura::RootWindow* root) {
@@ -793,6 +808,14 @@ bool Shell::CanWindowReceiveEvents(aura::Window* window) {
     }
   }
   return false;
+}
+
+bool Shell::CanAcceptEvents() {
+  return true;
+}
+
+ui::EventTarget* Shell::GetParentTarget() {
+  return NULL;
 }
 
 }  // namespace ash

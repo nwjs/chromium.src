@@ -31,9 +31,10 @@ extern const char kActionSave[];
 extern const char kActionShare[];
 extern const char kActionSubscribe[];
 extern const char kActionView[];
+extern const char kActionCrosEcho[];
 
-// URL for QuickOffice viewer.
 extern const char kQuickOfficeViewerServiceURL[];
+extern const char kQuickOfficeViewerDevServiceURL[];
 
 // Registers the preferences related to Web Intents.
 void RegisterUserPrefs(PrefService* user_prefs);

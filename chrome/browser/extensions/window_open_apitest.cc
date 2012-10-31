@@ -8,6 +8,7 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -53,7 +54,7 @@ void WaitForTabsAndPopups(Browser* browser,
   const base::TimeDelta kWaitTime = base::TimeDelta::FromSeconds(15);
   base::TimeTicks end_time = base::TimeTicks::Now() + kWaitTime;
   while (base::TimeTicks::Now() < end_time) {
-    if (browser::GetBrowserCount(browser->profile()) == num_browsers &&
+    if (chrome::GetBrowserCount(browser->profile()) == num_browsers &&
         browser->tab_count() == num_tabs &&
         PanelManager::GetInstance()->num_panels() == num_panels)
       break;
@@ -61,7 +62,7 @@ void WaitForTabsAndPopups(Browser* browser,
     content::RunAllPendingInMessageLoop();
   }
 
-  EXPECT_EQ(num_browsers, browser::GetBrowserCount(browser->profile()));
+  EXPECT_EQ(num_browsers, chrome::GetBrowserCount(browser->profile()));
   EXPECT_EQ(num_tabs, browser->tab_count());
   EXPECT_EQ(num_panels, PanelManager::GetInstance()->num_panels());
 
@@ -326,8 +327,8 @@ IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest, ClosePanelsOnExtensionCrash) {
 
   // Crash the extension.
   extensions::ExtensionHost* extension_host =
-      browser()->profile()->GetExtensionProcessManager()->
-      GetBackgroundHostForExtension(extension->id());
+      extensions::ExtensionSystem::Get(browser()->profile())->
+          process_manager()->GetBackgroundHostForExtension(extension->id());
   ASSERT_TRUE(extension_host);
   base::KillProcess(extension_host->render_process_host()->GetHandle(),
                     content::RESULT_CODE_KILLED, false);

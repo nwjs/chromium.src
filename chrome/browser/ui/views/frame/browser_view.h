@@ -49,6 +49,7 @@ class InfoBarContainerView;
 class InstantPreviewControllerViews;
 class LocationBarView;
 class StatusBubbleViews;
+class SearchViewController;
 class TabStrip;
 class TabStripModel;
 class ToolbarView;
@@ -59,7 +60,6 @@ class JumpList;
 
 #if defined(USE_AURA)
 class BrowserLauncherItemController;
-class SearchViewController;
 #endif
 
 namespace autofill {
@@ -95,8 +95,7 @@ class BrowserView : public BrowserWindow,
                     public views::ClientView,
                     public InfoBarContainer::Delegate,
                     public views::SingleSplitViewListener,
-                    public gfx::SysColorChangeListener,
-                    public chrome::search::SearchModelObserver {
+                    public gfx::SysColorChangeListener {
  public:
   // The browser view's class name.
   static const char kViewClassName[];
@@ -222,6 +221,11 @@ class BrowserView : public BrowserWindow,
   // animations.
   void ToolbarSizeChanged(bool is_animating);
 
+  // For instant extended API, returns the size that the NTP theme background
+  // image should fill up in this view, which is from top of tab to bottom of
+  // content view; returns empty size otherwise.
+  gfx::Size GetNTPBackgroundFillSize() const;
+
 #if defined(USE_ASH)
   // Test support.
   BrowserLauncherItemController* launcher_item_controller() const {
@@ -229,16 +233,14 @@ class BrowserView : public BrowserWindow,
   }
 #endif
 
-#if defined(USE_AURA)
-  // Test support.
-  SearchViewController* search_view_controller() const {
-    return search_view_controller_.get();
+  BookmarkBarView* bookmark_bar() const {
+    return bookmark_bar_view_.get();
   }
-#endif
 
   // Overridden from BrowserWindow:
   virtual void Show() OVERRIDE;
   virtual void ShowInactive() OVERRIDE;
+  virtual void Hide() OVERRIDE;
   virtual void SetBounds(const gfx::Rect& bounds) OVERRIDE;
   virtual void Close() OVERRIDE;
   virtual void Activate() OVERRIDE;
@@ -359,10 +361,6 @@ class BrowserView : public BrowserWindow,
                                 TabContents* new_contents,
                                 int index,
                                 bool user_gesture) OVERRIDE;
-  virtual void TabReplacedAt(TabStripModel* tab_strip_model,
-                             TabContents* old_contents,
-                             TabContents* new_contents,
-                             int index) OVERRIDE;
   virtual void TabStripEmpty() OVERRIDE;
 
   // Overridden from ui::AcceleratorProvider:
@@ -485,10 +483,6 @@ class BrowserView : public BrowserWindow,
   // Layout the Status Bubble.
   void LayoutStatusBubble();
 
-  // Overridden from chrome::search::SearchModelObserver:
-  virtual void ModeChanged(const chrome::search::Mode& old_mode,
-                           const chrome::search::Mode& new_mode) OVERRIDE;
-
   // Prepare to show the Bookmark Bar for the specified TabContents.
   // Returns true if the Bookmark Bar can be shown (i.e. it's supported for this
   // Browser type) and there should be a subsequent re-layout to show it.
@@ -501,17 +495,21 @@ class BrowserView : public BrowserWindow,
   // |contents| can be NULL.
   bool MaybeShowInfoBar(TabContents* contents);
 
+  // Updates devtools window for given contents. This method will show docked
+  // devtools window for inspected |tab_contents| that has docked devtools
+  // and hide it for NULL or not inspected |tab_contents|. It will also make
+  // sure devtools window size and position are restored for given tab.
+  void UpdateDevToolsForContents(TabContents* tab_contents);
+
   // Shows docked devtools.
-  void ShowDevToolsContainer(DevToolsDockSide side);
+  void ShowDevToolsContainer();
 
   // Hides docked devtools.
   void HideDevToolsContainer();
 
-  // Updates devtools dock side.
-  void SetDevToolsDockSide(DevToolsDockSide side);
-
-  // Updated devtools window for given contents.
-  void UpdateDevToolsForContents(TabContents* tab_contents);
+  // Reads split position from the current tab's devtools window and applies
+  // it to the devtools split.
+  void UpdateDevToolsSplitPosition();
 
   // Updates various optional child Views, e.g. Bookmarks Bar, Info Bar or the
   // Download Shelf in response to a change notification from the specified
@@ -555,10 +553,6 @@ class BrowserView : public BrowserWindow,
   // learning about how frequently the top-row keys are used.
   void UpdateAcceleratorMetrics(const ui::Accelerator& accelerator,
                                 int command_id);
-
-  // Invoked from ActiveTabChanged or when instant is made active.
-  // |new_contents| must not be NULL.
-  void ProcessTabSelected(TabContents* new_contents);
 
   // Exposes resize corner size to BrowserViewLayout.
   gfx::Size GetResizeCornerSize() const;
@@ -661,8 +655,12 @@ class BrowserView : public BrowserWindow,
   // Split view containing the contents container and devtools container.
   views::SingleSplitView* contents_split_;
 
-  // Side to dock devtools to
+  // Side to dock devtools to.
   DevToolsDockSide devtools_dock_side_;
+
+  // Docked devtools window instance. NULL when current tab is not inspected
+  // or is inspected with undocked version of DevToolsWindow.
+  DevToolsWindow* devtools_window_;
 
   // Tracks and stores the last focused view which is not the
   // devtools_container_ or any of its children. Used to restore focus once
@@ -721,10 +719,6 @@ class BrowserView : public BrowserWindow,
   PendingFullscreenRequest fullscreen_request_;
 
   gfx::ScopedSysColorChangeListener color_change_listener_;
-
-#if defined(USE_AURA)
-  scoped_ptr<SearchViewController> search_view_controller_;
-#endif
 
   scoped_ptr<InstantPreviewControllerViews> preview_controller_;
 

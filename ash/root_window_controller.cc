@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "ash/ash_switches.h"
 #include "ash/desktop_background/desktop_background_widget_controller.h"
 #include "ash/display/display_controller.h"
 #include "ash/display/multi_display_manager.h"
@@ -25,12 +26,13 @@
 #include "ash/wm/shelf_layout_manager.h"
 #include "ash/wm/shelf_types.h"
 #include "ash/wm/status_area_layout_manager.h"
+#include "ash/wm/system_background_controller.h"
 #include "ash/wm/system_modal_container_layout_manager.h"
 #include "ash/wm/toplevel_window_event_handler.h"
 #include "ash/wm/visibility_controller.h"
 #include "ash/wm/window_properties.h"
-#include "ash/wm/workspace/colored_window_controller.h"
 #include "ash/wm/workspace_controller.h"
+#include "base/command_line.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/capture_client.h"
@@ -50,12 +52,6 @@
 
 namespace ash {
 namespace {
-
-#if defined(OS_CHROMEOS)
-// Color initially used for the system background after the system has first
-// booted.
-const SkColor kBootSystemBackgroundColor = 0xFFFEFEFE;
-#endif
 
 // Creates a new window for use as a container.
 aura::Window* CreateContainer(int window_id,
@@ -191,6 +187,8 @@ void RootWindowController::Shutdown() {
   // And this root window should no longer process events.
   root_window_->PrepareForShutdown();
 
+  system_background_.reset();
+
   // Launcher widget has an InputMethodBridge that references to
   // |input_method_filter_|'s |input_method_|. So explicitly release
   // |launcher_| before |input_method_filter_|. And this needs to be
@@ -208,7 +206,7 @@ RootWindowController::GetSystemModalLayoutManager(aura::Window* window) {
     if (!container->Contains(window))
       container = GetContainer(kShellWindowId_SystemModalContainer);
   } else {
-    user::LoginStatus login = Shell::GetInstance()->tray_delegate() ?
+    user::LoginStatus login = Shell::GetInstance()->status_area_widget() ?
         Shell::GetInstance()->tray_delegate()->GetUserLoginStatus() :
         user::LOGGED_IN_NONE;
     int modal_window_id = (login == user::LOGGED_IN_LOCKED ||
@@ -293,16 +291,21 @@ void RootWindowController::CreateContainers() {
 
 void RootWindowController::CreateSystemBackground(
     bool is_first_run_after_boot) {
-  SkColor color = SK_ColorBLACK;
+  SystemBackgroundController::Content initial_content =
+      SystemBackgroundController::CONTENT_BLACK;
 #if defined(OS_CHROMEOS)
-  if (is_first_run_after_boot)
-    color = kBootSystemBackgroundColor;
+  if (is_first_run_after_boot) {
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kAshCopyHostBackgroundAtBoot)) {
+      initial_content = SystemBackgroundController::CONTENT_COPY_FROM_HOST;
+    } else {
+      initial_content =
+          SystemBackgroundController::CONTENT_CHROME_OS_BOOT_COLOR;
+    }
+  }
 #endif
-  background_.reset(new ColoredWindowController(
-      root_window_->GetChildById(kShellWindowId_SystemBackgroundContainer),
-      "SystemBackground"));
-  background_->SetColor(color);
-  background_->GetWidget()->Show();
+  system_background_.reset(
+      new SystemBackgroundController(root_window_.get(), initial_content));
 }
 
 void RootWindowController::CreateLauncher() {
@@ -345,8 +348,7 @@ void RootWindowController::UpdateAfterLoginStatusChange(
 }
 
 void RootWindowController::HandleDesktopBackgroundVisible() {
-  if (background_.get())
-    background_->SetColor(SK_ColorBLACK);
+  system_background_->SetContent(SystemBackgroundController::CONTENT_BLACK);
 }
 
 void RootWindowController::CloseChildWindows() {
@@ -472,20 +474,17 @@ void RootWindowController::CreateContainersInRootWindow(
   // of containers simultaneously without messing up the current transformations
   // on those containers. These are direct children of the root window; all of
   // the other containers are their children.
-  // Desktop and lock screen background containers are not part of the
-  // lock animation so they are not included in those animate groups.
+
+  // The desktop background container is not part of the lock animation, so it
+  // is not included in those animate groups.
   // When screen is locked desktop background is moved to lock screen background
   // container (moved back on unlock). We want to make sure that there's an
   // opaque layer occluding the non-lock-screen layers.
-
-  CreateContainer(kShellWindowId_SystemBackgroundContainer,
-                  "SystemBackgroundContainer", root_window);
-
-  aura::Window* desktop_background_containers = CreateContainer(
+  aura::Window* desktop_background_container = CreateContainer(
       kShellWindowId_DesktopBackgroundContainer,
       "DesktopBackgroundContainer",
       root_window);
-  SetChildWindowVisibilityChangesAnimated(desktop_background_containers);
+  SetChildWindowVisibilityChangesAnimated(desktop_background_container);
 
   aura::Window* non_lock_screen_containers = CreateContainer(
       kShellWindowId_NonLockScreenContainersContainer,
@@ -616,6 +615,9 @@ void RootWindowController::CreateContainersInRootWindow(
       "OverlayContainer",
       lock_screen_related_containers);
   SetUsesScreenCoordinates(overlay_container);
+
+  CreateContainer(kShellWindowId_PowerButtonAnimationContainer,
+                  "PowerButtonAnimationContainer", root_window) ;
 }
 
 }  // namespace internal

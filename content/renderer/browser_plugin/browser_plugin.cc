@@ -66,6 +66,8 @@ static std::string TerminationStatusToString(base::TerminationStatus status) {
       return "abnormal";
     case base::TERMINATION_STATUS_PROCESS_WAS_KILLED:
       return "killed";
+    case base::TERMINATION_STATUS_PROCESS_CRASHED:
+      return "crashed";
     default:
       // This should never happen.
       DCHECK(false);
@@ -91,6 +93,7 @@ BrowserPlugin::BrowserPlugin(
       process_id_(-1),
       persist_storage_(false),
       content_window_routing_id_(MSG_ROUTING_NONE),
+      focused_(false),
       visible_(true),
       current_nav_entry_index_(0),
       nav_entry_count_(0) {
@@ -135,7 +138,9 @@ void BrowserPlugin::SetSrcAttribute(const std::string& src) {
             render_view_routing_id_,
             instance_id_,
             storage_partition_id_,
-            persist_storage_));
+            persist_storage_,
+            focused_,
+            visible_));
   }
 
   scoped_ptr<BrowserPluginHostMsg_ResizeGuest_Params> params(
@@ -272,19 +277,36 @@ bool BrowserPlugin::IsValidEvent(const std::string& event_name) {
 void BrowserPlugin::TriggerEvent(const std::string& event_name,
                                  v8::Local<v8::Object>* event) {
   WebKit::WebElement plugin = container()->element();
-  WebKit::WebFrame* frame = plugin.document().frame();
-  if (!frame)
-    return;
 
   // TODO(fsamuel): Copying the event listeners is insufficent because
   // new persistent handles are not created when the copy constructor is
   // called. See http://crbug.com/155044.
-  EventListeners listeners(event_listener_map_[event_name.c_str()]);
-  (*event)->Set(v8::String::New("name"), v8::String::New(event_name.c_str()));
-  v8::Local<v8::Value> argv[] = { *event };
-  for (EventListeners::iterator it = listeners.begin();
+  const EventListeners& listeners = event_listener_map_[event_name.c_str()];
+  // A v8::Local copy of the listeners is created from the v8::Persistent
+  // listeners before firing them. This is to ensure that if one of these
+  // listeners mutate the list of listeners (by calling
+  // addEventListener/removeEventListener), this local copy is not affected.
+  // This means if you mutate the list of listeners for an event X while event X
+  // is firing, the mutation is deferred until all current listeners for X have
+  // fired.
+  EventListenersLocal listeners_local;
+  listeners_local.reserve(listeners.size());
+  for (EventListeners::const_iterator it = listeners.begin();
        it != listeners.end();
        ++it) {
+    listeners_local.push_back(v8::Local<v8::Function>::New(*it));
+  }
+
+  (*event)->Set(v8::String::New("name"),
+                v8::String::New(event_name.c_str(), event_name.size()),
+                v8::ReadOnly);
+  v8::Local<v8::Value> argv[] = { *event };
+  for (EventListenersLocal::const_iterator it = listeners_local.begin();
+       it != listeners_local.end();
+       ++it) {
+    WebKit::WebFrame* frame = plugin.document().frame();
+    if (!frame)
+      break;
     frame->callFunctionEvenIfScriptDisabled(*it, v8::Object::New(), 1, argv);
   }
 }
@@ -398,11 +420,13 @@ void BrowserPlugin::GuestGone(int process_id, base::TerminationStatus status) {
     // Construct the exit event object.
     v8::Local<v8::Object> event = v8::Object::New();
     event->Set(v8::String::New(kProcessId, sizeof(kProcessId) - 1),
-               v8::Integer::New(process_id));
+               v8::Integer::New(process_id),
+               v8::ReadOnly);
     std::string termination_status = TerminationStatusToString(status);
     event->Set(v8::String::New(kType, sizeof(kType) - 1),
                v8::String::New(termination_status.data(),
-                               termination_status.size()));
+                               termination_status.size()),
+               v8::ReadOnly);
     // Event listeners may remove the BrowserPlugin from the document. If that
     // happens, the BrowserPlugin will be scheduled for later deletion (see
     // BrowserPlugin::destroy()). That will clear the container_ reference,
@@ -431,9 +455,11 @@ void BrowserPlugin::LoadStart(const GURL& url, bool is_top_level) {
   // Construct the loadStart event object.
   v8::Local<v8::Object> event = v8::Object::New();
   event->Set(v8::String::New(kURL, sizeof(kURL) - 1),
-             v8::String::New(url.spec().data(), url.spec().size()));
+             v8::String::New(url.spec().data(), url.spec().size()),
+             v8::ReadOnly);
   event->Set(v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
-             v8::Boolean::New(is_top_level));
+             v8::Boolean::New(is_top_level),
+             v8::ReadOnly);
   TriggerEvent(kLoadStartEventName, &event);
 }
 
@@ -458,9 +484,11 @@ void BrowserPlugin::LoadCommit(
   // Construct the loadCommit event object.
   v8::Local<v8::Object> event = v8::Object::New();
   event->Set(v8::String::New(kURL, sizeof(kURL) - 1),
-             v8::String::New(src_.data(), src_.size()));
+             v8::String::New(src_.data(), src_.size()),
+             v8::ReadOnly);
   event->Set(v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
-             v8::Boolean::New(params.is_top_level));
+             v8::Boolean::New(params.is_top_level),
+             v8::ReadOnly);
 
   TriggerEvent(kLoadCommitEventName, &event);
 }
@@ -493,11 +521,14 @@ void BrowserPlugin::LoadAbort(const GURL& url,
   // Construct the loadAbort event object.
   v8::Local<v8::Object> event = v8::Object::New();
   event->Set(v8::String::New(kURL, sizeof(kURL) - 1),
-             v8::String::New(url.spec().data(), url.spec().size()));
+             v8::String::New(url.spec().data(), url.spec().size()),
+             v8::ReadOnly);
   event->Set(v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
-             v8::Boolean::New(is_top_level));
+             v8::Boolean::New(is_top_level),
+             v8::ReadOnly);
   event->Set(v8::String::New(kType, sizeof(kType) - 1),
-             v8::String::New(type.data(), type.size()));
+             v8::String::New(type.data(), type.size()),
+             v8::ReadOnly);
 
   TriggerEvent(kLoadAbortEventName, &event);
 }
@@ -516,11 +547,14 @@ void BrowserPlugin::LoadRedirect(const GURL& old_url,
   // Construct the loadRedirect event object.
   v8::Local<v8::Object> event = v8::Object::New();
   event->Set(v8::String::New(kOldURL, sizeof(kOldURL) - 1),
-             v8::String::New(old_url.spec().data(), old_url.spec().size()));
+             v8::String::New(old_url.spec().data(), old_url.spec().size()),
+             v8::ReadOnly);
   event->Set(v8::String::New(kNewURL, sizeof(kNewURL) - 1),
-             v8::String::New(new_url.spec().data(), new_url.spec().size()));
+             v8::String::New(new_url.spec().data(), new_url.spec().size()),
+             v8::ReadOnly);
   event->Set(v8::String::New(kIsTopLevel, sizeof(kIsTopLevel) - 1),
-             v8::Boolean::New(is_top_level));
+             v8::Boolean::New(is_top_level),
+             v8::ReadOnly);
 
   TriggerEvent(kLoadRedirectEventName, &event);
 }
@@ -770,6 +804,13 @@ TransportDIB* BrowserPlugin::CreateTransportDIB(const size_t size) {
 }
 
 void BrowserPlugin::updateFocus(bool focused) {
+  if (focused_ == focused)
+    return;
+
+  focused_ = focused;
+  if (!navigate_src_sent_)
+    return;
+
   BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_SetFocus(
       render_view_routing_id_,
       instance_id_,

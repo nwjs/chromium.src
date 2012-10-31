@@ -9,7 +9,6 @@
 #include "base/shared_memory.h"
 #include "content/common/content_export.h"
 #include "content/common/content_param_traits.h"
-#include "content/common/css_colors.h"
 #include "content/common/edit_command.h"
 #include "content/common/navigation_gesture.h"
 #include "content/common/view_message_enums.h"
@@ -61,8 +60,6 @@
 #define IPC_MESSAGE_START ViewMsgStart
 
 IPC_ENUM_TRAITS(AccessibilityMode)
-IPC_ENUM_TRAITS(CSSColors::CSSColorName)
-IPC_ENUM_TRAITS(NavigationGesture)
 IPC_ENUM_TRAITS(ViewMsg_Navigate_Type::Value)
 IPC_ENUM_TRAITS(WebKit::WebContextMenuData::MediaType)
 IPC_ENUM_TRAITS(WebKit::WebMediaPlayerAction::Type)
@@ -73,6 +70,7 @@ IPC_ENUM_TRAITS(WebMenuItem::Type)
 IPC_ENUM_TRAITS(WindowContainerType)
 IPC_ENUM_TRAITS(content::FileChooserParams::Mode)
 IPC_ENUM_TRAITS(content::JavaScriptMessageType)
+IPC_ENUM_TRAITS(content::NavigationGesture)
 IPC_ENUM_TRAITS(content::PageZoom)
 IPC_ENUM_TRAITS(content::RendererPreferencesHintingEnum)
 IPC_ENUM_TRAITS(content::RendererPreferencesSubpixelRenderingEnum)
@@ -80,11 +78,6 @@ IPC_ENUM_TRAITS(content::StopFindAction)
 IPC_ENUM_TRAITS(media::ChannelLayout)
 IPC_ENUM_TRAITS(media::MediaLogEvent::Type)
 IPC_ENUM_TRAITS(ui::TextInputType)
-
-IPC_STRUCT_TRAITS_BEGIN(EditCommand)
-  IPC_STRUCT_TRAITS_MEMBER(name)
-  IPC_STRUCT_TRAITS_MEMBER(value)
-IPC_STRUCT_TRAITS_END()
 
 #if defined(OS_MACOSX)
 IPC_STRUCT_TRAITS_BEGIN(FontDescriptor)
@@ -249,9 +242,16 @@ IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(max_untiled_layer_height)
   IPC_STRUCT_TRAITS_MEMBER(fixed_position_creates_stacking_context)
   IPC_STRUCT_TRAITS_MEMBER(sync_xhr_in_documents_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(deferred_image_decoding_enabled)
   IPC_STRUCT_TRAITS_MEMBER(number_of_cpu_cores)
   IPC_STRUCT_TRAITS_MEMBER(cookie_enabled)
   IPC_STRUCT_TRAITS_MEMBER(apply_page_scale_factor_in_compositor)
+#if defined(OS_ANDROID)
+  IPC_STRUCT_TRAITS_MEMBER(text_autosizing_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(font_scale_factor)
+  IPC_STRUCT_TRAITS_MEMBER(force_enable_zoom)
+  IPC_STRUCT_TRAITS_MEMBER(supports_multiple_windows)
+#endif
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(WebMenuItem)
@@ -307,6 +307,11 @@ IPC_STRUCT_TRAITS_BEGIN(content::CustomContextMenuContext)
   IPC_STRUCT_TRAITS_MEMBER(is_pepper_menu)
   IPC_STRUCT_TRAITS_MEMBER(request_id)
   IPC_STRUCT_TRAITS_MEMBER(render_widget_id)
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(content::EditCommand)
+  IPC_STRUCT_TRAITS_MEMBER(name)
+  IPC_STRUCT_TRAITS_MEMBER(value)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::FileChooserParams)
@@ -507,7 +512,7 @@ IPC_STRUCT_BEGIN_WITH_PARENT(ViewHostMsg_FrameNavigate_Params,
   IPC_STRUCT_MEMBER(std::string, security_info)
 
   // The gesture that initiated this navigation.
-  IPC_STRUCT_MEMBER(NavigationGesture, gesture)
+  IPC_STRUCT_MEMBER(content::NavigationGesture, gesture)
 
   // True if this was a post request.
   IPC_STRUCT_MEMBER(bool, is_post)
@@ -745,16 +750,6 @@ IPC_STRUCT_BEGIN(ViewMsg_Navigate_Params)
   // Whether or not we should allow the url to download.
   IPC_STRUCT_MEMBER(bool, allow_download)
 
-  // The name of the channel with which a guest talks to its embedder.
-  // If this newly created RenderView has no embedder this string will be
-  // empty.
-  IPC_STRUCT_MEMBER(std::string, embedder_channel_name)
-
-  // The identifier in the embedder render process of the container hosting this
-  // guest RenderView. The embedder_channel_name and embedder_container_id
-  // together uniquely identify a browser plugin instance.
-  IPC_STRUCT_MEMBER(int, embedder_container_id)
-
   // Whether or not the user agent override string should be used.
   IPC_STRUCT_MEMBER(bool, is_overriding_user_agent)
 
@@ -807,16 +802,6 @@ IPC_STRUCT_BEGIN(ViewMsg_New_Params)
   // The properties of the screen associated with the view.
   IPC_STRUCT_MEMBER(WebKit::WebScreenInfo, screen_info)
 
-  // The name of the channel with which a guest talks to its embedder.
-  // If this newly created RenderView has no embedder this string will be
-  // empty.
-  IPC_STRUCT_MEMBER(std::string, embedder_channel_name)
-
-  // The identifier in the embedder render process of the container hosting this
-  // guest RenderView. The embedder_channel_name and embedder_container_id
-  // together uniquely identify a browser plugin instance.
-  IPC_STRUCT_MEMBER(int, embedder_container_id)
-
   // The accessibility mode of the renderer.
   IPC_STRUCT_MEMBER(AccessibilityMode, accessibility_mode)
 IPC_STRUCT_END()
@@ -835,16 +820,6 @@ IPC_STRUCT_END()
 IPC_MESSAGE_ROUTED2(ViewMsg_SetHistoryLengthAndPrune,
                     int, /* merge_history_length */
                     int32 /* minimum_page_id */)
-
-// Sends System Colors corresponding to a set of CSS color keywords
-// down the pipe.
-// This message must be sent to the renderer immediately on launch
-// before creating any new views.
-// The message can also be sent during a renderer's lifetime if system colors
-// are updated.
-// TODO(jeremy): Possibly change IPC format once we have this all hooked up.
-IPC_MESSAGE_ROUTED1(ViewMsg_SetCSSColors,
-                    std::vector<CSSColors::CSSColorMapping>)
 
 // Asks the browser for a unique routing ID.
 IPC_SYNC_MESSAGE_CONTROL0_1(ViewHostMsg_GenerateRoutingID,
@@ -979,7 +954,7 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SmoothScrollCompleted,
 //
 // This message must be sent just before sending a key event.
 IPC_MESSAGE_ROUTED1(ViewMsg_SetEditCommandsForNextKeyEvent,
-                    std::vector<EditCommand> /* edit_commands */)
+                    std::vector<content::EditCommand> /* edit_commands */)
 
 // Message payload is the name/value of a WebCore edit command to execute.
 IPC_MESSAGE_ROUTED2(ViewMsg_ExecuteEditCommand,

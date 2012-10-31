@@ -15,8 +15,8 @@
 #include "media/base/pipeline.h"
 #include "media/filters/chunk_demuxer.h"
 #include "media/filters/ffmpeg_video_decoder.h"
+#include "media/filters/skcanvas_video_renderer.h"
 #include "webkit/media/buffered_data_source.h"
-#include "webkit/media/skcanvas_video_renderer.h"
 
 class SkCanvas;
 
@@ -85,6 +85,7 @@ class WebMediaPlayerProxy
                           const std::string& default_url) OVERRIDE;
   virtual void NeedKey(const std::string& key_system,
                        const std::string& session_id,
+                       const std::string& type,
                        scoped_array<uint8> init_data,
                        int init_data_size) OVERRIDE;
 
@@ -115,6 +116,7 @@ class WebMediaPlayerProxy
   // Notify |webmediaplayer_| that a key is needed for decryption.
   void NeedKeyTask(const std::string& key_system,
                    const std::string& session_id,
+                   const std::string& type,
                    scoped_array<uint8> init_data,
                    int init_data_size);
 
@@ -124,7 +126,7 @@ class WebMediaPlayerProxy
 
   scoped_refptr<BufferedDataSource> data_source_;
   scoped_refptr<media::VideoRendererBase> frame_provider_;
-  SkCanvasVideoRenderer video_renderer_;
+  media::SkCanvasVideoRenderer video_renderer_;
 
   base::Lock lock_;
   int outstanding_repaints_;

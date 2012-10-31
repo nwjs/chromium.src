@@ -17,6 +17,7 @@
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/io_thread.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
+#include "chrome/browser/profiles/storage_partition_descriptor.h"
 #include "content/public/browser/resource_context.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/http/http_network_session.h"
@@ -45,6 +46,7 @@ class ProxyConfigService;
 class ProxyService;
 class SSLConfigService;
 class TransportSecurityState;
+class URLRequestJobFactoryImpl;
 }  // namespace net
 
 namespace policy {
@@ -82,12 +84,12 @@ class ProfileIOData {
   ChromeURLRequestContext* GetExtensionsRequestContext() const;
   ChromeURLRequestContext* GetIsolatedAppRequestContext(
       ChromeURLRequestContext* main_context,
-      const std::string& app_id,
+      const StoragePartitionDescriptor& partition_descriptor,
       scoped_ptr<net::URLRequestJobFactory::Interceptor>
           protocol_handler_interceptor) const;
   ChromeURLRequestContext* GetIsolatedMediaRequestContext(
       ChromeURLRequestContext* app_context,
-      const std::string& app_id) const;
+      const StoragePartitionDescriptor& partition_descriptor) const;
 
   // These are useful when the Chrome layer is called from the content layer
   // with a content::ResourceContext, and they want access to Chrome data for
@@ -186,7 +188,6 @@ class ProfileIOData {
     FilePath path;
     std::string accept_language;
     std::string accept_charset;
-    std::string referrer_charset;
     IOThread* io_thread;
     scoped_refptr<CookieSettings> cookie_settings;
     scoped_refptr<net::SSLConfigService> ssl_config_service;
@@ -224,7 +225,7 @@ class ProfileIOData {
   void ApplyProfileParamsToContext(ChromeURLRequestContext* context) const;
 
   void SetUpJobFactoryDefaults(
-      net::URLRequestJobFactory* job_factory,
+      net::URLRequestJobFactoryImpl* job_factory,
       scoped_ptr<net::URLRequestJobFactory::Interceptor>
           protocol_handler_interceptor,
       net::NetworkDelegate* network_delegate,
@@ -306,7 +307,9 @@ class ProfileIOData {
     net::URLRequestContext* request_context_;
   };
 
-  typedef base::hash_map<std::string, ChromeURLRequestContext*>
+  typedef std::map<StoragePartitionDescriptor,
+                   ChromeURLRequestContext*,
+                   StoragePartitionDescriptorLess>
       URLRequestContextMap;
 
   // --------------------------------------------
@@ -321,7 +324,7 @@ class ProfileIOData {
   // isolated app.
   virtual ChromeURLRequestContext* InitializeAppRequestContext(
       ChromeURLRequestContext* main_context,
-      const std::string& app_id,
+      const StoragePartitionDescriptor& details,
       scoped_ptr<net::URLRequestJobFactory::Interceptor>
           protocol_handler_interceptor) const = 0;
 
@@ -329,7 +332,7 @@ class ProfileIOData {
   // isolated app.
   virtual ChromeURLRequestContext* InitializeMediaRequestContext(
       ChromeURLRequestContext* original_context,
-      const std::string& app_id) const = 0;
+      const StoragePartitionDescriptor& details) const = 0;
 
   // These functions are used to transfer ownership of the lazily initialized
   // context from ProfileIOData to the URLRequestContextGetter.
@@ -338,13 +341,13 @@ class ProfileIOData {
   virtual ChromeURLRequestContext*
       AcquireIsolatedAppRequestContext(
           ChromeURLRequestContext* main_context,
-          const std::string& app_id,
+          const StoragePartitionDescriptor& partition_descriptor,
           scoped_ptr<net::URLRequestJobFactory::Interceptor>
               protocol_handler_interceptor) const = 0;
   virtual ChromeURLRequestContext*
       AcquireIsolatedMediaRequestContext(
           ChromeURLRequestContext* app_context,
-          const std::string& app_id) const = 0;
+          const StoragePartitionDescriptor& partition_descriptor) const = 0;
 
   // Returns the LoadTimeStats object to be used for this profile.
   virtual chrome_browser_net::LoadTimeStats* GetLoadTimeStats(
