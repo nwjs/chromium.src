@@ -322,6 +322,9 @@ void ScreenLocker::InitClass() {
 
 ScreenLocker::~ScreenLocker() {
   DCHECK(MessageLoop::current()->type() == MessageLoop::TYPE_UI);
+
+  if (authenticator_)
+    authenticator_->SetConsumer(NULL);
   ClearErrors();
   ash::Shell::GetInstance()->
       desktop_background_controller()->MoveDesktopToUnlockedContainer();
