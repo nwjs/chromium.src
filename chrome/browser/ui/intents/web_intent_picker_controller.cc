@@ -213,6 +213,8 @@ WebIntentPickerController::WebIntentPickerController(
 }
 
 WebIntentPickerController::~WebIntentPickerController() {
+  if (webstore_installer_.get())
+    webstore_installer_->InvalidateDelegate();
 }
 
 // TODO(gbillock): combine this with ShowDialog.
@@ -473,13 +475,13 @@ void WebIntentPickerController::OnExtensionInstallRequested(
       WebstoreInstaller::Approval::CreateWithInstallPrompt(
           tab_contents_->profile()));
 
-  scoped_refptr<WebstoreInstaller> installer = new WebstoreInstaller(
+  webstore_installer_ = new WebstoreInstaller(
       tab_contents_->profile(), this,
       &tab_contents_->web_contents()->GetController(), id,
       approval.Pass(), WebstoreInstaller::FLAG_INLINE_INSTALL);
 
   pending_async_count_++;
-  installer->Start();
+  webstore_installer_->Start();
 }
 
 void WebIntentPickerController::OnExtensionLinkClicked(
@@ -535,6 +537,8 @@ void WebIntentPickerController::OnClosing() {
 
 void WebIntentPickerController::OnExtensionInstallSuccess(
     const std::string& extension_id) {
+  webstore_installer_ = NULL;  // Release reference.
+
   // OnExtensionInstallSuccess is called via NotificationService::Notify before
   // the extension is added to the ExtensionService. Dispatch via PostTask to
   // allow ExtensionService to update.
@@ -573,6 +577,7 @@ void WebIntentPickerController::DispatchToInstalledExtension(
 void WebIntentPickerController::OnExtensionInstallFailure(
     const std::string& id,
     const std::string& error) {
+  webstore_installer_ = NULL;  // Release reference.
   picker_->OnExtensionInstallFailure(id);
   AsyncOperationFinished();
 }

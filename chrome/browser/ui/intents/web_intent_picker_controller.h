@@ -324,6 +324,9 @@ class WebIntentPickerController
   // |intents_dispatcher_| is set.
   web_intents::UMABucket uma_bucket_;
 
+  // Manager for a pending extension download and installation.
+  scoped_refptr<extensions::WebstoreInstaller> webstore_installer_;
+
   DISALLOW_COPY_AND_ASSIGN(WebIntentPickerController);
 };
 
