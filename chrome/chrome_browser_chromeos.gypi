@@ -208,8 +208,6 @@
         'browser/chromeos/enterprise_extension_observer.h',
         'browser/chromeos/extensions/bluetooth_event_router.cc',
         'browser/chromeos/extensions/bluetooth_event_router.h',
-        'browser/chromeos/extensions/default_app_order.cc',
-        'browser/chromeos/extensions/default_app_order.h',
         'browser/chromeos/extensions/echo_private_api.cc',
         'browser/chromeos/extensions/echo_private_api.h',
         'browser/chromeos/extensions/file_browser_event_router.cc',

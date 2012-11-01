@@ -1115,7 +1115,6 @@
         'browser/chromeos/customization_document_unittest.cc',
         'browser/chromeos/dbus/cros_dbus_service_unittest.cc',
         'browser/chromeos/dbus/proxy_resolution_service_provider_unittest.cc',
-        'browser/chromeos/extensions/default_app_order_unittest.cc',
         'browser/chromeos/extensions/file_browser_notifications_unittest.cc',
         'browser/chromeos/external_metrics_unittest.cc',
         'browser/chromeos/gdata/document_entry_conversion_unittest.cc',
