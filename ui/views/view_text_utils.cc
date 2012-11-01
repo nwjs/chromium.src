@@ -4,6 +4,7 @@
 
 #include "ui/views/view_text_utils.h"
 
+#include <stdint.h>
 #include "base/i18n/bidi_line_iterator.h"
 #include "base/i18n/break_iterator.h"
 #include "base/logging.h"

@@ -5,6 +5,7 @@
 #ifndef UI_VIEWS_CONTROLS_TABLE_GROUP_TABLE_VIEW_WIN_H_
 #define UI_VIEWS_CONTROLS_TABLE_GROUP_TABLE_VIEW_WIN_H_
 
+#include <stdint.h>
 #include "base/memory/weak_ptr.h"
 #include "ui/base/models/table_model.h"
 #include "ui/views/controls/table/table_view.h"
