@@ -84,7 +84,11 @@ class UI_EXPORT EventDispatcher {
     Event::DispatcherApi dispatch_helper(event);
     for (EventHandlerList::const_iterator it = list.begin(),
             end = list.end(); it != end; ++it) {
-      result |= DispatchEventToSingleHandler((*it), event);
+      // If the target has been invalidated or deleted, don't dispatch.
+      if (!CanDispatchToTarget(event->target()))
+        result |= ER_CONSUMED;
+      else
+        result |= DispatchEventToSingleHandler((*it), event);
       dispatch_helper.set_result(event->result() | result);
       if (result & ER_CONSUMED)
         return result;
