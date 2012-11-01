@@ -409,7 +409,9 @@ void OmniboxViewGtk::Init() {
       InstantController::kInlineAutocompletePauseTimeMS, ui::Tween::ZERO));
   parts.push_back(ui::MultiAnimation::Part(
       InstantController::kInlineAutocompleteFadeInTimeMS, ui::Tween::EASE_IN));
-  instant_animation_.reset(new ui::MultiAnimation(parts));
+  instant_animation_.reset(new ui::MultiAnimation(
+      parts,
+      ui::MultiAnimation::GetDefaultTimerInterval()));
   instant_animation_->set_continuous(false);
 
   registrar_.Add(this,
