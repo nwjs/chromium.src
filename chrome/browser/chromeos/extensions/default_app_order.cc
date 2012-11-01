@@ -113,7 +113,7 @@ void ExternalLoader::Load() {
 
   scoped_ptr<base::ListValue> ordinals_value(
       ReadExternalOrdinalFile(ordinals_file));
-  if (ordinals_value.get()) {
+  if (ordinals_value) {
     for (size_t i = 0; i < ordinals_value->GetSize(); ++i) {
       std::string app_id;
       CHECK(ordinals_value->GetString(i, &app_id));

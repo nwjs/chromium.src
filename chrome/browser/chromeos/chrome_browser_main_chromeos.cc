@@ -411,7 +411,7 @@ void ChromeBrowserMainPartsChromeos::PreProfileInit() {
     chromeos::UserManager::Get()->SessionStarted();
   }
 
-  if (!app_order_loader_.get()) {
+  if (!app_order_loader_) {
     app_order_loader_.reset(
         new chromeos::default_app_order::ExternalLoader(true /* async */));
   }

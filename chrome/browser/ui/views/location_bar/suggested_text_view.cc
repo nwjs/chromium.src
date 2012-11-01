@@ -76,8 +76,7 @@ ui::Animation* SuggestedTextView::CreateAnimation() {
       InstantController::kInlineAutocompletePauseTimeMS, ui::Tween::ZERO));
   parts.push_back(ui::MultiAnimation::Part(
       InstantController::kInlineAutocompleteFadeInTimeMS, ui::Tween::EASE_IN));
-  ui::MultiAnimation* animation = new ui::MultiAnimation(
-      parts, ui::MultiAnimation::GetDefaultTimerInterval());
+  ui::MultiAnimation* animation = new ui::MultiAnimation(parts);
   animation->set_delegate(this);
   animation->set_continuous(false);
   return animation;
