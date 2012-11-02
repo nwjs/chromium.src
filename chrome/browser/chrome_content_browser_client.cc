@@ -900,6 +900,9 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
         command_line->AppendSwitch(switches::kRendererPrintPreview);
     }
 
+    if (content::IsThreadedCompositingEnabled())
+      command_line->AppendSwitch(switches::kEnableThreadedCompositing);
+
     // Please keep this in alphabetical order.
     static const char* const kSwitchNames[] = {
       switches::kAllowHTTPBackgroundPage,
