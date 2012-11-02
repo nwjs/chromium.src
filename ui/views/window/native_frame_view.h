@@ -28,6 +28,8 @@ class VIEWS_EXPORT NativeFrameView : public NonClientFrameView {
   virtual void UpdateWindowTitle() OVERRIDE;
 
   // View overrides:
+  virtual gfx::Size GetMinimumSize() OVERRIDE;
+  virtual gfx::Size GetMaximumSize() OVERRIDE;
 
   // Returns the client size. On Windows, this is the expected behavior for
   // native frames (see |NativeWidgetWin::WidgetSizeIsClientSize()|), while

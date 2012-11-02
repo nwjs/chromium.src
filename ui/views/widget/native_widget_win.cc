@@ -641,7 +641,7 @@ bool NativeWidgetWin::HandleAppCommand(short command) {
   // We treat APPCOMMAND ids as an extension of our command namespace, and just
   // let the delegate figure out what to do...
   return GetWidget()->widget_delegate() &&
-      GetWidget()->widget_delegate()->ExecuteAppCommand(command);
+      GetWidget()->widget_delegate()->ExecuteWindowsCommand(command);
 }
 
 void NativeWidgetWin::HandleCaptureLost() {

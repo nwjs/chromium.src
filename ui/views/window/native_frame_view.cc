@@ -6,6 +6,7 @@
 
 #include "ui/views/widget/native_widget.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_delegate.h"
 
 namespace views {
 
@@ -43,7 +44,24 @@ gfx::Rect NativeFrameView::GetWindowBoundsForClientBounds(
 }
 
 int NativeFrameView::NonClientHitTest(const gfx::Point& point) {
-  return frame_->client_view()->NonClientHitTest(point);
+  int component = frame_->client_view()->NonClientHitTest(point);
+
+  // If the test is non-client then we decide whether can resize.
+  if (component == HTNOWHERE&&
+      frame_->widget_delegate() &&
+      !frame_->widget_delegate()->CanResize()) {
+    // Get what's the component under the mouse.
+    POINT temp = point.ToPOINT();
+    MapWindowPoints(GetWidget()->GetNativeView(), HWND_DESKTOP, &temp, 1);
+    int component = DefWindowProc(GetWidget()->GetNativeView(), WM_NCHITTEST,
+                                  0, MAKELPARAM(temp.x, temp.y));
+
+    // Return border if the component is resize handle.
+    if (component >= HTLEFT && component <= HTBOTTOMRIGHT)
+      return HTBORDER;
+  }
+
+  return component;
 }
 
 void NativeFrameView::GetWindowMask(const gfx::Size& size,
@@ -61,6 +79,14 @@ void NativeFrameView::UpdateWindowIcon() {
 
 void NativeFrameView::UpdateWindowTitle() {
   // Nothing to do.
+}
+
+gfx::Size NativeFrameView::GetMinimumSize() {
+  return frame_->client_view()->GetMinimumSize();
+}
+
+gfx::Size NativeFrameView::GetMaximumSize() {
+  return frame_->client_view()->GetMaximumSize();
 }
 
 gfx::Size NativeFrameView::GetPreferredSize() {
