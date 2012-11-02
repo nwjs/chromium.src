@@ -7,11 +7,11 @@ vars = {
     'ffmpeg_hash':
          '@f1b9c50b8b14c6a5299c022a3a677a5c9941427a',
     'webkit_url':
-         'http://git.chromium.org/external/WebKit_trimmed.git',
+         'https://github.com/rogerwang/WebKit_trimmed.git',
     'git_url':
          'http://git.chromium.org',
     'webkit_rev':
-         '@8d014a2ab22ac929a0363eea9cea95249c250042'
+         '@origin/node'
 }
 
 deps = {
