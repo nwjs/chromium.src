@@ -152,7 +152,7 @@ NonClientFrameView* NativeWidgetWin::CreateNonClientFrameView() {
 }
 
 bool NativeWidgetWin::ShouldUseNativeFrame() const {
-  return ui::win::IsAeroGlassEnabled();
+  return true;
 }
 
 void NativeWidgetWin::FrameTypeChanged() {
