@@ -12,13 +12,10 @@ namespace {
 
 class TestTarget : public EventTarget {
  public:
-  TestTarget() : parent_(NULL), valid_(true) {}
+  TestTarget() : parent_(NULL) {}
   virtual ~TestTarget() {}
 
   void set_parent(TestTarget* parent) { parent_ = parent; }
-
-  bool valid() const { return valid_; }
-  void set_valid(bool valid) { valid_ = valid; }
 
   void AddHandlerId(int id) {
     handler_list_.push_back(id);
@@ -42,7 +39,6 @@ class TestTarget : public EventTarget {
 
   TestTarget* parent_;
   std::vector<int> handler_list_;
-  bool valid_;
 
   DISALLOW_COPY_AND_ASSIGN(TestTarget);
 };
@@ -99,22 +95,6 @@ class TestEventHandler : public EventHandler {
   DISALLOW_COPY_AND_ASSIGN(TestEventHandler);
 };
 
-// Invalidates the target when it receives any event.
-class InvalidateTargetEventHandler : public TestEventHandler {
- public:
-  InvalidateTargetEventHandler(int id) : TestEventHandler(id) {}
-  virtual ~InvalidateTargetEventHandler() {}
-
- private:
-  virtual void ReceivedEvent(Event* event) {
-   TestEventHandler::ReceivedEvent(event);
-   TestTarget* target = static_cast<TestTarget*>(event->target());
-   target->set_valid(false);
-  }
-
-  DISALLOW_COPY_AND_ASSIGN(InvalidateTargetEventHandler);
-};
-
 class TestEventDispatcher : public EventDispatcher {
  public:
   TestEventDispatcher() {}
@@ -123,8 +103,7 @@ class TestEventDispatcher : public EventDispatcher {
  private:
   // Overridden from EventDispatcher:
   virtual bool CanDispatchToTarget(EventTarget* target) OVERRIDE {
-    TestTarget* test_target = static_cast<TestTarget*>(target);
-    return test_target->valid();
+    return true;
   }
 
   virtual void ProcessPreTargetList(EventHandlerList* list) OVERRIDE {
@@ -219,33 +198,6 @@ TEST(EventDispatcherTest, EventDispatchOrder) {
   EXPECT_EQ(
       std::vector<int>(exp, exp + sizeof(exp) / sizeof(int)),
       child.handler_list());
-}
-
-// Tests that a target becoming invalid in the middle of pre- or post-target
-// event processing aborts processing.
-TEST(EventDispatcherTest, EventDispatcherInvalidateTarget) {
-  TestEventDispatcher dispatcher;
-  TestTarget target;
-  TestEventHandler h1(1);
-  InvalidateTargetEventHandler invalidate_handler(2);
-  TestEventHandler h3(3);
-
-  target.AddPreTargetHandler(&h1);
-  target.AddPreTargetHandler(&invalidate_handler);
-  target.AddPreTargetHandler(&h3);
-
-  h1.set_expect_pre_target(true);
-  invalidate_handler.set_expect_pre_target(true);
-  // |h3| should not receive events as the target will be invalidated.
-  h3.set_expect_pre_target(false);
-
-  MouseEvent mouse(ui::ET_MOUSE_MOVED, gfx::Point(3, 4), gfx::Point(3, 4), 0);
-  int result = dispatcher.ProcessEvent(&target, &mouse);
-  EXPECT_FALSE(target.valid());
-  EXPECT_EQ(ER_CONSUMED, result);
-  EXPECT_EQ(2U, target.handler_list().size());
-  EXPECT_EQ(1, target.handler_list()[0]);
-  EXPECT_EQ(2, target.handler_list()[1]);
 }
 
 }  // namespace ui
