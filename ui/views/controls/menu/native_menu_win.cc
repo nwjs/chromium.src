@@ -741,7 +741,8 @@ void NativeMenuWin::ResetNativeMenu() {
     MENUINFO mi = {0};
     mi.cbSize = sizeof(mi);
     mi.fMask = MIM_STYLE | MIM_MENUDATA;
-    mi.dwStyle = MNS_NOTIFYBYPOS;
+    if (is_popup_menu_)
+      mi.dwStyle = MNS_NOTIFYBYPOS;
     mi.dwMenuData = reinterpret_cast<ULONG_PTR>(this);
     SetMenuInfo(menu_, &mi);
   }
