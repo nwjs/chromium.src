@@ -30,10 +30,11 @@ gfx::Rect NativeFrameView::GetBoundsForClientView() const {
 gfx::Rect NativeFrameView::GetWindowBoundsForClientBounds(
     const gfx::Rect& client_bounds) const {
 #if defined(OS_WIN) && !defined(USE_AURA)
+  BOOL has_menu = frame_->has_menu_bar() ? TRUE : FALSE;
   RECT rect = client_bounds.ToRECT();
   DWORD style = ::GetWindowLong(GetWidget()->GetNativeView(), GWL_STYLE);
   DWORD ex_style = ::GetWindowLong(GetWidget()->GetNativeView(), GWL_EXSTYLE);
-  AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+  AdjustWindowRectEx(&rect, style, has_menu, ex_style);
   return gfx::Rect(rect);
 #else
   // TODO(sad):
