@@ -13,7 +13,6 @@
 #include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/time.h"
-#include "content/nw/src/common/shell_switches.h"
 #include "third_party/node/deps/uv/include/uv.h"
 
 #if !defined(OS_IOS)
@@ -692,7 +691,7 @@ MessagePump* MessagePumpMac::Create(bool forNode) {
     if ([NSApp conformsToProtocol:@protocol(CrAppProtocol)])
       return new MessagePumpCrApplication();
 
-    if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kmNodejs))
+    if (!CommandLine::ForCurrentProcess()->HasSwitch("nodejs"))
       forNode = false;
 
     // The main-thread MessagePump implementations REQUIRE an NSApp.

@@ -22,16 +22,16 @@
 #include "base/win/win_util.h"
 #include "base/win/windows_version.h"
 #include "base/win/wrapped_window_proc.h"
-#include "chrome/browser/shell_integration.h"
-#include "chrome/browser/ui/simple_message_box.h"
+// #include "chrome/browser/shell_integration.h"
+// #include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_paths_internal.h"
+// #include "chrome/common/chrome_paths.h"
+// #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/installer/util/browser_distribution.h"
-#include "chrome/installer/util/install_util.h"
-#include "chrome/installer/util/shell_util.h"
-#include "chrome/installer/util/wmi.h"
+// #include "chrome/installer/util/browser_distribution.h"
+// #include "chrome/installer/util/install_util.h"
+// #include "chrome/installer/util/shell_util.h"
+// #include "chrome/installer/util/wmi.h"
 #include "content/public/common/result_codes.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -136,6 +136,8 @@ bool ParseCommandLine(const COPYDATASTRUCT* cds,
 }
 
 bool ActivateMetroChrome() {
+  return false;
+#if 0
   FilePath chrome_exe;
   if (!PathService::Get(base::FILE_EXE, &chrome_exe)) {
     NOTREACHED() << "Failed to get chrome exe path";
@@ -167,6 +169,7 @@ bool ActivateMetroChrome() {
     return false;
   }
   return true;
+#endif
 }
 
 // Returns true if Chrome needs to be relaunched into Windows 8 immersive mode.
@@ -181,6 +184,8 @@ bool ActivateMetroChrome() {
 // Move this function to a common place as the Windows 8 delegate_execute
 // handler can possibly use this.
 bool ShouldLaunchInWindows8ImmersiveMode(const FilePath& user_data_dir) {
+  return false;
+#if 0
 #if defined(USE_AURA)
   return false;
 #endif
@@ -232,6 +237,7 @@ bool ShouldLaunchInWindows8ImmersiveMode(const FilePath& user_data_dir) {
     return reg_value == 1;
   }
   return base::win::IsMachineATablet();
+#endif
 }
 
 }  // namespace
@@ -460,6 +466,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
                     &BrowserWindowEnumeration,
                     reinterpret_cast<LPARAM>(&visible_window));
 
+#if 0
   // If there is a visible browser window, ask the user before killing it.
   if (visible_window && chrome::ShowMessageBox(NULL,
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
@@ -468,6 +475,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
     // The user denied. Quit silently.
     return PROCESS_NOTIFIED;
   }
+#endif
 
   // Time to take action. Kill the browser process.
   base::KillProcessById(process_id, content::RESULT_CODE_HUNG, true);

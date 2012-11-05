@@ -79,7 +79,7 @@
 #include "base/timer.h"
 #include "base/utf_string_conversions.h"
 #if defined(TOOLKIT_GTK)
-#include "chrome/browser/ui/gtk/process_singleton_dialog.h"
+// #include "chrome/browser/ui/gtk/process_singleton_dialog.h"
 #endif
 #include "chrome/common/chrome_constants.h"
 #include "content/public/browser/browser_thread.h"
@@ -307,7 +307,7 @@ void DisplayProfileInUseError(const std::string& lock_path,
   LOG(ERROR) << base::SysWideToNativeMB(UTF16ToWide(error)).c_str();
   if (!g_disable_prompt) {
 #if defined(TOOLKIT_GTK)
-    ProcessSingletonDialog::ShowAndRun(UTF16ToUTF8(error));
+    // ProcessSingletonDialog::ShowAndRun(UTF16ToUTF8(error));
 #else
     NOTIMPLEMENTED();
 #endif
