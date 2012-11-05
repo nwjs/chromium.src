@@ -46,7 +46,7 @@ class PluginObserver : public content::WebContentsObserver,
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   void InstallMissingPlugin(PluginInstaller* installer,
-                            scoped_ptr<PluginMetadata> plugin_metadata);
+                            const PluginMetadata* plugin_metadata);
 #endif
 
   // Message handlers:
