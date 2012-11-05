@@ -289,7 +289,8 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget)
       can_compose_inline_(true),
       is_loading_(false),
       is_hidden_(false),
-      weak_factory_(this) {
+      weak_factory_(this),
+      fullscreen_parent_host_view_(NULL) {
   // |cocoa_view_| owns us and we will be deleted when |cocoa_view_|
   // goes away.  Since we autorelease it, our caller must put
   // |GetNativeView()| into the view hierarchy right after calling us.
@@ -346,6 +347,8 @@ void RenderWidgetHostViewMac::InitAsPopup(
 // will enter fullscreen instead.
 void RenderWidgetHostViewMac::InitAsFullscreen(
     RenderWidgetHostView* reference_host_view) {
+  fullscreen_parent_host_view_ =
+      static_cast<RenderWidgetHostViewMac*>(reference_host_view);
   NSWindow* parent_window = nil;
   if (reference_host_view)
     parent_window = [reference_host_view->GetNativeView() window];
@@ -1511,6 +1514,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
 @implementation RenderWidgetHostViewCocoa
 
 @synthesize selectedRange = selectedRange_;
+@synthesize suppressNextEscapeKeyUp = suppressNextEscapeKeyUp_;
 @synthesize markedRange = markedRange_;
 
 - (id)initWithRenderWidgetHostViewMac:(RenderWidgetHostViewMac*)r {
@@ -1862,7 +1866,18 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
   if (event.type == NativeWebKeyboardEvent::RawKeyDown &&
       event.windowsKeyCode == ui::VKEY_ESCAPE &&
       renderWidgetHostView_->pepper_fullscreen_window()) {
+    RenderWidgetHostViewMac* parent =
+        renderWidgetHostView_->fullscreen_parent_host_view();
+    if (parent)
+      parent->cocoa_view()->suppressNextEscapeKeyUp_ = YES;
     widgetHost->Shutdown();
+    return;
+  }
+
+  // Suppress the escape key up event if necessary.
+  if (event.windowsKeyCode == ui::VKEY_ESCAPE && suppressNextEscapeKeyUp_) {
+    if (event.type == NativeWebKeyboardEvent::KeyUp)
+      suppressNextEscapeKeyUp_ = NO;
     return;
   }
 
