@@ -83,8 +83,8 @@
 #endif
 #include "chrome/common/chrome_constants.h"
 #include "content/public/browser/browser_thread.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+// #include "grit/chromium_strings.h"
+// #include "grit/generated_resources.h"
 #include "net/base/net_util.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -298,6 +298,7 @@ bool ParseLockPath(const FilePath& path,
 void DisplayProfileInUseError(const std::string& lock_path,
                               const std::string& hostname,
                               int pid) {
+#if 0
   string16 error = l10n_util::GetStringFUTF16(
       IDS_PROFILE_IN_USE_LINUX,
       base::IntToString16(pid),
@@ -307,11 +308,12 @@ void DisplayProfileInUseError(const std::string& lock_path,
   LOG(ERROR) << base::SysWideToNativeMB(UTF16ToWide(error)).c_str();
   if (!g_disable_prompt) {
 #if defined(TOOLKIT_GTK)
-    // ProcessSingletonDialog::ShowAndRun(UTF16ToUTF8(error));
+    ProcessSingletonDialog::ShowAndRun(UTF16ToUTF8(error));
 #else
     NOTIMPLEMENTED();
 #endif
   }
+#endif
 }
 
 bool IsChromeProcess(pid_t pid) {
