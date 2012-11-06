@@ -6,7 +6,6 @@
 
 #include <vector>
 
-#include "ash/desktop_background/desktop_background_controller.h"
 #include "ash/shell.h"
 #include "base/bind.h"
 #include "base/chromeos/chromeos_version.h"

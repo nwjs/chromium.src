@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/login/base_login_display_host.h"
 
+#include "ash/desktop_background/desktop_background_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/workspace_controller.h"  // temporary until w2 is the default.
@@ -134,7 +135,8 @@ BaseLoginDisplayHost::BaseLoginDisplayHost(const gfx::Rect& background_bounds)
     : background_bounds_(background_bounds),
       ALLOW_THIS_IN_INITIALIZER_LIST(pointer_factory_(this)),
       shutting_down_(false),
-      oobe_progress_bar_visible_(false) {
+      oobe_progress_bar_visible_(false),
+      session_starting_(false) {
   // We need to listen to CLOSE_ALL_BROWSERS_REQUEST but not APP_TERMINATIN
   // because/ APP_TERMINATING will never be fired as long as this keeps
   // ref-count. CLOSE_ALL_BROWSERS_REQUEST is safe here because there will be no
@@ -149,6 +151,12 @@ BaseLoginDisplayHost::BaseLoginDisplayHost(const gfx::Rect& background_bounds)
   registrar_.Add(this,
                  chrome::NOTIFICATION_BROWSER_OPENED,
                  content::NotificationService::AllSources());
+
+  // Login screen is moved to lock screen container when user logs in.
+  registrar_.Add(this,
+                 chrome::NOTIFICATION_LOGIN_USER_CHANGED,
+                 content::NotificationService::AllSources());
+
   DCHECK(default_host_ == NULL);
   default_host_ = this;
 
@@ -170,8 +178,16 @@ BaseLoginDisplayHost::~BaseLoginDisplayHost() {
 ////////////////////////////////////////////////////////////////////////////////
 // BaseLoginDisplayHost, LoginDisplayHost implementation:
 
+void BaseLoginDisplayHost::BeforeSessionStart() {
+  session_starting_ = true;
+}
+
 void BaseLoginDisplayHost::OnSessionStart() {
   DVLOG(1) << "Session starting";
+  if (chromeos::UserManager::Get()->IsCurrentUserNew()) {
+    ash::Shell::GetInstance()->
+        desktop_background_controller()->MoveDesktopToUnlockedContainer();
+  }
   if (wizard_controller_.get())
     wizard_controller_->OnSessionStart();
   // Display host is deleted once animation is completed
@@ -278,13 +294,24 @@ void BaseLoginDisplayHost::Observe(
     const content::NotificationDetails& details) {
   if (type == chrome::NOTIFICATION_CLOSE_ALL_BROWSERS_REQUEST) {
     ShutdownDisplayHost(true);
-  } else if (type == chrome::NOTIFICATION_BROWSER_OPENED) {
+  } else if (type == chrome::NOTIFICATION_BROWSER_OPENED && session_starting_) {
+    // Browsers created before session start (windows opened by extensions, for
+    // example) are ignored.
     OnBrowserCreated();
     registrar_.Remove(this,
                       chrome::NOTIFICATION_CLOSE_ALL_BROWSERS_REQUEST,
                       content::NotificationService::AllSources());
     registrar_.Remove(this,
                       chrome::NOTIFICATION_BROWSER_OPENED,
+                      content::NotificationService::AllSources());
+  } else if (type == chrome::NOTIFICATION_LOGIN_USER_CHANGED &&
+             chromeos::UserManager::Get()->IsCurrentUserNew()) {
+    // For new user, move desktop to locker container so that windows created
+    // during the user image picker step are below it.
+    ash::Shell::GetInstance()->
+        desktop_background_controller()->MoveDesktopToLockedContainer();
+    registrar_.Remove(this,
+                      chrome::NOTIFICATION_LOGIN_USER_CHANGED,
                       content::NotificationService::AllSources());
   }
 }
