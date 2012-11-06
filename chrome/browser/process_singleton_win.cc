@@ -33,8 +33,8 @@
 // #include "chrome/installer/util/shell_util.h"
 // #include "chrome/installer/util/wmi.h"
 #include "content/public/common/result_codes.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+// #include "grit/chromium_strings.h"
+// #include "grit/generated_resources.h"
 #include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/win/hwnd_util.h"
@@ -247,6 +247,7 @@ bool ShouldLaunchInWindows8ImmersiveMode(const FilePath& user_data_dir) {
 // break out of the virtualization environment.
 // http://code.google.com/p/chromium/issues/detail?id=43650
 bool ProcessSingleton::EscapeVirtualization(const FilePath& user_data_dir) {
+#if 0
   if (::GetModuleHandle(L"sftldr_wow64.dll") ||
       ::GetModuleHandle(L"sftldr.dll")) {
     int process_id;
@@ -270,6 +271,7 @@ bool ProcessSingleton::EscapeVirtualization(const FilePath& user_data_dir) {
     }
     return true;
   }
+#endif
   return false;
 }
 
