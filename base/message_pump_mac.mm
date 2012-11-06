@@ -19,10 +19,26 @@
 #import <AppKit/AppKit.h>
 #endif  // !defined(OS_IOS)
 
+// Export private functions.
+extern "C" int ev_backend_fd(EV_P);
+
 namespace {
 
 void NoOp(void* info) {
 }
+
+void UvNoOp(uv_async_t* handle, int status) {
+}
+
+void KqueueCallback(CFFileDescriptorRef backend_fd,
+                    CFOptionFlags callBackTypes,
+                    void* info) {
+  // Don't need to listen if libuv has quit. 
+  if (uv_run_once_nowait(uv_default_loop()))
+    CFFileDescriptorEnableCallBacks(backend_fd, kCFFileDescriptorReadCallBack);
+}
+
+uv_async_t dummy_uv_handle;
 
 const CFTimeInterval kCFTimeIntervalMax =
     std::numeric_limits<CFTimeInterval>::max();
@@ -572,6 +588,22 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
   // RegisterCrApp() or RegisterBrowserCrApp().
   CHECK(NSApp);
 
+  if (for_node_) {
+    // Add dummy handle for libuv, otherwise libuv would quit when there is
+    // nothing to do.
+    uv_async_init(uv_default_loop(), &dummy_uv_handle, UvNoOp);
+
+    // Listen to libev's backend fd.
+    int backend_fd = ev_backend_fd(EV_DEFAULT);
+    CFFileDescriptorRef cf_fd =
+        CFFileDescriptorCreate(NULL, backend_fd, true, KqueueCallback, NULL);
+    CFRunLoopSourceRef cf_rls =
+        CFFileDescriptorCreateRunLoopSource(NULL, cf_fd, 0);
+    CFRunLoopAddSource(run_loop(), cf_rls, kCFRunLoopDefaultMode);
+    CFRelease(cf_rls);
+    CFFileDescriptorEnableCallBacks(cf_fd, kCFFileDescriptorReadCallBack);
+  }
+
   if (!for_node_ && ![NSApp isRunning]) {
     running_own_loop_ = false;
     // NSApplication manages autorelease pools itself when run this way.
@@ -579,13 +611,23 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
   } else {
     running_own_loop_ = true;
     while (keep_running_) {
-      if (for_node_)
-        uv_run_once_nowait(uv_default_loop());
-
       MessagePumpScopedAutoreleasePool autorelease_pool(this);
-      NSDate* short_then = [NSDate dateWithTimeIntervalSinceNow:0.05];
+      NSDate* next_date;
+
+      if (for_node_) {
+        if (!uv_run_once_nowait(uv_default_loop()))
+          keep_running_ = false; // Quit from uv.
+
+        // Still polls because kqueue is bugged on Mac, some conditions, such
+        // as first connection to uv_accept, will not fire kqueue backend's
+        // callback, this is not a problem for node since it's always polling.
+        next_date = [NSDate dateWithTimeIntervalSinceNow:0.5];
+      } else {
+        next_date = [NSDate distantFuture];
+      }
+
       NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                          untilDate:short_then
+                                          untilDate:next_date
                                              inMode:NSDefaultRunLoopMode
                                             dequeue:YES];
       if (event) {
