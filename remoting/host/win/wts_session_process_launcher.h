@@ -30,6 +30,7 @@ class SingleThreadTaskRunner;
 
 namespace remoting {
 
+class SasInjector;
 class WtsConsoleMonitor;
 class WtsSessionProcessLauncherImpl;
 
@@ -61,6 +62,9 @@ class WtsSessionProcessLauncher
  protected:
   // Stoppable implementation.
   virtual void DoStop() OVERRIDE;
+
+  // Sends Secure Attention Sequence to the console session.
+  void OnSendSasToConsole();
 
  private:
   // Attempts to launch the host process in the current console session.
@@ -104,6 +108,8 @@ class WtsSessionProcessLauncher
   WtsConsoleMonitor* monitor_;
 
   scoped_ptr<WorkerProcessLauncher> launcher_;
+
+  scoped_ptr<SasInjector> sas_injector_;
 
   DISALLOW_COPY_AND_ASSIGN(WtsSessionProcessLauncher);
 };

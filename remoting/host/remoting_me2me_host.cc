@@ -126,7 +126,9 @@ class HostProcess
         restarting_(false),
         shutting_down_(false),
 #if defined(OS_WIN)
-        desktop_environment_factory_(new SessionDesktopEnvironmentFactory()),
+        desktop_environment_factory_(new SessionDesktopEnvironmentFactory(
+            base::Bind(&HostProcess::SendSasToConsole,
+                       base::Unretained(this)))),
 #else  // !defined(OS_WIN)
         desktop_environment_factory_(new DesktopEnvironmentFactory()),
 #endif  // !defined(OS_WIN)
@@ -236,6 +238,14 @@ class HostProcess
         FROM_HERE,
         base::Bind(&HostProcess::Shutdown, base::Unretained(this),
                    kInvalidHostConfigurationExitCode));
+  }
+
+  // Asks the daemon to inject Secure Attention Sequence to the console.
+  void SendSasToConsole() {
+    DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
+
+    if (daemon_channel_.get())
+      daemon_channel_->Send(new ChromotingNetworkDaemonMsg_SendSasToConsole());
   }
 
   void StartWatchingConfigChanges() {

@@ -13,7 +13,8 @@
 
 namespace remoting {
 
-SessionDesktopEnvironmentFactory::SessionDesktopEnvironmentFactory() {
+SessionDesktopEnvironmentFactory::SessionDesktopEnvironmentFactory(
+    const base::Closure& inject_sas) : inject_sas_(inject_sas) {
 }
 
 SessionDesktopEnvironmentFactory::~SessionDesktopEnvironmentFactory() {
@@ -27,7 +28,9 @@ scoped_ptr<DesktopEnvironment> SessionDesktopEnvironmentFactory::Create(
       context->ui_task_runner());
   event_executor.reset(new SessionEventExecutorWin(
       context->desktop_task_runner(),
-      event_executor.Pass()));
+      event_executor.Pass(),
+      context->ui_task_runner(),
+      inject_sas_));
   scoped_ptr<VideoFrameCapturer> video_capturer(VideoFrameCapturer::Create());
   return scoped_ptr<DesktopEnvironment>(new DesktopEnvironment(
       audio_capturer.Pass(),

@@ -30,6 +30,7 @@
 #include "ipc/ipc_message_macros.h"
 #include "remoting/host/constants.h"
 #include "remoting/host/chromoting_messages.h"
+#include "remoting/host/sas_injector.h"
 #include "remoting/host/win/launch_process_with_token.h"
 #include "remoting/host/win/wts_console_monitor.h"
 
@@ -554,7 +555,13 @@ void WtsSessionProcessLauncher::OnChannelConnected() {
 bool WtsSessionProcessLauncher::OnMessageReceived(const IPC::Message& message) {
   DCHECK(main_message_loop_->BelongsToCurrentThread());
 
-  return false;
+  bool handled = true;
+  IPC_BEGIN_MESSAGE_MAP(WtsSessionProcessLauncher, message)
+    IPC_MESSAGE_HANDLER(ChromotingNetworkDaemonMsg_SendSasToConsole,
+                        OnSendSasToConsole)
+    IPC_MESSAGE_UNHANDLED(handled = false)
+  IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void WtsSessionProcessLauncher::OnSessionAttached(uint32 session_id) {
@@ -637,6 +644,17 @@ void WtsSessionProcessLauncher::DoStop() {
   }
 
   CompleteStopping();
+}
+
+void WtsSessionProcessLauncher::OnSendSasToConsole() {
+  DCHECK(main_message_loop_->BelongsToCurrentThread());
+
+  if (attached_) {
+    if (sas_injector_.get() == NULL)
+      sas_injector_ = SasInjector::Create();
+    if (!sas_injector_->InjectSas())
+      LOG(ERROR) << "Failed to inject Secure Attention Sequence.";
+  }
 }
 
 void WtsSessionProcessLauncher::LaunchProcess() {

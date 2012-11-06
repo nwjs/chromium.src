@@ -14,3 +14,10 @@
 
 // Delivers the host configuration (and updates) to the network process.
 IPC_MESSAGE_CONTROL1(ChromotingDaemonNetworkMsg_Configuration, std::string)
+
+//-----------------------------------------------------------------------------
+// Network to Daemon messages
+
+// Asks the daemon to send Secure Attention Sequence (SAS) to the current
+// console session.
+IPC_MESSAGE_CONTROL0(ChromotingNetworkDaemonMsg_SendSasToConsole)
