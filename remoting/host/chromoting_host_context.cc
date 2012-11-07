@@ -40,19 +40,9 @@ void ChromotingHostContext::ReleaseTaskRunners() {
 
 bool ChromotingHostContext::Start() {
   // Start all the threads.
-  bool started = capture_thread_.Start() && encode_thread_.Start();
-
-#if defined(OS_WIN)
-  // On Windows audio capturer needs to run on a UI thread that has COM
-  // initialized.
-  audio_thread_.init_com_with_mta(false);
-  started = started && audio_thread_.Start();
-#else  // defined(OS_WIN)
-  started = started && audio_thread_.StartWithOptions(base::Thread::Options(
-      MessageLoop::TYPE_IO, 0));
-#endif  // !defined(OS_WIN)
-
-  started = started &&
+  bool started = capture_thread_.Start() && encode_thread_.Start() &&
+      audio_thread_.StartWithOptions(base::Thread::Options(
+          MessageLoop::TYPE_IO, 0)) &&
       network_thread_.StartWithOptions(base::Thread::Options(
           MessageLoop::TYPE_IO, 0)) &&
       desktop_thread_.Start() &&

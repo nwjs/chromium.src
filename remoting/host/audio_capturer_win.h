@@ -12,6 +12,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/timer.h"
 #include "base/win/scoped_co_mem.h"
+#include "base/win/scoped_com_initializer.h"
 #include "base/win/scoped_comptr.h"
 #include "remoting/host/audio_capturer.h"
 #include "remoting/proto/audio.pb.h"
@@ -46,6 +47,7 @@ class AudioCapturerWin : public AudioCapturer {
   base::win::ScopedComPtr<IAudioCaptureClient> audio_capture_client_;
   base::win::ScopedComPtr<IAudioClient> audio_client_;
   base::win::ScopedComPtr<IMMDevice> mm_device_;
+  scoped_ptr<base::win::ScopedCOMInitializer> com_initializer_;
 
   base::ThreadChecker thread_checker_;
 
