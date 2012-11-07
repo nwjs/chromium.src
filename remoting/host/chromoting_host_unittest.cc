@@ -228,6 +228,7 @@ class ChromotingHostTest : public testing::Test {
 
     scoped_refptr<ClientSession> client = new ClientSession(
         host_.get(),
+        context_.audio_task_runner(),
         context_.capture_task_runner(),
         context_.encode_task_runner(),
         context_.network_task_runner(),
