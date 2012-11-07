@@ -359,6 +359,7 @@ void RLZTracker::Observe(int type,
   }
 }
 
+// static
 bool RLZTracker::RecordProductEvent(rlz_lib::Product product,
                                     rlz_lib::AccessPoint point,
                                     rlz_lib::Event event_id) {
