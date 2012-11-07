@@ -306,7 +306,6 @@ void ChromotingHost::OnIncomingSession(
       new protocol::ConnectionToClient(session));
   scoped_refptr<ClientSession> client = new ClientSession(
       this,
-      context_->audio_task_runner(),
       context_->capture_task_runner(),
       context_->encode_task_runner(),
       context_->network_task_runner(),

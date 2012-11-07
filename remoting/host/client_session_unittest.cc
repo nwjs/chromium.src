@@ -85,7 +85,6 @@ class ClientSessionTest : public testing::Test {
 
     client_session_ = new ClientSession(
         &session_event_handler_,
-        context_.audio_task_runner(),
         context_.capture_task_runner(),
         context_.encode_task_runner(),
         context_.network_task_runner(),
