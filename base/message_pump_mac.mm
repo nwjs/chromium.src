@@ -15,14 +15,60 @@
 #include "base/time.h"
 #include "third_party/node/deps/uv/include/uv.h"
 
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
+
 #if !defined(OS_IOS)
 #import <AppKit/AppKit.h>
 #endif  // !defined(OS_IOS)
 
 // Export private functions.
-extern "C" int ev_backend_fd(EV_P);
+extern "C" unsigned int uv__poll_timeout(uv_loop_t* loop);
+extern "C" void ev__run(EV_P_ ev_tstamp timeout);
 
 namespace {
+
+// Thread for polling events.
+uv_thread_t embed_thread;
+
+// Semaphore to wait for main loop in the polling thread.
+uv_sem_t embed_sem;
+
+// We're done.
+volatile int embed_closed;
+
+// Thread to poll uv events.
+void embed_thread_runner(void *arg) {
+  while (!embed_closed) {
+    uv_loop_t* loop = uv_default_loop();
+
+    // We should at leat poll every 500ms.
+    unsigned int timeout = uv__poll_timeout(loop);
+    if (timeout > 500)
+      timeout = 500;
+
+    // Wait for new libuv events.
+    ev__run(loop->ev, timeout / 1000.);
+
+    // Break cocoa runloop.
+    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+    NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
+                                        location:NSMakePoint(0,0)
+                                   modifierFlags:0
+                                       timestamp:0.0
+                                    windowNumber:0
+                                         context:nil
+                                         subtype:0
+                                           data1:0
+                                           data2:0];
+    [NSApp postEvent:event atStart:YES];
+    [pool release];
+
+    // Wait for the main loop to deal with events.
+    uv_sem_wait(&embed_sem);
+  }
+}
 
 void NoOp(void* info) {
 }
@@ -30,14 +76,7 @@ void NoOp(void* info) {
 void UvNoOp(uv_async_t* handle, int status) {
 }
 
-void KqueueCallback(CFFileDescriptorRef backend_fd,
-                    CFOptionFlags callBackTypes,
-                    void* info) {
-  // Don't need to listen if libuv has quit. 
-  if (uv_run_once_nowait(uv_default_loop()))
-    CFFileDescriptorEnableCallBacks(backend_fd, kCFFileDescriptorReadCallBack);
-}
-
+// Dummy handle to make uv's loop not quit.
 uv_async_t dummy_uv_handle;
 
 const CFTimeInterval kCFTimeIntervalMax =
@@ -593,15 +632,13 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
     // nothing to do.
     uv_async_init(uv_default_loop(), &dummy_uv_handle, UvNoOp);
 
-    // Listen to libev's backend fd.
-    int backend_fd = ev_backend_fd(EV_DEFAULT);
-    CFFileDescriptorRef cf_fd =
-        CFFileDescriptorCreate(NULL, backend_fd, true, KqueueCallback, NULL);
-    CFRunLoopSourceRef cf_rls =
-        CFFileDescriptorCreateRunLoopSource(NULL, cf_fd, 0);
-    CFRunLoopAddSource(run_loop(), cf_rls, kCFRunLoopDefaultMode);
-    CFRelease(cf_rls);
-    CFFileDescriptorEnableCallBacks(cf_fd, kCFFileDescriptorReadCallBack);
+    // Start worker that will interrupt external loop.
+    embed_closed = 0;
+    uv_sem_init(&embed_sem, 0);
+    uv_thread_create(&embed_thread, embed_thread_runner, NULL);
+
+    // Execute loop for once.
+    uv_run_once_nowait(uv_default_loop());
   }
 
   if (!for_node_ && ![NSApp isRunning]) {
@@ -610,34 +647,35 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
     [NSApp run];
   } else {
     running_own_loop_ = true;
+
     while (keep_running_) {
       MessagePumpScopedAutoreleasePool autorelease_pool(this);
-      NSDate* next_date;
-
-      if (for_node_) {
-        if (!uv_run_once_nowait(uv_default_loop()))
-          keep_running_ = false; // Quit from uv.
-
-        // Still polls because kqueue is bugged on Mac, some conditions, such
-        // as first connection to uv_accept, will not fire kqueue backend's
-        // callback, this is not a problem for node since it's always polling.
-        next_date = [NSDate dateWithTimeIntervalSinceNow:0.5];
-      } else {
-        next_date = [NSDate distantFuture];
-      }
 
       NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                          untilDate:next_date
+                                          untilDate:[NSDate distantFuture]
                                              inMode:NSDefaultRunLoopMode
                                             dequeue:YES];
       if (event) {
         [NSApp sendEvent:event];
+      }
+
+      if (for_node_) {
+        // Deal with uv events.
+        if (!uv_run_once_nowait(uv_default_loop()))
+          keep_running_ = false; // Quit from uv.
+
+        // Tell the worker thread to continue polling.
+        uv_sem_post(&embed_sem);
       }
     }
     keep_running_ = true;
   }
 
   running_own_loop_ = last_running_own_loop_;
+
+  // Clear uv.
+  embed_closed = 1;
+  uv_thread_join(&embed_thread);
 }
 
 void MessagePumpNSApplication::Quit() {
