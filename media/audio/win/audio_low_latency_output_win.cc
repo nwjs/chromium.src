@@ -375,6 +375,16 @@ static int ChannelDownMix(const void* input,
   return 0;
 }
 
+static bool ChannelMixingSupported(int bytes_per_sample, int in_channels,
+                                   int out_channels) {
+  return bytes_per_sample == 2 &&
+         ((in_channels == 1 && out_channels == 2) ||
+          (in_channels == 1 && out_channels == 8) ||
+          (in_channels == 2 && out_channels == 6) ||
+          (in_channels == 2 && out_channels == 8) ||
+          (in_channels == 2 && out_channels == 1));
+}
+
 // static
 AUDCLNT_SHAREMODE WASAPIAudioOutputStream::GetShareMode() {
   const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
@@ -493,19 +503,11 @@ bool WASAPIAudioOutputStream::Open() {
   if (opened_)
     return true;
 
-  // Down-mixing is currently not supported. The number of channels provided
-  // by the audio source must be less than or equal to the number of native
-  // channels (given by endpoint_channel_count()) which is the channel count
-  // used when opening the default endpoint device.
-  if (channel_factor() < 1 && channel_factor() != 0.5f) {
-    LOG(ERROR) << "Channel down-mixing is not supported";
-    RecordFallbackStats();
-    return false;
-  }
-
-  // Only 16-bit audio is supported in combination with channel up-mixing.
-  if (channel_factor() > 1 && (format_.Format.wBitsPerSample != 16)) {
-    LOG(ERROR) << "16-bit audio is required when channel up-mixing is active.";
+  if (format_.Format.nChannels != client_channel_count_ &&
+      !ChannelMixingSupported(
+          format_.Format.wBitsPerSample / 8, client_channel_count_,
+          format_.Format.nChannels)) {
+    LOG(ERROR) << "Channel mixing is not supported.";
     RecordFallbackStats();
     return false;
   }
