@@ -289,21 +289,19 @@ void WallpaperManager::InitializeWallpaper() {
             kAccountsPrefShowUserNamesOnSignIn, &show_users);
         DCHECK(result) << "Unable to fetch setting "
                        << kAccountsPrefShowUserNamesOnSignIn;
-        if (!show_users) {
+        const chromeos::UserList& users = user_manager->GetUsers();
+        if (!show_users || users.empty()) {
           // Boot into sign in form, preload default wallpaper.
           ash::Shell::GetInstance()->desktop_background_controller()->
               SetDefaultWallpaper(kDefaultOOBEWallpaperIndex, false);
-        } else if (!disable_boot_animation) {
+          return;
+        }
+
+        if (!disable_boot_animation) {
           // Normal boot, load user wallpaper.
           // If normal boot animation is disabled wallpaper would be set
           // asynchronously once user pods are loaded.
-          const chromeos::UserList& users = user_manager->GetUsers();
-          if (!users.empty()) {
-            SetUserWallpaper(users[0]->email());
-          } else {
-            ash::Shell::GetInstance()->desktop_background_controller()->
-                SetDefaultWallpaper(kDefaultOOBEWallpaperIndex, false);
-          }
+          SetUserWallpaper(users[0]->email());
         }
       }
     }
