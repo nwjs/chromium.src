@@ -7,7 +7,6 @@
 #include "base/logging.h"
 #include "base/command_line.h"
 #include "content/public/common/content_switches.h"
-#include "third_party/node/src/node.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/scoped_nsautorelease_pool.h"
@@ -29,30 +28,42 @@ void timer_callback(uv_timer_t* timer, int status) {
   // libuv would block unexpectedly with zero-timeout timer
   // this is a workaround of libuv bug #574:
   // https://github.com/joyent/libuv/issues/574
-  static_cast<MessagePumpUV*>(timer->data)->WakeupInSameThread();
+  uv_idle_start(static_cast<uv_idle_t*>(timer->data), idle_callback);
 }
 
 }  // namespace
 
 MessagePumpUV::MessagePumpUV()
-    : keep_running_(true)
-{
-  wakeup_event_.data = this;
-  uv_async_init(uv_default_loop(), &wakeup_event_, wakeup_callback);
-
-  idle_handle_.data = this;
-  uv_idle_init(uv_default_loop(), &idle_handle_);
-
-  delay_timer_.data = this;
-  uv_timer_init(uv_default_loop(), &delay_timer_);
+    : keep_running_(true),
+      nesting_level_(0),
+      wakeup_event_ref_(&wakeup_event_) {
+  uv_async_init(uv_default_loop(), wakeup_event_ref_, wakeup_callback);
 }
 
-MessagePumpUV::~MessagePumpUV()
-{
+MessagePumpUV::~MessagePumpUV() {
 }
 
 void MessagePumpUV::Run(Delegate* delegate) {
+  ++nesting_level_;
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
+
+  // Poll external loop in nested message loop, so node.js's events will be
+  // paused in nested loop.
+  uv_loop_t* loop = uv_default_loop();
+  if (nesting_level_ > 1) {
+    loop = uv_loop_new();
+
+    wakeup_event_ref_ = new uv_async_t;
+    uv_async_init(loop, wakeup_event_ref_, wakeup_callback);
+  }
+
+  // Create handles for the loop.
+  uv_idle_t idle_handle;
+  uv_idle_init(loop, &idle_handle);
+
+  uv_timer_t delay_timer;
+  delay_timer.data = &idle_handle;
+  uv_timer_init(loop, &delay_timer);
 
   // Enter Loop
   for (;;) {
@@ -79,15 +90,15 @@ void MessagePumpUV::Run(Delegate* delegate) {
       continue;
 
     if (delayed_work_time_.is_null()) {
-      uv_run_once(uv_default_loop());
+      uv_run_once(loop);
     } else {
       TimeDelta delay = delayed_work_time_ - TimeTicks::Now();
       if (delay > TimeDelta()) {
-        uv_timer_start(&delay_timer_, timer_callback,
+        uv_timer_start(&delay_timer, timer_callback,
                        delay.InMilliseconds(), 0);
-        uv_run_once(uv_default_loop());
-        uv_idle_stop(&idle_handle_);
-        uv_timer_stop(&delay_timer_);
+        uv_run_once(loop);
+        uv_idle_stop(&idle_handle);
+        uv_timer_stop(&delay_timer);
       } else {
         // It looks like delayed_work_time_ indicates a time in the past, so we
         // need to call DoDelayedWork now.
@@ -98,7 +109,17 @@ void MessagePumpUV::Run(Delegate* delegate) {
     // other than service each delegate method.
   }
 
+  if (nesting_level_ > 1) {
+    // Delete external loop.
+    uv_loop_delete(loop);
+
+    // Restore previous async handle.
+    delete wakeup_event_ref_;
+    wakeup_event_ref_ = &wakeup_event_;
+  }
+
   keep_running_ = true;
+  --nesting_level_;
 }
 
 void MessagePumpUV::Quit() {
@@ -108,7 +129,7 @@ void MessagePumpUV::Quit() {
 void MessagePumpUV::ScheduleWork() {
   // Since this can be called on any thread, we need to ensure that our Run
   // loop wakes up.
-  uv_async_send(&wakeup_event_);
+  uv_async_send(wakeup_event_ref_);
 }
 
 void MessagePumpUV::ScheduleDelayedWork(
@@ -117,11 +138,6 @@ void MessagePumpUV::ScheduleDelayedWork(
   // only be called on the same thread as Run, so we only need to update our
   // record of how long to sleep when we do sleep.
   delayed_work_time_ = delayed_work_time;
-}
-
-void MessagePumpUV::WakeupInSameThread() {
-  // Calling idle_start is cheaper than calling async_send.
-  uv_idle_start(&idle_handle_, idle_callback);
 }
 
 }  // namespace base
