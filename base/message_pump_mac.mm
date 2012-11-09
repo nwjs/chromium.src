@@ -13,11 +13,6 @@
 #include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/time.h"
-#include "third_party/node/deps/uv/include/uv.h"
-
-#include <sys/types.h>
-#include <sys/event.h>
-#include <sys/time.h>
 
 #if !defined(OS_IOS)
 #import <AppKit/AppKit.h>
@@ -29,55 +24,11 @@ extern "C" void ev__run(EV_P_ ev_tstamp timeout);
 
 namespace {
 
-// Thread for polling events.
-uv_thread_t embed_thread;
-
-// Semaphore to wait for main loop in the polling thread.
-uv_sem_t embed_sem;
-
-// We're done.
-volatile int embed_closed;
-
-// Thread to poll uv events.
-void embed_thread_runner(void *arg) {
-  while (!embed_closed) {
-    uv_loop_t* loop = uv_default_loop();
-
-    // We should at leat poll every 500ms.
-    unsigned int timeout = uv__poll_timeout(loop);
-    if (timeout > 500)
-      timeout = 500;
-
-    // Wait for new libuv events.
-    ev__run(loop->ev, timeout / 1000.);
-
-    // Break cocoa runloop.
-    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
-    NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
-                                        location:NSMakePoint(0,0)
-                                   modifierFlags:0
-                                       timestamp:0.0
-                                    windowNumber:0
-                                         context:nil
-                                         subtype:0
-                                           data1:0
-                                           data2:0];
-    [NSApp postEvent:event atStart:YES];
-    [pool release];
-
-    // Wait for the main loop to deal with events.
-    uv_sem_wait(&embed_sem);
-  }
-}
-
 void NoOp(void* info) {
 }
 
 void UvNoOp(uv_async_t* handle, int status) {
 }
-
-// Dummy handle to make uv's loop not quit.
-uv_async_t dummy_uv_handle;
 
 const CFTimeInterval kCFTimeIntervalMax =
     std::numeric_limits<CFTimeInterval>::max();
@@ -609,15 +560,38 @@ void MessagePumpUIApplication::Attach(Delegate* delegate) {
 
 #else
 
-MessagePumpNSApplication::MessagePumpNSApplication(bool forNode)
+MessagePumpNSApplication::MessagePumpNSApplication(bool for_node)
     : keep_running_(true),
       running_own_loop_(false),
-      for_node_(forNode) {
+      pause_uv_(false),
+      for_node_(for_node) {
+  if (for_node_) {
+    // Add dummy handle for libuv, otherwise libuv would quit when there is
+    // nothing to do.
+    uv_async_init(uv_default_loop(), &dummy_uv_handle_, UvNoOp);
+
+    // Start worker that will interrupt main loop when having uv events.
+    embed_closed_ = 0;
+    uv_sem_init(&embed_sem_, 0);
+    uv_thread_create(&embed_thread_, EmbedThreadRunner, this);
+
+    // Execute loop for once.
+    uv_run_once_nowait(uv_default_loop());
+  }
 }
 
-MessagePumpNSApplication::~MessagePumpNSApplication() {}
+MessagePumpNSApplication::~MessagePumpNSApplication() {
+  // Clear uv.
+  embed_closed_ = 1;
+  uv_thread_join(&embed_thread_);
+}
 
 void MessagePumpNSApplication::DoRun(Delegate* delegate) {
+  // Pause uv in nested loop.
+  if (nesting_level() > 0) {
+    pause_uv_ = true;
+  }
+
   bool last_running_own_loop_ = running_own_loop_;
 
   // NSApp must be initialized by calling:
@@ -626,20 +600,6 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
   // These can be initialized from C++ code by calling
   // RegisterCrApp() or RegisterBrowserCrApp().
   CHECK(NSApp);
-
-  if (for_node_) {
-    // Add dummy handle for libuv, otherwise libuv would quit when there is
-    // nothing to do.
-    uv_async_init(uv_default_loop(), &dummy_uv_handle, UvNoOp);
-
-    // Start worker that will interrupt external loop.
-    embed_closed = 0;
-    uv_sem_init(&embed_sem, 0);
-    uv_thread_create(&embed_thread, embed_thread_runner, NULL);
-
-    // Execute loop for once.
-    uv_run_once_nowait(uv_default_loop());
-  }
 
   if (!for_node_ && ![NSApp isRunning]) {
     running_own_loop_ = false;
@@ -659,13 +619,13 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
         [NSApp sendEvent:event];
       }
 
-      if (for_node_) {
+      if (for_node_ && nesting_level() == 0) {
         // Deal with uv events.
         if (!uv_run_once_nowait(uv_default_loop()))
           keep_running_ = false; // Quit from uv.
 
         // Tell the worker thread to continue polling.
-        uv_sem_post(&embed_sem);
+        uv_sem_post(&embed_sem_);
       }
     }
     keep_running_ = true;
@@ -673,9 +633,11 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
 
   running_own_loop_ = last_running_own_loop_;
 
-  // Clear uv.
-  embed_closed = 1;
-  uv_thread_join(&embed_thread);
+  // Resume uv.
+  if (nesting_level() > 0) {
+    pause_uv_ = false;
+    uv_sem_post(&embed_sem_);
+  }
 }
 
 void MessagePumpNSApplication::Quit() {
@@ -696,6 +658,44 @@ void MessagePumpNSApplication::Quit() {
                                          data1:0
                                          data2:0]
            atStart:NO];
+}
+
+void MessagePumpNSApplication::EmbedThreadRunner(void *arg) {
+  base::MessagePumpNSApplication* message_pump =
+      static_cast<base::MessagePumpNSApplication*>(arg);
+
+  while (!message_pump->embed_closed_) {
+    uv_loop_t* loop = uv_default_loop();
+
+    // We should at leat poll every 500ms.
+    unsigned int timeout = uv__poll_timeout(loop);
+    if (timeout > 500)
+      timeout = 500;
+
+    // Wait for new libuv events.
+    ev__run(loop->ev, timeout / 1000.);
+
+    // Don't wake up main loop if in a nested loop, so we'll keep waiting for
+    // the semaphore and uv loop will be paused.
+    if (!message_pump->pause_uv_) {
+      // Send a fake event to wake the loop up.
+      NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+      [NSApp postEvent:[NSEvent otherEventWithType:NSApplicationDefined
+                                          location:NSMakePoint(0, 0)
+                                     modifierFlags:0
+                                         timestamp:0
+                                      windowNumber:0
+                                           context:NULL
+                                           subtype:0
+                                             data1:0
+                                             data2:0]
+               atStart:NO];
+      [pool release];
+    }
+
+    // Wait for the main loop to deal with events.
+    uv_sem_wait(&message_pump->embed_sem_);
+  }
 }
 
 MessagePumpCrApplication::MessagePumpCrApplication() 

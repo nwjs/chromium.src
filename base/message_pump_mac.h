@@ -33,6 +33,7 @@
 #include "base/message_pump.h"
 
 #include <CoreFoundation/CoreFoundation.h>
+#include "third_party/node/deps/uv/include/uv.h"
 
 #if !defined(__OBJC__)
 class NSAutoreleasePool;
@@ -275,6 +276,9 @@ class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
   virtual ~MessagePumpNSApplication();
 
  private:
+  // Thread to poll uv events.
+  static void EmbedThreadRunner(void *arg);
+
   // False after Quit is called.
   bool keep_running_;
 
@@ -284,7 +288,23 @@ class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
   // in DoRun.
   bool running_own_loop_;
 
+  // Flag to pause the libuv loop.
+  bool pause_uv_;
+
+  // Thread for polling events.
+  uv_thread_t embed_thread_;
+
+  // Semaphore to wait for main loop in the polling thread.
+  uv_sem_t embed_sem_;
+
+  // Dummy handle to make uv's loop not quit.
+  uv_async_t dummy_uv_handle_;
+
+  // Whether we're done.
+  int embed_closed_;
+
   bool for_node_;
+
   DISALLOW_COPY_AND_ASSIGN(MessagePumpNSApplication);
 };
 
