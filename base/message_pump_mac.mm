@@ -10,9 +10,9 @@
 #include <stdio.h>
 
 #include "base/command_line.h"
-#include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/time.h"
+#include "v8/include/v8.h"
 
 #if !defined(OS_IOS)
 #import <AppKit/AppKit.h>
@@ -587,6 +587,8 @@ MessagePumpNSApplication::~MessagePumpNSApplication() {
 }
 
 void MessagePumpNSApplication::DoRun(Delegate* delegate) {
+  v8::HandleScope scope;
+
   // Pause uv in nested loop.
   if (nesting_level() > 0) {
     pause_uv_ = true;

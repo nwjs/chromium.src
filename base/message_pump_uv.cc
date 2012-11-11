@@ -7,11 +7,7 @@
 #include "base/logging.h"
 #include "base/command_line.h"
 #include "content/public/common/content_switches.h"
-#include "v8.h"
-
-#if defined(OS_MACOSX)
-#include "base/mac/scoped_nsautorelease_pool.h"
-#endif
+#include "v8/include/v8.h"
 
 namespace base {
 
@@ -70,10 +66,6 @@ void MessagePumpUV::Run(Delegate* delegate) {
 
   // Enter Loop
   for (;;) {
-#if defined(OS_MACOSX)
-    mac::ScopedNSAutoreleasePool autorelease_pool;
-#endif
-
     bool did_work = delegate->DoWork();
     if (!keep_running_)
       break;
