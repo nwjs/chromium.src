@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "base/command_line.h"
 #include "content/public/common/content_switches.h"
+#include "v8.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/scoped_nsautorelease_pool.h"
@@ -44,6 +45,8 @@ MessagePumpUV::~MessagePumpUV() {
 }
 
 void MessagePumpUV::Run(Delegate* delegate) {
+  v8::HandleScope scope;
+
   ++nesting_level_;
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
 
