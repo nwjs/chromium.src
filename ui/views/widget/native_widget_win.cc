@@ -675,7 +675,7 @@ void NativeWidgetWin::HandleCreate() {
   // that window controls in Chrome windows don't flicker when you move your
   // mouse over them. See comment in aero_tooltip_manager.h.
   Widget* widget = GetWidget()->GetTopLevelWidget();
-  if (widget && widget->ShouldUseNativeFrame()) {
+  if (widget && ui::win::IsAeroGlassEnabled()) {
     tooltip_manager_.reset(new AeroTooltipManager(GetWidget()));
   } else {
     tooltip_manager_.reset(new TooltipManagerWin(GetWidget()));
